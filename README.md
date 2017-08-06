@@ -63,3 +63,6 @@ Carbondata, Csv, Json, ORC, Parquet, Protobuf, Raw
 
 感谢[所有开发者](https://github.com/InterestingLab/waterdrop/graphs/contributors)
 
+## 联系项目负责人
+
+Garyelephant : garygaowork@gmail.com
