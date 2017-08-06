@@ -6,7 +6,7 @@ exec /letv/programs/spark-1.6.0-bin-hadoop2.6_security/bin/spark-submit \
     --num-executors 30 \
     --executor-cores 2 \
     --executor-memory 2G \
-    --conf spark.app.name=StreamingETL \
+    --conf spark.app.name=Waterdrop \
     --conf spark.ui.port=13000 \
     --conf spark.streaming.blockInterval=1000ms \
     --conf spark.streaming.kafka.maxRatePerPartition=30000 \
