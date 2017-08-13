@@ -18,7 +18,8 @@ object WaterdropMain {
         val conf = ConfigFactory.load()
 
         val sparkConf = new SparkConf()
-        val ssc = new StreamingContext(sparkConf, Seconds(15))
+        val duration = 15;
+        val ssc = new StreamingContext(sparkConf, Seconds(duration))
 
         val configBuilder = ConfigBuilder(conf)
         val inputs = configBuilder.createInputs()
@@ -95,7 +96,8 @@ object WaterdropMain {
                 }
                 inputs.head.afterOutput
 
-                // TODO: Using Row and Schema to implement Event to avoid overhead of 2 conversion (before sql, Event -> json -> Row, after sql Row -> json -> Event)
+                // TODO: Using Row and Schema to implement Event to avoid overhead of 2 conversion
+                // (before sql, Event -> json -> Row, after sql Row -> json -> Event)
                 // spark source code : class GenericRow(protected[sql] val values: Array[Any]) extends Row
                 // Spark 2.0+ probably can do this internally, streaming on spark sql
                 // http://spark.apache.org/docs/1.6.3/api/scala/index.html#org.apache.spark.sql.Row
@@ -126,7 +128,7 @@ object WaterdropMain {
     // def doFilter(iter : Iterator[String]) : Iterator[String] = {
     //     //a.mapPartitions(iter => iter.map(r => r *2))
     //     //for (rec <- records) {}
-    //     
-    //     for 
+    //
+    //     for
     // }
 }

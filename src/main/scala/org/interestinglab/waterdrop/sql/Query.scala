@@ -14,7 +14,7 @@ class Query(var conf: Config) extends BaseSQL(conf){
      * */
     def checkConfig() : (Boolean, String) = (true, "")
 
-    def prepare(ssc : StreamingContext) = {
+    def prepare(ssc : StreamingContext) : Unit = {
 
         this.sqlContext = SQLContextFactory.getInstance(ssc.sparkContext)
     }

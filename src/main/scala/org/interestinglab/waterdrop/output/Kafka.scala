@@ -36,7 +36,7 @@ class Kafka(config : Config) extends BaseOutput(config) {
         props.put("value.serializer", producerConf.getString("value.serializer"))
         props.put("compression.type", producerConf.getString("compression.type"))
         props.put("max.request.size", producerConf.getString("max.request.size"))
- 
+
         kafkaSink = Some(ssc.sparkContext.broadcast(KafkaSink(props)))
     }
 
@@ -49,7 +49,7 @@ class Kafka(config : Config) extends BaseOutput(config) {
             kafkaSink.foreach { ks =>
                 ks.value.send(config.getString("topic"), message)
             }
-        }    
+        }
     }
 }
 

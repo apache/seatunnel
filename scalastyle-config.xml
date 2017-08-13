@@ -6,7 +6,7 @@
    <parameter name="maxFileLength"><![CDATA[800]]></parameter>
   </parameters>
  </check>
- <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="true">
+ <check level="error" class="org.scalastyle.file.HeaderMatchesChecker" enabled="false">
   <parameters>
    <parameter name="header"><![CDATA[// Copyright (C) 2011-2012 the original author or authors.
 // See the LICENCE.txt file distributed with this work for additional
@@ -67,23 +67,18 @@
  </check>
  <check level="error" class="org.scalastyle.scalariform.NoWhitespaceBeforeLeftBracketChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.NoWhitespaceAfterLeftBracketChecker" enabled="true"></check>
- <check level="error" class="org.scalastyle.scalariform.ReturnChecker" enabled="true"></check>
- <check level="error" class="org.scalastyle.scalariform.NullChecker" enabled="true"></check>
+ <check level="warning" class="org.scalastyle.scalariform.ReturnChecker" enabled="true"></check>
+ <check level="warning" class="org.scalastyle.scalariform.NullChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.NoCloneChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.NoFinalizeChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.CovariantEqualsChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.StructuralTypeChecker" enabled="true"></check>
- <check level="error" class="org.scalastyle.file.RegexChecker" enabled="true">
-  <parameters>
-   <parameter name="regex"><![CDATA[println]]></parameter>
-  </parameters>
- </check>
  <check level="error" class="org.scalastyle.scalariform.NumberOfTypesChecker" enabled="true">
   <parameters>
    <parameter name="maxTypes"><![CDATA[30]]></parameter>
   </parameters>
  </check>
- <check level="error" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true">
+ <check level="warning" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true">
   <parameters>
    <parameter name="maximum"><![CDATA[10]]></parameter>
   </parameters>
@@ -98,7 +93,7 @@
  </check>
  <check level="error" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="true">
   <parameters>
-   <parameter name="maxLength"><![CDATA[50]]></parameter>
+   <parameter name="maxLength"><![CDATA[120]]></parameter>
   </parameters>
  </check>
  <check level="error" class="org.scalastyle.scalariform.MethodNamesChecker" enabled="true">

@@ -32,34 +32,33 @@ class Kafka(config : Config) extends BaseInput(config) {
     }
 
     def prepare(ssc : StreamingContext) {
-        // kafka params from spark kafka stream api doc
-	val kafkaParams = Map[String, String](
-	    "bootstrap.servers" -> consumerConfig.getString("bootstrap.servers"),
-	    "zookeeper.connect" -> consumerConfig.getString("zookeeper.connect"),
-	    "group.id" -> consumerConfig.getString("group.id"),
-	    "num.consumer.fetchers" -> consumerConfig.getString("num.consumer.fetchers"),
-	    "auto.offset.reset" -> consumerConfig.getString("auto.offset.reset")
-	)
+      // kafka params from spark kafka stream api doc
+      val kafkaParams = Map[String, String](
+        "bootstrap.servers" -> consumerConfig.getString("bootstrap.servers"),
+        "zookeeper.connect" -> consumerConfig.getString("zookeeper.connect"),
+        "group.id" -> consumerConfig.getString("group.id"),
+        "num.consumer.fetchers" -> consumerConfig.getString("num.consumer.fetchers"),
+        "auto.offset.reset" -> consumerConfig.getString("auto.offset.reset")
+      )
 
-        val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.topic, mmd.message())
+      val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.topic, mmd.message())
 
         // val km = new KafkaManager(kafkaParams)
-        km = new KafkaManager(kafkaParams)
-        val fromOffsets = km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
+      km = new KafkaManager(kafkaParams)
+      val fromOffsets = km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
 
-        val inputDStream = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](
+      val inputDStream = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](
             ssc, kafkaParams, fromOffsets, messageHandler)
 
-        // var offsetRanges = Array[OffsetRange]()
+      // var offsetRanges = Array[OffsetRange]()
 
-        dstream = Some(inputDStream.transform { rdd =>
-            offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-            rdd
-        })
+      dstream = Some(inputDStream.transform { rdd =>
+        offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+        rdd
+      })
     }
 
     def beforeOutput() {
-    
     }
 
     def afterOutput() {
@@ -82,8 +81,10 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
     topics.foreach(topic => {
       var hasConsumed = true
       val partitionsE = kc.getPartitions(Set(topic))
-      if (partitionsE.isLeft)
+      if (partitionsE.isLeft) {
         throw new SparkException(s"get kafka partition failed: ${partitionsE.left.get}")
+      }
+
       val partitions = partitionsE.right.get
       val consumerOffsetsE = kc.getConsumerOffsets(groupId, partitions)
       if (consumerOffsetsE.isLeft) hasConsumed = false
@@ -96,8 +97,10 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
          * 这时把consumerOffsets更新为earliestLeaderOffsets
          */
         val earliestLeaderOffsetsE = kc.getEarliestLeaderOffsets(partitions)
-        if (earliestLeaderOffsetsE.isLeft)
+        if (earliestLeaderOffsetsE.isLeft) {
           throw new SparkException(s"get earliest leader offsets failed: ${earliestLeaderOffsetsE.left.get}")
+        }
+
         val earliestLeaderOffsets = earliestLeaderOffsetsE.right.get
         val consumerOffsets = consumerOffsetsE.right.get
 
@@ -120,13 +123,17 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
         var leaderOffsets: Map[TopicAndPartition, KafkaCluster.LeaderOffset] = null
         if (reset == Some("smallest")) {
           val leaderOffsetsE = kc.getEarliestLeaderOffsets(partitions)
-          if (leaderOffsetsE.isLeft)
+          if (leaderOffsetsE.isLeft) {
             throw new SparkException(s"get earliest leader offsets failed: ${leaderOffsetsE.left.get}")
+          }
+
           leaderOffsets = leaderOffsetsE.right.get
         } else {
           val leaderOffsetsE = kc.getLatestLeaderOffsets(partitions)
-          if (leaderOffsetsE.isLeft)
+          if (leaderOffsetsE.isLeft) {
             throw new SparkException(s"get latest leader offsets failed: ${leaderOffsetsE.left.get}")
+          }
+
           leaderOffsets = leaderOffsetsE.right.get
         }
         val offsets = leaderOffsets.map {
@@ -139,12 +146,15 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
     })
 
     val partitionsE = kc.getPartitions(topics)
-    if (partitionsE.isLeft)
+    if (partitionsE.isLeft) {
       throw new SparkException(s"get kafka partition failed: ${partitionsE.left.get}")
+    }
+
     val partitions = partitionsE.right.get
     val consumerOffsetsE = kc.getConsumerOffsets(groupId, partitions)
-    if (consumerOffsetsE.isLeft)
+    if (consumerOffsetsE.isLeft) {
       throw new SparkException(s"get kafka consumer offsets failed: ${consumerOffsetsE.left.get}")
+    }
 
     consumerOffsetsE.right.get
   }

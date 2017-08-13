@@ -123,7 +123,7 @@ object ConfigBuilder {
     val OutputPackage = PackagePrefix + ".output"
     val SQLPackage = PackagePrefix + ".sql"
 
-    def apply(config : Config) = {
+    def apply(config : Config) : ConfigBuilder = {
         new ConfigBuilder(config)
     }
 }

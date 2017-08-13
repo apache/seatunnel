@@ -10,5 +10,5 @@ abstract class Plugin extends Serializable {
     /**
       * Get Plugin Name.
       */
-    def name = this.getClass.getName
+    def name : String = this.getClass.getName
 }
