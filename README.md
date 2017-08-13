@@ -63,7 +63,9 @@ Carbondata, Csv, Json, Gzip, ORC, Parquet, Protobuf, Raw, 自行开发的Seriali
 
 如果您的数据量较小或者只是做功能验证，也可以仅使用local模式启动，无需集群环境。
 
-## 配置
+## 配置/文档
+
+[Waterdrop介绍PPT](http://slides.com/garyelephant/waterdrop/fullscreen?token=GKrQoxJi)
 
 [Waterdrop 配置](./docs/english/index.md)
 
