@@ -2,7 +2,11 @@
 
 ## Coding Style
 
-Scala Coding Style 参考: http://twitter.github.io/effectivescala/
+Scala Coding Style 参考:
+
+http://docs.scala-lang.org/style/
+
+https://github.com/databricks/scala-style-guide
 
 使用sbt插件[scalastyle](http://www.scalastyle.org/)作为coding style检查工具；无法通过coding style检查的代码无法提交.
 
