@@ -1,0 +1,16 @@
+# use Docker-based container (instead of OpenVZ)
+sudo: false
+
+language: scala
+scala:
+   - 2.10.6
+   - 2.11.2
+jdk:
+  - oraclejdk7
+  - oraclejdk8
+
+notifications:
+  email:
+    - garygaowork@gmail.com
+
+# script: sbt ++$TRAVIS_SCALA_VERSION check-gen-type-classes test
