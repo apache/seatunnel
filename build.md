@@ -4,6 +4,11 @@
 
 Building Tool: SBT
 
+## Coding Style Check
+
+```
+sbt scalastyle
+```
 
 ## build and package
 

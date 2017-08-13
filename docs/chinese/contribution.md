@@ -32,3 +32,22 @@ Scala Coding Style 参考: http://twitter.github.io/effectivescala/
 ## 自动化Build与Test
 
 每次master分支的更新，都会触发自动化Build与Test
+
+## 国内sbt加速
+
+```
+# 增加全局 repositories 配置, 加速依赖下载
+
+[repositories]
+local
+oschina:http://maven.oschina.net/content/groups/public/
+oschina-ivy:http://maven.oschina.net/content/groups/public/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext]
+oschina-thirdparty:http://maven.oschina.net/content/repositories/thirdparty/
+typesafe: http://repo.typesafe.com/typesafe/ivy-releases/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext], bootOnly
+typesafe2: http://repo.typesafe.com/typesafe/releases/
+sbt-plugin: http://repo.scala-sbt.org/scalasbt/sbt-plugin-releases/
+sonatype: http://oss.sonatype.org/content/repositories/snapshots
+uk_maven: http://uk.maven.org/maven2/
+ibibli: http://mirrors.ibiblio.org/maven2/
+repo2: http://repo2.maven.org/maven2/
+```
