@@ -1,4 +1,4 @@
-# Waterdrop
+# Waterdrop [![Build Status](https://travis-ci.org/InterestingLab/waterdrop.svg?branch=master)](https://travis-ci.org/InterestingLab/waterdrop)
 
 Waterdrop 是一个`非常易用`，`高性能`，能够应对`海量数据`的`实时/离线`数据处理产品，构建于Apache Spark之上。
 
