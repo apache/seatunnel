@@ -2,7 +2,9 @@
 
 ## Coding Style
 
-使用sbt插件scalastyle作为coding style检查工具；无法通过coding style检查的代码无法提交.
+Scala Coding Style 参考: http://twitter.github.io/effectivescala/
+
+使用sbt插件[scalastyle](http://www.scalastyle.org/)作为coding style检查工具；无法通过coding style检查的代码无法提交.
 
 
 ## 代码/文档贡献流程
