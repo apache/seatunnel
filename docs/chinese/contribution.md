@@ -7,7 +7,7 @@
 
 ## 代码/文档贡献流程
 
-Interesting Lab成员 :
+* Interesting Lab成员 :
 
 (1) 从 master上 checkout 出新分支，分支名称要求
 
@@ -15,7 +15,7 @@ Interesting Lab成员 :
 
 (3) 经至少1个其他成员审核通过后，merge到master分支中.
 
-非Interesting Lab 成员(常见的github协作流程):
+* 非Interesting Lab 成员(常见的github协作流程):
 
 (1) 在Waterdrop主页 fork 这个项目 https://github.com/InterestingLab/waterdrop
 
