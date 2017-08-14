@@ -44,26 +44,31 @@ class ConfigBuilder(val config: Config) {
 
     def createSQLs() : List[BaseSQL] = {
 
-        val sqlConf = config.getConfig("sql")
-        val sqlConfObj = config.getObject("sql")
         var sqlList = List[BaseSQL]()
 
-        sqlConfObj.foreach({ case (k, v) =>
+        if (config.hasPath("sql")) {
+            val sqlConf = config.getConfig("sql")
+            val sqlConfObj = config.getObject("sql")
 
-            var className = k
-            if (k.split("\\.").length == 1) {
-                className = ConfigBuilder.SQLPackage + "." + className.capitalize
-            }
+            sqlConfObj.foreach({ case (k, v) =>
 
-            val sqlObj = Class.forName(className)
-                .getConstructor(classOf[Config])
-                .newInstance(sqlConf.getConfig(k))
-                .asInstanceOf[BaseSQL]
+                var className = k
+                if (k.split("\\.").length == 1) {
+                    className = ConfigBuilder.SQLPackage + "." + className.capitalize
+                }
 
-                sqlList = sqlList :+ sqlObj
-        })
+                val sqlObj = Class.forName(className)
+                    .getConstructor(classOf[Config])
+                    .newInstance(sqlConf.getConfig(k))
+                    .asInstanceOf[BaseSQL]
 
-        sqlList
+                    sqlList = sqlList :+ sqlObj
+            })
+
+            sqlList
+        } else {
+            sqlList
+        }
     }
 
     def createInputs() : List[BaseInput] = {
@@ -117,7 +122,7 @@ class ConfigBuilder(val config: Config) {
 
 object ConfigBuilder {
 
-    val PackagePrefix = "com.lecloud.oi.streamingetl"
+    val PackagePrefix = "org.interestinglab.waterdrop"
     val FilterPackage = PackagePrefix + ".filter"
     val InputPackage = PackagePrefix + ".input"
     val OutputPackage = PackagePrefix + ".output"
