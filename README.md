@@ -1,5 +1,7 @@
 # Waterdrop [![Build Status](https://travis-ci.org/InterestingLab/waterdrop.svg?branch=master)](https://travis-ci.org/InterestingLab/waterdrop)
 
+[![Join the chat at https://gitter.im/interestinglab_waterdrop/Lobby](https://badges.gitter.im/interestinglab_waterdrop/Lobby.svg)](https://gitter.im/interestinglab_waterdrop/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Waterdrop 是一个`非常易用`，`高性能`，能够应对`海量数据`的`实时/离线`数据处理产品，构建于Apache Spark之上。
 
 ## 为什么我们需要 Waterdrop
