@@ -15,11 +15,16 @@ https://github.com/databricks/scala-style-guide
 
 * Interesting Lab成员 :
 
-(1) 从 master上 checkout 出新分支，分支名称要求
+(1) 从 master上 checkout 出新分支，分支名称要求新功能: 
+<username>.fea.<feature_name>，修复bug: <username>.fixbug.<bugname_or_issue_id>, 文档：<username>.doc.<doc_name>
 
 (2) 开发, 提交commit
 
-(3) 经至少1个其他成员审核通过后，merge到master分支中.
+(3) 在github的项目主页，选中你的分支，点"new pull request"，提交pull request
+
+(3) 经至少1个其他成员审核通过，并且travis-ci的build全部通过后，由审核人merge到master分支中.
+
+(4) 删除你的分支
 
 * 非Interesting Lab 成员(常见的github协作流程):
 
@@ -29,13 +34,15 @@ https://github.com/databricks/scala-style-guide
 
 (3) 提交commit
 
-(4) 在你自己的项目主页上，提交pull request
+(4) 在你自己的项目主页上，点"new pull request"，提交pull request
 
 (5) Interesting Lab 审核通过后，你的贡献将被纳入项目代码中。
 
 ## 自动化Build与Test
 
-每次master分支的更新，都会触发自动化Build与Test
+此项目使用 [travis-ci](https://travis-ci.org/) 作为自动化Build工具.
+
+所有分支每次commit有更新，都会触发自动化Build，新的pull request也会触发。
 
 ## 国内sbt加速
 
