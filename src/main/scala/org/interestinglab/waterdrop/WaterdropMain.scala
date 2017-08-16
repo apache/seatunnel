@@ -84,8 +84,7 @@ object WaterdropMain {
                 val sqlContext = SQLContextFactory.getInstance()
                 import sqlContext.implicits._
 
-
-
+                // TODO Checking compatible
                 var df = jsonRDD.toDF()
 
                 for (query <- sqls) {
