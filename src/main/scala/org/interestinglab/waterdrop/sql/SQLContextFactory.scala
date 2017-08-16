@@ -1,18 +1,18 @@
 package org.interestinglab.waterdrop.sql
 
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 
 /**
   * Singleton to get SQLContext instance.
+  * Using SparkSession instead of SQLContext since spark2.0.0
   */
 object SQLContextFactory {
 
-    @transient  private var instance: SQLContext = _
+    @transient  private var instance: SparkSession = _
 
-    def getInstance(sparkContext: SparkContext): SQLContext = {
+    def getInstance(): SparkSession = {
         if (instance == null) {
-            instance = new SQLContext(sparkContext)
+            instance = SparkSession.builder().getOrCreate()
         }
         instance
     }

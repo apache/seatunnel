@@ -70,7 +70,7 @@ object WaterdropMain {
 
             val sqlConf = conf.getConfig("sql")
             // For now we only use first query config of "sql"
-            val queryConf = sqlConf.getConfigList("query")
+            // val queryConf = sqlConf.getConfig("query")
 
             val jsonStream = dstream.map(_.toJSON())
 
@@ -81,15 +81,17 @@ object WaterdropMain {
                 //     * DataFrame can be converted to json RDD[String] directly by DataFrame.toJSON
                 //     * DataFrame can be converted to RDD or you can do RDD actions on dataframe
 
-                val sqlContext = SQLContextFactory.getInstance(jsonRDD.sparkContext)
-                // import sqlContext.implicits._
-                var df = sqlContext.read.json(jsonRDD)
+                val sqlContext = SQLContextFactory.getInstance()
+                import sqlContext.implicits._
+
+                // TODO Checking compatible
+                var df = jsonRDD.toDF()
 
                 for (query <- sqls) {
-                    df = query.query(df)
+                    df = query.query(df, sqlContext)
                 }
 
-                val eventRDD = df.toJSON.map(Event(_))
+                val eventRDD = df.toJSON.rdd.map(Event(_))
                 inputs.head.beforeOutput
                 eventRDD.foreachPartition { partitionOfRecords =>
                     outputs.head.process(partitionOfRecords)
