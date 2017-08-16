@@ -85,10 +85,11 @@ object WaterdropMain {
                 import sqlContext.implicits._
 
 
+
                 var df = jsonRDD.toDF()
 
                 for (query <- sqls) {
-                    df = query.query(df)
+                    df = query.query(df, sqlContext)
                 }
 
                 val eventRDD = df.toJSON.rdd.map(Event(_))

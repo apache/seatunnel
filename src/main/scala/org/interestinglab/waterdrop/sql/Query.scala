@@ -21,8 +21,13 @@ class Query(var conf: Config) extends BaseSQL(conf){
 
     def query(df : DataFrame) : DataFrame = {
 
+        query(df, this.sqlContext)
+    }
+
+    def query(df : DataFrame, sqlContext : SparkSession) : DataFrame = {
+
         // TODO : when to drop registered table ?
         df.createOrReplaceTempView(this.conf.getString("table_name"))
-        this.sqlContext.sql(this.conf.getString("sql"))
+        sqlContext.sql(this.conf.getString("sql"))
     }
 }
