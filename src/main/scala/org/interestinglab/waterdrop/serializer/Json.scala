@@ -3,6 +3,8 @@ package org.interestinglab.waterdrop.serializer
 import org.interestinglab.waterdrop.core.Event
 import com.typesafe.config.Config
 import org.interestinglab.waterdrop.core.Event
+import org.json4s.JsonAST.JValue
+
 // import org.json4s._
 import org.json4s.DefaultFormats
 import org.json4s.jackson
@@ -23,7 +25,7 @@ class Json(config : Config) extends BaseSerializer(config) {
     def deserialize(bytes : Array[Byte]) : Event = {
 
         implicit val formats = DefaultFormats
-        val m = JsonMethods.parse(new String(bytes, this.charset)).extract[Map[String, Any]]
+        val m = JsonMethods.parse(new String(bytes, this.charset)).extract[Map[String, JValue]]
         Event(m)
     }
 

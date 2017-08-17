@@ -3,6 +3,7 @@ version      := "0.1.0"
 organization := "org.interestinglab.waterdrop"
 
 scalaVersion := "2.10.6"
+scalaBinaryVersion := "2.10"
 
 val sparkVersion = "2.2.0"
 

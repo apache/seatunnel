@@ -55,7 +55,7 @@ object WaterdropMain {
 
         val dstream = inputs.head.getDstream.mapPartitions{ iter =>
             // val eventIter = iter.map(r => Event(Map("raw_message" -> r)))
-            val eventIter = iter.map(r => Event(Map("raw_message" -> r._2))) // kafka input related !!!! maybe not common used
+            val eventIter = iter.map(r => Event(Map("raw_message" -> Event.toJValue(r._2)))) // kafka input related !!!! maybe not common used
             var events = eventIter.toList
 
             for (f <- filters) {
