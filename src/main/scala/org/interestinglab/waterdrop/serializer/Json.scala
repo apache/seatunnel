@@ -1,8 +1,6 @@
 package org.interestinglab.waterdrop.serializer
 
 import org.interestinglab.waterdrop.core.Event
-import com.typesafe.config.Config
-import org.interestinglab.waterdrop.core.Event
 import org.json4s.JsonAST.JValue
 
 // import org.json4s._
@@ -11,7 +9,7 @@ import org.json4s.jackson
 import org.json4s.jackson.JsonMethods
 
 
-class Json(config : Config) extends BaseSerializer(config) {
+object Json{
 
     // TODO : implement checkConfig
     /**
@@ -21,11 +19,23 @@ class Json(config : Config) extends BaseSerializer(config) {
 
     /**
       * Deserialize array of bytes to Event.
+      * https://github.com/json4s/json4s/issues/316
       */
     def deserialize(bytes : Array[Byte]) : Event = {
 
         implicit val formats = DefaultFormats
-        val m = JsonMethods.parse(new String(bytes, this.charset)).extract[Map[String, JValue]]
+        val m = JsonMethods.parse(new String(bytes, "utf-8")).extract[Map[String, JValue]]
+        Event(m)
+    }
+
+    /**
+     * Deserialize string to Event
+     */
+    def deserialize(str : String) : Event = {
+
+        implicit val formats = DefaultFormats
+        val m = JsonMethods.parse(str).extract[Map[String, JValue]]
+
         Event(m)
     }
 
@@ -36,6 +46,6 @@ class Json(config : Config) extends BaseSerializer(config) {
 
         implicit val formats = DefaultFormats
         val s = jackson.Serialization.write(e.toMap)
-        s.getBytes(this.charset)
+        s.getBytes("utf-8")
     }
 }

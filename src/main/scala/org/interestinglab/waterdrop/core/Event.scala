@@ -105,6 +105,9 @@ object Event {
         new Event(e)
     }
 
+    /**
+     * How or where to locate this function
+     */
     def toJValue(str : Any) : JValue = {
 
         import org.json4s.{ Extraction, NoTypeHints }
@@ -113,4 +116,5 @@ object Event {
 
         Extraction.decompose(str)
     }
+
 }
