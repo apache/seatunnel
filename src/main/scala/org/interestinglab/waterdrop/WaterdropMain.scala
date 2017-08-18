@@ -1,15 +1,12 @@
 package org.interestinglab.waterdrop
 
-import org.interestinglab.waterdrop.core.{Event, Plugin}
-import org.interestinglab.waterdrop.sql.SQLContextFactory
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
-import org.interestinglab.waterdrop.core.Event
-import org.interestinglab.waterdrop.sql.SQLContextFactory
 import org.interestinglab.waterdrop.config.ConfigBuilder
 import org.interestinglab.waterdrop.core.Event
 import org.interestinglab.waterdrop.sql.SQLContextFactory
+import org.interestinglab.waterdrop.serializer.Json
 
 
 object WaterdropMain {
@@ -55,7 +52,7 @@ object WaterdropMain {
 
         val dstream = inputs.head.getDstream.mapPartitions{ iter =>
             // val eventIter = iter.map(r => Event(Map("raw_message" -> r)))
-            val eventIter = iter.map(r => Event(Map("raw_message" -> r._2))) // kafka input related !!!! maybe not common used
+            val eventIter = iter.map(r => Event(Map("raw_message" -> Event.toJValue(r._2)))) // kafka input related !!!! maybe not common used
             var events = eventIter.toList
 
             for (f <- filters) {
@@ -70,7 +67,7 @@ object WaterdropMain {
 
             val sqlConf = conf.getConfig("sql")
             // For now we only use first query config of "sql"
-            val queryConf = sqlConf.getConfigList("query")
+            // val queryConf = sqlConf.getConfig("query")
 
             val jsonStream = dstream.map(_.toJSON())
 
@@ -83,13 +80,20 @@ object WaterdropMain {
 
                 val sqlContext = SQLContextFactory.getInstance(jsonRDD.sparkContext)
                 // import sqlContext.implicits._
+
+                // TODO Checking compatible
                 var df = sqlContext.read.json(jsonRDD)
 
                 for (query <- sqls) {
-                    df = query.query(df)
+                    df = query.query(df, sqlContext)
                 }
 
-                val eventRDD = df.toJSON.map(Event(_))
+                df.show()
+
+                val eventRDD = df.toJSON.rdd.map{ a =>
+                    Json.deserialize(a)
+                }
+
                 inputs.head.beforeOutput
                 eventRDD.foreachPartition { partitionOfRecords =>
                     outputs.head.process(partitionOfRecords)

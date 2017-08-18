@@ -1,9 +1,7 @@
 package org.interestinglab.waterdrop.output
 
-import org.interestinglab.waterdrop.core.Plugin
 import org.apache.spark.streaming.StreamingContext
 import com.typesafe.config.Config
-import org.interestinglab.waterdrop.core.Event
 import org.interestinglab.waterdrop.core.{Event, Plugin}
 
 

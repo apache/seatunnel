@@ -5,15 +5,16 @@ import org.apache.spark.sql.SQLContext
 
 /**
   * Singleton to get SQLContext instance.
+  * Using SparkSession instead of SQLContext since spark2.0.0
   */
 object SQLContextFactory {
 
-    @transient  private var instance: SQLContext = _
+  @transient  private var instance: SQLContext = _
 
-    def getInstance(sparkContext: SparkContext): SQLContext = {
-        if (instance == null) {
-            instance = new SQLContext(sparkContext)
-        }
-        instance
+  def getInstance(sparkContext: SparkContext): SQLContext = {
+    if (instance == null) {
+      instance = new SQLContext(sparkContext)
     }
+    instance
+  }
 }

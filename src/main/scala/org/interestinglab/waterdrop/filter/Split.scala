@@ -1,6 +1,5 @@
 package org.interestinglab.waterdrop.filter
 
-import org.interestinglab.waterdrop.core.Event
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._

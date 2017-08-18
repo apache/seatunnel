@@ -3,7 +3,6 @@ sudo: false
 
 language: scala
 scala:
-   - 2.10.6
    - 2.11.2
 jdk:
   - oraclejdk7
