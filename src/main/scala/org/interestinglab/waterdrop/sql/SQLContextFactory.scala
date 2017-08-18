@@ -1,6 +1,7 @@
 package org.interestinglab.waterdrop.sql
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.SQLContext
 
 /**
   * Singleton to get SQLContext instance.
@@ -8,12 +9,12 @@ import org.apache.spark.sql.SparkSession
   */
 object SQLContextFactory {
 
-    @transient  private var instance: SparkSession = _
+  @transient  private var instance: SQLContext = _
 
-    def getInstance(): SparkSession = {
-        if (instance == null) {
-            instance = SparkSession.builder().getOrCreate()
-        }
-        instance
+  def getInstance(sparkContext: SparkContext): SQLContext = {
+    if (instance == null) {
+      instance = new SQLContext(sparkContext)
     }
+    instance
+  }
 }
