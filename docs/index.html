@@ -12,13 +12,12 @@
 </body>
 <script>
   window.$docsify = {
-    name: '',
     repo: '',
     loadSidebar: true,
     loadNavbar: true,
     coverpage: true,
     repo: 'https://github.com/InterestingLab/waterdrop/',
-    name: '主题',
+    name: 'Waterdrop',
     plugins: [
       function(hook, vm) {
         hook.beforeEach(function (html) {
@@ -32,7 +31,11 @@
             + editHtml
         })
       }
-    ]
+    ],
+    alias: {
+      '/_sidebar.md': '/zh-cn/_sidebar.md',
+      '/.*/_navbar.md': '/_navbar.md'
+    },
   }
 </script>
 <script src="//unpkg.com/docsify/lib/docsify.min.js"></script>
