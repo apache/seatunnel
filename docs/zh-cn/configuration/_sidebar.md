@@ -1,4 +1,4 @@
-- [介绍](/zh-cn/readme)
+- [介绍](/zh-cn/README)
 - [快速开始](/zh-cn/quick-start)
 - [安装](/zh-cn/installation)
 - [配置](/zh-cn/configuration/base)
