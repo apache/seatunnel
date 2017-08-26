@@ -15,120 +15,123 @@ import org.interestinglab.waterdrop.input.BaseInput
 import org.interestinglab.waterdrop.output.BaseOutput
 import org.interestinglab.waterdrop.sql.BaseSQL
 
-
 class ConfigBuilder(val config: Config) {
 
-    def createFilters() : List[BaseFilter] = {
+  def createFilters(): List[BaseFilter] = {
 
-        val filterConf = config.getConfig("filter")
-        val filterConfObj = config.getObject("filter")
-        var filterList = List[BaseFilter]()
+    val filterConf = config.getConfig("filter")
+    val filterConfObj = config.getObject("filter")
+    var filterList = List[BaseFilter]()
 
-        filterConfObj.foreach({ case (k, v) =>
-
-            var className = k
-            if (k.split("\\.").length == 1) {
-                className = ConfigBuilder.FilterPackage + "." + className.capitalize
-            }
-
-            val filterObj = Class.forName(className)
-                .getConstructor(classOf[Config])
-                .newInstance(filterConf.getConfig(k))
-                .asInstanceOf[BaseFilter]
-
-            filterList = filterList :+ filterObj
-        })
-
-        filterList
-    }
-
-    def createSQLs() : List[BaseSQL] = {
-
-        var sqlList = List[BaseSQL]()
-
-        if (config.hasPath("sql")) {
-            val sqlConf = config.getConfig("sql")
-            val sqlConfObj = config.getObject("sql")
-
-            sqlConfObj.foreach({ case (k, v) =>
-
-                var className = k
-                if (k.split("\\.").length == 1) {
-                    className = ConfigBuilder.SQLPackage + "." + className.capitalize
-                }
-
-                val sqlObj = Class.forName(className)
-                    .getConstructor(classOf[Config])
-                    .newInstance(sqlConf.getConfig(k))
-                    .asInstanceOf[BaseSQL]
-
-                    sqlList = sqlList :+ sqlObj
-            })
-
-            sqlList
-        } else {
-            sqlList
+    filterConfObj.foreach({
+      case (k, v) =>
+        var className = k
+        if (k.split("\\.").length == 1) {
+          className = ConfigBuilder.FilterPackage + "." + className.capitalize
         }
+
+        val filterObj = Class
+          .forName(className)
+          .getConstructor(classOf[Config])
+          .newInstance(filterConf.getConfig(k))
+          .asInstanceOf[BaseFilter]
+
+        filterList = filterList :+ filterObj
+    })
+
+    filterList
+  }
+
+  def createSQLs(): List[BaseSQL] = {
+
+    var sqlList = List[BaseSQL]()
+
+    if (config.hasPath("sql")) {
+      val sqlConf = config.getConfig("sql")
+      val sqlConfObj = config.getObject("sql")
+
+      sqlConfObj.foreach({
+        case (k, v) =>
+          var className = k
+          if (k.split("\\.").length == 1) {
+            className = ConfigBuilder.SQLPackage + "." + className.capitalize
+          }
+
+          val sqlObj = Class
+            .forName(className)
+            .getConstructor(classOf[Config])
+            .newInstance(sqlConf.getConfig(k))
+            .asInstanceOf[BaseSQL]
+
+          sqlList = sqlList :+ sqlObj
+      })
+
+      sqlList
+    } else {
+      sqlList
     }
+  }
 
-    def createInputs() : List[BaseInput] = {
+  def createInputs(): List[BaseInput] = {
 
-        val inputConf = config.getConfig("input")
-        val inputConfObj = config.getObject("input")
-        var inputList = List[BaseInput]()
+    val inputConf = config.getConfig("input")
+    val inputConfObj = config.getObject("input")
+    var inputList = List[BaseInput]()
 
-        inputConfObj.foreach({ case (k, v) =>
+    inputConfObj.foreach({
+      case (k, v) =>
+        var className = k
+        if (k.split("\\.").length == 1) {
+          className = ConfigBuilder.InputPackage + "." + className.capitalize
+        }
 
-            var className = k
-            if (k.split("\\.").length == 1) {
-                className = ConfigBuilder.InputPackage + "." + className.capitalize
-            }
+        val obj = Class
+          .forName(className)
+          .getConstructor(classOf[Config])
+          .newInstance(inputConf.getConfig(k))
+          .asInstanceOf[BaseInput]
 
-            val obj = Class.forName(className)
-                .getConstructor(classOf[Config])
-                .newInstance(inputConf.getConfig(k))
-                .asInstanceOf[BaseInput]
+        inputList = inputList :+ obj
+    })
 
-            inputList = inputList :+ obj
-        })
+    inputList
+  }
 
-        inputList
-    }
+  def createOutputs(): List[BaseOutput] = {
 
-    def createOutputs() : List[BaseOutput] = {
+    val outputConf = config.getConfig("output")
+    val outputConfObj = config.getObject("output")
+    var outputList = List[BaseOutput]()
 
-        val outputConf = config.getConfig("output")
-        val outputConfObj = config.getObject("output")
-        var outputList = List[BaseOutput]()
+    outputConfObj.foreach({
+      case (k, v) =>
+        var className = k
+        if (k.split("\\.").length == 1) {
+          className = ConfigBuilder.OutputPackage + "." + className.capitalize
+        }
 
-        outputConfObj.foreach({ case (k, v) =>
+        val obj = Class
+          .forName(className)
+          .getConstructor(classOf[Config])
+          .newInstance(outputConf.getConfig(k))
+          .asInstanceOf[BaseOutput]
 
-            var className = k
-            if (k.split("\\.").length == 1) {
-                className = ConfigBuilder.OutputPackage + "." + className.capitalize
-            }
+        outputList = outputList :+ obj
+    })
 
-            val obj = Class.forName(className)
-                .getConstructor(classOf[Config])
-                .newInstance(outputConf.getConfig(k))
-                .asInstanceOf[BaseOutput]
-
-            outputList = outputList :+ obj
-        })
-
-        outputList
-    }
+    outputList
+  }
 }
 
 object ConfigBuilder {
 
-    val PackagePrefix = "org.interestinglab.waterdrop"
-    val FilterPackage = PackagePrefix + ".filter"
-    val InputPackage = PackagePrefix + ".input"
-    val OutputPackage = PackagePrefix + ".output"
-    val SQLPackage = PackagePrefix + ".sql"
+  val PackagePrefix = "org.interestinglab.waterdrop"
+  val FilterPackage = PackagePrefix + ".filter"
+  val InputPackage = PackagePrefix + ".input"
+  val OutputPackage = PackagePrefix + ".output"
+  val SQLPackage = PackagePrefix + ".sql"
 
-    def apply(config : Config) : ConfigBuilder = {
-        new ConfigBuilder(config)
-    }
+  def apply(config: Config): ConfigBuilder = {
+    new ConfigBuilder(config)
+  }
 }
