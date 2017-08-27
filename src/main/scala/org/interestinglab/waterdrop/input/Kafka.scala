@@ -13,62 +13,64 @@ import com.typesafe.config.Config
 import _root_.kafka.message.MessageAndMetadata
 import _root_.kafka.common.TopicAndPartition
 
-class Kafka(config : Config) extends BaseInput(config) {
+class Kafka(config: Config) extends BaseInput(config) {
 
-    val topics = config.getString("topics").split(",").toSet
+  val topics = config.getString("topics").split(",").toSet
 
-    // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
-    val consumerConfig = config.getConfig("consumer")
+  // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
+  val consumerConfig = config.getConfig("consumer")
 
-    var offsetRanges = Array[OffsetRange]()
+  var offsetRanges = Array[OffsetRange]()
 
-    var km : KafkaManager = null
+  var km: KafkaManager = null
 
-    var dstream : Option[DStream[(String, String)]] = None
+  var dstream: Option[DStream[(String, String)]] = None
 
-    def checkConfig() : (Boolean, String) = {
-        // TODO
-        (true, "")
-    }
+  def checkConfig(): (Boolean, String) = {
+    // TODO
+    (true, "")
+  }
 
-    def prepare(ssc : StreamingContext) {
-      // kafka params from spark kafka stream api doc
-      val kafkaParams = Map[String, String](
-        "bootstrap.servers" -> consumerConfig.getString("bootstrap.servers"),
-        "zookeeper.connect" -> consumerConfig.getString("zookeeper.connect"),
-        "group.id" -> consumerConfig.getString("group.id"),
-        "num.consumer.fetchers" -> consumerConfig.getString("num.consumer.fetchers"),
-        "auto.offset.reset" -> consumerConfig.getString("auto.offset.reset")
-      )
+  def prepare(ssc: StreamingContext) {
+    // kafka params from spark kafka stream api doc
+    val kafkaParams = Map[String, String](
+      "bootstrap.servers" -> consumerConfig.getString("bootstrap.servers"),
+      "zookeeper.connect" -> consumerConfig.getString("zookeeper.connect"),
+      "group.id" -> consumerConfig.getString("group.id"),
+      "num.consumer.fetchers" -> consumerConfig.getString("num.consumer.fetchers"),
+      "auto.offset.reset" -> consumerConfig.getString("auto.offset.reset")
+    )
 
-      val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.topic, mmd.message())
+    val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.topic, mmd.message())
 
-        // val km = new KafkaManager(kafkaParams)
-      km = new KafkaManager(kafkaParams)
-      val fromOffsets = km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
+    // val km = new KafkaManager(kafkaParams)
+    km = new KafkaManager(kafkaParams)
+    val fromOffsets =
+      km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
 
-      val inputDStream = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](
-            ssc, kafkaParams, fromOffsets, messageHandler)
+    val inputDStream = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](
+      ssc,
+      kafkaParams,
+      fromOffsets,
+      messageHandler)
 
-      // var offsetRanges = Array[OffsetRange]()
+    // var offsetRanges = Array[OffsetRange]()
 
-      dstream = Some(inputDStream.transform { rdd =>
-        offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-        rdd
-      })
-    }
+    dstream = Some(inputDStream.transform { rdd =>
+      offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+      rdd
+    })
+  }
 
-    def beforeOutput() {
-    }
+  def beforeOutput() {}
 
-    def afterOutput() {
-        //消费完的同时，更新offset
-        km.updateZKOffsetsFromoffsetRanges(offsetRanges)
-    }
+  def afterOutput() {
+    //消费完的同时，更新offset
+    km.updateZKOffsetsFromoffsetRanges(offsetRanges)
+  }
 
-    def getDstream() : DStream[(String, String)] = dstream.get
+  def getDstream(): DStream[(String, String)] = dstream.get
 }
-
 
 class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
 
@@ -110,8 +112,9 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
           case (tp, n) =>
             val earliestLeaderOffset = earliestLeaderOffsets(tp).offset
             if (n < earliestLeaderOffset) {
-              println("consumer group:" + groupId + ",topic:" + tp.topic + ",partition:" + tp.partition +
-                " offsets已经过时，更新为" + earliestLeaderOffset)
+              println(
+                "consumer group:" + groupId + ",topic:" + tp.topic + ",partition:" + tp.partition +
+                  " offsets已经过时，更新为" + earliestLeaderOffset)
               offsets += (tp -> earliestLeaderOffset)
             }
         })
@@ -120,7 +123,8 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
         }
       } else { // 没有消费过
         val reset = kafkaParams.get("auto.offset.reset").map(_.toLowerCase)
-        var leaderOffsets: Map[TopicAndPartition, KafkaCluster.LeaderOffset] = null
+        var leaderOffsets: Map[TopicAndPartition, KafkaCluster.LeaderOffset] =
+          null
         if (reset == Some("smallest")) {
           val leaderOffsetsE = kc.getEarliestLeaderOffsets(partitions)
           if (leaderOffsetsE.isLeft) {
@@ -159,11 +163,12 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
     consumerOffsetsE.right.get
   }
 
-  def updateZKOffsetsFromoffsetRanges(offsetRanges: Array[OffsetRange]) : Unit = {
+  def updateZKOffsetsFromoffsetRanges(offsetRanges: Array[OffsetRange]): Unit = {
     val groupId = kafkaParams.get("group.id").get
 
     for (offsets <- offsetRanges) {
-      val topicAndPartition = TopicAndPartition(offsets.topic, offsets.partition)
+      val topicAndPartition =
+        TopicAndPartition(offsets.topic, offsets.partition)
 
       println("partition: " + offsets.partition + ", from: " + offsets.fromOffset + ", until: " + offsets.untilOffset)
 

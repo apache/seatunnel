@@ -34,6 +34,10 @@
    <parameter name="tabSize"><![CDATA[4]]></parameter>
   </parameters>
  </check>
+
+ <check level="error" class="org.scalastyle.file.IndentationChecker" enabled="true"></check>
+ <check level="error" class="org.scalastyle.scalariform.IfBraceChecker" enabled="true"></check>
+
  <check level="error" class="org.scalastyle.scalariform.ClassNamesChecker" enabled="true">
   <parameters>
    <parameter name="regex"><![CDATA[[A-Z][A-Za-z]*]]></parameter>
