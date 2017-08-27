@@ -48,12 +48,12 @@ https://github.com/databricks/scala-style-guide
 
 ```
 # 增加全局 repositories 配置, 加速依赖下载
+vim ~/.sbt/repository
 
 [repositories]
 local
-oschina:http://maven.oschina.net/content/groups/public/
-oschina-ivy:http://maven.oschina.net/content/groups/public/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext]
-oschina-thirdparty:http://maven.oschina.net/content/repositories/thirdparty/
+aliyun-ivy: http://maven.aliyun.com/nexus/content/groups/public, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext]  
+aliyun-maven: http://maven.aliyun.com/nexus/content/groups/public
 typesafe: http://repo.typesafe.com/typesafe/ivy-releases/, [organization]/[module]/(scala_[scalaVersion]/)(sbt_[sbtVersion]/)[revision]/[type]s/[artifact](-[classifier]).[ext], bootOnly
 typesafe2: http://repo.typesafe.com/typesafe/releases/
 sbt-plugin: http://repo.scala-sbt.org/scalasbt/sbt-plugin-releases/
