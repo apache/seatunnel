@@ -4,6 +4,7 @@ import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigValueFactory}
+import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.interestinglab.waterdrop.core.Event
 
 class Split(var conf: Config) extends BaseFilter(conf) {
@@ -13,21 +14,29 @@ class Split(var conf: Config) extends BaseFilter(conf) {
     (true, "")
   }
 
-  def prepare(ssc: StreamingContext) {
+  def prepare(sqlContext:SQLContext) {
 
-    // set default config value
-    if (!conf.hasPath("delimiter")) {
-      conf = conf.withValue("delimiter", ConfigValueFactory.fromAnyRef(" "))
-    }
-
-    if (!conf.hasPath("target_field")) {
-      conf = conf.withValue("target_field", ConfigValueFactory.fromAnyRef("__root__"))
-    }
+    println("Split")
+    this.sqlContext = sqlContext
   }
 
-  def process(events: List[Event]): (List[Event], List[Boolean]) = {
+  //def prepare(ssc: StreamingContext) {
+  //
+  // set default config value
+  //  if (!conf.hasPath("delimiter")) {
+  //    conf = conf.withValue("delimiter", ConfigValueFactory.fromAnyRef(" "))
+  //  }
 
-    val srcField = conf.getString("source_field")
+  //  if (!conf.hasPath("target_field")) {
+  //    conf = conf.withValue("target_field", ConfigValueFactory.fromAnyRef("__root__"))
+  //  }
+  //}
+
+  def process(events: DataFrame): DataFrame = {
+
+    events
+
+    /*val srcField = conf.getString("source_field")
     val keys = conf.getStringList("keys")
 
     var isSuccess = List[Boolean]()
@@ -44,6 +53,6 @@ class Split(var conf: Config) extends BaseFilter(conf) {
       isSuccess = true :: isSuccess
     }
 
-    (events, isSuccess)
+    (events, isSuccess)*/
   }
 }
