@@ -60,13 +60,7 @@ class Split(var conf: Config) extends BaseFilter(conf) {
   def udfFunc(str : String) : Seq[Any] = {
 
     val parts = str.split(conf.getString("delimiter")).map(_.trim)
-    var seq = Seq[Any]()
-
-    for(part <- parts) {
-      seq += part
-    }
-
-    seq
+    parts.toSeq
   }
 
   def structField() : Array[StructField] = {
