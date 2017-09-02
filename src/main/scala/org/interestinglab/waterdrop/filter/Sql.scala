@@ -1,7 +1,7 @@
 package org.interestinglab.waterdrop.filter
 
 import com.typesafe.config.Config
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
 class Sql(var conf : Config) extends BaseFilter(conf) {
@@ -11,11 +11,6 @@ class Sql(var conf : Config) extends BaseFilter(conf) {
     (true, "")
   }
 
-  def prepare(sqlContext:SQLContext) {
-
-    println("sql")
-    this.sqlContext = sqlContext
-  }
 
   def process(dataFrame : DataFrame) : DataFrame = {
 

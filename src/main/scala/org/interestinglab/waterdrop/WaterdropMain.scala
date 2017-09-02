@@ -3,9 +3,9 @@ package org.interestinglab.waterdrop
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.SparkSession
 import org.interestinglab.waterdrop.config.ConfigBuilder
 import org.interestinglab.waterdrop.core.Event
-import org.interestinglab.waterdrop.sql.SQLContextFactory
 import org.interestinglab.waterdrop.serializer.Json
 
 object WaterdropMain {
@@ -21,10 +21,9 @@ object WaterdropMain {
     val inputs = configBuilder.createInputs()
     val outputs = configBuilder.createOutputs()
     val filters = configBuilder.createFilters()
-    val sqls = configBuilder.createSQLs()
 
     var configValid = true
-    val plugins = inputs ::: filters ::: sqls ::: outputs
+    val plugins = inputs ::: filters ::: outputs
     for (p <- plugins) {
       val (isValid, msg) = p.checkConfig
       if (!isValid) {
@@ -61,7 +60,7 @@ object WaterdropMain {
     val jsonStream = dstream.map(_.toJSON())
 
     jsonStream.foreachRDD { jsonRDD =>
-      val sqlContext = SQLContextFactory.getInstance(jsonRDD.sparkContext)
+      val sqlContext = SparkSession.builder().getOrCreate()
       var df = sqlContext.read.json(jsonRDD)
 
       for (f <- filters) {
