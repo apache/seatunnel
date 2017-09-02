@@ -1,58 +1,100 @@
 grammar Config;
 
-// Filter, Output 允许if else
 // STRING lexer rule定义过于简单，不满足需求，包括包含引号的字符串.
-// 允许comment
+// [done] Filter, Output 允许if else
+// [done] if 中的逻辑运算，值引用
 // [done]允许key不包含双引号
 // [done] 允许多行配置没有"，"分割
 // [done] 允许plugin中不包含任何配置
 
+// notes: lexer rule vs parser rule
+
 config
-    : input filter output
+    : COMMENT* input COMMENT* filter COMMENT* output COMMENT*
     ;
 
 input
-    : 'input' '{' (STRING obj)* '}'
+    : 'input' '{' plugin_list '}'
     ;
 
 filter
-    : 'filter' '{' (STRING obj)* '}'
+    : 'filter' '{' statement '}'
     ;
 
 output
-    : 'output' '{' (STRING obj)* '}'
+    : 'output' '{' statement '}'
+    ;
+
+statement
+    : (plugin | if_block | COMMENT)*
+    ;
+
+plugin_list
+    : (plugin | COMMENT)*
+    ;
+
+plugin
+    : STRING obj
+    ;
+
+if_block
+    : 'if' expr '{' plugin_list '}'
+     ('else if' expr '{' plugin_list '}')*
+     ('else' '{' plugin_list '}')?
+    ;
+
+// support nested boolean expression
+expr
+    : '(' expr ')'         // parens
+    | op='~' expr          // NOT
+    | expr op='&&' expr     // AND
+    | expr op='||' expr     // OR
+    | bool                 // bool
+    ;
+
+bool
+    : STRING
+    | STRING OPERATOR STRING
     ;
 
 obj
-    : '{' pair (','? pair)* '}'
-    | '{' '}'
+    : '{' (pair | COMMENT)* '}'
     ;
 
+//obj
+//    : '{' pair (','? pair)* '}'
+//    | '{' '}'
+//    ;
+
 pair
-   : STRING '=' value
-   ;
+    : STRING '=' value
+    ;
 
 array
-   : '[' value (',' value)* ']'
-   | '[' ']'
-   ;
+    : '[' value (',' value)* ']'
+    | '[' ']'
+    ;
 
 value
-   : STRING
-   | NUMBER
+    : STRING
+    | NUMBER
 //   | obj
-   | array
-   | 'true'
-   | 'false'
-   | 'null'
-   ;
+    | array
+    | 'true'
+    | 'false'
+    | 'null'
+    ;
+
+COMMENT
+    : '#' ~( '\r' | '\n' )*
+    ;
 
 STRING
-   : UNQUOTE_STRING | SINGLE_QUOTE_STRING | DOUBLE_QUOTE_STRING
-   ;
+    : UNQUOTE_STRING | SINGLE_QUOTE_STRING | DOUBLE_QUOTE_STRING
+    ;
 
 fragment UNQUOTE_STRING
-    : [a-zA-Z]+
+    : [a-zA-Z0-9.,:_\s]+
     ;
 fragment SINGLE_QUOTE_STRING
     : '\'' UNQUOTE_STRING '\''
@@ -62,15 +104,20 @@ fragment DOUBLE_QUOTE_STRING
     ;
 
 NUMBER
-   : '-'? INT '.' [0-9] + EXP? | '-'? INT EXP | '-'? INT
-   ;
+    : '-'? INT '.' [0-9] + EXP? | '-'? INT EXP | '-'? INT
+    ;
 fragment INT
-   : '0' | [1-9] [0-9]*
-   ;
+    : '0' | [1-9] [0-9]*
+    ;
 // no leading zeros
 fragment EXP
-   : [Ee] [+\-]? INT
-   ;
+    : [Ee] [+\-]? INT
+    ;
+
+
+OPERATOR
+    : '>' | '>=' | '<' | '<=' | '=' | '!='
+    ;
 
 WS
     : [ \t\n\r]+ -> skip
