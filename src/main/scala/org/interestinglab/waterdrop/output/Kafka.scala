@@ -6,13 +6,12 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.broadcast.Broadcast
 import com.typesafe.config.Config
-import org.interestinglab.waterdrop.core.Event
-import org.json4s.jackson
+import org.apache.spark.sql.DataFrame
 
 class Kafka(config: Config) extends BaseOutput(config) {
 
   val props = new Properties()
-
+  var topic = ""
   var kafkaSink: Option[Broadcast[KafkaSink]] = None
 
   def checkConfig(): (Boolean, String) = {
@@ -22,6 +21,7 @@ class Kafka(config: Config) extends BaseOutput(config) {
 
   def prepare(ssc: StreamingContext) {
     val producerConf = config.getConfig("producer")
+    this.topic = config.getString("topic")
     props.put("acks", producerConf.getString("acks"))
     props.put("bootstrap.servers", producerConf.getString("bootstrap.servers"))
     props.put("retries", producerConf.getString("retries"))
@@ -39,17 +39,16 @@ class Kafka(config: Config) extends BaseOutput(config) {
     kafkaSink = Some(ssc.sparkContext.broadcast(KafkaSink(props)))
   }
 
-  def process(eventIter: Iterator[Event]) {
-    for (event <- eventIter) {
+  def process(df: DataFrame) {
 
-      implicit val formats = org.json4s.DefaultFormats
-      val message = jackson.Serialization.write(event.toMap)
-
+    val dataSet = df.toJSON
+    dataSet.foreach { row =>
       kafkaSink.foreach { ks =>
-        ks.value.send(config.getString("topic"), message)
+        ks.value.send(this.topic, row)
       }
     }
   }
+
 }
 
 class KafkaSink(createProducer: () => KafkaProducer[String, String]) extends Serializable {

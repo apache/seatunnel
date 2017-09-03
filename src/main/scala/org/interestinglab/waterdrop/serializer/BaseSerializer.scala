@@ -2,8 +2,6 @@ package org.interestinglab.waterdrop.serializer
 
 import org.interestinglab.waterdrop.core.Plugin
 import com.typesafe.config.Config
-import org.interestinglab.waterdrop.core.Event
-import org.interestinglab.waterdrop.core.{Event, Plugin}
 
 // TODO : 是否需要checkConfig, prepare, 何时调用serializer的serialize, deserialize
 abstract class BaseSerializer(config: Config) extends Plugin {
@@ -15,12 +13,12 @@ abstract class BaseSerializer(config: Config) extends Plugin {
   }
 
   /**
-   * Deserialize array of bytes to Event.
+   * Deserialize array of bytes to String.
    */
-  def deserialize(bytes: Array[Byte]): Event
+  def deserialize(bytes: Array[Byte]): String
 
   /**
-   * Serialize Event to bytes of array.
+   * Serialize String to bytes of array.
    */
-  def serialize(e: Event): Array[Byte]
+  def serialize(e: String): Array[Byte]
 }

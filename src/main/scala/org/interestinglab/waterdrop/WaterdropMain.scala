@@ -4,9 +4,9 @@ import com.typesafe.config.ConfigFactory
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.interestinglab.waterdrop.config.ConfigBuilder
-import org.interestinglab.waterdrop.core.Event
-import org.interestinglab.waterdrop.serializer.Json
+import org.apache.spark.sql.Row
 
 object WaterdropMain {
 
@@ -47,21 +47,25 @@ object WaterdropMain {
     //for (f <- filters) {
     //  f.prepare(ssc)
     //}
+    val dstream = inputs.head.getDstream().mapPartitions { iter =>
+      val strIter = iter.map(r => r._2)
 
-    val dstream = inputs.head.getDstream.mapPartitions { iter =>
-      // val eventIter = iter.map(r => Event(Map("raw_message" -> r)))
-      val eventIter = iter.map(r =>
-        Event(Map("raw_message" -> Event.toJValue(r._2)))) // kafka input related !!!! maybe not common used
-      val events = eventIter.toList
-
-      events.iterator
+      val strsList = strIter.toList
+      strsList.iterator
     }
 
-    val jsonStream = dstream.map(_.toJSON())
+    dstream.foreachRDD { strRDD =>
 
-    jsonStream.foreachRDD { jsonRDD =>
+      val rowsRDD = strRDD.mapPartitions { partitions =>
+        val row = partitions.map(Row(_))
+        val rows = row.toList
+        rows.iterator
+      }
+
       val sqlContext = SparkSession.builder().getOrCreate()
-      var df = sqlContext.read.json(jsonRDD)
+
+      val schema = StructType(Array(StructField("raw_message", StringType)))
+      var df = sqlContext.createDataFrame(rowsRDD, schema)
 
       for (f <- filters) {
         f.prepare(sqlContext)
@@ -72,27 +76,13 @@ object WaterdropMain {
         df.show()
       }
 
-      val eventRDD = df.toJSON.rdd.map { eventStr =>
-        Json.deserialize(eventStr)
-      }
-
       inputs.head.beforeOutput
-      eventRDD.foreachPartition { partitionOfRecords =>
-        outputs.head.process(partitionOfRecords)
-      }
+      outputs.head.process(df)
       inputs.head.afterOutput
 
     }
 
-
     ssc.start()
     ssc.awaitTermination()
   }
-
-  // def doFilter(iter : Iterator[String]) : Iterator[String] = {
-  //     //a.mapPartitions(iter => iter.map(r => r *2))
-  //     //for (rec <- records) {}
-  //
-  //     for
-  // }
 }
