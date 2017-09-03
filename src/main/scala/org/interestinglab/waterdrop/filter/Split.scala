@@ -2,9 +2,9 @@ package org.interestinglab.waterdrop.filter
 
 
 import scala.collection.JavaConversions._
+import org.apache.spark.sql.types._
 import com.typesafe.config.{Config, ConfigValueFactory}
 import org.apache.spark.sql.functions.udf
-import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class Split(var conf: Config) extends BaseFilter(conf) {

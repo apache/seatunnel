@@ -3,10 +3,9 @@ package org.interestinglab.waterdrop
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SparkSession, Row}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.interestinglab.waterdrop.config.ConfigBuilder
-import org.apache.spark.sql.Row
 
 object WaterdropMain {
 
@@ -47,14 +46,13 @@ object WaterdropMain {
     //for (f <- filters) {
     //  f.prepare(ssc)
     //}
-    val dstream = inputs.head.getDstream().mapPartitions { iter =>
-      val strIter = iter.map(r => r._2)
-
-      val strsList = strIter.toList
-      strsList.iterator
+    val dStream = inputs.head.getDstream().mapPartitions { partitions =>
+      val strIterator = partitions.map(r => r._2)
+      val strList = strIterator.toList
+      strList.iterator
     }
 
-    dstream.foreachRDD { strRDD =>
+    dStream.foreachRDD { strRDD =>
 
       val rowsRDD = strRDD.mapPartitions { partitions =>
         val row = partitions.map(Row(_))
