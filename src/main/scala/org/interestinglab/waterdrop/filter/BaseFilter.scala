@@ -1,26 +1,30 @@
 package org.interestinglab.waterdrop.filter
 
-import org.interestinglab.waterdrop.core.{Event, Plugin}
-import org.apache.spark.streaming.StreamingContext
 import com.typesafe.config.Config
-import org.interestinglab.waterdrop.core.{Event, Plugin}
-import org.interestinglab.waterdrop.core.{Event, Plugin}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.interestinglab.waterdrop.core.Plugin
 
 abstract class BaseFilter(val config: Config) extends Plugin {
 
-  def filter(events: List[Event]): (List[Event], List[Boolean]) = {
-    val (processedEvents, isSuccess) = process(events)
+  var sqlContext:SparkSession = _
 
-    postProcess(processedEvents, isSuccess)
+  def filter(df: DataFrame, sqlContext: SparkSession): (DataFrame) = {
+
+    prepare(sqlContext)
+    process(df)
+    //postProcess(processedEvents, isSuccess)
   }
 
-  def prepare(ssc: StreamingContext)
+  def prepare(sqlContext:SparkSession) : Unit = {
 
-  def process(events: List[Event]): (List[Event], List[Boolean])
+    this.sqlContext = sqlContext
+  }
 
-  def postProcess(events: List[Event], isSuccess: List[Boolean]): (List[Event], List[Boolean]) = {
+  def process(df: DataFrame): DataFrame
+
+  def postProcess(df: DataFrame, isSuccess: List[Boolean]): (DataFrame, List[Boolean]) = {
     val defaultTagOnFailure = "_tag"
 
-    (events, isSuccess)
+    (df, isSuccess)
   }
 }

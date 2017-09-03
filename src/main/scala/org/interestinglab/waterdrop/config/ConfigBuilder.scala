@@ -3,17 +3,9 @@ package org.interestinglab.waterdrop.config
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import com.typesafe.config.Config
-import org.interestinglab.waterdrop.input.BaseInput
-import org.interestinglab.waterdrop.output.BaseOutput
-import org.interestinglab.waterdrop.sql.BaseSQL
 import org.interestinglab.waterdrop.filter.BaseFilter
 import org.interestinglab.waterdrop.input.BaseInput
 import org.interestinglab.waterdrop.output.BaseOutput
-import org.interestinglab.waterdrop.sql.BaseSQL
-import org.interestinglab.waterdrop.filter.BaseFilter
-import org.interestinglab.waterdrop.input.BaseInput
-import org.interestinglab.waterdrop.output.BaseOutput
-import org.interestinglab.waterdrop.sql.BaseSQL
 
 class ConfigBuilder(val config: Config) {
 
@@ -27,6 +19,7 @@ class ConfigBuilder(val config: Config) {
       case (k, v) =>
         var className = k
         if (k.split("\\.").length == 1) {
+
           className = ConfigBuilder.FilterPackage + "." + className.capitalize
         }
 
@@ -40,36 +33,6 @@ class ConfigBuilder(val config: Config) {
     })
 
     filterList
-  }
-
-  def createSQLs(): List[BaseSQL] = {
-
-    var sqlList = List[BaseSQL]()
-
-    if (config.hasPath("sql")) {
-      val sqlConf = config.getConfig("sql")
-      val sqlConfObj = config.getObject("sql")
-
-      sqlConfObj.foreach({
-        case (k, v) =>
-          var className = k
-          if (k.split("\\.").length == 1) {
-            className = ConfigBuilder.SQLPackage + "." + className.capitalize
-          }
-
-          val sqlObj = Class
-            .forName(className)
-            .getConstructor(classOf[Config])
-            .newInstance(sqlConf.getConfig(k))
-            .asInstanceOf[BaseSQL]
-
-          sqlList = sqlList :+ sqlObj
-      })
-
-      sqlList
-    } else {
-      sqlList
-    }
   }
 
   def createInputs(): List[BaseInput] = {
