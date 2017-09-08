@@ -94,11 +94,13 @@ STRING
     ;
 
 fragment UNQUOTE_STRING
-    : [a-zA-Z0-9.,:_\s]+
+    : [a-zA-Z0-9.,:_]+
     ;
+
 fragment SINGLE_QUOTE_STRING
     : '\'' UNQUOTE_STRING '\''
     ;
+
 fragment DOUBLE_QUOTE_STRING
     : '"' UNQUOTE_STRING '"'
     ;
