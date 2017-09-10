@@ -10,6 +10,8 @@ grammar Config;
 
 // notes: lexer rule vs parser rule
 
+import BoolExpr;
+
 config
     : COMMENT* 'input' input_block COMMENT* 'filter' filter_block COMMENT* 'output' output_block COMMENT*
     ;
@@ -27,7 +29,7 @@ output_block
     ;
 
 statement
-    : (plugin | if_block | COMMENT)*
+    : (plugin | if_statement | COMMENT)*
     ;
 
 plugin_list
@@ -36,26 +38,6 @@ plugin_list
 
 plugin
     : KEY entries
-    ;
-
-if_block
-    : 'if' expr '{' plugin_list '}'
-     ('else if' expr '{' plugin_list '}')*
-     ('else' '{' plugin_list '}')?
-    ;
-
-// support nested boolean expression
-expr
-    : '(' expr ')'         // parens
-    | op='~' expr          // NOT
-    | expr op='&&' expr     // AND
-    | expr op='||' expr     // OR
-    | bool                 // bool
-    ;
-
-bool
-    : STRING
-    | STRING OPERATOR STRING
     ;
 
 entries
@@ -105,20 +87,12 @@ QUOTED_STRING
     | '"' STRING_RAW ? '"'
     ;
 
-//STRING
-//    : STRING_RAW
-//    ;
-
 fragment STRING_RAW
     : [a-zA-Z0-9,:_]+
     ;
 
 fragment INT
     : '0' | [1-9] [0-9]*
-    ;
-
-OPERATOR
-    : '>' | '>=' | '<' | '<=' | '=' | '!='
     ;
 
 WS
