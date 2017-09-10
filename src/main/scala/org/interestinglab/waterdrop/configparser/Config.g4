@@ -1,9 +1,10 @@
 grammar Config;
 
-// nested bool expression
+
+// nested bool expression中的字段引用
 // STRING lexer rule定义过于简单，不满足需求, 包括其中包含Quote(',")的String
-// [done] Filter, Output 允许if else
-// [done] if 中的逻辑运算，值引用
+// [done] nested bool expression
+// [done] Filter, Output 允许if else, 包含nested if..else
 // [done]允许key不包含双引号
 // [done] 允许多行配置没有"，"分割
 // [done] 允许plugin中不包含任何配置
@@ -32,12 +33,17 @@ statement
     : (plugin | if_statement | COMMENT)*
     ;
 
+if_statement
+    : IF expression '{' statement '}' (ELSE IF expression '{' statement '}')* (ELSE '{' statement '}')?
+    ;
+
 plugin_list
     : (plugin | COMMENT)*
     ;
 
 plugin
-    : KEY entries
+    : IDENTIFIER entries
+//    : plugin_name entries
     ;
 
 entries
@@ -50,7 +56,7 @@ entries
 //    ;
 
 pair
-    : KEY '=' value
+    : IDENTIFIER '=' value
     ;
 
 array
@@ -59,7 +65,8 @@ array
     ;
 
 value
-    : NUMBER
+//    : NUMBER
+    : DECIMAL
     | QUOTED_STRING
 //   | entries
     | array
@@ -68,16 +75,6 @@ value
     | 'null'
     ;
 
-NUMBER
-    : '-'? INT // Integer
-    | '-'? INT '.' INT // float
-    ;
-
-KEY
-    : [a-zA-Z0-9_]+
-    ;
-
-// if you put NUMBER after COMMENT, number will not be recognized
 COMMENT
     : '#' ~( '\r' | '\n' )*
     ;
