@@ -13,6 +13,7 @@ expression
  | bool                                           #boolExpression
  | IDENTIFIER                                     #identifierExpression
  | DECIMAL                                        #decimalExpression
+ | FIELD_REFERENCE                                #fieldReferenceExpression
  ;
 
 comparator
@@ -47,5 +48,7 @@ DECIMAL    : '-'? [0-9]+ ( '.' [0-9]+ )? ;
 // identifier that represents string starts with [a-zA-Z_] (so we can separate DECIMAL with IDENTIFIER),
 // and support such format org.apache.spark
 IDENTIFIER : [a-zA-Z_] [a-zA-Z_0-9]* ('.' [a-zA-Z_0-9]+)*;
+// field reference, example: ${var}
+FIELD_REFERENCE : '${' [a-zA-Z_0-9]+ ('.' [a-zA-Z_0-9]+)* '}';
 
 WS         : [ \r\t\u000C\n]+ -> skip;

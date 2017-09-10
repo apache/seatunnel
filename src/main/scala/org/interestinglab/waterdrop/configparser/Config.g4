@@ -1,20 +1,20 @@
 grammar Config;
 
-
-// nested bool expression中的字段引用
-// STRING lexer rule定义过于简单，不满足需求, 包括其中包含Quote(',")的String
+// [done] STRING lexer rule定义过于简单，不满足需求, 包括其中包含Quote(',")的String
+// [done] nested bool expression中的字段引用
 // [done] nested bool expression
 // [done] Filter, Output 允许if else, 包含nested if..else
-// [done]允许key不包含双引号
+// [done] 允许key不包含双引号
 // [done] 允许多行配置没有"，"分割
 // [done] 允许plugin中不包含任何配置
 
 // notes: lexer rule vs parser rule
+// notes: don't let two lexer rule match the same token
 
 import BoolExpr;
 
 config
-    : COMMENT* 'input' input_block COMMENT* 'filter' filter_block COMMENT* 'output' output_block COMMENT*
+    : COMMENT* 'input' input_block COMMENT* 'filter' filter_block COMMENT* 'output' output_block COMMENT* EOF
     ;
 
 input_block
@@ -65,7 +65,6 @@ array
     ;
 
 value
-//    : NUMBER
     : DECIMAL
     | QUOTED_STRING
 //   | entries
@@ -79,18 +78,15 @@ COMMENT
     : '#' ~( '\r' | '\n' )*
     ;
 
-QUOTED_STRING
-    : '\'' STRING_RAW ? '\''
-    | '"' STRING_RAW ? '"'
-    ;
-
-fragment STRING_RAW
-    : [a-zA-Z0-9,:_]+
-    ;
-
-fragment INT
-    : '0' | [1-9] [0-9]*
-    ;
+// double and single quoted string support
+fragment BSLASH : '\\';
+fragment DQUOTE : '"';
+fragment SQUOTE : '\'';
+fragment DQ_STRING_ESC : BSLASH ["\\/bfnrt] ;
+fragment SQ_STRING_ESC : BSLASH ['\\/bfnrt] ;
+fragment DQ_STRING : DQUOTE (DQ_STRING_ESC | ~["\\])* DQUOTE ;
+fragment SQ_STRING : SQUOTE (SQ_STRING_ESC | ~['\\])* SQUOTE ;
+QUOTED_STRING : DQ_STRING | SQ_STRING ;
 
 WS
     : [ \t\n\r]+ -> skip
