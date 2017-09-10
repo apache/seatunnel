@@ -1,6 +1,7 @@
 grammar Config;
 
-// STRING lexer rule定义过于简单，不满足需求，包括包含引号的字符串.
+// nested bool expression
+// STRING lexer rule定义过于简单，不满足需求, 包括其中包含Quote(',")的String
 // [done] Filter, Output 允许if else
 // [done] if 中的逻辑运算，值引用
 // [done]允许key不包含双引号
@@ -10,19 +11,19 @@ grammar Config;
 // notes: lexer rule vs parser rule
 
 config
-    : COMMENT* input COMMENT* filter COMMENT* output COMMENT*
+    : COMMENT* 'input' input_block COMMENT* 'filter' filter_block COMMENT* 'output' output_block COMMENT*
     ;
 
-input
-    : 'input' '{' plugin_list '}'
+input_block
+    : '{' plugin_list '}'
     ;
 
-filter
-    : 'filter' '{' statement '}'
+filter_block
+    : '{' statement '}'
     ;
 
-output
-    : 'output' '{' statement '}'
+output_block
+    : '{' statement '}'
     ;
 
 statement
@@ -34,7 +35,7 @@ plugin_list
     ;
 
 plugin
-    : STRING obj
+    : KEY entries
     ;
 
 if_block
@@ -57,17 +58,17 @@ bool
     | STRING OPERATOR STRING
     ;
 
-obj
+entries
     : '{' (pair | COMMENT)* '}'
     ;
 
-//obj
+// entries
 //    : '{' pair (','? pair)* '}'
 //    | '{' '}'
 //    ;
 
 pair
-    : STRING '=' value
+    : KEY '=' value
     ;
 
 array
@@ -76,46 +77,45 @@ array
     ;
 
 value
-    : STRING
-    | NUMBER
-//   | obj
+    : NUMBER
+    | QUOTED_STRING
+//   | entries
     | array
     | 'true'
     | 'false'
     | 'null'
     ;
 
+NUMBER
+    : '-'? INT // Integer
+    | '-'? INT '.' INT // float
+    ;
+
+KEY
+    : [a-zA-Z0-9_]+
+    ;
+
+// if you put NUMBER after COMMENT, number will not be recognized
 COMMENT
     : '#' ~( '\r' | '\n' )*
     ;
 
-STRING
-    : UNQUOTE_STRING | SINGLE_QUOTE_STRING | DOUBLE_QUOTE_STRING
+QUOTED_STRING
+    : '\'' STRING_RAW ? '\''
+    | '"' STRING_RAW ? '"'
     ;
 
-fragment UNQUOTE_STRING
-    : [a-zA-Z0-9.,:_]+
+//STRING
+//    : STRING_RAW
+//    ;
+
+fragment STRING_RAW
+    : [a-zA-Z0-9,:_]+
     ;
 
-fragment SINGLE_QUOTE_STRING
-    : '\'' UNQUOTE_STRING '\''
-    ;
-
-fragment DOUBLE_QUOTE_STRING
-    : '"' UNQUOTE_STRING '"'
-    ;
-
-NUMBER
-    : '-'? INT '.' [0-9] + EXP? | '-'? INT EXP | '-'? INT
-    ;
 fragment INT
     : '0' | [1-9] [0-9]*
     ;
-// no leading zeros
-fragment EXP
-    : [Ee] [+\-]? INT
-    ;
-
 
 OPERATOR
     : '>' | '>=' | '<' | '<=' | '=' | '!='
