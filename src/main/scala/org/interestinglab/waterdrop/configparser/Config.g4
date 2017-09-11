@@ -75,7 +75,7 @@ value
     ;
 
 COMMENT
-    : '#' ~( '\r' | '\n' )*
+    : '#' ~( '\r' | '\n' )* -> skip
     ;
 
 // double and single quoted string support
