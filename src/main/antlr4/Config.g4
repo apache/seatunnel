@@ -18,7 +18,7 @@ config
     ;
 
 input_block
-    : '{' plugin_list '}'
+    : '{' (plugin | COMMENT)* '}'
     ;
 
 filter_block
@@ -35,10 +35,6 @@ statement
 
 if_statement
     : IF expression '{' statement '}' (ELSE IF expression '{' statement '}')* (ELSE '{' statement '}')?
-    ;
-
-plugin_list
-    : (plugin | COMMENT)*
     ;
 
 plugin
