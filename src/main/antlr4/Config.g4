@@ -69,9 +69,9 @@ value
     | QUOTED_STRING
 //   | entries
     | array
-    | 'true'
-    | 'false'
-    | 'null'
+    | TRUE
+    | FALSE
+    | NULL
     ;
 
 COMMENT
@@ -88,6 +88,11 @@ fragment DQ_STRING : DQUOTE (DQ_STRING_ESC | ~["\\])* DQUOTE ;
 fragment SQ_STRING : SQUOTE (SQ_STRING_ESC | ~['\\])* SQUOTE ;
 QUOTED_STRING : DQ_STRING | SQ_STRING ;
 
+NULL
+    : 'null'
+    ;
+
 WS
     : [ \t\n\r]+ -> skip
     ;
+

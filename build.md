@@ -25,3 +25,14 @@ Build fat jar(with all dependencies) for Spark Application
 ```
 sbt clean assembly
 ```
+
+---
+
+## FAQs
+
+1. Intellij Idea doesn't recognize antlr4 generated source ?
+
+File -> Project Structure -> Modules, in `Sources` Tab, 
+mark directory `target/scala-2.11/src_managed/main/antlr4/` as `Sources`(blue icon)
+
+
