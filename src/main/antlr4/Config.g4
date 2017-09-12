@@ -22,19 +22,21 @@ input_block
     ;
 
 filter_block
-    : '{' statement '}'
+    : '{' statement* '}'
     ;
 
 output_block
-    : '{' statement '}'
+    : '{' statement* '}'
     ;
 
 statement
-    : (plugin | if_statement | COMMENT)*
+    : plugin
+    | if_statement
+    | COMMENT
     ;
 
 if_statement
-    : IF expression '{' statement '}' (ELSE IF expression '{' statement '}')* (ELSE '{' statement '}')?
+    : IF expression '{' statement* '}' (ELSE IF expression '{' statement* '}')* (ELSE '{' statement* '}')?
     ;
 
 plugin
