@@ -1,6 +1,7 @@
 package org.interestinglab.waterdrop.config;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigRenderOptions;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -22,6 +23,7 @@ public class Test {
 
         ConfigParser.ConfigContext configContext = parser.config();
         ConfigVisitor<Config> visitor = new ConfigVisitorImpl();
-        System.out.println(visitor.visit(configContext));
+        ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
+        System.out.println(visitor.visit(configContext).root().render(options));
     }
 }

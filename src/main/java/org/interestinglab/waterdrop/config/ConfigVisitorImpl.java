@@ -8,6 +8,8 @@ import org.apache.commons.lang.StringUtils;
 import org.interestinglab.waterdrop.configparser.ConfigBaseVisitor;
 import org.interestinglab.waterdrop.configparser.ConfigParser;
 
+import java.text.NumberFormat;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,32 +23,96 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
     @Override
     public Config visitConfig(ConfigParser.ConfigContext ctx) {
-        // TODO
-        return null;
+
+        Config configuration = ConfigFactory.empty();
+
+        if (ctx.input_block() != null) {
+            Config inputPluginList = visit(ctx.input_block());
+            configuration = configuration.withValue("input", inputPluginList.getValue("input"));
+        }
+
+        if (ctx.filter_block() != null) {
+            Config filtertPluginList = visit(ctx.filter_block());
+            configuration = configuration.withValue("filter", filtertPluginList.getValue("filter"));
+        }
+
+        if (ctx.output_block() != null) {
+            Config outputPluginList = visit(ctx.output_block());
+            configuration = configuration.withValue("output", outputPluginList.getValue("output"));
+        }
+
+        return configuration;
     }
 
     @Override
     public Config visitOutput_block(ConfigParser.Output_blockContext ctx) {
-        // TODO
-        return null;
+
+        Config outputPluginList = ConfigFactory.empty();
+
+        List<ConfigValue> statements = new ArrayList<>();
+        for (ConfigParser.StatementContext statementContext: ctx.statement()) {
+
+            Config statement = visit(statementContext);
+            if (statement != null && !statement.isEmpty()) {
+                statements.add(statement.root());
+            }
+        }
+
+        outputPluginList = outputPluginList.withValue("output", ConfigValueFactory.fromIterable(statements));
+        return outputPluginList;
     }
 
     @Override
     public Config visitFilter_block(ConfigParser.Filter_blockContext ctx) {
-        // TODO:
-        return null;
+
+        Config filterPluginList = ConfigFactory.empty();
+
+        List<ConfigValue> statements = new ArrayList<>();
+        for (ConfigParser.StatementContext statementContext: ctx.statement()) {
+
+            Config statement = visit(statementContext);
+            if (statement != null && !statement.isEmpty()) {
+                statements.add(statement.root());
+            }
+        }
+
+        filterPluginList = filterPluginList.withValue("filter", ConfigValueFactory.fromIterable(statements));
+
+        return filterPluginList;
     }
 
     @Override
     public Config visitInput_block(ConfigParser.Input_blockContext ctx) {
-        // TODO:
-        return null;
+
+        Config inputPluginList = ConfigFactory.empty();
+
+        List<ConfigValue> pluginList = new ArrayList<>();
+        for (ConfigParser.PluginContext pluginContext : ctx.plugin()) {
+
+            final Config config = visit(pluginContext);
+
+            if (config != null) {
+                pluginList.add(config.root());
+            }
+        }
+
+        inputPluginList = inputPluginList.withValue("input", ConfigValueFactory.fromIterable(pluginList));
+        return inputPluginList;
     }
 
     @Override
     public Config visitStatement(ConfigParser.StatementContext ctx) {
-        // TODO:
-        return null;
+
+        Config statement = ConfigFactory.empty();
+
+        if (ctx.plugin() != null) {
+            statement = visit(ctx.plugin());
+        } else if (ctx.if_statement() != null) {
+            // TODO: implement if_statement
+//            statement = visit(ctx.if_statement());
+        }
+
+        return statement;
     }
 
     @Override
@@ -56,12 +122,12 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         if (ctx.IDENTIFIER() != null) {
 
-            String pluginName = ctx.IDENTIFIER().getText();
+            final String pluginName = ctx.IDENTIFIER().getText();
             plugin = plugin.withValue("name", ConfigValueFactory.fromAnyRef(pluginName));
 
             if (ctx.entries() != null) {
 
-                Config entries = visit(ctx.entries());
+                final Config entries = visit(ctx.entries());
                 if (entries != null && ! entries.isEmpty()) {
                     plugin = plugin.withValue("entries", entries.root());
                 }
@@ -79,7 +145,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
         List<ConfigValue> configValues = new ArrayList<>();
         for (ConfigParser.PairContext pairContext : ctx.pair()) {
 
-            Config pair = visit(pairContext);
+            final Config pair = visit(pairContext);
             if (pair != null && ! pair.isEmpty()) {
 
                 for (Map.Entry<String, ConfigValue> entry : pair.entrySet()) {
@@ -98,7 +164,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         if (ctx.IDENTIFIER() != null) {
 
-            Config value = visit(ctx.value());
+            final Config value = visit(ctx.value());
 
             if (value != null && value.hasPath("value")) {
                 pair = pair.withValue(ctx.IDENTIFIER().getText(), value.getValue("value"));
@@ -115,7 +181,14 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         if (ctx.DECIMAL() != null) {
 
-            // TODO: java.lang.Number, config.getNumber()
+            try {
+                Number number = NumberFormat.getInstance().parse(ctx.DECIMAL().getText());
+                value = ConfigValueFactory.fromAnyRef(number);
+
+            } catch (ParseException e) {
+                value = ConfigValueFactory.fromAnyRef(ctx.DECIMAL().getText());
+            }
+
         } else if (ctx.QUOTED_STRING() != null) {
 
             final String unquoted = StringUtils.strip(ctx.QUOTED_STRING().getText(), "\"'");
