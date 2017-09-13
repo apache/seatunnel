@@ -12,8 +12,11 @@ import org.interestinglab.waterdrop.configparser.ConfigVisitor;
 /**
  * Created by gaoyingju on 11/09/2017.
  */
-public class Test {
+public class ConfigCommand {
 
+    /**
+     * sbt "run-main org.interestinglab.waterdrop.config.ConfigCommand src/main/antlr4/example.conf"
+     * */
     public static void main(String[] args) throws Exception {
 
         CharStream charStream = CharStreams.fromFileName(args[0]);
