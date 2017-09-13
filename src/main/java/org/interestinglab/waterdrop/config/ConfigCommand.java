@@ -26,7 +26,15 @@ public class ConfigCommand {
 
         ConfigParser.ConfigContext configContext = parser.config();
         ConfigVisitor<Config> visitor = new ConfigVisitorImpl();
+        Config appConfig = visitor.visit(configContext);
+
         ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
-        System.out.println(visitor.visit(configContext).root().render(options));
+        System.out.println(appConfig.root().render(options));
+
+        System.out.println("List Filter Plugins: ");
+        for (Config filter : appConfig.getConfigList("filter")) {
+
+            System.out.println(filter.root().render(options));
+        }
     }
 }
