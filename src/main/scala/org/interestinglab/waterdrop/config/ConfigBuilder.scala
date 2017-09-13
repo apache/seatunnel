@@ -92,7 +92,6 @@ object ConfigBuilder {
   val FilterPackage = PackagePrefix + ".filter"
   val InputPackage = PackagePrefix + ".input"
   val OutputPackage = PackagePrefix + ".output"
-  val SQLPackage = PackagePrefix + ".sql"
 
   def apply(config: Config): ConfigBuilder = {
     new ConfigBuilder(config)
