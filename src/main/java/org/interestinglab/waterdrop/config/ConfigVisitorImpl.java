@@ -26,18 +26,18 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         Config configuration = ConfigFactory.empty();
 
-        if (ctx.input_block() != null) {
-            Config inputPluginList = visit(ctx.input_block());
+        if (ctx.inputBlock() != null) {
+            Config inputPluginList = visit(ctx.inputBlock());
             configuration = configuration.withValue("input", inputPluginList.getValue("input"));
         }
 
-        if (ctx.filter_block() != null) {
-            Config filtertPluginList = visit(ctx.filter_block());
+        if (ctx.filterBlock() != null) {
+            Config filtertPluginList = visit(ctx.filterBlock());
             configuration = configuration.withValue("filter", filtertPluginList.getValue("filter"));
         }
 
-        if (ctx.output_block() != null) {
-            Config outputPluginList = visit(ctx.output_block());
+        if (ctx.outputBlock() != null) {
+            Config outputPluginList = visit(ctx.outputBlock());
             configuration = configuration.withValue("output", outputPluginList.getValue("output"));
         }
 
@@ -45,7 +45,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
     }
 
     @Override
-    public Config visitOutput_block(ConfigParser.Output_blockContext ctx) {
+    public Config visitOutputBlock(ConfigParser.OutputBlockContext ctx) {
 
         Config outputPluginList = ConfigFactory.empty();
 
@@ -63,7 +63,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
     }
 
     @Override
-    public Config visitFilter_block(ConfigParser.Filter_blockContext ctx) {
+    public Config visitFilterBlock(ConfigParser.FilterBlockContext ctx) {
 
         Config filterPluginList = ConfigFactory.empty();
 
@@ -82,7 +82,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
     }
 
     @Override
-    public Config visitInput_block(ConfigParser.Input_blockContext ctx) {
+    public Config visitInputBlock(ConfigParser.InputBlockContext ctx) {
 
         Config inputPluginList = ConfigFactory.empty();
 
@@ -107,7 +107,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         if (ctx.plugin() != null) {
             statement = visit(ctx.plugin());
-        } else if (ctx.if_statement() != null) {
+        } else if (ctx.ifStatement() != null) {
             // TODO: implement if_statement
 //            statement = visit(ctx.if_statement());
         }

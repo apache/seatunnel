@@ -14,28 +14,28 @@ grammar Config;
 import BoolExpr;
 
 config
-    : COMMENT* 'input' input_block COMMENT* 'filter' filter_block COMMENT* 'output' output_block COMMENT* EOF
+    : COMMENT* 'input' inputBlock COMMENT* 'filter' filterBlock COMMENT* 'output' outputBlock COMMENT* EOF
     ;
 
-input_block
+inputBlock
     : '{' (plugin | COMMENT)* '}'
     ;
 
-filter_block
+filterBlock
     : '{' statement* '}'
     ;
 
-output_block
+outputBlock
     : '{' statement* '}'
     ;
 
 statement
     : plugin
-    | if_statement
+    | ifStatement
     | COMMENT
     ;
 
-if_statement
+ifStatement
     : IF expression '{' statement* '}' (ELSE IF expression '{' statement* '}')* (ELSE '{' statement* '}')?
     ;
 
