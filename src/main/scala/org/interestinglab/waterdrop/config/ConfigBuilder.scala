@@ -18,11 +18,13 @@ class ConfigBuilder {
 
   def load(): Config = {
 
-    val configFile = System.getProperty("config.file", "");
+    val configFile = System.getProperty("config.path", "");
     if (configFile == "") {
       // TODO: 不写return,该怎么写？
       // TODO: 如何抛出异常
     }
+
+    println("[INFO] Loading config file: " + configFile)
 
     val charStream: CharStream = CharStreams.fromFileName(configFile)
     val lexer: ConfigLexer = new ConfigLexer(charStream)
@@ -35,7 +37,7 @@ class ConfigBuilder {
     val parsedConfig = visitor.visit(configContext)
 
     val options: ConfigRenderOptions = ConfigRenderOptions.concise.setFormatted(true)
-    System.out.println("Parsed Config: \n" + parsedConfig.root().render(options))
+    System.out.println("[INFO] Parsed Config: \n" + parsedConfig.root().render(options))
 
     parsedConfig
   }

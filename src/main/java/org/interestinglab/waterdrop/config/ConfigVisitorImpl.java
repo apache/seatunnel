@@ -130,6 +130,8 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
                 final Config entries = visit(ctx.entries());
                 if (entries != null && ! entries.isEmpty()) {
                     plugin = plugin.withValue("entries", entries.root());
+                } else {
+                    plugin = plugin.withValue("entries", ConfigFactory.empty().root());
                 }
             }
         }

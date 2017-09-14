@@ -8,9 +8,9 @@ scalaBinaryVersion := "2.11"
 val sparkVersion = "2.2.0"
 
 libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-streaming" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-core" % sparkVersion % "compile",
+  "org.apache.spark" %% "spark-sql" % sparkVersion % "compile",
+  "org.apache.spark" %% "spark-streaming" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-streaming-kafka-0-8" % sparkVersion
     exclude("org.spark-project.spark", "unused"),
   "com.typesafe" % "config" % "1.3.1",

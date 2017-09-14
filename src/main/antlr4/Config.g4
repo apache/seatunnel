@@ -73,7 +73,7 @@ value
     ;
 
 COMMENT
-    : '#' ~( '\r' | '\n' )* -> skip
+    : ('#' | '//') ~( '\r' | '\n' )* -> skip
     ;
 
 // double and single quoted string support
