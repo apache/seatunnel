@@ -107,10 +107,9 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         if (ctx.plugin() != null) {
             statement = visit(ctx.plugin());
-        } else if (ctx.ifStatement() != null) {
-            // TODO: implement if_statement
-//            statement = visit(ctx.if_statement());
         }
+
+        // TODO: implement if_statement
 
         return statement;
     }
@@ -143,8 +142,6 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
     public Config visitEntries(ConfigParser.EntriesContext ctx) {
 
         Config entries = ConfigFactory.empty();
-
-        List<ConfigValue> configValues = new ArrayList<>();
         for (ConfigParser.PairContext pairContext : ctx.pair()) {
 
             final Config pair = visit(pairContext);
@@ -210,8 +207,6 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
         } else if (ctx.FALSE() != null) {
 
             value = ConfigValueFactory.fromAnyRef(false);
-
-        } else if (ctx.NULL() != null) {
         }
 
         Config config = ConfigFactory.empty();

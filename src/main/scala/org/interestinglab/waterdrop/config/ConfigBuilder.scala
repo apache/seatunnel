@@ -11,9 +11,6 @@ import org.interestinglab.waterdrop.output.BaseOutput
 
 class ConfigBuilder {
 
-  val PLUGIN_NAME_KEY = "name"
-  val PLUGIN_PARAMS_KEY = "entries"
-
   val config = load();
 
   def load(): Config = {
@@ -48,12 +45,12 @@ class ConfigBuilder {
     config
       .getConfigList("filter")
       .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), "filter")
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "filter")
 
         val obj = Class
           .forName(className)
           .getConstructor(classOf[Config])
-          .newInstance(plugin.getConfig(PLUGIN_PARAMS_KEY))
+          .newInstance(plugin.getConfig(ConfigBuilder.PluginParamsKey))
           .asInstanceOf[BaseFilter]
 
         filterList = filterList :+ obj
@@ -68,12 +65,12 @@ class ConfigBuilder {
     config
       .getConfigList("input")
       .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), "input")
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
 
         val obj = Class
           .forName(className)
           .getConstructor(classOf[Config])
-          .newInstance(plugin.getConfig(PLUGIN_PARAMS_KEY))
+          .newInstance(plugin.getConfig(ConfigBuilder.PluginParamsKey))
           .asInstanceOf[BaseInput]
 
         inputList = inputList :+ obj
@@ -88,12 +85,12 @@ class ConfigBuilder {
     config
       .getConfigList("output")
       .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), "output")
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output")
 
         val obj = Class
           .forName(className)
           .getConstructor(classOf[Config])
-          .newInstance(plugin.getConfig(PLUGIN_PARAMS_KEY))
+          .newInstance(plugin.getConfig(ConfigBuilder.PluginParamsKey))
           .asInstanceOf[BaseOutput]
 
         outputList = outputList :+ obj
@@ -125,4 +122,7 @@ object ConfigBuilder {
   val FilterPackage = PackagePrefix + ".filter"
   val InputPackage = PackagePrefix + ".input"
   val OutputPackage = PackagePrefix + ".output"
+
+  val PluginNameKey = "name"
+  val PluginParamsKey = "entries"
 }
