@@ -18,13 +18,11 @@ public class PluginDoc {
 
     public static class PluginOption {
 
-        public String getDefaultValue() {
-            return defaultValue;
-        }
-
-        public void setDefaultValue(String defaultValue) {
-            this.defaultValue = defaultValue;
-        }
+        private String optionType;
+        private String optionName;
+        private String optionDesc = "";
+        private Required required = Required.YES;
+        private String defaultValue = "-";
 
         public enum Required {
             YES("yes"),
@@ -48,12 +46,6 @@ public class PluginDoc {
                 return text;
             }
         }
-
-        private String optionType;
-        private String optionName;
-        private String optionDesc = "";
-        private Required required = Required.YES;
-        private String defaultValue = "-";
 
         public PluginOption(final String optionType, final String optionName, final Required required, final String optionDesc) {
             this.optionType = optionType;
@@ -92,6 +84,14 @@ public class PluginDoc {
 
         public void setRequired(Required required) {
             this.required = required;
+        }
+
+        public String getDefaultValue() {
+            return defaultValue;
+        }
+
+        public void setDefaultValue(String defaultValue) {
+            this.defaultValue = defaultValue;
         }
     }
 

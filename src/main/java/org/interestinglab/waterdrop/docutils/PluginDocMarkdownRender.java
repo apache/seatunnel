@@ -103,14 +103,14 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
             return ctx.OUTPUT().getText();
         }
 
-        throw new RuntimeException("invalid plugin group in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginGroup - 1]);
+        throw new PluginDocRuntimeException("invalid plugin group in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginGroup - 1]);
     }
 
     @Override
     public String visitPluginName(PluginDocParser.PluginNameContext ctx) {
 
         if (ctx.IDENTIFIER() == null) {
-            throw new RuntimeException("invalid plugin name in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginName - 1]);
+            throw new PluginDocRuntimeException("invalid plugin name in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginName - 1]);
         }
 
         return ctx.IDENTIFIER().getText();
@@ -120,7 +120,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitPluginDesc(PluginDocParser.PluginDescContext ctx) {
 
         if (ctx.IDENTIFIER() == null && ctx.TEXT() == null) {
-            throw new RuntimeException("invalid plugin description in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginDesc - 1]);
+            throw new PluginDocRuntimeException("invalid plugin description in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginDesc - 1]);
         }
 
         TerminalNode node = ctx.IDENTIFIER();
@@ -136,7 +136,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitPluginAuthor(PluginDocParser.PluginAuthorContext ctx) {
 
         if (ctx.TEXT() == null && ctx.IDENTIFIER() == null) {
-            throw new RuntimeException("invalid plugin author in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginAuthor - 1]);
+            throw new PluginDocRuntimeException("invalid plugin author in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginAuthor - 1]);
         }
 
         TerminalNode node = ctx.TEXT();
@@ -152,7 +152,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitPluginHomepage(PluginDocParser.PluginHomepageContext ctx) {
 
         if (ctx.URL() == null) {
-            throw new RuntimeException("invalid plugin homepage in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginHomepage - 1]);
+            throw new PluginDocRuntimeException("invalid plugin homepage in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginHomepage - 1]);
         }
 
         return ctx.URL().getText();
@@ -162,7 +162,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitPluginVersion(PluginDocParser.PluginVersionContext ctx) {
 
         if (ctx.VERSION_NUMBER() == null) {
-            throw new RuntimeException("invalid plugin version in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginVersion - 1]);
+            throw new PluginDocRuntimeException("invalid plugin version in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginVersion - 1]);
         }
 
         return ctx.VERSION_NUMBER().getText();
@@ -172,7 +172,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitPluginOption(PluginDocParser.PluginOptionContext ctx) {
 
         if (ctx.optionType() == null || ctx.optionName() == null || ctx.optionRequired() == null) {
-            throw new RuntimeException("optionType, optionName, optionRequired shoud be specified");
+            throw new PluginDocRuntimeException("optionType, optionName, optionRequired shoud be specified");
         }
 
         final String optionType = visit(ctx.optionType());
@@ -203,7 +203,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitOptionType(PluginDocParser.OptionTypeContext ctx) {
 
         if (ctx.getText() == null) {
-            throw new RuntimeException("invalid option type in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
+            throw new PluginDocRuntimeException("invalid option type in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
         }
 
         return ctx.getText();
@@ -213,7 +213,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitOptionName(PluginDocParser.OptionNameContext ctx) {
 
         if (ctx.IDENTIFIER() == null) {
-            throw new RuntimeException("invalid option name in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
+            throw new PluginDocRuntimeException("invalid option name in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
         }
 
         return ctx.IDENTIFIER().getText();
@@ -223,7 +223,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     public String visitOptionDefaultValue(PluginDocParser.OptionDefaultValueContext ctx) {
 
         if (ctx.TEXT() == null) {
-            throw new RuntimeException("invalid option default value in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
+            throw new PluginDocRuntimeException("invalid option default value in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
         }
 
         final String unquoted = StringUtils.strip(ctx.TEXT().getText(), "\"'");
@@ -242,7 +242,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
             return PluginDoc.PluginOption.Required.NO.toString();
 
         } else {
-            throw new RuntimeException("invalid option required in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
+            throw new PluginDocRuntimeException("invalid option required in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
         }
     }
 
