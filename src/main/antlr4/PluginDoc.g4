@@ -1,6 +1,6 @@
 grammar PluginDoc;
 
-// TODO: pluginOption default value
+// TODO: pluginOption default value 不支持element是string(即包含quote)的array
 // TODO: 允许包含空格的字符串，目前的解决方案是quoted_string, TEXT与IDENTIFIER容易混淆
 // TODO: 丰富的plugin description, option description无法用简单的rule来表达, 需要直接引入markdown
 // TODO: udfs
@@ -72,7 +72,7 @@ pluginVersion
     ;
 
 pluginOption
-    : PluginOption optionType optionName optionRequired (optionDesc)?
+    : PluginOption optionType optionName (EQUAL optionDefaultValue)? optionRequired (optionDesc)?
     ;
 
 optionType
@@ -85,6 +85,10 @@ optionName
 
 optionRequired
     : YES | NO
+    ;
+
+optionDefaultValue
+    : TEXT
     ;
 
 optionDesc
@@ -124,6 +128,7 @@ NULL : 'null';
 
 YES : 'yes';
 NO : 'no';
+EQUAL : '=';
 
 // IDENTIFIER should be placed before TEXT to be matched first
 // IDENTIFIER should be placed before VERSION_NUMBER to be matched first
@@ -146,7 +151,7 @@ fragment URL_VALID_CHARS
     ;
 
 TEXT
-    : '"' ~( '\n' | '\t' )* '"'
+    : '"' ~( '"' | '\n' | '\t' )* '"'
     ;
 
 WS

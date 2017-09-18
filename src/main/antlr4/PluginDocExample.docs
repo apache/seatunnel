@@ -9,4 +9,4 @@
 @pluginOption array topics yes "a list of topics to consume"
 @pluginOption string consumer.bootstrap.servers yes "kafka broker list"
 @pluginOption string consumer.group.id yes "consumer group id"
-@pluginOption number consumer.num.consumer.fetchers no
+@pluginOption number consumer.num.consumer.fetchers="2" no

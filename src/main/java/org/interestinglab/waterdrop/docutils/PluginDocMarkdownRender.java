@@ -190,8 +190,12 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
         }
 
         PluginDoc.PluginOption option = new PluginDoc.PluginOption(optionType, optionName, required, optionDesc);
-        pluginDoc.getPluginOptions().add(option);
 
+        if (required == PluginDoc.PluginOption.Required.NO && ctx.optionDefaultValue() != null) {
+            option.setDefaultValue(visit(ctx.optionDefaultValue()));
+        }
+
+        pluginDoc.getPluginOptions().add(option);
         return null;
     }
 
@@ -213,6 +217,17 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
         }
 
         return ctx.IDENTIFIER().getText();
+    }
+
+    @Override
+    public String visitOptionDefaultValue(PluginDocParser.OptionDefaultValueContext ctx) {
+
+        if (ctx.TEXT() == null) {
+            throw new RuntimeException("invalid option default value in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
+        }
+
+        final String unquoted = StringUtils.strip(ctx.TEXT().getText(), "\"'");
+        return unquoted;
     }
 
     @Override
