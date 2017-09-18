@@ -1,7 +1,9 @@
 grammar PluginDoc;
 
+// TODO: pluginOption is_required, default value
+// TODO: 允许包含空格的字符串，目前的解决方案是quoted_string, TEXT与IDENTIFIER容易混淆
+// TODO: 丰富的plugin description, option description无法用简单的rule来表达, 需要直接引入markdown
 // TODO: udfs
-// TOOD: all todos
 
 // 内容类型: string, url, quote_string, code, markdown
 // 能够写原始的markdown，能够指向链接，能够quote部分文字
@@ -28,7 +30,7 @@ grammar PluginDoc;
 // @pluginUDFExample
 
 waterdropPlugin
-    : WaterdropPlugin pluginBlock (udfBlock)*
+    : WaterdropPlugin pluginBlock EOF
     ;
 
 pluginBlock
@@ -82,11 +84,7 @@ optionName
     ;
 
 optionDesc
-    : 'desc' | 'desc2'// TODO
-    ;
-
-udfBlock
-    : 'tet'
+    : TEXT
     ;
 
 WaterdropPlugin : '@waterdropPlugin';
@@ -120,6 +118,10 @@ ARRAY : 'array';
 BOOLEAN : 'boolean';
 NULL : 'null';
 
+// IDENTIFIER should be placed before TEXT to be matched first
+// IDENTIFIER should be placed before VERSION_NUMBER to be matched first
+IDENTIFIER : [a-zA-Z_] [a-zA-Z_0-9]* ('.' [a-zA-Z_0-9]+)*;
+
 VERSION_NUMBER : [0-9]+ '.' [0-9]+ '.' + [0-9]+;
 
 URL : ('http' 's'? '://')? URL_VALID_CHARS ('.' URL_VALID_CHARS)+ ('/' | URL_PATH_FRAGMENT)* ('?' URL_PARAMS)?;
@@ -136,11 +138,8 @@ fragment URL_VALID_CHARS
     : [0-9a-z_-]+
     ;
 
-// IDENTIFIER should be placed before TEXT to be matched first
-IDENTIFIER : [a-zA-Z_] [a-zA-Z_0-9]* ('.' [a-zA-Z_0-9]+)*;
-
 TEXT
-    : ~( ' ' | '\n' | '\t' )+
+    : '"' ~( '\n' | '\t' )* '"'
     ;
 
 WS
