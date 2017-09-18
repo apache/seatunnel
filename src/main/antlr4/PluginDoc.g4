@@ -1,7 +1,9 @@
 grammar PluginDoc;
 
 // TODO: pluginOption default value 不支持element是string(即包含quote)的array
-// TODO: 允许包含空格的字符串，目前的解决方案是quoted_string, TEXT与IDENTIFIER容易混淆
+// TODO: 允许包含空格的字符串，目前的解决方案是quoted_string, TEXT与IDENTIFIER容易混淆,
+// see: https://stackoverflow.com/questions/6847971/antlr-identifier-with-whitespace
+// https://stackoverflow.com/questions/29060496/allow-whitespace-sections-antlr4
 // TODO: 丰富的plugin description, option description无法用简单的rule来表达, 需要直接引入markdown
 // TODO: udfs
 
