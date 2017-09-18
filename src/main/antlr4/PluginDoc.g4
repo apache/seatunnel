@@ -1,6 +1,6 @@
 grammar PluginDoc;
 
-// TODO: pluginOption is_required, default value
+// TODO: pluginOption default value
 // TODO: 允许包含空格的字符串，目前的解决方案是quoted_string, TEXT与IDENTIFIER容易混淆
 // TODO: 丰富的plugin description, option description无法用简单的rule来表达, 需要直接引入markdown
 // TODO: udfs
@@ -72,7 +72,7 @@ pluginVersion
     ;
 
 pluginOption
-    : PluginOption optionType optionName (optionDesc)?
+    : PluginOption optionType optionName optionRequired (optionDesc)?
     ;
 
 optionType
@@ -81,6 +81,10 @@ optionType
 
 optionName
     : IDENTIFIER
+    ;
+
+optionRequired
+    : YES | NO
     ;
 
 optionDesc
@@ -117,6 +121,9 @@ STRING : 'string';
 ARRAY : 'array';
 BOOLEAN : 'boolean';
 NULL : 'null';
+
+YES : 'yes';
+NO : 'no';
 
 // IDENTIFIER should be placed before TEXT to be matched first
 // IDENTIFIER should be placed before VERSION_NUMBER to be matched first

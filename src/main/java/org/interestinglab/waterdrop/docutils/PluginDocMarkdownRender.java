@@ -43,7 +43,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
         str.append("| --- | --- | --- | --- |\n");
         for (PluginDoc.PluginOption option : pluginDoc.getPluginOptions()) {
             str.append(String.format("| %s | %s | %s | %s |\n",
-                    option.getOptionName(), option.getOptionType(), option.isRequired(), "null"));
+                    option.getOptionName(), option.getOptionType(), option.getRequired().toString(), option.getDefaultValue()));
         }
 
         // append option details
@@ -171,18 +171,25 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
     @Override
     public String visitPluginOption(PluginDocParser.PluginOptionContext ctx) {
 
-        if (ctx.optionType() == null || ctx.optionName() == null) {
+        if (ctx.optionType() == null || ctx.optionName() == null || ctx.optionRequired() == null) {
             throw new RuntimeException("visitPluginOption 1");
         }
 
         final String optionType = visit(ctx.optionType());
         final String optionName = visit(ctx.optionName());
+        final String optionRequired = visit(ctx.optionRequired());
+
+        PluginDoc.PluginOption.Required required = PluginDoc.PluginOption.Required.YES;
+        if (optionRequired.equals(PluginDoc.PluginOption.Required.NO.toString())) {
+            required = PluginDoc.PluginOption.Required.NO;
+        }
+
         String optionDesc = "";
         if (ctx.optionDesc() != null) {
             optionDesc = visit(ctx.optionDesc());
         }
 
-        PluginDoc.PluginOption option = new PluginDoc.PluginOption(optionType, optionName, optionDesc);
+        PluginDoc.PluginOption option = new PluginDoc.PluginOption(optionType, optionName, required, optionDesc);
         pluginDoc.getPluginOptions().add(option);
 
         return null;
@@ -206,6 +213,22 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
         }
 
         return ctx.IDENTIFIER().getText();
+    }
+
+    @Override
+    public String visitOptionRequired(PluginDocParser.OptionRequiredContext ctx) {
+
+        if (ctx.YES() != null) {
+
+            return PluginDoc.PluginOption.Required.YES.toString();
+
+        } else if (ctx.NO() != null) {
+
+            return PluginDoc.PluginOption.Required.NO.toString();
+
+        } else {
+            throw new RuntimeException("invalid option required in @" + PluginDocLexer.ruleNames[PluginDocLexer.PluginOption - 1]);
+        }
     }
 
     @Override

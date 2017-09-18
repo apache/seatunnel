@@ -2,7 +2,6 @@ package org.interestinglab.waterdrop.docutils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by gaoyingju on 17/09/2017.
@@ -19,14 +18,47 @@ public class PluginDoc {
 
     public static class PluginOption {
 
+        public String getDefaultValue() {
+            return defaultValue;
+        }
+
+        public void setDefaultValue(String defaultValue) {
+            this.defaultValue = defaultValue;
+        }
+
+        public enum Required {
+            YES("yes"),
+            NO("no")
+            ;
+
+            private final String text;
+
+            /**
+             * @param text
+             */
+            Required(final String text) {
+                this.text = text;
+            }
+
+            /* (non-Javadoc)
+             * @see java.lang.Enum#toString()
+             */
+            @Override
+            public String toString() {
+                return text;
+            }
+        }
+
         private String optionType;
         private String optionName;
-        private String optionDesc;
-        private boolean required = true;
+        private String optionDesc = "";
+        private Required required = Required.YES;
+        private String defaultValue = "-";
 
-        public PluginOption(final String optionType, final String optionName, final String optionDesc) {
+        public PluginOption(final String optionType, final String optionName, final Required required, final String optionDesc) {
             this.optionType = optionType;
             this.optionName = optionName;
+            this.required = required;
             this.optionDesc = optionDesc;
         }
 
@@ -54,18 +86,14 @@ public class PluginDoc {
             this.optionDesc = optionDesc;
         }
 
-        public boolean isRequired() {
+        public Required getRequired() {
             return required;
         }
 
-        public void setRequired(boolean required) {
+        public void setRequired(Required required) {
             this.required = required;
         }
     }
-
-//    public static PluginOption newPluginOption(final String optionType, final String optionName, final String optionDesc) {
-//        return new PluginOption(optionType, optionName, optionDesc);
-//    }
 
     public String getPluginGroup() {
         return pluginGroup;
