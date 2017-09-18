@@ -40,6 +40,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
 
         // append markdown table
         str.append("| name | type | required | default value |\n");
+        str.append("| --- | --- | --- | --- |\n");
         for (PluginDoc.PluginOption option : pluginDoc.getPluginOptions()) {
             str.append(String.format("| %s | %s | %s | %s |\n",
                     option.getOptionName(), option.getOptionType(), option.isRequired(), "null"));
