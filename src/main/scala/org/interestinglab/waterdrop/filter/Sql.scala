@@ -1,9 +1,13 @@
 package org.interestinglab.waterdrop.filter
 
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class Sql(var conf: Config) extends BaseFilter(conf) {
+
+  def this() = {
+    this(ConfigFactory.empty())
+  }
 
   override def checkConfig(): (Boolean, String) = {
     // TODO

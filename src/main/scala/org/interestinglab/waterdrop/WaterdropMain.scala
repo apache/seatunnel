@@ -5,6 +5,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.interestinglab.waterdrop.config.ConfigBuilder
+import org.interestinglab.waterdrop.filter.UdfRegister
 
 object WaterdropMain {
 
@@ -14,6 +15,9 @@ object WaterdropMain {
     val duration = 15;
     val ssc = new StreamingContext(sparkConf, Seconds(duration))
     val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
+
+    // find all user defined UDFs and register in application init
+    UdfRegister.findAndRegisterUdfs(sparkSession)
 
     val configBuilder = new ConfigBuilder
     val inputs = configBuilder.createInputs()

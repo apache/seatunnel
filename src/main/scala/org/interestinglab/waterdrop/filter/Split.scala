@@ -2,12 +2,16 @@ package org.interestinglab.waterdrop.filter
 
 import scala.collection.JavaConversions._
 import org.apache.spark.sql.types._
-import com.typesafe.config.{Config, ConfigValueFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 
 class Split(var conf: Config) extends BaseFilter(conf) {
+
+  def this() = {
+    this(ConfigFactory.empty())
+  }
 
   override def checkConfig(): (Boolean, String) = {
     // TODO
