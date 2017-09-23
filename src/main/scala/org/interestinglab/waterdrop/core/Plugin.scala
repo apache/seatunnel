@@ -1,5 +1,11 @@
 package org.interestinglab.waterdrop.core
 
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.streaming.StreamingContext
+
+/**
+ * checkConfig --> prepare
+ */
 abstract class Plugin extends Serializable {
 
   /**
@@ -11,4 +17,9 @@ abstract class Plugin extends Serializable {
    * Get Plugin Name.
    */
   def name: String = this.getClass.getName
+
+  /**
+   * Prepare before running, do things like set config default value, add broadcast variable, accumulator.
+   */
+  def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {}
 }

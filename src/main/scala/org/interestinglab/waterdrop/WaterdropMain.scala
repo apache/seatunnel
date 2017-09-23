@@ -13,6 +13,7 @@ object WaterdropMain {
     val sparkConf = new SparkConf()
     val duration = 15;
     val ssc = new StreamingContext(sparkConf, Seconds(duration))
+    val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
 
     val configBuilder = new ConfigBuilder
     val inputs = configBuilder.createInputs()
@@ -34,16 +35,17 @@ object WaterdropMain {
     }
 
     for (i <- inputs) {
-      i.prepare(ssc)
+      i.prepare(sparkSession, ssc)
     }
 
     for (o <- outputs) {
-      o.prepare(ssc)
+      o.prepare(sparkSession, ssc)
     }
 
-    //for (f <- filters) {
-    //  f.prepare(ssc)
-    //}
+    for (f <- filters) {
+      f.prepare(sparkSession, ssc)
+    }
+
     val dStream = inputs.head.getDstream().mapPartitions { partitions =>
       val strIterator = partitions.map(r => r._2)
       val strList = strIterator.toList
@@ -57,17 +59,13 @@ object WaterdropMain {
         rows.iterator
       }
 
-      val sqlContext = SparkSession.builder().getOrCreate()
+      val spark = SparkSession.builder.config(rowsRDD.sparkContext.getConf).getOrCreate()
 
       val schema = StructType(Array(StructField("raw_message", StringType)))
-      var df = sqlContext.createDataFrame(rowsRDD, schema)
+      var df = spark.createDataFrame(rowsRDD, schema)
 
       for (f <- filters) {
-        f.prepare(sqlContext)
-      }
-
-      for (f <- filters) {
-        df = f.filter(df, sqlContext)
+        df = f.process(spark, df)
         df.show()
       }
 
