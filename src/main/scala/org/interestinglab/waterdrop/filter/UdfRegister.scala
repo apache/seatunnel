@@ -21,13 +21,15 @@ object UdfRegister {
 
       f.getUdfList()
         .foreach(udf => {
-          spark.udf.register(udf._1, udf._2)
+          val (udfName, udfImpl) = udf
+          spark.udf.register(udfName, udfImpl)
           udfCount += 1
         })
 
       f.getUdafList()
         .foreach(udaf => {
-          spark.udf.register(udaf._1, udaf._2)
+          val (udafName, udafImpl) = udaf
+          spark.udf.register(udafName, udafImpl)
           udafCount += 1
         })
     })
