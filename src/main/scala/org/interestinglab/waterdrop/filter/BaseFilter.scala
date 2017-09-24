@@ -1,30 +1,23 @@
 package org.interestinglab.waterdrop.filter
 
 import com.typesafe.config.Config
+import org.apache.spark.sql.expressions.{UserDefinedAggregateFunction, UserDefinedFunction}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.interestinglab.waterdrop.core.Plugin
 
 abstract class BaseFilter(val config: Config) extends Plugin {
 
-  var sqlContext:SparkSession = _
+  def process(spark: SparkSession, df: DataFrame): DataFrame
 
-  def filter(df: DataFrame, sqlContext: SparkSession): (DataFrame) = {
+  /**
+   * Allow to register user defined UDFs
+   * @return empty list if there is no UDFs to be registered
+   * */
+  def getUdfList(): List[(String, UserDefinedFunction)] = List.empty
 
-    prepare(sqlContext)
-    process(df)
-    //postProcess(processedEvents, isSuccess)
-  }
-
-  def prepare(sqlContext:SparkSession) : Unit = {
-
-    this.sqlContext = sqlContext
-  }
-
-  def process(df: DataFrame): DataFrame
-
-  def postProcess(df: DataFrame, isSuccess: List[Boolean]): (DataFrame, List[Boolean]) = {
-    val defaultTagOnFailure = "_tag"
-
-    (df, isSuccess)
-  }
+  /**
+   * Allow to register user defined UDAFs
+   * @return empty list if there is no UDAFs to be registered
+   * */
+  def getUdafList(): List[(String, UserDefinedAggregateFunction)] = List.empty
 }
