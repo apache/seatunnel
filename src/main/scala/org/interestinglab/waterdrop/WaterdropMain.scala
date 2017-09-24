@@ -50,7 +50,11 @@ object WaterdropMain {
       f.prepare(sparkSession, ssc)
     }
 
-    val dStream = inputs.head.getDStream.mapPartitions { partitions =>
+    val joinedDStream = inputs.reduce((input1, input2) => {
+      input1.getDStream.join(input2.getDStream)
+    })
+
+    val dStream = joinedDStream.mapPartitions { partitions =>
       val strIterator = partitions.map(r => r._2)
       val strList = strIterator.toList
       strList.iterator
