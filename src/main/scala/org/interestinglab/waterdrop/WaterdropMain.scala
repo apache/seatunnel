@@ -74,7 +74,11 @@ object WaterdropMain {
       }
 
       inputs.head.beforeOutput
-      outputs.head.process(df)
+
+      outputs.foreach(p => {
+        p.process(df)
+      })
+
       inputs.head.afterOutput
 
     }
