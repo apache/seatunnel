@@ -6,10 +6,16 @@ import org.interestinglab.waterdrop.core.Plugin
 
 abstract class BaseInput(config: Config) extends Plugin {
 
-  def getDstream(): DStream[(String, String)]
+  def getDStream: DStream[(String, String)]
 
-  def beforeOutput
+  /**
+   * Things to do after filter and before output
+   * */
+  def beforeOutput: Unit = {}
 
-  def afterOutput
+  /**
+   * Things to do after output, such as update offset
+   * */
+  def afterOutput: Unit = {}
 
 }

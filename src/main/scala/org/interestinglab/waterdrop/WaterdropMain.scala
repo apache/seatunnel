@@ -50,7 +50,7 @@ object WaterdropMain {
       f.prepare(sparkSession, ssc)
     }
 
-    val dStream = inputs.head.getDstream().mapPartitions { partitions =>
+    val dStream = inputs.head.getDStream.mapPartitions { partitions =>
       val strIterator = partitions.map(r => r._2)
       val strList = strIterator.toList
       strList.iterator
@@ -73,13 +73,17 @@ object WaterdropMain {
         df.show()
       }
 
-      inputs.head.beforeOutput
+      inputs.foreach(p => {
+        p.beforeOutput
+      })
 
       outputs.foreach(p => {
         p.process(df)
       })
 
-      inputs.head.afterOutput
+      inputs.foreach(p => {
+        p.afterOutput
+      })
 
     }
 

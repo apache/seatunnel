@@ -62,14 +62,14 @@ class Kafka(config: Config) extends BaseInput(config) {
     })
   }
 
-  def beforeOutput() {}
+  override def beforeOutput {}
 
-  def afterOutput() {
+  override def afterOutput {
     //消费完的同时，更新offset
     km.updateZKOffsetsFromoffsetRanges(offsetRanges)
   }
 
-  def getDstream(): DStream[(String, String)] = dstream.get
+  override def getDStream: DStream[(String, String)] = dstream.get
 }
 
 class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
