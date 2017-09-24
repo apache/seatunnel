@@ -6,6 +6,9 @@ import org.interestinglab.waterdrop.core.Plugin
 
 abstract class BaseInput(config: Config) extends Plugin {
 
+  /**
+   * No matter what kind of Input it is, all you have to do is create a DStream to be used latter
+   * */
   def getDStream: DStream[(String, String)]
 
   /**
