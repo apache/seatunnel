@@ -4,6 +4,7 @@ import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.streaming.dstream.DStream
 import org.interestinglab.waterdrop.config.ConfigBuilder
 import org.interestinglab.waterdrop.filter.UdfRegister
 
@@ -50,7 +51,15 @@ object WaterdropMain {
       f.prepare(sparkSession, ssc)
     }
 
-    val dStream = inputs.head.getDstream().mapPartitions { partitions =>
+    val dstreamList = inputs.map(p => {
+      p.getDStream
+    })
+
+    val unionedDStream = dstreamList.reduce((d1, d2) => {
+      d1.union(d2)
+    })
+
+    val dStream = unionedDStream.mapPartitions { partitions =>
       val strIterator = partitions.map(r => r._2)
       val strList = strIterator.toList
       strList.iterator
@@ -73,9 +82,17 @@ object WaterdropMain {
         df.show()
       }
 
-      inputs.head.beforeOutput
-      outputs.head.process(df)
-      inputs.head.afterOutput
+      inputs.foreach(p => {
+        p.beforeOutput
+      })
+
+      outputs.foreach(p => {
+        p.process(df)
+      })
+
+      inputs.foreach(p => {
+        p.afterOutput
+      })
 
     }
 
