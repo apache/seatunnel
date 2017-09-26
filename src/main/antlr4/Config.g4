@@ -14,7 +14,11 @@ grammar Config;
 import BoolExpr;
 
 config
-    : COMMENT* 'input' inputBlock COMMENT* 'filter' filterBlock COMMENT* 'output' outputBlock COMMENT* EOF
+    : COMMENT* 'spark' sparkBlock COMMENT* 'input' inputBlock COMMENT* 'filter' filterBlock COMMENT* 'output' outputBlock COMMENT* EOF
+    ;
+
+sparkBlock
+    : entries
     ;
 
 inputBlock
