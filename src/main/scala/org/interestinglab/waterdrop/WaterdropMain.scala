@@ -35,7 +35,8 @@ object WaterdropMain {
     println("[INFO] loading SparkConf: ")
     val sparkConf = createSparkConf(configBuilder)
     sparkConf.getAll.foreach(entry => {
-      println("\t" + entry._1 + " => " + entry._2)
+      val (key, value) = entry
+      println("\t" + key + " => " + value)
     })
 
     val duration = sparkConfig.getLong("spark.streaming.batchDuration")
