@@ -4,7 +4,6 @@ import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.streaming.dstream.DStream
 import org.interestinglab.waterdrop.config.ConfigBuilder
 import org.interestinglab.waterdrop.filter.UdfRegister
 
