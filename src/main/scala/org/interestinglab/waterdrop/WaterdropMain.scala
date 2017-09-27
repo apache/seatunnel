@@ -1,10 +1,10 @@
 package org.interestinglab.waterdrop
 
+import scala.collection.JavaConversions._
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.streaming.dstream.DStream
 import org.interestinglab.waterdrop.config.ConfigBuilder
 import org.interestinglab.waterdrop.filter.UdfRegister
 
@@ -12,18 +12,11 @@ object WaterdropMain {
 
   def main(args: Array[String]) {
 
-    val sparkConf = new SparkConf()
-    val duration = 15;
-    val ssc = new StreamingContext(sparkConf, Seconds(duration))
-    val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
-
-    // find all user defined UDFs and register in application init
-    UdfRegister.findAndRegisterUdfs(sparkSession)
-
     val configBuilder = new ConfigBuilder
-    val inputs = configBuilder.createInputs()
-    val outputs = configBuilder.createOutputs()
-    val filters = configBuilder.createFilters()
+    val sparkConfig = configBuilder.getSparkConfigs
+    val inputs = configBuilder.createInputs
+    val outputs = configBuilder.createOutputs
+    val filters = configBuilder.createFilters
 
     var configValid = true
     val plugins = inputs ::: filters ::: outputs
@@ -38,6 +31,20 @@ object WaterdropMain {
     if (!configValid) {
       System.exit(-1) // invalid configuration
     }
+
+    println("[INFO] loading SparkConf: ")
+    val sparkConf = createSparkConf(configBuilder)
+    sparkConf.getAll.foreach(entry => {
+      val (key, value) = entry
+      println("\t" + key + " => " + value)
+    })
+
+    val duration = sparkConfig.getLong("spark.streaming.batchDuration")
+    val ssc = new StreamingContext(sparkConf, Seconds(duration))
+    val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
+
+    // find all user defined UDFs and register in application init
+    UdfRegister.findAndRegisterUdfs(sparkSession)
 
     for (i <- inputs) {
       i.prepare(sparkSession, ssc)
@@ -98,5 +105,17 @@ object WaterdropMain {
 
     ssc.start()
     ssc.awaitTermination()
+  }
+
+  private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
+    val sparkConf = new SparkConf()
+
+    configBuilder.getSparkConfigs
+      .entrySet()
+      .foreach(entry => {
+        sparkConf.set(entry.getKey, String.valueOf(entry.getValue.unwrapped()))
+      })
+
+    sparkConf
   }
 }

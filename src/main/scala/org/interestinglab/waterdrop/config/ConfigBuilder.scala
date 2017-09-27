@@ -17,8 +17,7 @@ class ConfigBuilder {
 
     val configFile = System.getProperty("config.path", "");
     if (configFile == "") {
-      // TODO: 不写return,该怎么写？
-      // TODO: 如何抛出异常
+      throw new ConfigRuntimeException("Please specify config.path")
     }
 
     println("[INFO] Loading config file: " + configFile)
@@ -39,7 +38,11 @@ class ConfigBuilder {
     parsedConfig
   }
 
-  def createFilters(): List[BaseFilter] = {
+  def getSparkConfigs: Config = {
+    config.getConfig("spark")
+  }
+
+  def createFilters: List[BaseFilter] = {
 
     var filterList = List[BaseFilter]()
     config
@@ -59,7 +62,7 @@ class ConfigBuilder {
     filterList
   }
 
-  def createInputs(): List[BaseInput] = {
+  def createInputs: List[BaseInput] = {
 
     var inputList = List[BaseInput]()
     config
@@ -79,7 +82,7 @@ class ConfigBuilder {
     inputList
   }
 
-  def createOutputs(): List[BaseOutput] = {
+  def createOutputs: List[BaseOutput] = {
 
     var outputList = List[BaseOutput]()
     config

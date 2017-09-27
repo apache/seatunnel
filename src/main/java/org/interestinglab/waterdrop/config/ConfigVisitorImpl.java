@@ -26,22 +26,37 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         Config configuration = ConfigFactory.empty();
 
+        if (ctx.sparkBlock() != null) {
+            final Config sparkConfigs = visit(ctx.sparkBlock());
+            configuration = configuration.withValue("spark", sparkConfigs.root());
+        }
+
         if (ctx.inputBlock() != null) {
-            Config inputPluginList = visit(ctx.inputBlock());
+            final Config inputPluginList = visit(ctx.inputBlock());
             configuration = configuration.withValue("input", inputPluginList.getValue("input"));
         }
 
         if (ctx.filterBlock() != null) {
-            Config filtertPluginList = visit(ctx.filterBlock());
+            final Config filtertPluginList = visit(ctx.filterBlock());
             configuration = configuration.withValue("filter", filtertPluginList.getValue("filter"));
         }
 
         if (ctx.outputBlock() != null) {
-            Config outputPluginList = visit(ctx.outputBlock());
+            final Config outputPluginList = visit(ctx.outputBlock());
             configuration = configuration.withValue("output", outputPluginList.getValue("output"));
         }
 
         return configuration;
+    }
+
+    @Override
+    public Config visitSparkBlock(ConfigParser.SparkBlockContext ctx) {
+
+        if (ctx.entries() != null) {
+            return visit(ctx.entries());
+        }
+
+        throw new ConfigRuntimeException("Spark Configs must be specified !");
     }
 
     @Override
@@ -52,7 +67,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
         List<ConfigValue> statements = new ArrayList<>();
         for (ConfigParser.StatementContext statementContext: ctx.statement()) {
 
-            Config statement = visit(statementContext);
+            final Config statement = visit(statementContext);
             if (statement != null && !statement.isEmpty()) {
                 statements.add(statement.root());
             }
@@ -70,7 +85,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
         List<ConfigValue> statements = new ArrayList<>();
         for (ConfigParser.StatementContext statementContext: ctx.statement()) {
 
-            Config statement = visit(statementContext);
+            final Config statement = visit(statementContext);
             if (statement != null && !statement.isEmpty()) {
                 statements.add(statement.root());
             }
@@ -86,7 +101,7 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
 
         Config inputPluginList = ConfigFactory.empty();
 
-        List<ConfigValue> pluginList = new ArrayList<>();
+        final List<ConfigValue> pluginList = new ArrayList<>();
         for (ConfigParser.PluginContext pluginContext : ctx.plugin()) {
 
             final Config config = visit(pluginContext);
@@ -218,8 +233,8 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
     public Config visitArray(ConfigParser.ArrayContext ctx) {
 
         ConfigValue value = ConfigValueFactory.fromAnyRef(null);
-        List<ConfigParser.ValueContext> valueContexts = ctx.value();
-        List<ConfigValue> configValues = new ArrayList<>();
+        final List<ConfigParser.ValueContext> valueContexts = ctx.value();
+        final List<ConfigValue> configValues = new ArrayList<>();
         for (ConfigParser.ValueContext valueContext : valueContexts) {
 
             Config config = visit(valueContext);
