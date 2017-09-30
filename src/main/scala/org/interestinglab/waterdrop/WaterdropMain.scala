@@ -86,7 +86,6 @@ object WaterdropMain {
 
       for (f <- filters) {
         df = f.process(spark, df)
-        df.show()
       }
 
       inputs.foreach(p => {
