@@ -69,7 +69,7 @@ class Split(var conf: Config) extends BaseFilter(conf) {
    * Split string by delimiter, if size of splited parts is less than fillLength,
    * empty string is filled; if greater than fillLength, parts will be truncated.
    * */
-  private def split(str: String, delimiter: String, fillLength: Int): Seq[Any] = {
+  private def split(str: String, delimiter: String, fillLength: Int): Seq[String] = {
     val parts = str.split(delimiter).map(_.trim)
     val filled = (fillLength compare parts.size) match {
       case 0 => parts
