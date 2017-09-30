@@ -43,18 +43,20 @@ class Split(var conf: Config) extends BaseFilter(conf) {
     // https://stackoverflow.com/a/33345698/1145750
     conf.getString("target_field") match {
       case Json.ROOT => {
+        val valueSchema = structField()
         val rows = df.rdd.map { r =>
-          Row.fromSeq(r.toSeq ++ udfFunc(r.getAs[String](srcField)))
+          val values = split(r.getAs[String](srcField), conf.getString("delimiter"), valueSchema.size)
+          Row.fromSeq(r.toSeq ++ values)
         }
 
-        val schema = StructType(df.schema.fields ++ structField())
+        val schema = StructType(df.schema.fields ++ valueSchema)
 
         spark.createDataFrame(rows, schema)
       }
-      case targetField : String => {
+      case targetField: String => {
         val func = udf((s: String) => {
-          val parts = s.split(conf.getString("delimiter")).map(_.trim)
-          val kvs = (keys zip parts).toMap
+          val values = split(s, conf.getString("delimiter"), keys.size)
+          val kvs = (keys zip values).toMap
           kvs
         })
 
@@ -63,10 +65,18 @@ class Split(var conf: Config) extends BaseFilter(conf) {
     }
   }
 
-  private def udfFunc(str: String): Seq[Any] = {
-
-    val parts = str.split(conf.getString("delimiter")).map(_.trim)
-    parts.toSeq
+  /**
+   * Split string by delimiter, if size of splited parts is less than fillLength,
+   * empty string is filled; if greater than fillLength, parts will be truncated.
+   * */
+  private def split(str: String, delimiter: String, fillLength: Int): Seq[Any] = {
+    val parts = str.split(delimiter).map(_.trim)
+    val filled = (fillLength compare parts.size) match {
+      case 0 => parts
+      case 1 => parts ++ Array.fill[String](fillLength - parts.size)("")
+      case -1 => parts.slice(0, fillLength)
+    }
+    filled.toSeq
   }
 
   private def structField(): Array[StructField] = {
