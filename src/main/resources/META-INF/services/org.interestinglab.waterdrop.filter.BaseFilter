@@ -1,2 +1,4 @@
+org.interestinglab.waterdrop.filter.Date
+org.interestinglab.waterdrop.filter.Json
 org.interestinglab.waterdrop.filter.Split
 org.interestinglab.waterdrop.filter.Sql
