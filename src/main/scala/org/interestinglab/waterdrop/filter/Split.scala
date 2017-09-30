@@ -1,11 +1,11 @@
 package org.interestinglab.waterdrop.filter
 
-import scala.collection.JavaConversions._
 import org.apache.spark.sql.types._
-import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
+import scala.collection.JavaConversions._
 
 class Split(var conf: Config) extends BaseFilter(conf) {
 
@@ -14,14 +14,23 @@ class Split(var conf: Config) extends BaseFilter(conf) {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    // TODO
-    (true, "")
+    conf.hasPath("fields") && conf.getStringList("fields").size() > 0 match {
+      case true => (true, "")
+      case false => (false, "please specify [fields] as a non-empty string list")
+    }
   }
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    if (!conf.hasPath("delimiter")) {
-      conf = conf.withValue("delimiter", ConfigValueFactory.fromAnyRef(" "))
-    }
+
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "delimiter" -> " ",
+        "source_field" -> "raw_message",
+        "target_field" -> Json.ROOT
+      )
+    )
+
+    conf = conf.withFallback(defaultConfig)
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
@@ -29,26 +38,28 @@ class Split(var conf: Config) extends BaseFilter(conf) {
     import spark.sqlContext.implicits
 
     val srcField = conf.getString("source_field")
+    val keys = conf.getStringList("fields")
 
-    val keys = conf.getStringList("keys")
-    if (conf.hasPath("target_field")) {
-      val targetField = conf.getString("target_field")
-      val func = udf((s: String) => {
-        val parts = s.split(conf.getString("delimiter")).map(_.trim)
-        val kvs = (keys zip parts).toMap
-        kvs
-      })
+    // https://stackoverflow.com/a/33345698/1145750
+    conf.getString("target_field") match {
+      case Json.ROOT => {
+        val rows = df.rdd.map { r =>
+          Row.fromSeq(r.toSeq ++ udfFunc(r.getAs[String](srcField)))
+        }
 
-      df.withColumn(targetField, func(col(srcField)))
-    } else {
-      val rows = df.rdd.map { r =>
-        Row.fromSeq(r.toSeq ++ udfFunc(r.getAs[String](srcField)))
+        val schema = StructType(df.schema.fields ++ structField())
+
+        spark.createDataFrame(rows, schema)
       }
+      case targetField : String => {
+        val func = udf((s: String) => {
+          val parts = s.split(conf.getString("delimiter")).map(_.trim)
+          val kvs = (keys zip parts).toMap
+          kvs
+        })
 
-      val schema = StructType(df.schema.fields ++ structField())
-
-      // TODO: 为什么要createDataFrame
-      spark.createDataFrame(rows, schema)
+        df.withColumn(targetField, func(col(srcField)))
+      }
     }
   }
 
@@ -61,7 +72,7 @@ class Split(var conf: Config) extends BaseFilter(conf) {
   private def structField(): Array[StructField] = {
     import org.apache.spark.sql.types._
 
-    val keysList = conf.getStringList("keys")
+    val keysList = conf.getStringList("fields")
     val keys = keysList.toArray
 
     keys.map(key => StructField(key.asInstanceOf[String], StringType))
