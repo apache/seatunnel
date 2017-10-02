@@ -21,7 +21,7 @@ class Drop(var conf: Config) extends BaseFilter(conf) {
         } catch {
           case parseEx: ParseException =>
             (false, "failed to parse [condition], caught exception: " + parseEx.getMessage())
-          case unknownEx: Throwable => (false, unknownEx.getMessage)
+          case unknownEx: Exception => (false, unknownEx.getMessage)
         }
       }
       case false => (false, "please specify [condition]")

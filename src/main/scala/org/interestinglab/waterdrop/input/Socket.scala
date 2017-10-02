@@ -22,12 +22,15 @@ class Socket(config: Config) extends BaseInput(config) {
       ))
     val mergedConfig = config.withFallback(defaultConfig)
 
-    dstream = Some(ssc.socketTextStream(mergedConfig.getString("host"), mergedConfig.getInt("port")).map(s => {
-      ("",s)
-    }))
+    dstream = Some(
+      ssc
+        .socketTextStream(mergedConfig.getString("host"), mergedConfig.getInt("port"))
+        .map(s => {
+          ("", s)
+        }))
   }
 
   override def getDStream: DStream[(String, String)] = {
-    dstream.get
+    dstream.orNull
   }
 }
