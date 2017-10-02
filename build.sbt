@@ -15,7 +15,8 @@ libraryDependencies ++= Seq(
     exclude("org.spark-project.spark", "unused"),
   "com.typesafe" % "config" % "1.3.1",
   "org.json4s" %% "json4s-jackson" % "3.2.11",
-  "commons-lang" % "commons-lang" % "2.6"
+  "commons-lang" % "commons-lang" % "2.6",
+  "io.thekraken" % "grok" % "0.1.5"
 )
 
 resolvers += Resolver.mavenLocal
