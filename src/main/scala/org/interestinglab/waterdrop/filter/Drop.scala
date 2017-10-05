@@ -4,6 +4,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.catalyst.parser.ParseException
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.functions.not
+import scala.util.control.NonFatal
 
 class Drop(var conf: Config) extends BaseFilter(conf) {
 
@@ -21,7 +22,7 @@ class Drop(var conf: Config) extends BaseFilter(conf) {
         } catch {
           case parseEx: ParseException =>
             (false, "failed to parse [condition], caught exception: " + parseEx.getMessage())
-          case unknownEx: Exception => (false, unknownEx.getMessage)
+          case NonFatal(e) => (false, e.getMessage)
         }
       }
       case false => (false, "please specify [condition]")
