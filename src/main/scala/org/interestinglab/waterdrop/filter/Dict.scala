@@ -17,7 +17,7 @@ class Dict(var conf: Config) extends BaseFilter(conf) {
   // headers
   // source_field
   // dict_field
-  // join method: self implemented by broadcast variable, 2 dataframe join(确保是broadcast join)
+  // join method: self implemented by broadcast variable, 2 dataframe join(make sure it is broadcast join)
   override def checkConfig(): (Boolean, String) = {
     conf.hasPath("file_url") && conf.hasPath("headers") && conf.hasPath("source_field") && conf.hasPath("dict_field") match {
       case true => {
