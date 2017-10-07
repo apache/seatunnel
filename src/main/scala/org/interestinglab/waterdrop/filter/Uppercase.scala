@@ -3,6 +3,7 @@ package org.interestinglab.waterdrop.filter
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.sql.functions.{col, upper}
 import scala.collection.JavaConversions._
 
 class Uppercase(var conf: Config) extends BaseFilter(conf) {
@@ -25,6 +26,6 @@ class Uppercase(var conf: Config) extends BaseFilter(conf) {
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
-    df
+    df.withColumn(conf.getString("target_field"), upper(col(conf.getString("source_field"))))
   }
 }

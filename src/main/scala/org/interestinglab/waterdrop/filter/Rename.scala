@@ -25,6 +25,6 @@ class Rename(var conf: Config) extends BaseFilter(conf) {
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
-    df
+    df.withColumnRenamed(conf.getString("source_field"), conf.getString("target_field"))
   }
 }
