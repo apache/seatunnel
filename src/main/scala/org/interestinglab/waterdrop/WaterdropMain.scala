@@ -24,7 +24,7 @@ object WaterdropMain {
       val (isValid, msg) = p.checkConfig
       if (!isValid) {
         configValid = false
-        printf("Plugin[%s] contains invalid config, error: \n", p.name, msg)
+        printf("Plugin[%s] contains invalid config, error: %s\n", p.name, msg)
       }
     }
 
@@ -86,7 +86,6 @@ object WaterdropMain {
 
       for (f <- filters) {
         df = f.process(spark, df)
-        df.show()
       }
 
       inputs.foreach(p => {

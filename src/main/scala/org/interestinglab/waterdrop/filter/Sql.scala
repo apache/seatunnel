@@ -10,8 +10,10 @@ class Sql(var conf: Config) extends BaseFilter(conf) {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    // TODO
-    (true, "")
+    conf.hasPath("table_name") && conf.hasPath("sql") match {
+      case true => (true, "")
+      case false => (false, "please specify [table_name] and [sql]")
+    }
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
