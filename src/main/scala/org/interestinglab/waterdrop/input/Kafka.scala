@@ -1,7 +1,6 @@
 package org.interestinglab.waterdrop.input
 
 import kafka.serializer.StringDecoder
-
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.kafka.OffsetRange
@@ -9,9 +8,9 @@ import org.apache.spark.streaming.kafka.HasOffsetRanges
 import org.apache.spark.SparkException
 import org.apache.spark.streaming.dstream.DStream
 import com.typesafe.config.Config
-
 import _root_.kafka.message.MessageAndMetadata
 import _root_.kafka.common.TopicAndPartition
+import org.apache.spark.sql.SparkSession
 
 class Kafka(config: Config) extends BaseInput(config) {
 
@@ -31,7 +30,8 @@ class Kafka(config: Config) extends BaseInput(config) {
     (true, "")
   }
 
-  def prepare(ssc: StreamingContext) {
+  override def prepare(spark : SparkSession, ssc: StreamingContext) {
+    super.prepare(spark, ssc)
     // kafka params from spark kafka stream api doc
     val kafkaParams = Map[String, String](
       "bootstrap.servers" -> consumerConfig.getString("bootstrap.servers"),
