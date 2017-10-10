@@ -29,7 +29,7 @@ class Json(var conf: Config) extends BaseFilter(conf) {
 
     // TODO:
     df.withColumn("test", col(conf.getString("source_field")))
-    spark.sqlContext.read.json()
+    //spark.sqlContext.read.json()
   }
 }
 
