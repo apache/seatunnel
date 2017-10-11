@@ -7,7 +7,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import scala.collection.JavaConversions._
 
-class Split(var conf: Config) extends BaseFilter(conf) {
+class Split(var conf : Config) extends BaseFilter(conf) {
 
   def this() = {
     this(ConfigFactory.empty())
@@ -54,7 +54,7 @@ class Split(var conf: Config) extends BaseFilter(conf) {
         spark.createDataFrame(rows, schema)
       }
       case targetField: String => {
-        val func = udf((s: String) => {
+        val func = udf((s : String) => {
           val values = split(s, conf.getString("delimiter"), keys.size)
           val kvs = (keys zip values).toMap
           kvs
