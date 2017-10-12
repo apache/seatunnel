@@ -80,7 +80,6 @@ class Split(var conf : Config) extends BaseFilter(conf) {
   }
 
   private def structField(): Array[StructField] = {
-    import org.apache.spark.sql.types._
 
     val keysList = conf.getStringList("fields")
     val keys = keysList.toArray

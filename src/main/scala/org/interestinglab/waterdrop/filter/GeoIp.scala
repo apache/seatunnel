@@ -1,13 +1,13 @@
 package org.interestinglab.waterdrop.filter
 
-//import org.apache.spark.sql.types._
+import org.apache.spark.sql.types._
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import com.maxmind.geoip2.DatabaseReader
 import java.io.File
-import java.net.{InetAddress, UnknownHostException}
+import java.net.InetAddress
 import scala.collection.JavaConversions._
 
 class GeoIp(var conf : Config) extends BaseFilter(conf) {
@@ -30,7 +30,15 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "source" -> "raw_message",
-        "target" -> Json.ROOT
+        "target" -> Json.ROOT,
+        // "country_code" -> true,
+        "country_name" -> true,
+        // "country_isocode" -> false,
+        "subdivision_name" -> true,
+        "city_name" -> true
+        // "latitude" -> false,
+        // "longitude" -> false,
+        // "location" -> false
       )
     )
 
@@ -38,40 +46,35 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
     val database = new File(conf.getString("database"))
     this.reader = new DatabaseReader.Builder(database).build
-//        // "country_code" -> true,
-//        "country_name" -> true,
-//        // "country_isocode" -> false,
-//        "subdivision_name" -> true,
-//        "city_name" -> true,
-//        // "latitude" -> false,
-//        // "longitude" -> false,
-//        // "location" -> false
 
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
-    //import spark.sqlContext.implicits
+    import spark.sqlContext.implicits
 
     val source = conf.getString("source")
 
     conf.getString("target") match {
-      case Json.ROOT => df
+      case Json.ROOT => {
+        val valueSchema = structField()
+        val rows = df.rdd.map { r =>
+          val ip = r.getAs[String](source)
+          // TODO
+          val values =  Seq("")
+          Row.fromSeq(r.toSeq ++ values)
+        }
+        val schema = StructType(df.schema.fields ++ valueSchema)
+
+        spark.createDataFrame(rows, schema)
+
+      }
       case target: String => {
         val func = udf((s: String) => {
           var geoIp: Map[String, String] = Map()
-          var ipAddress: InetAddress = new InetAddress
-
-          try {
-            ipAddress = InetAddress.getByName(s)
-
-          } catch {
-            case e: UnknownHostException => {
-              // TODO
-            }
-            case _: Exception => {
-              // TODO
-            }
+          val ipAddress = InetAddress.getByName(s) match {
+            case address: InetAddress => address
+            case _ => InetAddress.getByName("localhost")
           }
 
           try {
@@ -88,6 +91,10 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
             if (conf.getBoolean("city_name")) {
               geoIp += ("city_name" -> city.getName)
             }
+          } catch {
+            case _: Throwable => {
+              //TODO
+            }
           }
 
           geoIp
@@ -95,5 +102,13 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
         df.withColumn(target, func(col(source)))
       }
     }
+  }
+
+  def structField(): Array[StructField] = {
+
+    val fieldsArr = Array("country_name", "subdivision_name", "city_name")
+    fieldsArr.filter(index => conf.getBoolean(index)).map(key =>
+      StructField(key, StringType)
+    )
   }
 }
