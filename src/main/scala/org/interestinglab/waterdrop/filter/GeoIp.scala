@@ -10,9 +10,12 @@ import java.io.File
 import java.net.InetAddress
 import scala.collection.JavaConversions._
 
+
 class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
   var reader:DatabaseReader = _
+  val fieldsArr = Array("country_name", "subdivision_name", "city_name")
+  var selectedFields = Array[String]()
 
   def this() = {
     this(ConfigFactory.empty())
@@ -44,6 +47,8 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
     conf = conf.withFallback(defaultConfig)
 
+    selectedFields = fieldsArr.filter(field => conf.getBoolean(field))
+
     val database = new File(conf.getString("database"))
     this.reader = new DatabaseReader.Builder(database).build
 
@@ -59,9 +64,13 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
       case Json.ROOT => {
         val valueSchema = structField()
         val rows = df.rdd.map { r =>
+          var values =  Seq.empty[String]
           val ip = r.getAs[String](source)
-          // TODO
-          val values =  Seq("")
+          val geoIp = GeoIp.ipLookUp(ip, this.reader)
+          for(field : String <- this.selectedFields) {
+            values = values :+ (geoIp(field))
+          }
+
           Row.fromSeq(r.toSeq ++ values)
         }
         val schema = StructType(df.schema.fields ++ valueSchema)
@@ -71,33 +80,18 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
       }
       case target: String => {
         val func = udf((s: String) => {
-          var geoIp: Map[String, String] = Map()
-          val ipAddress = InetAddress.getByName(s) match {
-            case address: InetAddress => address
-            case _ => InetAddress.getByName("localhost")
-          }
+          var geo: Map[String, String] = Map()
+          val geoIp = GeoIp.ipLookUp(s, this.reader)
 
-          try {
-            val response = reader.city(ipAddress)
-            val country = response.getCountry()
-            val subdivision = response.getMostSpecificSubdivision()
-            val city = response.getCity()
-            if (conf.getBoolean("country_name")) {
-              geoIp += ("country_name" -> country.getName)
-            }
-            if (conf.getBoolean("subdivision_name")) {
-              geoIp += ("subdivision_name" -> subdivision.getName)
-            }
-            if (conf.getBoolean("city_name")) {
-              geoIp += ("city_name" -> city.getName)
-            }
-          } catch {
-            case _: Throwable => {
-              //TODO
-            }
+          if (conf.getBoolean("country_name")) {
+            geo += ("country_name" -> geoIp("country_name"))
           }
-
-          geoIp
+          if (conf.getBoolean("subdivision_name")) {
+            geo += ("subdivision_name" -> geoIp("subdivision_name"))
+          }
+          if (conf.getBoolean("city_name")) {
+            geo += ("city_name" -> geoIp("city_name"))
+          }
         })
         df.withColumn(target, func(col(source)))
       }
@@ -106,9 +100,42 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
   def structField(): Array[StructField] = {
 
-    val fieldsArr = Array("country_name", "subdivision_name", "city_name")
-    fieldsArr.filter(index => conf.getBoolean(index)).map(key =>
+    this.selectedFields.map(key =>
       StructField(key, StringType)
     )
   }
+}
+
+object GeoIp {
+
+  def ipLookUp(ip : String, reader : DatabaseReader) : Map[String, String] = {
+    var geoIp = Map(
+      "country_name" -> "None",
+      "subdivision_name" -> "None",
+      "city_name" -> "None"
+    )
+
+    InetAddress.getByName(ip) match {
+      case address: InetAddress => {
+        try {
+          val response = reader.city(address)
+          val country = response.getCountry()
+          val subdivision = response.getMostSpecificSubdivision()
+          val city = response.getCity()
+          geoIp += ("country_name" -> country.getName)
+          geoIp += ("subdivision_name" -> subdivision.getName)
+          geoIp += ("city_name" -> city.getName)
+
+        } catch {
+          case _: Throwable => {
+            // TODO
+          }
+        }
+      }
+      case _ => geoIp
+    }
+
+    geoIp
+  }
+
 }
