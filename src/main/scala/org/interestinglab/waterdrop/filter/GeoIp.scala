@@ -7,7 +7,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import com.maxmind.geoip2.DatabaseReader
 import java.io.File
-import java.net.InetAddress
+import java.net.{InetAddress, UnknownHostException}
 import com.maxmind.db.CHMCache
 import scala.collection.JavaConversions._
 
@@ -131,7 +131,7 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
           geoIp += ("city_name" -> city.getName)
 
         } catch {
-          case _: Throwable => {
+          case _: UnknownHostException => {
             // TODO
           }
         }
