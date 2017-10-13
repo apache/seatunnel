@@ -8,12 +8,13 @@ import org.apache.spark.streaming.StreamingContext
 import com.maxmind.geoip2.DatabaseReader
 import java.io.File
 import java.net.InetAddress
+import com.maxmind.db.CHMCache
 import scala.collection.JavaConversions._
 
 
 class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
-  var reader:DatabaseReader = _
+  var reader: DatabaseReader = _
   val fieldsArr = Array("country_name", "subdivision_name", "city_name")
   var selectedFields = Array[String]()
 
@@ -24,7 +25,7 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
   override def checkConfig(): (Boolean, String) = {
     conf.hasPath("database") match {
       case true => (true, "")
-      case false => (false, "please specify [fields] as a non-empty string")
+      case false => (false, "please specify [database] as a non-empty string")
     }
   }
 
@@ -49,39 +50,44 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
     selectedFields = fieldsArr.filter(field => conf.getBoolean(field))
 
-    val database = new File(conf.getString("database"))
-    this.reader = new DatabaseReader.Builder(database).build
-
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
     import spark.sqlContext.implicits
 
+    val database = new File(conf.getString("database"))
     val source = conf.getString("source")
 
     conf.getString("target") match {
       case Json.ROOT => {
         val valueSchema = structField()
-        val rows = df.rdd.map { r =>
-          var values =  Seq.empty[String]
-          val ip = r.getAs[String](source)
-          val geoIp = GeoIp.ipLookUp(ip, this.reader)
-          for(field : String <- this.selectedFields) {
-            values = values :+ (geoIp(field))
-          }
+        val rows = df.rdd.mapPartitions { partitions =>
+          this.reader = new DatabaseReader.Builder(database).withCache(new CHMCache()).build
+          partitions.map { row =>
+            var values = Seq.empty[String]
+            val ip = row.getAs[String](source)
+            val geoIp = ipLookUp(ip)
+            for (field: String <- this.selectedFields) {
+              values = values :+ (geoIp(field))
+            }
 
-          Row.fromSeq(r.toSeq ++ values)
+            Row.fromSeq(row.toSeq ++ values)
+          }
         }
+
         val schema = StructType(df.schema.fields ++ valueSchema)
 
         spark.createDataFrame(rows, schema)
 
       }
       case target: String => {
-        val func = udf((s: String) => {
+        val func = udf((s : String) => {
+
+          //文件加载次数？？
+          this.reader = new DatabaseReader.Builder(database).withCache(new CHMCache()).build
           var geo: Map[String, String] = Map()
-          val geoIp = GeoIp.ipLookUp(s, this.reader)
+          val geoIp = ipLookUp(s)
 
           if (conf.getBoolean("country_name")) {
             geo += ("country_name" -> geoIp("country_name"))
@@ -92,6 +98,7 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
           if (conf.getBoolean("city_name")) {
             geo += ("city_name" -> geoIp("city_name"))
           }
+          geo
         })
         df.withColumn(target, func(col(source)))
       }
@@ -104,11 +111,8 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
       StructField(key, StringType)
     )
   }
-}
 
-object GeoIp {
-
-  def ipLookUp(ip : String, reader : DatabaseReader) : Map[String, String] = {
+  def ipLookUp(ip: String): Map[String, String] = {
     var geoIp = Map(
       "country_name" -> "None",
       "subdivision_name" -> "None",
@@ -137,5 +141,4 @@ object GeoIp {
 
     geoIp
   }
-
 }

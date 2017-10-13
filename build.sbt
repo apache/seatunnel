@@ -14,10 +14,9 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-streaming-kafka-0-8" % sparkVersion
     exclude("org.spark-project.spark", "unused"),
   "com.typesafe" % "config" % "1.3.1",
-  "org.json4s" %% "json4s-jackson" % "3.2.11",
   "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
-  "com.maxmind.geoip2" % "geoip2" % "2.8.1"
+  "com.maxmind.geoip2" % "geoip2" % "2.5.0"
 )
 
 resolvers += Resolver.mavenLocal
