@@ -1,11 +1,24 @@
 package org.interestinglab.waterdrop.output
 
-import com.typesafe.config.Config
-import org.apache.spark.sql.DataFrame
+import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.streaming.StreamingContext
+import scala.collection.JavaConversions._
 
-class Stdout(config: Config) extends BaseOutput(config) {
+class Stdout(var config: Config) extends BaseOutput(config) {
 
   override def checkConfig(): (Boolean, String) = (true, "")
+
+  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
+    super.prepare(spark, ssc)
+
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "serializer" -> "plain"
+      )
+    )
+    config = config.withFallback(defaultConfig)
+  }
 
   override def process(df: DataFrame): Unit = {
 
