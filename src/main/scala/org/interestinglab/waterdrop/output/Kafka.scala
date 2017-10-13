@@ -47,7 +47,8 @@ class Kafka(var config: Config) extends BaseOutput(config) {
 
     println("[INFO] Kafka Output properties: ")
     props.foreach(entry => {
-      println("[INFO] \t" + entry._1 + " = " + entry._2)
+      val (key, value) = entry
+      println("[INFO] \t" + key + " = " + value)
     })
 
     kafkaSink = Some(ssc.sparkContext.broadcast(KafkaSink(props)))
