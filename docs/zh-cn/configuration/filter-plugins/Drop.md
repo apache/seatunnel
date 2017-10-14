@@ -12,7 +12,7 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| condition | string | yes | - |
+| [condition](#condition-string) | string | yes | - |
 
 ##### condition [string]
 

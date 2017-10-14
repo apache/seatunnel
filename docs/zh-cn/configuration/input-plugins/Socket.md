@@ -12,13 +12,13 @@ Socket作为数据源
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| consumer.group.id | string | no | localhost |
-| consumer.num.consumer.fetchers | number | no | 9999 |
+| [host](#host-string) | string | no | localhost |
+| [port](#port-number) | number | no | 9999 |
 
-##### consumer.group.id [string]
+##### host [string]
 
 socket server hostname
 
-##### consumer.num.consumer.fetchers [number]
+##### port [number]
 
 socket server port
