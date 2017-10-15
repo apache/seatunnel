@@ -10,40 +10,53 @@ import org.apache.spark.streaming.dstream.DStream
 import com.typesafe.config.Config
 import _root_.kafka.message.MessageAndMetadata
 import _root_.kafka.common.TopicAndPartition
-import org.apache.spark.sql.SparkSession
+import scala.collection.JavaConversions._
 
 class Kafka(config: Config) extends BaseInput(config) {
 
-  val topics = config.getString("topics").split(",").toSet
-
   // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
-  val consumerConfig = config.getConfig("consumer")
+  val consumerPrefix = "consumer"
 
   var offsetRanges = Array[OffsetRange]()
 
   var km: KafkaManager = null
 
-  var dstream: Option[DStream[(String, String)]] = None
+  override def checkConfig(): (Boolean, String) = {
 
-  def checkConfig(): (Boolean, String) = {
-    // TODO
-    (true, "")
+    config.hasPath("topics") match {
+      case true => {
+        val consumerConfig = config.getConfig(consumerPrefix)
+        consumerConfig.hasPath("zookeeper.connect") &&
+          !consumerConfig.getString("zookeeper.connect").trim.isEmpty &&
+          consumerConfig.hasPath("group.id") &&
+          !consumerConfig.getString("group.id").trim.isEmpty match {
+          case true => (true, "")
+          case false =>
+            (false, "please specify [consumer.zookeeper.connect] and [consumer.group.id] as non-empty string")
+        }
+      }
+      case false => (false, "please specify [topics]as non-empty string, multiple topics separated by \",\"")
+    }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext) {
-    super.prepare(spark, ssc)
-    // kafka params from spark kafka stream api doc
-    val kafkaParams = Map[String, String](
-      "bootstrap.servers" -> consumerConfig.getString("bootstrap.servers"),
-      "zookeeper.connect" -> consumerConfig.getString("zookeeper.connect"),
-      "group.id" -> consumerConfig.getString("group.id"),
-      "num.consumer.fetchers" -> consumerConfig.getString("num.consumer.fetchers"),
-      "auto.offset.reset" -> consumerConfig.getString("auto.offset.reset")
-    )
+  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
+
+    val consumerConfig = config.getConfig(consumerPrefix)
+    val kafkaParams = consumerConfig
+      .entrySet()
+      .foldRight(Map[String, String]())((entry, map) => {
+        map + (entry.getKey -> entry.getValue.unwrapped().toString)
+      })
+
+    println("[INFO] Input Kafka Params:")
+    for (entry <- kafkaParams) {
+      val (key, value) = entry
+      println("[INFO] \t" + key + " = " + value)
+    }
 
     val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.topic, mmd.message())
 
-    // val km = new KafkaManager(kafkaParams)
+    val topics = config.getString("topics").split(",").toSet
     km = new KafkaManager(kafkaParams)
     val fromOffsets =
       km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
@@ -54,22 +67,16 @@ class Kafka(config: Config) extends BaseInput(config) {
       fromOffsets,
       messageHandler)
 
-    // var offsetRanges = Array[OffsetRange]()
-
-    dstream = Some(inputDStream.transform { rdd =>
+    inputDStream.transform { rdd =>
       offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
       rdd
-    })
+    }
   }
-
-  override def beforeOutput {}
 
   override def afterOutput {
-    //消费完的同时，更新offset
+    // update offset after output
     km.updateZKOffsetsFromoffsetRanges(offsetRanges)
   }
-
-  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = dstream.orNull
 }
 
 class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
