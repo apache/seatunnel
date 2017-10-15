@@ -68,7 +68,7 @@ object WaterdropMain {
     }
 
     val dstreamList = inputs.map(p => {
-      p.getDStream
+      p.getDStream(ssc)
     })
 
     val unionedDStream = dstreamList.reduce((d1, d2) => {

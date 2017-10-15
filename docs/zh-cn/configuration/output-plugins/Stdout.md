@@ -12,7 +12,12 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
+| [limit](#limit-number) | number | no | 100 |
 | [serializer](#serializer-string) | string | no | plain |
+
+##### limit [number]
+
+限制输出Event的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647个Event
 
 ##### serializer [string]
 

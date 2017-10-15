@@ -30,7 +30,7 @@ class Kafka(config: Config) extends BaseInput(config) {
     (true, "")
   }
 
-  override def prepare(spark : SparkSession, ssc: StreamingContext) {
+  override def prepare(spark: SparkSession, ssc: StreamingContext) {
     super.prepare(spark, ssc)
     // kafka params from spark kafka stream api doc
     val kafkaParams = Map[String, String](
@@ -69,7 +69,7 @@ class Kafka(config: Config) extends BaseInput(config) {
     km.updateZKOffsetsFromoffsetRanges(offsetRanges)
   }
 
-  override def getDStream: DStream[(String, String)] = dstream.get
+  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = dstream.orNull
 }
 
 class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
