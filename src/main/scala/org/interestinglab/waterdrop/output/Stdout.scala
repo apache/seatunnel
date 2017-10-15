@@ -9,7 +9,7 @@ class Stdout(var config: Config) extends BaseOutput(config) {
 
   override def checkConfig(): (Boolean, String) = {
     !config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1) match {
-      case true => (true, "") g
+      case true => (true, "")
       case false => (false, "please specify [limit] as Number[-1, " + Int.MaxValue + "]")
     }
   }
