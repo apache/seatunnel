@@ -6,9 +6,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class Socket(config: Config) extends BaseInput(config) {
-
-  var dstream: Option[DStream[(String, String)]] = None
+class Socket(var config: Config) extends BaseInput(config) {
 
   override def checkConfig(): (Boolean, String) = (true, "")
 
@@ -20,17 +18,15 @@ class Socket(config: Config) extends BaseInput(config) {
         "host" -> "localhost",
         "port" -> 9999
       ))
-    val mergedConfig = config.withFallback(defaultConfig)
-
-    dstream = Some(
-      ssc
-        .socketTextStream(mergedConfig.getString("host"), mergedConfig.getInt("port"))
-        .map(s => {
-          ("", s)
-        }))
+    config = config.withFallback(defaultConfig)
   }
 
-  override def getDStream: DStream[(String, String)] = {
-    dstream.orNull
+  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
+
+    ssc
+      .socketTextStream(config.getString("host"), config.getInt("port"))
+      .map(s => {
+        ("", s)
+      })
   }
 }
