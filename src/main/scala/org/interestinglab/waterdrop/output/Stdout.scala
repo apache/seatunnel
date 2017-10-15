@@ -7,13 +7,19 @@ import scala.collection.JavaConversions._
 
 class Stdout(var config: Config) extends BaseOutput(config) {
 
-  override def checkConfig(): (Boolean, String) = (true, "")
+  override def checkConfig(): (Boolean, String) = {
+    !config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1) match {
+      case true => (true, "") g
+      case false => (false, "please specify [limit] as Number[-1, " + Int.MaxValue + "]")
+    }
+  }
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
+        "limit" -> 100,
         "serializer" -> "plain"
       )
     )
@@ -22,11 +28,12 @@ class Stdout(var config: Config) extends BaseOutput(config) {
 
   override def process(df: DataFrame): Unit = {
 
-    if (config.hasPath("limit")) {
-      df.show(config.getInt("limit"), false)
-    } else {
-      val num = 20
-      df.show(num, false)
+    val limit = config.getInt("limit")
+
+    if (limit == -1) {
+      df.show(Int.MaxValue, false)
+    } else if (limit > 0) {
+      df.show(limit, false)
     }
   }
 }
