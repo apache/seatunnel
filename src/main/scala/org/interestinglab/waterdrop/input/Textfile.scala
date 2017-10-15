@@ -8,7 +8,19 @@ class Textfile(config: Config) extends BaseInput(config) {
 
   override def checkConfig(): (Boolean, String) = {
     config.hasPath("dir") match {
-      case true => (true, "")
+      case true => {
+        val allowedURISchema = List("file://", "hdfs://", "s3://", "s3a://", "s3n://")
+        val dir = config.getString("dir")
+        val unSupportedSchema = allowedURISchema.forall(schema => {
+          !dir.startsWith(schema)
+        })
+
+        unSupportedSchema match {
+          case true =>
+            (false, "unsupported schema, please set the following allowed schemas: " + allowedURISchema.mkString(", "))
+          case false => (true, "")
+        }
+      }
       case false => (false, "please specify [dir] as non-empty string")
     }
   }
