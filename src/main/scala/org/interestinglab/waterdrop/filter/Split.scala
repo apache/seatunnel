@@ -35,8 +35,6 @@ class Split(var conf : Config) extends BaseFilter(conf) {
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
-    import spark.sqlContext.implicits
-
     val srcField = conf.getString("source_field")
     val keys = conf.getStringList("fields")
 

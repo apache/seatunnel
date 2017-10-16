@@ -33,8 +33,8 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "source" -> "raw_message",
-        "target" -> Json.ROOT,
+        "source_field" -> "raw_message",
+        "target_field" -> Json.ROOT,
         // "country_code" -> true,
         "country_name" -> true,
         // "country_isocode" -> false,
@@ -54,12 +54,10 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
-    import spark.sqlContext.implicits
-
     val database = new File(conf.getString("database"))
-    val source = conf.getString("source")
+    val source = conf.getString("source_field")
 
-    conf.getString("target") match {
+    conf.getString("target_field") match {
       case Json.ROOT => {
         val valueSchema = structField()
         val rows = df.rdd.mapPartitions { partitions =>
