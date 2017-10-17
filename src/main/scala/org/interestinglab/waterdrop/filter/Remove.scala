@@ -4,7 +4,6 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 
 class Remove(var conf: Config) extends BaseFilter(conf) {
 
@@ -25,6 +24,6 @@ class Remove(var conf: Config) extends BaseFilter(conf) {
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
-    df.drop(conf.getStringList("source_field").asScala : _*)
+    df.drop(conf.getStringList("source_field"): _*)
   }
 }
