@@ -16,7 +16,8 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.3.1",
   "org.json4s" %% "json4s-jackson" % "3.2.11",
   "commons-lang" % "commons-lang" % "2.6",
-  "io.thekraken" % "grok" % "0.1.5"
+  "io.thekraken" % "grok" % "0.1.5",
+  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "5.6.3"
 )
 
 resolvers += Resolver.mavenLocal
