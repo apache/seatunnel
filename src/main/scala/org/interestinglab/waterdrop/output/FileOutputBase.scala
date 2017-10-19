@@ -1,21 +1,19 @@
 package org.interestinglab.waterdrop.output
 
-import java.util.UUID
-
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
+import org.interestinglab.waterdrop.utils.StringTemplate
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
-class Textfile(var config: Config) extends BaseOutput(config) {
+abstract class FileOutputBase(var config: Config) extends BaseOutput(config) {
 
-  override def checkConfig(): (Boolean, String) = {
+  protected def checkConfigImpl(allowedURISchema: List[String]): (Boolean, String) = {
 
     config.hasPath("path") && !config.getString("path").trim.isEmpty match {
       case true => {
-        val allowedURISchema = List("file://", "hdfs://", "s3://", "s3a://", "s3n://")
         val dir = config.getString("path")
         val unSupportedSchema = allowedURISchema.forall(schema => {
           // there are 3 "/" in dir, first 2 are from URI Schema, and the last is from path
@@ -39,7 +37,8 @@ class Textfile(var config: Config) extends BaseOutput(config) {
       Map(
         "partition_by" -> List(),
         "save_mode" -> "error", // allowed values: overwrite, append, ignore, error
-        "serializer" -> "json" // allowed values: csv, json, parquet, text
+        "serializer" -> "json", // allowed values: csv, json, parquet, text
+        "path_time_format" -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
       )
     )
     config = config.withFallback(defaultConfig)
@@ -72,8 +71,7 @@ class Textfile(var config: Config) extends BaseOutput(config) {
       case Failure(exception) => // do nothing
     }
 
-    // TODO: 涉及到path通配的问题,可以指定生成规则uuid, time_uuid, time
-    val path = config.getString("path") + "/" + UUID.randomUUID().toString
+    val path = StringTemplate.substitute(config.getString("path"), config.getString("path_time_format"))
     config.getString("serializer") match {
       case "csv" => writer.csv(path)
       case "json" => writer.json(path)
