@@ -12,9 +12,9 @@ class Hdfs(config: Config) extends BaseInput(config) {
 
         val dir = config.getString("path")
         val path = new org.apache.hadoop.fs.Path(dir)
-        path.toUri.getScheme match {
-          case null => (true, "")
-          case "hdfs" => (true, "")
+        Option(path.toUri.getScheme) match {
+          case None => (true, "")
+          case Some(schema) => (true, "")
           case _ =>
             (
               false,

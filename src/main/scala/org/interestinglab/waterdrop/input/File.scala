@@ -12,9 +12,9 @@ class File(config: Config) extends BaseInput(config) {
 
         val dir = config.getString("path")
         val path = new org.apache.hadoop.fs.Path(dir)
-        path.toUri.getScheme match {
-          case null => (true, "")
-          case "file" => (true, "")
+        Option(path.toUri.getScheme) match {
+          case None => (true, "")
+          case Some(schema) => (true, "")
           case _ =>
             (
               false,
@@ -29,9 +29,9 @@ class File(config: Config) extends BaseInput(config) {
 
     val dir = config.getString("path")
     val path = new org.apache.hadoop.fs.Path(dir)
-    val fullPath = path.toUri.getScheme match {
-      case null => ("file://" + dir)
-      case "file" => dir
+    val fullPath = Option(path.toUri.getScheme) match {
+      case None => ("file://" + dir)
+      case Some(schema) => dir
     }
 
     ssc.textFileStream(fullPath).map(s => { ("", s) })
