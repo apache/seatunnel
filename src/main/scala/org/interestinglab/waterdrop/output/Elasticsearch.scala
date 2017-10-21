@@ -30,7 +30,6 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
       Map(
         "index" -> "waterdrop",
         "index_type" -> "log"
-
       )
     )
     config = config.withFallback(defaultConfig)
@@ -39,6 +38,6 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
   }
 
   override def process(df: DataFrame): Unit = {
-    df.saveToEs("spark/peple", this.esCfg)
+    df.saveToEs(config.getString("index") + "/" + config.getString("index_type"), this.esCfg)
   }
 }
