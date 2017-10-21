@@ -12,9 +12,14 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
   var esCfg: Map[String, String] = Map()
 
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("index") match {
-      case true => (true, "")
-      case false => (false, "please specify [index] as Number[-1, " + Int.MaxValue + "]")
+
+    config.hasPath("hosts") && config.getStringList("hosts").size() > 0 match {
+      case true => {
+        val hosts = config.getStringList("hosts")
+        // TODO CHECK hosts
+        (true, "")
+      }
+      case false => (false, "please specify [hosts] as a non-empty string list")
     }
   }
 
@@ -23,7 +28,9 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
+        "index" -> "waterdrop",
         "index_type" -> "log"
+
       )
     )
     config = config.withFallback(defaultConfig)
