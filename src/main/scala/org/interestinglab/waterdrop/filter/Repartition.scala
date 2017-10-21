@@ -2,22 +2,21 @@ package org.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.lit
 
-class Add(var conf: Config) extends BaseFilter(conf) {
+class Repartition(var conf: Config) extends BaseFilter(conf) {
 
   def this() = {
     this(ConfigFactory.empty())
   }
 
   override def checkConfig(): (Boolean, String) = {
-    conf.hasPath("target_field") && conf.hasPath("value") match {
+    conf.hasPath("num_partitions") && conf.getInt("num_partitions") > 0 match {
       case true => (true, "")
-      case false => (false, "please specify [target_field], [value]")
+      case false => (false, "please specify [num_partitions] as Integer > 0")
     }
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
-    df.withColumn(conf.getString("target_field"), lit(conf.getString("value")))
+    df.repartition(conf.getInt("num_partitions"))
   }
 }
