@@ -4,6 +4,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql._
 import org.apache.spark.streaming.StreamingContext
 import org.elasticsearch.spark.sql._
+import org.interestinglab.waterdrop.utils.StringTemplate
 
 import scala.collection.JavaConversions._
 
@@ -38,6 +39,11 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
   }
 
   override def process(df: DataFrame): Unit = {
-    df.saveToEs(config.getString("index") + "/" + config.getString("index_type"), this.esCfg)
+    var index = config.getString("index")
+    if (config.hasPath("index_time_format")) {
+
+      index = StringTemplate.substitute(index, config.getString("index_time_format"))
+    }
+    df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
   }
 }
