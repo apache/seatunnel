@@ -30,12 +30,16 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "index" -> "waterdrop",
-        "index_type" -> "log"
+        "index_type" -> "log",
+        "batch_size_bytes" -> "1mb",
+        "batch_size_entries" -> "10000"
       )
     )
     config = config.withFallback(defaultConfig)
 
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
+    esCfg += ("es.batch.size.bytes" -> config.getString("batch_size_bytes"))
+    esCfg += ("es.batch.size.entries" -> config.getString("batch_size_entries"))
   }
 
   override def process(df: DataFrame): Unit = {
