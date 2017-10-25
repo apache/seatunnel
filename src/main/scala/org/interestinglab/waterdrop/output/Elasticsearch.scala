@@ -31,6 +31,7 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
       Map(
         "index" -> "waterdrop",
         "index_type" -> "log",
+        "index_time_format" -> "yyyy.MM.dd",
         "batch_size_bytes" -> "1mb",
         "batch_size_entries" -> "10000"
       )
@@ -43,11 +44,7 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
   }
 
   override def process(df: DataFrame): Unit = {
-    var index = config.getString("index")
-    if (config.hasPath("index_time_format")) {
-
-      index = StringTemplate.substitute(index, config.getString("index_time_format"))
-    }
+    val index = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
     df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
   }
 }
