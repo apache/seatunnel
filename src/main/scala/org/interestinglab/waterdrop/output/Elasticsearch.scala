@@ -11,6 +11,7 @@ import scala.collection.JavaConversions._
 class Elasticsearch(var config : Config) extends BaseOutput(config) {
 
   var esCfg: Map[String, String] = Map()
+  val esPrefix = "es"
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -31,16 +32,18 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
       Map(
         "index" -> "waterdrop",
         "index_type" -> "log",
-        "index_time_format" -> "yyyy.MM.dd",
-        "batch_size_bytes" -> "1mb",
-        "batch_size_entries" -> "10000"
+        "index_time_format" -> "yyyy.MM.dd"
       )
     )
     config = config.withFallback(defaultConfig)
 
+    config.getConfig(esPrefix).entrySet().foreach(entry => {
+      val key = entry.getKey
+      val value = String.valueOf(entry.getValue.unwrapped())
+      esCfg += (esPrefix + "." + key -> value)
+    })
+
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
-    esCfg += ("es.batch.size.bytes" -> config.getString("batch_size_bytes"))
-    esCfg += ("es.batch.size.entries" -> config.getString("batch_size_entries"))
   }
 
   override def process(df: DataFrame): Unit = {
