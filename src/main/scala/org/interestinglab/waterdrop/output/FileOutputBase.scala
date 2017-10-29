@@ -1,5 +1,7 @@
 package org.interestinglab.waterdrop.output
 
+import java.util
+
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
@@ -35,7 +37,7 @@ abstract class FileOutputBase(var config: Config) extends BaseOutput(config) {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "partition_by" -> List(),
+        "partition_by" -> util.Arrays.asList(),
         "save_mode" -> "error", // allowed values: overwrite, append, ignore, error
         "serializer" -> "json", // allowed values: csv, json, parquet, text
         "path_time_format" -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format

@@ -1,9 +1,12 @@
 package org.interestinglab.waterdrop.filter
 
+import java.util
+
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, udf}
+
 import scala.collection.JavaConversions._
 
 class Kv(var conf: Config) extends BaseFilter(conf) {
@@ -26,8 +29,8 @@ class Kv(var conf: Config) extends BaseFilter(conf) {
         "field_split" -> "&",
         "value_split" -> "=",
         "field_prefix" -> "",
-        "include_fields" -> List(),
-        "exclude_fields" -> List(),
+        "include_fields" -> util.Arrays.asList(),
+        "exclude_fields" -> util.Arrays.asList(),
         "source_field" -> "raw_message",
         "target_field" -> Json.ROOT
       )
