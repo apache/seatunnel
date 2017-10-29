@@ -1,5 +1,7 @@
 package org.interestinglab.waterdrop.input
 
+import java.util
+
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
@@ -55,9 +57,10 @@ class Fake(var config: Config) extends BaseInput(config) {
       Map(
         "data_format" -> "text", // allowed values: text | json
         "text_delimeter" -> ",", // only works when data_format = text
-        "json_keys" -> List("k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10"), // only works when data_format = json
+        "json_keys" -> util.Arrays
+          .asList("k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10"), // only works when data_format = json
         "num_of_fields" -> 10,
-        "rate" -> 20 // rate per second
+        "rate" -> 1 // rate per second, X records/sec
       ))
     config = config.withFallback(defaultConfig)
   }
@@ -72,6 +75,7 @@ class Fake(var config: Config) extends BaseInput(config) {
 private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel.MEMORY_AND_DISK_2) {
 
   // TODO: 支持 data_format = json
+  // TODO: 自定义内容？
   def generateData(): String = {
     val fromN = 1
     val toN = config.getInt("num_of_fields")
