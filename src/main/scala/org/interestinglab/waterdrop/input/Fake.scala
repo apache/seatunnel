@@ -88,6 +88,7 @@ private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel
 
   def onStart() {
     // Start the thread that receives data over a connection
+
     new Thread("FakeReceiver Source") {
       override def run() { receive() }
     }.start()
