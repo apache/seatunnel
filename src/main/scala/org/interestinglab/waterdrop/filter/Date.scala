@@ -42,9 +42,9 @@ class Date(var conf: Config) extends BaseFilter(conf) {
     conf.getString("source_time_format") match {
 
       case sourceTimeFormat: String => {
+        val dateParser = new FormatParser(sourceTimeFormat, targetTimeFormat)
 
         val func = udf((s: String) => {
-          val dateParser = new FormatParser(sourceTimeFormat, targetTimeFormat)
           val (success, dateTime) = dateParser.parse(s)
           if (success) {
             dateTime
