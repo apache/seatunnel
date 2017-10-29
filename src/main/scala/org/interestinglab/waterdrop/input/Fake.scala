@@ -57,7 +57,7 @@ class Fake(var config: Config) extends BaseInput(config) {
         "text_delimeter" -> ",", // only works when data_format = text
         "json_keys" -> List("k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10"), // only works when data_format = json
         "num_of_fields" -> 10,
-        "rate" -> 1000 // rate per second
+        "rate" -> 20 // rate per second
       ))
     config = config.withFallback(defaultConfig)
   }
