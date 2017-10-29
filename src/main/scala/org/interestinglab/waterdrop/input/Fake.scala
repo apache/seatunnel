@@ -12,13 +12,51 @@ import scala.util.Random
 
 class Fake(var config: Config) extends BaseInput(config) {
 
-  override def checkConfig(): (Boolean, String) = (true, "")
+  override def checkConfig(): (Boolean, String) = {
+
+    val validateNumOfFields = if (!config.hasPath("num_of_fields")) {
+      true
+    } else {
+      config.getInt("num_of_fields") > 0
+    }
+
+    val validateRate = if (!config.hasPath("rate")) {
+      true
+    } else {
+      config.getInt("rate") > 0
+    }
+
+    val validateJsonKeys = if (!config.hasPath("json_keys")) {
+      true
+    } else {
+      config.getStringList("json_keys").size() > 0
+    }
+
+    val errMsg = if (!validateNumOfFields) {
+      "please make sure [num_of_fields] is of type Integer bigger than 0"
+    } else if (!validateRate) {
+      "please make sure [rate] is of type Integer bigger than 0"
+    } else if (!validateJsonKeys) {
+      "please make sure [rate] is of type string array"
+    } else {
+      ""
+    }
+
+    validateNumOfFields && validateRate match {
+      case true => (true, "");
+      case false => (false, errMsg)
+    }
+  }
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
+        "data_format" -> "text", // allowed values: text | json
+        "text_delimeter" -> ",", // only works when data_format = text
+        "json_keys" -> List("k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10"), // only works when data_format = json
+        "num_of_fields" -> 10,
         "rate" -> 1000 // rate per second
       ))
     config = config.withFallback(defaultConfig)
@@ -26,24 +64,24 @@ class Fake(var config: Config) extends BaseInput(config) {
 
   override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
 
-    val receiverInputDStream = ssc.receiverStream(new FakeReceiver(config.getInt("rate")))
+    val receiverInputDStream = ssc.receiverStream(new FakeReceiver(config))
     receiverInputDStream.map(s => { ("", s) })
   }
 }
 
-private class FakeReceiver(ratePerSec: Int) extends Receiver[String](StorageLevel.MEMORY_AND_DISK_2) {
+private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel.MEMORY_AND_DISK_2) {
 
-  // TODO: 生成数据的格式，text, json, 字段个数
+  // TODO: 支持 data_format = json
   def generateData(): String = {
     val fromN = 1
-    val toN = 100
+    val toN = config.getInt("num_of_fields")
     val n = 100000
-    (fromN to toN).map(i => "Random" + i + Random.nextInt(n)).mkString(",")
+    (fromN to toN).map(i => "Random" + i + Random.nextInt(n)).mkString(config.getString("text_delimeter"))
   }
 
   def onStart() {
     // Start the thread that receives data over a connection
-    new Thread("Dummy Source") {
+    new Thread("FakeReceiver Source") {
       override def run() { receive() }
     }.start()
   }
@@ -57,7 +95,7 @@ private class FakeReceiver(ratePerSec: Int) extends Receiver[String](StorageLeve
   private def receive() {
     while (!isStopped()) {
       store(generateData())
-      Thread.sleep((1000.toDouble / ratePerSec).toInt)
+      Thread.sleep((1000.toDouble / config.getInt("rate")).toInt)
     }
   }
 }
