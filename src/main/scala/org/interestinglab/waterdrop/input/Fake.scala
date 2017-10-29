@@ -1,5 +1,6 @@
 package org.interestinglab.waterdrop.input
 
+import java.security.SecureRandom
 import java.util
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -77,10 +78,12 @@ private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel
   // TODO: 支持 data_format = json
   // TODO: 自定义内容？
   def generateData(): String = {
+
+    val secRandom = new SecureRandom()
     val fromN = 1
     val toN = config.getInt("num_of_fields")
     val n = 100000
-    (fromN to toN).map(i => "Random" + i + Random.nextInt(n)).mkString(config.getString("text_delimeter"))
+    (fromN to toN).map(i => "Random" + i + secRandom.nextInt()).mkString(config.getString("text_delimeter"))
   }
 
   def onStart() {
