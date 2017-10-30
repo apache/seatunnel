@@ -1,6 +1,7 @@
 package org.interestinglab.waterdrop.utils
 
 import java.text.SimpleDateFormat
+import java.util.Locale
 
 class FormatParser(sourceTimeFormat: String, targetTimeFormat: String) extends DateParser {
 
@@ -13,8 +14,9 @@ class FormatParser(sourceTimeFormat: String, targetTimeFormat: String) extends D
 
   def parse(input: String): (Boolean, String) = {
 
-    val sourceDateFormat = new SimpleDateFormat(this.sourceFormat)
-    val targetDateFormat = new SimpleDateFormat(this.targetFormat)
+    val locale = Locale.US
+    val sourceDateFormat = new SimpleDateFormat(this.sourceFormat, locale)
+    val targetDateFormat = new SimpleDateFormat(this.targetFormat, locale)
 
     try {
       val date = sourceDateFormat.parse(input)

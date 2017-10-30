@@ -14,7 +14,12 @@ class Date(var conf: Config) extends BaseFilter(conf) {
     this(ConfigFactory.empty())
   }
 
-  override def checkConfig(): (Boolean, String) = (true, "")
+  override def checkConfig(): (Boolean, String) = {
+    conf.hasPath("target_field") && conf.hasPath("target_time_format") match {
+      case true => (true, "")
+      case false => (false, "please specify [target_field] and [target_time_format] as string")
+    }
+  }
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
@@ -22,11 +27,11 @@ class Date(var conf: Config) extends BaseFilter(conf) {
       Map(
         "source_field" -> Json.ROOT,
         "target_field" -> "datetime",
-        "source_time_format" -> "dd/MMM/yyyy:HH:mm:ss Z", // TODO:
-        "target_time_format" -> "yyyy/MM/dd HH:mm:ss", // TODO:
-        "time_zone" -> "", // TODO:
+        "source_time_format" -> "UNIX_MS",
+        "target_time_format" -> "yyyy/MM/dd HH:mm:ss",
+        "time_zone" -> "", // TODO
         "default_value" -> "${now}",
-        "locale" -> "" // TODO：  语言环境
+        "locale" -> "Locale.US" // TODO
       )
     )
     conf = conf.withFallback(defaultConfig)
@@ -35,15 +40,14 @@ class Date(var conf: Config) extends BaseFilter(conf) {
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
     val targetTimeFormat = conf.getString("target_time_format")
-    val srcField = conf.getString("source_field")
     val targetField = conf.getString("target_field")
     val defaultValue = config.getString("default_value")
-    // TODO: 新增一个Date类型的Field ? 或者从一个字符串转换时间格式到另一个字符串？
     val dateParser = conf.getString("source_time_format") match {
       case "UNIX" => new UnixParser(targetTimeFormat)
       case "UNIX_MS" => new UnixMSParser(targetTimeFormat)
       case sourceTimeFormat: String => new FormatParser(sourceTimeFormat, targetTimeFormat)
     }
+
     val func = udf((s: String) => {
       val (success, dateTime) = dateParser.parse(s)
       if (success) {
@@ -53,6 +57,9 @@ class Date(var conf: Config) extends BaseFilter(conf) {
       }
     })
 
-    df.withColumn(targetField, func(col(srcField)))
+    conf.getString("source_field") match {
+      case Json.ROOT => df.withColumn(targetField, func(lit(System.currentTimeMillis().toString)))
+      case srcField: String => df.withColumn(targetField, func(col(srcField)))
+    }
   }
 }
