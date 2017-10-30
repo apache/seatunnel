@@ -3,6 +3,8 @@ package org.interestinglab.waterdrop.utils
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+import scala.util.control.NonFatal
+
 class FormatParser(sourceTimeFormat: String, targetTimeFormat: String) extends DateParser {
 
   val sourceFormat = sourceTimeFormat
@@ -22,9 +24,7 @@ class FormatParser(sourceTimeFormat: String, targetTimeFormat: String) extends D
       val date = sourceDateFormat.parse(input)
       (true, targetDateFormat.format(date))
     } catch {
-      case _: Throwable => {
-        (false, "")
-      }
+      case NonFatal(e) => (false, "")
     }
   }
 

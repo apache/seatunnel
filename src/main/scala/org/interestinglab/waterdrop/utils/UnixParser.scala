@@ -3,6 +3,8 @@ package org.interestinglab.waterdrop.utils
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import scala.util.control.NonFatal
+
 class UnixParser(targetTimeFormat: String) extends DateParser {
 
   val targetFormat = targetTimeFormat
@@ -13,7 +15,7 @@ class UnixParser(targetTimeFormat: String) extends DateParser {
       val timeMillis = input.toLong
       parse(timeMillis)
     } catch {
-      case _: Exception => (false, "")
+      case NonFatal(e) => (false, "")
     }
   }
 
