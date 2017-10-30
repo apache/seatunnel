@@ -2,7 +2,7 @@ package org.interestinglab.waterdrop.utils
 
 import java.text.SimpleDateFormat
 
-class FormatParser(sourceTimeFormat: String, targetTimeFormat: String) extends DateParser{
+class FormatParser(sourceTimeFormat: String, targetTimeFormat: String) extends DateParser {
 
   val sourceFormat = sourceTimeFormat
   val targetFormat = targetTimeFormat
@@ -24,5 +24,9 @@ class FormatParser(sourceTimeFormat: String, targetTimeFormat: String) extends D
         (false, "")
       }
     }
+  }
+
+  def parse(input: Long) : (Boolean, String) = {
+    parse(input.toString)
   }
 }

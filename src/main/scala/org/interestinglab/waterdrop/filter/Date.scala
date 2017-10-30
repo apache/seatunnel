@@ -4,7 +4,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
-import org.interestinglab.waterdrop.utils.{FormatParser, StringTemplate}
+import org.interestinglab.waterdrop.utils.{FormatParser, StringTemplate, UnixMSParser, UnixParser}
 
 import scala.collection.JavaConversions._
 
@@ -23,7 +23,7 @@ class Date(var conf: Config) extends BaseFilter(conf) {
         "source_field" -> Json.ROOT,
         "target_field" -> "datetime",
         "source_time_format" -> "dd/MMM/yyyy:HH:mm:ss Z", // TODO:
-        "target_time_format" -> "yyyy/mm/dd HH:mm:ss", // TODO:
+        "target_time_format" -> "yyyy/MM/dd HH:mm:ss", // TODO:
         "time_zone" -> "", // TODO:
         "default_value" -> "${now}",
         "locale" -> "" // TODO：  语言环境
@@ -39,22 +39,20 @@ class Date(var conf: Config) extends BaseFilter(conf) {
     val targetField = conf.getString("target_field")
     val defaultValue = config.getString("default_value")
     // TODO: 新增一个Date类型的Field ? 或者从一个字符串转换时间格式到另一个字符串？
-    conf.getString("source_time_format") match {
-
-      case sourceTimeFormat: String => {
-        val dateParser = new FormatParser(sourceTimeFormat, targetTimeFormat)
-
-        val func = udf((s: String) => {
-          val (success, dateTime) = dateParser.parse(s)
-          if (success) {
-            dateTime
-          } else {
-            StringTemplate.substitute(defaultValue, targetTimeFormat)
-          }
-        })
-
-        df.withColumn(targetField, func(col(srcField)))
-      }
+    val dateParser = conf.getString("source_time_format") match {
+      case "UNIX" => new UnixParser(targetTimeFormat)
+      case "UNIX_MS" => new UnixMSParser(targetTimeFormat)
+      case sourceTimeFormat: String => new FormatParser(sourceTimeFormat, targetTimeFormat)
     }
+    val func = udf((s: String) => {
+      val (success, dateTime) = dateParser.parse(s)
+      if (success) {
+        dateTime
+      } else {
+        StringTemplate.substitute(defaultValue, targetTimeFormat)
+      }
+    })
+
+    df.withColumn(targetField, func(col(srcField)))
   }
 }
