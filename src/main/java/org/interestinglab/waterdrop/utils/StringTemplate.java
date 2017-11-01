@@ -21,6 +21,7 @@ public class StringTemplate {
         final Map valuesMap = new HashMap();
         valuesMap.put("uuid", UUID.randomUUID().toString());
         valuesMap.put("now", formatteddDate);
+        valuesMap.put(timeFormat, formatteddDate);
         final StrSubstitutor sub = new StrSubstitutor(valuesMap);
         return sub.replace(str);
     }
