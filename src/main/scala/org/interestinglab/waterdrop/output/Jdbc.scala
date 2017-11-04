@@ -36,7 +36,15 @@ class Jdbc(var config: Config) extends BaseOutput(config) {
       }
 
     } else {
-      (false, "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(", ") + " as non-empty string")
+      (
+        false,
+        "please specify " + nonExistsOptions
+          .map { option =>
+            val (name, exists) = option
+            "[" + name + "]"
+          }
+          .mkString(", ") + " as non-empty string"
+      )
     }
   }
 
