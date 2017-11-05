@@ -5,7 +5,7 @@ import com.typesafe.config.Config
 import org.apache.spark.streaming.StreamingContext
 import org.interestinglab.waterdrop.core.Plugin
 
-abstract class BaseInput(config: Config) extends Plugin {
+abstract class BaseInput(initConfig: Config) extends Plugin {
 
   /**
    * No matter what kind of Input it is, all you have to do is create a DStream to be used latter

@@ -13,6 +13,7 @@ class Split(var conf: Config) extends BaseFilter(conf) {
     this(ConfigFactory.empty())
   }
 
+  // TODO: check fields.length == field_types.length if field_types exists
   override def checkConfig(): (Boolean, String) = {
     conf.hasPath("fields") && conf.getStringList("fields").size() > 0 match {
       case true => (true, "")
