@@ -5,7 +5,7 @@ import org.apache.spark.sql.expressions.{UserDefinedAggregateFunction, UserDefin
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.interestinglab.waterdrop.core.Plugin
 
-abstract class BaseFilter(val config: Config) extends Plugin {
+abstract class BaseFilter(val initConfig: Config) extends Plugin {
 
   def process(spark: SparkSession, df: DataFrame): DataFrame
 

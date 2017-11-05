@@ -8,14 +8,14 @@ import org.interestinglab.waterdrop.utils.{FormatParser, StringTemplate, UnixMSP
 
 import scala.collection.JavaConversions._
 
-class Date(var conf: Config) extends BaseFilter(conf) {
+class Date(var config: Config) extends BaseFilter(config) {
 
   def this() = {
     this(ConfigFactory.empty())
   }
 
   override def checkConfig(): (Boolean, String) = {
-    conf.hasPath("target_field") && conf.hasPath("target_time_format") match {
+    config.hasPath("target_field") && config.hasPath("target_time_format") match {
       case true => (true, "")
       case false => (false, "please specify [target_field] and [target_time_format] as string")
     }
@@ -34,15 +34,15 @@ class Date(var conf: Config) extends BaseFilter(conf) {
         "locale" -> "Locale.US" // TODO
       )
     )
-    conf = conf.withFallback(defaultConfig)
+    config = config.withFallback(defaultConfig)
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
-    val targetTimeFormat = conf.getString("target_time_format")
-    val targetField = conf.getString("target_field")
+    val targetTimeFormat = config.getString("target_time_format")
+    val targetField = config.getString("target_field")
     val defaultValue = config.getString("default_value")
-    val dateParser = conf.getString("source_time_format") match {
+    val dateParser = config.getString("source_time_format") match {
       case "UNIX" => new UnixParser(targetTimeFormat)
       case "UNIX_MS" => new UnixMSParser(targetTimeFormat)
       case sourceTimeFormat: String => new FormatParser(sourceTimeFormat, targetTimeFormat)
@@ -57,7 +57,7 @@ class Date(var conf: Config) extends BaseFilter(conf) {
       }
     })
 
-    conf.getString("source_field") match {
+    config.getString("source_field") match {
       case Json.ROOT => df.withColumn(targetField, func(lit(System.currentTimeMillis().toString)))
       case srcField: String => df.withColumn(targetField, func(col(srcField)))
     }
