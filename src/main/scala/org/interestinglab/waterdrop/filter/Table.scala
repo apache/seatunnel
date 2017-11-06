@@ -1,6 +1,6 @@
 package org.interestinglab.waterdrop.filter
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
@@ -8,6 +8,7 @@ import org.apache.spark.sql.functions.col
 
 import scala.collection.JavaConversions._
 import scala.reflect.runtime.universe
+import scala.util.{Failure, Success, Try}
 
 class Table(var config: Config) extends BaseFilter(config) {
 
@@ -17,8 +18,70 @@ class Table(var config: Config) extends BaseFilter(config) {
 
   override def checkConfig(): (Boolean, String) = {
 
-    // TODO:
-    (true, "")
+    Table.options.foldRight((true, ""))((option, result) => {
+
+      val (lastOptionPassed, msg) = result
+      lastOptionPassed match {
+        case true => {
+          option.get("name") match {
+            case Some(value) => {
+              val optName = value.asInstanceOf[String]
+              val required = option.getOrElse("required", false)
+
+              if (!config.hasPath(optName) && required == true) {
+                (false, "[" + optName + "] is requred")
+              } else if (config.hasPath(optName)) {
+                option.get("type") match {
+                  case Some(v) => {
+                    val optType = v.asInstanceOf[String]
+                    optType match {
+                      case "string" => {
+                        Try(config.getString(optName)) match {
+                          case Success(_) => (true, "")
+                          case Failure(_: ConfigException.WrongType) =>
+                            (false, "wrong type of [" + optName + "], expected: " + optType)
+                          case Failure(ex) => (false, ex.getMessage)
+                        }
+                      }
+                      case "string-list" => {
+                        Try(config.getStringList(optName)) match {
+                          case Success(_) => (true, "")
+                          case Failure(_: ConfigException.WrongType) =>
+                            (false, "wrong type of [" + optName + "], expected: " + optType)
+                          case Failure(ex) => (false, ex.getMessage)
+                        }
+                      }
+                      case "boolean" => {
+                        Try(config.getBoolean(optName)) match {
+                          case Success(_) => (true, "")
+                          case Failure(_: ConfigException.WrongType) =>
+                            (false, "wrong type of [" + optName + "], expected: " + optType)
+                          case Failure(ex) => (false, ex.getMessage)
+                        }
+                      }
+                      case "integer" => {
+                        Try(config.getInt(optName)) match {
+                          case Success(_) => (true, "")
+                          case Failure(_: ConfigException.WrongType) =>
+                            (false, "wrong type of [" + optName + "], expected: " + optType)
+                          case Failure(ex) => (false, ex.getMessage)
+                        }
+                      }
+                      case s: String => (false, "[Plugin Bug] unrecognized option type: " + s)
+                    }
+                  }
+                  case None => (true, "")
+                }
+              } else {
+                (true, "")
+              }
+            }
+            case None => (true, "")
+          }
+        }
+        case false => result
+      }
+    })
   }
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
@@ -85,7 +148,6 @@ class Table(var config: Config) extends BaseFilter(config) {
 }
 
 object Table {
-  // TODO: maybe we can turn option map to class
   val options = List(
     Map(
       "name" -> "path",
