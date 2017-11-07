@@ -79,6 +79,7 @@ class Table(var config: Config) extends BaseFilter(config) {
             case None => (true, "")
           }
         }
+
         case false => result
       }
     })
