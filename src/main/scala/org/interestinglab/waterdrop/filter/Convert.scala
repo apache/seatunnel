@@ -4,19 +4,15 @@ import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.sql.functions._
-import org.json4s.DefaultFormats
-import org.json4s.jackson.JsonMethods
 
-import scala.util.control.NonFatal
-
-class Json(var conf: Config) extends BaseFilter(conf) {
+class Convert(var conf: Config) extends BaseFilter(conf) {
 
   def this() = {
     this(ConfigFactory.empty())
   }
 
   override def checkConfig(): (Boolean, String) = {
+
     conf.hasPath("source_field") match {
       case true => (true, "")
       case false => (false, "please specify [source_field] as a non-empty string")
@@ -35,28 +31,6 @@ class Json(var conf: Config) extends BaseFilter(conf) {
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
-
-    val srcField = conf.getString("source_field")
-
-    conf.getString("target_field") match {
-      case Json.ROOT => df  // TODO
-      case targetField: String => {
-        val func = udf((s: String) => {
-          implicit val formats = DefaultFormats
-          try {
-            JsonMethods.parse(s).extract[Map[String, String]]
-          } catch {
-            // TODO How to set null for Row
-            case NonFatal(e) => Map("null" -> "yes")
-          }
-        })
-
-        df.withColumn(targetField, func(col(srcField)))
-      }
-    }
+    df
   }
-}
-
-object Json {
-  val ROOT = "__root__"
 }
