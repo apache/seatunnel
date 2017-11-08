@@ -6,8 +6,10 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions._
 import org.json4s.DefaultFormats
+import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods
 
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 class Json(var conf: Config) extends BaseFilter(conf) {
@@ -27,9 +29,7 @@ class Json(var conf: Config) extends BaseFilter(conf) {
     super.prepare(spark, ssc)
 
     val defaultConfig = ConfigFactory.parseMap(
-      Map(
-        "source_field" -> "raw_message",
-        "target_field" -> Json.ROOT)
+      Map("source_field" -> "raw_message", "target_field" -> Json.ROOT)
     )
     conf = conf.withFallback(defaultConfig)
   }
@@ -38,15 +38,14 @@ class Json(var conf: Config) extends BaseFilter(conf) {
     val srcField = conf.getString("source_field")
 
     conf.getString("target_field") match {
-      case Json.ROOT => df  // TODO
+      case Json.ROOT => df // TODO
       case targetField: String => {
         val func = udf((s: String) => {
           implicit val formats = DefaultFormats
-          try {
-            JsonMethods.parse(s).extract[Map[String, String]]
-          } catch {
-            // TODO How to set null for Row
-            case NonFatal(e) => Map("null" -> "yes")
+
+          Try(JsonMethods.parse(s).extract[Map[String, String]]) match {
+            case Success(result) => result
+            case Failure(ex) => Map("_failure" -> ex.getMessage)
           }
         })
 
