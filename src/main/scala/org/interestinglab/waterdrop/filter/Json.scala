@@ -2,11 +2,14 @@ package org.interestinglab.waterdrop.filter
 
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.json4s.DefaultFormats
 import org.json4s.jackson.JsonMethods
+
+import scala.util.control.NonFatal
 
 class Json(var conf: Config) extends BaseFilter(conf) {
 
@@ -15,9 +18,9 @@ class Json(var conf: Config) extends BaseFilter(conf) {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    conf.hasPath("table_name") && conf.hasPath("sql") match {
+    conf.hasPath("source_field") match {
       case true => (true, "")
-      case false => (false, "please specify [table_name] and [sql] as a non-empty string")
+      case false => (false, "please specify [source_field] as a non-empty string")
     }
   }
 
@@ -37,11 +40,16 @@ class Json(var conf: Config) extends BaseFilter(conf) {
     val srcField = conf.getString("source_field")
 
     conf.getString("target_field") match {
-      case Json.ROOT => df
+      case Json.ROOT => df  // TODO
       case targetField: String => {
         val func = udf((s: String) => {
           implicit val formats = DefaultFormats
-          JsonMethods.parse(s).extract[Map[String, String]]
+          try {
+            JsonMethods.parse(s).extract[Map[String, String]]
+          } catch {
+            // TODO How to set null for Row
+            case NonFatal(e) => Map("null" -> "yes")
+          }
         })
 
         df.withColumn(targetField, func(col(srcField)))
