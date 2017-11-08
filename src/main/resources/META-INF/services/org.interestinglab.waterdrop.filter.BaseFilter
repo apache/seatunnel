@@ -14,3 +14,4 @@ org.interestinglab.waterdrop.filter.Split
 org.interestinglab.waterdrop.filter.Sql
 org.interestinglab.waterdrop.filter.Uppercase
 org.interestinglab.waterdrop.filter.Uuid
+org.interestinglab.waterdrop.filter.Convert
