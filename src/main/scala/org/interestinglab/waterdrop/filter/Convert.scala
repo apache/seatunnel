@@ -4,6 +4,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions.col
 
 class Convert(var conf: Config) extends BaseFilter(conf) {
 
@@ -14,8 +15,8 @@ class Convert(var conf: Config) extends BaseFilter(conf) {
   override def checkConfig(): (Boolean, String) = {
     if (!conf.hasPath("source_field")) {
       (false, "please specify [source_field] as a non-empty string")
-    } else if (!conf.hasPath("to")){
-      (true, "please specify [to] as a non-empty string")
+    } else if (!conf.hasPath("new_type")) {
+      (false, "please specify [new_type] as a non-empty string")
     } else {
       (true, "")
     }
@@ -29,17 +30,16 @@ class Convert(var conf: Config) extends BaseFilter(conf) {
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
     val srcField = conf.getString("source_field")
-    val to = conf.getString("to")
+    val newType = conf.getString("new_type")
 
-    to match {
-      //TODO df.withColumn(srcField, df.col(srcField).cast("string"))
-      case "string" => df.withColumn(srcField, df.col(srcField).cast(StringType))
-      case "integer" => df.withColumn(srcField, df.col(srcField).cast(IntegerType))
-      case "double" => df.withColumn(srcField, df.col(srcField).cast(DoubleType))
-      case "float" => df.withColumn(srcField, df.col(srcField).cast(FloatType))
-      case "long" => df.withColumn(srcField, df.col(srcField).cast(LongType))
-      case "boolean" => df.withColumn(srcField, df.col(srcField).cast(BooleanType))
-      case toType: String => df
+    newType match {
+      case "string" => df.withColumn(srcField, col(srcField).cast(StringType))
+      case "integer" => df.withColumn(srcField, col(srcField).cast(IntegerType))
+      case "double" => df.withColumn(srcField, col(srcField).cast(DoubleType))
+      case "float" => df.withColumn(srcField, col(srcField).cast(FloatType))
+      case "long" => df.withColumn(srcField, col(srcField).cast(LongType))
+      case "boolean" => df.withColumn(srcField, col(srcField).cast(BooleanType))
+      case _: String => df
     }
   }
 }
