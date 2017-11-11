@@ -57,4 +57,5 @@ class Json(var conf: Config) extends BaseFilter(conf) {
 
 object Json {
   val ROOT = "__root__"
+  val TMP = "__tmp__"
 }
