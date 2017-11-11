@@ -36,23 +36,20 @@ class Split(var conf: Config) extends BaseFilter(conf) {
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
 
-    import spark.sqlContext.implicits
-
     val srcField = conf.getString("source_field")
     val keys = conf.getStringList("fields")
 
     // https://stackoverflow.com/a/33345698/1145750
     conf.getString("target_field") match {
       case Json.ROOT => {
-        val valueSchema = structField()
-        val rows = df.rdd.map { r =>
-          val values = split(r.getAs[String](srcField), conf.getString("delimiter"), valueSchema.size)
-          Row.fromSeq(r.toSeq ++ values)
+        val func = udf((s: String) => {
+          split(s, conf.getString("delimiter"), keys.size())
+        })
+        var filterDf = df.withColumn(Json.TMP, func(col(srcField)))
+        for(i <- 0 until keys.size()) {
+          filterDf = filterDf.withColumn(keys.get(i), col(Json.TMP)(i))
         }
-
-        val schema = StructType(df.schema.fields ++ valueSchema)
-
-        spark.createDataFrame(rows, schema)
+        filterDf.drop(Json.TMP)
       }
       case targetField: String => {
         val func = udf((s: String) => {
@@ -78,14 +75,5 @@ class Split(var conf: Config) extends BaseFilter(conf) {
       case -1 => parts.slice(0, fillLength)
     }
     filled.toSeq
-  }
-
-  private def structField(): Array[StructField] = {
-    import org.apache.spark.sql.types._
-
-    val keysList = conf.getStringList("fields")
-    val keys = keysList.toArray
-
-    keys.map(key => StructField(key.asInstanceOf[String], StringType))
   }
 }
