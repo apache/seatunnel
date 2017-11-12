@@ -1,14 +1,12 @@
 package org.interestinglab.waterdrop.filter
 
-import java.util
-
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 
-class Remove(var conf: Config) extends BaseFilter(conf) {
+class Sample(var conf: Config) extends BaseFilter(conf) {
 
   def this() = {
     this(ConfigFactory.empty())
@@ -20,13 +18,24 @@ class Remove(var conf: Config) extends BaseFilter(conf) {
     super.prepare(spark, ssc)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "source_field" -> util.Arrays.asList("raw_message")
+        "fraction" -> 0.1,
+        "limit" -> -1
       )
     )
     conf = conf.withFallback(defaultConfig)
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
-    df.drop(conf.getStringList("source_field"): _*)
+
+    val sampledDF = df.sample(true, conf.getDouble("fraction"))
+
+    conf.getInt("limit") match {
+      case -1 => {
+        sampledDF
+      }
+      case limit: Int => {
+        sampledDF.limit(limit)
+      }
+    }
   }
 }

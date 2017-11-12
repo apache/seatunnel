@@ -16,7 +16,9 @@ libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.3.1",
   "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
-  "com.maxmind.geoip2" % "geoip2" % "2.5.0"
+  "com.maxmind.geoip2" % "geoip2" % "2.5.0",
+  "mysql" % "mysql-connector-java" % "5.1.6",
+  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "5.6.3"
 )
 
 resolvers += Resolver.mavenLocal

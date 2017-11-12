@@ -13,6 +13,7 @@ class Split(var conf : Config) extends BaseFilter(conf) {
     this(ConfigFactory.empty())
   }
 
+  // TODO: check fields.length == field_types.length if field_types exists
   override def checkConfig(): (Boolean, String) = {
     conf.hasPath("fields") && conf.getStringList("fields").size() > 0 match {
       case true => (true, "")
@@ -41,15 +42,14 @@ class Split(var conf : Config) extends BaseFilter(conf) {
     // https://stackoverflow.com/a/33345698/1145750
     conf.getString("target_field") match {
       case Json.ROOT => {
-        val valueSchema = structField()
-        val rows = df.rdd.map { r =>
-          val values = split(r.getAs[String](srcField), conf.getString("delimiter"), valueSchema.size)
-          Row.fromSeq(r.toSeq ++ values)
+        val func = udf((s: String) => {
+          split(s, conf.getString("delimiter"), keys.size())
+        })
+        var filterDf = df.withColumn(Json.TMP, func(col(srcField)))
+        for(i <- 0 until keys.size()) {
+          filterDf = filterDf.withColumn(keys.get(i), col(Json.TMP)(i))
         }
-
-        val schema = StructType(df.schema.fields ++ valueSchema)
-
-        spark.createDataFrame(rows, schema)
+        filterDf.drop(Json.TMP)
       }
       case targetField: String => {
         val func = udf((s : String) => {
@@ -75,13 +75,5 @@ class Split(var conf : Config) extends BaseFilter(conf) {
       case -1 => parts.slice(0, fillLength)
     }
     filled.toSeq
-  }
-
-  private def structField(): Array[StructField] = {
-
-    val keysList = conf.getStringList("fields")
-    val keys = keysList.toArray
-
-    keys.map(key => StructField(key.asInstanceOf[String], StringType))
   }
 }

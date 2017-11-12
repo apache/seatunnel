@@ -2,49 +2,64 @@ package org.interestinglab.waterdrop.output
 
 import java.util.Properties
 
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.broadcast.Broadcast
-import com.typesafe.config.Config
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import scala.collection.JavaConversions._
 
-class Kafka(config: Config) extends BaseOutput(config) {
+class Kafka(var config: Config) extends BaseOutput(config) {
 
-  val props = new Properties()
-  var topic = ""
+  val producerPrefix = "producer"
+
   var kafkaSink: Option[Broadcast[KafkaSink]] = None
 
-  def checkConfig(): (Boolean, String) = {
-    // TODO
-    (true, "")
+  override def checkConfig(): (Boolean, String) = {
+
+    val producerConfig = config.getConfig(producerPrefix)
+
+    config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
+      case true => (true, "")
+      case false => (false, "please specify [topic] and [producer.bootstrap.servers]")
+    }
   }
 
-  def prepare(ssc: StreamingContext) {
-    val producerConf = config.getConfig("producer")
-    this.topic = config.getString("topic")
-    props.put("acks", producerConf.getString("acks"))
-    props.put("bootstrap.servers", producerConf.getString("bootstrap.servers"))
-    props.put("retries", producerConf.getString("retries"))
-    props.put("retry.backoff.ms", producerConf.getString("retry.backoff.ms"))
-    props.put("batch.size", producerConf.getString("batch.size"))
-    props.put("send.buffer.bytes", producerConf.getString("send.buffer.bytes"))
-    props.put("max.in.flight.requests.per.connection", producerConf.getString("max.in.flight.requests.per.connection"))
-    props.put("linger.ms", producerConf.getString("linger.ms"))
-    props.put("buffer.memory", producerConf.getString("buffer.memory"))
-    props.put("key.serializer", producerConf.getString("key.serializer"))
-    props.put("value.serializer", producerConf.getString("value.serializer"))
-    props.put("compression.type", producerConf.getString("compression.type"))
-    props.put("max.request.size", producerConf.getString("max.request.size"))
+  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
+    super.prepare(spark, ssc)
+
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "serializer" -> "json",
+        producerPrefix + ".key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
+        producerPrefix + ".value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
+      )
+    )
+
+    config = config.withFallback(defaultConfig)
+
+    val props = new Properties()
+    config.getConfig(producerPrefix).entrySet().foreach(entry => {
+      val key = entry.getKey
+      val value = String.valueOf(entry.getValue.unwrapped())
+      props.put(key, value)
+    })
+
+    println("[INFO] Kafka Output properties: ")
+    props.foreach(entry => {
+      val (key, value) = entry
+      println("[INFO] \t" + key + " = " + value)
+    })
 
     kafkaSink = Some(ssc.sparkContext.broadcast(KafkaSink(props)))
   }
 
-  def process(df: DataFrame) {
+  override def process(df: DataFrame) {
 
     val dataSet = df.toJSON
     dataSet.foreach { row =>
       kafkaSink.foreach { ks =>
-        ks.value.send(this.topic, row)
+        ks.value.send(config.getString("topic"), row)
       }
     }
   }

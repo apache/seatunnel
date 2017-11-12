@@ -4,7 +4,7 @@ import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.interestinglab.waterdrop.core.Plugin
 
-abstract class BaseOutput(config: Config) extends Plugin {
+abstract class BaseOutput(initConfig: Config) extends Plugin {
 
   def process(df: DataFrame)
 }

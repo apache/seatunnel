@@ -8,6 +8,8 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.interestinglab.waterdrop.config.ConfigBuilder
 import org.interestinglab.waterdrop.filter.UdfRegister
 
+import scala.util.{Failure, Success, Try}
+
 object WaterdropMain {
 
   def main(args: Array[String]) {
@@ -21,7 +23,14 @@ object WaterdropMain {
     var configValid = true
     val plugins = inputs ::: filters ::: outputs
     for (p <- plugins) {
-      val (isValid, msg) = p.checkConfig
+      val (isValid, msg) = Try(p.checkConfig) match {
+        case Success(info) => {
+          val (ret, message) = info
+          (ret, message)
+        }
+        case Failure(exception) => (false, exception.getMessage)
+      }
+
       if (!isValid) {
         configValid = false
         printf("Plugin[%s] contains invalid config, error: %s\n", p.name, msg)
@@ -59,7 +68,7 @@ object WaterdropMain {
     }
 
     val dstreamList = inputs.map(p => {
-      p.getDStream
+      p.getDStream(ssc)
     })
 
     val unionedDStream = dstreamList.reduce((d1, d2) => {

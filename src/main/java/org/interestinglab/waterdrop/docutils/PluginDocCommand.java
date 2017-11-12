@@ -3,7 +3,13 @@ package org.interestinglab.waterdrop.docutils;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.apache.commons.io.FileUtils;
 import org.interestinglab.waterdrop.configparser.*;
+
+import java.io.File;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * Created by gaoyingju on 16/09/2017.
@@ -11,6 +17,36 @@ import org.interestinglab.waterdrop.configparser.*;
 public class PluginDocCommand {
 
     public static void main(String[] args) throws Exception {
+
+        if (args.length < 1 || args.length > 2) {
+            System.out.println("please specify <plugin_doc_path> [overwrite]");
+            System.exit(-1);
+        }
+
+        boolean overwrite = false;
+        if (args.length == 2) {
+            overwrite = Boolean.valueOf(args[1]);
+        }
+
+        File file = new File(args[0]);
+        if (!file.exists() || !file.isFile()) {
+            System.out.println("file does not exists or is not file");
+            System.exit(-1);
+        }
+
+        if (!file.getName().endsWith(".docs")) {
+            System.out.println("plugin doc file shoud be named as *.docs");
+            System.exit(-1);
+        }
+
+        final Path parent = file.toPath().getParent();
+        final String filenamePrefix = file.getName().substring(0, file.getName().length() - ".docs".length());
+        final File target = new File(Paths.get(parent.toString(), filenamePrefix + ".md").toString());
+
+        if (!overwrite && target.exists()) {
+            System.out.println("target rendered plugin doc file already exists");
+            System.exit(-1);
+        }
 
         CharStream charStream = CharStreams.fromFileName(args[0]);
         PluginDocLexer lexer = new PluginDocLexer(charStream);
@@ -21,6 +57,8 @@ public class PluginDocCommand {
         PluginDocVisitor<String> visitor = new PluginDocMarkdownRender();
         String text = visitor.visit(context);
 
-        System.out.println("Rendered Plugin Doc: \n" + text);
+        FileUtils.writeStringToFile(target, text, Charset.defaultCharset());
+
+        System.out.println("Success !");
     }
 }

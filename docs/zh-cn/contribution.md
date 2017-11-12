@@ -10,7 +10,8 @@ https://github.com/databricks/scala-style-guide
 
 使用sbt插件[scalastyle](http://www.scalastyle.org/)作为coding style检查工具；无法通过coding style检查的代码无法提交.
 
-通过scalafmt利用[Cli或者IntelliJ Idea](http://scalameta.org/scalafmt/#IntelliJ)自动完成scala代码的格式化.
+通过scalafmt利用[Cli或者IntelliJ Idea](http://scalameta.org/scalafmt/#IntelliJ)自动完成scala代码的格式化。
+如果使用scalafmt的Idea插件，请在插件安装完后设置`文件保存时自动更正代码格式`,方法 "Preferences" -> "Tools" -> "Scalafmt", 勾选"format on file save"
 
 ## 代码/文档贡献流程
 

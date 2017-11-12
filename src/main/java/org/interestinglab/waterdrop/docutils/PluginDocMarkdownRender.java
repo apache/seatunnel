@@ -2,6 +2,7 @@ package org.interestinglab.waterdrop.docutils;
 
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.WordUtils;
 import org.interestinglab.waterdrop.configparser.PluginDocBaseVisitor;
 import org.interestinglab.waterdrop.configparser.PluginDocLexer;
 import org.interestinglab.waterdrop.configparser.PluginDocParser;
@@ -21,7 +22,7 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
 
         StringBuilder str = new StringBuilder();
 
-        str.append("## " + pluginDoc.getPluginGroup() + " plugin : " + pluginDoc.getPluginName() + "\n\n");
+        str.append("## " + WordUtils.capitalize(pluginDoc.getPluginGroup()) + " plugin : " + pluginDoc.getPluginName() + "\n\n");
         str.append("* Author: " + pluginDoc.getPluginAuthor() + "\n");
         str.append("* Homepage: " + pluginDoc.getPluginHomepage() + "\n");
         str.append("* Version: " + pluginDoc.getPluginVersion() + "\n");
@@ -42,8 +43,8 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
         str.append("| name | type | required | default value |\n");
         str.append("| --- | --- | --- | --- |\n");
         for (PluginDoc.PluginOption option : pluginDoc.getPluginOptions()) {
-            str.append(String.format("| %s | %s | %s | %s |\n",
-                    option.getOptionName(), option.getOptionType(), option.getRequired().toString(), option.getDefaultValue()));
+            str.append(String.format("| [%s](%s) | %s | %s | %s |\n",
+                    option.getOptionName(), getOptionDetailUrl(option), option.getOptionType(), option.getRequired().toString(), option.getDefaultValue()));
         }
 
         // append option details
@@ -54,6 +55,15 @@ public class PluginDocMarkdownRender extends PluginDocBaseVisitor<String> {
         }
 
         return str.toString();
+    }
+
+    /**
+     * Only for docsify generated docs.
+     * */
+    private String getOptionDetailUrl(PluginDoc.PluginOption option) {
+
+        final String escapedName = option.getOptionName().replace(".", "");
+        return "#" + escapedName + "-" + option.getOptionType();
     }
 
     @Override
