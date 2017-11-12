@@ -14,7 +14,6 @@ import scala.collection.JavaConversions._
 
 class GeoIp(var conf : Config) extends BaseFilter(conf) {
 
-  var reader: DatabaseReader = _
   val fieldsArr = Array("country_name", "subdivision_name", "city_name")
   var selectedFields = Array[String]()
 
@@ -57,35 +56,16 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
     val database = new File(conf.getString("database"))
     val source = conf.getString("source_field")
 
+    val reader = new DatabaseReader.Builder(database).build
+    val broadcastReader = spark.sparkContext.broadcast(reader)
+
     conf.getString("target_field") match {
-      case Json.ROOT => {
-        val valueSchema = structField()
-        val rows = df.rdd.mapPartitions { partitions =>
-          this.reader = new DatabaseReader.Builder(database).withCache(new CHMCache()).build
-          partitions.map { row =>
-            var values = Seq.empty[String]
-            val ip = row.getAs[String](source)
-            val geoIp = ipLookUp(ip)
-            for (field: String <- this.selectedFields) {
-              values = values :+ (geoIp(field))
-            }
-
-            Row.fromSeq(row.toSeq ++ values)
-          }
-        }
-
-        val schema = StructType(df.schema.fields ++ valueSchema)
-
-        spark.createDataFrame(rows, schema)
-
-      }
+      case Json.ROOT => df
       case target: String => {
         val func = udf((s : String) => {
 
-          //文件加载次数？？
-          this.reader = new DatabaseReader.Builder(database).withCache(new CHMCache()).build
           var geo: Map[String, String] = Map()
-          val geoIp = ipLookUp(s)
+          val geoIp = ipLookUp(s, broadcastReader.value)
 
           if (conf.getBoolean("country_name")) {
             geo += ("country_name" -> geoIp("country_name"))
@@ -103,14 +83,7 @@ class GeoIp(var conf : Config) extends BaseFilter(conf) {
     }
   }
 
-  def structField(): Array[StructField] = {
-
-    this.selectedFields.map(key =>
-      StructField(key, StringType)
-    )
-  }
-
-  def ipLookUp(ip: String): Map[String, String] = {
+  def ipLookUp(ip: String, reader: DatabaseReader): Map[String, String] = {
     var geoIp = Map(
       "country_name" -> "None",
       "subdivision_name" -> "None",
