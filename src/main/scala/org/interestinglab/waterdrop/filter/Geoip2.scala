@@ -26,7 +26,8 @@ class Geoip2(var config : Config) extends BaseFilter(config) {
 
     val requiredOptions = List("source_field", "database")
 
-    val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
+    val nonExistsOptions:List[(String, Boolean)] = requiredOptions.map{optionName =>
+      (optionName, config.hasPath(optionName))}.filter { p =>
       val (optionName, exists) = p
       !exists
     }
@@ -34,7 +35,7 @@ class Geoip2(var config : Config) extends BaseFilter(config) {
     if (nonExistsOptions.length == 0) {
       (true, "")
     } else {
-      (false, "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(", ") + " as non-empty string")
+      (false, "please specify [source_field, database] as non-empty string")
     }
   }
 

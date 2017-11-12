@@ -13,7 +13,6 @@ import com.maxmind.geoip2.exception.AddressNotFoundException;
 import com.maxmind.geoip2.exception.GeoIp2Exception;
 import com.maxmind.geoip2.model.*;
 
-import java.beans.Transient;
 import java.io.*;
 import java.net.InetAddress;
 import java.util.Collections;
@@ -65,12 +64,12 @@ public class DatabaseReader implements DatabaseProvider, Closeable, Serializable
      * </p>
      */
     public static final class Builder {
-        final File database;
-        final InputStream stream;
+        private final File database;
+        private final InputStream stream;
 
-        List<String> locales = Collections.singletonList("en");
-        FileMode mode = FileMode.MEMORY_MAPPED;
-        NodeCache cache = NoCache.getInstance();
+        private List<String> locales = Collections.singletonList("en");
+        private FileMode mode = FileMode.MEMORY_MAPPED;
+        private NodeCache cache = NoCache.getInstance();
 
         /**
          * @param stream the stream containing the GeoIP2 database to use.
