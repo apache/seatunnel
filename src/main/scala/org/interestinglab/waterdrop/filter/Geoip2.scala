@@ -13,7 +13,7 @@ import java.net.InetAddress
 import scala.collection.JavaConversions._
 
 
-class GeoIp(var config : Config) extends BaseFilter(config) {
+class Geoip2(var config : Config) extends BaseFilter(config) {
 
   val fieldsArr = Array("country_name", "subdivision_name", "city_name")
   var selectedFields = Array[String]()
