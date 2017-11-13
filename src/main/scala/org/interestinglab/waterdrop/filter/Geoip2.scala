@@ -98,7 +98,7 @@ class Geoip2(var config : Config) extends BaseFilter(config) {
     }
   }
 
-  def ipLookUp(ip: String, reader: DatabaseReader): Map[String, String] = {
+  private def ipLookUp(ip: String, reader: DatabaseReader): Map[String, String] = {
     val emptyResult = Map(
       "country_name" -> "None",
       "subdivision_name" -> "None",
