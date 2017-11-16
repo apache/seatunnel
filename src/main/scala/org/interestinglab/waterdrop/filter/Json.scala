@@ -37,6 +37,8 @@ class Json(var conf: Config) extends BaseFilter(conf) {
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
     val srcField = conf.getString("source_field")
 
+    import spark.implicits._
+
     conf.getString("target_field") match {
       case Json.ROOT => {
         val stringDataSet = df.select(srcField).as[String]
