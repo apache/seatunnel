@@ -37,19 +37,22 @@ class Json(var conf: Config) extends BaseFilter(conf) {
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
     val srcField = conf.getString("source_field")
 
+    import spark.implicits._
+
     conf.getString("target_field") match {
-      case Json.ROOT => df // TODO
+      case Json.ROOT => {
+        val stringDataSet = df.select(srcField).as[String]
+        val schema = spark.read.json(stringDataSet).schema
+        var tmpDf = df.withColumn(Json.TMP, from_json(col(srcField), schema))
+        schema.map { field =>
+          tmpDf = tmpDf.withColumn(field.name, col(Json.TMP)(field.name))
+        }
+        tmpDf.drop(Json.TMP)
+      }
       case targetField: String => {
-        val func = udf((s: String) => {
-          implicit val formats = DefaultFormats
-
-          Try(JsonMethods.parse(s).extract[Map[String, String]]) match {
-            case Success(result) => result
-            case Failure(ex) => Map("_failure" -> ex.getMessage)
-          }
-        })
-
-        df.withColumn(targetField, func(col(srcField)))
+        val stringDataSet = df.select(srcField).as[String]
+        val schema = spark.read.json(stringDataSet).schema
+        df.withColumn(targetField, from_json(col(srcField), schema))
       }
     }
   }
