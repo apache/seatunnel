@@ -35,12 +35,22 @@ class Fake(var config: Config) extends BaseInput(config) {
       config.getStringList("json_keys").size() > 0
     }
 
+    val validateContentList = if (!config.hasPath("content")) {
+      true
+    } else if (config.hasPath("content") && config.getStringList("content").length > 0) {
+      true
+    } else {
+      false
+    }
+
     val errMsg = if (!validateNumOfFields) {
       "please make sure [num_of_fields] is of type Integer bigger than 0"
     } else if (!validateRate) {
       "please make sure [rate] is of type Integer bigger than 0"
     } else if (!validateJsonKeys) {
-      "please make sure [rate] is of type string array"
+      "please make sure [json_keys] is of type string array"
+    } else if (!validateContentList) {
+      "please make sure [content] is of type string array"
     } else {
       ""
     }
@@ -75,15 +85,23 @@ class Fake(var config: Config) extends BaseInput(config) {
 
 private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel.MEMORY_AND_DISK_2) {
 
+  val secRandom = new SecureRandom()
+
   // TODO: 支持 data_format = json
-  // TODO: 自定义内容？
   def generateData(): String = {
 
-    val secRandom = new SecureRandom()
-    val fromN = 1
-    val toN = config.getInt("num_of_fields")
-    val n = 100000
-    (fromN to toN).map(i => "Random" + i + secRandom.nextInt()).mkString(config.getString("text_delimeter"))
+    config.hasPath("content") && config.getStringList("content").length > 0 match {
+      case true => {
+        val contentList = config.getStringList("content")
+        val n = secRandom.nextInt(contentList.length)
+        contentList.get(n)
+      }
+      case false => {
+        val fromN = 1
+        val toN = config.getInt("num_of_fields")
+        (fromN to toN).map(i => "Random" + i + secRandom.nextInt()).mkString(config.getString("text_delimeter"))
+      }
+    }
   }
 
   def onStart() {
