@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/interestinglab_waterdrop/Lobby](https://badges.gitter.im/interestinglab_waterdrop/Lobby.svg)](https://gitter.im/interestinglab_waterdrop/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-Waterdrop 是一个`非常易用`，`高性能`，能够应对`海量数据`的`实时/离线`数据处理产品，构建于Apache Spark之上。
+Waterdrop 是一个`非常易用`，`高性能`，能够应对`海量数据`的`实时`数据处理产品，构建于Apache Spark之上。
 
 ## 为什么我们需要 Waterdrop
 
@@ -27,34 +27,32 @@ Databricks 开源的 Apache Spark 对于分布式数据处理来说是一个伟�
 ## Waterdrop 的特性
 
 * 简单易用，灵活配置，无需开发
-* 支持实时流式处理和离线分批处理2种运行模式
+* 实时流式处理
 * 高性能
 * 海量数据处理能力
 * 模块化和插件化，易于扩展
 * 支持利用SQL做数据处理和聚合
-* 支持spark 1.6 ～ spark 2.x
+* 支持Spark 2.x
 
 ## Waterdrop 的工作流程
 
-input[数据源输入] -> serializer[数据反序列化] -> filter[数据处理] -> serializer[数据序列化] -> output[结果输出]
+Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
+
+多个Filter构建了数据处理的Pipeline，满足各种各样的数据处理需求，如果您熟悉SQL，也可以直接通过SQL构建数据处理的Pipeline，简单高效。目前Waterdrop支持的[Filter列表](./#/zh-cn/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
 ## Waterdrop 支持的插件
 
 * Input plugin
 
-Hdfs, Http, Kafka, Redis, Stdin, Tcp, 自行开发的Input plugin
+Fake, File, Hdfs, Kafka, S3, Socket, 自行开发的Input plugin
 
 * Filter plugin
 
-Aggregate, Clone, Date, Dict, Drop, Geoip, Grok, Kv, Prune, Range, Split, SQL, 自行开发的Filter plugin
+Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace, Sample, Split, Sql, Table, Truncate, Uppercase, Uuid, 自行开发的Filter plugin
 
 * Output plugin
 
-Elasticsearch, File, HBase, Hdfs, Http, Kafka, Mongodb, MySQL, Stdout, 自行开发的Output plugin
-
-* Serializer plugin
-
-Carbondata, Csv, Json, Gzip, ORC, Parquet, Protobuf, Raw, 自行开发的Serializer plugin
+Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output plugin
 
 ## 环境依赖
 
@@ -65,19 +63,17 @@ Carbondata, Csv, Json, Gzip, ORC, Parquet, Protobuf, Raw, 自行开发的Seriali
 
 如果您的数据量较小或者只是做功能验证，也可以仅使用local模式启动，无需集群环境。
 
-## 配置/文档
+## [配置/文档](./#/zh-cn/configuration/base)
+
+## [部署和测试](./#/zh-cn/deployment)
+
+## [开发者指引](./#/zh-cn/developing-plugin)
+
+## [Roadmap](./#/zh-cn/roadmap)
+
+## 社区分享
 
 [Waterdrop介绍PPT](http://slides.com/garyelephant/waterdrop/fullscreen?token=GKrQoxJi)
-
-[Waterdrop 配置](./docs/english/index.md)
-
-## 部署和测试
-
-## 性能调优
-
-## 开发者指引
-
-## Roadmap
 
 ## 贡献观点和代码
 
@@ -91,4 +87,5 @@ Carbondata, Csv, Json, Gzip, ORC, Parquet, Protobuf, Raw, 自行开发的Seriali
 
 ## 联系项目负责人
 
-Garyelephant : garygaowork@gmail.com
+Garyelephant : garygaowork@gmail.com, 微信: garyelephant 
+RickyHuo : huochen1994@163.com, 微信: chodomatte1994
