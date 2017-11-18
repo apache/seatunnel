@@ -3,7 +3,7 @@ package org.interestinglab.waterdrop.config
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigRenderOptions}
-import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
+import org.antlr.v4.runtime.{ANTLRFileStream, CharStream, CommonTokenStream}
 import org.interestinglab.waterdrop.configparser.{ConfigLexer, ConfigParser, ConfigVisitor}
 import org.interestinglab.waterdrop.filter.BaseFilter
 import org.interestinglab.waterdrop.input.BaseInput
@@ -22,7 +22,9 @@ class ConfigBuilder {
 
     println("[INFO] Loading config file: " + configFile)
 
-    val charStream: CharStream = CharStreams.fromFileName(configFile)
+    // CharStreams is for Antlr4.7
+    // val charStream: CharStream = CharStreams.fromFileName(configFile)
+    val charStream: CharStream = new ANTLRFileStream(configFile)
     val lexer: ConfigLexer = new ConfigLexer(charStream)
     val tokens: CommonTokenStream = new CommonTokenStream(lexer)
     val parser: ConfigParser = new ConfigParser(tokens)

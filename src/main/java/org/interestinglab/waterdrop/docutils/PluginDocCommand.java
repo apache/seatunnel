@@ -1,7 +1,7 @@
 package org.interestinglab.waterdrop.docutils;
 
+import org.antlr.v4.runtime.ANTLRFileStream;
 import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.apache.commons.io.FileUtils;
 import org.interestinglab.waterdrop.configparser.*;
@@ -48,7 +48,8 @@ public class PluginDocCommand {
             System.exit(-1);
         }
 
-        CharStream charStream = CharStreams.fromFileName(args[0]);
+        CharStream charStream = new ANTLRFileStream(args[0]);
+        // CharStream charStream = CharStreams.fromFileName(args[0]);
         PluginDocLexer lexer = new PluginDocLexer(charStream);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         PluginDocParser parser = new PluginDocParser(tokens);
