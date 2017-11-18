@@ -2,8 +2,8 @@ package org.interestinglab.waterdrop.config;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigRenderOptions;
+import org.antlr.v4.runtime.ANTLRFileStream;
 import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.interestinglab.waterdrop.configparser.ConfigLexer;
 import org.interestinglab.waterdrop.configparser.ConfigParser;
@@ -19,7 +19,8 @@ public class ConfigCommand {
      * */
     public static void main(String[] args) throws Exception {
 
-        CharStream charStream = CharStreams.fromFileName(args[0]);
+        CharStream charStream = new ANTLRFileStream(args[0]);
+        // CharStream charStream = CharStreams.fromFileName();
         ConfigLexer lexer = new ConfigLexer(charStream);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         ConfigParser parser = new ConfigParser(tokens);
