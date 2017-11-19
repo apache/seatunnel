@@ -87,8 +87,9 @@ private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel
 
   val secRandom = new SecureRandom()
 
-  // TODO: 支持 data_format = json
   def generateData(): String = {
+
+    // TODO: 支持 data_format = json
 
     config.hasPath("content") && config.getStringList("content").length > 0 match {
       case true => {
