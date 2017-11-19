@@ -3,14 +3,32 @@ version      := "0.1.0"
 organization := "org.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
-scalaBinaryVersion := "2.11"
+packageBin in Compile := file(s"${name.value}_${scalaBinaryVersion.value}.jar")
 
 val sparkVersion = "2.2.0"
 
+lazy val providedDependencies = Seq(
+  "org.apache.spark" %% "spark-core" % sparkVersion,
+  "org.apache.spark" %% "spark-sql" % sparkVersion,
+  "org.apache.spark" %% "spark-streaming" % sparkVersion
+)
+
+// Change dependepcy scope to "provided" by : sbt -DprovidedDeps=true <task>
+val providedDeps = Option(System.getProperty("providedDeps")).getOrElse("false")
+
+providedDeps match {
+  case "true" => {
+    println("providedDeps = true")
+    libraryDependencies ++= providedDependencies.map(_ % "provided")
+  }
+  case "false" => {
+    println("providedDeps = false")
+    libraryDependencies ++= providedDependencies.map(_ % "compile")
+  }
+}
+
 libraryDependencies ++= Seq(
-  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-  "org.apache.spark" %% "spark-streaming" % sparkVersion % "provided",
+
   "org.apache.spark" %% "spark-streaming-kafka-0-8" % sparkVersion
     exclude("org.spark-project.spark", "unused"),
   "com.typesafe" % "config" % "1.3.1",
@@ -59,3 +77,9 @@ assemblyMergeStrategy in assembly := {
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
 }
+
+// The 'run', 'runMain' task uses all the libraries, including the ones marked with "provided".
+// This is useful for running spark application in local
+run in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))
+runMain in Compile <<= Defaults.runMainTask(fullClasspath in Compile, runner in (Compile, run))
+
