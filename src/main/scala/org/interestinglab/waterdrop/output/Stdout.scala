@@ -20,7 +20,7 @@ class Stdout(var config: Config) extends BaseOutput(config) {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "limit" -> 100,
-        "serializer" -> "plain"
+        "serializer" -> "plain" // plain | json
       )
     )
     config = config.withFallback(defaultConfig)
@@ -30,10 +30,22 @@ class Stdout(var config: Config) extends BaseOutput(config) {
 
     val limit = config.getInt("limit")
 
-    if (limit == -1) {
-      df.show(Int.MaxValue, false)
-    } else if (limit > 0) {
-      df.show(limit, false)
+    config.getString("serializer") match {
+      case "plain" => {
+        if (limit == -1) {
+          df.show(Int.MaxValue, false)
+        } else if (limit > 0) {
+          df.show(limit, false)
+        }
+      }
+      case "json" => {
+        if (limit == -1) {
+          df.toJSON.take(Int.MaxValue).foreach(s => println(s))
+
+        } else if (limit > 0) {
+          df.toJSON.take(limit).foreach(s => println(s))
+        }
+      }
     }
   }
 }
