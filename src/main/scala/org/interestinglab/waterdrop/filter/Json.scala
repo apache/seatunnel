@@ -5,12 +5,6 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions._
-import org.json4s.DefaultFormats
-import org.json4s.JsonAST.JObject
-import org.json4s.jackson.JsonMethods
-
-import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
 
 class Json(var conf: Config) extends BaseFilter(conf) {
 
@@ -29,7 +23,10 @@ class Json(var conf: Config) extends BaseFilter(conf) {
     super.prepare(spark, ssc)
 
     val defaultConfig = ConfigFactory.parseMap(
-      Map("source_field" -> "raw_message", "target_field" -> Json.ROOT)
+      Map(
+        "source_field" -> "raw_message",
+        "target_field" -> Json.ROOT
+      )
     )
     conf = conf.withFallback(defaultConfig)
   }
@@ -41,13 +38,22 @@ class Json(var conf: Config) extends BaseFilter(conf) {
 
     conf.getString("target_field") match {
       case Json.ROOT => {
+
         val stringDataSet = df.select(srcField).as[String]
-        val schema = spark.read.json(stringDataSet).schema
-        var tmpDf = df.withColumn(Json.TMP, from_json(col(srcField), schema))
-        schema.map { field =>
-          tmpDf = tmpDf.withColumn(field.name, col(Json.TMP)(field.name))
+
+        val newDF = srcField match {
+          case "raw_message" => spark.read.json(stringDataSet)
+          case s: String => {
+            val schema = spark.read.json(stringDataSet).schema
+            var tmpDf = df.withColumn(Json.TMP, from_json(col(srcField), schema))
+            schema.map { field =>
+              tmpDf = tmpDf.withColumn(field.name, col(Json.TMP)(field.name))
+            }
+            tmpDf.drop(Json.TMP)
+          }
         }
-        tmpDf.drop(Json.TMP)
+
+        newDF
       }
       case targetField: String => {
         val stringDataSet = df.select(srcField).as[String]
