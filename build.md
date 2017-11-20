@@ -23,7 +23,9 @@ sbt package
 Build fat jar(with all dependencies) for Spark Application
 
 ```
-sbt -DprovidedDeps=true clean assembly
+# Linux, MACOS, Windows
+
+sbt "-DprovidedDeps=true" clean assembly
 ```
 
 ---
