@@ -106,7 +106,14 @@ mappings in Universal := {
   filtered :+ (fatJar -> ("lib/" + fatJar.getName))
 }
 
-
 // the bash scripts classpath only needs the fat jar
 scriptClasspath := Seq( (assemblyJarName in assembly).value )
+
+import NativePackagerHelper.directory
+mappings in Universal += file("README.md") -> "README.md"
+mappings in Universal += file("LICENSE") -> "LICENSE"
+mappings in Universal ++= directory("vendor")
+mappings in Universal ++= directory("docs")
+mappings in Universal ++= directory("config")
+mappings in Universal ++= directory("bin")
 
