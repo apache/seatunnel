@@ -4,6 +4,7 @@ organization := "org.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
 
+
 val sparkVersion = "2.2.0"
 
 lazy val providedDependencies = Seq(
@@ -89,7 +90,8 @@ enablePlugins(UniversalPlugin)
 // only build and include fat jar in packaging
 // the assembly settings
 // we specify the name for our fat jar
-assemblyJarName in assembly := s"$name-$version-$scalaVersion.jar"
+//assemblyJarName in assembly := name + "-" + version + "-" + scalaVersion + ".jar"
+assemblyJarName in assembly := name.value + "-" + version.value + "-" + scalaVersion.value + ".jar"
 
 // removes all jar mappings in universal and appends the fat jar
 mappings in Universal := {
