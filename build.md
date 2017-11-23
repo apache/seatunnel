@@ -30,6 +30,9 @@ Package Distribution
 
 ```
 sbt -DprovidedDeps=true  universal:packageBin
+
+# you can find distribution here:
+target/universal/waterdrop-<version>.zip
 ```
 
 If you want to check what files/directories will be included distribution package
