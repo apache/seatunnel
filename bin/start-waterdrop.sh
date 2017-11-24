@@ -1,5 +1,4 @@
 #!/bin/bash
-source /etc/profile
 
 exec $SPARK_HOME/bin/spark-submit \
     --class org.interestinglab.waterdrop.WaterdropMain \
