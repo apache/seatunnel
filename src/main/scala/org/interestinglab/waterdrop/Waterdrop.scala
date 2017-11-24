@@ -10,7 +10,7 @@ import org.interestinglab.waterdrop.filter.UdfRegister
 
 import scala.util.{Failure, Success, Try}
 
-object WaterdropMain {
+object Waterdrop {
 
   def main(args: Array[String]) {
 

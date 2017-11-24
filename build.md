@@ -28,6 +28,24 @@ Build fat jar(with all dependencies) for Spark Application
 sbt "-DprovidedDeps=true" clean assembly
 ```
 
+Package Distribution
+
+```
+sbt -DprovidedDeps=true  universal:packageBin
+
+# you can find distribution here:
+target/universal/waterdrop-<version>.zip
+```
+
+If you want to check what files/directories will be included distribution package
+
+```
+sbt -DprovidedDeps=true stage
+ls ./target/universal/stage/
+```
+
+check sbt native packager [universal plugin](http://www.scala-sbt.org/sbt-native-packager/formats/universal.html#universal-plugin) for more details.
+
 ---
 
 ## FAQs
@@ -36,5 +54,4 @@ sbt "-DprovidedDeps=true" clean assembly
 
 File -> Project Structure -> Modules, in `Sources` Tab, 
 mark directory `target/scala-2.11/src_managed/main/antlr4/` as `Sources`(blue icon)
-
 
