@@ -35,7 +35,7 @@ class Kafka(config: Config) extends BaseInput(config) {
             (false, "please specify [consumer.zookeeper.connect] and [consumer.group.id] as non-empty string")
         }
       }
-      case false => (false, "please specify [topics]as non-empty string, multiple topics separated by \",\"")
+      case false => (false, "please specify [topics] as non-empty string, multiple topics separated by \",\"")
     }
   }
 

@@ -6,7 +6,7 @@
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
 
-@pluginOption string source_field no "源字段，若不配置默认为'raw_message'"
-@pluginOption string target_field no "目标字段，若不配置默认为'ROOT'"
+@pluginOption string source_field="raw_message" no "源字段，若不配置默认为'raw_message'"
+@pluginOption string target_field="_ROOT_" no "目标字段，若不配置默认为'ROOT'"
 @pluginOption string delimiter yes "分隔符"
 @pluginOption array  fields yes "分割后的字段"

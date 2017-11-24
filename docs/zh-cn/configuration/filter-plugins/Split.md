@@ -12,10 +12,10 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [delimiter](#delimiter-string) | string | yes | - |
+| [delimiter](#delimiter-string) | string | yes | " " |
 | [fields](#fields-array) | array | yes | - |
-| [source_field](#source_field-string) | string | no | - |
-| [target_field](#target_field-string) | string | no | - |
+| [source_field](#source_field-string) | string | no | "_ROOT_" |
+| [target_field](#target_field-string) | string | no | "raw_message" |
 
 ##### delimiter [string]
 
