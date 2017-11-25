@@ -21,7 +21,7 @@
 
 分隔符
 
-##### fields [array]
+##### fields [list]
 
 分割后的字段
 
