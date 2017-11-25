@@ -1,5 +1,6 @@
 org.interestinglab.waterdrop.filter.Add
 org.interestinglab.waterdrop.filter.Checksum
+org.interestinglab.waterdrop.filter.Convert
 org.interestinglab.waterdrop.filter.Date
 org.interestinglab.waterdrop.filter.Dict
 org.interestinglab.waterdrop.filter.Drop
@@ -9,9 +10,12 @@ org.interestinglab.waterdrop.filter.Kv
 org.interestinglab.waterdrop.filter.Lowercase
 org.interestinglab.waterdrop.filter.Remove
 org.interestinglab.waterdrop.filter.Rename
+org.interestinglab.waterdrop.filter.Repartition
 org.interestinglab.waterdrop.filter.Replace
+org.interestinglab.waterdrop.filter.Sample
 org.interestinglab.waterdrop.filter.Split
 org.interestinglab.waterdrop.filter.Sql
+org.interestinglab.waterdrop.filter.Table
+org.interestinglab.waterdrop.filter.Truncate
 org.interestinglab.waterdrop.filter.Uppercase
 org.interestinglab.waterdrop.filter.Uuid
-org.interestinglab.waterdrop.filter.Convert
