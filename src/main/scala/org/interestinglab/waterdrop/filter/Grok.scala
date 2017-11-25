@@ -10,7 +10,6 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, udf}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 class Grok(var conf: Config) extends BaseFilter(conf) {
 
@@ -59,10 +58,10 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
     }
   }
 
-  private def grokMatch(str: String): mutable.Map[String, AnyRef] = {
+  private def grokMatch(str: String): scala.collection.Map[String, String] = {
     val gm = grok.`match`(str)
     gm.captures()
-    gm.toMap.asScala
+    gm.toMap.asScala.mapValues(_.asInstanceOf[String])
   }
 
   private def getListOfFiles(dir: String): List[File] = {
