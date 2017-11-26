@@ -1,6 +1,6 @@
 @waterdropPlugin
 @pluginGroup input
-@pluginName Socket
+@pluginName Kafka
 @pluginDesc "Kafka作为数据源"
 @pluginAuthor garyelephant
 @pluginHomepage https://interestinglab.github.io/waterdrop

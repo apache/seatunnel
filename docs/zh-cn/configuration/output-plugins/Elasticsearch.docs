@@ -1,6 +1,6 @@
 @waterdropPlugin
 @pluginGroup output
-@pluginName Stdout
+@pluginName Elasticsearch
 @pluginDesc "输出Dataframe到Elasticsearch"
 @pluginAuthor rickyHuo
 @pluginHomepage https://interestinglab.github.io/waterdrop

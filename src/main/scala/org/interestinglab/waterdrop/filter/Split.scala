@@ -1,9 +1,8 @@
 package org.interestinglab.waterdrop.filter
 
-import org.apache.spark.sql.types._
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import scala.collection.JavaConversions._
 
