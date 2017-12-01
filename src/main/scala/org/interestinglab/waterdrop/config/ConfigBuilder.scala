@@ -9,15 +9,15 @@ import org.interestinglab.waterdrop.filter.BaseFilter
 import org.interestinglab.waterdrop.input.BaseInput
 import org.interestinglab.waterdrop.output.BaseOutput
 
-class ConfigBuilder {
+class ConfigBuilder(configFile: String) {
 
-  val config = load();
+  val config = load()
 
   def load(): Config = {
 
-    val configFile = System.getProperty("config.path", "");
+    // val configFile = System.getProperty("config.path", "")
     if (configFile == "") {
-      throw new ConfigRuntimeException("Please specify config.path")
+      throw new ConfigRuntimeException("Please specify config file")
     }
 
     println("[INFO] Loading config file: " + configFile)
