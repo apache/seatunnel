@@ -14,7 +14,11 @@ object Waterdrop {
 
   def main(args: Array[String]) {
 
-    val configBuilder = new ConfigBuilder
+    if (args.length != 1) {
+      System.exit(-1)
+    }
+
+    val configBuilder = new ConfigBuilder(args(0))
     val sparkConfig = configBuilder.getSparkConfigs
     val inputs = configBuilder.createInputs
     val outputs = configBuilder.createOutputs
