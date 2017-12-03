@@ -5,7 +5,7 @@ import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.interestinglab.waterdrop.config.ConfigBuilder
+import org.interestinglab.waterdrop.config.{Common, ConfigBuilder}
 import org.interestinglab.waterdrop.filter.UdfRegister
 
 import scala.util.{Failure, Success, Try}
@@ -14,11 +14,17 @@ object Waterdrop {
 
   def main(args: Array[String]) {
 
-    if (args.length != 1) {
+    if (args.length != 2) {
+      println("wrong arguments: please specify <mode> <configFile>")
       System.exit(-1)
     }
 
-    val configBuilder = new ConfigBuilder(args(0))
+    val mode = args(0)
+    val configFile = args(1)
+
+    Common.mode = Some(mode)
+
+    val configBuilder = new ConfigBuilder(configFile)
     val sparkConfig = configBuilder.getSparkConfigs
     val inputs = configBuilder.createInputs
     val outputs = configBuilder.createOutputs
