@@ -8,6 +8,7 @@ import io.thekraken.grok.api.{Grok => GrokLib}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, udf}
+import org.interestinglab.waterdrop.config.Common
 
 import scala.collection.JavaConverters._
 
@@ -30,7 +31,9 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
     super.prepare(spark, ssc)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "patterns_dir" -> Paths.get("vendor", "grok-patterns").toString, // TODO: 区分 relative path, abs path?
+        "patterns_dir" -> Paths
+          .get(Common.appRootDir().toString, "vendor", "grok-patterns")
+          .toString,
         "named_captures_only" -> true,
         "source_field" -> "raw_message",
         "target_field" -> Json.ROOT
