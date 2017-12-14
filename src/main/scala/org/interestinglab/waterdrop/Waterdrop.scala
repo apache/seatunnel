@@ -5,7 +5,7 @@ import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.interestinglab.waterdrop.config.{Common, ConfigBuilder}
+import org.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
 import org.interestinglab.waterdrop.filter.UdfRegister
 
 import scala.util.{Failure, Success, Try}
@@ -14,15 +14,26 @@ object Waterdrop {
 
   def main(args: Array[String]) {
 
-    if (args.length != 2) {
-      println("wrong arguments: please specify <mode> <configFile>")
-      System.exit(-1)
+    CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
+      case Some(cmdArgs) => {
+        Common.mode = Some(cmdArgs.master)
+        cmdArgs.testConfig match {
+          case true => {
+            new ConfigBuilder(cmdArgs.configFile)
+            println("config OK !");
+          }
+          case false => {
+            entrypoin(cmdArgs.configFile)
+          }
+        }
+      }
+      case None =>
+      // CommandLineUtils.parser.showUsageAsError()
+      // CommandLineUtils.parser.terminate(Right(()))
     }
+  }
 
-    val mode = args(0)
-    val configFile = args(1)
-
-    Common.mode = Some(mode)
+  private def entrypoin(configFile: String): Unit = {
 
     val configBuilder = new ConfigBuilder(configFile)
     val sparkConfig = configBuilder.getSparkConfigs
