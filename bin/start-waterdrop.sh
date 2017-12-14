@@ -32,5 +32,5 @@ assemblyJarName=$(find $LIB_DIR -name Waterdrop-*.jar)
 
 exec $SPARK_HOME/bin/spark-submit --class org.interestinglab.waterdrop.Waterdrop \
     --master $MASTER \
-    $assemblyJarName $MASTER $CONFIG_FILE
+    $assemblyJarName --master $MASTER --file $CONFIG_FILE
 

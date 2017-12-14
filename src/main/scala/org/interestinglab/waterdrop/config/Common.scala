@@ -4,10 +4,21 @@ import java.nio.file.{Path, Paths}
 
 object Common {
 
-  val ALLOWED_MODES = List("local", "local\\[\\d+\\]", "yarn-client", "yarn-cluster")
+  private val ALLOWED_MODES = List("local", "yarn-client", "yarn-cluster")
+  // local[x]
 
   // local / local[x] / yarn-client / yarn-cluster
   var mode: Option[String] = None
+
+  def isModeAllowed(mode: String): Boolean = {
+
+    if (ALLOWED_MODES.contains(mode)) {
+      true
+    } else {
+      val pattern = "local\\[\\d+\\]".r
+      pattern.findFirstIn(mode).nonEmpty
+    }
+  }
 
   /**
    * Root dir varies between different spark master and deploy mode,
