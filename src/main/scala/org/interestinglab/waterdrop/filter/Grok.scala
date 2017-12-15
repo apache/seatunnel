@@ -29,6 +29,7 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
+
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "patterns_dir" -> Paths

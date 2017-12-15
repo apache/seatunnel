@@ -34,7 +34,8 @@ object Common {
     mode match {
       case Some(m) if m.startsWith("local") => {
 
-        Paths.get(Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
+        val path = Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath
+        Paths.get(path).getParent.getParent
       }
       case Some("yarn-client") => {
 
