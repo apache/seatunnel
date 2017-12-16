@@ -33,7 +33,7 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "patterns_dir" -> Paths
-          .get(Common.appRootDir().toString, "vendor", "grok-patterns")
+          .get(Common.pluginFilesDir("grok").toString, "grok-patterns")
           .toString,
         "named_captures_only" -> true,
         "source_field" -> "raw_message",

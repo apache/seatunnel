@@ -32,3 +32,26 @@ function listJars {
     dir=$1
     echo $(listFiles $dir ",")
 }
+
+function listJarDependenciesOfPlugins {
+    dir=$1
+    allJars=""
+    for plugin_dir in `ls $dir`; do
+        abs_plugin_dir=$dir/$plugin_dir
+        for subdir in `ls $abs_plugin_dir`; do
+            abs_subdir=$abs_plugin_dir/$subdir
+            jars=""
+            if [ "$subdir" == "lib" ]; then
+                jars=$(listJars $abs_subdir)
+
+                if [ "x$allJars" == "x" ]; then
+                    allJars=$jars
+                else
+                    allJars="${allJars},${jars}"
+                fi
+            fi
+        done
+    done
+
+    echo $allJars
+}

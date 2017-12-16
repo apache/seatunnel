@@ -7,6 +7,7 @@ import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
 import org.interestinglab.waterdrop.filter.UdfRegister
+import org.interestinglab.waterdrop.utils.SparkClusterUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -72,6 +73,14 @@ object Waterdrop {
     val duration = sparkConfig.getLong("spark.streaming.batchDuration")
     val ssc = new StreamingContext(sparkConf, Seconds(duration))
     val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
+
+    Common.mode match {
+      case Some(m) => {
+        if (m.indexOf("cluster") > 0) {
+          SparkClusterUtils.addFiles(sparkSession)
+        }
+      }
+    }
 
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
