@@ -23,11 +23,18 @@ object Waterdrop {
 
         val realConfigFile = Common.getDeployMode match {
           case Some("client") => cmdArgs.configFile
-          case Some("cluster") => Paths.get(cmdArgs.configFile).getFileName.toString
+          case Some("cluster") => {
+
+            // cluster 模式下这个管用？？
+            // val spark = SparkSession.builder.getOrCreate
+            // spark.sparkContext.addFile(cmdArgs.configFile)
+            Paths.get(cmdArgs.configFile).getFileName.toString
+          }
         }
 
         cmdArgs.testConfig match {
           case true => {
+            // TODO: cluster模式下这个能用？？？
             new ConfigBuilder(realConfigFile)
             println("config OK !")
           }
