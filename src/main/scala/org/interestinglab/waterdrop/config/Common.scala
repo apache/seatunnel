@@ -4,45 +4,52 @@ import java.nio.file.{Path, Paths}
 
 object Common {
 
-  private val ALLOWED_MODES = List("local", "yarn-client", "yarn-cluster")
-  // local[x]
+  private val ALLOWED_MODES = List("client", "cluster")
 
-  // local / local[x] / yarn-client / yarn-cluster
-  var mode: Option[String] = None
+  private var mode: Option[String] = None
 
   def isModeAllowed(mode: String): Boolean = {
 
-    if (ALLOWED_MODES.contains(mode)) {
-      true
-    } else {
-      val pattern = "local\\[\\d+\\]".r
-      pattern.findFirstIn(mode).nonEmpty
+    ALLOWED_MODES.foldRight(false)((m, lastResult) => {
+      lastResult match {
+        case true => true
+        case false => mode.toLowerCase.equals(m)
+      }
+    })
+  }
+
+  /**
+   * Set mode. return false in case of failure
+   * */
+  def setDeployMode(mode: String): Boolean = {
+
+    isModeAllowed(mode) match {
+      case true => {
+        this.mode = Some(mode)
+        true
+      }
+      case false => false
     }
+  }
+
+  def getDeployMode: Option[String] = {
+    this.mode
   }
 
   /**
    * Root dir varies between different spark master and deploy mode,
    * it also varies between relative and absolute path.
    * */
-  def appRootDir(): Path = {
-    // if running on local
-    // if running on yarn-client(client driver, executor)
-    // if running on yarn-cluster(cluster driver, executor)
-    // if running on mesos ??
+  def appRootDir: Path = {
 
-    // TODO: mesos
-    mode match {
-      case Some(m) if m.startsWith("local") => {
+    this.mode match {
+      case Some("client") => {
 
         val path = Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath
         Paths.get(path).getParent.getParent
       }
-      case Some("yarn-client") => {
 
-        Paths.get(Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
-      }
-
-      case Some("yarn-cluster") => {
+      case Some("cluster") => {
 
         Paths.get("")
       }
@@ -52,9 +59,9 @@ object Common {
   /**
    * Plugin Root Dir
    * */
-  def pluginRootDir(): Path = {
+  def pluginRootDir: Path = {
 
-    Paths.get(appRootDir().toString, "plugins")
+    Paths.get(appRootDir.toString, "plugins")
   }
 
   /**
@@ -62,7 +69,7 @@ object Common {
    * */
   def pluginDir(pluginName: String): Path = {
 
-    Paths.get(pluginRootDir().toString, pluginName)
+    Paths.get(pluginRootDir.toString, pluginName)
   }
 
   /**

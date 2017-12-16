@@ -1,36 +1,42 @@
 #!/bin/bash
 
-# TODO: distinguish master/deploy-mode
-# TODO: allowed master values: local, yarn-client, yarn-master, mesos:???
-# TODO: handle --config $CONFIG_FILE relative/absoulte path according to master/deploy-mode
+# TODO: 解析2次参数，关心的参数是--master, --config
+# TODO: --config 参数需要在cluster模式下 改变path,
+# TODO: 在cluster模式下，代码中的addFiles是否还有用!!!! 在cluster模式下是否还管用? 因为cluster模式下，driver已经运行在cluster上，无法再add local file
 
-# SPARK_HOME=${SPARK_HOME:-/opt/spark}
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-UTILS_DIR=$BIN_DIR/utils
+UTILS_DIR=${BIN_DIR}/utils
 APP_DIR=$(dirname $BIN_DIR)
-CONF_DIR=$APP_DIR/config
-LIB_DIR=$APP_DIR/lib
-PLUGINS_DIR=$APP_DIR/plugins
+CONF_DIR=${APP_DIR}/config
+LIB_DIR=${APP_DIR}/lib
+PLUGINS_DIR=${APP_DIR}/plugins
 
 # scan jar dependencies for all plugins
-source $UTILS_DIR/file.sh
+source ${UTILS_DIR}/file.sh
 jarDependencies=$(listJarDependenciesOfPlugins $PLUGINS_DIR)
 JarDepOpts=""
 if [ "$jarDependencies" != "" ]; then
     JarDepOpts="--jars $jarDependencies"
 fi
 
-DEFAULT_MASTER=local[2]
-DEFAULT_CONFIG=$CONF_DIR/application.conf
+FilesDepOpts=""
 
-MASTER=$DEFAULT_MASTER
-CONFIG_FILE=$DEFAULT_CONFIG
+DEFAULT_MASTER=local[2]
+MASTER=${DEFAULT_MASTER}
+
+DEFAULT_CONFIG=${CONF_DIR}/application.conf
+CONFIG_FILE=${DEFAULT_CONFIG}
+
+DEFAULT_DEPLOY_MODE=client
+DEPLOY_MODE=${DEFAULT_DEPLOY_MODE}
 
 assemblyJarName=$(find $LIB_DIR -name Waterdrop-*.jar)
 
-source $CONF_DIR/waterdrop-env.sh
+source ${CONF_DIR}/waterdrop-env.sh
 
-exec $SPARK_HOME/bin/spark-submit --class org.interestinglab.waterdrop.Waterdrop \
-    --master $MASTER \
+exec ${SPARK_HOME}/bin/spark-submit --class org.interestinglab.waterdrop.Waterdrop \
+    --master ${MASTER} \
+    --deploy-mode ${DEPLOY_MODE} \
     ${JarDepOpts} \
-    $assemblyJarName --master $MASTER --config $CONFIG_FILE
+    ${FilesDepOpts} \
+    ${assemblyJarName} --mode ${DEPLOY_MODE} --config ${CONFIG_FILE}
