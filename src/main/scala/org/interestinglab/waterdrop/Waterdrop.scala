@@ -1,5 +1,7 @@
 package org.interestinglab.waterdrop
 
+import java.nio.file.Paths
+
 import scala.collection.JavaConversions._
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
@@ -17,14 +19,21 @@ object Waterdrop {
 
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
-        Common.mode = Some(cmdArgs.master)
+        Common.setDeployMode(cmdArgs.master)
+
+        val realConfigFile = Common.getDeployMode match {
+          case Some("client") => cmdArgs.configFile
+          case Some("cluster") => Paths.get(cmdArgs.configFile).getFileName.toString
+        }
+
         cmdArgs.testConfig match {
           case true => {
-            new ConfigBuilder(cmdArgs.configFile)
-            println("config OK !");
+            new ConfigBuilder(realConfigFile)
+            println("config OK !")
           }
           case false => {
-            entrypoin(cmdArgs.configFile)
+
+            entrypoin(realConfigFile)
           }
         }
       }
@@ -74,7 +83,7 @@ object Waterdrop {
     val ssc = new StreamingContext(sparkConf, Seconds(duration))
     val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
 
-    Common.mode match {
+    Common.getDeployMode match {
       case Some(m) => {
         if (m.indexOf("cluster") > 0) {
           SparkClusterUtils.addFiles(sparkSession)
