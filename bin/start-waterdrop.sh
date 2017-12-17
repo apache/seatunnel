@@ -9,7 +9,7 @@
 
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 UTILS_DIR=${BIN_DIR}/utils
-APP_DIR=$(dirname $BIN_DIR)
+APP_DIR=$(dirname ${BIN_DIR})
 CONF_DIR=${APP_DIR}/config
 LIB_DIR=${APP_DIR}/lib
 PLUGINS_DIR=${APP_DIR}/plugins
@@ -25,7 +25,7 @@ DEPLOY_MODE=${DEFAULT_DEPLOY_MODE}
 
 # scan jar dependencies for all plugins
 source ${UTILS_DIR}/file.sh
-jarDependencies=$(listJarDependenciesOfPlugins $PLUGINS_DIR)
+jarDependencies=$(listJarDependenciesOfPlugins ${PLUGINS_DIR})
 JarDepOpts=""
 if [ "$jarDependencies" != "" ]; then
     JarDepOpts="--jars $jarDependencies"
@@ -47,7 +47,7 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
     echo ""
 fi
 
-assemblyJarName=$(find $LIB_DIR -name Waterdrop-*.jar)
+assemblyJarName=$(find ${LIB_DIR} -name Waterdrop-*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh
 
