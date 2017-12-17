@@ -21,26 +21,14 @@ object Waterdrop {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.master)
 
-        val realConfigFile = Common.getDeployMode match {
-          case Some("client") => cmdArgs.configFile
-          case Some("cluster") => {
-
-            // cluster 模式下这个管用？？
-            // val spark = SparkSession.builder.getOrCreate
-            // spark.sparkContext.addFile(cmdArgs.configFile)
-            Paths.get(cmdArgs.configFile).getFileName.toString
-          }
-        }
-
         cmdArgs.testConfig match {
           case true => {
-            // TODO: cluster模式下这个能用？？？
-            new ConfigBuilder(realConfigFile)
+            new ConfigBuilder(cmdArgs.configFile)
             println("config OK !")
           }
           case false => {
 
-            entrypoin(realConfigFile)
+            entrypoin(cmdArgs.configFile)
           }
         }
       }
@@ -90,6 +78,7 @@ object Waterdrop {
     val ssc = new StreamingContext(sparkConf, Seconds(duration))
     val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
 
+    // TODO: 这个不管用!!!
     Common.getDeployMode match {
       case Some(m) => {
         if (m.indexOf("cluster") > 0) {

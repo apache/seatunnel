@@ -14,6 +14,15 @@ CONF_DIR=${APP_DIR}/config
 LIB_DIR=${APP_DIR}/lib
 PLUGINS_DIR=${APP_DIR}/plugins
 
+DEFAULT_CONFIG=${CONF_DIR}/application.conf
+CONFIG_FILE=${DEFAULT_CONFIG}
+
+DEFAULT_MASTER=local[2]
+MASTER=${DEFAULT_MASTER}
+
+DEFAULT_DEPLOY_MODE=client
+DEPLOY_MODE=${DEFAULT_DEPLOY_MODE}
+
 # scan jar dependencies for all plugins
 source ${UTILS_DIR}/file.sh
 jarDependencies=$(listJarDependenciesOfPlugins $PLUGINS_DIR)
@@ -23,15 +32,20 @@ if [ "$jarDependencies" != "" ]; then
 fi
 
 FilesDepOpts=""
+if [ "$DEPLOY_MODE" == "cluster" ]; then
 
-DEFAULT_MASTER=local[2]
-MASTER=${DEFAULT_MASTER}
+    ## add plugin files
+    FilesDepOpts="--files ${CONFIG_FILE}"
+    ## TODO: add directory, not only files !!!!!
+    CONFIG_FILE=$(basename ${CONFIG_FILE})
+    echo ""
 
-DEFAULT_CONFIG=${CONF_DIR}/application.conf
-CONFIG_FILE=${DEFAULT_CONFIG}
+elif [ "$DEPLOY_MODE" == "client" ]; then
 
-DEFAULT_DEPLOY_MODE=client
-DEPLOY_MODE=${DEFAULT_DEPLOY_MODE}
+    ## add plugin files
+    ## TODO
+    echo ""
+fi
 
 assemblyJarName=$(find $LIB_DIR -name Waterdrop-*.jar)
 
