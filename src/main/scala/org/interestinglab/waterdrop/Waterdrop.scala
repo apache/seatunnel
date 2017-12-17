@@ -1,7 +1,5 @@
 package org.interestinglab.waterdrop
 
-import java.nio.file.Paths
-
 import scala.collection.JavaConversions._
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
