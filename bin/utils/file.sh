@@ -33,6 +33,7 @@ function listJars {
     echo $(listFiles $dir ",")
 }
 
+## list jars dependencies of plugins
 function listJarDependenciesOfPlugins {
     dir=$1
     allJars=""
