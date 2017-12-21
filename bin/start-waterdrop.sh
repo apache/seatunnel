@@ -47,6 +47,13 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
     echo ""
 fi
 
+# TODO: temp code:
+if [ "$FilesDepOpts" == "" ]; then
+    FilesDepOpts="--files /data/waterdrop-garyelephant/waterdrop/plugins/grok/files/grok-patterns/grok-patterns"
+else
+    FilesDepOpts="${FilesDepOpts},/data/waterdrop-garyelephant/waterdrop/plugins/grok/files/grok-patterns/grok-patterns"
+fi
+
 assemblyJarName=$(find ${LIB_DIR} -name Waterdrop-*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh

@@ -5,6 +5,7 @@ import java.nio.file.Paths
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.thekraken.grok.api.{Grok => GrokLib}
+import org.apache.spark.SparkFiles
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, udf}
@@ -30,6 +31,15 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
 
+    // TODO: 如何拿到目录下的所有文件, 而不是拿特定的文件，还包括多级目录结构的问题。
+    val patternPath = "grok-patterns"
+    logWarning("grok pattern path: " + patternPath)
+    logWarning("SparkFiles.get : " + SparkFiles.get(patternPath))
+    logWarning("SparkFiles.getRootDirectory : " + SparkFiles.getRootDirectory())
+    new File(SparkFiles.getRootDirectory()).list.foreach(f => {
+      logWarning("list files: " + f)
+    })
+
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "patterns_dir" -> Paths
@@ -43,9 +53,8 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
     conf = conf.withFallback(defaultConfig)
 
     // compile predefined patterns
-    getListOfFiles(conf.getString("patterns_dir")).foreach(f => {
-      grok.addPatternFromFile(f.getAbsolutePath)
-    })
+    // TODO: 是怎么找到这个文件的？？在hdfs上，在local root dir ?? 但是为什么list不出来 !!!
+    grok.addPatternFromFile(patternPath)
 
     grok.compile(conf.getString("pattern"), true)
 
@@ -71,7 +80,8 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
   private def getListOfFiles(dir: String): List[File] = {
     val d = new File(dir)
     if (d.exists && d.isDirectory) {
-      d.listFiles.filter(_.isFile).toList
+      // d.listFiles.filter(_.isFile).toList
+      d.listFiles.toList
     } else {
       List[File]()
     }
