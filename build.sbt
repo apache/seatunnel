@@ -42,6 +42,8 @@ libraryDependencies ++= Seq(
 
 resolvers += Resolver.mavenLocal
 
+javacOptions ++= Seq("-source", "1.7", "-target", "1.7")
+
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 
 
