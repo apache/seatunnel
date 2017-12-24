@@ -87,6 +87,7 @@ object Waterdrop extends Logging {
 
           logInfo("preparing cluster mode work dir files...")
 
+          // plugins.tar.gz is added in local app temp dir of driver and executors in cluster mode from --files specified in spark-submit
           val workDir = new File(".")
           logWarning("work dir exists: " + workDir.exists() + ", is dir: " + workDir.isDirectory)
 
