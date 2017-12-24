@@ -1,20 +1,49 @@
 package org.interestinglab.waterdrop
 
+import java.io.File
+
 import scala.collection.JavaConversions._
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.interestinglab.waterdrop.config.ConfigBuilder
-import org.interestinglab.waterdrop.filter.UdfRegister
+import org.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
+import org.interestinglab.waterdrop.filter.{BaseFilter, UdfRegister}
+import org.interestinglab.waterdrop.input.BaseInput
+import org.interestinglab.waterdrop.output.BaseOutput
+import org.interestinglab.waterdrop.utils.CompressionUtils
 
 import scala.util.{Failure, Success, Try}
 
-object Waterdrop {
+object Waterdrop extends Logging {
 
   def main(args: Array[String]) {
 
-    val configBuilder = new ConfigBuilder
+    CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
+      case Some(cmdArgs) => {
+        Common.setDeployMode(cmdArgs.master)
+
+        cmdArgs.testConfig match {
+          case true => {
+            new ConfigBuilder(cmdArgs.configFile)
+            println("config OK !")
+          }
+          case false => {
+
+            entrypoin(cmdArgs.configFile)
+          }
+        }
+      }
+      case None =>
+      // CommandLineUtils.parser.showUsageAsError()
+      // CommandLineUtils.parser.terminate(Right(()))
+    }
+  }
+
+  private def entrypoin(configFile: String): Unit = {
+
+    val configBuilder = new ConfigBuilder(configFile)
     val sparkConfig = configBuilder.getSparkConfigs
     val inputs = configBuilder.createInputs
     val outputs = configBuilder.createOutputs
@@ -51,6 +80,51 @@ object Waterdrop {
     val duration = sparkConfig.getLong("spark.streaming.batchDuration")
     val ssc = new StreamingContext(sparkConf, Seconds(duration))
     val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
+
+    Common.getDeployMode match {
+      case Some(m) => {
+        if (m.equals("cluster")) {
+
+          logInfo("preparing cluster mode work dir files...")
+
+          // plugins.tar.gz is added in local app temp dir of driver and executors in cluster mode from --files specified in spark-submit
+          val workDir = new File(".")
+          logWarning("work dir exists: " + workDir.exists() + ", is dir: " + workDir.isDirectory)
+
+          workDir.listFiles().foreach(f => logWarning("\t list file: " + f.getAbsolutePath))
+
+          // decompress plugin dir
+          val compressedFile = new File("plugins.tar.gz")
+
+          Try(CompressionUtils.unGzip(compressedFile, workDir)) match {
+            case Success(tempFile) => {
+              Try(CompressionUtils.unTar(tempFile, workDir)) match {
+                case Success(_) => logInfo("succeeded to decompress plugins.tar.gz")
+                case Failure(ex) => {
+                  logError("failed to decompress plugins.tar.gz", ex)
+                  sys.exit(-1)
+                }
+              }
+
+            }
+            case Failure(ex) => {
+              logError("failed to decompress plugins.tar.gz", ex)
+              sys.exit(-1)
+            }
+          }
+        }
+      }
+    }
+
+    process(sparkSession, ssc, inputs, filters, outputs)
+  }
+
+  private def process(
+    sparkSession: SparkSession,
+    ssc: StreamingContext,
+    inputs: List[BaseInput],
+    filters: List[BaseFilter],
+    outputs: List[BaseOutput]): Unit = {
 
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
