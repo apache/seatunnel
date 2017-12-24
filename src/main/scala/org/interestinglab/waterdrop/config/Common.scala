@@ -4,7 +4,7 @@ import java.nio.file.{Path, Paths}
 
 object Common {
 
-  private val ALLOWED_MODES = List("client", "cluster")
+  val ALLOWED_MODES = List("client", "cluster")
 
   private var mode: Option[String] = None
 

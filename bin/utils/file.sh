@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # List all files in specific dir and concat full path of files by specific delimeter.
 function listFiles {
 
@@ -6,7 +7,7 @@ function listFiles {
     ignore_file_regex=${3:-""} # if $3 not set, set default value: empty string("")
 
     jar_list=""
-    for file in `ls $dir`; do
+    for file in $(ls $dir); do
 
         if [ "x$ignore_file_regex" != "x" ]; then
 
@@ -37,9 +38,9 @@ function listJars {
 function listJarDependenciesOfPlugins {
     dir=$1
     allJars=""
-    for plugin_dir in `ls $dir`; do
+    for plugin_dir in $(ls $dir); do
         abs_plugin_dir=$dir/$plugin_dir
-        for subdir in `ls $abs_plugin_dir`; do
+        for subdir in $(ls $abs_plugin_dir); do
             abs_subdir=$abs_plugin_dir/$subdir
             jars=""
             if [ "$subdir" == "lib" ]; then
