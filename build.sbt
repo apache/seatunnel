@@ -36,10 +36,14 @@ libraryDependencies ++= Seq(
   "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
   "mysql" % "mysql-connector-java" % "5.1.6",
-  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "5.6.3"
+  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "5.6.3",
+  "com.github.scopt" %% "scopt" % "3.7.0",
+  "org.apache.commons" % "commons-compress" % "1.15"
 )
 
 resolvers += Resolver.mavenLocal
+
+javacOptions ++= Seq("-source", "1.7", "-target", "1.7")
 
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 
@@ -112,7 +116,7 @@ scriptClasspath := Seq( (assemblyJarName in assembly).value )
 import NativePackagerHelper.directory
 mappings in Universal += file("README.md") -> "README.md"
 mappings in Universal += file("LICENSE") -> "LICENSE"
-mappings in Universal ++= directory("vendor")
+mappings in Universal ++= directory("plugins")
 mappings in Universal ++= directory("docs")
 mappings in Universal ++= directory("config")
 mappings in Universal ++= directory("bin")

@@ -8,9 +8,9 @@ import io.thekraken.grok.api.{Grok => GrokLib}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, udf}
+import org.interestinglab.waterdrop.config.Common
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 class Grok(var conf: Config) extends BaseFilter(conf) {
 
@@ -29,9 +29,19 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
+
+    logInfo("grok plugin dir relative path: " + Common.pluginDir("grok"))
+    logInfo("grok plugin dir absolute path: " + new File(Common.pluginDir("grok").toString).getAbsolutePath)
+    logInfo(
+      "list files of grok plugin dir: " + new File(Common.pluginFilesDir("grok").toString)
+        .listFiles()
+        .foldRight("")((f, b) => b + ", " + f.getName))
+
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "patterns_dir" -> Paths.get("vendor", "grok-patterns").toString, // TODO: 区分 relative path, abs path?
+        "patterns_dir" -> Paths
+          .get(Common.pluginFilesDir("grok").toString, "grok-patterns")
+          .toString,
         "named_captures_only" -> true,
         "source_field" -> "raw_message",
         "target_field" -> Json.ROOT
@@ -59,10 +69,10 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
     }
   }
 
-  private def grokMatch(str: String): mutable.Map[String, AnyRef] = {
+  private def grokMatch(str: String): scala.collection.Map[String, String] = {
     val gm = grok.`match`(str)
     gm.captures()
-    gm.toMap.asScala
+    gm.toMap.asScala.mapValues(_.asInstanceOf[String])
   }
 
   private def getListOfFiles(dir: String): List[File] = {
