@@ -7,6 +7,7 @@
 # TODO: --config 参数需要在cluster模式下 改变path,
 # TODO: 在cluster模式下，代码中的addFiles是否还有用!!!! 在cluster模式下是否还管用? 因为cluster模式下，driver已经运行在cluster上，无法再add local file
 # TODO: 有可能请求资源大小的配置也要直接提供给spark-submit !!!
+# TODO: 删除其他不用的main class starter
 
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 UTILS_DIR=${BIN_DIR}/utils
@@ -37,7 +38,6 @@ if [ "$DEPLOY_MODE" == "cluster" ]; then
 
     ## add config file
     FilesDepOpts="--files ${CONFIG_FILE}"
-    ## TODO: add directory, not only files !!!!!
     CONFIG_FILE=$(basename ${CONFIG_FILE})
 
     ## add plugin files
@@ -47,16 +47,7 @@ if [ "$DEPLOY_MODE" == "cluster" ]; then
 
 elif [ "$DEPLOY_MODE" == "client" ]; then
 
-    ## add plugin files
-    ## TODO
     echo ""
-fi
-
-# TODO: temp code:
-if [ "$FilesDepOpts" == "" ]; then
-    FilesDepOpts="--files /data/waterdrop-garyelephant/waterdrop/plugins/grok/files/grok-patterns/grok-patterns"
-else
-    FilesDepOpts="${FilesDepOpts},/data/waterdrop-garyelephant/waterdrop/plugins/grok/files/grok-patterns/grok-patterns"
 fi
 
 assemblyJarName=$(find ${LIB_DIR} -name Waterdrop-*.jar)

@@ -9,8 +9,10 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
-import org.interestinglab.waterdrop.filter.UdfRegister
-import org.interestinglab.waterdrop.utils.{CompressionUtils, SparkClusterUtils}
+import org.interestinglab.waterdrop.filter.{BaseFilter, UdfRegister}
+import org.interestinglab.waterdrop.input.BaseInput
+import org.interestinglab.waterdrop.output.BaseOutput
+import org.interestinglab.waterdrop.utils.CompressionUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -90,9 +92,38 @@ object Waterdrop extends Logging {
 
           workDir.listFiles().foreach(f => logWarning("\t list file: " + f.getAbsolutePath))
 
+          // decompress plugin dir
+          val compressedFile = new File("plugins.tar.gz")
+
+          Try(CompressionUtils.unGzip(compressedFile, workDir)) match {
+            case Success(tempFile) => {
+              Try(CompressionUtils.unTar(tempFile, workDir)) match {
+                case Success(_) => logInfo("succeeded to decompress plugins.tar.gz")
+                case Failure(ex) => {
+                  logError("failed to decompress plugins.tar.gz", ex)
+                  sys.exit(-1)
+                }
+              }
+
+            }
+            case Failure(ex) => {
+              logError("failed to decompress plugins.tar.gz", ex)
+              sys.exit(-1)
+            }
+          }
         }
       }
     }
+
+    process(sparkSession, ssc, inputs, filters, outputs)
+  }
+
+  private def process(
+    sparkSession: SparkSession,
+    ssc: StreamingContext,
+    inputs: List[BaseInput],
+    filters: List[BaseFilter],
+    outputs: List[BaseOutput]): Unit = {
 
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
@@ -156,8 +187,6 @@ object Waterdrop extends Logging {
     ssc.start()
     ssc.awaitTermination()
   }
-
-  private def process(): Unit = {}
 
   private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
     val sparkConf = new SparkConf()
