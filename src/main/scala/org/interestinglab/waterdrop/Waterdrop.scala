@@ -1,17 +1,20 @@
 package org.interestinglab.waterdrop
 
+import java.io.File
+
 import scala.collection.JavaConversions._
 import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
 import org.interestinglab.waterdrop.filter.UdfRegister
-import org.interestinglab.waterdrop.utils.SparkClusterUtils
+import org.interestinglab.waterdrop.utils.{CompressionUtils, SparkClusterUtils}
 
 import scala.util.{Failure, Success, Try}
 
-object Waterdrop {
+object Waterdrop extends Logging {
 
   def main(args: Array[String]) {
 
@@ -76,11 +79,17 @@ object Waterdrop {
     val ssc = new StreamingContext(sparkConf, Seconds(duration))
     val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
 
-    // TODO: 这个不管用!!!
     Common.getDeployMode match {
       case Some(m) => {
-        if (m.indexOf("cluster") > 0) {
-          SparkClusterUtils.addFiles(sparkSession)
+        if (m.equals("cluster")) {
+
+          logInfo("preparing cluster mode work dir files...")
+
+          val workDir = new File(".")
+          logWarning("work dir exists: " + workDir.exists() + ", is dir: " + workDir.isDirectory)
+
+          workDir.listFiles().foreach(f => logWarning("\t list file: " + f.getAbsolutePath))
+
         }
       }
     }
@@ -147,6 +156,8 @@ object Waterdrop {
     ssc.start()
     ssc.awaitTermination()
   }
+
+  private def process(): Unit = {}
 
   private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
     val sparkConf = new SparkConf()
