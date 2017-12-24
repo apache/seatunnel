@@ -6,6 +6,7 @@
 # TODO: 解析2次参数，关心的参数是--master, --config
 # TODO: --config 参数需要在cluster模式下 改变path,
 # TODO: 在cluster模式下，代码中的addFiles是否还有用!!!! 在cluster模式下是否还管用? 因为cluster模式下，driver已经运行在cluster上，无法再add local file
+# TODO: 有可能请求资源大小的配置也要直接提供给spark-submit !!!
 
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 UTILS_DIR=${BIN_DIR}/utils
@@ -34,10 +35,14 @@ fi
 FilesDepOpts=""
 if [ "$DEPLOY_MODE" == "cluster" ]; then
 
-    ## add plugin files
+    ## add config file
     FilesDepOpts="--files ${CONFIG_FILE}"
     ## TODO: add directory, not only files !!!!!
     CONFIG_FILE=$(basename ${CONFIG_FILE})
+
+    ## add plugin files
+    FilesDepOpts="${FilesDepOpts},${APP_DIR}/plugins.tar.gz"
+
     echo ""
 
 elif [ "$DEPLOY_MODE" == "client" ]; then
