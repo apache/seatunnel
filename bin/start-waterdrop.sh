@@ -2,12 +2,10 @@
 
 # TODO: 启动时传入--mode ${DEPLOY_MODE} --config ${CONFIG_FILE}参数
 # TODO: 解析bash 参数...
-# TODO: cluster模式下addfile(config files, plugin/files), addJar(core jars, plugin/jars),
 # TODO: 解析2次参数，关心的参数是--master, --config
-# TODO: --config 参数需要在cluster模式下 改变path,
-# TODO: 在cluster模式下，代码中的addFiles是否还有用!!!! 在cluster模式下是否还管用? 因为cluster模式下，driver已经运行在cluster上，无法再add local file
 # TODO: 有可能请求资源大小的配置也要直接提供给spark-submit !!!
 # TODO: 删除其他不用的main class starter
+# TODO: compress plugins/ dir before start-waterdrop.sh
 
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 UTILS_DIR=${BIN_DIR}/utils
