@@ -52,7 +52,7 @@ assemblyJarName=$(find ${LIB_DIR} -name Waterdrop-*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh
 
-exec ${SPARK_HOME}/bin/spark-submit --class org.interestinglab.waterdrop.Waterdrop \
+exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
     ${JarDepOpts} \
