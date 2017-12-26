@@ -61,3 +61,10 @@ antlr4Version in Antlr4 := "4.5.3"
 antlr4PackageName in Antlr4 := Some("io.github.interestinglab.waterdrop.configparser")
 antlr4GenListener in Antlr4 := false
 antlr4GenVisitor in Antlr4 := true
+
+publishTo := Some(
+  if (isSnapshot.value)
+    Opts.resolver.sonatypeSnapshots
+  else
+    Opts.resolver.sonatypeStaging
+)
