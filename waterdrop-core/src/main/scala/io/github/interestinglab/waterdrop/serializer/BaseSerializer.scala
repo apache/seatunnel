@@ -1,11 +1,10 @@
 package io.github.interestinglab.waterdrop.serializer
 
 import com.typesafe.config.Config
-import io.github.interestinglab.waterdrop.apis.Plugin
 
 
 // TODO : 是否需要checkConfig, prepare, 何时调用serializer的serialize, deserialize
-abstract class BaseSerializer(config: Config) extends Plugin {
+abstract class BaseSerializer(config: Config) {
 
   val charset = if (config.hasPath("charset")) {
     config.getString("charset")
