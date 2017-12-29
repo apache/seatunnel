@@ -1,0 +1,13 @@
+@waterdropPlugin
+@pluginGroup output
+@pluginName Elasticsearch
+@pluginDesc "输出Dataframe到Elasticsearch"
+@pluginAuthor rickyHuo
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption array hosts="-" yes "Elasticsearch集群地址，格式为host:port"
+@pluginOption string index="waterdrop" yes "Elasticsearch index"
+@pluginOption string index_type="log" yes "Elasticsearch index type"
+
+
