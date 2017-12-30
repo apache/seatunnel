@@ -87,5 +87,6 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 ## 联系项目负责人
 
-Garyelephant : garygaowork@gmail.com, 微信: garyelephant 
+Garyelephant : garygaowork@gmail.com, 微信: garyelephant
+
 RickyHuo : huochen1994@163.com, 微信: chodomatte1994
