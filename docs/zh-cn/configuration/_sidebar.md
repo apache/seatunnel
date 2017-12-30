@@ -51,7 +51,7 @@
 
 - [监控](/zh-cn/monitoring)
 
-- [性能调优](/zh-cn/performance-tunning)
+- [性能与调优](/zh-cn/performance-tunning)
 
 - [插件开发](/zh-cn/developing-plugin)
 
