@@ -1,10 +1,9 @@
 package io.github.interestinglab.waterdrop.filter
 
-import org.apache.spark.sql.types._
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
@@ -48,7 +47,7 @@ class Split(var conf: Config) extends BaseFilter(conf) {
           split(s, conf.getString("delimiter"), keys.size())
         })
         var filterDf = df.withColumn(Json.TMP, func(col(srcField)))
-        for(i <- 0 until keys.size()) {
+        for (i <- 0 until keys.size()) {
           filterDf = filterDf.withColumn(keys.get(i), col(Json.TMP)(i))
         }
         filterDf.drop(Json.TMP)

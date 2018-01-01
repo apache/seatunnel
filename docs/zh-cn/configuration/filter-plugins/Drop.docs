@@ -2,7 +2,7 @@
 @pluginGroup filter
 @pluginName Drop
 @pluginDesc "丢弃掉符合指定条件的Event"
-@pluginAuthor garyelephant
+@pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
 
