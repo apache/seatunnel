@@ -1,6 +1,6 @@
 ## Output plugin : Stdout
 
-* Author: garyelephant
+* Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
 * Version: 1.0.0
 
