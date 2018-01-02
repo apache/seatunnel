@@ -6,7 +6,7 @@
 
 ### Description
 
-输出Event到标准输出
+输出Dataframe到标准输出
 
 ### Options
 
@@ -17,7 +17,7 @@
 
 ##### limit [number]
 
-限制输出Event的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647个Event
+限制输出Row的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647个Event
 
 ##### serializer [string]
 
