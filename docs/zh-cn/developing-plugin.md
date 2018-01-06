@@ -1,7 +1,25 @@
 # 插件开发
 
 
+## 插件体系介绍
+
+Waterdrop插件分为三部分，**Input**、**Filter**和**Output**
+
+### Input
+
+**Input**将外部数据源的数据转化为`DStream[(String, String)]`
+
+### Filter
+
+**Filter**是transform操作，对DataFrame的数据结构进行操作
+
+### Output
+
+**Output**是action操作，将DataFrame输出到外部数据源或者打印到终端
+
 ## 准备工作
+
+Waterdrop支持Java/Scala作为插件开发语言，**Input**推荐使用Scala作为开发语言。其他插件Java和Scala皆可。
 
 新建一个Java/Scala项目，或者可以直接拉取[waterdrop-filter-example](https://github.com/InterestingLab/waterdrop-filter-example)，然后在此项目上进行修改
 
@@ -20,8 +38,21 @@
 
 ## 二、 实现自己的方法
 
+### Input
+
+1. 新建一个类，并继承`waterdrop-apis`提供的父类`BaseInput`
+2. 重写父类定义的`checkConfig`和`getDstream`方法
+
+
+### Filter
+
 1. 新建一个类，并继承`waterdrop-apis`提供的父类`BaseFilter`
-2. 重写父类定义的方法`checkConfig`、`prepare`和`process`方法
+2. 重写父类定义的`checkConfig`、`prepare`和`process`方法
+
+### Output
+
+1. 新建一个类，并继承`waterdrop-apis`提供的父类`BaseOutput`
+2. 重写父类定义的`checkConfig`、`prepare`和`process`方法
 
 ### 说明
 
