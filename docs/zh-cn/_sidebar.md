@@ -10,7 +10,7 @@
   - [Filter插件](/zh-cn/configuration/filter-plugin)
   - [Output插件](/zh-cn/configuration/output-plugin)
 
-- [部署与测试](/zh-cn/deployment)
+- [部署](/zh-cn/deployment)
 
 - [监控](/zh-cn/monitoring)
 

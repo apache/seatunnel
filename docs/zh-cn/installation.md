@@ -22,3 +22,5 @@ ln -s waterdrop-1.0.0 waterdrop
 
 没有任何复杂的安装配置步骤，Waterdrop的使用方法请参考[Quick Start](/zh-cn/quick-start.md), 配置请参考[Configuration](/zh-cn/configuration/base)。
 
+如果想把Waterdrop部署在Spark Standalone/Yarn/Mesos集群上运行，请参考[Waterdrop部署](/zh-cn/deployment)
+
