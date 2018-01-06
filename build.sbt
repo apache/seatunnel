@@ -1,5 +1,5 @@
 name         := "Waterdrop"
-version      := "0.1.0"
+version      := "1.0.0"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
