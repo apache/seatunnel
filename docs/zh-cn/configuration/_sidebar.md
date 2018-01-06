@@ -47,7 +47,7 @@
     - [S3](/zh-cn/configuration/output-plugins/S3)
     - [Stdout](/zh-cn/configuration/output-plugins/Stdout)
 
-- [部署与测试](/zh-cn/deployment)
+- [部署](/zh-cn/deployment)
 
 - [监控](/zh-cn/monitoring)
 
