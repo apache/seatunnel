@@ -11,11 +11,11 @@ Waterdrop插件分为三部分，**Input**、**Filter**和**Output**
 
 ### Filter
 
-**Filter**是transform操作，负责对DataFrame的数据结构进行操作
+**Filter**是[transform](http://spark.apache.org/docs/latest/rdd-programming-guide.html#transformations)操作，负责对DataFrame的数据结构进行操作
 
 ### Output
 
-**Output**是action操作，负责将DataFrame输出到外部数据源或者打印到终端
+**Output**是[action](http://spark.apache.org/docs/latest/rdd-programming-guide.html#actions)操作，负责将DataFrame输出到外部数据源或者打印到终端
 
 ## 准备工作
 
@@ -53,7 +53,7 @@ Waterdrop支持Java/Scala作为插件开发语言，其中**Input**插件推荐�
         override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {}
     }
     ```
-- **Input**插件在调用时会先执行`checkConfig`方法核对调用插件时传入的参数是否正确，然后调用`prepare`方法配置参数的缺省值以及初始化类的成员变量，最后调用`getStream`方法将外部数据源转换为`[(String, String)]`
+- **Input**插件在调用时会先执行`checkConfig`方法核对调用插件时传入的参数是否正确，然后调用`prepare`方法配置参数的缺省值以及初始化类的成员变量，最后调用`getStream`方法将外部数据源转换为`DStream[(String, String)]`
 - Scala版本**Input**插件实现参照[ScalaHdfs](https://github.com/InterestingLab/waterdrop-filter-example/blob/master/src/main/scala/org/interestinglab/waterdrop/input/ScalaHdfs.scala)
 
 
