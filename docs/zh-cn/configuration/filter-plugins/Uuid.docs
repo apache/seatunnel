@@ -1,0 +1,9 @@
+@waterdropPlugin
+@pluginGroup filter
+@pluginName Uuid
+@pluginDesc "为原始数据集新增自增id字段"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption string target_field="uuid" no "自增id字段，若不配置默认为'uuid'"
