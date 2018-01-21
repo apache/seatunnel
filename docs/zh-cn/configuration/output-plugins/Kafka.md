@@ -6,19 +6,19 @@
 
 ### Description
 
-输出Dataframe到Kafka
+输出数据到Kafka
 
 ### Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [bootstrap.servers](#bootstrapservers-string) | string | yes | - |
+| [producer.bootstrap.servers](#producerbootstrapservers-string) | string | yes | - |
 | [topic](#topic-string) | string | yes | - |
 | [producer.*](#producer-string) | string | no | - |
 
-##### bootstrap.servers [string]
+##### producer.bootstrap.servers [string]
 
-Kafka Brokers
+Kafka Brokers List
 
 ##### topic [string]
 
@@ -35,6 +35,6 @@ Kafka Topic
 ```
 kafka {
     topic = "waterdrop"
-    bootstrap.servers = "localhost:9092"
+    producer.bootstrap.servers = "localhost:9092"
 }
 ```

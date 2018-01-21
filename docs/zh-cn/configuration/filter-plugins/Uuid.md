@@ -6,7 +6,7 @@
 
 ### Description
 
-为原始数据集新增自增id字段
+为原始数据集新增一个全局唯一且自增的UUID字段，使用的是spark的`monotonically_increasing_id()`函数。
 
 ### Options
 
@@ -16,4 +16,4 @@
 
 ##### target_field [string]
 
-自增id字段，若不配置默认为`uuid`
+存储uuid的目标字段，若不配置默认为`uuid`
