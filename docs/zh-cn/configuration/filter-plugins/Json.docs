@@ -1,10 +1,10 @@
 @waterdropPlugin
 @pluginGroup filter
-@pluginName Sql
+@pluginName Json
 @pluginDesc "对原始数据集指定字段进行Json解析"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
 
 @pluginOption string source_field="raw_message" no "源字段，若不配置默认为'raw_message'"
-@pluginOption string target_field="replaced" no "目标字段，若不配置默认为'__ROOT__'"
+@pluginOption string target_field="__root__" no "目标字段，若不配置默认为'__root__'"

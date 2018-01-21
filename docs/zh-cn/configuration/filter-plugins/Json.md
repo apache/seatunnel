@@ -1,4 +1,4 @@
-## Filter plugin : Sql
+## Filter plugin : Json
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -13,7 +13,7 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [source_field](#source_field-string) | string | no | raw_message |
-| [target_field](#target_field-string) | string | no | replaced |
+| [target_field](#target_field-string) | string | no | \_\_root\_\_ |
 
 ##### source_field [string]
 
@@ -21,7 +21,7 @@
 
 ##### target_field [string]
 
-目标字段，若不配置默认为`__ROOT__`，Json解析后的结果将统一放置Dataframe最顶层
+目标字段，若不配置默认为`__root__`，Json解析后的结果将统一放置Dataframe最顶层
 
 ### Examples
 

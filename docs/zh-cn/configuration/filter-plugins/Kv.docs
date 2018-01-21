@@ -12,4 +12,4 @@
 @pluginOption string include_fields="[]" no "需要包括的字段"
 @pluginOption string exclude_fields="[]" no "不需要包括的字段"
 @pluginOption string source_field="raw_message" no "源字段，若不配置默认为'raw_message'"
-@pluginOption string target_field="__root__" no "目标字段，若不配置默认为'ROOT'"
+@pluginOption string target_field="\_\_root\_\_" no "目标字段，若不配置默认为'\_\_root\_\_'"

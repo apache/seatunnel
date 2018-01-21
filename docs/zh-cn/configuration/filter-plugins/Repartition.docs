@@ -1,6 +1,6 @@
 @waterdropPlugin
 @pluginGroup filter
-@pluginName Kv
+@pluginName Repartition
 @pluginDesc "重新给Dataframe分区"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop

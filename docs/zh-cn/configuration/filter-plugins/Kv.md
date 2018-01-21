@@ -6,7 +6,7 @@
 
 ### Description
 
-提取指定字段所有的Key-Value
+提取指定字段所有的Key-Value, 常用语解析url参数中的key和value。
 
 ### Options
 
@@ -17,7 +17,7 @@
 | [field_split](#field_split-string) | string | no | & |
 | [include_fields](#include_fields-string) | string | no | [] |
 | [source_field](#source_field-string) | string | no | raw_message |
-| [target_field](#target_field-string) | string | no | __root__ |
+| [target_field](#target_field-string) | string | no | \_\_root\_\_ |
 | [value_split](#value_split-string) | string | no | = |
 
 ##### exclude_fields [string]
@@ -42,7 +42,7 @@
 
 ##### target_field [string]
 
-目标字段，若不配置默认为`ROOT`
+目标字段，若不配置默认为`__root__`
 
 ##### value_split [string]
 
@@ -51,7 +51,7 @@
 ### Examples
 
 ```
-Kv {
+kv {
     source_field = "parameters"
     target_field = "kv_map"
     field_split = "&"
