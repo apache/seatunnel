@@ -26,7 +26,7 @@
 ### Examples
 
 ```
-Rename {
+rename {
     source_field = "field1"
     target_field = "field2"
 }

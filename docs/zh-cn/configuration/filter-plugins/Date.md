@@ -52,7 +52,7 @@
 ### Examples
 
 ```
-Date {
+date {
     source_field = "timestamp"
     target_field = "date"
     source_field_format = "UNIX"

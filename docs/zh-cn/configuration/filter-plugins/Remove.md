@@ -21,7 +21,7 @@
 ### Examples
 
 ```
-Remove {
+remove {
     source_field = ["field1", "field2"]
 }
 ```

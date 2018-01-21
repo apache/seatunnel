@@ -27,7 +27,7 @@
 ### Examples
 
 ```
-Convert {
+convert {
     source_field = "age"
     new_type = "integer"
 }
