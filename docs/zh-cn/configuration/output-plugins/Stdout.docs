@@ -1,11 +1,11 @@
 @waterdropPlugin
 @pluginGroup output
 @pluginName Stdout
-@pluginDesc "输出DataFrame到标准输出"
+@pluginDesc "输出数据到标准输出"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
 
-@pluginOption number limit="100" no "限制输出Row的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647个Event"
+@pluginOption number limit="100" no "限制输出Event的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647个Event"
 @pluginOption string serializer="plain" no "输出时序列化的格式，可选的序列化方式请见：[Serializers](/#/zh-cn/)"
 

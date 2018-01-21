@@ -18,7 +18,7 @@
 
 ##### max_length [number]
 
-截取字符串的长度
+截取字符串的最大长度
 
 ##### source_field [string]
 

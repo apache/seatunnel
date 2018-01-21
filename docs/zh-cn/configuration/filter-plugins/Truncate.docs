@@ -8,4 +8,4 @@
 
 @pluginOption string source_field="raw_message" no "源字段，若不配置默认为'raw_message'"
 @pluginOption string target_field="truncated" no "目标字段，若不配置默认为'ROOT'"
-@pluginOption number max_length="256" no "截取字符串的长度"
+@pluginOption number max_length="256" no "截取字符串的最大长度"
