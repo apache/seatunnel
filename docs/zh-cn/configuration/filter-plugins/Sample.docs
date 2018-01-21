@@ -6,5 +6,5 @@
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
 
-@pluginOption number fraction="0.1" no "数据抽取的比例，例如fraction=0.8，就是抽取其中80%"
-@pluginOption number limit="-1" no "数据抽取后，限制数据条数，其中-1代表全量抽样数据"
+@pluginOption number fraction="0.1" no "数据采样的比例，例如fraction=0.8，就是抽取其中80%的数据"
+@pluginOption number limit="-1" no "数据采样后的条数，其中`-1`代表不限制"
