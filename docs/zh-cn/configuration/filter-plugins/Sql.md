@@ -6,7 +6,7 @@
 
 ### Description
 
-在原始数据集Dataframe的基础上执行SQL
+在原始数据集的基础上执行SQL
 
 ### Options
 

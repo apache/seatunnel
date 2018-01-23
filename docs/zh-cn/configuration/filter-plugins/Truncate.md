@@ -27,3 +27,12 @@
 ##### target_field [string]
 
 目标字段，若不配置默认为`ROOT`
+
+### Example
+
+```
+truncate {
+    source_field = "telephone"
+    max_length = 10
+}
+```

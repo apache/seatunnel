@@ -17,3 +17,11 @@
 ##### target_field [string]
 
 存储uuid的目标字段，若不配置默认为`uuid`
+
+### Example
+
+```
+uuid {
+    target_field = "id"
+}
+```
