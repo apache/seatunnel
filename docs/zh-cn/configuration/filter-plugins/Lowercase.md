@@ -22,3 +22,11 @@
 ##### target_field [string]
 
 目标字段，若不配置默认为`ROOT`
+
+# Examples
+
+```
+lowercase {
+    source_field = "address"
+}
+```

@@ -6,7 +6,7 @@
 
 ### Description
 
-提取指定字段所有的Key-Value, 常用语解析url参数中的key和value。
+提取指定字段所有的Key-Value, 常用于解析url参数中的key和value。
 
 ### Options
 
