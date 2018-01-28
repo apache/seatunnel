@@ -50,4 +50,4 @@ sql {
 }
 ```
 
-> 使用Spark提供的[Aggregate functions](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$)对原始数据集进行聚合操作，取出`age`平均值
+>  使用Spark提供的[Aggregate functions](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$)对原始数据集进行聚合操作，取出`age`平均值

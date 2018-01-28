@@ -18,7 +18,7 @@
 | [source_time_format](#source_time_format-string) | string | no | UNIX_MS |
 | [target_field](#target_field-string) | string | no | datetime |
 | [target_time_format](#target_time_format-string) | string | no | `yyyy/MM/dd HH:mm:ss` |
-| [time_zone](#time_zone-string) | string | no |  |
+| [time_zone](#time_zone-string) | string | no | - |
 
 ##### default_value [string]
 
@@ -34,7 +34,20 @@
 
 ##### source_time_format [string]
 
-源字段时间格式，当前支持UNIX、UNIX_MS以及`SimpleDateFormat`格式
+源字段时间格式，当前支持UNIX、UNIX_MS以及`SimpleDateFormat`时间格式。常用的时间格式列举如下：
+
+| Symbol | Description |
+| --- | --- |
+| y | Year |
+| M | Month |
+| d | Day of month |
+| H | Hour in day (0-23) |
+| m | Minute in hour |
+| s | Second in minute |
+
+详细的时间格式语法见[Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)。
+
+
 
 ##### target_field [string]
 
@@ -42,7 +55,8 @@
 
 ##### target_time_format [string]
 
-目标字段时间格式
+目标字段时间格式，详细的时间格式语法见[Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)。
+
 
 ##### time_zone [string]
 
@@ -60,5 +74,15 @@ date {
 }
 ```
 
-> 将源数据中的`timestamp`字段由UNIX时间戳转换为`yyyy/MM/dd`格式的`date`字段
+> 将源数据中的`timestamp`字段由UNIX时间戳，例如*1517128894*转换为`yyyy/MM/dd`格式的`date`字段，例如*2018/01/28*
 
+```
+date {
+    source_field = "httpdate"
+    target_field = "datetime"
+    source_field_format = "dd/MMM/yyyy:HH:mm:ss Z"
+    target_field_format = "yyyy/MM/dd HH:mm:ss"
+}
+```
+
+> 将源数据中的`httpdate`字段由`dd/MMM/yyyy:HH:mm:ss Z`格式转化为`yyyy/MM/dd HH:mm:ss`格式的`datetime`字段
