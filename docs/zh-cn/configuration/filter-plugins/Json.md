@@ -28,7 +28,7 @@
 1. 不使用`target_field`
 
     ```
-    Json {
+    json {
         source_field = "message"
     }
     ```
@@ -37,7 +37,7 @@
 
     ```
     +----------------------------+
-    |message                    |
+    |message                   |
     +----------------------------+
     |{"name": "ricky", "age": 24}|
     |{"name": "gary", "age": 28} |
@@ -58,7 +58,7 @@
 2. 使用`target_field`
 
     ```
-    Json {
+    json {
         source_field = "message"
         target_field = "info"
     }
@@ -67,12 +67,12 @@
     * **Input**
 
     ```
-    +---------------------------+
-    |message                  |
-    +---------------------------+
+    +----------------------------+
+    |message                   |
+    +----------------------------+
     |{"name": "ricky", "age": 24}|
-    |{"name": "gary", "age": 28}|
-    +---------------------------+
+    |{"name": "gary", "age": 28} |
+    +----------------------------+
     ```
 
     * **Output**
@@ -87,4 +87,4 @@
 
     ```
 
-    > Json处理的结果支持**select * from where info.age = 27**此类SQL语句
+    > json处理的结果支持**select * from where info.age = 23**此类SQL语句

@@ -6,7 +6,7 @@
 
 ### Description
 
-提取指定字段所有的Key-Value, 常用于解析url参数中的key和value。
+提取指定字段所有的Key-Value, 常用于解析url参数中的key和value
 
 ### Options
 
@@ -50,11 +50,70 @@
 
 ### Examples
 
-```
-kv {
-    source_field = "parameters"
-    target_field = "kv_map"
-    field_split = "&"
-    value_split = "="
-}
-```
+1. 使用`target_field`
+
+    ```
+    kv {
+        source_field = "message"
+        target_field = "kv_map"
+        field_split = "&"
+        value_split = "="
+    }
+    ```
+
+    * **Input**
+
+    ```
+    +-----------------+
+    |message         |
+    +-----------------+
+    |name=ricky&age=23|
+    |name=gary&age=28 |
+    +-----------------+
+    ```
+
+    * **Output**
+
+    ```
+    +-----------------+-----------------------------+
+    |message          |kv_map                    |
+    +-----------------+-----------------------------+
+    |name=ricky&age=23|Map(name -> ricky, age -> 23)|
+    |name=gary&age=28 |Map(name -> gary, age -> 28) |
+    +-----------------+-----------------------------+
+    ```
+
+    > kv处理的结果支持**select * from where kv_map.age = 23**此类SQL语句
+
+2. 不使用`target_field`
+
+    ```
+    kv {
+            source_field = "message"
+            field_split = "&"
+            value_split = "="
+        }
+    ```
+
+    * **Input**
+
+    ```
+    +-----------------+
+    |message         |
+    +-----------------+
+    |name=ricky&age=23|
+    |name=gary&age=28 |
+    +-----------------+
+    ```
+
+    * **Output**
+
+    ```
+    +-----------------+---+-----+
+    |message         |age|name |
+    +-----------------+---+-----+
+    |name=ricky&age=23|23 |ricky|
+    |name=gary&age=28 |28 |gary |
+    +-----------------+---+-----+
+
+    ```
