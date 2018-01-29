@@ -31,7 +31,7 @@
     - [Replace](/zh-cn/configuration/filter-plugins/Replace)
     - [Sample](/zh-cn/configuration/filter-plugins/Sample)
     - [Split](/zh-cn/configuration/filter-plugins/Split)
-    - [SQL](/zh-cn/configuration/filter-plugins/SQL)
+    - [SQL](/zh-cn/configuration/filter-plugins/Sql)
     - [Table](/zh-cn/configuration/filter-plugins/Table)
     - [Truncate](/zh-cn/configuration/filter-plugins/Truncate)
     - [Uppercase](/zh-cn/configuration/filter-plugins/Uppercase)
