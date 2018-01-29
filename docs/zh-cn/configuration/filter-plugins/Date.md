@@ -14,7 +14,7 @@
 | --- | --- | --- | --- |
 | [default_value](#default_value-string) | string | no | ${now} |
 | [locale](#locale-string) | string | no | Locale.US |
-| [source_field](#source_field-string) | string | no | __ROOT__ |
+| [source_field](#source_field-string) | string | no | \_\_root\_\_ |
 | [source_time_format](#source_time_format-string) | string | no | UNIX_MS |
 | [target_field](#target_field-string) | string | no | datetime |
 | [target_time_format](#target_time_format-string) | string | no | `yyyy/MM/dd HH:mm:ss` |
@@ -34,7 +34,7 @@
 
 ##### source_time_format [string]
 
-源字段时间格式，当前支持UNIX、UNIX_MS以及`SimpleDateFormat`时间格式。常用的时间格式列举如下：
+源字段时间格式，当前支持UNIX(10位的秒时间戳)、UNIX_MS(13位的毫秒时间戳)以及`SimpleDateFormat`时间格式。常用的时间格式列举如下：
 
 | Symbol | Description |
 | --- | --- |
