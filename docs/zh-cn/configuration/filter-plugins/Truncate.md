@@ -26,7 +26,7 @@
 
 ##### target_field [string]
 
-目标字段，若不配置默认为`ROOT`
+目标字段，若不配置默认为`__root__`
 
 ### Example
 

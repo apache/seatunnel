@@ -6,7 +6,7 @@
 
 ### Description
 
-在原始数据集的基础上执行SQL, 可以使用SQL基本语句和Spark提供的原生方法对数据集进行操作。Spark提供的方法可满足大部分需求，其支持的方法列表[Function Reference](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$)
+使用SQL处理数据，支持Spark丰富的[UDF](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$)
 
 ### Options
 
@@ -45,7 +45,7 @@ sql {
 
 ```
 sql {
-    sql = "select avg(ago) from user_info",
+    sql = "select avg(age) from user_info",
     table = "user_info"
 }
 ```
