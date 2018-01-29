@@ -1,7 +1,7 @@
 @waterdropPlugin
 @pluginGroup output
 @pluginName Stdout
-@pluginDesc "输出Event到标准输出"
+@pluginDesc "输出数据到标准输出"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0

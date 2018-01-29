@@ -1,0 +1,15 @@
+@waterdropPlugin
+@pluginGroup filter
+@pluginName Date
+@pluginDesc "对指定字段进行时间格式转换"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption string source_field="__ROOT__" no "源字段，若不配置将使用当前时间"
+@pluginOption string target_field="datetime" no "目标字段，若不配置默认为'datetime'"
+@pluginOption string source_time_format="UNIX_MS" no "源字段时间格式，当前支持UNIX、UNIX_MS以及'SimpleDateFormat'格式"
+@pluginOption string target_time_format="yyyy/MM/dd HH:mm:ss" no "目标字段时间格式"
+@pluginOption string time_zone="" no "时区"
+@pluginOption string default_value="${now}" no "如果日期转换失败将会使用当前时间生成指定格式的值"
+@pluginOption string locale="Locale.US" no "编码类型"

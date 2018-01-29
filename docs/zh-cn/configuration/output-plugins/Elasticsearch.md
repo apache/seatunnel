@@ -56,7 +56,7 @@ Elasticsearch index名称，如果需要根据时间生成index，可以指定�
 ### Examples
 
 ```
-Elasticsearch {
+elasticsearch {
     hosts = ["localhost:9200"]
     index = "waterdrop"
 }
@@ -65,7 +65,7 @@ Elasticsearch {
 > 将结果写入Elasticsearch集群的名称为waterdrop的index中
 
 ```
-Elasticsearch {
+elasticsearch {
     hosts = ["localhost:9200"]
     index = "waterdrop-${now}"
     es.batch.size.entries = 100000

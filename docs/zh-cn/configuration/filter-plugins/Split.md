@@ -38,7 +38,7 @@
 ### Examples
 
 ```
-Split {
+split {
     source_field = "message"
     delimiter = "&"
     fields = ["field1", "field2"]
@@ -48,7 +48,7 @@ Split {
 > 将源数据中的`message`字段根据**&**进行分割，可以以`field1`或`field2`为key获取相应value
 
 ```
-Split {
+split {
     source_field = "message"
     target_field = "info"
     delimiter = ","

@@ -1,0 +1,10 @@
+@waterdropPlugin
+@pluginGroup filter
+@pluginName Sample
+@pluginDesc "对原始数据集进行抽样"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption number fraction="0.1" no "数据采样的比例，例如fraction=0.8，就是抽取其中80%的数据"
+@pluginOption number limit="-1" no "数据采样后的条数，其中`-1`代表不限制"

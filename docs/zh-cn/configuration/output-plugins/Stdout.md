@@ -6,7 +6,7 @@
 
 ### Description
 
-输出Event到标准输出
+输出数据到标准输出
 
 ### Options
 
@@ -17,8 +17,19 @@
 
 ##### limit [number]
 
-限制输出Event的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647个Event
+限制输出Row的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647条Row
 
 ##### serializer [string]
 
 输出时序列化的格式，可选的序列化方式请见：[Serializers](/#/zh-cn/)
+
+### Example
+
+```
+stdout {
+    limit = 10
+    serializer = "json"
+}
+```
+
+> 以Json格式输出10条数据
