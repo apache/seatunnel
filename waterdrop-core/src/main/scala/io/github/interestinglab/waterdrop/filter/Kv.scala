@@ -62,7 +62,10 @@ class Kv(var conf: Config) extends BaseFilter(conf) {
           val key = pair(0).trim
           val value = pair(1).trim
 
-          if (includeFields.length > 0 && includeFields.contains(key)) {
+          if (includeFields.length == 0 && excludeFields.length == 0) {
+            map += (conf.getString("field_prefix") + key -> value)
+          }
+          else if (includeFields.length > 0 && includeFields.contains(key)) {
             map += (conf.getString("field_prefix") + key -> value)
           } else if (excludeFields.length > 0 && !excludeFields.contains(key)) {
             map += (conf.getString("field_prefix") + key -> value)
