@@ -21,7 +21,7 @@ object Waterdrop extends Logging {
 
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
-        Common.setDeployMode(cmdArgs.master)
+        Common.setDeployMode(cmdArgs.deployMode)
 
         cmdArgs.testConfig match {
           case true => {
