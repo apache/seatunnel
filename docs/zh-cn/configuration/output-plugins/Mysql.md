@@ -1,4 +1,4 @@
-## Output plugin : Jdbc
+## Output plugin : Mysql
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -6,22 +6,18 @@
 
 ### Description
 
-通过JDBC输出数据到外部数据源
+输出数据到MySQL
 
 ### Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [driver](#driver-string) | string | yes | - |
 | [password](#password-string) | string | yes | - |
 | [save_mode](#save_mode-string) | string | no | append |
 | [table](#table-string) | string | yes | - |
 | [url](#url-string) | string | yes | - |
 | [user](#user-string) | string | yes | - |
 
-##### driver [string]
-
-用来连接远端数据源的JDBC类名
 
 ##### password [string]
 
@@ -37,7 +33,7 @@
 
 ##### url [string]
 
-JDBC连接的URL。参考一个案例：**jdbc:postgresql://localhost/test**
+JDBC连接的URL。参考一个案例：**jdbc:mysql://localhose:3306/info**
 
 
 ##### user [string]
@@ -48,8 +44,7 @@ JDBC连接的URL。参考一个案例：**jdbc:postgresql://localhost/test**
 ### Example
 
 ```
-jdbc {
-    driver = "com.mysql.jdbc.Driver"
+mysql {
     url = "jdbc:mysql://localhose:3306/info"
     table = "access"
     user = "username"
@@ -58,4 +53,4 @@ jdbc {
 }
 ```
 
-> 将数据通过JDBC写入MySQL
+> 将数据写入MySQL
