@@ -1,0 +1,10 @@
+@waterdropPlugin
+@pluginGroup input
+@pluginName Hdfs
+@pluginDesc "从HDFS中读取原始数据"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption
+string path yes "Hadoop集群上文件路径"

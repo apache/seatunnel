@@ -69,6 +69,7 @@ elasticsearch {
     hosts = ["localhost:9200"]
     index = "waterdrop-${now}"
     es.batch.size.entries = 100000
+    index_time_format = "yyyy.MM.dd"
 }
 ```
 
