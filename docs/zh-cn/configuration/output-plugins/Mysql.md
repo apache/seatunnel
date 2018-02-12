@@ -25,7 +25,7 @@
 
 ##### save_mode [string]
 
-存储模式，当前支持overwrite，append，ignore以及error。每个模式[具体含义](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes)
+存储模式，当前支持overwrite，append，ignore以及error。每个模式具体含义见[save-modes](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes)
 
 ##### table [string]
 
