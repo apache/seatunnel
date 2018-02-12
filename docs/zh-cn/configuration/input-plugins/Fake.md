@@ -6,7 +6,7 @@
 
 ### Description
 
-生成测试数据以供逻辑测试使用
+伪造的Input用于生成数据。
 
 ### Options
 

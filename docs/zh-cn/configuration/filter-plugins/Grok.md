@@ -6,7 +6,9 @@
 
 ### Description
 
-对指定字段进行正则解析，grok插件[测试地址](https://grokdebug.herokuapp.com/)
+使用Grok Pattern来解析字段，[支持的grok pattern](https://github.com/InterestingLab/waterdrop/blob/master/plugins/grok/files/grok-patterns/grok-patterns),
+ 
+grok pattern[grok pattern 测试地址](https://grokdebug.herokuapp.com/)
 
 ### Options
 
@@ -24,11 +26,11 @@ If true, only store named captures from grok.
 
 ##### pattern [string]
 
-正则表达式
+用于处理数据的grok pattern.
 
 ##### patterns_dir [string]
 
-patterns文件路径，可不填，项目里准备了丰富[grok-patterns文件](https://github.com/InterestingLab/waterdrop/tree/master/plugins/grok/files/grok-patterns)
+patterns文件路径，可不填，Waterdrop自带了丰富的[grok-patterns文件](https://github.com/InterestingLab/waterdrop/tree/master/plugins/grok/files/grok-patterns)
 
 ##### source_field [string]
 
@@ -70,5 +72,3 @@ grok {
 +----------------------------------------------------+------------------------------------------------------------+
 
 ```
-
-> grok处理的结果支持**select * from where info_detail.age = 25**此类SQL语句
