@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.filter
 
 import java.io.File
 import java.nio.file.Paths
+import java.util
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
@@ -16,6 +17,7 @@ import scala.collection.JavaConverters._
 class Grok(var conf: Config) extends BaseFilter(conf) {
 
   val grok = GrokLib.EMPTY
+
 
   def this() = {
     this(ConfigFactory.empty())
@@ -57,13 +59,20 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
 
     grok.compile(conf.getString("pattern"), true)
 
-    // TODO: get fixed field list to insert fields to ROOT
   }
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
     val grokUDF = udf((str: String) => grokMatch(str))
+    val keys = getKeysOfPattern(conf.getString("pattern"))
     conf.getString("target_field") match {
-      case Json.ROOT => df // TODO
+      case Json.ROOT => {
+        var tmpDf = df.withColumn(Json.TMP, grokUDF(col(conf.getString("source_field"))))
+        while (keys.hasNext) {
+          val field = keys.next()
+          tmpDf = tmpDf.withColumn(field, col(Json.TMP)(field))
+        }
+        tmpDf.drop(Json.TMP)
+      }
       case targetField => {
         df.withColumn(targetField, grokUDF(col(conf.getString("source_field"))))
       }
@@ -83,5 +92,10 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
     } else {
       List[File]()
     }
+  }
+
+  private def getKeysOfPattern(pattern: String): util.Iterator[String] = {
+    grok.compile(pattern)
+    grok.getNamedRegexCollection.values().iterator()
   }
 }
