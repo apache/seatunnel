@@ -54,3 +54,5 @@ spark {
 ...
 
 ```
+
+关于如何配置Waterdrop, 请见[Waterdrop 配置](/zh-cn/configuration/base)
