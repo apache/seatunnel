@@ -6,6 +6,7 @@ import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseInput, BaseOutpu
 import io.github.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
+import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -23,10 +24,22 @@ object Waterdrop extends Logging {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
 
+        val configFilePath = Common.getDeployMode match {
+          case Some(m) => {
+            if (m.equals("cluster")) {
+              // only keep filename in cluster mode
+              new Path(cmdArgs.configFile).getName
+            } else {
+              cmdArgs.configFile
+            }
+          }
+        }
+
         cmdArgs.testConfig match {
           case true => {
             new ConfigBuilder(cmdArgs.configFile)
             println("config OK !")
+            // TODO: check config
           }
           case false => {
 

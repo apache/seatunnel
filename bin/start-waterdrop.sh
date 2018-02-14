@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # TODO: compress plugins/ dir before start-waterdrop.sh
+# TODO: -t 参数好使吗？
 
 PARAMS=""
 while (( "$#" )); do
@@ -10,8 +11,13 @@ while (( "$#" )); do
       shift 2
       ;;
 
-    -m|--deploy-mode)
+    -e|--deploy-mode)
       DEPLOY_MODE=$2
+      shift 2
+      ;;
+
+    -c|--config)
+      CONFIG_FILE=$2
       shift 2
       ;;
 
@@ -44,7 +50,7 @@ LIB_DIR=${APP_DIR}/lib
 PLUGINS_DIR=${APP_DIR}/plugins
 
 DEFAULT_CONFIG=${CONF_DIR}/application.conf
-CONFIG_FILE=${DEFAULT_CONFIG}
+CONFIG_FILE=${CONFIG_FILE:-DEFAULT_CONFIG}
 
 DEFAULT_MASTER=local[2]
 MASTER=${MASTER:-$DEFAULT_MASTER}
@@ -65,7 +71,6 @@ if [ "$DEPLOY_MODE" == "cluster" ]; then
 
     ## add config file
     FilesDepOpts="--files ${CONFIG_FILE}"
-    CONFIG_FILE=$(basename ${CONFIG_FILE})
 
     ## add plugin files
     FilesDepOpts="${FilesDepOpts},${APP_DIR}/plugins.tar.gz"
