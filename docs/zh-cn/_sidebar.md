@@ -10,11 +10,9 @@
   - [Filter插件](/zh-cn/configuration/filter-plugin)
   - [Output插件](/zh-cn/configuration/output-plugin)
 
-- [部署](/zh-cn/deployment)
+- [部署与运行](/zh-cn/deployment)
 
 - [监控](/zh-cn/monitoring)
-
-- [性能与调优](/zh-cn/performance-tunning)
 
 - [插件开发](/zh-cn/developing-plugin)
 
