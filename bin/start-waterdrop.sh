@@ -1,11 +1,46 @@
 #!/bin/bash
 
-# TODO: 启动时传入--mode ${DEPLOY_MODE} --config ${CONFIG_FILE}参数
-# TODO: 解析bash 参数...
-# TODO: 解析2次参数，关心的参数是--master, --config
-# TODO: 有可能请求资源大小的配置也要直接提供给spark-submit !!!
-# TODO: 删除其他不用的main class starter
 # TODO: compress plugins/ dir before start-waterdrop.sh
+# TODO: -t 参数好使吗？
+
+PARAMS=""
+while (( "$#" )); do
+  case "$1" in
+    --master)
+      MASTER=$2
+      shift 2
+      ;;
+
+    -e|--deploy-mode)
+      DEPLOY_MODE=$2
+      shift 2
+      ;;
+
+    -c|--config)
+      CONFIG_FILE=$2
+      shift 2
+      ;;
+
+    --) # end argument parsing
+      shift
+      break
+      ;;
+
+    # -*|--*=) # unsupported flags
+    #  echo "Error: Unsupported flag $1" >&2
+    #  exit 1
+    #  ;;
+
+    *) # preserve positional arguments
+      PARAM="$PARAMS $1"
+      shift
+      ;;
+
+  esac
+done
+# set positional arguments in their proper place
+eval set -- "$PARAMS"
+
 
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 UTILS_DIR=${BIN_DIR}/utils
@@ -15,13 +50,13 @@ LIB_DIR=${APP_DIR}/lib
 PLUGINS_DIR=${APP_DIR}/plugins
 
 DEFAULT_CONFIG=${CONF_DIR}/application.conf
-CONFIG_FILE=${DEFAULT_CONFIG}
+CONFIG_FILE=${CONFIG_FILE:-DEFAULT_CONFIG}
 
 DEFAULT_MASTER=local[2]
-MASTER=${DEFAULT_MASTER}
+MASTER=${MASTER:-$DEFAULT_MASTER}
 
 DEFAULT_DEPLOY_MODE=client
-DEPLOY_MODE=${DEFAULT_DEPLOY_MODE}
+DEPLOY_MODE=${DEPLOY_MODE:-$DEFAULT_DEPLOY_MODE}
 
 # scan jar dependencies for all plugins
 source ${UTILS_DIR}/file.sh
@@ -36,7 +71,6 @@ if [ "$DEPLOY_MODE" == "cluster" ]; then
 
     ## add config file
     FilesDepOpts="--files ${CONFIG_FILE}"
-    CONFIG_FILE=$(basename ${CONFIG_FILE})
 
     ## add plugin files
     FilesDepOpts="${FilesDepOpts},${APP_DIR}/plugins.tar.gz"
@@ -57,4 +91,4 @@ exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.W
     --deploy-mode ${DEPLOY_MODE} \
     ${JarDepOpts} \
     ${FilesDepOpts} \
-    ${assemblyJarName} --mode ${DEPLOY_MODE} --config ${CONFIG_FILE}
+    ${assemblyJarName} $@

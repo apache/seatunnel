@@ -10,9 +10,9 @@ object CommandLineUtils {
 
     opt[String]('c', "config").required().action((x, c) => c.copy(configFile = x)).text("config file")
     opt[Unit]('t', "check").action((_, c) => c.copy(testConfig = true)).text("check config")
-    opt[String]('m', "mode")
+    opt[String]('e', "deploy-mode")
       .required()
-      .action((x, c) => c.copy(master = x))
+      .action((x, c) => c.copy(deployMode = x))
       .validate(x => if (Common.isModeAllowed(x)) success else failure("deploy-mode: " + x + " is not allowed."))
       .text("spark deploy mode")
   }
