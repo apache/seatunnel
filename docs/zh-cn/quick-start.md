@@ -9,12 +9,13 @@
 请先[下载Spark](http://spark.apache.org/downloads.html), Spark版本请选择 >= 2.x.x。下载解压后，不需要做任何配置即可提交Spark deploy-mode = local模式的任务。
 如果你期望任务运行在Standalone集群或者Yarn、Mesos集群上，请参考Spark官网配置文档。
 
-### Step 2: 下载 Waterdrop(以Waterdrop-1.0.2为例)
+### Step 2: 下载 Waterdrop
 
 下载[Waterdrop安装包](https://github.com/InterestingLab/waterdrop/releases) 并解压:
 
 ```
-wget https://github.com/InterestingLab/waterdrop/releases/download/v1.0.0/waterdrop-1.0.2.zip -O waterdrop-1.0.2.zip
+# 以waterdrop 1.0.2为例:
+wget https://github.com/InterestingLab/waterdrop/releases/download/v1.0.2/waterdrop-1.0.2.zip -O waterdrop-1.0.2.zip
 unzip waterdrop-1.0.2.zip
 ln -s waterdrop-1.0.2 waterdrop
 ```

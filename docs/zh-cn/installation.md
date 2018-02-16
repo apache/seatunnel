@@ -15,7 +15,7 @@ Waterdrop 依赖Spark，安装Waterdrop前，需要先准备好Spark。
 下载[Waterdrop安装包](https://github.com/InterestingLab/waterdrop/releases) 并解压:
 
 ```
-wget https://github.com/InterestingLab/waterdrop/releases/download/v1.0.0/waterdrop-<version>.zip -O waterdrop-<version>.zip
+wget https://github.com/InterestingLab/waterdrop/releases/download/v<version>/waterdrop-<version>.zip -O waterdrop-<version>.zip
 unzip waterdrop-<version>.zip
 ln -s waterdrop-<version> waterdrop
 ```
