@@ -61,7 +61,8 @@ nc -l -p 9999
 ### Step 5: 启动Waterdrop
 
 ```
-./bin/start-waterdrop.sh
+cd waterdrop
+./bin/start-waterdrop.sh --master local[4] --deploy-mode client --config ./config/application.conf
 
 ```
 

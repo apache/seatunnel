@@ -3,6 +3,9 @@
 # TODO: compress plugins/ dir before start-waterdrop.sh
 # TODO: -t 参数好使吗？
 
+# copy command line arguments
+CMD_ARGUMENTS=$@
+
 PARAMS=""
 while (( "$#" )); do
   case "$1" in
@@ -91,4 +94,4 @@ exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.W
     --deploy-mode ${DEPLOY_MODE} \
     ${JarDepOpts} \
     ${FilesDepOpts} \
-    ${assemblyJarName} $@
+    ${assemblyJarName} ${CMD_ARGUMENTS}
