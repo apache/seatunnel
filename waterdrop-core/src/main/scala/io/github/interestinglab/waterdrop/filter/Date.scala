@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
+import io.github.interestinglab.waterdrop.core.RowConstant
 import io.github.interestinglab.waterdrop.utils.{FormatParser, StringTemplate, UnixMSParser, UnixParser}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -26,7 +27,7 @@ class Date(var config: Config) extends BaseFilter(config) {
     super.prepare(spark, ssc)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "source_field" -> Json.ROOT,
+        "source_field" -> RowConstant.ROOT,
         "target_field" -> "datetime",
         "source_time_format" -> "UNIX_MS",
         "target_time_format" -> "yyyy/MM/dd HH:mm:ss",
@@ -59,7 +60,7 @@ class Date(var config: Config) extends BaseFilter(config) {
     })
 
     config.getString("source_field") match {
-      case Json.ROOT => df.withColumn(targetField, func(lit(System.currentTimeMillis().toString)))
+      case RowConstant.ROOT => df.withColumn(targetField, func(lit(System.currentTimeMillis().toString)))
       case srcField: String => df.withColumn(targetField, func(col(srcField)))
     }
   }
