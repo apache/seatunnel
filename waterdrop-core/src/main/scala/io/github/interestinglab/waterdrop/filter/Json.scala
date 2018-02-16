@@ -46,7 +46,7 @@ class Json(var conf: Config) extends BaseFilter(conf) {
           case "raw_message" => spark.read.json(stringDataSet)
           case s: String => {
             val schema = spark.read.json(stringDataSet).schema
-            var tmpDf = df.withColumn(Json.TMP, from_json(col(srcField), schema))
+            var tmpDf = df.withColumn(Json.TMP, from_json(col(s), schema))
             schema.map { field =>
               tmpDf = tmpDf.withColumn(field.name, col(Json.TMP)(field.name))
             }
