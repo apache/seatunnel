@@ -1,4 +1,4 @@
-# 安装
+# 下载、安装
 
 ### 准备好JDK1.8
 
@@ -15,9 +15,9 @@ Waterdrop 依赖Spark，安装Waterdrop前，需要先准备好Spark。
 下载[Waterdrop安装包](https://github.com/InterestingLab/waterdrop/releases) 并解压:
 
 ```
-wget https://github.com/InterestingLab/waterdrop/releases/download/v1.0.0/waterdrop-1.0.0.zip -O waterdrop-1.0.0.zip
-unzip waterdrop-1.0.0.zip
-ln -s waterdrop-1.0.0 waterdrop
+wget https://github.com/InterestingLab/waterdrop/releases/download/v1.0.0/waterdrop-<version>.zip -O waterdrop-<version>.zip
+unzip waterdrop-<version>.zip
+ln -s waterdrop-<version> waterdrop
 ```
 
 没有任何复杂的安装配置步骤，Waterdrop的使用方法请参考[Quick Start](/zh-cn/quick-start.md), 配置请参考[Configuration](/zh-cn/configuration/base)。

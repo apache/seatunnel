@@ -156,7 +156,7 @@ Waterdrop支持Java/Scala作为插件开发语言，其中**Input**插件推荐�
 
 2. 将打包好的Jar包放到Waterdrop `plugins`目录下
     ```shell
-    cd waterdrop-1.0.0
+    cd waterdrop-<version>
     mkdir -p plugins/my_plugins/lib
     cd plugins/my_plugins/lib
     ```
