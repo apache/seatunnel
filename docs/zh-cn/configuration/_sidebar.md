@@ -2,7 +2,7 @@
 
 - [快速开始](/zh-cn/quick-start)
 
-- [安装](/zh-cn/installation)
+- [下载、安装](/zh-cn/installation)
 
 - [配置](/zh-cn/configuration/base)
   - [通用配置](/zh-cn/configuration/base)
