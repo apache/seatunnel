@@ -15,5 +15,8 @@ object CommandLineUtils {
       .action((x, c) => c.copy(deployMode = x))
       .validate(x => if (Common.isModeAllowed(x)) success else failure("deploy-mode: " + x + " is not allowed."))
       .text("spark deploy mode")
+    opt[String]('m', "master")
+      .required()
+      .text("spark master")
   }
 }
