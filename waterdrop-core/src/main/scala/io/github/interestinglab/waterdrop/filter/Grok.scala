@@ -7,6 +7,7 @@ import java.util
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.config.Common
+import io.github.interestinglab.waterdrop.core.RowConstant
 import io.thekraken.grok.api.{Grok => GrokLib}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
@@ -17,7 +18,6 @@ import scala.collection.JavaConverters._
 class Grok(var conf: Config) extends BaseFilter(conf) {
 
   val grok = GrokLib.EMPTY
-
 
   def this() = {
     this(ConfigFactory.empty())
@@ -47,7 +47,7 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
           .toString,
         "named_captures_only" -> true,
         "source_field" -> "raw_message",
-        "target_field" -> Json.ROOT
+        "target_field" -> RowConstant.ROOT
       ).asJava
     )
     conf = conf.withFallback(defaultConfig)
@@ -65,13 +65,13 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
     val grokUDF = udf((str: String) => grokMatch(str))
     val keys = getKeysOfPattern(conf.getString("pattern"))
     conf.getString("target_field") match {
-      case Json.ROOT => {
-        var tmpDf = df.withColumn(Json.TMP, grokUDF(col(conf.getString("source_field"))))
+      case RowConstant.ROOT => {
+        var tmpDf = df.withColumn(RowConstant.TMP, grokUDF(col(conf.getString("source_field"))))
         while (keys.hasNext) {
           val field = keys.next()
-          tmpDf = tmpDf.withColumn(field, col(Json.TMP)(field))
+          tmpDf = tmpDf.withColumn(field, col(RowConstant.TMP)(field))
         }
-        tmpDf.drop(Json.TMP)
+        tmpDf.drop(RowConstant.TMP)
       }
       case targetField => {
         df.withColumn(targetField, grokUDF(col(conf.getString("source_field"))))

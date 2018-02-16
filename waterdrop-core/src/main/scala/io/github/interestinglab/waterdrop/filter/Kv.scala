@@ -4,6 +4,7 @@ import java.util
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
+import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, udf}
@@ -33,7 +34,7 @@ class Kv(var conf: Config) extends BaseFilter(conf) {
         "include_fields" -> util.Arrays.asList(),
         "exclude_fields" -> util.Arrays.asList(),
         "source_field" -> "raw_message",
-        "target_field" -> Json.ROOT
+        "target_field" -> RowConstant.ROOT
       )
     )
     conf = conf.withFallback(defaultConfig)
@@ -41,7 +42,7 @@ class Kv(var conf: Config) extends BaseFilter(conf) {
 
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
     conf.getString("target_field") match {
-      case Json.ROOT => df // TODO: implement
+      case RowConstant.ROOT => df // TODO: implement
       case targetField: String => {
         val kvUDF = udf((s: String) => kv(s))
         df.withColumn(targetField, kvUDF(col(conf.getString("source_field"))))
@@ -64,8 +65,7 @@ class Kv(var conf: Config) extends BaseFilter(conf) {
 
           if (includeFields.length == 0 && excludeFields.length == 0) {
             map += (conf.getString("field_prefix") + key -> value)
-          }
-          else if (includeFields.length > 0 && includeFields.contains(key)) {
+          } else if (includeFields.length > 0 && includeFields.contains(key)) {
             map += (conf.getString("field_prefix") + key -> value)
           } else if (excludeFields.length > 0 && !excludeFields.contains(key)) {
             map += (conf.getString("field_prefix") + key -> value)

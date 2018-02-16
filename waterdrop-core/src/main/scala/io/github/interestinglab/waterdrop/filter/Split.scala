@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
+import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
@@ -28,7 +29,7 @@ class Split(var conf: Config) extends BaseFilter(conf) {
       Map(
         "delimiter" -> " ",
         "source_field" -> "raw_message",
-        "target_field" -> Json.ROOT
+        "target_field" -> RowConstant.ROOT
       )
     )
 
@@ -42,15 +43,15 @@ class Split(var conf: Config) extends BaseFilter(conf) {
 
     // https://stackoverflow.com/a/33345698/1145750
     conf.getString("target_field") match {
-      case Json.ROOT => {
+      case RowConstant.ROOT => {
         val func = udf((s: String) => {
           split(s, conf.getString("delimiter"), keys.size())
         })
-        var filterDf = df.withColumn(Json.TMP, func(col(srcField)))
+        var filterDf = df.withColumn(RowConstant.TMP, func(col(srcField)))
         for (i <- 0 until keys.size()) {
-          filterDf = filterDf.withColumn(keys.get(i), col(Json.TMP)(i))
+          filterDf = filterDf.withColumn(keys.get(i), col(RowConstant.TMP)(i))
         }
-        filterDf.drop(Json.TMP)
+        filterDf.drop(RowConstant.TMP)
       }
       case targetField: String => {
         val func = udf((s: String) => {
