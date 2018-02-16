@@ -48,7 +48,7 @@ output {
 
 filter中的多个插件按配置顺序形成了数据处理的pipeline, 上一个filter的输出是下一个filter的输入。
 
-* `output`可配置任意的output插件及其参数，具体参数随不同的filter插件而变化。
+* `output`可配置任意的output插件及其参数，具体参数随不同的output插件而变化。
 
 `filter`处理完的数据，会发送给`output`中配置的每个插件。
 
