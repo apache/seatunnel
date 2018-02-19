@@ -1,0 +1,47 @@
+{
+    "node_name": "node01",
+    "check_interval": 300,
+    "yarn": {
+        "api_hosts": [
+            "10.11.10.21:8088",
+            "10.11.10.22:8088"
+        ]
+    },
+    "apps": [
+        {
+            "app_name": "waterdrop-app1",
+            "start_cmd": "ls -lh",
+            "app_num": 2
+        },
+	    {
+            "app_name": "waterdrop-app2",
+            "start_cmd": "test_cmd_not_exist",
+            "app_num": 1,
+            "check_type": "spark",
+            "check_options": {}
+        },
+        {
+            "app_name": "waterdrop-app3",
+            "start_cmd": "test_cmd_not_exist",
+            "app_num": 1,
+            "check_type": "spark",
+            "check_options": {
+                "alert_level": "p3",
+                "max_delayed_batch_num": 10,
+                "max_delayed_time": 600
+            }
+        },
+        {
+            "app_name": "not_running_app",
+            "start_cmd": "test_cmd_not_exist",
+            "app_num": 0,
+            "check_type": "spark",
+            "check_options": {}
+        }
+    ],
+    "alert": {
+        "fatal": {},
+        "error": {},
+        "warning": {}
+    }
+}
