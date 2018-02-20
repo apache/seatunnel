@@ -33,3 +33,6 @@ dependency-reduced-pom.xml
 
 apidoc
 *.tar.gz
+
+# Python
+*.py[cod]
