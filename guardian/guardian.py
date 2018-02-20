@@ -20,7 +20,7 @@ import spark_checker
 # start application concurrently
 
 def _log_debug(msg):
-        _logging('DEBUG', msg)
+    _logging('DEBUG', msg)
 
 def _log_info(msg):
     _logging('INFO', msg)
@@ -69,7 +69,7 @@ class NoAvailableYarnRM(GuardianError):
     pass
 
 class NoActiveYarnRM(GuardianError):
-        pass
+    pass
 
 def _get_yarn_active_rm(hosts, timeout=10):
     """Find active yarn resource manager.
@@ -114,7 +114,7 @@ def _request_yarn(hosts, timeout=10):
     url = 'http://{host}/ws/v1/cluster/apps?states=accepted,running'.format(host=active_rm)
     resp = requests.get(url, timeout=timeout)
     if resp.status_code != 200:
-        raise CannotGetClusterApps
+        raise CannotGetClusterApps()
 
     stats = resp.json()
 
@@ -231,14 +231,14 @@ def alert_not_running_apps(app_names, app_configs, receivers):
 
     for app_name in app_names:
 
-	subject = 'Guardian'
+        subject = 'Guardian'
         objects = app_name
         content = 'App is not running or less than expected number of running instance, will restart.'
         try:
             oi_alert.send_sms(receivers, subject, objects, content)
         except AlertException as e:
             _log_error('failed to send alert, caught exception: ' + repr(e))
-  
+
         try:
             oi_alert.send_mail(receivers, subject, objects, content)
         except AlertException as e:
