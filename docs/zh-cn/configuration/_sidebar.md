@@ -53,6 +53,8 @@
 
 - [插件开发](/zh-cn/developing-plugin)
 
+- [深入Waterdrop](/zh-cn/internal)
+
 - [Roadmap](/zh-cn/roadmap)
 
 - [贡献代码](/zh-cn/contribution.md)
