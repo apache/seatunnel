@@ -8,10 +8,9 @@ from datetime import datetime
 
 import requests
 
+from alert import GuardianAlert, AlertException
 # TODO:
-from alert import oi_alert, AlertException
-# TODO:
-from contacts import contacts
+# from contacts import contacts
 
 
 import spark_checker
@@ -22,19 +21,24 @@ import spark_checker
 def _log_debug(msg):
     _logging('DEBUG', msg)
 
+
 def _log_info(msg):
     _logging('INFO', msg)
+
 
 def _log_error(msg):
     _logging('ERROR', msg)
 
+
 def _logging(log_level, msg):
     print datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "[{level}]".format(level=log_level), msg.encode('utf-8')
-    sys.stdout.flush() # flush stdout buffer.
+    sys.stdout.flush()  # flush stdout buffer.
+
 
 def set_config_default(config):
     if 'node_name' not in config:
         config['node_name'] = u'my_guardian'
+
 
 def get_args_check(args):
 
@@ -52,24 +56,32 @@ def get_args_check(args):
 
     return config
 
-def command_check(args):
+
+def command_check(args, oi_alert):
 
     _log_info("Starting to check applications")
 
     while True:
 
-        check_impl(args)
+        check_impl(args, oi_alert)
         time.sleep(args['check_interval'])
 
 
 class GuardianError(Exception):
     pass
 
+
 class NoAvailableYarnRM(GuardianError):
     pass
 
+
 class NoActiveYarnRM(GuardianError):
     pass
+
+
+class CannotGetClusterApps(GuardianError):
+    pass
+
 
 def _get_yarn_active_rm(hosts, timeout=10):
     """Find active yarn resource manager.
@@ -94,7 +106,6 @@ def _get_yarn_active_rm(hosts, timeout=10):
         if cluster_info['clusterInfo']['haState'].lower() == "active":
             active_rm = host
             break
-
 
     if available_hosts == 0:
         raise NoAvailableYarnRM
@@ -124,7 +135,7 @@ def _request_yarn(hosts, timeout=10):
     return stats, active_rm
 
 
-def check_impl(args):
+def check_impl(args, oi_alert):
     
     yarn_active_rm = None
     retry = 0
@@ -133,23 +144,19 @@ def check_impl(args):
             j, yarn_active_rm = _request_yarn(args['yarn']['api_hosts'])
             break
 
-        except (ValueError, NoAvailableYarnRM, NoActiveYarnRM) as e:
+        except (ValueError, NoAvailableYarnRM, NoActiveYarnRM):
 
             retry += 1
             pass
 
     if retry >= 3:
-        _log_error("Failed to send request to yarn resource manager, host config:" + ', '.join(args['yarn']['api_hosts']))
+        _log_error("Failed to send request to yarn resource manager, host config:" +
+                   ', '.join(args['yarn']['api_hosts']))
         subject = 'Guardian'
         objects = 'Yarn RM'
         content = 'Failed to send request to yarn resource manager.'
         try:
-            oi_alert.send_sms(args['alert']['sms']['receivers'], subject, objects, content)
-        except AlertException as e:
-            _log_error('failed to send alert, caught exception: ' + repr(e))
-
-        try:
-            oi_alert.send_mail(args['alert']['sms']['receivers'], subject, objects, content)
+            oi_alert.send_alert("ERROR", subject, objects, content)
         except AlertException as e:
             _log_error('failed to send alert, caught exception: ' + repr(e))
 
@@ -193,12 +200,7 @@ def check_impl(args):
             objects = app_name
             content = 'Unexpected running app number, expected/actual: {expected}/{actual}'.format(expected=app_config['app_num'], actual=len(apps))
             try:
-                oi_alert.send_sms(args['alert']['sms']['receivers'], subject, objects, content)
-            except AlertException as e:
-                _log_error('failed to send alert, caught exception: ' + repr(e))
-
-            try:
-                oi_alert.send_mail(args['alert']['sms']['receivers'], subject, objects, content)
+                oi_alert.send_alert("ERROR", subject, objects, content)
             except AlertException as e:
                 _log_error('failed to send alert, caught exception: ' + repr(e))
 
@@ -219,15 +221,14 @@ def check_impl(args):
             if app_config['check_type'] == 'spark':
                 spark_checker.check(apps, config, oi_alert)
 
-
     if len(not_running_apps) == 0:
         _log_info("There is no application need to be started.")
         return
 
-    alert_not_running_apps(not_running_apps, args['apps'], args['alert']['sms']['receivers'])
+    alert_not_running_apps(not_running_apps, args['apps'], oi_alert)
 
 
-def alert_not_running_apps(app_names, app_configs, receivers):
+def alert_not_running_apps(app_names, app_configs, oi_alert):
 
     for app_name in app_names:
 
@@ -235,18 +236,13 @@ def alert_not_running_apps(app_names, app_configs, receivers):
         objects = app_name
         content = 'App is not running or less than expected number of running instance, will restart.'
         try:
-            oi_alert.send_sms(receivers, subject, objects, content)
-        except AlertException as e:
-            _log_error('failed to send alert, caught exception: ' + repr(e))
-
-        try:
-            oi_alert.send_mail(receivers, subject, objects, content)
+            oi_alert.send_alert("ERROR", subject, objects, content)
         except AlertException as e:
             _log_error('failed to send alert, caught exception: ' + repr(e))
 
         app_info = filter(lambda x: x['app_name'] == app_name, app_configs)
         raw_cmd = app_info[0]['start_cmd']
-        cmd = raw_cmd.split() # split by whitespace to comand and arguments for popen
+        cmd = raw_cmd.split()  # split by whitespace to comand and arguments for popen
 
         retry = 0
         while retry < 3:
@@ -260,7 +256,7 @@ def alert_not_running_apps(app_names, app_configs, receivers):
 
             output, err = p.communicate()
 
-            if err != None:
+            if err is not None:
                 print err
                 retry += 1
                 continue
@@ -275,12 +271,7 @@ def alert_not_running_apps(app_names, app_configs, receivers):
             objects = app_name
             content = 'Failed to start yarn app after 3 times.'
             try:
-                oi_alert.send_sms(args['alert']['sms']['receivers'], subject, objects, content)
-            except AlertException as e:
-                _log_error('failed to send alert, caught exception: ' + repr(e))
-
-            try:
-                oi_alert.send_mail(args['alert']['sms']['receivers'], subject, objects, content)
+                oi_alert.send_alert("ERROR", subject, objects, content)
             except AlertException as e:
                 _log_error('failed to send alert, caught exception: ' + repr(e))
 
@@ -371,18 +362,18 @@ if __name__ == '__main__':
         print ""
         sys.exit(-1)
 
-
     command = sys.argv[1]
 
     try:
 
         if command == 'check':
-            args = get_args_check(sys.argv[2:])
-            command_check(args)
+            config = get_args_check(sys.argv[2:])
+            oi_alert = GuardianAlert(config["alert_manager"])
+            command_check(config, oi_alert)
 
         elif command == 'inspect':
-            args = get_args_inspect(sys.argv[2:])
-            command_inspect(args)
+            config = get_args_inspect(sys.argv[2:])
+            command_inspect(config)
         else:
             raise ValueError("Unsupported Command:" + command)
 

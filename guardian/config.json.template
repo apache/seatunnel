@@ -39,10 +39,26 @@
             "check_options": {}
         }
     ],
-    "alert": {
-        "impl": {},
-        "fatal": {},
-        "error": {},
-        "warning": {}
-    }
+    "alert_manager": {
+		"email": {
+			"auth_username": "username",
+			"auth_password": "password",
+			"stmp_server": "stmp.163.com",
+			"sender": "huochen1994@163.com",
+			"receivers": ["", ""]
+			"routes": {
+				"match": {
+					"level": ["WARNING", "ERROR"]
+				}
+			}
+		},
+		"webhook": {
+			"url": "",
+			"routes": {
+				"match": {
+					"level": ["ERROR"]
+				}
+			}
+		}
+	}
 }
