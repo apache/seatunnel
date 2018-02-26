@@ -43,7 +43,7 @@
 		"email": {
 			"auth_username": "username",
 			"auth_password": "password",
-			"stmp_server": "stmp.163.com",
+			"smtp_server": "smtp.163.com",
 			"sender": "huochen1994@163.com",
 			"receivers": ["", ""]
 			"routes": {
