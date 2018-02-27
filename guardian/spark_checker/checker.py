@@ -25,12 +25,12 @@ def check(apps, config, alert_client):
         _check_impl(app, config, alert_client)
 
 
-def _alert_invalid_config(alert_client, config):
+def _alert_invalid_config(alert_client):
     subject = 'Guardian'
     objects = '配置'
     content = '监控配置错误'
 
-    alert_client.p1(config['alert']['p1']['receivers'], subject, objects, content)
+    alert_client.send_alert('INTERNAL', subject, objects, content)
 
 
 def _check_impl(app, config, alert_client):
@@ -41,7 +41,7 @@ def _check_impl(app, config, alert_client):
 
     check_options = app_config['check_options']
     if 'alert_level' not in check_options or ('max_delayed_batch_num' not in check_options and 'max_delayed_time' not in check_options):
-        _alert_invalid_config(alert_client, config)
+        _alert_invalid_config(alert_client)
         return
 
     active_rm = config['yarn']['active_rm']
@@ -57,7 +57,7 @@ def _check_impl(app, config, alert_client):
         subject = 'Guardian'
         objects = app['name']
         content = "无法获取到流式处理延迟统计"
-        alert_client.p1(config['alert']['p1']['receivers'], subject, objects, content)
+        alert_client.send_alert('FATAL', subject, objects, content)
         return
 
     content = ""
@@ -73,10 +73,9 @@ def _check_impl(app, config, alert_client):
     if send_alert:
         subject = 'Guardian'
         objects = app['name']
-        if check_options['alert_level'] == 'p1':
-            alert_client.p1(config['alert']['p1']['receivers'], subject, objects, content)
-        elif check_options['alert_level'] == 'p2':
-            alert_client.p2(config['alert']['p2']['receivers'], subject, objects, content)
-        elif check_options['alert_level'] == 'p3':
-            alert_client.p3(config['alert']['p3']['receivers'], subject, objects, content)
-
+        if check_options['alert_level'] ==  'FATAL':
+            alert_client.send_alert('FATAL', subject, objects, content)
+        elif check_options['alert_level'] == 'ERROR':
+            alert_client.send_alert('ERROR', subject, objects, content)
+        elif check_options['alert_level'] == 'WARNING':
+            alert_client.send_alert('WARNING', subject, objects, content)
