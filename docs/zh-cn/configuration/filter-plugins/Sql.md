@@ -6,7 +6,7 @@
 
 ### Description
 
-使用SQL处理数据，支持Spark丰富的[UDF](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$)
+使用SQL处理数据，支持Spark丰富的[UDF函数](http://spark.apache.org/docs/latest/api/sql/)
 
 ### Options
 
@@ -41,7 +41,7 @@ sql {
 }
 ```
 
-> 使用Spark提供的[String functions](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$)对`telephone`字段进行截取操作
+> 使用[substring functions](http://spark.apache.org/docs/latest/api/sql/#substring)对`telephone`字段进行截取操作
 
 ```
 sql {
@@ -50,4 +50,4 @@ sql {
 }
 ```
 
->  使用Spark提供的[Aggregate functions](http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.functions$)对原始数据集进行聚合操作，取出`age`平均值
+>  使用[avg functions](http://spark.apache.org/docs/latest/api/sql/#avg)对原始数据集进行聚合操作，取出`age`平均值
