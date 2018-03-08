@@ -29,9 +29,9 @@ def streaming_batch_stats(master_url, application_id, status=None, timeout=20):
 
         try:
             resp = requests.get(stats_url, timeout=timeout)
-        except requests.exceptions.ConnectTimeout as e:
+        except requests.exceptions.ConnectTimeout:
             continue
-        except requests.exceptions.ReadTimeout as e:
+        except requests.exceptions.ReadTimeout:
             continue
 
         if resp.status_code != 200:
@@ -47,7 +47,7 @@ def streaming_batch_stats(master_url, application_id, status=None, timeout=20):
 
     batch_stats = {}
     for job in stats_json:
-    
+
         if not 'description' in job:
             continue # job needs a batch start time
 
@@ -164,8 +164,9 @@ def main(master_url, application_id, status):
     else:
         print "Spark Streaming Batch Duration:", batch_duration, "seconds"
 
-    for batch_id, stats in batch_list:
+    for item in batch_list:
 
+        stats = item[1]
         jobs = stats['jobs']
         jobs = sorted(jobs, key=lambda x: x['submissionTime'])
 
@@ -175,7 +176,7 @@ def main(master_url, application_id, status):
         if stats['status'] != 'RUNNING':
             processing_time = jobs[-1]['completionTime'] - jobs[0]['submissionTime']
 
-        print 'Batch: %10s -- %20s -- %20s -- %20s' % (stats['status'], stats['batchStartTime'], processing_time, scheduling_delay, )
+        print 'Batch: %10s -- %20s -- %20s -- %20s' % (stats['status'], stats['batchStartTime'], processing_time, scheduling_delay)
 
     print "Pick up running batches: "
     running_batches = streaming_running_batch(batch_stats)

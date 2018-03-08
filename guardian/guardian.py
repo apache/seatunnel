@@ -136,7 +136,7 @@ def _request_yarn(hosts, timeout=10):
 
 
 def check_impl(args, oi_alert):
-    
+
     yarn_active_rm = None
     retry = 0
     while retry < 3:
@@ -147,7 +147,6 @@ def check_impl(args, oi_alert):
         except (ValueError, NoAvailableYarnRM, NoActiveYarnRM):
 
             retry += 1
-            pass
 
     if retry >= 3:
         _log_error("Failed to send request to yarn resource manager, host config:" +
