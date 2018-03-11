@@ -13,7 +13,6 @@ class GuardianAlert(object):
     def create_alert(self):
         alerts = []
         for method in self.alert_config:
-            print method
             alerts.append(getattr(alert_manager, method)())
 
         return alerts
@@ -25,7 +24,7 @@ class GuardianAlert(object):
     def check_config(self):
         for alert_impl in self.alerts:
             if not alert_impl.check_config(self.alert_config):
-                raise UncorrectConfig
+                raise IncorrectConfig("Incorrect Config: " + alert_impl.name)
 
 
 class AlertException(Exception):
@@ -35,5 +34,6 @@ class AlertException(Exception):
 class UnsupportedAlertMethod(AlertException):
     pass
 
-class UncorrectConfig(AlertException):
+
+class IncorrectConfig(AlertException):
     pass
