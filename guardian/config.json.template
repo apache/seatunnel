@@ -40,12 +40,12 @@
         }
     ],
     "alert_manager": {
-		"email": {
+		"emails": {
 			"auth_username": "username",
 			"auth_password": "password",
 			"smtp_server": "smtp.163.com",
 			"sender": "huochen1994@163.com",
-			"receivers": ["", ""]
+			"receivers": ["", ""],
 			"routes": {
 				"match": {
 					"level": ["WARNING", "ERROR"]

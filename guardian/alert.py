@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-import send_alert
+from send_alert import alert_manager
 
 
 class GuardianAlert(object):
@@ -13,17 +13,19 @@ class GuardianAlert(object):
     def create_alert(self):
         alerts = []
         for method in self.alert_config:
-            alerts.append(getattr(send_alert, method))
+            print method
+            alerts.append(getattr(alert_manager, method)())
 
         return alerts
 
     def send_alert(self, level, subject, objects, content):
         for alert in self.alerts:
-            alert.send_alert(level, subject, objects, content)
+            alert.send_alert(self.alert_config, level, subject, objects, content)
 
     def check_config(self):
-        for alert in self.alerts:
-            alert.check_confgi()
+        for alert_impl in self.alerts:
+            if not alert_impl.check_config(self.alert_config):
+                raise UncorrectConfig
 
 
 class AlertException(Exception):
@@ -31,4 +33,7 @@ class AlertException(Exception):
 
 
 class UnsupportedAlertMethod(AlertException):
+    pass
+
+class UncorrectConfig(AlertException):
     pass
