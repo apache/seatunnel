@@ -3,3 +3,4 @@ pyinstaller==2.1
 tzlocal==1.4
 six==1.10.0
 setuptools==19.2
+flask

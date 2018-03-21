@@ -213,7 +213,6 @@ def check_impl(args, oi_alert):
                 'yarn': {
                     'active_rm': yarn_active_rm
                 },
-                'alert': args['alert'],
                 'node_name': args['node_name'],
             }
 
