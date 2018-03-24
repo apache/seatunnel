@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # TODO: compress plugins/ dir before start-waterdrop.sh
-# TODO: -t 参数好使吗？
 
 # copy command line arguments
 CMD_ARGUMENTS=$@
