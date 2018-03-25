@@ -37,13 +37,12 @@ object Waterdrop extends Logging {
 
         cmdArgs.testConfig match {
           case true => {
-            new ConfigBuilder(cmdArgs.configFile)
+            new ConfigBuilder(configFilePath).checkConfig
             println("config OK !")
-            // TODO: check config
           }
           case false => {
 
-            entrypoint(cmdArgs.configFile)
+            entrypoint(configFilePath)
           }
         }
       }

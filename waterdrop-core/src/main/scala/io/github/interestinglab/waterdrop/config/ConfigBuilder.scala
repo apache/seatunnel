@@ -38,6 +38,16 @@ class ConfigBuilder(configFile: String) {
     parsedConfig
   }
 
+  /**
+   * check if config is valid.
+   * */
+  def checkConfig: Unit = {
+    val sparkConfig = this.getSparkConfigs
+    val inputs = this.createInputs
+    val outputs = this.createOutputs
+    val filters = this.createFilters
+  }
+
   def getSparkConfigs: Config = {
     config.getConfig("spark")
   }
