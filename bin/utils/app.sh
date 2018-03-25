@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Get App Name of Waterdrop
 function getAppName {
 
