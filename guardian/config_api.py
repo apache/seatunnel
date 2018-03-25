@@ -2,20 +2,6 @@ from flask import Flask, request, jsonify
 import json
 
 
-class Config(object):
-    JOBS = [
-        {
-            'id': 'job1',
-            'func': 'config_api:job1',
-            'args': (1, 2),
-            'trigger': 'interval',
-            'seconds': 10
-        }
-    ]
-
-    SCHEDULER_API_ENABLED = True
-
-
 app = Flask(__name__)
 
 
@@ -24,7 +10,7 @@ def hello_world(app_name):
 
     msg = {}
     try:
-        f = open('config.json.template', 'r')
+        f = open(app.config['config_name'], 'r')
         config = json.load(f)
         apps = config['apps']
         f.close()
@@ -32,7 +18,7 @@ def hello_world(app_name):
     except IOError:
         msg = {
             'status': '404',
-            'content': 'File <{}> not found'.format('config.json.template')
+            'content': 'File <{}> not found'.format(app.config['config_name'])
         }
         return jsonify(msg)
 
@@ -54,7 +40,7 @@ def hello_world(app_name):
         if flag == 0:
             msg = {
                 'status': '404',
-                'content': '{0} not in {1}'.format(app_name, 'config.json.template')
+                'content': '{0} not in {1}'.format(app_name, app.config['config_name'])
             }
 
         return jsonify(msg)
@@ -76,8 +62,8 @@ def hello_world(app_name):
             body['app_name'] = app_name
             apps.append(body)
 
-        f = open('config.json.template', 'w')
-        f.write(json.dumps(config))
+        f = open(app.config['config_name'], 'w')
+        f.write(json.dumps(config, indent=4))
         f.close()
 
         msg = {
@@ -95,15 +81,15 @@ def hello_world(app_name):
                     'status': '200'
                 }
 
-                f = open('config.json.template', 'w')
-                f.write(json.dumps(config))
+                f = open(app.config['config_name'], 'w')
+                f.write(json.dumps(config, indent=4))
                 f.close()
 
                 return jsonify(msg)
 
             msg = {
                 'status': '404',
-                'content': '{0} not in {1}'.format(app_name, 'config.json.template')
+                'content': '{0} not in {1}'.format(app_name, app.config['config_name'])
             }
 
             return jsonify(msg)
