@@ -1,6 +1,21 @@
 from flask import Flask, request, jsonify
 import json
 
+
+class Config(object):
+    JOBS = [
+        {
+            'id': 'job1',
+            'func': 'config_api:job1',
+            'args': (1, 2),
+            'trigger': 'interval',
+            'seconds': 10
+        }
+    ]
+
+    SCHEDULER_API_ENABLED = True
+
+
 app = Flask(__name__)
 
 
@@ -100,7 +115,3 @@ def hello_world(app_name):
         }
 
         return jsonify(msg)
-
-
-if __name__ == '__main__':
-    app.run()
