@@ -18,6 +18,7 @@ import spark_checker
 # TODO:
 # start application concurrently
 
+
 def _log_debug(msg):
     _logging('DEBUG', msg)
 
@@ -42,10 +43,7 @@ def set_config_default(config):
 
 def get_args_check(args):
 
-    if len(args) != 1:
-        raise ValueError('Invalid argument number')
-
-    f = open(args[0], 'r')
+    f = open(args, 'r')
     try:
         config = json.load(f)
     except ValueError as e:
@@ -54,17 +52,21 @@ def get_args_check(args):
 
     set_config_default(config)
 
+    config = _get_active_app_config(config)
+
     return config
 
 
-def command_check(args, oi_alert):
+def command_check(args):
 
     _log_info("Starting to check applications")
 
     while True:
 
-        check_impl(args, oi_alert)
-        time.sleep(args['check_interval'])
+        config = get_args_check(args)
+        oi_alert = GuardianAlert(config["alert_manager"])
+        check_impl(config, oi_alert)
+        time.sleep(config['check_interval'])
 
 
 class GuardianError(Exception):
@@ -81,6 +83,20 @@ class NoActiveYarnRM(GuardianError):
 
 class CannotGetClusterApps(GuardianError):
     pass
+
+
+def _get_active_app_config(config):
+    apps = config['apps']
+    del_list = []
+    for i in range(len(apps)):
+        app = apps[i]
+        if 'active' in app.keys() and app['active'] is False:
+            del_list.insert(0, i)
+
+    for i in del_list:
+        del apps[i]
+
+    return config
 
 
 def _get_yarn_active_rm(hosts, timeout=10):
@@ -171,7 +187,6 @@ def check_impl(args, oi_alert):
 
         app_map[key].append(app)
 
-
     not_running_apps = []
     for app_config in args['apps']:
         app_name = app_config['app_name']
@@ -246,7 +261,7 @@ def alert_not_running_apps(app_names, app_configs, oi_alert):
         while retry < 3:
             try:
                 p = subprocess.Popen(cmd)
-            except OSError as e:
+            except OSError:
                 # probably os cannot find the start command.
                 _log_error("Invalid start command: " + raw_cmd)
                 retry += 1
@@ -365,13 +380,15 @@ if __name__ == '__main__':
     try:
 
         if command == 'check':
-            config = get_args_check(sys.argv[2:])
-            oi_alert = GuardianAlert(config["alert_manager"])
-            command_check(config, oi_alert)
+            if len(sys.argv[2:]) != 1:
+                raise ValueError('Invalid argument number')
+
+            command_check(sys.argv[2])
 
         elif command == 'inspect':
             config = get_args_inspect(sys.argv[2:])
             command_inspect(config)
+
         else:
             raise ValueError("Unsupported Command:" + command)
 
