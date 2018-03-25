@@ -397,6 +397,7 @@ if __name__ == '__main__':
 
             # running with flask
             app = config_api.app
+            app.config['config_name'] = sys.argv[2]
             app.config.from_object(CheckConfig())
             scheduler = APScheduler()
             scheduler.init_app(app)
