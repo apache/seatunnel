@@ -6,8 +6,11 @@ import subprocess
 import time
 from datetime import datetime
 
+from flask_apscheduler import APScheduler
+
 import requests
 
+import config_api
 from alert import GuardianAlert, AlertException
 # TODO:
 # from contacts import contacts
@@ -383,7 +386,22 @@ if __name__ == '__main__':
             if len(sys.argv[2:]) != 1:
                 raise ValueError('Invalid argument number')
 
-            command_check(sys.argv[2])
+            class CheckConfig(object):
+                JOBS = [
+                    {
+                        'id': 'job1',
+                        'func': 'guardian:command_check',
+                        'args': [sys.argv[2]]
+                    }
+                ]
+
+            # running with flask
+            app = config_api.app
+            app.config.from_object(CheckConfig())
+            scheduler = APScheduler()
+            scheduler.init_app(app)
+            scheduler.start()
+            app.run()
 
         elif command == 'inspect':
             config = get_args_inspect(sys.argv[2:])

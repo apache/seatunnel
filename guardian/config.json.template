@@ -36,7 +36,8 @@
             "start_cmd": "test_cmd_not_exist",
             "app_num": 0,
             "check_type": "spark",
-            "check_options": {}
+            "check_options": {},
+            "active": false
         }
     ],
     "alert_manager": {
