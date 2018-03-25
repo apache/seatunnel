@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # TODO: compress plugins/ dir before start-waterdrop.sh
-# TODO: -t 参数好使吗？
 
 # copy command line arguments
 CMD_ARGUMENTS=$@
@@ -53,7 +52,7 @@ LIB_DIR=${APP_DIR}/lib
 PLUGINS_DIR=${APP_DIR}/plugins
 
 DEFAULT_CONFIG=${CONF_DIR}/application.conf
-CONFIG_FILE=${CONFIG_FILE:-DEFAULT_CONFIG}
+CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
 
 DEFAULT_MASTER=local[2]
 MASTER=${MASTER:-$DEFAULT_MASTER}
@@ -63,6 +62,7 @@ DEPLOY_MODE=${DEPLOY_MODE:-$DEFAULT_DEPLOY_MODE}
 
 # scan jar dependencies for all plugins
 source ${UTILS_DIR}/file.sh
+source ${UTILS_DIR}/app.sh
 jarDependencies=$(listJarDependenciesOfPlugins ${PLUGINS_DIR})
 JarDepOpts=""
 if [ "$jarDependencies" != "" ]; then
@@ -90,6 +90,7 @@ assemblyJarName=$(find ${LIB_DIR} -name Waterdrop-*.jar)
 source ${CONF_DIR}/waterdrop-env.sh
 
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
+    --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
     ${JarDepOpts} \
