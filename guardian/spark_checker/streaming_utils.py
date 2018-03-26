@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
 import datetime
-import json
 import re
-import sys
-import urllib2
 import pytz
 import requests
 from tzlocal import get_localzone
