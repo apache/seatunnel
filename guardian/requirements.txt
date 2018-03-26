@@ -5,3 +5,4 @@ six==1.10.0
 setuptools==19.2
 flask==0.12.2
 flask_apscheduler==1.8.0
+jinja2==2.8
