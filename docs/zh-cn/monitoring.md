@@ -1,6 +1,6 @@
 # Guardian
 
-Guardian是基于Yarn上的、可配置的Spark Application监控系统。可以提供Spark应用的存活情况监控以及调度延迟情况监控，并提供RESTFUL API支持配置的实时修改
+Guardian是Waterdrop的监控和报警工具，可以提供Waterdrop的存活情况监控以及调度延迟情况监控，并提供HTTP API支持配置的实时修改。目前仅支持Waterdrop on Yarn.
 
 ## 使用方式
 
