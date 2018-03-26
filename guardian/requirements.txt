@@ -4,4 +4,4 @@ tzlocal==1.4
 six==1.10.0
 setuptools==19.2
 flask==0.12.2
-flask_apscheduler
+flask_apscheduler==1.8.0
