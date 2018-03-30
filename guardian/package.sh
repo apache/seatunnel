@@ -1,7 +1,7 @@
 #!/bin/sh
 
 APP_NAME=guardian
-VERSION=0.1.0
+VERSION=1.0.0
 PACKAGE_DIR=$APP_NAME"_"$VERSION
 echo "Building Package $PACKAGE_DIR"
 
