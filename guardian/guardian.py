@@ -67,8 +67,8 @@ def command_check(args):
     while True:
 
         config = get_args_check(args)
-        oi_alert = GuardianAlert(config["alert_manager"])
-        check_impl(config, oi_alert)
+        alert_client = GuardianAlert(config["alert_manager"])
+        check_impl(config, alert_client)
         time.sleep(config['check_interval'])
 
 
@@ -154,7 +154,7 @@ def _request_yarn(hosts, timeout=10):
     return stats, active_rm
 
 
-def check_impl(args, oi_alert):
+def check_impl(args, alert_client):
 
     yarn_active_rm = None
     retry = 0
@@ -174,7 +174,7 @@ def check_impl(args, oi_alert):
         objects = 'Yarn RM'
         content = 'Failed to send request to yarn resource manager.'
         try:
-            oi_alert.send_alert("ERROR", subject, objects, content)
+            alert_client.send_alert("ERROR", subject, objects, content)
         except AlertException as e:
             _log_error('failed to send alert, caught exception: ' + repr(e))
 
@@ -217,7 +217,7 @@ def check_impl(args, oi_alert):
             objects = app_name
             content = 'Unexpected running app number, expected/actual: {expected}/{actual}'.format(expected=app_config['app_num'], actual=len(apps))
             try:
-                oi_alert.send_alert("ERROR", subject, objects, content)
+                alert_client.send_alert("ERROR", subject, objects, content)
             except AlertException as e:
                 _log_error('failed to send alert, caught exception: ' + repr(e))
 
@@ -235,16 +235,16 @@ def check_impl(args, oi_alert):
             }
 
             if app_config['check_type'] == 'spark':
-                spark_checker.check(apps, config, oi_alert)
+                spark_checker.check(apps, config, alert_client)
 
     if len(not_running_apps) == 0:
         _log_info("There is no application need to be started.")
         return
 
-    alert_not_running_apps(not_running_apps, args['apps'], oi_alert)
+    alert_not_running_apps(not_running_apps, args['apps'], alert_client)
 
 
-def alert_not_running_apps(app_names, app_configs, oi_alert):
+def alert_not_running_apps(app_names, app_configs, alert_client):
 
     for app_name in app_names:
 
@@ -252,7 +252,7 @@ def alert_not_running_apps(app_names, app_configs, oi_alert):
         objects = app_name
         content = 'App is not running or less than expected number of running instance, will restart.'
         try:
-            oi_alert.send_alert("ERROR", subject, objects, content)
+            alert_client.send_alert("ERROR", subject, objects, content)
         except AlertException as e:
             _log_error('failed to send alert, caught exception: ' + repr(e))
 
@@ -287,7 +287,7 @@ def alert_not_running_apps(app_names, app_configs, oi_alert):
             objects = app_name
             content = 'Failed to start yarn app after 3 times.'
             try:
-                oi_alert.send_alert("ERROR", subject, objects, content)
+                alert_client.send_alert("ERROR", subject, objects, content)
             except AlertException as e:
                 _log_error('failed to send alert, caught exception: ' + repr(e))
 
@@ -336,6 +336,10 @@ def command_inspect(args):
         return True if m is not None else False
 
     j, active_rm = _request_yarn(args['config']['yarn']['api_hosts'])
+
+    if j['apps'] is None:
+        print "There's no app in yarn"
+        return
 
     running_apps = j['apps']['app']
 
