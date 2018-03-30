@@ -1,0 +1,6 @@
+# guardian python
+VENV
+venv
+dist
+build
+*.spec
