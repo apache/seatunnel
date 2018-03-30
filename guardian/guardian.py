@@ -180,7 +180,11 @@ def check_impl(args, alert_client):
 
         return
 
-    running_apps = j['apps']['app']
+    if j['apps'] is None:
+        _log_info("There is no app in yarn.")
+        running_apps = []
+    else:
+        running_apps = j['apps']['app']
 
     app_map = {}
     for app in running_apps:
@@ -338,7 +342,7 @@ def command_inspect(args):
     j, active_rm = _request_yarn(args['config']['yarn']['api_hosts'])
 
     if j['apps'] is None:
-        print "There's no app in yarn"
+        _log_info("There's no app in yarn")
         return
 
     running_apps = j['apps']['app']
