@@ -8,11 +8,6 @@
         ]
     },
     "apps": [
-        {
-            "app_name": "waterdrop-app1",
-            "start_cmd": "ls -lh",
-            "app_num": 2
-        },
 	    {
             "app_name": "waterdrop-app2",
             "start_cmd": "test_cmd_not_exist",
