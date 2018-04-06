@@ -17,14 +17,14 @@ def hello_world(app_name):
 
     except IOError:
         msg = {
-            'status': '404',
+            'status': 2,
             'content': 'File <{}> not found'.format(app.config['config_name'])
         }
         return jsonify(msg)
 
     except Exception as e:
         msg = {
-            'status': '1001',
+            'status': 2,
             'content': str(e)
         }
         return jsonify(msg)
@@ -34,20 +34,33 @@ def hello_world(app_name):
         flag = 0
         for spark_app in apps:
             if spark_app['app_name'] == app_name:
-                msg = spark_app
+                msg = {
+                    'status': 0,
+                    'content': spark_app
+
+                }
                 flag = 1
 
         if flag == 0:
             msg = {
-                'status': '404',
+                'status': 2,
                 'content': '{0} not in {1}'.format(app_name, app.config['config_name'])
             }
 
         return jsonify(msg)
 
-    # Update insert and update
+    # Supporting insert and update
     elif request.method == 'POST':
-        body = json.loads(request.get_data())
+
+        try:
+            body = json.loads(request.get_data())
+        except Exception as e:
+            msg = {
+                'status': 2,
+                'content': str(e)
+            }
+
+            return jsonify(msg)
 
         flag = 0
         for spark_app in apps:
@@ -67,7 +80,7 @@ def hello_world(app_name):
         f.close()
 
         msg = {
-            "status": "200"
+            "status": 0
         }
         return jsonify(msg)
 
@@ -78,7 +91,7 @@ def hello_world(app_name):
                 del apps[i]
 
                 msg = {
-                    'status': '200'
+                    'status': 0
                 }
 
                 f = open(app.config['config_name'], 'w')
@@ -88,7 +101,7 @@ def hello_world(app_name):
                 return jsonify(msg)
 
             msg = {
-                'status': '404',
+                'status': '2',
                 'content': '{0} not in {1}'.format(app_name, app.config['config_name'])
             }
 
@@ -96,7 +109,7 @@ def hello_world(app_name):
 
     else:
         msg = {
-            'status': '200',
+            'status': 1,
             'content': 'Unsupported Method'
         }
 

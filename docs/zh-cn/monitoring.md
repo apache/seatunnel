@@ -51,6 +51,8 @@ api_hosts: <list>
     "app_num": <number>,
     # Application type, default 'spark'
     "check_type": <string>,
+    # 标志这个应用是否有效
+    "active": <boolean>
     "check_options": {
         # 报警级别，支持WARNNING、ERROR等
         "alert_level": <string>,
@@ -161,35 +163,120 @@ Gaurdian调用接口的时候会以下面JSON格式发送HTTP POST请求到配�
 ```
 
 
-## 接口使用方式介绍
+## Guardian接口使用指南
 
-Guardian支持通过接口对config.json文件实时修改
 
 ### GET
 
-```
-GET localhost:5000/config/waterdrop
-```
+#### 概述
 
-获取配置文件中`app_name`为waterdrop的配置信息
+* 功能描述
+
+    获取Guardian对应app_name的配置信息
+
+* 基础接口
+
+    http://localhost:5000/config/<app_name>
+
+* 请求方式
+
+    get
+
+#### 接口参数定义
+
+N/A
+
+#### 返回结果
+
+```
+curl 'http://localhost:5000/config/waterdrop-app2'
+
+{
+  "content": {
+    "app_name": "waterdrop-app2",
+    "app_num": 1,
+    "check_options": {},
+    "check_type": "spark",
+    "start_cmd": "test_cmd_not_exist"
+  },
+  "status": 0
+}
+```
 
 ### POST
 
+#### 概述
+
+* 功能描述
+
+    更新或新增Guardian中应用配置信息，当`app_name`存在，更新对应配置信息，当`app_name`不存在，新增一个应用监控配置
+
+* 基础接口
+
+    http://localhost:5000/config/<app_name>
+
+* 请求方式
+
+    post
+
+#### 接口参数定义
+
+| 字段 | 类型 | 注释 | 实例 |
+| :--: | :--: | :--: | :--:|
+| start_cmd| string| 重启命令|  |
+|app_num| num | 存在个数 | 2 |
+|check_type| string | 应用类型 | spark |
+|check_options| dict| | |
+|active| boolean| 是否有效| true|
+
+#### 返回结果
+
 ```
-POST localhost:5000/config/waterdrop -d '
+curl 'http://localhost:5000/config/waterdrop-app2' -d '
 {
-    "active": false
+    'active': false
+}'
+
+{
+  "status": 0
 }
-'
 ```
-
-将配置文件中`app_name`为waterdrop的`active`置为false。若`app_name`为waterdrop的配置不存在，则新建一个`app_name`为waterdrop的配置，其`active`为false。
-
 
 ### DELETE
 
+#### 概述
+
+* 功能描述
+
+    删除Guardian对应app_name的配置信息
+
+* 基础接口
+
+    http://localhost:5000/config/<app_name>
+
+* 请求方式
+
+    delete
+
+#### 接口参数定义
+
+N/A
+
+#### 返回结果
+
 ```
-DELETE localhost:5000/config/waterdrop
+curl -XDELETE 10.212.81.56:5000/config/waterdrop-app2
+
+{
+  "status": 0
+}
 ```
 
-将配置文件中`app_name`为waterdrop的配置删除
+
+### 返回状态码说明
+
+| status | 说明 |
+| :--: | :--:|
+| 0 | 成功|
+| 1 | 参数错误|
+| 2 | 内部错误|
