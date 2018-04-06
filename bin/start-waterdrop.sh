@@ -8,7 +8,7 @@ CMD_ARGUMENTS=$@
 PARAMS=""
 while (( "$#" )); do
   case "$1" in
-    --master)
+    -m|--master)
       MASTER=$2
       shift 2
       ;;
