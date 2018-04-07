@@ -68,7 +68,7 @@ array
 
 value
     : DECIMAL
-    | QUOTED_STRING
+    | qstr
 //   | entries
     | array
     | TRUE
@@ -87,9 +87,9 @@ fragment DQUOTE : '"';
 fragment SQUOTE : '\'';
 fragment DQ_STRING_ESC : BSLASH ["\\/bfnrt] ;
 fragment SQ_STRING_ESC : BSLASH ['\\/bfnrt] ;
-fragment DQ_STRING : DQUOTE (DQ_STRING_ESC | ~["])* DQUOTE ;
-fragment SQ_STRING : SQUOTE (SQ_STRING_ESC | ~['])* SQUOTE ;
-QUOTED_STRING : DQ_STRING | SQ_STRING ;
+DQ_STRING : DQUOTE (DQ_STRING_ESC | ~["])* DQUOTE ;
+SQ_STRING : SQUOTE (SQ_STRING_ESC | ~['])* SQUOTE ;
+qstr: DQ_STRING | SQ_STRING;
 
 NULL
     : 'null'
