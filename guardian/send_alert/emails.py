@@ -14,6 +14,7 @@ class Emails(object):
 
     @staticmethod
     def send_alert(config, level, subject, objects, content):
+
         config = config['emails']
         sender = config['sender']
         receivers = config['receivers']
@@ -23,13 +24,19 @@ class Emails(object):
 
         if match_alert(config['routes'], level):
 
-            message = MIMEText(content, 'text', 'utf-8')
-            message['Subject'] = Header(subject + objects, 'utf-8')
+            message = MIMEText('{0}: {1}'.format(objects, content), 'plain', 'utf-8')
+            message['Subject'] = Header(subject, 'utf-8')
+            message['To'] = ';'.join(config['receivers'])
 
-            smtp = smtplib.SMTP()
-            smtp.connect(smtpserver)
-            smtp.login(username, password)
-            smtp.sendmail(sender, receivers, message.as_string())
+
+            try:
+                smtp = smtplib.SMTP()
+                smtp.connect(smtpserver)
+                smtp.login(username, password)
+                smtp.sendmail(sender, receivers, message.as_string())
+
+            except Exception as e:
+                print str(e)
 
     @staticmethod
     def check_config(config):
