@@ -7,6 +7,7 @@ import com.typesafe.config.ConfigValueFactory;
 import io.github.interestinglab.waterdrop.configparser.ConfigBaseVisitor;
 import io.github.interestinglab.waterdrop.configparser.ConfigParser;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -203,10 +204,29 @@ public class ConfigVisitorImpl extends ConfigBaseVisitor<Config> {
                 value = ConfigValueFactory.fromAnyRef(ctx.DECIMAL().getText());
             }
 
-        } else if (ctx.QUOTED_STRING() != null) {
+        } else if (ctx.qstr() != null) {
 
-            final String unquoted = StringUtils.strip(ctx.QUOTED_STRING().getText(), "\"'");
-            value = ConfigValueFactory.fromAnyRef(unquoted);
+            if (ctx.qstr().DQ_STRING() != null) {
+
+                // double quoted string, only remove outermost quote
+                String unescapeJavaStr = StringEscapeUtils.unescapeJava(ctx.qstr().DQ_STRING().getText());
+                String s1 = StringUtils.substringAfter(unescapeJavaStr, "\"");
+                String unquoted = StringUtils.substringBeforeLast(s1, "\"");
+                value = ConfigValueFactory.fromAnyRef(unquoted);
+
+
+
+            } else if (ctx.qstr().SQ_STRING() != null) {
+
+                // single quoted string, only remove outermost quote
+                String unescapeJavaStr = StringEscapeUtils.unescapeJava(ctx.qstr().SQ_STRING().getText());
+                String s1 = StringUtils.substringAfter(unescapeJavaStr, "'");
+                String unquoted = StringUtils.substringBeforeLast(s1, "'");
+                value = ConfigValueFactory.fromAnyRef(unquoted);
+
+            } else {
+                throw new ConfigRuntimeException("invalid quoted string: " + ctx.qstr().getText());
+            }
 
         } else if (ctx.array() != null) {
 
