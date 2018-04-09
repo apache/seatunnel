@@ -96,7 +96,7 @@ api_hosts: <list>
 }
 ```
 
-#### \<emails>
+#### **emails**
 
 通过邮件发送报警信息
 
@@ -130,7 +130,7 @@ api_hosts: <list>
 }
 ```
 
-#### \<webhook>
+#### **webhook**
 
 通过接口实现自定义报警方式
 
