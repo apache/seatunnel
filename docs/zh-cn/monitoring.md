@@ -8,7 +8,7 @@ Guardian通过命令行和一个配置文件运行
 
 > python guardian.py check config.json
 
-这个配置文件使用`JSON`格式编写，一个有效的实例，点击[这里]()
+这个配置文件使用`JSON`格式编写，一个有效的实例，点击[这里](https://github.com/InterestingLab/waterdrop/blob/master/guardian/config.json.template)
 
 整个配置文件由以下几个部分组成：
 
