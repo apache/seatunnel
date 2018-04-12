@@ -4,13 +4,21 @@ import com.typesafe.config.Config
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnection}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 
 import scala.collection.immutable.HashMap
+import scala.collection.JavaConversions._
 
 class Clickhouse (var config : Config) extends BaseOutput(config) {
 
   var schema: Map[String, String] = new HashMap[String, String]()
+  var balanced: BalancedClickhouseDataSource = _
+  var conn: ClickHouseConnectionImpl = _
+  var initSQL: String = _
+  var table: String = _
+  var fields: java.util.List[String] = _
+
+
   override def checkConfig(): (Boolean, String) = {
 
     val requiredOptions = List("host", "table", "database", "fields");
@@ -28,24 +36,40 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
 
       val jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"),
         config.getString("database"))
-      val balanced = new BalancedClickhouseDataSource(jdbcLink)
+      this.balanced = new BalancedClickhouseDataSource(jdbcLink)
 
       val conn = config.hasPath("username") match {
-        case true => balanced.getConnection(config.getString("username"), config.getString("password"))
-        case false => balanced.getConnection
+        case true => balanced.getConnection(config.getString("username"), config.getString("password")).asInstanceOf[ClickHouseConnectionImpl]
+        case false => balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
       }
 
-      this.schema = getSchema(conn, config.getString("table"))
+      this.table = config.getString("table")
+      this.schema = getSchema(conn, table)
+
+
+      this.fields = config.getStringList("fields")
+
+
+      for (i <- 0 until fields.size()) {
+        if (!this.schema.contains(fields.get(i))) {
+          return (false, String.format("Table <%s> doesn't contain field <%s>", table, fields.get(i)))
+        }
+      }
       (true, "")
     }
   }
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
+
+    this.initSQL = initPrepareSQL()
+    logInfo(this.initSQL)
     super.prepare(spark, ssc)
   }
 
   override def process(df: DataFrame): Unit = {
     df.foreachPartition { iter =>
+
+      val statement = this.conn.createClickHousePreparedStatement("")
       while (iter.hasNext) {
         val item = iter.next()
         println(item)
@@ -54,7 +78,7 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
     }
   }
 
-  private def getSchema(conn: ClickHouseConnection, table: String) : Map[String, String] = {
+  private def getSchema(conn: ClickHouseConnectionImpl, table: String) : Map[String, String] = {
     val sql = String.format("desc %s", table)
     val resultSet = conn.createStatement.executeQuery(sql)
     var schema = new HashMap[String, String]()
@@ -62,6 +86,16 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
       schema += (resultSet.getString(1) -> resultSet.getString(2))
     }
     schema
+  }
+
+  private def initPrepareSQL() : String = {
+    val prepare =  List.fill(fields.size)("?")
+    val sql = String.format("insert into %s (%s) values (%s)",
+      this.table,
+      this.fields.map(a => a)  .mkString(","),
+      prepare.mkString(","))
+
+    sql
   }
 }
 
