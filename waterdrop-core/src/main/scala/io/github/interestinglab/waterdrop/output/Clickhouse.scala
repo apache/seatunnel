@@ -12,8 +12,7 @@ import scala.collection.JavaConversions._
 class Clickhouse (var config : Config) extends BaseOutput(config) {
 
   var schema: Map[String, String] = new HashMap[String, String]()
-  var balanced: BalancedClickhouseDataSource = _
-  var conn: ClickHouseConnectionImpl = _
+  var jdbcLink: String = _
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
@@ -34,9 +33,9 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
       (false, "please specify username and password at the same time")
     } else {
 
-      val jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"),
+      this.jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"),
         config.getString("database"))
-      this.balanced = new BalancedClickhouseDataSource(jdbcLink)
+      val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcLink)
 
       val conn = config.hasPath("username") match {
         case true => balanced.getConnection(config.getString("username"), config.getString("password")).asInstanceOf[ClickHouseConnectionImpl]
@@ -68,13 +67,32 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
 
   override def process(df: DataFrame): Unit = {
     df.foreachPartition { iter =>
+      val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink)
+      val executorConn = config.hasPath("username") match {
+        case true => executorBalanced.getConnection(config.getString("username"), config.getString("password")).asInstanceOf[ClickHouseConnectionImpl]
+        case false => executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
+      }
+      val statement = executorConn.createClickHousePreparedStatement(this.initSQL)
 
-      val statement = this.conn.createClickHousePreparedStatement("")
       while (iter.hasNext) {
         val item = iter.next()
-        println(item)
-        println("hello world")
+
+        for (i <- 0 until fields.size()) {
+          val field = fields.get(i)
+          val fieldType = schema(field)
+          fieldType match {
+            case "DateTime" | "Date" | "String" => statement.setString(i + 1, item.getAs[String](field))
+            case "Int8" | "Int16" | "Int32" | "UInt8" | "UInt16" => statement.setInt(i + 1, item.getAs[Int](field))
+            case "UInt64" | "Int64" | "UInt32" => statement.setLong(i + 1, item.getAs[Long](field))
+            case "Float32" | "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
+            case _ => statement.setString(i + 1, item.getAs[String](field))
+          }
+        }
+
+        statement.addBatch()
       }
+
+      statement.executeBatch()
     }
   }
 
@@ -92,7 +110,7 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
     val prepare =  List.fill(fields.size)("?")
     val sql = String.format("insert into %s (%s) values (%s)",
       this.table,
-      this.fields.map(a => a)  .mkString(","),
+      this.fields.map(a => a).mkString(","),
       prepare.mkString(","))
 
     sql
