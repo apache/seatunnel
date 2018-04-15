@@ -28,7 +28,13 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
     }
 
     if (nonExistsOptions.length > 0) {
-      (false, "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(", ") + " as non-empty string")
+      (
+        false,
+        "please specify " + nonExistsOptions.map { option =>
+          val (name, exists) = option
+          "[" + name + "]"
+        }.mkString(", ") + " as non-empty string"
+      )
     } else if (config.hasPath("username") && !config.hasPath("password") || config.hasPath("password") && !config.hasPath("username")) {
       (false, "please specify username and password at the same time")
     } else {
@@ -48,13 +54,21 @@ class Clickhouse (var config : Config) extends BaseOutput(config) {
 
       this.fields = config.getStringList("fields")
 
+      val nonExistsFields = fields.map(field => (field, this.schema.contains(field))).filter({ p =>
+        val (field, exists) = p
+        !exists
+      })
 
-      for (i <- 0 until fields.size()) {
-        if (!this.schema.contains(fields.get(i))) {
-          return (false, String.format("Table <%s> doesn't contain field <%s>", table, fields.get(i)))
-        }
+      if (nonExistsFields.size > 0) {
+        (
+          false,
+          "field " + nonExistsFields.map { option =>
+            val (field, exists) = option
+            "[" + field + "]"
+          }.mkString(", ") + " not exist in table " + this.table)
+      } else {
+        (true, "")
       }
-      (true, "")
     }
   }
 
