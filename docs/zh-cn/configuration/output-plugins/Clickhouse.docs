@@ -1,0 +1,14 @@
+@waterdropPlugin
+@pluginGroup output
+@pluginName Clickhouse
+@pluginDesc "输出Row到Clickhouse"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption array fields="" yes ""
+@pluginOption string hostname="" yes "Clickhouse hostname"
+@pluginOption string database="" yes "Clickhouse database"
+@pluginOption string table="" yes "Clickhouse table"
+@pluginOption string username="" no "Clickhouse auth username"
+@pluginOption string password="" no "Clickhouse auth password"
