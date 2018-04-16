@@ -12,12 +12,12 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [database](#database-string) | string |yes||
-| [fields](#hosts-array) | array | yes ||
-| [host](#host-string) | string | yes ||
-| [password](#password-string) | string | no ||
-| [table](#table-string) | string | yes ||
-| [username](#username-string) | string | no ||
+| [database](#database-string) | string |yes|-|
+| [fields](#hosts-array) | array | yes |-|
+| [host](#host-string) | string | yes |-|
+| [password](#password-string) | string | no |-|
+| [table](#table-string) | string | yes |-|
+| [username](#username-string) | string | no |-|
 
 ##### database [string]
 

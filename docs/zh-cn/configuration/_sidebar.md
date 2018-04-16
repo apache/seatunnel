@@ -38,8 +38,8 @@
     - [Uuid](/zh-cn/configuration/filter-plugins/Uuid)
     
   - [Output插件](/zh-cn/configuration/output-plugin)
+    - [Clickhouse](/zh-cn/configuration/output-plugins/Clickhouse)
     - [Elasticsearch](/zh-cn/configuration/output-plugins/Elasticsearch)
-    - [Clickhouse](/zh-cn/configuration/output-plugins/clickhouse)
     - [File](/zh-cn/configuration/output-plugins/File)
     - [Hdfs](/zh-cn/configuration/output-plugins/Hdfs)
     - [Jdbc](/zh-cn/configuration/output-plugins/Jdbc)
