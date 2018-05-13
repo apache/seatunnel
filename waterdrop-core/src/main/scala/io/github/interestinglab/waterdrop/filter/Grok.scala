@@ -95,7 +95,6 @@ class Grok(var conf: Config) extends BaseFilter(conf) {
   }
 
   private def getKeysOfPattern(pattern: String): util.Iterator[String] = {
-    grok.compile(pattern)
     grok.getNamedRegexCollection.values().iterator()
   }
 }
