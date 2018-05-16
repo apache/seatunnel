@@ -161,16 +161,12 @@ object Waterdrop extends Logging {
     })
 
     val dStream = unionedDStream.mapPartitions { partitions =>
-      val strIterator = partitions.map(r => r._2)
-      val strList = strIterator.toList
-      strList.iterator
+      partitions.map(r => r._2)
     }
 
     dStream.foreachRDD { strRDD =>
       val rowsRDD = strRDD.mapPartitions { partitions =>
-        val row = partitions.map(Row(_))
-        val rows = row.toList
-        rows.iterator
+        partitions.map(Row(_))
       }
 
       val spark = SparkSession.builder.config(rowsRDD.sparkContext.getConf).getOrCreate()
