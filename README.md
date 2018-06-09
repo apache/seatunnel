@@ -71,6 +71,18 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 [Waterdrop介绍PPT](http://slides.com/garyelephant/waterdrop/fullscreen?token=GKrQoxJi)
 
+## 应用案例
+
+* [新浪](http://www.sina.com.cn/), 大数据运维分析平台
+
+![新浪Logo](http://ir.sina.com/media_files/IROL/12/121288/imges/logo.png)
+
+* [一下科技](https://www.yixia.com/), 一直播数据平台
+
+![一下科技Logo](https://imgaliyuncdn.miaopai.com/static20131031/miaopai20140729/new_yixia/static/imgs/logo.png)
+
+* 其他公司 ... 期待您的加入
+
 ## 贡献观点和代码
 
 提交问题和建议：https://github.com/InterestingLab/waterdrop/issues
