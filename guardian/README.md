@@ -15,6 +15,12 @@ Guardian 是 Waterdrop 的子项目，用于监控 Waterdrop 的运行状态，�
 
 ---
 
+## 运行环境
+
+* Python >= 2.6.6
+
+---
+
 ## 开发
 
 > 建议使用virtualenv（但不是必须的）作为python运行环境切换的工具。
