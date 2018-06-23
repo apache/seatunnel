@@ -17,14 +17,15 @@ Guardian 是 Waterdrop 的子项目，用于监控 Waterdrop 的运行状态，�
 
 ## 运行环境
 
-* Python >= 2.6.6
+Guardian 虽然是用python开发的，但是它已经被打包为可独立部署的程序包，不依赖任何Python环境及Python依赖包
 
 ---
 
-## 开发
+## 为Guardian的代码做贡献
 
+> 强烈建议使用Python2.7.x 作为 Guardian 的开发环境
 > 建议使用virtualenv（但不是必须的）作为python运行环境切换的工具。
-> 安装virtualenv方法：pip install virtualenv
+> 安装virtualenv方法：pip install virtualenv==1.11.6
 
 ```
 # 初始化开发环境
@@ -41,11 +42,11 @@ pip install -r requirements.txt
 ./package.sh
 ```
 
-打包完成后，可以在`dist/`找到
+打包完成后，可以在`dist/`找到guardian_<version>.tar.gz, 解压缩后可直接运行
 
 ## 运行
 
 ```
 # show help information
-./dist/app
+./dist/guardian
 ```
