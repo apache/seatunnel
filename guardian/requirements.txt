@@ -1,13 +1,7 @@
 requests==2.10.0
-pyinstaller==2.1
+pyinstaller==3.3.1
 tzlocal==1.4
 six==1.10.0
 setuptools==19.2
 flask==0.12.2
-flask_apscheduler==1.8.0
-jinja2==2.8
 python-dateutil==2.4.2
-
-# back compitablility for python2.6
-futures==3.2.0
-funcsigs==1.0.2
