@@ -405,6 +405,7 @@ if __name__ == '__main__':
 
             # running with flask
             t = ThreadCheck('check', sys.argv[2])
+            t.setDaemon(True)
             t.start()
 
             app = config_api.app
