@@ -4,11 +4,10 @@ import json
 import sys
 import subprocess
 import time
+import threading
+import requests
 from datetime import datetime
 
-from flask_apscheduler import APScheduler
-
-import requests
 
 import config_api
 from alert import GuardianAlert, AlertException
@@ -60,6 +59,15 @@ def get_args_check(args):
     return config
 
 
+class ThreadCheck(threading.Thread):
+    def __init__(self, t_name, args):
+        self.args = args
+        threading.Thread.__init__(self, name=t_name)
+
+    def run(self):
+        command_check(self.args)
+
+
 def command_check(args):
 
     _log_info("Starting to check applications")
@@ -67,6 +75,7 @@ def command_check(args):
     while True:
 
         config = get_args_check(args)
+        print
         alert_client = GuardianAlert(config["alert_manager"])
         check_impl(config, alert_client)
         time.sleep(config['check_interval'])
@@ -394,22 +403,13 @@ if __name__ == '__main__':
             if len(sys.argv[2:]) != 1:
                 raise ValueError('Invalid argument number')
 
-            class CheckConfig(object):
-                JOBS = [
-                    {
-                        'id': 'job1',
-                        'func': 'guardian:command_check',
-                        'args': [sys.argv[2]]
-                    }
-                ]
-
             # running with flask
+            t = ThreadCheck('check', sys.argv[2])
+            t.start()
+
             app = config_api.app
             app.config['config_name'] = sys.argv[2]
-            app.config.from_object(CheckConfig())
-            scheduler = APScheduler()
-            scheduler.init_app(app)
-            scheduler.start()
+
             app.run(host='0.0.0.0')
 
         elif command == 'inspect':
