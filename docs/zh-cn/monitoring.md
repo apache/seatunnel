@@ -176,7 +176,7 @@ Gaurdian调用接口的时候会以下面JSON格式发送HTTP POST请求到配�
 
 * 基础接口
 
-    http://localhost:5000/config/<app_name>
+    http://localhost:5000/config/[app_name]
 
 * 请求方式
 
@@ -213,7 +213,7 @@ curl 'http://localhost:5000/config/waterdrop-app2'
 
 * 基础接口
 
-    http://localhost:5000/config/<app_name>
+    http://localhost:5000/config/[app_name]
 
 * 请求方式
 
@@ -252,7 +252,7 @@ curl 'http://localhost:5000/config/waterdrop-app2' -d '
 
 * 基础接口
 
-    http://localhost:5000/config/<app_name>
+    http://localhost:5000/config/[app_name]
 
 * 请求方式
 
