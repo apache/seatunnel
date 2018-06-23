@@ -24,12 +24,14 @@ Guardian 虽然是用python开发的，但是它已经被打包为可独立部�
 ## 为Guardian的代码做贡献
 
 > 强烈建议使用Python2.7.x 作为 Guardian 的开发环境
+
 > 建议使用virtualenv（但不是必须的）作为python运行环境切换的工具。
+
 > 安装virtualenv方法：pip install virtualenv==1.11.6
 
 ```
 # 初始化开发环境
-virtualenv VENV
+virtualenv -p python2.7 VENV
 source VENV/bin/activate
 
 pip install -r requirements.txt
