@@ -6,6 +6,7 @@
   - [Input Plugin](/en/configuration/input-plugin)
     - [Kafka](/en/configuration/input-plugins/Kafka)
   - [Filter Plugin](/en/configuration/filter-plugin)
+    - [Drop](/en/configuration/filter-plugins/Drop)
   - [Output Plugin](/en/configuration/output-plugin)
   - [Serializer Plugin](/en/configuration/serializer-plugin)
 - [Deployment](/en/deployment)
