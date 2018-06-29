@@ -75,7 +75,6 @@ def command_check(args):
     while True:
 
         config = get_args_check(args)
-        print
         alert_client = GuardianAlert(config["alert_manager"])
         check_impl(config, alert_client)
         time.sleep(config['check_interval'])
@@ -408,10 +407,15 @@ if __name__ == '__main__':
             t.setDaemon(True)
             t.start()
 
+            config = get_args_check(sys.argv[2])
+            port = 5000
+            if 'port' in config:
+                port = config['port']
+
             app = config_api.app
             app.config['config_name'] = sys.argv[2]
 
-            app.run(host='0.0.0.0')
+            app.run(host='0.0.0.0', port=port)
 
         elif command == 'inspect':
             config = get_args_inspect(sys.argv[2:])

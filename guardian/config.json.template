@@ -1,4 +1,5 @@
 {
+    "port": 5000,
     "node_name": "node01",
     "check_interval": 300,
     "yarn": {
