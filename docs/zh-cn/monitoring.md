@@ -12,6 +12,7 @@ Guardian通过命令行和一个配置文件运行
 
 整个配置文件由以下几个部分组成：
 
+- port: 接口API绑定的端口
 - node_name: 节点信息
 - check_interval: 检测应用的时间间隔
 - yarn: 被检测的YARN集群地址
