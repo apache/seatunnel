@@ -8,6 +8,7 @@
   - [Filter Plugin](/en/configuration/filter-plugin)
     - [Drop](/en/configuration/filter-plugins/Drop)
   - [Output Plugin](/en/configuration/output-plugin)
+    - [Kafka](/en/configuration/output-plugins/Kafka)
   - [Serializer Plugin](/en/configuration/serializer-plugin)
 - [Deployment](/en/deployment)
 - [Monitoring](/en/monitoring)
