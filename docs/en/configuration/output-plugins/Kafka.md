@@ -1,0 +1,41 @@
+## Output plugin : Kafka
+
+* Author: InterestingLab
+* Homepage: https://interestinglab.github.io/waterdrop
+* Version: 1.0.0
+
+### Description
+
+Write Rows to a Kafka topic.
+
+### Options
+
+| name | type | required | default value |
+| --- | --- | --- | --- |
+| [producer.bootstrap.servers](#producerbootstrapservers-string) | string | yes | - |
+| [topic](#topic-string) | string | yes | - |
+| [producer.*](#producer-string) | string | no | - |
+
+##### producer.bootstrap.servers [string]
+
+Kafka Brokers List
+
+##### topic [string]
+
+Kafka Topic
+
+##### producer [string]
+
+In addition to the above parameters that must be specified for the producer client, you can also specify multiple kafka's producer parameters covering [producerconfigs](http://kafka.apache.org/10/documentation.html#producerconfigs)
+
+The way to specify parameters is to use the prefix "producer" before the original parameter. For example, `request.timeout.mss` is specified as: `producer.request.timeout.ms = 60000`.If you do not specify these parameters, it will be set the default values according to Kafka documentation
+
+
+### Examples
+
+```
+kafka {
+    topic = "waterdrop"
+    producer.bootstrap.servers = "localhost:9092"
+}
+```
