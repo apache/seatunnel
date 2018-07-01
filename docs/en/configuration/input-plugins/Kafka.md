@@ -6,7 +6,7 @@
 
 ### Description
 
-This input will read events from a Kafka topic.
+Read events from one or more kafka topics.
 
 This plugin uses Kafka Old Consumer. Supporting Kafka >= 0.8.2.X
 
@@ -39,9 +39,9 @@ A list of host/port pairs to use for establishing the initial connection to the 
 
 ##### consumer [string]
 
-In addition to the above parameters that must be specified for the consumer client, you can also specify multiple kafka's consumer parameters covering [consumerconfigs](http://kafka.apache.org/10/documentation.html#consumerconfigs)
+In addition to the above parameters that must be specified for the consumer client, you can also specify multiple kafka's consumer parameters described in [consumerconfigs](http://kafka.apache.org/10/documentation.html#consumerconfigs)
 
-The way to specify parameters is to use the prefix "consumer" before the original parameter. For example, `rebalance.max.retries` is specified as: `consumer.rebalance.max.retries = 100`.If you do not specify these parameters, it will be set the default values according to Kafka documentation
+The way to specify parameters is to use the prefix "consumer" before the parameter. For example, `rebalance.max.retries` is specified as: `consumer.rebalance.max.retries = 100`.If you do not specify these parameters, it will be set the default values according to Kafka documentation
 
 
 ### Examples

@@ -17,7 +17,7 @@ Drop Rows that match the condition
 
 ##### condition [string]
 
-Conditional expression, Rows that match this conditional expression will be dropped. Conditional expression likes WHERE expression in SQL. For example, `name = 'grayelephant'`, `status = 200 AND resp_time > 100`
+Conditional expression, Rows that match this conditional expression will be dropped. Expressions in where clause of sql language can be used, such as `name = 'grayelephant'`, `status = 200 AND resp_time > 100`
 
 
 ### Examples
