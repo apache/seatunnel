@@ -59,7 +59,8 @@ Hadoop集群文件路径，以hdfs://开头
 
 ```
 hdfs {
-    path = "file:///var/logs-${now}"
+    path = "hdfs:///var/logs-${now}"
+    serializer = "json"
     path_time_format = "yyyy.MM.dd"
 }
 ```

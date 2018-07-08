@@ -6,7 +6,7 @@
 
 ### Description
 
-从HDFS中读取原始数据
+Read raw data from HDFS.
 
 ### Options
 
@@ -16,7 +16,7 @@
 
 ##### path [string]
 
-Hadoop集群上文件路径
+File path on Hadoop cluster.
 
 ### Example
 
@@ -26,7 +26,7 @@ hdfs {
 }
 ```
 
-或者可以指定 hdfs name service:
+or you can specify hdfs name service:
 
 ```
 hdfs {
