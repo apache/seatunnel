@@ -34,7 +34,11 @@ def streaming_batch_stats(master_url, application_id, status=None, timeout=20):
         if resp.status_code != 200:
             continue
 
-        stats_json = resp.json()
+        try:
+            stats_json = resp.json()
+        except ValueError as e:
+            stats_json = None
+
         break
 
     if stats_json is None:
