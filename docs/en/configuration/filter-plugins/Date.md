@@ -6,7 +6,7 @@
 
 ### Description
 
-The date filter is used for parsing dates from fields.
+The date filter is used for parsing dates from specified field.
 
 ### Options
 
@@ -22,12 +22,12 @@ The date filter is used for parsing dates from fields.
 
 ##### default_value [string]
 
-If the date conversion fails, the current time will be used in the specified format.
+If the date conversion fails, the current time(`${now}`) will be used in the specified format.
 
 
 ##### locale [string]
 
-Locale.
+Locale of source field.
 
 ##### source_field [string]
 
@@ -62,7 +62,7 @@ Target field time format, The detailed time format syntax:[Java SimpleDateFormat
 
 ##### time_zone [string]
 
-Timezone
+Timezone of source field
 
 
 ### Examples

@@ -6,7 +6,7 @@
 
 ### Description
 
-Read events over a TCP socket
+Read data over a TCP socket
 
 ### Options
 

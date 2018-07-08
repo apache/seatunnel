@@ -21,7 +21,7 @@ Input plugin for producing test data.
 
 ##### data_format [string]
 
-The format of test data, supports text and json
+The format of test data, supports `text` and `json`
 
 ##### json_keys [array]
 
@@ -34,7 +34,7 @@ The number of fields, used when `data_format` is text
 
 ##### rate [number]
 
-The number of test data per second
+The number of test data produced per second
 
 ##### text_delimiter [string]
 
