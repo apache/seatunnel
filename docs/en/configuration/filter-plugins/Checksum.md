@@ -6,7 +6,7 @@
 
 ### Description
 
-Get the checksum of field.
+Calculate checksum(default algorithm is SHA1) of specific field and add a new field with the checksum value.
 
 ### Options
 

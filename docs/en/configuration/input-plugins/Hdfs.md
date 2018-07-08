@@ -22,6 +22,14 @@ File path on Hadoop cluster.
 
 ```
 hdfs {
+    path = "hdfs:///access.log"
+}
+```
+
+or you can specify hdfs name service:
+
+```
+hdfs {
     path = "hdfs://m2:8022/access.log"
 }
 ```

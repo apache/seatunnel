@@ -6,7 +6,7 @@
 
 ### Description
 
-Read raw data from local file
+Read raw data from local file system.
 
 ### Options
 

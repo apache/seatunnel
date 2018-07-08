@@ -22,6 +22,14 @@ Hadoop集群上文件路径
 
 ```
 hdfs {
+    path = "hdfs:///access.log"
+}
+```
+
+或者可以指定 hdfs name service:
+
+```
+hdfs {
     path = "hdfs://m2:8022/access.log"
 }
 ```

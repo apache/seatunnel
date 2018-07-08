@@ -6,7 +6,7 @@
 
 ### Description
 
-Convert a field’s value to a different type, like turning a string to an integer
+Convert a field’s value to a different type, such as converting a string to an integer.
 
 ### Options
 

@@ -6,7 +6,7 @@
 
 ### Description
 
-Add a field to Rows.
+Add a field with fixed value to Rows.
 
 ### Options
 
