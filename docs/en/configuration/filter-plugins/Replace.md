@@ -1,4 +1,4 @@
-## Filter plugin : Replace
+## Filter plugin : Lowercase
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -6,7 +6,7 @@
 
 ### Description
 
-将指定字段内容根据正则表达式进行替换
+Replaces field contents based on grok.
 
 ### Options
 
@@ -19,19 +19,19 @@
 
 ##### pattern [string]
 
-正则表达式
+Grok pattern.
 
 ##### replacement [string]
 
-替换的字符串
+String need to be replaced.
 
 ##### source_field [string]
 
-源字段，若不配置默认为`raw_message`
+Source field, default is `raw_message`.
 
 ##### target_field [string]
 
-目标字段，若不配置默认为`replaced`
+New field name, default is `replaced`.
 
 ### Examples
 
@@ -43,4 +43,5 @@ replace {
     replacement = "are"
 }
 ```
-> 将`message`中的**is**替换为**are**，并赋值给`tmp`
+
+> Replace **is** in `message` with **are** and set it to `tmp`.
