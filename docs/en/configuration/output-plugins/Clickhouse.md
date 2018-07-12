@@ -6,14 +6,15 @@
 
 ### Description
 
-通过[Clickhouse-jdbc](https://github.com/yandex/clickhouse-jdbc)输出数据到Clickhouse，需要提前创建对应的表结构
+Write Rows to ClickHouse via [Clickhouse-jdbc](https://github.com/yandex/clickhouse-jdbc). You need to create the corresponding table in advance.
+
 
 ### Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [database](#database-string) | string |yes|-|
-| [fields](#fields-array) | array | yes |-|
+| [fields](#fields-list) | list | yes |-|
 | [host](#host-string) | string | yes |-|
 | [password](#password-string) | string | no |-|
 | [table](#table-string) | string | yes |-|
@@ -21,27 +22,28 @@
 
 ##### database [string]
 
-Clickhouse database
+ClickHouse database.
 
-##### fields [array]
+##### fields [list]
 
-需要输出到Clickhouose的数据字段。
+Field list which need to be written to ClickHouse。
 
 ##### host [string]
 
-Clickhouse集群地址，格式为host:port，允许指定多个host。如"host1:8123,host2:8123"。
+ClickHouse hosts, format as `hostname:port`
+
 
 ##### password [string]
 
-Clickhouse用户密码，仅当Clickhouse中开启权限时需要此字段。
+ClickHouse password, only used when ClickHouse has authority authentication.
 
 ##### table [string]
 
-Clickhouse 表名
+ClickHouse table name.
 
 ##### username [string]
 
-Clickhouse用户用户名，仅当Clickhouse中开启权限时需要此字段
+ClickHouse username, only used when ClickHouse has authority authentication.
 
 ### Examples
 
