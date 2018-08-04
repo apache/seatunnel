@@ -33,7 +33,7 @@ Hadoop集群文件路径，以hdfs://开头
 
 ##### path_time_format [string]
 
-当`path`参数中的格式为`xxxx-${now}`时，`path_time_format`可以指定index名称的时间格式，默认值为 `yyyy.MM.dd`。常用的时间格式列举如下：
+当`path`参数中的格式为`xxxx-${now}`时，`path_time_format`可以指定HDFS路径的时间格式，默认值为 `yyyy.MM.dd`。常用的时间格式列举如下：
 
 | Symbol | Description |
 | --- | --- |

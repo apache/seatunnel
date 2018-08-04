@@ -6,7 +6,8 @@
 
 ### Description
 
-提取指定字段所有的Key-Value, 常用于解析url参数中的key和value
+Extract all Key-Values of the specified string field with configured `field_split`, which are often used to parse the url parameter.
+
 
 ### Options
 
@@ -22,35 +23,35 @@
 
 ##### exclude_fields [array]
 
-不需要包括的字段
+Fields in the `exclude_fields` will be abandoned.
 
 ##### field_prefix [string]
 
-字段指定前缀
+A string to prepend to all of the extracted keys.
 
 ##### field_split [string]
 
-字段分隔符
+A string of characters to use as single-character field delimiters for parsing key-value pairs.
 
 ##### include_fields [array]
 
-需要包括的字段
+An array specifying the parsed keys which should be added to the event.
 
 ##### source_field [string]
 
-源字段，若不配置默认为`raw_message`
+Source field.
 
 ##### target_field [string]
 
-目标字段，若不配置默认为`__root__`
+All extracted fields will be put into `target_field`.
 
 ##### value_split [string]
 
-字段值分隔符
+A non-empty string of characters to use as single-character value delimiters for parsing key-value pairs.
 
 ### Examples
 
-1. 使用`target_field`
+1. With `target_field`
 
     ```
     kv {
@@ -83,9 +84,8 @@
     +-----------------+-----------------------------+
     ```
 
-    > kv处理的结果支持**select * from where kv_map.age = 23**此类SQL语句
 
-2. 不使用`target_field`
+2. Without `target_field`
 
     ```
     kv {

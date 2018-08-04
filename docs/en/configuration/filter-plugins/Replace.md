@@ -6,7 +6,7 @@
 
 ### Description
 
-将指定字段内容根据正则表达式进行替换
+Replaces field contents based on regular expression.
 
 ### Options
 
@@ -19,20 +19,23 @@
 
 ##### pattern [string]
 
-用于做匹配的正则表达式。常见的书写方式如 `"[a-zA-Z0-9_-]+"`, 详见[Regex Pattern](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html)。
-也可以到这里测试正则表达式是正确：[Regex 101](https://regex101.com/)
+regular expression, such as [a-z0-9], \w, \d
+
+Regular expression used for matching string, such as `"[a-zA-Z0-9_-]+"`.Please see [Regex Pattern](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html) for details.
+
+You can also go to [Regex 101](https://regex101.com/) to test your regex interactively.
 
 ##### replacement [string]
 
-替换的字符串
+String replacement.
 
 ##### source_field [string]
 
-源字段，若不配置默认为`raw_message`
+Source field, default is `raw_message`.
 
 ##### target_field [string]
 
-目标字段，若不配置默认为`replaced`
+New field name, default is `replaced`.
 
 ### Examples
 
@@ -40,8 +43,9 @@
 replace {
     target_field = "tmp"
     source_field = "message"
-    pattern = "is"
+    pattern = "\w+"
     replacement = "are"
 }
 ```
-> 将`message`中的**is**替换为**are**，并赋值给`tmp`
+
+> Replace **\w+** in `message` with **are** and set it to `tmp` column.

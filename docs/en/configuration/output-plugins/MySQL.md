@@ -6,7 +6,7 @@
 
 ### Description
 
-输出数据到MySQL
+Write Rows to MySQL.
 
 ### Options
 
@@ -21,24 +21,24 @@
 
 ##### password [string]
 
-密码
+Password.
 
 ##### save_mode [string]
 
-存储模式，当前支持overwrite，append，ignore以及error。每个模式具体含义见[save-modes](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes)
+Save mode, supports `overwrite`, `append`, `ignore` and `error`. The detail of save_mode see [save-modes](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes).
 
 ##### table [string]
 
-表名
+Table name.
 
 ##### url [string]
 
-JDBC连接的URL。参考一个案例：`jdbc:mysql://localhose:3306/info`
+The url of JDBC. For example: `jdbc:mysql://localhose:3306/info`
 
 
 ##### user [string]
 
-用户名
+Username.
 
 
 ### Example
@@ -52,5 +52,3 @@ mysql {
     save_mode = "append"
 }
 ```
-
-> 将数据写入MySQL
