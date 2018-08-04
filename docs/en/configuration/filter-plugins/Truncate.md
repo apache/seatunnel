@@ -6,7 +6,7 @@
 
 ### Description
 
-对指定字段进行字符串截取
+Truncate string.
 
 ### Options
 

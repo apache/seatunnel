@@ -29,11 +29,11 @@ Partition the data based on the fields.
 
 ##### path [string]
 
-File path on AWS S3 storage. Start with `hdfs://`.
+File path on HDFS. Start with `hdfs://`.
 
 ##### path_time_format [string]
 
-If `path` likes `xxxx-${now}`, `path_time_format` can be used to specify the format of index, default is `yyyy.MM.dd`. The commonly used time formats are listed below:
+If `path` contains time variables, such as `xxxx-${now}`, `path_time_format` can be used to specify the format of HDFS path, default is `yyyy.MM.dd`. The commonly used time formats are listed below:
 
 
 | Symbol | Description |

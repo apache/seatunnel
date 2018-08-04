@@ -29,11 +29,11 @@ Partition the data based on the fields.
 
 ##### path [string]
 
-File path on AWS S3 storage. Start with `file://`.
+Output File path. Start with `file://`.
 
 ##### path_time_format [string]
 
-If `path` likes `xxxx-${now}`, `path_time_format` can be used to specify the format of index, default is `yyyy.MM.dd`. The commonly used time formats are listed below:
+If `path` contains time variable, such as `xxxx-${now}`, `path_time_format` can be used to specify the format of path, default is `yyyy.MM.dd`. The commonly used time formats are listed below:
 
 
 | Symbol | Description |

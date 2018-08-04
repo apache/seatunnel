@@ -6,7 +6,9 @@
 
 ### Description
 
-It is used to map static files into a table, which can be associated with real-time processed streams. It is always used for user nicknames, national provinces and cities, etc.
+It is used to map static files into a table, which can be associated with real-time processed streams. 
+
+It is always used for joining user nicknames, national provinces and cities, etc.
 
 ### Options
 

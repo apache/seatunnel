@@ -19,7 +19,8 @@
 
 ##### pattern [string]
 
-正则表达式
+用于做匹配的正则表达式。常见的书写方式如 `"[a-zA-Z0-9_-]+"`, 详见[Regex Pattern](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html)。
+也可以到这里测试正则表达式是正确：[Regex 101](https://regex101.com/)
 
 ##### replacement [string]
 

@@ -6,9 +6,9 @@
 
 ### Description
 
-Parse arbitrary text and structure events using Grok Pattern.[Supported grok pattern](https://github.com/InterestingLab/waterdrop/blob/master/plugins/grok/files/grok-patterns/grok-patterns).
+Parse arbitrary text into structured data with columns  using Grok Pattern. Please have a look at [available grok pattern](https://github.com/InterestingLab/waterdrop/blob/master/plugins/grok/files/grok-patterns/grok-patterns).
 
-If you need help building patterns to match your logs, you will find the [http://grokdebug.herokuapp.com](http://grokdebug.herokuapp.com)
+You can also go to [http://grokdebug.herokuapp.com](http://grokdebug.herokuapp.com) to debug grok patterns if you need some hint for grok pattern syntax.
 
 
 
@@ -32,7 +32,7 @@ Grok pattern.
 
 ##### patterns_dir [string]
 
-The directory of pattern files. Waterdrop ships by default with a bunch of [patterns]([grok-patterns文件](https://github.com/InterestingLab/waterdrop/tree/master/plugins/grok/files/grok-patterns)), so you don’t necessarily need to define this yourself unless you are adding additional patterns.
+The directory of pattern files. Waterdrop ships by default with a bunch of [patterns]([grok-patterns文件](https://github.com/InterestingLab/waterdrop/tree/master/plugins/grok/files/grok-patterns)), so you don’t necessarily need to configure this unless you want to add additional patterns.
 
 
 ##### source_field [string]
@@ -41,7 +41,7 @@ Source field.
 
 ##### target_field [string]
 
-New field name.
+Target field.
 
 ### Example
 

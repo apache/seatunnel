@@ -33,7 +33,7 @@ Table name.
 
 ##### url [string]
 
-The url of JDBC. For example: **jdbc:mysql://localhose:3306/info**
+The url of JDBC. For example: `jdbc:mysql://localhose:3306/info`
 
 
 ##### user [string]

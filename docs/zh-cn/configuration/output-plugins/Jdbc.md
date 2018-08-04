@@ -37,7 +37,7 @@
 
 ##### url [string]
 
-JDBC连接的URL。参考一个案例: jdbc:postgresql://localhost/test
+JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 
 
 ##### user [string]
