@@ -1,4 +1,4 @@
-## Output plugin : Mysql
+## Output plugin : Jdbc
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -6,45 +6,50 @@
 
 ### Description
 
-输出数据到MySQL
+Write Rows to an external data source via JDBC.
 
 ### Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
+| [driver](#driver-string) | string | yes | - |
 | [password](#password-string) | string | yes | - |
 | [save_mode](#save_mode-string) | string | no | append |
 | [table](#table-string) | string | yes | - |
 | [url](#url-string) | string | yes | - |
 | [user](#user-string) | string | yes | - |
 
+##### driver [string]
+
+Class name of jdbc driver.
 
 ##### password [string]
 
-密码
+Password.
 
 ##### save_mode [string]
 
-存储模式，当前支持overwrite，append，ignore以及error。每个模式具体含义见[save-modes](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes)
+Save mode, supports `overwrite`, `append`, `ignore` and `error`. The detail of save_mode see [save-modes](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes).
 
 ##### table [string]
 
-表名
+Table name.
 
 ##### url [string]
 
-JDBC连接的URL。参考一个案例：`jdbc:mysql://localhose:3306/info`
+The url of JDBC. For example: `jdbc:postgresql://localhost/test`
 
 
 ##### user [string]
 
-用户名
+Username.
 
 
 ### Example
 
 ```
-mysql {
+jdbc {
+    driver = "com.mysql.jdbc.Driver"
     url = "jdbc:mysql://localhose:3306/info"
     table = "access"
     user = "username"
@@ -53,4 +58,4 @@ mysql {
 }
 ```
 
-> 将数据写入MySQL
+> write data to mysql with jdbc output. 

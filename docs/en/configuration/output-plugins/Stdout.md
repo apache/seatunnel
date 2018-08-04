@@ -6,7 +6,7 @@
 
 ### Description
 
-输出数据到标准输出/终端, 常用于debug, 能够很方便输出数据.
+Output Rows to console, it is always used for debugging.
 
 ### Options
 
@@ -17,11 +17,11 @@
 
 ##### limit [number]
 
-限制输出Row的条数，合法范围[-1, 2147483647], `-1`表示输出最多2147483647条Row
+Limit number of output. `-1` means no limit.
 
 ##### serializer [string]
 
-输出时序列化的格式，可用的serializer包括: `json`, `plain`
+The serializer used for output, the allowed serializers are `json`, `plain`
 
 ### Example
 
@@ -31,5 +31,3 @@ stdout {
     serializer = "json"
 }
 ```
-
-> 以Json格式输出10条数据
