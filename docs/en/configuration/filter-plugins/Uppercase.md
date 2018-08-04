@@ -6,7 +6,7 @@
 
 ### Description
 
-Convert all specified field to uppercase letters.
+Uppercase specified field.
 
 ### Options
 

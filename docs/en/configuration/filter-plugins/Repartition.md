@@ -6,7 +6,7 @@
 
 ### Description
 
-Adjust the number of partition for data processing. This filter is mainly to adjust the data processing performance, do not do any processing on the Rows.
+Adjust the number of underlying spark rdd partition to increase or decrease degree of parallelism. This filter is mainly to adjust the data processing performance.
 
 
 ### Options
@@ -17,7 +17,7 @@ Adjust the number of partition for data processing. This filter is mainly to adj
 
 ##### num_partitions [number]
 
-Partition number.
+Target partition number.
 
 ### Examples
 

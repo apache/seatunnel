@@ -6,7 +6,7 @@
 
 ### Description
 
-Using Spark function `monotonically_increasing_id()` to add a globally unique and auto incrementing UUID field to the original Rows.
+Using Spark function `monotonically_increasing_id()` to add a globally unique and auto incrementing UUID field.
 
 
 ### Options

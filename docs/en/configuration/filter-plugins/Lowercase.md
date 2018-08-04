@@ -6,7 +6,7 @@
 
 ### Description
 
-Convert all specified field to lowercase letters.
+Lowercase specified string field.
 
 ### Options
 

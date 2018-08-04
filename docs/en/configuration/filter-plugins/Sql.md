@@ -6,7 +6,7 @@
 
 ### Description
 
-Processing Rows using SQL, Supporting [Spark UDF](http://spark.apache.org/docs/latest/api/sql/)
+Processing Rows using SQL, feel free to use [Spark UDF](http://spark.apache.org/docs/latest/api/sql/). 
 
 ### Options
 
@@ -17,11 +17,11 @@ Processing Rows using SQL, Supporting [Spark UDF](http://spark.apache.org/docs/l
 
 ##### sql [string]
 
-String of SQL.
+SQL content.
 
 ##### table [string]
 
-The name of the table, which can be set will any string, and is the name of the table used in the sql parameter.
+When `table` set, the current batch of events will be registered as a table, named by this `table` setting, on which you can execute sql.
 
 ### Examples
 
@@ -32,7 +32,7 @@ sql {
 }
 ```
 
-> Only keep the `username` and `address` fields, the remaining fields will be removed.
+> Select the `username` and `address` fields, the remaining fields will be removed.
 
 ```
 sql {
@@ -41,7 +41,7 @@ sql {
 }
 ```
 
-> Use the [substring function](http://spark.apache.org/docs/latest/api/sql/#substring) on the `telephone`
+> Use the [substring function](http://spark.apache.org/docs/latest/api/sql/#substring) to retrieve a substring on the `telephone` field.
 
 
 ```
@@ -51,4 +51,4 @@ sql {
 }
 ```
 
-> Calculate the average of `age` using the [avg functions](http://spark.apache.org/docs/latest/api/sql/#avg)
+> Get the aggregation of the average of `age` using the [avg functions](http://spark.apache.org/docs/latest/api/sql/#avg).

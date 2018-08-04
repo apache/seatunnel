@@ -6,7 +6,7 @@
 
 ### Description
 
-Sampling from the events.
+Taking Samples from the events.
 
 ### Options
 
@@ -17,7 +17,7 @@ Sampling from the events.
 
 ##### fraction [number]
 
-The fraction of sampling. For example, fraction=0.8 represents to extract 80% data from the Rows.
+The fraction of sampling. For example, `fraction=0.8` represents to extract `80%` data from the events.
 
 ##### limit [number]
 
@@ -31,4 +31,4 @@ sample {
 }
 ```
 
-> Extract 80%
+> Extract 80% of events.

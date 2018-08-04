@@ -6,7 +6,7 @@
 
 ### Description
 
-It takes an existing field which contains JSON and expands it into an actual data structure.
+It takes an existing field which contains a json string and extract its fields.
 
 ### Options
 

@@ -19,14 +19,14 @@ Splits String using delimiter.
 
 ##### delimiter [string]
 
-The string to split on. Default is a space.
+The string to split on. Default is a whitespace.
 
 
 ##### fields [list]
 
-The divided list of field names. People need specify the field names of the divided strings in order.
+The corresponding field names of splited fields. Order of field names is important.
 
-If the length of `fields` is greater than the length of divided result, the extra fields will be set to empty string.
+If the length of `fields` is greater than the length of splited fields, the extra fields will be set to empty string.
 
 ##### source_field [string]
 

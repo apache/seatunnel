@@ -6,7 +6,7 @@
 
 ### Description
 
-Extract all Key-Values of the specified field, which are often used to parse the url parameter.
+Extract all Key-Values of the specified string field with configured `field_split`, which are often used to parse the url parameter.
 
 
 ### Options
@@ -23,7 +23,7 @@ Extract all Key-Values of the specified field, which are often used to parse the
 
 ##### exclude_fields [array]
 
-An array specifying the parsed keys which should not be added to the Rows.
+Fields in the `exclude_fields` will be abandoned.
 
 ##### field_prefix [string]
 
@@ -31,8 +31,7 @@ A string to prepend to all of the extracted keys.
 
 ##### field_split [string]
 
-A string of characters to use as single-character field delimiters for parsing out key-value pairs.
-
+A string of characters to use as single-character field delimiters for parsing key-value pairs.
 
 ##### include_fields [array]
 
@@ -44,11 +43,11 @@ Source field.
 
 ##### target_field [string]
 
-New field name.
+All extracted fields will be put into `target_field`.
 
 ##### value_split [string]
 
-A non-empty string of characters to use as single-character value delimiters for parsing out key-value pairs.
+A non-empty string of characters to use as single-character value delimiters for parsing key-value pairs.
 
 ### Examples
 

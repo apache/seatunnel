@@ -6,7 +6,7 @@
 
 ### Description
 
-Output Rows to console.
+Output Rows to console, it is always used for debugging.
 
 ### Options
 
@@ -21,7 +21,7 @@ Limit number of output. `-1` means no limit.
 
 ##### serializer [string]
 
-The serializer used for output.[Serializers](/#/zh-cn/)
+The serializer used for output, the allowed serializers are `json`, `plain`
 
 ### Example
 

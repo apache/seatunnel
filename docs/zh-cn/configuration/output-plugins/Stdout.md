@@ -6,7 +6,7 @@
 
 ### Description
 
-输出数据到标准输出
+输出数据到标准输出/终端, 常用于debug, 能够很方便输出数据.
 
 ### Options
 
@@ -21,7 +21,7 @@
 
 ##### serializer [string]
 
-输出时序列化的格式，可选的序列化方式请见：[Serializers](/#/zh-cn/)
+输出时序列化的格式，可用的serializer包括: `json`, `plain`
 
 ### Example
 

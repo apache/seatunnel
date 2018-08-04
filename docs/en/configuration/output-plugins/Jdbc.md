@@ -21,7 +21,7 @@ Write Rows to an external data source via JDBC.
 
 ##### driver [string]
 
-Class name of driver.
+Class name of jdbc driver.
 
 ##### password [string]
 
@@ -57,3 +57,5 @@ jdbc {
     save_mode = "append"
 }
 ```
+
+> write data to mysql with jdbc output. 
