@@ -1,10 +1,9 @@
 package io.github.interestinglab.waterdrop.apis
 
-import com.typesafe.config.Config
 import org.apache.spark.sql.expressions.{UserDefinedAggregateFunction, UserDefinedFunction}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-abstract class BaseFilter(val initConfig: Config) extends Plugin {
+abstract class BaseFilter extends Plugin {
 
   def process(spark: SparkSession, df: DataFrame): DataFrame
 

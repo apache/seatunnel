@@ -11,11 +11,27 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.collection.JavaConversions._
 
-class Kafka(var config: Config) extends BaseOutput(config) {
+class Kafka extends BaseOutput {
 
   val producerPrefix = "producer"
 
   var kafkaSink: Option[Broadcast[KafkaSink]] = None
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -41,11 +57,14 @@ class Kafka(var config: Config) extends BaseOutput(config) {
     config = config.withFallback(defaultConfig)
 
     val props = new Properties()
-    config.getConfig(producerPrefix).entrySet().foreach(entry => {
-      val key = entry.getKey
-      val value = String.valueOf(entry.getValue.unwrapped())
-      props.put(key, value)
-    })
+    config
+      .getConfig(producerPrefix)
+      .entrySet()
+      .foreach(entry => {
+        val key = entry.getKey
+        val value = String.valueOf(entry.getValue.unwrapped())
+        props.put(key, value)
+      })
 
     println("[INFO] Kafka Output properties: ")
     props.foreach(entry => {

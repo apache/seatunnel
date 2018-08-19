@@ -5,10 +5,22 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.lit
 
-class Add(var conf: Config) extends BaseFilter(conf) {
+class Add extends BaseFilter {
 
-  def this() = {
-    this(ConfigFactory.empty())
+  var conf: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.conf = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.conf
   }
 
   override def checkConfig(): (Boolean, String) = {

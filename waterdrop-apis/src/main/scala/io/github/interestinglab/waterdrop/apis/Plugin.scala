@@ -1,5 +1,6 @@
 package io.github.interestinglab.waterdrop.apis
 
+import com.typesafe.config.Config
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.StreamingContext
@@ -8,6 +9,16 @@ import org.apache.spark.streaming.StreamingContext
  * checkConfig --> prepare
  */
 abstract class Plugin extends Serializable with Logging {
+
+  /**
+   * Set Config.
+   * */
+  def setConfig(config: Config): Unit
+
+  /**
+   * Get Config.
+   * */
+  def getConfig(): Config
 
   /**
    *  Return true and empty string if config is valid, return false and error message if config is invalid.
