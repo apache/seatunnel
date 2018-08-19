@@ -7,10 +7,22 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions.col
 
-class Convert(var conf: Config) extends BaseFilter(conf) {
+class Convert extends BaseFilter {
 
-  def this() = {
-    this(ConfigFactory.empty())
+  var conf: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.conf = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.conf
   }
 
   override def checkConfig(): (Boolean, String) = {

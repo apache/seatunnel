@@ -62,9 +62,10 @@ class ConfigBuilder(configFile: String) {
 
         val obj = Class
           .forName(className)
-          .getConstructor(classOf[Config])
-          .newInstance(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+          .newInstance()
           .asInstanceOf[BaseFilter]
+
+        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
 
         filterList = filterList :+ obj
       })
@@ -82,9 +83,10 @@ class ConfigBuilder(configFile: String) {
 
         val obj = Class
           .forName(className)
-          .getConstructor(classOf[Config])
-          .newInstance(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+          .newInstance()
           .asInstanceOf[BaseInput]
+
+        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
 
         inputList = inputList :+ obj
       })
@@ -102,9 +104,10 @@ class ConfigBuilder(configFile: String) {
 
         val obj = Class
           .forName(className)
-          .getConstructor(classOf[Config])
-          .newInstance(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+          .newInstance()
           .asInstanceOf[BaseOutput]
+
+        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
 
         outputList = outputList :+ obj
       })

@@ -13,9 +13,25 @@ import scala.collection.JavaConversions._
  * JDBC Output supports at least: MySQL, Oracle, PostgreSQL, SQLite
 
  * */
-class Jdbc(var config: Config) extends BaseOutput(config) {
+class Jdbc extends BaseOutput {
 
   var firstProcess = true
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   override def checkConfig(): (Boolean, String) = {
 
