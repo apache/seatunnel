@@ -15,12 +15,24 @@ import org.apache.spark.sql.functions.{col, udf}
 
 import scala.collection.JavaConverters._
 
-class Grok(var conf: Config) extends BaseFilter(conf) {
+class Grok extends BaseFilter {
 
   val grok = GrokLib.EMPTY
 
-  def this() = {
-    this(ConfigFactory.empty())
+  var conf: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.conf = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.conf
   }
 
   override def checkConfig(): (Boolean, String) = {

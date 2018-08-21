@@ -12,9 +12,24 @@ import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.receiver.Receiver
 
 import scala.collection.JavaConversions._
-import scala.util.Random
 
-class Fake(var config: Config) extends BaseInput(config) {
+class Fake extends BaseInput {
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -82,6 +97,7 @@ class Fake(var config: Config) extends BaseInput(config) {
     val receiverInputDStream = ssc.receiverStream(new FakeReceiver(config))
     receiverInputDStream.map(s => { ("", s) })
   }
+
 }
 
 private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel.MEMORY_AND_DISK_2) {

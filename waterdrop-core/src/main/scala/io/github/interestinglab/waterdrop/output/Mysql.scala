@@ -7,9 +7,25 @@ import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 
-class Mysql(var config: Config) extends BaseOutput(config) {
+class Mysql extends BaseOutput {
 
   var firstProcess = true
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   override def checkConfig(): (Boolean, String) = {
 

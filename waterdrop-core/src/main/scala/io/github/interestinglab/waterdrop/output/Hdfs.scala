@@ -1,8 +1,6 @@
 package io.github.interestinglab.waterdrop.output
 
-import com.typesafe.config.Config
-
-class Hdfs(config: Config) extends FileOutputBase(config) {
+class Hdfs extends FileOutputBase {
 
   override def checkConfig(): (Boolean, String) = {
     checkConfigImpl(List("hdfs://"))

@@ -9,10 +9,22 @@ import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 
-class Remove(var conf: Config) extends BaseFilter(conf) {
+class Remove extends BaseFilter {
 
-  def this() = {
-    this(ConfigFactory.empty())
+  var conf: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.conf = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.conf
   }
 
   override def checkConfig(): (Boolean, String) = (true, "")

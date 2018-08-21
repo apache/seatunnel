@@ -7,14 +7,30 @@ import org.apache.spark.streaming.kafka.OffsetRange
 import org.apache.spark.streaming.kafka.HasOffsetRanges
 import org.apache.spark.SparkException
 import org.apache.spark.streaming.dstream.DStream
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 import _root_.kafka.message.MessageAndMetadata
 import _root_.kafka.common.TopicAndPartition
 import io.github.interestinglab.waterdrop.apis.BaseInput
 
 import scala.collection.JavaConversions._
 
-class Kafka(config: Config) extends BaseInput(config) {
+class Kafka extends BaseInput {
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
   val consumerPrefix = "consumer"
