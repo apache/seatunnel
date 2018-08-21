@@ -52,8 +52,8 @@ class Clickhouse extends BaseOutput {
           }
           .mkString(", ") + " as non-empty string"
       )
-    } else if (config.hasPath("username") && !config.hasPath("password") || config.hasPath("password") && !config
-        .hasPath("username")) {
+    } else if (config.hasPath("username") && !config.hasPath("password") || config.hasPath("password")
+      && !config.hasPath("username")) {
       (false, "please specify username and password at the same time")
     } else {
 
