@@ -9,10 +9,26 @@ import org.elasticsearch.spark.sql._
 
 import scala.collection.JavaConversions._
 
-class Elasticsearch(var config : Config) extends BaseOutput(config) {
+class Elasticsearch extends BaseOutput {
 
   var esCfg: Map[String, String] = Map()
   val esPrefix = "es"
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -38,11 +54,14 @@ class Elasticsearch(var config : Config) extends BaseOutput(config) {
     )
     config = config.withFallback(defaultConfig)
 
-    config.getConfig(esPrefix).entrySet().foreach(entry => {
-      val key = entry.getKey
-      val value = String.valueOf(entry.getValue.unwrapped())
-      esCfg += (esPrefix + "." + key -> value)
-    })
+    config
+      .getConfig(esPrefix)
+      .entrySet()
+      .foreach(entry => {
+        val key = entry.getKey
+        val value = String.valueOf(entry.getValue.unwrapped())
+        esCfg += (esPrefix + "." + key -> value)
+      })
 
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
   }

@@ -11,10 +11,22 @@ import scala.collection.JavaConversions._
 import scala.reflect.runtime.universe
 import scala.util.{Failure, Success, Try}
 
-class Table(var config: Config) extends BaseFilter(config) {
+class Table extends BaseFilter {
 
-  def this() = {
-    this(ConfigFactory.empty())
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
   }
 
   override def checkConfig(): (Boolean, String) = {

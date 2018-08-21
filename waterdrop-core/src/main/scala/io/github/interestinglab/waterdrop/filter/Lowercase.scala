@@ -8,10 +8,22 @@ import org.apache.spark.sql.functions.{col, lower}
 
 import scala.collection.JavaConversions._
 
-class Lowercase(var conf: Config) extends BaseFilter(conf) {
+class Lowercase extends BaseFilter {
 
-  def this() = {
-    this(ConfigFactory.empty())
+  var conf: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.conf = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.conf
   }
 
   override def checkConfig(): (Boolean, String) = (true, "")

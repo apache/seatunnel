@@ -11,7 +11,23 @@ import org.apache.spark.streaming.StreamingContext
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
-abstract class FileOutputBase(var config: Config) extends BaseOutput(config) {
+abstract class FileOutputBase extends BaseOutput {
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   protected def checkConfigImpl(allowedURISchema: List[String]): (Boolean, String) = {
 

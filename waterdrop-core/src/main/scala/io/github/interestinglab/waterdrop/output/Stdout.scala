@@ -7,7 +7,23 @@ import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 
-class Stdout(var config: Config) extends BaseOutput(config) {
+class Stdout extends BaseOutput {
+
+  var config: Config = ConfigFactory.empty()
+
+  /**
+   * Set Config.
+   * */
+  override def setConfig(config: Config): Unit = {
+    this.config = config
+  }
+
+  /**
+   * Get Config.
+   * */
+  override def getConfig(): Config = {
+    this.config
+  }
 
   override def checkConfig(): (Boolean, String) = {
     !config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1) match {
