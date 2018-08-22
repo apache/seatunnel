@@ -60,6 +60,7 @@ abstract class FileOutputBase(var config: Config) extends BaseOutput(config) {
     }
 
     Try(config.getConfig("option")) match {
+
       case Success(options) => {
         val optionMap = options
           .entrySet()
