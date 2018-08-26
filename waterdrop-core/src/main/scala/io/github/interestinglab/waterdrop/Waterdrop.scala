@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop
 
 import java.io.File
 
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseInput, BaseOutput}
+import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseStreamingInput, BaseOutput}
 import io.github.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
@@ -134,7 +134,7 @@ object Waterdrop extends Logging {
   private def process(
     sparkSession: SparkSession,
     ssc: StreamingContext,
-    inputs: List[BaseInput],
+    inputs: List[BaseStreamingInput],
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
 

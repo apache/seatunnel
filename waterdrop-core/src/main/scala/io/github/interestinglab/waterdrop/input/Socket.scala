@@ -2,12 +2,12 @@ package io.github.interestinglab.waterdrop.input
 
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseInput
+import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class Socket extends BaseInput {
+class Socket extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 
