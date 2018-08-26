@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.config
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigRenderOptions}
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseInput, BaseOutput}
+import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseStreamingInput, BaseOutput}
 import org.antlr.v4.runtime.{ANTLRFileStream, CharStream, CommonTokenStream}
 import io.github.interestinglab.waterdrop.configparser.{ConfigLexer, ConfigParser, ConfigVisitor}
 
@@ -73,9 +73,9 @@ class ConfigBuilder(configFile: String) {
     filterList
   }
 
-  def createInputs: List[BaseInput] = {
+  def createInputs: List[BaseStreamingInput] = {
 
-    var inputList = List[BaseInput]()
+    var inputList = List[BaseStreamingInput]()
     config
       .getConfigList("input")
       .foreach(plugin => {
@@ -84,7 +84,7 @@ class ConfigBuilder(configFile: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseInput]
+          .asInstanceOf[BaseStreamingInput]
 
         obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
 

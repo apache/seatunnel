@@ -1,11 +1,11 @@
 package io.github.interestinglab.waterdrop.input
 
 import com.typesafe.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseInput
+import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class Hdfs extends BaseInput {
+class Hdfs extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 
