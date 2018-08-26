@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
@@ -123,7 +124,8 @@ class Table extends BaseFilter {
     val fieldNames = config.getStringList("fields")
 
     val initialSchema = fieldNames.map(name => StructField(name, StringType))
-    var df = spark.createDataset[Row](strRDD, StructType(initialSchema))
+    val encoder = RowEncoder(StructType(initialSchema))
+    var df = spark.createDataset(strRDD)(encoder)
 
     df = config.hasPath("field_types") match {
       case true => {
