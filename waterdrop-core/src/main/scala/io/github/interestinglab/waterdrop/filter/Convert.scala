@@ -3,7 +3,6 @@ package io.github.interestinglab.waterdrop.filter
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions.col
 
@@ -35,9 +34,9 @@ class Convert extends BaseFilter {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
+  override def prepare(spark: SparkSession): Unit = {
 
-    super.prepare(spark, ssc)
+    super.prepare(spark)
   }
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {

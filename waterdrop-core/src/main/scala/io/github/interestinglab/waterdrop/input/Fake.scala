@@ -77,8 +77,8 @@ class Fake extends BaseStreamingInput {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(

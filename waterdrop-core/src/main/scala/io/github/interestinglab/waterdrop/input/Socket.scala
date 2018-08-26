@@ -27,8 +27,8 @@ class Socket extends BaseStreamingInput {
 
   override def checkConfig(): (Boolean, String) = (true, "")
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(

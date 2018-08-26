@@ -6,7 +6,6 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.utils.StringTemplate
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
@@ -49,8 +48,8 @@ abstract class FileOutputBase extends BaseOutput {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(

@@ -5,7 +5,6 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 
@@ -35,7 +34,7 @@ class Split extends BaseFilter {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
+  override def prepare(spark: SparkSession): Unit = {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
