@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop
 
 import java.io.File
 
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseStreamingInput, BaseOutput}
+import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
 import io.github.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
@@ -56,7 +56,6 @@ object Waterdrop extends Logging {
   private def entrypoint(configFile: String): Unit = {
 
     val configBuilder = new ConfigBuilder(configFile)
-    val sparkConfig = configBuilder.getSparkConfigs
     val inputs = configBuilder.createInputs
     val outputs = configBuilder.createOutputs
     val filters = configBuilder.createFilters
@@ -81,17 +80,6 @@ object Waterdrop extends Logging {
     if (!configValid) {
       System.exit(-1) // invalid configuration
     }
-
-    println("[INFO] loading SparkConf: ")
-    val sparkConf = createSparkConf(configBuilder)
-    sparkConf.getAll.foreach(entry => {
-      val (key, value) = entry
-      println("\t" + key + " => " + value)
-    })
-
-    val duration = sparkConfig.getLong("spark.streaming.batchDuration")
-    val ssc = new StreamingContext(sparkConf, Seconds(duration))
-    val sparkSession = SparkSession.builder.config(ssc.sparkContext.getConf).getOrCreate()
 
     Common.getDeployMode match {
       case Some(m) => {
@@ -128,32 +116,79 @@ object Waterdrop extends Logging {
       }
     }
 
-    process(sparkSession, ssc, inputs, filters, outputs)
+    process(configBuilder, List(), inputs, filters, outputs)
   }
 
   private def process(
-    sparkSession: SparkSession,
-    ssc: StreamingContext,
-    inputs: List[BaseStreamingInput],
+    configBuilder: ConfigBuilder,
+    staticInputs: List[BaseStaticInput],
+    streamingInputs: List[BaseStreamingInput],
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
+
+    println("[INFO] loading SparkConf: ")
+    val sparkConf = createSparkConf(configBuilder)
+    sparkConf.getAll.foreach(entry => {
+      val (key, value) = entry
+      println("\t" + key + " => " + value)
+    })
+
+    val sparkSession = SparkSession.builder.config(sparkConf).getOrCreate()
 
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
-    for (i <- inputs) {
-      i.prepare(sparkSession, ssc)
+    // TODO: build static input from config builder
+    // [done]（1）当streaming input 有 0 个的时候，（2）当streaming input 有 1 个的时候，（3）当streaming input 有 > 1 个的时候，
+    // [done] 区分 streaming, batch 流程 ...
+    // [done] prepare(ssc = ???), ssc ???
+    // [done] input / dataset name register / primary / secondary input  ---> 默认先取第一个
+
+    streamingInputs.size match {
+      case 0 => {
+        batchProcessing(sparkSession, configBuilder, staticInputs, filters, outputs)
+      }
+      case _ => {
+        streamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
+      }
+    }
+  }
+
+  /**
+   * Streaming Processing
+   * */
+  private def streamingProcessing(
+    sparkSession: SparkSession,
+    configBuilder: ConfigBuilder,
+    staticInputs: List[BaseStaticInput],
+    streamingInputs: List[BaseStreamingInput],
+    filters: List[BaseFilter],
+    outputs: List[BaseOutput]): Unit = {
+
+    // TODO: static input
+
+    val sparkConfig = configBuilder.getSparkConfigs
+    val duration = sparkConfig.getLong("spark.streaming.batchDuration")
+    val sparkConf = createSparkConf(configBuilder)
+    val ssc = new StreamingContext(sparkConf, Seconds(duration))
+
+    for (i <- staticInputs) {
+      i.prepare(sparkSession)
+    }
+
+    for (i <- streamingInputs) {
+      i.prepare(sparkSession)
     }
 
     for (o <- outputs) {
-      o.prepare(sparkSession, ssc)
+      o.prepare(sparkSession)
     }
 
     for (f <- filters) {
-      f.prepare(sparkSession, ssc)
+      f.prepare(sparkSession)
     }
 
-    val dstreamList = inputs.map(p => {
+    val dstreamList = streamingInputs.map(p => {
       p.getDStream(ssc)
     })
 
@@ -186,7 +221,7 @@ object Waterdrop extends Logging {
         ds = f.process(spark, ds)
       }
 
-      inputs.foreach(p => {
+      streamingInputs.foreach(p => {
         p.beforeOutput
       })
 
@@ -194,7 +229,73 @@ object Waterdrop extends Logging {
         p.process(ds)
       })
 
-      inputs.foreach(p => {
+      streamingInputs.foreach(p => {
+        p.afterOutput
+      })
+
+    }
+
+    ssc.start()
+    ssc.awaitTermination()
+  }
+
+  /**
+   * Batch Processing
+   * */
+  private def batchProcessing(
+    sparkSession: SparkSession,
+    configBuilder: ConfigBuilder,
+    staticInputs: List[BaseStaticInput],
+    filters: List[BaseFilter],
+    outputs: List[BaseOutput]): Unit = {
+
+    val sparkConfig = configBuilder.getSparkConfigs
+    val duration = sparkConfig.getLong("spark.streaming.batchDuration")
+    val sparkConf = createSparkConf(configBuilder)
+    val ssc = new StreamingContext(sparkConf, Seconds(duration))
+
+    for (i <- staticInputs) {
+      i.prepare(sparkSession)
+    }
+
+    for (o <- outputs) {
+      o.prepare(sparkSession)
+    }
+
+    for (f <- filters) {
+      f.prepare(sparkSession)
+    }
+
+    // TODO:
+
+    dStream.foreachRDD { strRDD =>
+      val rowsRDD = strRDD.mapPartitions { partitions =>
+        val row = partitions.map(Row(_))
+        val rows = row.toList
+        rows.iterator
+      }
+
+      val spark = SparkSession.builder.config(rowsRDD.sparkContext.getConf).getOrCreate()
+      // For implicit conversions like converting RDDs to DataFrames
+      import spark.implicits._
+
+      val schema = StructType(Array(StructField("raw_message", StringType)))
+      val encoder = RowEncoder(schema)
+      var ds = spark.createDataset(rowsRDD)(encoder)
+
+      for (f <- filters) {
+        ds = f.process(spark, ds)
+      }
+
+      streamingInputs.foreach(p => {
+        p.beforeOutput
+      })
+
+      outputs.foreach(p => {
+        p.process(ds)
+      })
+
+      streamingInputs.foreach(p => {
         p.afterOutput
       })
 

@@ -6,7 +6,6 @@ import io.github.interestinglab.waterdrop.core.RowConstant
 import io.github.interestinglab.waterdrop.utils.{FormatParser, StringTemplate, UnixMSParser, UnixParser}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
 
@@ -35,8 +34,8 @@ class Date extends BaseFilter {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "source_field" -> RowConstant.ROOT,

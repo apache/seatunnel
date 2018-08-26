@@ -49,7 +49,7 @@ Waterdrop支持Java/Scala作为插件开发语言，其中**Input**插件推荐�
     ```scala
     class ScalaHdfs(config: Config) extends BaseInput(config) {
         override def checkConfig(): (Boolean, String) = {}
-        override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {}
+        override def prepare(spark: SparkSession): Unit = {}
         override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {}
     }
     ```
@@ -83,7 +83,7 @@ Waterdrop支持Java/Scala作为插件开发语言，其中**Input**插件推荐�
             this(ConfigFactory.empty())
         }
         override def checkConfig(): (Boolean, String) = {}
-        override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {}
+        override def prepare(spark: SparkSession): Unit = {}
         override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {}
     }
     ```
@@ -125,7 +125,7 @@ Waterdrop支持Java/Scala作为插件开发语言，其中**Input**插件推荐�
     ```Scala
     class ScalaStdout(var config: Config) extends BaseOutput(config) {
         override def checkConfig(): (Boolean, String) = {}
-        override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {}
+        override def prepare(spark: SparkSession): Unit = {}
         override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {}
     }
     ```

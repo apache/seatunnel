@@ -5,7 +5,6 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.col
 
 import scala.collection.JavaConversions._
@@ -99,8 +98,8 @@ class Table extends BaseFilter {
     })
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         // Cache(cache=true) dataframe to avoid reloading data every time this dataframe get used.

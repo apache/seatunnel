@@ -3,7 +3,6 @@ package io.github.interestinglab.waterdrop.output
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 
 import scala.collection.immutable.HashMap
@@ -95,11 +94,11 @@ class Clickhouse extends BaseOutput {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
+  override def prepare(spark: SparkSession): Unit = {
 
     this.initSQL = initPrepareSQL()
     logInfo(this.initSQL)
-    super.prepare(spark, ssc)
+    super.prepare(spark)
   }
 
   override def process(df: Dataset[Row]): Unit = {

@@ -3,6 +3,9 @@ package io.github.interestinglab.waterdrop.apis
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
+/**
+ * Superclass of all streaming input, extends this abstract class to implement a streaming input.
+ * */
 abstract class BaseStreamingInput extends Plugin {
 
   /**

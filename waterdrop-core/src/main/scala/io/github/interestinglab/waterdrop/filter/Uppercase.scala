@@ -3,7 +3,6 @@ package io.github.interestinglab.waterdrop.filter
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, upper}
 
 import scala.collection.JavaConversions._
@@ -28,8 +27,8 @@ class Uppercase extends BaseFilter {
 
   override def checkConfig(): (Boolean, String) = (true, "")
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "source_field" -> "raw_message",

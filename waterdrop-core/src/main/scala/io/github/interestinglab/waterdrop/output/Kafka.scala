@@ -5,7 +5,6 @@ import java.util.Properties
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
@@ -43,8 +42,8 @@ class Kafka extends BaseOutput {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
@@ -72,7 +71,7 @@ class Kafka extends BaseOutput {
       println("[INFO] \t" + key + " = " + value)
     })
 
-    kafkaSink = Some(ssc.sparkContext.broadcast(KafkaSink(props)))
+    kafkaSink = Some(spark.sparkContext.broadcast(KafkaSink(props)))
   }
 
   override def process(df: Dataset[Row]) {
