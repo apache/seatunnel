@@ -1,11 +1,11 @@
 package io.github.interestinglab.waterdrop.apis
 
 import org.apache.spark.sql.expressions.{UserDefinedAggregateFunction, UserDefinedFunction}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 abstract class BaseFilter extends Plugin {
 
-  def process(spark: SparkSession, df: DataFrame): DataFrame
+  def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row]
 
   /**
    * Allow to register user defined UDFs

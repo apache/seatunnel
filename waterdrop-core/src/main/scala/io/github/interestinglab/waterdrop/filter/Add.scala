@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.lit
 
 class Add extends BaseFilter {
@@ -30,7 +30,7 @@ class Add extends BaseFilter {
     }
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     df.withColumn(conf.getString("target_field"), lit(conf.getString("value")))
   }
 }

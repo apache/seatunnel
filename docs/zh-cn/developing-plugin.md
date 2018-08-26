@@ -11,11 +11,11 @@ Waterdrop插件分为三部分，**Input**、**Filter**和**Output**
 
 ### Filter
 
-**Filter**是[transform](http://spark.apache.org/docs/latest/rdd-programming-guide.html#transformations)操作，负责对DataFrame的数据结构进行操作
+**Filter**是[transform](http://spark.apache.org/docs/latest/rdd-programming-guide.html#transformations)操作，负责对Dataset[Row]的数据结构进行操作
 
 ### Output
 
-**Output**是[action](http://spark.apache.org/docs/latest/rdd-programming-guide.html#actions)操作，负责将DataFrame输出到外部数据源或者打印到终端
+**Output**是[action](http://spark.apache.org/docs/latest/rdd-programming-guide.html#actions)操作，负责将Dataset[Row]输出到外部数据源或者打印到终端
 
 ## 准备工作
 
@@ -84,7 +84,7 @@ Waterdrop支持Java/Scala作为插件开发语言，其中**Input**插件推荐�
         }
         override def checkConfig(): (Boolean, String) = {}
         override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {}
-        override def process(spark: SparkSession, df: DataFrame): DataFrame = {}
+        override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {}
     }
     ```
     ```Java
@@ -126,7 +126,7 @@ Waterdrop支持Java/Scala作为插件开发语言，其中**Input**插件推荐�
     class ScalaStdout(var config: Config) extends BaseOutput(config) {
         override def checkConfig(): (Boolean, String) = {}
         override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {}
-        override def process(spark: SparkSession, df: DataFrame): DataFrame = {}
+        override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {}
     }
     ```
     ```Java

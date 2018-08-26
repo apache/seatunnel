@@ -5,7 +5,7 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
 import io.github.interestinglab.waterdrop.utils.{FormatParser, StringTemplate, UnixMSParser, UnixParser}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
@@ -51,7 +51,7 @@ class Date extends BaseFilter {
     config = config.withFallback(defaultConfig)
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
 
     val targetTimeFormat = config.getString("target_time_format")
     val targetField = config.getString("target_field")
