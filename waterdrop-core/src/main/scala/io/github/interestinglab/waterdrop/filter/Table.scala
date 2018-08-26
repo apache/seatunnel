@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.filter
 import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.col
 
@@ -123,7 +123,7 @@ class Table extends BaseFilter {
     val fieldNames = config.getStringList("fields")
 
     val initialSchema = fieldNames.map(name => StructField(name, StringType))
-    var df = spark.createDataFrame(strRDD, StructType(initialSchema))
+    var df = spark.createDataset[Row](strRDD, StructType(initialSchema))
 
     df = config.hasPath("field_types") match {
       case true => {
@@ -156,7 +156,7 @@ class Table extends BaseFilter {
     df.createOrReplaceTempView(config.getString("table_name"))
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     df
   }
 }

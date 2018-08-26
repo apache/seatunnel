@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 class Sql extends BaseFilter {
 
@@ -29,7 +29,7 @@ class Sql extends BaseFilter {
     }
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     df.createOrReplaceTempView(this.conf.getString("table_name"))
     spark.sql(conf.getString("sql"))
   }

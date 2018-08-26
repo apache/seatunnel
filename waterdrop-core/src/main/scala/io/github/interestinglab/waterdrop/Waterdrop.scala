@@ -176,10 +176,10 @@ object Waterdrop extends Logging {
       val spark = SparkSession.builder.config(rowsRDD.sparkContext.getConf).getOrCreate()
 
       val schema = StructType(Array(StructField("raw_message", StringType)))
-      var df = spark.createDataFrame(rowsRDD, schema)
+      var ds = spark.createDataset(rowsRDD)
 
       for (f <- filters) {
-        df = f.process(spark, df)
+        ds = f.process(spark, ds)
       }
 
       inputs.foreach(p => {
@@ -187,7 +187,7 @@ object Waterdrop extends Logging {
       })
 
       outputs.foreach(p => {
-        p.process(df)
+        p.process(ds)
       })
 
       inputs.foreach(p => {

@@ -66,7 +66,7 @@ class Elasticsearch extends BaseOutput {
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
   }
 
-  override def process(df: DataFrame): Unit = {
+  override def process(df: Dataset[Row]): Unit = {
     val index = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
     df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
   }

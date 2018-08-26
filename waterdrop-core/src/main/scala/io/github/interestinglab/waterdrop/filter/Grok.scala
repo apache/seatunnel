@@ -9,7 +9,7 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.config.Common
 import io.github.interestinglab.waterdrop.core.RowConstant
 import io.thekraken.grok.api.{Grok => GrokLib}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.sql.functions.{col, udf}
 
@@ -73,7 +73,7 @@ class Grok extends BaseFilter {
 
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     val grokUDF = udf((str: String) => grokMatch(str))
     val keys = getKeysOfPattern(conf.getString("pattern"))
     conf.getString("target_field") match {

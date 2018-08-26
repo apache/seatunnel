@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.output
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 
@@ -102,7 +102,7 @@ class Clickhouse extends BaseOutput {
     super.prepare(spark, ssc)
   }
 
-  override def process(df: DataFrame): Unit = {
+  override def process(df: Dataset[Row]): Unit = {
     df.foreachPartition { iter =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink)
       val executorConn = config.hasPath("username") match {

@@ -5,7 +5,7 @@ import java.util
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.utils.StringTemplate
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
@@ -63,7 +63,7 @@ abstract class FileOutputBase extends BaseOutput {
     config = config.withFallback(defaultConfig)
   }
 
-  override def process(df: DataFrame): Unit = {
+  override def process(df: Dataset[Row]): Unit = {
 
     var writer = df.write.mode(config.getString("save_mode"))
 
