@@ -9,6 +9,7 @@ import io.github.interestinglab.waterdrop.utils.CompressionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.streaming._
@@ -174,9 +175,12 @@ object Waterdrop extends Logging {
       }
 
       val spark = SparkSession.builder.config(rowsRDD.sparkContext.getConf).getOrCreate()
+      // For implicit conversions like converting RDDs to DataFrames
+      import spark.implicits._
 
       val schema = StructType(Array(StructField("raw_message", StringType)))
-      var ds = spark.createDataset(rowsRDD)
+      val encoder = RowEncoder(schema)
+      var ds = spark.createDataset(rowsRDD)(encoder)
 
       for (f <- filters) {
         ds = f.process(spark, ds)
