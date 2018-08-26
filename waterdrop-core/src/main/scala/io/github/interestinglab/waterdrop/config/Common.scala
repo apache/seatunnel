@@ -39,6 +39,9 @@ object Common {
   /**
    * Root dir varies between different spark master and deploy mode,
    * it also varies between relative and absolute path.
+   * When running waterdrop in --master local, you can put plugins related files in $project_dir/plugins,
+   * then these files will be automatically copied to $project_dir/waterdrop-core/target and token in effect if you start waterdrop in IDE tools such as IDEA.
+   * When running waterdrop in --master yarn or --master mesos, you can put plugins related files in plugins dir.
    * */
   def appRootDir: Path = {
 
