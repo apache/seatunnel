@@ -65,20 +65,19 @@ abstract class FileOutputBase extends BaseOutput {
 
   override def process(df: DataFrame): Unit = {
 
-    // TODO: 改变mode不好使
-    df.write.mode(config.getString("save_mode"))
+    var writer = df.write.mode(config.getString("save_mode"))
 
-    val writer = config.getStringList("partition_by").length == 0 match {
-      case true => df.write
+    writer = config.getStringList("partition_by").length == 0 match {
+      case true => writer
       case false => {
         val partitionKeys = config.getStringList("partition_by")
-        df.write.partitionBy(partitionKeys: _*)
+        writer.partitionBy(partitionKeys: _*)
       }
     }
 
     Try(config.getConfig("option")) match {
-      case Success(options) => {
 
+      case Success(options) => {
         val optionMap = options
           .entrySet()
           .foldRight(Map[String, String]())((entry, m) => {
@@ -88,6 +87,7 @@ abstract class FileOutputBase extends BaseOutput {
         writer.options(optionMap)
       }
       case Failure(exception) => // do nothing
+
     }
 
     val path = StringTemplate.substitute(config.getString("path"), config.getString("path_time_format"))
