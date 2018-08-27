@@ -11,7 +11,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming._
 
 import scala.collection.JavaConversions._
@@ -139,12 +139,6 @@ object Waterdrop extends Logging {
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
-    // [done] build static input from config builder, register static input dataset name.
-    // [done] input / dataset name register / primary / secondary input  ---> 默认先取第一个
-    // [done]（1）当streaming input 有 0 个的时候，（2）当streaming input 有 1 个的时候，（3）当streaming input 有 > 1 个的时候，
-    // [done] 区分 streaming, batch 流程 ...
-    // [done] prepare(ssc = ???), ssc ???
-
     streamingInputs.size match {
       case 0 => {
         batchProcessing(sparkSession, configBuilder, staticInputs, filters, outputs)
@@ -166,8 +160,6 @@ object Waterdrop extends Logging {
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
 
-    // TODO: static input, register static input dataset name.
-
     val sparkConfig = configBuilder.getSparkConfigs
     val duration = sparkConfig.getLong("spark.streaming.batchDuration")
     val sparkConf = createSparkConf(configBuilder)
@@ -187,6 +179,26 @@ object Waterdrop extends Logging {
 
     for (f <- filters) {
       f.prepare(sparkSession)
+    }
+
+    // let static input register as table for later use if needed
+    var datasetMap = Map[String, Dataset[Row]]()
+    for (input <- staticInputs) {
+
+      val ds = input.getDataset(sparkSession)
+
+      val config = input.getConfig()
+      config.hasPath("table_name") match {
+        case true => {
+          val tableName = config.getString("table_name")
+          datasetMap += (tableName -> ds)
+          ds.createOrReplaceTempView(tableName)
+        }
+        case false => {
+          throw new RuntimeException(
+            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
+        }
+      }
     }
 
     val dstreamList = streamingInputs.map(p => {
@@ -262,7 +274,27 @@ object Waterdrop extends Logging {
       f.prepare(sparkSession)
     }
 
-    var ds = staticInputs(0).createDataset(sparkSession)
+    // let static input register as table for later use if needed
+    var datasetMap = Map[String, Dataset[Row]]()
+    for (input <- staticInputs) {
+
+      val ds = input.getDataset(sparkSession)
+
+      val config = input.getConfig()
+      config.hasPath("table_name") match {
+        case true => {
+          val tableName = config.getString("table_name")
+          datasetMap += (tableName -> ds)
+          ds.createOrReplaceTempView(tableName)
+        }
+        case false => {
+          throw new RuntimeException(
+            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
+        }
+      }
+    }
+
+    var ds = staticInputs(0).getDataset(sparkSession)
     for (f <- filters) {
       ds = f.process(sparkSession, ds)
     }
