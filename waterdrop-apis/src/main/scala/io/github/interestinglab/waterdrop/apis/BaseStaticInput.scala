@@ -8,7 +8,7 @@ import org.apache.spark.sql.{Dataset, Row, SparkSession}
 abstract class BaseStaticInput extends Plugin {
 
   /**
-   *
+   * Get Dataset from this Static Input.
    * */
-  def createDataset(spark: SparkSession): Dataset[Row]
+  def getDataset(spark: SparkSession): Dataset[Row]
 }
