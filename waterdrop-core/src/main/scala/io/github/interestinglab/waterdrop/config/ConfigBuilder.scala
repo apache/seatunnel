@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.config
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigRenderOptions}
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseStreamingInput, BaseOutput}
+import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
 import org.antlr.v4.runtime.{ANTLRFileStream, CharStream, CommonTokenStream}
 import io.github.interestinglab.waterdrop.configparser.{ConfigLexer, ConfigParser, ConfigVisitor}
 
@@ -43,7 +43,8 @@ class ConfigBuilder(configFile: String) {
    * */
   def checkConfig: Unit = {
     val sparkConfig = this.getSparkConfigs
-    val inputs = this.createInputs
+    val staticInput = this.createStaticInputs
+    val streamingInputs = this.createStreamingInputs
     val outputs = this.createOutputs
     val filters = this.createFilters
   }
@@ -73,7 +74,32 @@ class ConfigBuilder(configFile: String) {
     filterList
   }
 
-  def createInputs: List[BaseStreamingInput] = {
+  def createStaticInputs: List[BaseStaticInput] = {
+
+    var inputList = List[BaseStaticInput]()
+    config
+      .getConfigList("input")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+
+        obj match {
+          case inputObject: BaseStaticInput => {
+            val input = inputObject.asInstanceOf[BaseStaticInput]
+            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            inputList = inputList :+ input
+          }
+          case _ => // do nothing
+        }
+      })
+
+    inputList
+  }
+
+  def createStreamingInputs: List[BaseStreamingInput] = {
 
     var inputList = List[BaseStreamingInput]()
     config
@@ -84,11 +110,15 @@ class ConfigBuilder(configFile: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseStreamingInput]
 
-        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
-
-        inputList = inputList :+ obj
+        obj match {
+          case inputObject: BaseStreamingInput => {
+            val input = inputObject.asInstanceOf[BaseStreamingInput]
+            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            inputList = inputList :+ input
+          }
+          case _ => // do nothing
+        }
       })
 
     inputList
