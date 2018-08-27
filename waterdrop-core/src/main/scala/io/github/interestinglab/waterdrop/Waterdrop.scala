@@ -56,12 +56,13 @@ object Waterdrop extends Logging {
   private def entrypoint(configFile: String): Unit = {
 
     val configBuilder = new ConfigBuilder(configFile)
-    val inputs = configBuilder.createInputs
+    val staticInputs = configBuilder.createStaticInputs
+    val streamingInputs = configBuilder.createStreamingInputs
     val outputs = configBuilder.createOutputs
     val filters = configBuilder.createFilters
 
     var configValid = true
-    val plugins = inputs ::: filters ::: outputs
+    val plugins = staticInputs ::: streamingInputs ::: filters ::: outputs
     for (p <- plugins) {
       val (isValid, msg) = Try(p.checkConfig) match {
         case Success(info) => {
@@ -116,7 +117,7 @@ object Waterdrop extends Logging {
       }
     }
 
-    process(configBuilder, List(), inputs, filters, outputs)
+    process(configBuilder, staticInputs, streamingInputs, filters, outputs)
   }
 
   private def process(
@@ -138,11 +139,11 @@ object Waterdrop extends Logging {
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
-    // TODO: build static input from config builder
+    // [done] build static input from config builder, register static input dataset name.
+    // [done] input / dataset name register / primary / secondary input  ---> 默认先取第一个
     // [done]（1）当streaming input 有 0 个的时候，（2）当streaming input 有 1 个的时候，（3）当streaming input 有 > 1 个的时候，
     // [done] 区分 streaming, batch 流程 ...
     // [done] prepare(ssc = ???), ssc ???
-    // [done] input / dataset name register / primary / secondary input  ---> 默认先取第一个
 
     streamingInputs.size match {
       case 0 => {
@@ -165,7 +166,7 @@ object Waterdrop extends Logging {
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
 
-    // TODO: static input
+    // TODO: static input, register static input dataset name.
 
     val sparkConfig = configBuilder.getSparkConfigs
     val duration = sparkConfig.getLong("spark.streaming.batchDuration")
@@ -249,11 +250,6 @@ object Waterdrop extends Logging {
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
 
-    val sparkConfig = configBuilder.getSparkConfigs
-    val duration = sparkConfig.getLong("spark.streaming.batchDuration")
-    val sparkConf = createSparkConf(configBuilder)
-    val ssc = new StreamingContext(sparkConf, Seconds(duration))
-
     for (i <- staticInputs) {
       i.prepare(sparkSession)
     }
@@ -266,43 +262,14 @@ object Waterdrop extends Logging {
       f.prepare(sparkSession)
     }
 
-    // TODO:
-
-    dStream.foreachRDD { strRDD =>
-      val rowsRDD = strRDD.mapPartitions { partitions =>
-        val row = partitions.map(Row(_))
-        val rows = row.toList
-        rows.iterator
-      }
-
-      val spark = SparkSession.builder.config(rowsRDD.sparkContext.getConf).getOrCreate()
-      // For implicit conversions like converting RDDs to DataFrames
-      import spark.implicits._
-
-      val schema = StructType(Array(StructField("raw_message", StringType)))
-      val encoder = RowEncoder(schema)
-      var ds = spark.createDataset(rowsRDD)(encoder)
-
-      for (f <- filters) {
-        ds = f.process(spark, ds)
-      }
-
-      streamingInputs.foreach(p => {
-        p.beforeOutput
-      })
-
-      outputs.foreach(p => {
-        p.process(ds)
-      })
-
-      streamingInputs.foreach(p => {
-        p.afterOutput
-      })
-
+    var ds = staticInputs(0).createDataset(sparkSession)
+    for (f <- filters) {
+      ds = f.process(sparkSession, ds)
     }
 
-    ssc.start()
-    ssc.awaitTermination()
+    outputs.foreach(p => {
+      p.process(ds)
+    })
   }
 
   private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
