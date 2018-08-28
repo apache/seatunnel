@@ -222,16 +222,15 @@ object Waterdrop extends Logging {
         rows.iterator
       }
 
-      val spark = SparkSession.builder.config(rowsRDD.sparkContext.getConf).getOrCreate()
       // For implicit conversions like converting RDDs to DataFrames
-      import spark.implicits._
+      import sparkSession.implicits._
 
       val schema = StructType(Array(StructField("raw_message", StringType)))
       val encoder = RowEncoder(schema)
-      var ds = spark.createDataset(rowsRDD)(encoder)
+      var ds = sparkSession.createDataset(rowsRDD)(encoder)
 
       for (f <- filters) {
-        ds = f.process(spark, ds)
+        ds = f.process(sparkSession, ds)
       }
 
       streamingInputs.foreach(p => {
