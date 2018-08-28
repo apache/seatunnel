@@ -36,3 +36,6 @@ apidoc
 
 # Python
 *.py[cod]
+
+Test.java
+Test.scala
