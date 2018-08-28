@@ -3,9 +3,12 @@ package io.github.interestinglab.waterdrop.config
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigRenderOptions}
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
+import io.github.interestinglab.waterdrop.apis._
 import org.antlr.v4.runtime.{ANTLRFileStream, CharStream, CommonTokenStream}
 import io.github.interestinglab.waterdrop.configparser.{ConfigLexer, ConfigParser, ConfigVisitor}
+import org.reflections.Reflections
+
+import util.control.Breaks._
 
 class ConfigBuilder(configFile: String) {
 
@@ -145,8 +148,12 @@ class ConfigBuilder(configFile: String) {
     outputList
   }
 
+  /**
+   * Get full qualified class name by reflection api, ignore case.
+   * */
   private def buildClassFullQualifier(name: String, classType: String): String = {
-    var qualifier = name;
+
+    var qualifier = name
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
@@ -155,7 +162,22 @@ class ConfigBuilder(configFile: String) {
         case "output" => ConfigBuilder.OutputPackage
       }
 
-      qualifier = packageName + "." + qualifier.capitalize
+      val reflections = new Reflections(packageName)
+      val allClasses = reflections.getSubTypesOf(classOf[Plugin])
+      var classFound = false
+      breakable {
+        for (clz <- allClasses) {
+
+          clz.getSimpleName.toLowerCase == qualifier.toLowerCase match {
+            case true => {
+              qualifier = clz.getName
+              classFound = true
+              break
+            }
+            case false => // do nothing
+          }
+        }
+      }
     }
 
     qualifier
