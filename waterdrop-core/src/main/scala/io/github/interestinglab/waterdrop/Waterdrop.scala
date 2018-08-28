@@ -191,7 +191,15 @@ object Waterdrop extends Logging {
       config.hasPath("table_name") match {
         case true => {
           val tableName = config.getString("table_name")
-          datasetMap += (tableName -> ds)
+
+          datasetMap.contains(tableName) match {
+            case true =>
+              throw new RuntimeException(
+                "Detected duplicated Dataset["
+                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
+            case _ => datasetMap += (tableName -> ds)
+          }
+
           ds.createOrReplaceTempView(tableName)
         }
         case false => {
@@ -283,7 +291,15 @@ object Waterdrop extends Logging {
       config.hasPath("table_name") match {
         case true => {
           val tableName = config.getString("table_name")
-          datasetMap += (tableName -> ds)
+
+          datasetMap.contains(tableName) match {
+            case true =>
+              throw new RuntimeException(
+                "Detected duplicated Dataset["
+                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
+            case _ => datasetMap += (tableName -> ds)
+          }
+
           ds.createOrReplaceTempView(tableName)
         }
         case false => {
