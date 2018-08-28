@@ -163,7 +163,7 @@ object Waterdrop extends Logging {
     val sparkConfig = configBuilder.getSparkConfigs
     val duration = sparkConfig.getLong("spark.streaming.batchDuration")
     val sparkConf = createSparkConf(configBuilder)
-    val ssc = new StreamingContext(sparkConf, Seconds(duration))
+    val ssc = new StreamingContext(sparkSession.sparkContext, Seconds(duration))
 
     for (i <- staticInputs) {
       i.prepare(sparkSession)
