@@ -7,12 +7,16 @@ spark {
 }
 
 input {
+  fake2 {
+    table_name = "my_dataset"
+  }
 }
 
 filter {
   split {
+    source_field = "message"
     fields = ["msg", "name"]
-    delimiter = ","
+    delimiter = " "
   }
 }
 
