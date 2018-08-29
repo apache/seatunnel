@@ -21,7 +21,7 @@ class Hdfs extends BaseStaticInput {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "format" -> "csv",
+        "format" -> "csv"
       )
     )
 
