@@ -10,7 +10,7 @@ spark {
 }
 
 input {
-  fake {
+  fakestream {
     content = ["Hello World, InterestingLab"]
     rate = 1
   }
