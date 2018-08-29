@@ -7,7 +7,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class Socket extends BaseStreamingInput {
+class SocketStream extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 
