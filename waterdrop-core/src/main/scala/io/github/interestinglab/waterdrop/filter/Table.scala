@@ -2,9 +2,9 @@ package io.github.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.col
 
 import scala.collection.JavaConversions._
@@ -98,8 +98,8 @@ class Table extends BaseFilter {
     })
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         // Cache(cache=true) dataframe to avoid reloading data every time this dataframe get used.
@@ -123,7 +123,8 @@ class Table extends BaseFilter {
     val fieldNames = config.getStringList("fields")
 
     val initialSchema = fieldNames.map(name => StructField(name, StringType))
-    var df = spark.createDataFrame(strRDD, StructType(initialSchema))
+    val encoder = RowEncoder(StructType(initialSchema))
+    var df = spark.createDataset(strRDD)(encoder)
 
     df = config.hasPath("field_types") match {
       case true => {
@@ -156,7 +157,7 @@ class Table extends BaseFilter {
     df.createOrReplaceTempView(config.getString("table_name"))
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     df
   }
 }

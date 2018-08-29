@@ -4,8 +4,7 @@ import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
 
 class Json extends BaseFilter {
@@ -33,8 +32,8 @@ class Json extends BaseFilter {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
@@ -45,7 +44,7 @@ class Json extends BaseFilter {
     conf = conf.withFallback(defaultConfig)
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     val srcField = conf.getString("source_field")
 
     import spark.implicits._
