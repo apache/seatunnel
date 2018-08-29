@@ -5,7 +5,7 @@ import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class File extends BaseStreamingInput {
+class FileStream extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 
