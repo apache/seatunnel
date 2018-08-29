@@ -1,4 +1,4 @@
-## Input plugin : Fake
+## Input plugin : FakeStream [Streaming]
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -6,7 +6,7 @@
 
 ### Description
 
-伪造的Input用于生成数据。
+Fake Input主要用于方便得生成用户指定的数据，作为输入来对Waterdrop进行功能验证，测试，以及性能测试等。
 
 ### Options
 
@@ -43,7 +43,7 @@ json数据key列表，当`data_format`为json时使用
 1. 使用`data_format`
 
     ```
-    fake {
+    fakeStream {
         data_format = "text"
         text_delimeter = ","
         num_of_fields = 5
@@ -66,7 +66,7 @@ json数据key列表，当`data_format`为json时使用
 2. 不使用`data_format`
 
     ```
-    fake {
+    fakeStream {
         content = ['name=ricky&age=23', 'name=gary&age=28']
         rate = 5
     }
