@@ -14,7 +14,7 @@ import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 
 import scala.collection.JavaConversions._
 
-class Kafka extends BaseStreamingInput {
+class KafkaStream extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 
