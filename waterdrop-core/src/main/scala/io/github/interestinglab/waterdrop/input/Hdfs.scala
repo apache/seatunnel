@@ -21,7 +21,7 @@ class Hdfs extends BaseStaticInput {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "format" -> "csv"
+        "format" -> "json"
       )
     )
 
@@ -49,7 +49,7 @@ class Hdfs extends BaseStaticInput {
 
     var reader = spark.read.format(config.getString("format"))
 
-    Try(config.getConfig("option")) match {
+    Try(config.getConfig("options")) match {
 
       case Success(options) => {
         val optionMap = options
