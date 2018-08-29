@@ -4,7 +4,7 @@ import java.security.SecureRandom
 import java.util
 
 import com.typesafe.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseInput
+import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext
@@ -13,7 +13,7 @@ import org.apache.spark.streaming.receiver.Receiver
 
 import scala.collection.JavaConversions._
 
-class Fake extends BaseInput {
+class FakeStream extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 
@@ -77,8 +77,8 @@ class Fake extends BaseInput {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(

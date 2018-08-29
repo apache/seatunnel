@@ -4,7 +4,6 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.utils.StringTemplate
 import org.apache.spark.sql._
-import org.apache.spark.streaming.StreamingContext
 import org.elasticsearch.spark.sql._
 
 import scala.collection.JavaConversions._
@@ -42,8 +41,8 @@ class Elasticsearch extends BaseOutput {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
@@ -66,7 +65,7 @@ class Elasticsearch extends BaseOutput {
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
   }
 
-  override def process(df: DataFrame): Unit = {
+  override def process(df: Dataset[Row]): Unit = {
     val index = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
     df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
   }

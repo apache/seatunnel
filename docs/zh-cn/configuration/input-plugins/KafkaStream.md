@@ -1,4 +1,4 @@
-## Input plugin : Kafka
+## Input plugin : KafkaStream [Streaming]
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -44,7 +44,7 @@ Kafka集群地址，多个用","隔开
 ### Examples
 
 ```
-kafka {
+kafkaStream {
     topics = "waterdrop"
     consumer.bootstrap.servers = "localhost:9092"
     consumer.zookeeper.connect = "localhost:2181"

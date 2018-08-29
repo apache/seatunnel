@@ -5,8 +5,7 @@ import java.util
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, udf}
 
 import scala.collection.JavaConversions._
@@ -36,8 +35,8 @@ class Kv extends BaseFilter {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "field_split" -> "&",
@@ -52,7 +51,7 @@ class Kv extends BaseFilter {
     conf = conf.withFallback(defaultConfig)
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     conf.getString("target_field") match {
       case RowConstant.ROOT => df // TODO: implement
       case targetField: String => {

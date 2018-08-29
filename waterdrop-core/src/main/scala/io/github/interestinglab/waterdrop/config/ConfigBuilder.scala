@@ -3,9 +3,12 @@ package io.github.interestinglab.waterdrop.config
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigRenderOptions}
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseInput, BaseOutput}
+import io.github.interestinglab.waterdrop.apis._
 import org.antlr.v4.runtime.{ANTLRFileStream, CharStream, CommonTokenStream}
 import io.github.interestinglab.waterdrop.configparser.{ConfigLexer, ConfigParser, ConfigVisitor}
+import org.reflections.Reflections
+
+import util.control.Breaks._
 
 class ConfigBuilder(configFile: String) {
 
@@ -43,7 +46,8 @@ class ConfigBuilder(configFile: String) {
    * */
   def checkConfig: Unit = {
     val sparkConfig = this.getSparkConfigs
-    val inputs = this.createInputs
+    val staticInput = this.createStaticInputs
+    val streamingInputs = this.createStreamingInputs
     val outputs = this.createOutputs
     val filters = this.createFilters
   }
@@ -73,9 +77,9 @@ class ConfigBuilder(configFile: String) {
     filterList
   }
 
-  def createInputs: List[BaseInput] = {
+  def createStaticInputs: List[BaseStaticInput] = {
 
-    var inputList = List[BaseInput]()
+    var inputList = List[BaseStaticInput]()
     config
       .getConfigList("input")
       .foreach(plugin => {
@@ -84,11 +88,40 @@ class ConfigBuilder(configFile: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseInput]
 
-        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+        obj match {
+          case inputObject: BaseStaticInput => {
+            val input = inputObject.asInstanceOf[BaseStaticInput]
+            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            inputList = inputList :+ input
+          }
+          case _ => // do nothing
+        }
+      })
 
-        inputList = inputList :+ obj
+    inputList
+  }
+
+  def createStreamingInputs: List[BaseStreamingInput] = {
+
+    var inputList = List[BaseStreamingInput]()
+    config
+      .getConfigList("input")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+
+        obj match {
+          case inputObject: BaseStreamingInput => {
+            val input = inputObject.asInstanceOf[BaseStreamingInput]
+            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            inputList = inputList :+ input
+          }
+          case _ => // do nothing
+        }
       })
 
     inputList
@@ -115,8 +148,12 @@ class ConfigBuilder(configFile: String) {
     outputList
   }
 
+  /**
+   * Get full qualified class name by reflection api, ignore case.
+   * */
   private def buildClassFullQualifier(name: String, classType: String): String = {
-    var qualifier = name;
+
+    var qualifier = name
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
@@ -125,7 +162,22 @@ class ConfigBuilder(configFile: String) {
         case "output" => ConfigBuilder.OutputPackage
       }
 
-      qualifier = packageName + "." + qualifier.capitalize
+      val reflections = new Reflections(packageName)
+      val allClasses = reflections.getSubTypesOf(classOf[Plugin])
+      var classFound = false
+      breakable {
+        for (clz <- allClasses) {
+
+          clz.getSimpleName.toLowerCase == qualifier.toLowerCase match {
+            case true => {
+              qualifier = clz.getName
+              classFound = true
+              break
+            }
+            case false => // do nothing
+          }
+        }
+      }
     }
 
     qualifier

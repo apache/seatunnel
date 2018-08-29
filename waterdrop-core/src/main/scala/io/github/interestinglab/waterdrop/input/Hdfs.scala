@@ -1,11 +1,16 @@
 package io.github.interestinglab.waterdrop.input
 
 import com.typesafe.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseInput
-import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.dstream.DStream
+import io.github.interestinglab.waterdrop.apis.BaseStaticInput
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
-class Hdfs extends BaseInput {
+import scala.collection.JavaConversions._
+import scala.util.{Failure, Success, Try}
+
+/**
+ * HDFS Static Input to read hdfs files in csv, json, parquet, parquet format.
+ * */
+class Hdfs extends BaseStaticInput {
 
   var config: Config = ConfigFactory.empty()
 
@@ -13,7 +18,14 @@ class Hdfs extends BaseInput {
    * Set Config.
    * */
   override def setConfig(config: Config): Unit = {
-    this.config = config
+
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "format" -> "json"
+      )
+    )
+
+    this.config = config.withFallback(defaultConfig)
   }
 
   /**
@@ -24,26 +36,34 @@ class Hdfs extends BaseInput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("path") match {
-      case true => {
 
-        val dir = config.getString("path")
-        val path = new org.apache.hadoop.fs.Path(dir)
-        Option(path.toUri.getScheme) match {
-          case None => (true, "")
-          case Some(schema) => (true, "")
-          case _ =>
-            (
-              false,
-              "unsupported schema, please set the following allowed schemas: hdfs://, for example: hdfs://<name-service>:<port>/var/log")
-        }
-      }
-      case false => (false, "please specify [path] as non-empty string")
+    this.config.hasPath("path") match {
+      case true => (true, "")
+      case false => (false, "please specify [path] as string")
     }
   }
 
-  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
+  /**
+   * */
+  override def getDataset(spark: SparkSession): Dataset[Row] = {
 
-    ssc.textFileStream(config.getString("path")).map(s => { ("", s) })
+    var reader = spark.read.format(config.getString("format"))
+
+    Try(config.getConfig("options")) match {
+
+      case Success(options) => {
+        val optionMap = options
+          .entrySet()
+          .foldRight(Map[String, String]())((entry, m) => {
+            m + (entry.getKey -> entry.getValue.unwrapped().toString)
+          })
+
+        reader = reader.options(optionMap)
+      }
+      case Failure(exception) => // do nothing
+
+    }
+
+    reader.load(config.getString("path"))
   }
 }

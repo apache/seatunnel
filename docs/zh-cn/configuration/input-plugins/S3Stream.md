@@ -1,4 +1,4 @@
-## Input plugin : S3
+## Input plugin : S3Stream [Streaming]
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -21,7 +21,7 @@ S3云存储路径，当前支持的路径格式有**s3://**, **s3a://**, **s3n:/
 ### Example
 
 ```
-hdfs {
+s3Stream {
     path = "s3n://bucket/access.log"
 }
 ```
