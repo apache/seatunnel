@@ -7,19 +7,23 @@ spark {
 }
 
 input {
-  fake2 {
-    table_name = "my_dataset"
+  hdfs {
+    table_name = "accesslog"
+    path = "hdfs://hadoop-cluster-01/nginx/accesslog"
+    format = "json"
   }
 }
 
 filter {
-  split {
-    source_field = "message"
-    fields = ["msg", "name"]
-    delimiter = " "
+  sql {
+    table_name = "accesslog"
+    sql = "select * from accesslog where request_time > 1000" 
   }
 }
 
 output {
-  stdout {}
+  hdfs {
+    path = "hdfs://hadoop-cluster-01/nginx/accesslog_processed"
+    save_mode = "append"
+  }
 }
