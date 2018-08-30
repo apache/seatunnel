@@ -33,19 +33,38 @@ abstract class FileOutputBase extends BaseOutput {
     config.hasPath("path") && !config.getString("path").trim.isEmpty match {
       case true => {
         val dir = config.getString("path")
-        val unSupportedSchema = allowedURISchema.forall(schema => {
-          // there are 3 "/" in dir, first 2 are from URI Schema, and the last is from path
-          !dir.startsWith(schema + "/")
-        })
 
-        unSupportedSchema match {
-          case true =>
-            (false, "unsupported schema, please set the following allowed schemas: " + allowedURISchema.mkString(", "))
-          case false => (true, "")
+        dir.startsWith("/") || uriInAllowedSchema(dir, allowedURISchema) match {
+          case true => (true, "")
+          case false =>
+            (false, "invalid path URI, please set the following allowed schemas: " + allowedURISchema.mkString(", "))
         }
       }
       case false => (false, "please specify [path] as non-empty string")
     }
+  }
+
+  /**
+   * check if the schema name in this uri is allowed.
+   * @return true if schema name is allowed
+   * */
+  protected def uriInAllowedSchema(uri: String, allowedURISchema: List[String]): Boolean = {
+
+    val notAllowed = allowedURISchema.forall(schema => {
+      !uri.startsWith(schema)
+    })
+
+    !notAllowed
+  }
+
+  protected def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
+
+    val path = uri.startsWith("/") match {
+      case true => defaultUriSchema + uri
+      case false => uri
+    }
+
+    path
   }
 
   override def prepare(spark: SparkSession): Unit = {
@@ -62,7 +81,7 @@ abstract class FileOutputBase extends BaseOutput {
     config = config.withFallback(defaultConfig)
   }
 
-  override def process(df: Dataset[Row]): Unit = {
+  def processImpl(df: Dataset[Row], defaultUriSchema: String): Unit = {
 
     var writer = df.write.mode(config.getString("save_mode"))
 
@@ -89,7 +108,8 @@ abstract class FileOutputBase extends BaseOutput {
 
     }
 
-    val path = StringTemplate.substitute(config.getString("path"), config.getString("path_time_format"))
+    var path = buildPathWithDefaultSchema(config.getString("path"), defaultUriSchema)
+    path = StringTemplate.substitute(path, config.getString("path_time_format"))
     config.getString("serializer") match {
       case "csv" => writer.csv(path)
       case "json" => writer.json(path)
