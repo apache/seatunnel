@@ -43,6 +43,16 @@ class Hdfs extends BaseStaticInput {
     }
   }
 
+  private def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
+
+    val path = uri.startsWith("/") match {
+      case true => defaultUriSchema + uri
+      case false => uri
+    }
+
+    path
+  }
+
   /**
    * */
   override def getDataset(spark: SparkSession): Dataset[Row] = {
@@ -64,6 +74,7 @@ class Hdfs extends BaseStaticInput {
 
     }
 
-    reader.load(config.getString("path"))
+    val path = buildPathWithDefaultSchema(config.getString("path"), "hdfs://")
+    reader.load(path)
   }
 }
