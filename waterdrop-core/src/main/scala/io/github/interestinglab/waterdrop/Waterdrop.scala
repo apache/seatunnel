@@ -2,10 +2,13 @@ package io.github.interestinglab.waterdrop
 
 import java.io.File
 
+import io.github.interestinglab.waterdrop.Waterdrop.showWaterdropAsciiLogo
 import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
-import io.github.interestinglab.waterdrop.config.{CommandLineArgs, CommandLineUtils, Common, ConfigBuilder}
+import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
+import io.github.interestinglab.waterdrop.utils.AsciiArt
+import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
@@ -43,7 +46,19 @@ object Waterdrop extends Logging {
           }
           case false => {
 
-            entrypoint(configFilePath)
+            Try(entrypoint(configFilePath)) match {
+              case Success(_) => {}
+              case Failure(exception) => {
+                exception.isInstanceOf[ConfigRuntimeException] match {
+                  case true => {
+                    showConfigError(exception)
+                  }
+                  case false => {
+                    showFatalError(exception)
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -51,6 +66,29 @@ object Waterdrop extends Logging {
       // CommandLineUtils.parser.showUsageAsError()
       // CommandLineUtils.parser.terminate(Right(()))
     }
+  }
+
+  private def showWaterdropAsciiLogo(): Unit = {
+    AsciiArt.printAsciiArt("Waterdrop")
+  }
+
+  private def showConfigError(throwable: Throwable): Unit = {
+    println("\n\n===============================================================================\n\n")
+    val errorMsg = throwable.getMessage
+    println("Config Error:\n")
+    println("Reason: " + errorMsg + "\n")
+    println("\n===============================================================================\n\n\n")
+  }
+
+  private def showFatalError(throwable: Throwable): Unit = {
+    println("\n\n===============================================================================\n\n")
+    val errorMsg = throwable.getMessage
+    println("Fatal Error, \n")
+    println(
+      "Please contact garygaowork@gmail.com or issue a bug in https://github.com/InterestingLab/waterdrop/issues\n")
+    println("Reason: " + errorMsg + "\n")
+    println("Exception StackTrace: " + ExceptionUtils.getStackTrace(throwable))
+    println("\n===============================================================================\n\n\n")
   }
 
   private def entrypoint(configFile: String): Unit = {
@@ -194,7 +232,7 @@ object Waterdrop extends Logging {
 
           datasetMap.contains(tableName) match {
             case true =>
-              throw new RuntimeException(
+              throw new ConfigRuntimeException(
                 "Detected duplicated Dataset["
                   + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
             case _ => datasetMap += (tableName -> ds)
@@ -203,11 +241,14 @@ object Waterdrop extends Logging {
           ds.createOrReplaceTempView(tableName)
         }
         case false => {
-          throw new RuntimeException(
+          throw new ConfigRuntimeException(
             "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
         }
       }
     }
+
+    // when you see this ASCII logo, waterdrop is really started.
+    showWaterdropAsciiLogo()
 
     val dstreamList = streamingInputs.map(p => {
       p.getDStream(ssc)
@@ -294,7 +335,7 @@ object Waterdrop extends Logging {
 
           datasetMap.contains(tableName) match {
             case true =>
-              throw new RuntimeException(
+              throw new ConfigRuntimeException(
                 "Detected duplicated Dataset["
                   + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
             case _ => datasetMap += (tableName -> ds)
@@ -303,11 +344,14 @@ object Waterdrop extends Logging {
           ds.createOrReplaceTempView(tableName)
         }
         case false => {
-          throw new RuntimeException(
+          throw new ConfigRuntimeException(
             "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
         }
       }
     }
+
+    // when you see this ASCII logo, waterdrop is really started.
+    showWaterdropAsciiLogo()
 
     var ds = staticInputs(0).getDataset(sparkSession)
     for (f <- filters) {

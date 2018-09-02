@@ -1,4 +1,5 @@
 spark {
+  # You can set spark configuration here
   # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
   spark.app.name = "Waterdrop"
   spark.executor.instances = 2
@@ -7,23 +8,56 @@ spark {
 }
 
 input {
-  hdfs {
-    table_name = "accesslog"
-    path = "hdfs://hadoop-cluster-01/nginx/accesslog"
-    format = "json"
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  fake2 {
+    table_name = "my_dataset"
   }
+
+
+
+  # You can also use other input plugins, such as hdfs
+  # hdfs {
+  #   table_name = "accesslog"
+  #   path = "hdfs://hadoop-cluster-01/nginx/accesslog"
+  #   format = "json"
+  # }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
 filter {
-  sql {
-    table_name = "accesslog"
-    sql = "select * from accesslog where request_time > 1000" 
+  # split data by specific delimiter
+  split {
+    fields = ["msg", "name"]
+    delimiter = " "
   }
+
+
+
+  # you can also you other filter plugins, such as sql
+  # sql {
+  #   table_name = "accesslog"
+  #   sql = "select * from accesslog where request_time > 1000"
+  # }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
 output {
-  hdfs {
-    path = "hdfs://hadoop-cluster-01/nginx/accesslog_processed"
-    save_mode = "append"
+  # choose stdout output plugin to output data to console
+  stdout {
   }
+
+
+
+  # you can also you other output plugins, such as sql
+  # hdfs {
+  #   path = "hdfs://hadoop-cluster-01/nginx/accesslog_processed"
+  #   save_mode = "append"
+  # }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
