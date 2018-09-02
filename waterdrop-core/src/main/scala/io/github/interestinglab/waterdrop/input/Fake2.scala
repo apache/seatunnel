@@ -39,7 +39,7 @@ class Fake2 extends BaseStaticInput {
       RowFactory.create("Hello kid-xiong"))
 
     val schema = new StructType()
-      .add("message", DataTypes.StringType)
+      .add("raw_message", DataTypes.StringType)
 
     spark.createDataset(s)(RowEncoder(schema))
   }
