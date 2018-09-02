@@ -1,5 +1,7 @@
 package io.github.interestinglab.waterdrop.filter
 
+import java.io.File
+import java.nio.file.Paths
 import java.util
 
 import com.alibaba.fastjson.JSON
@@ -7,6 +9,7 @@ import com.alibaba.fastjson.serializer.SerializerFeature
 import com.ql.util.express.{DefaultContext, ExpressRunner}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
+import io.github.interestinglab.waterdrop.config.Common
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 
@@ -37,15 +40,21 @@ class Script extends BaseFilter {
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
-    val path = conf.getString("script_path")
-    ql = Source.fromFile(path).mkString
+    val path_str = Paths.get(Common.pluginFilesDir("script").toString).toString
+    val name = conf.getString("script_path")
+
+    getListOfFiles(path_str).foreach(f=>f.getName.equals(name) match {
+      case true => ql = Source.fromFile(f.getAbsolutePath).mkString
+      case false =>
+    })
+
+//    ql = Source.fromFile(path).mkString
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "json_name" -> "value",
         "errorList" -> false,
         "isCache" -> false,
         "isTrace" -> false,
-        "isShortCircuit" -> true,
         "isPrecise" -> false
       )
     )
@@ -59,7 +68,11 @@ class Script extends BaseFilter {
     val json = df.toJSON
 
     val partitions = json.mapPartitions(x => {
-      val runner = new ExpressRunner
+//    /**
+//    * isPrecise是否需要高精度的计算，
+//    * isTrace是否输出所有的跟踪信息，同时还需要log级别是DEBUG级
+//    */
+      val runner = new ExpressRunner(conf.getBoolean("isPrecise"),conf.getBoolean("isTrace"))
       val context = new DefaultContext[String, AnyRef]
       val list = new util.ArrayList[String]
       while (x.hasNext) {
@@ -72,6 +85,12 @@ class Script extends BaseFilter {
 
         context.put(conf.getString("json_name"), jsonObject)
 
+//   /**
+//   * ql 程序文本
+//   * context 执行上下文
+//   * errorList 输出的错误信息List
+//   * isCache 是否使用Cache中的指令集
+//   */
         val execute = runner.execute(ql, context
           , errorList, conf.getBoolean("isCache"), conf.getBoolean("isTrace"))
 
@@ -82,5 +101,15 @@ class Script extends BaseFilter {
 
     spark.read.json(partitions)
 
+  }
+
+
+  private def getListOfFiles(dir: String): List[File] = {
+    val d = new File(dir)
+    if (d.exists && d.isDirectory) {
+      d.listFiles.filter(_.isFile).toList
+    } else {
+      List[File]()
+    }
   }
 }
