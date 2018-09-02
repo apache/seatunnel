@@ -1,0 +1,9 @@
+io.github.interestinglab.waterdrop.output.Clickhouse
+io.github.interestinglab.waterdrop.output.Elasticsearch
+io.github.interestinglab.waterdrop.output.File
+io.github.interestinglab.waterdrop.output.Hdfs
+io.github.interestinglab.waterdrop.output.Jdbc
+io.github.interestinglab.waterdrop.output.Kafka
+io.github.interestinglab.waterdrop.output.Mysql
+io.github.interestinglab.waterdrop.output.S3
+io.github.interestinglab.waterdrop.output.Stdout
