@@ -32,23 +32,22 @@ class Script extends BaseFilter {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    conf.hasPath("script_path") && !"".equals(conf.getString("script_path")) match {
+    conf.hasPath("script_name") && !"".equals(conf.getString("script_name")) match {
       case true => (true, "")
-      case false => (false, "please specify [script_path] ")
+      case false => (false, "please specify [script_name] ")
     }
   }
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
     val path_str = Paths.get(Common.pluginFilesDir("script").toString).toString
-    val name = conf.getString("script_path")
+    val name = conf.getString("script_name")
 
     getListOfFiles(path_str).foreach(f=>f.getName.equals(name) match {
       case true => ql = Source.fromFile(f.getAbsolutePath).mkString
       case false =>
     })
 
-//    ql = Source.fromFile(path).mkString
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "json_name" -> "value",
@@ -68,10 +67,10 @@ class Script extends BaseFilter {
     val json = df.toJSON
 
     val partitions = json.mapPartitions(x => {
-//    /**
-//    * isPrecise是否需要高精度的计算，
-//    * isTrace是否输出所有的跟踪信息，同时还需要log级别是DEBUG级
-//    */
+      /**
+        * isPrecise是否需要高精度的计算，
+        * isTrace是否输出所有的跟踪信息，同时还需要log级别是DEBUG级
+        */
       val runner = new ExpressRunner(conf.getBoolean("isPrecise"),conf.getBoolean("isTrace"))
       val context = new DefaultContext[String, AnyRef]
       val list = new util.ArrayList[String]
@@ -84,13 +83,13 @@ class Script extends BaseFilter {
         }
 
         context.put(conf.getString("json_name"), jsonObject)
+        /**
+          * ql 程序文本
+          * context 执行上下文
+          * errorList 输出的错误信息List
+          * isCache 是否使用Cache中的指令集
+          */
 
-//   /**
-//   * ql 程序文本
-//   * context 执行上下文
-//   * errorList 输出的错误信息List
-//   * isCache 是否使用Cache中的指令集
-//   */
         val execute = runner.execute(ql, context
           , errorList, conf.getBoolean("isCache"), conf.getBoolean("isTrace"))
 
