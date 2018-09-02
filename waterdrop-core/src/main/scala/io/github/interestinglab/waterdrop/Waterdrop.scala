@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop
 
 import java.io.File
 
+import io.github.interestinglab.waterdrop.Waterdrop.showWaterdropAsciiLogo
 import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
@@ -22,8 +23,6 @@ import scala.util.{Failure, Success, Try}
 object Waterdrop extends Logging {
 
   def main(args: Array[String]) {
-
-    showWaterdropAsciiLogo()
 
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
@@ -248,6 +247,9 @@ object Waterdrop extends Logging {
       }
     }
 
+    // when you see this ASCII logo, waterdrop is really started.
+    showWaterdropAsciiLogo()
+
     val dstreamList = streamingInputs.map(p => {
       p.getDStream(ssc)
     })
@@ -347,6 +349,9 @@ object Waterdrop extends Logging {
         }
       }
     }
+
+    // when you see this ASCII logo, waterdrop is really started.
+    showWaterdropAsciiLogo()
 
     var ds = staticInputs(0).getDataset(sparkSession)
     for (f <- filters) {
