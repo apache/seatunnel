@@ -17,16 +17,13 @@ class Script extends BaseFilter {
 
   var conf: Config = ConfigFactory.empty()
 
-  /**
-    * Set Config.
-    **/
+  var ql: String = _
+
   override def setConfig(config: Config): Unit = {
     this.conf = config
   }
 
-  /**
-    * Get Config.
-    **/
+
   override def getConfig(): Config = {
     this.conf
   }
@@ -41,20 +38,22 @@ class Script extends BaseFilter {
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
     val path = conf.getString("script_path")
-    val ql = Source.fromFile(path).mkString
+    ql = Source.fromFile(path).mkString
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "json_name" -> "value",
-        "ql" -> ql,
         "errorList" -> false,
         "isCache" -> false,
-        "isTrace" -> false
+        "isTrace" -> false,
+        "isShortCircuit" -> true,
+        "isPrecise" -> false
       )
     )
     conf = conf.withFallback(defaultConfig)
   }
 
 
+  //TODO 多次json序列化带来的性能问题
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
     import spark.implicits._
     val json = df.toJSON
@@ -73,7 +72,7 @@ class Script extends BaseFilter {
 
         context.put(conf.getString("json_name"), jsonObject)
 
-        val execute = runner.execute(conf.getString("ql"), context
+        val execute = runner.execute(ql, context
           , errorList, conf.getBoolean("isCache"), conf.getBoolean("isTrace"))
 
         list.add(JSON.toJSONString(execute, SerializerFeature.WriteMapNullValue))
