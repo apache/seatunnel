@@ -10,7 +10,6 @@ import io.github.interestinglab.waterdrop.configparser.ConfigParser;
 import io.github.interestinglab.waterdrop.configparser.ConfigVisitor;
 
 /**
- * Created by gaoyingju on 11/09/2017.
  */
 public class ConfigCommand {
 

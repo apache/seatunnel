@@ -1,7 +1,6 @@
 package io.github.interestinglab.waterdrop.config;
 
 /**
- * Created by gaoyingju on 18/09/2017.
  */
 public class ConfigRuntimeException extends RuntimeException {
 

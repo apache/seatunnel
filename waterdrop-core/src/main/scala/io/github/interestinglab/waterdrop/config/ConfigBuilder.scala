@@ -1,12 +1,14 @@
 package io.github.interestinglab.waterdrop.config
 
+import java.util.ServiceLoader
+
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import com.typesafe.config.{Config, ConfigRenderOptions}
 import io.github.interestinglab.waterdrop.apis._
 import org.antlr.v4.runtime.{ANTLRFileStream, CharStream, CommonTokenStream}
 import io.github.interestinglab.waterdrop.configparser.{ConfigLexer, ConfigParser, ConfigVisitor}
-import org.reflections.Reflections
 
 import util.control.Breaks._
 
@@ -162,13 +164,20 @@ class ConfigBuilder(configFile: String) {
         case "output" => ConfigBuilder.OutputPackage
       }
 
-      val reflections = new Reflections(packageName)
-      val allClasses = reflections.getSubTypesOf(classOf[Plugin])
+      val services: Iterable[Plugin] =
+        (ServiceLoader load classOf[BaseStaticInput]).asScala ++
+          (ServiceLoader load classOf[BaseStreamingInput]).asScala ++
+          (ServiceLoader load classOf[BaseFilter]).asScala ++
+          (ServiceLoader load classOf[BaseOutput]).asScala
+
       var classFound = false
       breakable {
-        for (clz <- allClasses) {
-
-          clz.getSimpleName.toLowerCase == qualifier.toLowerCase match {
+        for (serviceInstance <- services) {
+          val clz = serviceInstance.getClass
+          // get class name prefixed by package name
+          val clzNameLowercase = clz.getName.toLowerCase()
+          val qualifierWithPackage = packageName + "." + qualifier
+          clzNameLowercase == qualifierWithPackage.toLowerCase match {
             case true => {
               qualifier = clz.getName
               classFound = true
