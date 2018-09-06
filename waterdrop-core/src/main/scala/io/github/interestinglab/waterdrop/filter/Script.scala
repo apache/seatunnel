@@ -26,7 +26,6 @@ class Script extends BaseFilter {
     this.conf = config
   }
 
-
   override def getConfig(): Config = {
     this.conf
   }
@@ -40,12 +39,13 @@ class Script extends BaseFilter {
 
   override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
     super.prepare(spark, ssc)
-    val path_str = Paths.get(Common.pluginFilesDir("script").toString).toString
+    val pathStr = Paths.get(Common.pluginFilesDir("script").toString).toString
     val name = conf.getString("script_name")
 
-    getListOfFiles(path_str).foreach(f=>f.getName.equals(name) match {
-      case true => ql = Source.fromFile(f.getAbsolutePath).mkString
-      case false =>
+    getListOfFiles(pathStr).foreach(f =>
+      f.getName.equals(name) match {
+        case true => ql = Source.fromFile(f.getAbsolutePath).mkString
+        case false =>
     })
 
     val defaultConfig = ConfigFactory.parseMap(
@@ -60,48 +60,48 @@ class Script extends BaseFilter {
     conf = conf.withFallback(defaultConfig)
   }
 
-
   //TODO 多次json序列化带来的性能问题
   override def process(spark: SparkSession, df: DataFrame): DataFrame = {
     import spark.implicits._
     val json = df.toJSON
 
-    val partitions = json.mapPartitions(x => {
-      /**
-        * isPrecise是否需要高精度的计算，
-        * isTrace是否输出所有的跟踪信息，同时还需要log级别是DEBUG级
-        */
-      val runner = new ExpressRunner(conf.getBoolean("isPrecise"),conf.getBoolean("isTrace"))
-      val context = new DefaultContext[String, AnyRef]
-      val list = new util.ArrayList[String]
-      while (x.hasNext) {
-        val value = x.next()
-        val jsonObject = JSON.parseObject(value)
-        val errorList = conf.getBoolean("errorList") match {
-          case true => new util.ArrayList[String]
-          case false => null
-        }
+    val partitions = json
+      .mapPartitions(x => {
 
-        context.put(conf.getString("json_name"), jsonObject)
         /**
-          * ql 程序文本
-          * context 执行上下文
-          * errorList 输出的错误信息List
-          * isCache 是否使用Cache中的指令集
-          */
+         * isPrecise是否需要高精度的计算，
+         * isTrace是否输出所有的跟踪信息，同时还需要log级别是DEBUG级
+         */
+        val runner = new ExpressRunner(conf.getBoolean("isPrecise"), conf.getBoolean("isTrace"))
+        val context = new DefaultContext[String, AnyRef]
+        val list = new util.ArrayList[String]
+        while (x.hasNext) {
+          val value = x.next()
+          val jsonObject = JSON.parseObject(value)
+          val errorList = conf.getBoolean("errorList") match {
+            case true => new util.ArrayList[String]
+            case false => null
+          }
 
-        val execute = runner.execute(ql, context
-          , errorList, conf.getBoolean("isCache"), conf.getBoolean("isTrace"))
+          context.put(conf.getString("json_name"), jsonObject)
 
-        list.add(JSON.toJSONString(execute, SerializerFeature.WriteMapNullValue))
-      }
-      list.iterator()
-    }).as[String]
+          /**
+           * ql 程序文本
+           * context 执行上下文
+           * errorList 输出的错误信息List
+           * isCache 是否使用Cache中的指令集
+           */
+          val execute = runner.execute(ql, context, errorList, conf.getBoolean("isCache"), conf.getBoolean("isTrace"))
+
+          list.add(JSON.toJSONString(execute, SerializerFeature.WriteMapNullValue))
+        }
+        list.iterator()
+      })
+      .as[String]
 
     spark.read.json(partitions)
 
   }
-
 
   private def getListOfFiles(dir: String): List[File] = {
     val d = new File(dir)
