@@ -37,8 +37,8 @@ class Script extends BaseFilter {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
     val pathStr = Paths.get(Common.pluginFilesDir("script").toString).toString
     val name = conf.getString("script_name")
 
