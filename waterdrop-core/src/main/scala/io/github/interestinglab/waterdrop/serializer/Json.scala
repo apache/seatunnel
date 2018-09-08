@@ -1,8 +1,7 @@
 package io.github.interestinglab.waterdrop.serializer
 
-import org.json4s.JsonAST.JValue
-import org.json4s.JsonDSL._
-import org.json4s.jackson.JsonMethods._
+import com.alibaba.fastjson.JSON
+import com.alibaba.fastjson.serializer.SerializerFeature
 
 object Json {
 
@@ -17,8 +16,8 @@ object Json {
   /**
    * Serialize Map[String, JValue] to Json String
    */
-  def serialize(e: Map[String, JValue]) : String = {
+  def serialize(e: Map[String, AnyRef]): String = {
 
-    compact(e)
+    JSON.toJSONString(e, SerializerFeature.WriteMapNullValue)
   }
 }
