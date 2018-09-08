@@ -1,4 +1,4 @@
-## Input plugin : Socket
+## Input plugin : Socket [Streaming]
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop

@@ -1,4 +1,4 @@
-## Input plugin : File
+## Input plugin : FileStream [Streaming]
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -21,7 +21,7 @@
 ### Example
 
 ```
-file {
+fileStream {
     path = "file:///var/log/access.log"
 }
 ```

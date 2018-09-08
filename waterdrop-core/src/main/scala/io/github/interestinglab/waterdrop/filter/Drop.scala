@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.filter
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.catalyst.parser.ParseException
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions.not
 
 import scala.util.control.NonFatal
@@ -43,7 +43,7 @@ class Drop extends BaseFilter {
     }
   }
 
-  override def process(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     val conditionExpr = conf.getString("condition")
     df.filter(not(new Column(spark.sessionState.sqlParser.parseExpression(conditionExpr))))
   }
