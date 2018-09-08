@@ -10,11 +10,11 @@ import org.apache.spark.streaming.dstream.DStream
 import com.typesafe.config.{Config, ConfigFactory}
 import _root_.kafka.message.MessageAndMetadata
 import _root_.kafka.common.TopicAndPartition
-import io.github.interestinglab.waterdrop.apis.BaseInput
+import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 
 import scala.collection.JavaConversions._
 
-class Kafka extends BaseInput {
+class KafkaStream extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 

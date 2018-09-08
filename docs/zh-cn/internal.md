@@ -16,7 +16,7 @@
 
 Waterdrop 的代码实现中，直接利用了多项在实践中被证明有利于提升处理性能的Spark的高级特性，如：
 
-（1）在核心流程代码中，使用DataFrame，Dataset，Spark SQL  编程API，有效利用了Spark 的catalyst优化器。
+（1）在核心流程代码中，使用Dataset，Spark SQL  编程API，有效利用了Spark 的catalyst优化器。
 
 （2）支持插件实现中使用broadcast variable，对于IP库解析，写数据库链接维护这样的应用场景，能起到优化作用。
 

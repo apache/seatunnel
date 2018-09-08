@@ -2,8 +2,7 @@ package io.github.interestinglab.waterdrop.output
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 
@@ -32,8 +31,8 @@ class Stdout extends BaseOutput {
     }
   }
 
-  override def prepare(spark: SparkSession, ssc: StreamingContext): Unit = {
-    super.prepare(spark, ssc)
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
@@ -44,7 +43,7 @@ class Stdout extends BaseOutput {
     config = config.withFallback(defaultConfig)
   }
 
-  override def process(df: DataFrame): Unit = {
+  override def process(df: Dataset[Row]): Unit = {
 
     val limit = config.getInt("limit")
 
