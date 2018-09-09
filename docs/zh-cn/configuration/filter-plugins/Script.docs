@@ -6,7 +6,7 @@
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
 
-@pluginOption string json="value" no "脚本内置JSONObject的引用名,不设置默认为'value'"
+@pluginOption string object_name="event" no "脚本内置JSONObject的引用名,不设置默认为'event'"
 @pluginOption string script_name yes "脚本名称"
 @pluginOption boolean errorList no "是否需要输出的错误信息List"
 @pluginOption boolean  isCache no "是否使用Cache中的指令集"
