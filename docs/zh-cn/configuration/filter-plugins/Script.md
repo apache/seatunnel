@@ -6,26 +6,30 @@
 
 ### Description
 
-解析并执行自定义脚本中逻辑
+解析并执行自定义脚本中逻辑, 即接受`object_name`(默认是event) 指定的JSONObject,
+完成自定义的处理逻辑，再返回一个新的event.
+
+脚本解析引擎的实现，采用的是[QLExpress](https://github.com/alibaba/QLExpress), 
+具体语法可参考[QLExpress 语法](https://github.com/alibaba/QLExpress#%E4%B8%89%E8%AF%AD%E6%B3%95%E4%BB%8B%E7%BB%8D).
 
 ### Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [json_name](#json_name-string) | string | no | value |
+| [object_name](#object_name-string) | string | no | events |
 | [script_name](#script_name-string) | string | yes | - |
 | [errorList](#errorList-boolean) | boolean | no | false |
 | [isCache](#isCache-boolean) | boolean | no | false |
 | [isTrace](#isTrace-boolean) | boolean | no | false |
 | [isPrecise](#isPrecise-boolean) | boolean | no | false |
 
-##### json_name [string]
+##### object_name [string]
 
-脚本内置JSONObject的引用名
+脚本内置JSONObject的引用名, 不设置默认为'event'
 
 ##### script_name [string]
 
-需要执行脚本的名称
+需要执行脚本的文件名称, 注意脚本文件必须放到`plugins/script/files`目录下面.
 
 ##### errorList [boolean]
 
@@ -47,21 +51,23 @@
 ### Examples
 
 * conf文件插件配置
+
 ```
   script {
-    json_name = "myJson"
     script_name = "my_script.ql"
   }
 ```
+
 * 自定义脚本(my_script.ql)
+
 ```
-event = new java.util.HashMap();
-you = myJson.getString("name");
-age = myJson.getLong("age");
+newEvent = new java.util.HashMap();
+you = event.getString("name");
+age = event.getLong("age");
 if(age > 10){
-event.put("name",you);
+newEvent.put("name",you);
 }
-return event;
+return newEvent;
 ```
 
 > 如果age大于10，则获取name放入map中并返回

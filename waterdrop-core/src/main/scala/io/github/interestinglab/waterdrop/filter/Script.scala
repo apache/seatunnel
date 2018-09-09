@@ -49,7 +49,7 @@ class Script extends BaseFilter {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "json_name" -> "value",
+        "object_name" -> "event",
         "errorList" -> false,
         "isCache" -> false,
         "isTrace" -> false,
@@ -82,7 +82,7 @@ class Script extends BaseFilter {
             case false => null
           }
 
-          context.put(conf.getString("json_name"), jsonObject)
+          context.put(conf.getString("object_name"), jsonObject)
 
           /**
            * ql 程序文本
