@@ -1,0 +1,14 @@
+@waterdropPlugin
+@pluginGroup filter
+@pluginName Script
+@pluginDesc "解析并执行自定义脚本中逻辑"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption string object_name="event" no "脚本内置JSONObject的引用名,不设置默认为'event'"
+@pluginOption string script_name yes "脚本名称"
+@pluginOption boolean errorList no "是否需要输出的错误信息List"
+@pluginOption boolean  isCache no "是否使用Cache中的指令集"
+@pluginOption boolean  isTrace no "是否输出所有的跟踪信息，同时还需要log级别是DEBUG级"
+@pluginOption boolean  isPrecise no "是否需要高精度的计算"
