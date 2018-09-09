@@ -32,7 +32,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-streaming-kafka-0-8" % sparkVersion
     exclude("org.spark-project.spark", "unused"),
   "com.typesafe" % "config" % "1.3.1",
-  "org.json4s" %% "json4s-jackson" % "3.2.11",
+  "com.alibaba" % "QLExpress" % "3.2.0",
+  "com.alibaba" % "fastjson" % "1.2.47",
   "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
   "mysql" % "mysql-connector-java" % "5.1.6",
