@@ -43,6 +43,8 @@ libraryDependencies ++= Seq(
   "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39" excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core"))
 )
 
+dependencyOverrides += "com.google.guava" % "guava" % "15.0"
+
 resolvers += Resolver.mavenLocal
 
 javacOptions ++= Seq("-source", "1.7", "-target", "1.7")
