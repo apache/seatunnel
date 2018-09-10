@@ -12,20 +12,20 @@ Please [download Spark](http://spark.apache.org/downloads.html) firstly. Require
 
 ### Step 2: Download Waterdrop
 
-下载[Waterdrop安装包](https://github.com/InterestingLab/waterdrop/releases) 并解压:
+Download [Waterdrop](https://github.com/InterestingLab/waterdrop/releases) and extract it.
 
 ```
-# 以waterdrop 1.0.2为例:
+# Take waterdrop 1.0.2 as example:
 wget https://github.com/InterestingLab/waterdrop/releases/download/v1.0.2/waterdrop-1.0.2.zip -O waterdrop-1.0.2.zip
 unzip waterdrop-1.0.2.zip
 ln -s waterdrop-1.0.2 waterdrop
 ```
 
-### Step 3: 配置 Waterdrop
+### Step 3: Waterdrop Configuration
 
-编辑 `config/waterdrop-env.sh`, 指定必须环境配置如SPARK_HOME(Step 1 中Spark下载并解压后的目录)
+Edit `config/waterdrop-env.sh`, specify the environment configuration must by used such as SPARK_HOME (the directory of Spark in Step 1)
 
-编辑 `config/application.conf`, 它决定了Waterdrop启动后，数据输入，处理，输出的方式和逻辑。
+Edit `config/application.conf`, which determined your Waterdrop pipeline, included input, filter and output.
 
 ```
 spark {
@@ -53,14 +53,15 @@ output {
 
 ```
 
-### Step 4: 启动netcat server用于发送数据
+### Step 4: Running Netcat
 
+You will first need to run Netcat (a small utility found in most Unix-like systems) as a data server by using
 ```
 nc -l -p 9999
 ```
 
 
-### Step 5: 启动Waterdrop
+### Step 5: Running Waterdrop
 
 ```
 cd waterdrop
@@ -68,12 +69,13 @@ cd waterdrop
 
 ```
 
-### Step 6: 在nc端输入
+### Step 6: Typing your lines
 
 ```
 Hello World, Gary
 ```
-Waterdrop日志打印出:
+
+The output of Waterdrop like this:
 
 ```
 +-----------------+-----------+----+
@@ -84,7 +86,6 @@ Waterdrop日志打印出:
 ```
 
 
-### 总结
+### Conclusion
 
-Waterdrop简单易用，还有更丰富的数据处理功能等待被发现。本文展示的数据处理案例，
-无需任何代码、编译、打包，比官方的[Quick Example](https://spark.apache.org/docs/latest/streaming-programming-guide.html#a-quick-example)更简单。
+Waterdrop is easy to use and there are richer data processing capability waiting to be discovered. The data processing case presented in this article does not require any code, compilation or packing. It is simpler than Spark [Quick Example](https://spark.apache.org/docs/latest/streaming-programming-guide.html#a-quick-example).
