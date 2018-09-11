@@ -6,7 +6,7 @@
 
 ### Description
 
-从本地文件中读取原始数据
+从本地文件目录中读取原始数据，会监听新文件生成。
 
 ### Options
 
@@ -16,12 +16,12 @@
 
 ##### path [string]
 
-文件路径
+文件目录路径
 
 ### Example
 
 ```
 fileStream {
-    path = "file:///var/log/access.log"
+    path = "file:///var/log/"
 }
 ```
