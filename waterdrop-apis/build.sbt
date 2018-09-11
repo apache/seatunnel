@@ -29,3 +29,5 @@ providedDeps match {
 libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.3.1"
 )
+
+dependencyOverrides += "com.google.guava" % "guava" % "15.0"

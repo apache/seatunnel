@@ -35,7 +35,7 @@ class Fake2 extends BaseStaticInput {
 
     val s = Seq(
       RowFactory.create("Hello garyelephant"),
-      RowFactory.create("Hello rickhuo"),
+      RowFactory.create("Hello rickyhuo"),
       RowFactory.create("Hello kid-xiong"))
 
     val schema = new StructType()
