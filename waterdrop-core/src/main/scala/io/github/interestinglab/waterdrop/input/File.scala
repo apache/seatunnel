@@ -43,6 +43,16 @@ class File extends BaseStaticInput {
     }
   }
 
+  private def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
+
+    val path = uri.startsWith("/") match {
+      case true => defaultUriSchema + uri
+      case false => uri
+    }
+
+    path
+  }
+
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
     var reader = spark.read.format(config.getString("format"))
@@ -62,7 +72,7 @@ class File extends BaseStaticInput {
 
     }
 
-    val path = config.getString("path")
+    val path = buildPathWithDefaultSchema(config.getString("path"), "file://")
     reader.load(path)
   }
 }

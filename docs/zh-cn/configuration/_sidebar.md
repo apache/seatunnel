@@ -8,6 +8,7 @@
   - [通用配置](/zh-cn/configuration/base)
   - [Input插件](/zh-cn/configuration/input-plugin)
     - [FakeStream](/zh-cn/configuration/input-plugins/FakeStream)
+    - [File](/zh-cn/configuration/input-plugins/File)
     - [FileStream](/zh-cn/configuration/input-plugins/FileStream)
     - [Hdfs](/zh-cn/configuration/input-plugins/Hdfs)
     - [HdfsStream](/zh-cn/configuration/input-plugins/HdfsStream)
