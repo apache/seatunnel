@@ -1,6 +1,6 @@
 @waterdropPlugin
 @pluginGroup input
-@pluginName FileStream
+@pluginName File
 @pluginDesc "从文件中读取原始数据"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
