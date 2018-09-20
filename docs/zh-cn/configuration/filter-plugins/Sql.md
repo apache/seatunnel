@@ -13,13 +13,13 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [sql](#sql-string) | string | yes | - |
-| [table](#table-string) | string | yes | - |
+| [table_name](#table_name-string) | string | yes | - |
 
 ##### sql [string]
 
 SQL语句
 
-##### table [string]
+##### table_name [string]
 
 表名，可为任意字符串, 这也是sql参数中使用的表名
 
@@ -28,7 +28,7 @@ SQL语句
 ```
 sql {
     sql = "select username, address from user_info",
-    table = "user_info"
+    table_name = "user_info"
 }
 ```
 
@@ -37,7 +37,7 @@ sql {
 ```
 sql {
     sql = "select substring(telephone, 0, 10) from user_info",
-    table = "user_info"
+    table_name = "user_info"
 }
 ```
 
@@ -46,7 +46,7 @@ sql {
 ```
 sql {
     sql = "select avg(age) from user_info",
-    table = "user_info"
+    table_name = "user_info"
 }
 ```
 

@@ -36,7 +36,7 @@ spark {
 }
 
 input {
-  socket {}
+  socketStream {}
 }
 
 filter {
