@@ -16,6 +16,7 @@
 | [options](#options-object) | object | no | - |
 | [path](#path-string) | string | yes | - |
 | [format](#format-string) | string | no | json |
+| [table_name](#table_name-string) | string | yes | - |
 
 ##### options [object]
 
@@ -29,12 +30,17 @@ Hadoop集群文件路径，以hdfs://开头
 
 从HDFS中读取文件的格式，目前支持`csv`、`json`、`parquet` 和 `text`.
 
+##### table_name [string]
+
+注册的表名
+
 
 ### Example
 
 ```
 hdfs {
     path = "hdfs:///var/waterdrop-logs"
+    table_name = "access_log"
     format = "json"
 }
 ```
@@ -46,6 +52,7 @@ hdfs {
 
 ```
 hdfs {
+    table_name = "access_log"
     path = "hdfs://m2:8022/waterdrop-logs/access.log"
 }
 ```

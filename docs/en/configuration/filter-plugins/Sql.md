@@ -13,13 +13,13 @@ Processing Rows using SQL, feel free to use [Spark UDF](http://spark.apache.org/
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [sql](#sql-string) | string | yes | - |
-| [table](#table-string) | string | yes | - |
+| [table_name](#table_name-string) | string | yes | - |
 
 ##### sql [string]
 
 SQL content.
 
-##### table [string]
+##### table_name [string]
 
 When `table` set, the current batch of events will be registered as a table, named by this `table` setting, on which you can execute sql.
 
@@ -28,7 +28,7 @@ When `table` set, the current batch of events will be registered as a table, nam
 ```
 sql {
     sql = "select username, address from user_info",
-    table = "user_info"
+    table_name = "user_info"
 }
 ```
 
@@ -37,7 +37,7 @@ sql {
 ```
 sql {
     sql = "select substring(telephone, 0, 10) from user_info",
-    table = "user_info"
+    table_name = "user_info"
 }
 ```
 
@@ -47,7 +47,7 @@ sql {
 ```
 sql {
     sql = "select avg(age) from user_info",
-    table = "user_info"
+    table_name = "user_info"
 }
 ```
 
