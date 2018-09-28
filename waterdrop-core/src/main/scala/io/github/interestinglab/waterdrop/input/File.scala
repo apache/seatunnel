@@ -55,7 +55,8 @@ class File extends BaseStaticInput {
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
-    var reader = spark.read.format(config.getString("format"))
+    val format = config.getString("format")
+    var reader = spark.read.format(format)
 
     Try(config.getConfig("options")) match {
 
@@ -73,6 +74,10 @@ class File extends BaseStaticInput {
     }
 
     val path = buildPathWithDefaultSchema(config.getString("path"), "file://")
-    reader.load(path)
+
+    format match {
+      case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
+      case _ => reader.load(path)
+    }
   }
 }
