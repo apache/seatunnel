@@ -203,21 +203,7 @@ object Waterdrop extends Logging {
     val sparkConf = createSparkConf(configBuilder)
     val ssc = new StreamingContext(sparkSession.sparkContext, Seconds(duration))
 
-    for (i <- staticInputs) {
-      i.prepare(sparkSession)
-    }
-
-    for (i <- streamingInputs) {
-      i.prepare(sparkSession)
-    }
-
-    for (o <- outputs) {
-      o.prepare(sparkSession)
-    }
-
-    for (f <- filters) {
-      f.prepare(sparkSession)
-    }
+    basePrepare(sparkSession, staticInputs, streamingInputs, filters, outputs)
 
     // let static input register as table for later use if needed
     var datasetMap = Map[String, Dataset[Row]]()
@@ -278,22 +264,25 @@ object Waterdrop extends Logging {
       val encoder = RowEncoder(schema)
       var ds = sparkSession.createDataset(rowsRDD)(encoder)
 
-      for (f <- filters) {
-        ds = f.process(sparkSession, ds)
+      // Ignore empty schema dataset
+      if (ds.columns.length > 0) {
+
+        for (f <- filters) {
+          ds = f.process(sparkSession, ds)
+        }
+
+        streamingInputs.foreach(p => {
+          p.beforeOutput
+        })
+
+        outputs.foreach(p => {
+          p.process(ds)
+        })
+
+        streamingInputs.foreach(p => {
+          p.afterOutput
+        })
       }
-
-      streamingInputs.foreach(p => {
-        p.beforeOutput
-      })
-
-      outputs.foreach(p => {
-        p.process(ds)
-      })
-
-      streamingInputs.foreach(p => {
-        p.afterOutput
-      })
-
     }
 
     ssc.start()
@@ -310,17 +299,8 @@ object Waterdrop extends Logging {
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
 
-    for (i <- staticInputs) {
-      i.prepare(sparkSession)
-    }
+    basePrepare(sparkSession, staticInputs, filters, outputs)
 
-    for (o <- outputs) {
-      o.prepare(sparkSession)
-    }
-
-    for (f <- filters) {
-      f.prepare(sparkSession)
-    }
 
     // let static input register as table for later use if needed
     var datasetMap = Map[String, Dataset[Row]]()
@@ -353,14 +333,48 @@ object Waterdrop extends Logging {
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
-    var ds = staticInputs(0).getDataset(sparkSession)
-    for (f <- filters) {
-      ds = f.process(sparkSession, ds)
+    var ds = staticInputs.head.getDataset(sparkSession)
+    if (ds.columns.length > 0) {
+      for (f <- filters) {
+        ds = f.process(sparkSession, ds)
+      }
+
+      outputs.foreach(p => {
+        p.process(ds)
+      })
+    }
+  }
+
+  private def basePrepare(
+    sparkSession: SparkSession,
+    staticInputs: List[BaseStaticInput],
+    streamingInputs: List[BaseStreamingInput],
+    filters: List[BaseFilter],
+    outputs: List[BaseOutput]): Unit = {
+    for (i <- streamingInputs) {
+      i.prepare(sparkSession)
     }
 
-    outputs.foreach(p => {
-      p.process(ds)
-    })
+    basePrepare(sparkSession, staticInputs, filters, outputs)
+  }
+
+  private def basePrepare(
+    sparkSession: SparkSession,
+    staticInputs: List[BaseStaticInput],
+    filters: List[BaseFilter],
+    outputs: List[BaseOutput]): Unit = {
+
+    for (i <- staticInputs) {
+      i.prepare(sparkSession)
+    }
+
+    for (o <- outputs) {
+      o.prepare(sparkSession)
+    }
+
+    for (f <- filters) {
+      f.prepare(sparkSession)
+    }
   }
 
   private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
