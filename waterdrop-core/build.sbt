@@ -32,6 +32,7 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-streaming-kafka-0-8" % sparkVersion
     exclude("org.spark-project.spark", "unused"),
   "com.typesafe" % "config" % "1.3.1",
+  "org.apache.spark" %% "spark-hive" % sparkVersion excludeAll(ExclusionRule(organization="com.google.guava.guava")),
   "com.alibaba" % "QLExpress" % "3.2.0",
   "com.alibaba" % "fastjson" % "1.2.47",
   "commons-lang" % "commons-lang" % "2.6",
