@@ -333,15 +333,18 @@ object Waterdrop extends Logging {
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
-    var ds = staticInputs.head.getDataset(sparkSession)
-    if (ds.columns.length > 0) {
-      for (f <- filters) {
-        ds = f.process(sparkSession, ds)
+    if (staticInputs.nonEmpty) {
+      var ds = staticInputs.head.getDataset(sparkSession)
+      if (ds.columns.length > 0) {
+        for (f <- filters) {
+          ds = f.process(sparkSession, ds)
+        }
+        outputs.foreach(p => {
+          p.process(ds)
+        })
       }
-
-      outputs.foreach(p => {
-        p.process(ds)
-      })
+    } else {
+      throw new ConfigRuntimeException("Input must be configured at least once.")
     }
   }
 
