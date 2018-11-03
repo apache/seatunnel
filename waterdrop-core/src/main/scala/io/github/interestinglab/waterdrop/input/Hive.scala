@@ -27,9 +27,11 @@ class Hive extends BaseStaticInput{
 
     val db = config.getString("hive_db")
     val table = config.getString("hive_table")
+    val table_name = config.getString("table_name")
     spark.sql(s"use $db")
-
-    spark.sql(s"select * from $table")
+    val ds = spark.sql(s"select * from $table")
+    ds.createOrReplaceTempView(s"$table_name")
+    ds
     }
 
 }
