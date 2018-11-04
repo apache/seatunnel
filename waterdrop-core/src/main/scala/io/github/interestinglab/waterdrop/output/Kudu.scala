@@ -19,9 +19,9 @@ class Kudu extends BaseOutput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("kudu_master") && config.hasPath("kudu_table") && config.hasPath("table_name") match {
+    config.hasPath("kudu_master") && config.hasPath("kudu_table") match {
       case true => (true, "")
-      case false => (false, "please specify [kudu_master] and [kudu_table] and [table_name]")
+      case false => (false, "please specify [kudu_master] and [kudu_table] ")
     }
   }
 
@@ -30,8 +30,13 @@ class Kudu extends BaseOutput {
 
     val kuduContext = new KuduContext(config.getString("kudu_master"),df.sparkSession.sparkContext)
 
-    kuduContext.upsertRows(df,config.getString("kudu_table"))
+    val table = config.getString("kudu_table")
 
+    config.getString("mode") match {
+      case "insert" => kuduContext.insertRows(df,table)
+      case "update" => kuduContext.updateRows(df,table)
+      case "upsert" => kuduContext.upsertRows(df,table)
+      case "insertIgnore" => kuduContext.insertIgnoreRows(df,table)
+    }
   }
-
 }

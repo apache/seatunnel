@@ -12,13 +12,12 @@ class MongoDB extends BaseStaticInput {
 
   var config: Config = ConfigFactory.empty()
 
+  var readConfig: ReadConfig = _
+
+  val confPrefix = "readConfig"
+
   override def setConfig(config: Config): Unit = {
-    var defaultConfig = ConfigFactory.parseMap(
-      Map(
-        "partitioner" -> "MongoShardedPartitioner"
-      )
-    )
-    this.config = config.withFallback(defaultConfig)
+    this.config = config
   }
 
   override def getConfig(): Config = {
@@ -26,20 +25,36 @@ class MongoDB extends BaseStaticInput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("mongo_uri") && config.hasPath("database") && config.hasPath("collection") && config.hasPath("table_name") match {
-      case true => (true, "you can please mongobd input partitioner,default is MongoShardedPartitioner")
-      case false => (false, "please specify [mongo_uri] and [database] and [collection] and [table_name]")
+
+    config.hasPath(confPrefix) && config.hasPath("table_name") match {
+      case true => {
+        val read = config.getConfig(confPrefix)
+        read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
+          case true => (true, "")
+          case false => (false, "please specify [readConfig.uri] and [readConfig.database] and [readConfig.collection]")
+        }
+      }
+      case false => (false, "please specify [readConfig]  and [table_name]")
     }
+  }
+
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
+    val map = new collection.mutable.HashMap[String, String]
+    config
+      .getConfig(confPrefix)
+      .entrySet()
+      .foreach(entry => {
+        val key = entry.getKey
+        val value = String.valueOf(entry.getValue.unwrapped())
+        map.put(key, value)
+      })
+    readConfig = ReadConfig(map)
   }
 
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
-    val configur = ReadConfig(Map(
-      "uri" -> config.getString("mongo_uri"),
-      "spark.mongodb.input.partitioner" -> config.getString("partitioner"),
-      "database" -> config.getString("database"),
-      "collection" -> config.getString("collection")))
-    MongoSpark.load(spark, configur)
+    MongoSpark.load(spark, readConfig)
   }
 
 }
