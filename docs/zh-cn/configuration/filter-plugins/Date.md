@@ -80,8 +80,8 @@ date {
 date {
     source_field = "httpdate"
     target_field = "datetime"
-    source_field_format = "dd/MMM/yyyy:HH:mm:ss Z"
-    target_field_format = "yyyy/MM/dd HH:mm:ss"
+    source_time_format = "dd/MMM/yyyy:HH:mm:ss Z"
+    target_time_format = "yyyy/MM/dd HH:mm:ss"
 }
 ```
 
