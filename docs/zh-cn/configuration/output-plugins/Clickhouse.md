@@ -12,12 +12,18 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
+| [bulk_size](#bulk_size-number) | number| no |-|  
 | [database](#database-string) | string |yes|-|
 | [fields](#fields-array) | array | yes |-|
 | [host](#host-string) | string | yes |-|
 | [password](#password-string) | string | no |-|
 | [table](#table-string) | string | yes |-|
 | [username](#username-string) | string | no |-|
+
+
+#### bulk_size [number]
+
+批数据写入大小，默认为无穷大。为避免一次性有过多数据发送给ClickHouse http接口，建议设置此参数
 
 ##### database [string]
 
@@ -51,6 +57,9 @@ clickhouse {
     database = "nginx"
     table = "access_msg"
     fields = ["date", "datetime", "hostname", "http_code", "data_size", "ua", "request_time"]
+    username = "username"
+    password = "password"
+    bulk_size = 20000
 }
 ```
 
