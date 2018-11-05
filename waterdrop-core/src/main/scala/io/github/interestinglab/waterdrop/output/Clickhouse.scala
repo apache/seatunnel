@@ -103,7 +103,7 @@ class Clickhouse extends BaseOutput {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "bulk_size" -> 0
+        "bulk_size" -> 20000
         )
     )
     config = config.withFallback(defaultConfig)
@@ -129,7 +129,7 @@ class Clickhouse extends BaseOutput {
         renderStatement(fields, item, statement)
         statement.addBatch()
 
-        if (bulkSize != 0 && length >= bulkSize) {
+        if (length >= bulkSize) {
           statement.executeBatch()
           length = 0
         }
