@@ -12,7 +12,7 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [bulk_size](#bulk_size-number) | number| no |-|  
+| [bulk_size](#bulk_size-number) | number| no |20000|
 | [database](#database-string) | string |yes|-|
 | [fields](#fields-array) | array | yes |-|
 | [host](#host-string) | string | yes |-|
@@ -23,7 +23,7 @@
 
 #### bulk_size [number]
 
-批数据写入大小，默认为无穷大。为避免一次性有过多数据发送给ClickHouse http接口，建议设置此参数
+每次通过[ClickHouse JDBC](https://github.com/yandex/clickhouse-jdbc)写入数据的条数，默认为20000。
 
 ##### database [string]
 

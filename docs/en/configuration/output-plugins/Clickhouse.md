@@ -13,7 +13,7 @@ Write Rows to ClickHouse via [Clickhouse-jdbc](https://github.com/yandex/clickho
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [bulk_size](#bulk_size-number) | number| no |-|
+| [bulk_size](#bulk_size-number) | number| no |20000|
 | [database](#database-string) | string |yes|-|
 | [fields](#fields-list) | list | yes |-|
 | [host](#host-string) | string | yes |-|
@@ -23,7 +23,7 @@ Write Rows to ClickHouse via [Clickhouse-jdbc](https://github.com/yandex/clickho
 
 #### bulk_size [number]
 
-ClickHouse insert bulk size. Default is unlimited.
+The number of Rows written to ClickHouse through [ClickHouse JDBC](https://github.com/yandex/clickhouse-jdbc). Default is 20000.
 
 ##### database [string]
 
