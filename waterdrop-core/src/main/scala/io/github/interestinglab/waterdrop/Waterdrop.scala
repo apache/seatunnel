@@ -265,7 +265,7 @@ object Waterdrop extends Logging {
       var ds = sparkSession.createDataset(rowsRDD)(encoder)
 
       // Ignore empty schema dataset
-      if (ds.columns.length > 0) {
+      if (ds.columns.length > 0 && !rowsRDD.isEmpty()) {
 
         for (f <- filters) {
           ds = f.process(sparkSession, ds)
