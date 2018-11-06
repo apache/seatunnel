@@ -12,12 +12,18 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
+| [bulk_size](#bulk_size-number) | number| no |20000|
 | [database](#database-string) | string |yes|-|
 | [fields](#fields-array) | array | yes |-|
 | [host](#host-string) | string | yes |-|
 | [password](#password-string) | string | no |-|
 | [table](#table-string) | string | yes |-|
 | [username](#username-string) | string | no |-|
+
+
+#### bulk_size [number]
+
+每次通过[ClickHouse JDBC](https://github.com/yandex/clickhouse-jdbc)写入数据的条数，默认为20000。
 
 ##### database [string]
 
@@ -51,6 +57,9 @@ clickhouse {
     database = "nginx"
     table = "access_msg"
     fields = ["date", "datetime", "hostname", "http_code", "data_size", "ua", "request_time"]
+    username = "username"
+    password = "password"
+    bulk_size = 20000
 }
 ```
 
