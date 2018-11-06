@@ -1,0 +1,12 @@
+@waterdropPlugin
+@pluginGroup output
+@pluginName MongoDB
+@pluginDesc "写入数据到MongoDB"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption
+string readConfig.uri yes "mongoDB uri"
+string readConfig.database yes "要写入的database"
+string readConfig.collection yes "要写入的collection"

@@ -32,10 +32,10 @@ class MongoDB extends BaseOutput {
         val read = config.getConfig(confPrefix)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
           case true => (true, "")
-          case false => (false, "please specify [readConfig.uri] and [readConfig.database] and [readConfig.collection]")
+          case false => (false, "please specify [writeConfig.uri] and [writeConfig.database] and [writeConfig.collection]")
         }
       }
-      case false => (false, "please specify [readConfig] ")
+      case false => (false, "please specify [writeConfig] ")
     }
   }
 

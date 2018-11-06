@@ -4,6 +4,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.{BaseOutput}
 import org.apache.kudu.spark.kudu._
 import org.apache.spark.sql.{Dataset, Row}
+import scala.collection.JavaConversions._
 
 
 class Kudu extends BaseOutput {
@@ -11,7 +12,13 @@ class Kudu extends BaseOutput {
   var config: Config = ConfigFactory.empty()
 
   override def setConfig(config: Config): Unit = {
-    this.config = config
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "mode" -> "insert"
+      )
+    )
+
+    this.config = config.withFallback(defaultConfig)
   }
 
   override def getConfig(): Config = {
