@@ -10,7 +10,7 @@
 
 * [新浪](http://www.sina.com.cn/), 大数据运维分析平台
 
-![新浪Logo](http://ir.sina.com/media_files/IROL/12/121288/imges/logo.png)
+![新浪Logo](http://n.sinaimg.cn/tech/ir/imges/logo.png)
 
 * [一下科技](https://www.yixia.com/), 一直播数据平台
 
