@@ -73,6 +73,10 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 ## 应用案例
 
+* [微博](https://weibo.com), 增值业务部数据平台
+
+![微博Logo](https://img.t.sinajs.cn/t5/style/images/staticlogo/groups3.png?version=f362a1c5be520a15)
+
 * [新浪](http://www.sina.com.cn/), 大数据运维分析平台
 
 ![新浪Logo](http://ir.sina.com/media_files/IROL/12/121288/imges/logo.png)

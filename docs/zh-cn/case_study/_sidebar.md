@@ -5,12 +5,9 @@
 - [下载、安装](/zh-cn/installation)
 
 - [行业应用案例](/zh-cn/case_study/base)
+  - [如何快速地把HDFS中的数据导入Clickhouse](/zh-cn/case_study/1.md)
 
 - [配置](/zh-cn/configuration/base)
-  - [通用配置](/zh-cn/configuration/base)
-  - [Input插件](/zh-cn/configuration/input-plugin)
-  - [Filter插件](/zh-cn/configuration/filter-plugin)
-  - [Output插件](/zh-cn/configuration/output-plugin)
 
 - [部署与运行](/zh-cn/deployment)
 
