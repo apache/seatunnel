@@ -265,24 +265,24 @@ object Waterdrop extends Logging {
       var ds = sparkSession.createDataset(rowsRDD)(encoder)
 
       // Ignore empty schema dataset
-      if (ds.columns.length > 0 && !rowsRDD.isEmpty()) {
 
-        for (f <- filters) {
+      for (f <- filters) {
+        if (ds.take(1).length > 0) {
           ds = f.process(sparkSession, ds)
         }
-
-        streamingInputs.foreach(p => {
-          p.beforeOutput
-        })
-
-        outputs.foreach(p => {
-          p.process(ds)
-        })
-
-        streamingInputs.foreach(p => {
-          p.afterOutput
-        })
       }
+
+      streamingInputs.foreach(p => {
+        p.beforeOutput
+      })
+
+      outputs.foreach(p => {
+        p.process(ds)
+      })
+
+      streamingInputs.foreach(p => {
+        p.afterOutput
+      })
     }
 
     ssc.start()
@@ -335,14 +335,16 @@ object Waterdrop extends Logging {
 
     if (staticInputs.nonEmpty) {
       var ds = staticInputs.head.getDataset(sparkSession)
-      if (ds.columns.length > 0) {
-        for (f <- filters) {
+
+      for (f <- filters) {
+        if (ds.take(1).length > 0) {
           ds = f.process(sparkSession, ds)
         }
-        outputs.foreach(p => {
-          p.process(ds)
-        })
       }
+      outputs.foreach(p => {
+        p.process(ds)
+      })
+
     } else {
       throw new ConfigRuntimeException("Input must be configured at least once.")
     }
