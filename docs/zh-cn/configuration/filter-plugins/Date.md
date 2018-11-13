@@ -69,8 +69,8 @@
 date {
     source_field = "timestamp"
     target_field = "date"
-    source_field_format = "UNIX"
-    target_field_format = "yyyy/MM/dd"
+    source_time_format = "UNIX"
+    target_time_format = "yyyy/MM/dd"
 }
 ```
 
