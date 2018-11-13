@@ -49,6 +49,12 @@ ClickHouse table name.
 
 ClickHouse username, only used when ClickHouse has authority authentication.
 
+### Note
+
+Before the data is written to ClickHouse, all fields need to be converted to the type corresponding to the table structure in ClickHouse.
+
+It should be noted that the corresponding field of the **Date** needs to be converted to String with format of `yyyy-MM-dd` and the corresponding field of the **DateTime** needs to be converted to String with format of `yyyy-MM-dd HH:mm:ss`.
+
 ### Examples
 
 ```
