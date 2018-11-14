@@ -73,7 +73,9 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 ## 社区分享
 
-[Waterdrop介绍PPT](http://slides.com/garyelephant/waterdrop/fullscreen?token=GKrQoxJi)
+* 2018-09-08 Elasticsearch 社区分享 [Waterdrop：构建在Spark之上的简单高效数据处理系统](https://elasticsearch.cn/slides/127#page=1)
+
+* 2017-09-22 InterestingLab 内部分享 [Waterdrop介绍PPT](http://slides.com/garyelephant/waterdrop/fullscreen?token=GKrQoxJi)
 
 ## 应用案例
 
