@@ -1,16 +1,16 @@
 package io.github.interestinglab.waterdrop.input
 
-import kafka.serializer.StringDecoder
 import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.kafka.KafkaUtils
-import org.apache.spark.streaming.kafka.OffsetRange
-import org.apache.spark.streaming.kafka.HasOffsetRanges
-import org.apache.spark.SparkException
-import org.apache.spark.streaming.dstream.DStream
+import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import com.typesafe.config.{Config, ConfigFactory}
-import _root_.kafka.message.MessageAndMetadata
-import _root_.kafka.common.TopicAndPartition
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
+import kafka.utils.{ZKGroupTopicDirs, ZkUtils}
+import org.I0Itec.zkclient.ZkClient
+import org.I0Itec.zkclient.serialize.ZkSerializer
+import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.security.JaasUtils
+import org.apache.spark.streaming.kafka010._
 
 import scala.collection.JavaConversions._
 
@@ -18,16 +18,11 @@ class KafkaStream extends BaseStreamingInput {
 
   var config: Config = ConfigFactory.empty()
 
-  /**
-   * Set Config.
-   * */
   override def setConfig(config: Config): Unit = {
     this.config = config
   }
 
-  /**
-   * Get Config.
-   * */
+
   override def getConfig(): Config = {
     this.config
   }
@@ -37,7 +32,7 @@ class KafkaStream extends BaseStreamingInput {
 
   var offsetRanges = Array[OffsetRange]()
 
-  var km: KafkaManager = null
+  var km: KafkaManager = _
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -72,22 +67,20 @@ class KafkaStream extends BaseStreamingInput {
       println("[INFO] \t" + key + " = " + value)
     }
 
-    val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.topic, mmd.message())
-
     val topics = config.getString("topics").split(",").toSet
     km = new KafkaManager(kafkaParams)
-    val fromOffsets =
-      km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
+    val fromOffsets = km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
 
-    val inputDStream = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](
-      ssc,
-      kafkaParams,
-      fromOffsets,
-      messageHandler)
+    val inputDStream: InputDStream[ConsumerRecord[String, String]] = KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent
+      , ConsumerStrategies.Subscribe(topics, kafkaParams, fromOffsets))
 
     inputDStream.transform { rdd =>
       offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-      rdd
+      rdd.map(record => {
+        val topic = record.topic()
+        val value = record.value()
+        (topic, value)
+      })
     }
   }
 
@@ -97,111 +90,46 @@ class KafkaStream extends BaseStreamingInput {
   }
 }
 
-class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable {
+class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable with ZkSerializer {
 
-  private val kc = new KafkaCluster(kafkaParams)
+  def setOrUpdateOffsets(topics: Set[String], groupId: String): Map[TopicPartition, Long] = {
 
-  def setOrUpdateOffsets(topics: Set[String], groupId: String): Map[TopicAndPartition, Long] = {
-
-    val defaultOff = 10000000 // debug 在偏移的基础上再偏移10亿, 防止因为kafka删除过期log的原因导致读kafka topic出现 kafka.common.OffsetOutOfRangeException
-
+    val zk = kafkaParams.get("zookeeper.connect").get
+    var fromOffsets: Map[TopicPartition, Long] = Map()
+    val zkClient = new ZkClient(zk)
+    zkClient.setZkSerializer(this);
     topics.foreach(topic => {
-      var hasConsumed = true
-      val partitionsE = kc.getPartitions(Set(topic))
-      if (partitionsE.isLeft) {
-        throw new SparkException(s"get kafka partition failed: ${partitionsE.left.get}")
-      }
-
-      val partitions = partitionsE.right.get
-      val consumerOffsetsE = kc.getConsumerOffsets(groupId, partitions)
-      if (consumerOffsetsE.isLeft) hasConsumed = false
-      if (hasConsumed) { // 消费过
-        /**
-         * 如果streaming程序执行的时候出现kafka.common.OffsetOutOfRangeException，
-         * 说明zk上保存的offsets已经过时了，即kafka的定时清理策略已经将包含该offsets的文件删除。
-         * 针对这种情况，只要判断一下zk上的consumerOffsets和earliestLeaderOffsets的大小，
-         * 如果consumerOffsets比earliestLeaderOffsets还小的话，说明consumerOffsets已过时,
-         * 这时把consumerOffsets更新为earliestLeaderOffsets
-         */
-        val earliestLeaderOffsetsE = kc.getEarliestLeaderOffsets(partitions)
-        if (earliestLeaderOffsetsE.isLeft) {
-          throw new SparkException(s"get earliest leader offsets failed: ${earliestLeaderOffsetsE.left.get}")
+      val topicDirs = new ZKGroupTopicDirs(groupId, topic)
+      val zkPath = topicDirs.consumerOffsetDir
+      val children = zkClient.countChildren(zkPath)
+      if (children > 0) {
+        for (i <- 0 until children) {
+          val partitionOffset = zkClient.readData[String](s"${zkPath}/${i}")
+          val tp = new TopicPartition(topic, i)
+          fromOffsets += (tp -> partitionOffset.toLong)
         }
-
-        val earliestLeaderOffsets = earliestLeaderOffsetsE.right.get
-        val consumerOffsets = consumerOffsetsE.right.get
-
-        // 可能只是存在部分分区consumerOffsets过时，所以只更新过时分区的consumerOffsets为earliestLeaderOffsets
-        var offsets: Map[TopicAndPartition, Long] = Map()
-        consumerOffsets.foreach({
-          case (tp, n) =>
-            val earliestLeaderOffset = earliestLeaderOffsets(tp).offset
-            if (n < earliestLeaderOffset) {
-              println(
-                "consumer group:" + groupId + ",topic:" + tp.topic + ",partition:" + tp.partition +
-                  " offsets已经过时，更新为" + earliestLeaderOffset)
-              offsets += (tp -> earliestLeaderOffset)
-            }
-        })
-        if (!offsets.isEmpty) {
-          kc.setConsumerOffsets(groupId, offsets)
-        }
-      } else { // 没有消费过
-        val reset = kafkaParams.get("auto.offset.reset").map(_.toLowerCase)
-        var leaderOffsets: Map[TopicAndPartition, KafkaCluster.LeaderOffset] =
-          null
-        if (reset == Some("smallest")) {
-          val leaderOffsetsE = kc.getEarliestLeaderOffsets(partitions)
-          if (leaderOffsetsE.isLeft) {
-            throw new SparkException(s"get earliest leader offsets failed: ${leaderOffsetsE.left.get}")
-          }
-
-          leaderOffsets = leaderOffsetsE.right.get
-        } else {
-          val leaderOffsetsE = kc.getLatestLeaderOffsets(partitions)
-          if (leaderOffsetsE.isLeft) {
-            throw new SparkException(s"get latest leader offsets failed: ${leaderOffsetsE.left.get}")
-          }
-
-          leaderOffsets = leaderOffsetsE.right.get
-        }
-        val offsets = leaderOffsets.map {
-          // case (tp, offset) => (tp, offset.offset + defaultOff) // debug, in this debug code, largest will cause out of range offset !!!!
-
-          case (tp, offset) => (tp, offset.offset)
-        }
-        kc.setConsumerOffsets(groupId, offsets)
       }
     })
-
-    val partitionsE = kc.getPartitions(topics)
-    if (partitionsE.isLeft) {
-      throw new SparkException(s"get kafka partition failed: ${partitionsE.left.get}")
-    }
-
-    val partitions = partitionsE.right.get
-    val consumerOffsetsE = kc.getConsumerOffsets(groupId, partitions)
-    if (consumerOffsetsE.isLeft) {
-      throw new SparkException(s"get kafka consumer offsets failed: ${consumerOffsetsE.left.get}")
-    }
-
-    consumerOffsetsE.right.get
+    fromOffsets
   }
 
   def updateZKOffsetsFromoffsetRanges(offsetRanges: Array[OffsetRange]): Unit = {
+
+    val zk = kafkaParams.get("zookeeper.connect").get
     val groupId = kafkaParams.get("group.id").get
-
+    val sessionTimeOut = 180000
+    val connectionTimeOut = 5000
+    val zkUtils = ZkUtils.apply(zk, connectionTimeOut, sessionTimeOut, JaasUtils.isZkSecurityEnabled)
     for (offsets <- offsetRanges) {
-      val topicAndPartition =
-        TopicAndPartition(offsets.topic, offsets.partition)
-
-      println("partition: " + offsets.partition + ", from: " + offsets.fromOffset + ", until: " + offsets.untilOffset)
-
-      val o = kc.setConsumerOffsets(groupId, Map((topicAndPartition, offsets.untilOffset)))
-      if (o.isLeft) {
-        println(s"Error updating the offset to Kafka cluster: ${o.left.get}")
-      }
+      val topic = offsets.topic
+      val topicDirs = new ZKGroupTopicDirs(groupId, topic)
+      val zkPath = topicDirs.consumerOffsetDir
+      val newZkPath = s"${zkPath}/${offsets.partition}"
+      zkUtils.updatePersistentPath(newZkPath, String.valueOf(offsets.untilOffset))
     }
   }
 
+  override def serialize(data: scala.Any): Array[Byte] = String.valueOf(data).getBytes("utf-8")
+
+  override def deserialize(bytes: Array[Byte]): AnyRef = new String(bytes, "utf-8")
 }
