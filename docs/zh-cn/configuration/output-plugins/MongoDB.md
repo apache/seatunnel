@@ -32,7 +32,8 @@
 
 #### writeConfig.[xxx]
 
-这里还可以配置更多其他参数，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/，参见其中的`Output Configuration`部分
+这里还可以配置更多其他参数，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/
+, 参见其中的`Output Configuration`部分
 
 
 ### Example
