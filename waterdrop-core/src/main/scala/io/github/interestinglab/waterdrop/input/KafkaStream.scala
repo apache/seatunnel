@@ -4,6 +4,7 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
+import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
 import kafka.utils.{ZKGroupTopicDirs, ZkUtils}
 import org.I0Itec.zkclient.ZkClient
 import org.I0Itec.zkclient.serialize.ZkSerializer
@@ -108,10 +109,13 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable wi
 
   def setOrUpdateOffsets(topics: Set[String], groupId: String): Map[TopicPartition, Long] = {
 
-    val zk = kafkaParams.get("zookeeper.connect").get
+    val zk = kafkaParams.get("zookeeper.connect") match {
+      case Some(v) => v
+      case None => throw new ConfigRuntimeException("kafkaStream config consumer.zookeeper.connect can not be empty!")
+    }
     var fromOffsets: Map[TopicPartition, Long] = Map()
     val zkClient = new ZkClient(zk)
-    zkClient.setZkSerializer(this);
+    zkClient.setZkSerializer(this)
     topics.foreach(topic => {
       val topicDirs = new ZKGroupTopicDirs(groupId, topic)
       val zkPath = topicDirs.consumerOffsetDir
@@ -129,8 +133,14 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable wi
 
   def updateZKOffsetsFromoffsetRanges(offsetRanges: Array[OffsetRange]): Unit = {
 
-    val zk = kafkaParams.get("zookeeper.connect").get
-    val groupId = kafkaParams.get("group.id").get
+    val zk = kafkaParams.get("zookeeper.connect") match {
+      case Some(v) => v
+      case None => throw new ConfigRuntimeException("kafkaStream config consumer.zookeeper.connect can not be empty!")
+    }
+    val groupId = kafkaParams.get("group.id") match {
+      case Some(v) => v
+      case None => throw new ConfigRuntimeException("kafkaStream config consumer.group.id can not be empty!")
+    }
     val sessionTimeOut = 180000
     val connectionTimeOut = 5000
     val zkUtils = ZkUtils.apply(zk, connectionTimeOut, sessionTimeOut, JaasUtils.isZkSecurityEnabled)
