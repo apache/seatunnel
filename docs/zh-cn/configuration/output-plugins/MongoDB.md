@@ -6,7 +6,7 @@
 
 ### Description
 
-写数据到MongoDB
+写入数据到[MongoDB](https://www.mongodb.com/)
 
 ### Options
 
@@ -32,7 +32,7 @@
 
 #### writeConfig.[xxx]
 
-这里还可以配置更多，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/
+这里还可以配置更多其他参数，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/，参见其中的`Output Configuration`部分
 
 
 ### Example

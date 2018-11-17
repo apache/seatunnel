@@ -1,7 +1,7 @@
 @waterdropPlugin
 @pluginGroup output
 @pluginName MongoDB
-@pluginDesc "写入数据到MongoDB"
+@pluginDesc "写入数据到[MongoDB](https://www.mongodb.com/)"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0

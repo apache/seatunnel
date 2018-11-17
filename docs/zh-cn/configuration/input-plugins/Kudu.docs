@@ -1,7 +1,7 @@
 @waterdropPlugin
 @pluginGroup input
 @pluginName Kudu
-@pluginDesc "从kudu读取原始数据"
+@pluginDesc "从[Apache Kudu](https://kudu.apache.org) 表中读取数据"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
