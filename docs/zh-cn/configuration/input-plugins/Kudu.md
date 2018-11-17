@@ -6,7 +6,7 @@
 
 ### Description
 
-从Kudu中获取数据
+从[Apache Kudu](https://kudu.apache.org) 表中读取数据.
 
 ### Options
 

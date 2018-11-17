@@ -1,7 +1,7 @@
 @waterdropPlugin
 @pluginGroup output
 @pluginName Kudu
-@pluginDesc "写入数据到kudu"
+@pluginDesc "写入数据到[Apache Kudu](https://kudu.apache.org)表中"
 @pluginAuthor InterestingLab
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0

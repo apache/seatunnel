@@ -13,6 +13,8 @@
     - [Hdfs](/zh-cn/configuration/input-plugins/Hdfs)
     - [HdfsStream](/zh-cn/configuration/input-plugins/HdfsStream)
     - [KafkaStream](/zh-cn/configuration/input-plugins/KafkaStream)
+    - [Kudu](/zh-cn/configuration/input-plugins/Kudu)
+    - [MongoDB](/zh-cn/configuration/input-plugins/MongoDB)
     - [S3Stream](/zh-cn/configuration/input-plugins/S3Stream)
     - [SocketStream](/zh-cn/configuration/input-plugins/SocketStream)
     
@@ -47,6 +49,8 @@
     - [Hdfs](/zh-cn/configuration/output-plugins/Hdfs)
     - [Jdbc](/zh-cn/configuration/output-plugins/Jdbc)
     - [Kafka](/zh-cn/configuration/output-plugins/Kafka)
+    - [Kudu](/zh-cn/configuration/output-plugins/Kudu)
+    - [MongoDB](/zh-cn/configuration/output-plugins/MongoDB)
     - [MySQL](/zh-cn/configuration/output-plugins/MySQL)
     - [S3](/zh-cn/configuration/output-plugins/S3)
     - [Stdout](/zh-cn/configuration/output-plugins/Stdout)

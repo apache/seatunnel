@@ -6,7 +6,7 @@
 
 ### Description
 
-将数据写入kudu
+写入数据到[Apache Kudu](https://kudu.apache.org)表中
 
 ### Options
 

@@ -6,7 +6,7 @@
 
 ### Description
 
-从MongoDB中获取数据
+从[MongoDB](https://www.mongodb.com/)读取数据
 
 ### Options
 
@@ -32,7 +32,7 @@
 
 #### readConfig.[xxx]
 
-这里还可以配置更多，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/
+这里还可以配置更多其他参数，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/, 参见其中的`Input Configuration`部分
 
 ##### table_name [string]
 
