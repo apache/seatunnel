@@ -10,6 +10,7 @@ import org.I0Itec.zkclient.serialize.ZkSerializer
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.security.JaasUtils
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.kafka010._
 
 import scala.collection.JavaConversions._
@@ -50,6 +51,19 @@ class KafkaStream extends BaseStreamingInput {
       }
       case false => (false, "please specify [topics] as non-empty string, multiple topics separated by \",\"")
     }
+  }
+
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
+
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        consumerPrefix + ".key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+        consumerPrefix + ".value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer"
+      )
+    )
+
+    config = config.withFallback(defaultConfig)
   }
 
   override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
@@ -126,6 +140,7 @@ class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable wi
       val zkPath = topicDirs.consumerOffsetDir
       val newZkPath = s"${zkPath}/${offsets.partition}"
       zkUtils.updatePersistentPath(newZkPath, String.valueOf(offsets.untilOffset))
+      println(s"complete consume topic: $topic partition: ${offsets.partition} from ${offsets.fromOffset} until ${offsets.untilOffset}")
     }
   }
 
