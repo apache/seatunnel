@@ -4,6 +4,8 @@
 
 - [下载、安装](/zh-cn/installation)
 
+- [行业应用案例](/zh-cn/case_study/base)
+
 - [配置](/zh-cn/configuration/base)
   - [通用配置](/zh-cn/configuration/base)
   - [Input插件](/zh-cn/configuration/input-plugin)
