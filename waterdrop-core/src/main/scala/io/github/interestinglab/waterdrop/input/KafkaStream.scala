@@ -4,13 +4,7 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
-import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
-import kafka.utils.{ZKGroupTopicDirs, ZkUtils}
-import org.I0Itec.zkclient.ZkClient
-import org.I0Itec.zkclient.serialize.ZkSerializer
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.security.JaasUtils
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.kafka010._
 
