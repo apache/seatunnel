@@ -12,42 +12,43 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [readConfig.uri](#readConfig.uri-string) | string | yes | - |
-| [readConfig.database](#readConfig.database-string) | string | yes | - |
-| [readConfig.collection](#readConfig.collection-string) | string | yes | - |
+| [readconfig.uri](#readconfig.uri-string) | string | yes | - |
+| [readconfig.database](#readconfig.database-string) | string | yes | - |
+| [readconfig.collection](#readconfig.collection-string) | string | yes | - |
+| [readconfig.*](#readconfig.*-string) | string | no | - |
 | [table_name](#table_name-string) | string | yes | - |
 
 
-##### readConfig.uri [string]
+##### readconfig.uri [string]
 
 要读取mongoDB的uri
 
-##### readConfig.database [string]
+##### readconfig.database [string]
 
 要读取mongoDB的database
 
-##### readConfig.collection [string]
+##### readconfig.collection [string]
 
 要读取mongoDB的collection
 
-#### readConfig.[xxx]
+#### readconfig
 
 这里还可以配置更多其他参数，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/, 参见其中的`Input Configuration`部分
+指定参数的方式是在原参数名称上加上前缀"readconfig." 如设置`spark.mongodb.input.partitioner`的方式是 `readconfig.spark.mongodb.input.partitioner="MongoPaginateBySizePartitioner"`。如果不指定这些非必须参数，将使用MongoDB官方文档的默认值
 
 ##### table_name [string]
 
 从mongoDB获取到的数据，注册成临时表的表名
 
 
-
 ### Example
 
 ```
 mongodb{
-        readConfig.uri="mongodb://myhost:mypost"
-        readConfig.database="mydatabase"
-        readConfig.collection="mycollection"
-        readConfig.spark.mongodb.input.partitioner = "MongoPaginateBySizePartitioner"
+        readconfig.uri="mongodb://myhost:mypost"
+        readconfig.database="mydatabase"
+        readconfig.collection="mycollection"
+        readconfig.spark.mongodb.input.partitioner = "MongoPaginateBySizePartitioner"
         table_name = "test"
       }
 ```

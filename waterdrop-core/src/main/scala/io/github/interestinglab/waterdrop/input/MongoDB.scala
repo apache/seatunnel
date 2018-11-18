@@ -14,7 +14,7 @@ class MongoDB extends BaseStaticInput {
 
   var readConfig: ReadConfig = _
 
-  val confPrefix = "readConfig"
+  val confPrefix = "readconfig"
 
   override def setConfig(config: Config): Unit = {
     this.config = config
@@ -31,10 +31,10 @@ class MongoDB extends BaseStaticInput {
         val read = config.getConfig(confPrefix)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
           case true => (true, "")
-          case false => (false, "please specify [readConfig.uri] and [readConfig.database] and [readConfig.collection]")
+          case false => (false, "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
         }
       }
-      case false => (false, "please specify [readConfig]  and [table_name]")
+      case false => (false, "please specify [readconfig]  and [table_name]")
     }
   }
 

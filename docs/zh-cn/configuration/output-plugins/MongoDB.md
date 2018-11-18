@@ -12,36 +12,38 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [writeConfig.uri](#writeConfig.uri-string) | string | yes | - |
-| [writeConfig.database](#writeConfig.database-string) | string | yes | - |
-| [writeConfig.collection](#writeConfig.collection-string) | string | yes | - |
+| [writeconfig.uri](#writeconfig.uri-string) | string | yes | - |
+| [writeconfig.database](#writeconfig.database-string) | string | yes | - |
+| [writeconfig.collection](#writeconfig.collection-string) | string | yes | - |
+| [writeconfig.*](#writeconfig.*-string) | string | no | - |
 
 
 
-##### writeConfig.uri [string]
+##### writeconfig.uri [string]
 
 要写入mongoDB的uri
 
-##### writeConfig.database [string]
+##### writeconfig.database [string]
 
 要写入mongoDB的database
 
-##### writeConfig.collection [string]
+##### writeconfig.collection [string]
 
 要写入mongoDB的collection
 
-#### writeConfig.[xxx]
+#### writeconfig
 
 这里还可以配置更多其他参数，详见https://docs.mongodb.com/spark-connector/v1.1/configuration/
 , 参见其中的`Output Configuration`部分
+指定参数的方式是在原参数名称上加上前缀"writeconfig." 如设置`localThreshold`的方式是 `writeconfig.localThreshold=20`。如果不指定这些非必须参数，将使用MongoDB官方文档的默认值
 
 
 ### Example
 
 ```
 mongodb{
-        readConfig.uri="mongodb://myhost:mypost"
-        readConfig.database="mydatabase"
-        readConfig.collection="mycollection"
+        writeconfig.uri="mongodb://myhost:mypost"
+        writeconfig.database="mydatabase"
+        writeconfig.collection="mycollection"
       }
 ```

@@ -12,7 +12,7 @@ class MongoDB extends BaseOutput {
 
   var config: Config = ConfigFactory.empty()
 
-  val confPrefix = "writeConfig"
+  val confPrefix = "writeconfig"
 
   var writeConfig :WriteConfig = _
 
@@ -32,10 +32,10 @@ class MongoDB extends BaseOutput {
         val read = config.getConfig(confPrefix)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
           case true => (true, "")
-          case false => (false, "please specify [writeConfig.uri] and [writeConfig.database] and [writeConfig.collection]")
+          case false => (false, "please specify [writeconfig.uri] and [writeconfig.database] and [writeconfig.collection]")
         }
       }
-      case false => (false, "please specify [writeConfig] ")
+      case false => (false, "please specify [writeconfig] ")
     }
   }
 
