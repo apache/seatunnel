@@ -17,7 +17,6 @@ This plugin uses Kafka Old Consumer. Supporting Kafka >= 0.8.2.X
 | --- | --- | --- | --- |
 | [topics](#topics-string) | string | yes | - |
 | [consumer.group.id](#consumergroupid-string) | string | yes | - |
-| [consumer.zookeeper.connect](#consumerzookeeperconnect-string) | string | yes | - |
 | [consumer.bootstrap.servers](#consumerbootstrapservers-string) | string | yes | - |
 | [consumer.*](#consumer-string) | string | no | - |
 
@@ -28,10 +27,6 @@ Kafka topic. Multiple topics separated by commas. For example, "tpc1,tpc2".
 ##### consumer.group.id [string]
 
 Kafka consumer group id, a unique string that identifies the consumer group this consumer belongs to.
-
-##### consumer.zookeeper.connect [string]
-
-Specifies the ZooKeeper connection string in the form `hostname:port` where host and port are the host and port of a ZooKeeper server
 
 ##### consumer.bootstrap.servers [string]
 
@@ -50,7 +45,6 @@ The way to specify parameters is to use the prefix "consumer" before the paramet
 kafka {
     topics = "waterdrop"
     consumer.bootstrap.servers = "localhost:9092"
-    consumer.zookeeper.connect = "localhost:2181"
     consumer.group.id = "waterdrop_group"
     consumer.rebalance.max.retries = 100
 }
