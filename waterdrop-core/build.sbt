@@ -30,7 +30,8 @@ providedDeps match {
 libraryDependencies ++= Seq(
 
   "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion
-    exclude("org.spark-project.spark", "unused"),
+    exclude("org.spark-project.spark", "unused")
+    exclude("net.jpountz.lz4", "unused"),
   "com.typesafe" % "config" % "1.3.1",
   "com.alibaba" % "QLExpress" % "3.2.0",
   "com.alibaba" % "fastjson" % "1.2.47",

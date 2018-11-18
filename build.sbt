@@ -16,9 +16,8 @@ assemblyMergeStrategy in assembly := {
   case "META-INF/ECLIPSEF.RSA" => MergeStrategy.last
   case "META-INF/mailcap" => MergeStrategy.last
   case "META-INF/mimetypes.default" => MergeStrategy.last
-  case "SimpleLog.class" => MergeStrategy.last
   case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
-  case "UnusedStubClass.class" => MergeStrategy.last
+  case PathList(ps @ _*) if ps.last endsWith ".class" => MergeStrategy.first
   case x =>
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
