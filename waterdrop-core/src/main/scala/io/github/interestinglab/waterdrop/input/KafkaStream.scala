@@ -32,9 +32,9 @@ class KafkaStream extends BaseStreamingInput {
   // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
   val consumerPrefix = "consumer"
 
-  var offsetRanges = Array[OffsetRange]()
+  var inputDStream: InputDStream[ConsumerRecord[String, String]] = _
 
-  var km: KafkaManager = _
+  var offsetRanges = Array[OffsetRange]()
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -60,7 +60,8 @@ class KafkaStream extends BaseStreamingInput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         consumerPrefix + ".key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
-        consumerPrefix + ".value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer"
+        consumerPrefix + ".value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+        consumerPrefix + ".enable.auto.commit" -> false
       )
     )
 
@@ -83,11 +84,8 @@ class KafkaStream extends BaseStreamingInput {
     }
 
     val topics = config.getString("topics").split(",").toSet
-    km = new KafkaManager(kafkaParams)
-    val fromOffsets = km.setOrUpdateOffsets(topics, consumerConfig.getString("group.id"))
-
-    val inputDStream: InputDStream[ConsumerRecord[String, String]] = KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent
-      , ConsumerStrategies.Subscribe(topics, kafkaParams, fromOffsets))
+    inputDStream = KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent
+      , ConsumerStrategies.Subscribe(topics, kafkaParams))
 
     inputDStream.transform { rdd =>
       offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
@@ -101,60 +99,14 @@ class KafkaStream extends BaseStreamingInput {
 
   override def afterOutput {
     // update offset after output
-    km.updateZKOffsetsFromoffsetRanges(offsetRanges)
-  }
-}
-
-class KafkaManager(val kafkaParams: Map[String, String]) extends Serializable with ZkSerializer {
-
-  def setOrUpdateOffsets(topics: Set[String], groupId: String): Map[TopicPartition, Long] = {
-
-    val zk = kafkaParams.get("zookeeper.connect") match {
-      case Some(v) => v
-      case None => throw new ConfigRuntimeException("kafkaStream config consumer.zookeeper.connect can not be empty!")
-    }
-    var fromOffsets: Map[TopicPartition, Long] = Map()
-    val zkClient = new ZkClient(zk)
-    zkClient.setZkSerializer(this)
-    topics.foreach(topic => {
-      val topicDirs = new ZKGroupTopicDirs(groupId, topic)
-      val zkPath = topicDirs.consumerOffsetDir
-      val children = zkClient.countChildren(zkPath)
-      if (children > 0) {
-        for (i <- 0 until children) {
-          val partitionOffset = zkClient.readData[String](s"${zkPath}/${i}")
-          val tp = new TopicPartition(topic, i)
-          fromOffsets += (tp -> partitionOffset.toLong)
-        }
-      }
-    })
-    fromOffsets
-  }
-
-  def updateZKOffsetsFromoffsetRanges(offsetRanges: Array[OffsetRange]): Unit = {
-
-    val zk = kafkaParams.get("zookeeper.connect") match {
-      case Some(v) => v
-      case None => throw new ConfigRuntimeException("kafkaStream config consumer.zookeeper.connect can not be empty!")
-    }
-    val groupId = kafkaParams.get("group.id") match {
-      case Some(v) => v
-      case None => throw new ConfigRuntimeException("kafkaStream config consumer.group.id can not be empty!")
-    }
-    val sessionTimeOut = 180000
-    val connectionTimeOut = 5000
-    val zkUtils = ZkUtils.apply(zk, connectionTimeOut, sessionTimeOut, JaasUtils.isZkSecurityEnabled)
+    inputDStream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
     for (offsets <- offsetRanges) {
-      val topic = offsets.topic
-      val topicDirs = new ZKGroupTopicDirs(groupId, topic)
-      val zkPath = topicDirs.consumerOffsetDir
-      val newZkPath = s"${zkPath}/${offsets.partition}"
-      zkUtils.updatePersistentPath(newZkPath, String.valueOf(offsets.untilOffset))
-      println(s"complete consume topic: $topic partition: ${offsets.partition} from ${offsets.fromOffset} until ${offsets.untilOffset}")
+      val fromOffset = offsets.fromOffset
+      val untilOffset = offsets.untilOffset
+      if (untilOffset != fromOffset) {
+        println(s"complete consume topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
+      }
     }
   }
-
-  override def serialize(data: scala.Any): Array[Byte] = String.valueOf(data).getBytes("utf-8")
-
-  override def deserialize(bytes: Array[Byte]): AnyRef = new String(bytes, "utf-8")
 }
+
