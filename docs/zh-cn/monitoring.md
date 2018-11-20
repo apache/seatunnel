@@ -1,6 +1,6 @@
 # Guardian
 
-Guardian是Waterdrop的监控和报警工具，可以提供Waterdrop的存活情况监控以及调度延迟情况监控。Guardian能够在运行是动态加载配置文件，并提供HTTP API支持配置的实时修改。目前仅支持Waterdrop on Yarn.
+[Guardian](https://github.com/InterestingLab/guardian)是Waterdrop的子项目，是一个监控和报警工具，可以提供Waterdrop的存活情况监控以及调度延迟情况监控。Guardian能够在运行时动态加载配置文件，并提供HTTP API支持配置的实时修改。目前仅支持Waterdrop on Yarn.
 
 ## 配置文件
 
