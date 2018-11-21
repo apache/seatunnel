@@ -81,13 +81,19 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 * [新浪](http://www.sina.com.cn/), 大数据运维分析平台
 
-![新浪Logo](http://ir.sina.com/media_files/IROL/12/121288/imges/logo.png)
+![新浪Logo](./docs/images/sina-logo.png)
 
 * [一下科技](https://www.yixia.com/), 一直播数据平台
 
 ![一下科技Logo](https://imgaliyuncdn.miaopai.com/static20131031/miaopai20140729/new_yixia/static/imgs/logo.png)
 
-* 其他公司 ... 期待您的加入
+* 永辉超市子公司-永辉云创，会员电商数据分析平台
+
+Waterdrop 为永辉云创旗下新零售品牌永辉生活提供电商用户行为数据实时流式与离线SQL计算。
+
+![永辉云创Logo](./docs/images/yonghuiyunchuang-logo.png)
+
+* 其他公司 ... 期待您的加入，请联系微信: garyelephant
 
 ## 贡献观点和代码
 
