@@ -32,8 +32,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-streaming-kafka-0-8" % sparkVersion
     exclude("org.spark-project.spark", "unused"),
   "com.typesafe" % "config" % "1.3.1",
-  "org.apache.spark" %% "spark-hive" %sparkVersion ,
-  "org.mongodb.spark" %% "mongo-spark-connector" % sparkVersion,
+  "org.apache.spark" %% "spark-hive" % sparkVersion ,
+  "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.0",
   "org.apache.kudu" %% "kudu-spark2" % "1.7.0",
   "com.alibaba" % "QLExpress" % "3.2.0",
   "com.alibaba" % "fastjson" % "1.2.47",
