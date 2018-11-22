@@ -1,1 +1,0 @@
-from .checker import check

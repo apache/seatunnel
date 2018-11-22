@@ -69,19 +69,31 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 ## 社区分享
 
-[Waterdrop介绍PPT](http://slides.com/garyelephant/waterdrop/fullscreen?token=GKrQoxJi)
+* 2018-09-08 Elasticsearch 社区分享 [Waterdrop：构建在Spark之上的简单高效数据处理系统](https://elasticsearch.cn/slides/127#page=1)
+
+* 2017-09-22 InterestingLab 内部分享 [Waterdrop介绍PPT](http://slides.com/garyelephant/waterdrop/fullscreen?token=GKrQoxJi)
 
 ## 应用案例
 
+* [微博](https://weibo.com), 增值业务部数据平台
+
+![微博Logo](https://img.t.sinajs.cn/t5/style/images/staticlogo/groups3.png?version=f362a1c5be520a15)
+
 * [新浪](http://www.sina.com.cn/), 大数据运维分析平台
 
-![新浪Logo](http://ir.sina.com/media_files/IROL/12/121288/imges/logo.png)
+![新浪Logo](./docs/images/sina-logo.png)
 
 * [一下科技](https://www.yixia.com/), 一直播数据平台
 
 ![一下科技Logo](https://imgaliyuncdn.miaopai.com/static20131031/miaopai20140729/new_yixia/static/imgs/logo.png)
 
-* 其他公司 ... 期待您的加入
+* 永辉超市子公司-永辉云创，会员电商数据分析平台
+
+Waterdrop 为永辉云创旗下新零售品牌永辉生活提供电商用户行为数据实时流式与离线SQL计算。
+
+![永辉云创Logo](./docs/images/yonghuiyunchuang-logo.png)
+
+* 其他公司 ... 期待您的加入，请联系微信: garyelephant
 
 ## 贡献观点和代码
 

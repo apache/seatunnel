@@ -1,9 +1,11 @@
 package io.github.interestinglab.waterdrop.output
 
+import java.util
+
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConversions._
@@ -34,14 +36,14 @@ class Clickhouse extends BaseOutput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    val requiredOptions = List("host", "table", "database", "fields");
+    val requiredOptions = List("host", "table", "database", "fields")
 
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
       !exists
     }
 
-    if (nonExistsOptions.length > 0) {
+    if (nonExistsOptions.nonEmpty) {
       (
         false,
         "please specify " + nonExistsOptions
@@ -79,7 +81,7 @@ class Clickhouse extends BaseOutput {
           !exists
         })
 
-      if (nonExistsFields.size > 0) {
+      if (nonExistsFields.nonEmpty) {
         (
           false,
           "field " + nonExistsFields
@@ -98,10 +100,18 @@ class Clickhouse extends BaseOutput {
 
     this.initSQL = initPrepareSQL()
     logInfo(this.initSQL)
+
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "bulk_size" -> 20000
+        )
+    )
+    config = config.withFallback(defaultConfig)
     super.prepare(spark)
   }
 
   override def process(df: Dataset[Row]): Unit = {
+    val bulkSize = config.getInt("bulk_size")
     df.foreachPartition { iter =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink)
       val executorConn = config.hasPath("username") match {
@@ -112,23 +122,17 @@ class Clickhouse extends BaseOutput {
         case false => executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
       }
       val statement = executorConn.createClickHousePreparedStatement(this.initSQL)
-
+      var length = 0
       while (iter.hasNext) {
         val item = iter.next()
-
-        for (i <- 0 until fields.size()) {
-          val field = fields.get(i)
-          val fieldType = schema(field)
-          fieldType match {
-            case "DateTime" | "Date" | "String" => statement.setString(i + 1, item.getAs[String](field))
-            case "Int8" | "Int16" | "Int32" | "UInt8" | "UInt16" => statement.setInt(i + 1, item.getAs[Int](field))
-            case "UInt64" | "Int64" | "UInt32" => statement.setLong(i + 1, item.getAs[Long](field))
-            case "Float32" | "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
-            case _ => statement.setString(i + 1, item.getAs[String](field))
-          }
-        }
-
+        length += 1
+        renderStatement(fields, item, statement)
         statement.addBatch()
+
+        if (length >= bulkSize) {
+          statement.executeBatch()
+          length = 0
+        }
       }
 
       statement.executeBatch()
@@ -154,5 +158,19 @@ class Clickhouse extends BaseOutput {
       prepare.mkString(","))
 
     sql
+  }
+
+  private def renderStatement(fields: util.List[String], item: Row, statement: ClickHousePreparedStatement): Unit = {
+    for (i <- 0 until fields.size()) {
+      val field = fields.get(i)
+      val fieldType = schema(field)
+      fieldType match {
+        case "DateTime" | "Date" | "String" => statement.setString(i + 1, item.getAs[String](field))
+        case "Int8" | "Int16" | "Int32" | "UInt8" | "UInt16" => statement.setInt(i + 1, item.getAs[Int](field))
+        case "UInt64" | "Int64" | "UInt32" => statement.setLong(i + 1, item.getAs[Long](field))
+        case "Float32" | "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
+        case _ => statement.setString(i + 1, item.getAs[String](field))
+      }
+    }
   }
 }
