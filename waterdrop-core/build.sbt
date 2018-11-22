@@ -1,11 +1,11 @@
 name         := "Waterdrop-core"
-version      := "1.1.0"
+version      := "1.1.1"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
 
 
-val sparkVersion = "2.2.0"
+val sparkVersion = "2.4.0"
 
 lazy val providedDependencies = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,
@@ -29,8 +29,9 @@ providedDeps match {
 
 libraryDependencies ++= Seq(
 
-  "org.apache.spark" %% "spark-streaming-kafka-0-8" % sparkVersion
-    exclude("org.spark-project.spark", "unused"),
+  "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion
+    exclude("org.spark-project.spark", "unused")
+    exclude("net.jpountz.lz4", "unused"),
   "com.typesafe" % "config" % "1.3.1",
   "org.apache.spark" %% "spark-hive" % sparkVersion ,
   "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.0",

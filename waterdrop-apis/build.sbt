@@ -1,10 +1,10 @@
 name         := "Waterdrop-apis"
-version      := "1.0.0"
+version      := "1.1.0"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
 
-val sparkVersion = "2.2.0"
+val sparkVersion = "2.4.0"
 
 lazy val providedDependencies = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,

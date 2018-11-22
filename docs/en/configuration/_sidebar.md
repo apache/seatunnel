@@ -7,7 +7,7 @@
     - [Fake](/en/configuration/input-plugins/Fake)
     - [File](/en/configuration/input-plugins/File)
     - [Hdfs](/en/configuration/input-plugins/Hdfs)
-    - [Kafka](/en/configuration/input-plugins/Kafka)
+    - [KafkaStream](/en/configuration/input-plugins/KafkaStream)
     - [S3](/en/configuration/input-plugins/S3)
     - [Socket](/en/configuration/input-plugins/Socket)
   - [Filter Plugin](/en/configuration/filter-plugin)
