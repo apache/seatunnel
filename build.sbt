@@ -1,5 +1,5 @@
 name         := "Waterdrop"
-version      := "1.1.0"
+version      := "1.1.1"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
@@ -60,4 +60,3 @@ mappings in Universal ++= directory("plugins")
 mappings in Universal ++= directory("docs")
 mappings in Universal ++= directory("config")
 mappings in Universal ++= directory("bin")
-mappings in Universal ++= directory("guardian")
