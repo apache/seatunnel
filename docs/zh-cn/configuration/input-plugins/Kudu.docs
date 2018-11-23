@@ -1,0 +1,12 @@
+@waterdropPlugin
+@pluginGroup input
+@pluginName Kudu
+@pluginDesc "从[Apache Kudu](https://kudu.apache.org) 表中读取数据"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption
+string kudu_master yes "kudu的master，多个master以逗号隔开"
+string kudu_table yes "kudu要读取的表名"
+string table_name yes "获取到数据注册成的临时表名"
