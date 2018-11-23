@@ -1,3 +1,6 @@
 io.github.interestinglab.waterdrop.input.Fake2
 io.github.interestinglab.waterdrop.input.Hdfs
 io.github.interestinglab.waterdrop.input.File
+io.github.interestinglab.waterdrop.input.Hive
+io.github.interestinglab.waterdrop.input.MongoDB
+io.github.interestinglab.waterdrop.input.Kudu

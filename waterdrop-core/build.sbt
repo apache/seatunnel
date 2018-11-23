@@ -33,6 +33,9 @@ libraryDependencies ++= Seq(
     exclude("org.spark-project.spark", "unused")
     exclude("net.jpountz.lz4", "unused"),
   "com.typesafe" % "config" % "1.3.1",
+  "org.apache.spark" %% "spark-hive" % sparkVersion ,
+  "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.0",
+  "org.apache.kudu" %% "kudu-spark2" % "1.7.0",
   "com.alibaba" % "QLExpress" % "3.2.0",
   "com.alibaba" % "fastjson" % "1.2.47",
   "commons-lang" % "commons-lang" % "2.6",
@@ -41,7 +44,7 @@ libraryDependencies ++= Seq(
   "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "5.6.3",
   "com.github.scopt" %% "scopt" % "3.7.0",
   "org.apache.commons" % "commons-compress" % "1.15",
-  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39" excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core"))
+  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39" exclude("com.google.guava","guava") excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core"))
 )
 
 // For binary compatible conflicts, sbt provides dependency overrides.
