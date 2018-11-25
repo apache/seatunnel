@@ -17,6 +17,7 @@
     - [KafkaStream](/zh-cn/configuration/input-plugins/KafkaStream)
     - [Kudu](/zh-cn/configuration/input-plugins/Kudu)
     - [MongoDB](/zh-cn/configuration/input-plugins/MongoDB)
+    - [Hive](/zh-cn/configuration/input-plugins/Hive)
     - [S3Stream](/zh-cn/configuration/input-plugins/S3Stream)
     - [SocketStream](/zh-cn/configuration/input-plugins/SocketStream)
     
