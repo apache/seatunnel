@@ -85,7 +85,7 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 * [新浪](http://www.sina.com.cn/), 大数据运维分析平台
 
-![新浪Logo](../images/slna-logo.png ':size=170%')
+![新浪Logo](../images/sina-logo.png ':size=170%')
 
 * [一下科技](https://www.yixia.com/), 一直播数据平台
 
