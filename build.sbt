@@ -6,16 +6,12 @@ scalaVersion := "2.11.8"
 
 // resolved sbt assembly merging file conflicts.
 assemblyMergeStrategy in assembly := {
-  case PathList("javax", "servlet", xs @ _*) => MergeStrategy.last
-  case PathList("javax", "activation", xs @ _*) => MergeStrategy.last
-  case PathList("org", "apache", xs @ _*) => MergeStrategy.last
-  case PathList("com", "esotericsoftware", xs @ _*) => MergeStrategy.last
-  case PathList("com", "codahale", xs @ _*) => MergeStrategy.last
-  case PathList("com", "yammer", xs @ _*) => MergeStrategy.last
   case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".xml" => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".class" => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".thrift" => MergeStrategy.first
+  case PathList(ps @ _*) if ps.last endsWith ".properties" => MergeStrategy.first
+  case PathList(ps @ _*) if ps.last endsWith ".fmpp" => MergeStrategy.first
   case "UnusedStubClass.class" => MergeStrategy.last
   case x =>
     val oldStrategy = (assemblyMergeStrategy in assembly).value
