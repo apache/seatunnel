@@ -27,12 +27,15 @@ providedDeps match {
   }
 }
 
+// We forked and modified code of Typesafe config, the jar in unmanagedJars is packaged by InterestingLab
+// Project: https://github.com/InterestingLab/config
+unmanagedJars in Compile += file("lib/config-1.3.3-SNAPSHOT.jar")
+
 libraryDependencies ++= Seq(
 
   "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion
     exclude("org.spark-project.spark", "unused")
     exclude("net.jpountz.lz4", "unused"),
-  "com.typesafe" % "config" % "1.3.1",
   "org.apache.spark" %% "spark-hive" % sparkVersion ,
   "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.0",
   "org.apache.kudu" %% "kudu-spark2" % "1.7.0",
