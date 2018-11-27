@@ -36,5 +36,6 @@ hive {
 ```
 
 ### Notes
-cluster和client模式下必须把hive-site.xml置于提交任务节点的$HADOOP_CONF目录下,本地调试将其放在resources目录
+必须保证hive的metastore是在服务状态。启动命令 `hive --service metastore` 服务的默认端口的`9083`
+cluster、client、local模式下必须把hive-site.xml置于提交任务节点的$HADOOP_CONF目录下,IDE本地调试将其放在resources目录
 
