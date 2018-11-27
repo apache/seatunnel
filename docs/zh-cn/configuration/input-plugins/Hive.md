@@ -36,5 +36,5 @@ hive {
 ```
 
 ### Notes
-cluster和client模式下必须把hadoopConf和hive-site.xml置于集群每个节点sparkconf目录下,本地调试将其放在resources目录
+cluster和client模式下必须把hive-site.xml置于提交任务节点的$HADOOP_CONF目录下,本地调试将其放在resources目录
 
