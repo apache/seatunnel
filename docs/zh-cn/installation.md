@@ -27,7 +27,7 @@ Waterdrop 依赖JDK1.8运行环境。
 ### 准备好Spark
  
 Waterdrop 依赖Spark，安装Waterdrop前，需要先准备好Spark。
-请先[下载Spark](http://spark.apache.org/downloads.html), Spark版本请选择 >= 2.x.x。下载解压后，不需要做任何配置即可提交Spark deploy-mode = local模式的任务。
+请先[下载Spark](http://spark.apache.org/downloads.html), Spark版本请选择 >= 2.2.0。下载解压后，不需要做任何配置即可提交Spark deploy-mode = local模式的任务。
 如果你期望任务运行在Standalone集群或者Yarn、Mesos集群上，请参考Spark官网配置文档。
 
 ### 安装Waterdrop
