@@ -1,4 +1,4 @@
-## Output plugin : Mysql
+## Input plugin : Mysql
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -6,39 +6,41 @@
 
 ### Description
 
-输出数据到MySQL
+Read data from MySQL.
 
 ### Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [password](#password-string) | string | yes | - |
-| [save_mode](#save_mode-string) | string | no | append |
 | [table](#table-string) | string | yes | - |
+| [table_name](#table_name-string) | string | yes | - |
 | [url](#url-string) | string | yes | - |
 | [user](#user-string) | string | yes | - |
 
 
 ##### password [string]
 
-密码
-
-##### save_mode [string]
-
-存储模式，当前支持overwrite，append，ignore以及error。每个模式具体含义见[save-modes](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes)
+Password.
 
 ##### table [string]
 
-表名
+Table name.
+
+
+##### table_name [string]
+
+Registered table name of input data.
+
 
 ##### url [string]
 
-JDBC连接的URL。参考一个案例：`jdbc:mysql://localhose:3306/info`
+The url of JDBC. For example: `jdbc:mysql://localhost:3306/info`
 
 
 ##### user [string]
 
-用户名
+Username.
 
 
 ### Example
@@ -47,10 +49,10 @@ JDBC连接的URL。参考一个案例：`jdbc:mysql://localhose:3306/info`
 mysql {
     url = "jdbc:mysql://localhost:3306/info"
     table = "access"
+    table_name = "access_log"
     user = "username"
     password = "password"
-    save_mode = "append"
 }
 ```
 
-> 将数据写入MySQL
+> Read data from MySQL.
