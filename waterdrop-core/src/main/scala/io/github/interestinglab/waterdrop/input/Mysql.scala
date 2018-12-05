@@ -7,6 +7,7 @@ class Mysql extends Jdbc {
   override def getDataset(spark: SparkSession): Dataset[Row] = {
     spark.read
       .format("jdbc")
+      .option("driver", "com.mysql.jdbc.Driver")
       .option("url", config.getString("url"))
       .option("dbtable", config.getString("table"))
       .option("user", config.getString("user"))

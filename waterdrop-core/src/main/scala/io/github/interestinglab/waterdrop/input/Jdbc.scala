@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.input
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 
@@ -45,6 +45,7 @@ class Jdbc extends BaseStaticInput {
       .option("dbtable", config.getString("table"))
       .option("user", config.getString("user"))
       .option("password", config.getString("password"))
+      .option("driver", config.getString("driver"))
       .load()
   }
 }
