@@ -17,8 +17,12 @@ https://github.com/databricks/scala-style-guide
 
 * Interesting Lab成员 :
 
-(1) 从 master上 checkout 出新分支，分支名称要求新功能: 
-<username>.fea.<feature_name>，修复bug: <username>.fixbug.<bugname_or_issue_id>, 文档：<username>.doc.<doc_name>
+(1) 从 master上 checkout 出新分支，分支名称要求:
+
+- 新功能: <username>.fea.<feature_name>
+- 修复bug: <username>.fixbug.<bugname_or_issue_id>
+- 文档：<username>.doc.<doc_name>
+...
 
 (2) 开发, 提交commit
 
