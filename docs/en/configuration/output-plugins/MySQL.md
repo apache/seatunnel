@@ -45,7 +45,7 @@ Username.
 
 ```
 mysql {
-    url = "jdbc:mysql://localhose:3306/info"
+    url = "jdbc:mysql://localhost:3306/info"
     table = "access"
     user = "username"
     password = "password"

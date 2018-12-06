@@ -50,7 +50,7 @@ JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 ```
 jdbc {
     driver = "com.mysql.jdbc.Driver"
-    url = "jdbc:mysql://localhose:3306/info"
+    url = "jdbc:mysql://localhost:3306/info"
     table = "access"
     user = "username"
     password = "password"
