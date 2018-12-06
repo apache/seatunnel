@@ -36,7 +36,7 @@
 
 ##### url [string]
 
-JDBC连接的URL。参考一个案例：`jdbc:mysql://localhose:3306/info`
+JDBC连接的URL。参考一个案例：`jdbc:mysql://localhost:3306/info`
 
 
 ##### user [string]
