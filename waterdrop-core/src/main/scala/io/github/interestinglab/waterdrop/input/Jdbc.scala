@@ -27,10 +27,14 @@ class Jdbc extends BaseStaticInput {
       !exists
     }
 
-    if (nonExistsOptions.length == 0) {
+    if (nonExistsOptions.isEmpty) {
       (true, "")
     } else {
-      (false, "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(", ") + " as non-empty string")
+      (
+        false,
+        "please specify " + nonExistsOptions
+          .map { case (field, _) => "[" + field + "]" }
+          .mkString(", ") + " as non-empty string")
     }
   }
 
