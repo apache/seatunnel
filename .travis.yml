@@ -1,6 +1,7 @@
 # use Docker-based container (instead of OpenVZ)
 sudo: false
 
+dist: precise
 language: scala
 scala:
    - 2.11.2
