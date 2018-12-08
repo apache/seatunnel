@@ -6,7 +6,6 @@ scala:
    - 2.11.2
 jdk:
   - oraclejdk8
-  - oraclejdk9
   - openjdk8
 
 notifications:
