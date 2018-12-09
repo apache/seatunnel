@@ -1,6 +1,9 @@
 ### 行业应用案例
 
 * [如何快速地把HDFS中的数据导入Clickhouse](/zh-cn/case_study/1.md)
+* [如何快速地将Hive中的数据导入ClickHouse](/zh-cn/case_study/2.md)
+* [如何使用Spark快速将数据写入Elasticsearch](/zh-cn/case_study/3.md)
+
 
 ### 使用Waterdrop的公司
 
