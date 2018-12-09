@@ -5,7 +5,9 @@
 - [下载、安装](/zh-cn/installation)
 
 - [行业应用案例](/zh-cn/case_study/base)
-  - [如何快速地把HDFS中的数据导入Clickhouse](/zh-cn/case_study/1.md)
+  - [如何快速地把HDFS中的数据导入ClickHouse](/zh-cn/case_study/1.md)
+  - [如何快速地将Hive中的数据导入ClickHouse](/zh-cn/case_study/2.md)
+  - [如何使用Spark快速将数据写入Elasticsearch](/zh-cn/case_study/3.md)
 
 - [配置](/zh-cn/configuration/base)
 
