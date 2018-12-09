@@ -5,8 +5,8 @@ language: scala
 scala:
    - 2.11.2
 jdk:
-  - oraclejdk7
   - oraclejdk8
+  - openjdk8
 
 notifications:
   email:
