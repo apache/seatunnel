@@ -18,6 +18,9 @@ assemblyMergeStrategy in assembly := {
     oldStrategy(x)
 }
 
+
+dependencyOverrides += "com.google.guava" % "guava" % "15.0"
+
 // The 'run', 'runMain' task uses all the libraries, including the ones marked with "provided".
 // This is useful for running spark application in local
 run in Compile <<= Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run))
