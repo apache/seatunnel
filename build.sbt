@@ -18,7 +18,6 @@ assemblyMergeStrategy in assembly := {
     oldStrategy(x)
 }
 
-
 dependencyOverrides += "com.google.guava" % "guava" % "15.0"
 
 // The 'run', 'runMain' task uses all the libraries, including the ones marked with "provided".
