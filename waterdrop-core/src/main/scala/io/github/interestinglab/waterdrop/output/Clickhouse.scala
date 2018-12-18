@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.output
 
+import java.text.SimpleDateFormat
 import java.util
-
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -104,7 +104,7 @@ class Clickhouse extends BaseOutput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "bulk_size" -> 20000
-        )
+      )
     )
     config = config.withFallback(defaultConfig)
     super.prepare(spark)
@@ -160,15 +160,34 @@ class Clickhouse extends BaseOutput {
     sql
   }
 
+  private def renderStringDefault(fieldType: String): String = {
+    fieldType match {
+      case "DateTime" =>
+        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        dateFormat.format(System.currentTimeMillis())
+      case "Date" =>
+        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
+        dateFormat.format(System.currentTimeMillis())
+      case "String" =>
+        ""
+    }
+  }
+
   private def renderStatement(fields: util.List[String], item: Row, statement: ClickHousePreparedStatement): Unit = {
     for (i <- 0 until fields.size()) {
       val field = fields.get(i)
       val fieldType = schema(field)
       fieldType match {
-        case "DateTime" | "Date" | "String" => statement.setString(i + 1, item.getAs[String](field))
+        case "DateTime" | "Date" | "String" =>
+          if (item.schema.fieldNames.indexOf(field) == -1) {
+            statement.setString(i + 1, renderStringDefault(fieldType))
+          } else {
+            statement.setString(i + 1, item.getAs[String](field))
+          }
         case "Int8" | "Int16" | "Int32" | "UInt8" | "UInt16" => statement.setInt(i + 1, item.getAs[Int](field))
         case "UInt64" | "Int64" | "UInt32" => statement.setLong(i + 1, item.getAs[Long](field))
-        case "Float32" | "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
+        case "Float32" => statement.setDouble(i + 1, item.getAs[Float](field))
+        case "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
         case _ => statement.setString(i + 1, item.getAs[String](field))
       }
     }
