@@ -6,7 +6,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions._
 
 import scala.collection.JavaConversions._
 
@@ -52,10 +52,23 @@ class Kv extends BaseFilter {
   }
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
+
+    import spark.implicits._
+
+    val kvUDF = udf((s: String) => kv(s))
     conf.getString("target_field") match {
-      case RowConstant.ROOT => df // TODO: implement
+      case RowConstant.ROOT => {
+        var filterDf = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
+        filterDf = filterDf.withColumn(RowConstant.JSON, to_json(col(RowConstant.TMP)))
+        val stringDataSet = filterDf.select(RowConstant.JSON).as[String]
+        val schema = spark.read.json(stringDataSet).schema
+        println(schema)
+        schema.map { field =>
+          filterDf = filterDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
+        }
+        filterDf.drop(RowConstant.TMP).drop(RowConstant.JSON)
+      }
       case targetField: String => {
-        val kvUDF = udf((s: String) => kv(s))
         df.withColumn(targetField, kvUDF(col(conf.getString("source_field"))))
       }
     }
