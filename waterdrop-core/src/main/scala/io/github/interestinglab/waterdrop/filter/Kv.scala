@@ -7,6 +7,7 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.StructType
 
 import scala.collection.JavaConversions._
 
@@ -58,15 +59,22 @@ class Kv extends BaseFilter {
     val kvUDF = udf((s: String) => kv(s))
     conf.getString("target_field") match {
       case RowConstant.ROOT => {
-        var filterDf = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
-        filterDf = filterDf.withColumn(RowConstant.JSON, to_json(col(RowConstant.TMP)))
-        val stringDataSet = filterDf.select(RowConstant.JSON).as[String]
-        val schema = spark.read.json(stringDataSet).schema
-        println(schema)
-        schema.map { field =>
-          filterDf = filterDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
+        var df2 = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
+        val schema = df2.schema
+
+        val structField = schema.fields(schema.fieldIndex(RowConstant.TMP))
+
+        structField.dataType match {
+          case struct: StructType => {
+            structField.asInstanceOf[StructType].fields map { field =>
+              df2 = df2.withColumn(field.name, col(RowConstant.TMP)(field.name))
+            }
+
+          }
+          case _ => {}
         }
-        filterDf.drop(RowConstant.TMP).drop(RowConstant.JSON)
+
+        df2.drop(RowConstant.TMP)
       }
       case targetField: String => {
         df.withColumn(targetField, kvUDF(col(conf.getString("source_field"))))
