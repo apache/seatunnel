@@ -7,7 +7,7 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 
 import scala.collection.JavaConversions._
 
@@ -57,29 +57,49 @@ class Kv extends BaseFilter {
     import spark.implicits._
 
     val kvUDF = udf((s: String) => kv(s))
+
+    var df2 = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
+
     conf.getString("target_field") match {
       case RowConstant.ROOT => {
-        var df2 = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
-        val schema = df2.schema
-
-        val structField = schema.fields(schema.fieldIndex(RowConstant.TMP))
-
-        structField.dataType match {
-          case struct: StructType => {
-            structField.asInstanceOf[StructType].fields map { field =>
-              df2 = df2.withColumn(field.name, col(RowConstant.TMP)(field.name))
-            }
-
-          }
-          case _ => {}
+        val schema = inferSchemaOfMapType(spark, df2, RowConstant.TMP)
+        schema.fields map { field =>
+          df2 = df2.withColumn(field.name, col(RowConstant.TMP)(field.name))
         }
 
         df2.drop(RowConstant.TMP)
       }
+
       case targetField: String => {
-        df.withColumn(targetField, kvUDF(col(conf.getString("source_field"))))
+        df2.withColumnRenamed(RowConstant.TMP, targetField)
       }
     }
+  }
+
+  private def inferSchemaOfMapType(spark: SparkSession, ds: Dataset[Row], columnName: String): StructType = {
+
+    import spark.implicits._
+
+    // backward-compatibility for spark < 2.3,
+    val map_keys = udf[Seq[String], Map[String, Row]](_.keys.toSeq)
+
+    // for spark >= 2.3
+    // import org.apache.spark.sql.functions.map_keys
+
+    val keys = ds
+      .select(map_keys(col(columnName)))
+      .as[Seq[String]]
+      .flatMap(identity)
+      .distinct()
+      .collect()
+      .sorted
+
+    var structFields = Seq[StructField]()
+    keys map { key =>
+      structFields = structFields :+ DataTypes.createStructField(key, DataTypes.StringType, true)
+    }
+
+    DataTypes.createStructType(structFields)
   }
 
   private def kv(str: String): Map[String, String] = {
