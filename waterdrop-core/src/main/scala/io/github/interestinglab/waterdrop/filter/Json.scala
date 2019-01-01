@@ -52,12 +52,13 @@ class Json extends BaseFilter {
     conf.getString("target_field") match {
       case RowConstant.ROOT => {
 
-        val stringDataSet = df.select(srcField).as[String]
+        val jsonRDD = df.select(srcField).as[String].rdd
 
         val newDF = srcField match {
-          case "raw_message" => spark.read.json(stringDataSet)
+          // for backward-compatibility for spark < 2.2.0, we created rdd, not Dataset[String]
+          case "raw_message" => spark.read.json(jsonRDD)
           case s: String => {
-            val schema = spark.read.json(stringDataSet).schema
+            val schema = spark.read.json(jsonRDD).schema
             var tmpDf = df.withColumn(RowConstant.TMP, from_json(col(s), schema))
             schema.map { field =>
               tmpDf = tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
@@ -69,8 +70,9 @@ class Json extends BaseFilter {
         newDF
       }
       case targetField: String => {
-        val stringDataSet = df.select(srcField).as[String]
-        val schema = spark.read.json(stringDataSet).schema
+        // for backward-compatibility for spark < 2.2.0, we created rdd, not Dataset[String]
+        val jsonRDD = df.select(srcField).as[String].rdd
+        val schema = spark.read.json(jsonRDD).schema
         df.withColumn(targetField, from_json(col(srcField), schema))
       }
     }
