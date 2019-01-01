@@ -81,13 +81,13 @@ class Kv extends BaseFilter {
     import spark.implicits._
 
     // backward-compatibility for spark < 2.3,
-    val map_keys = udf[Seq[String], Map[String, Row]](_.keys.toSeq)
+    val mapKeys = udf[Seq[String], Map[String, Row]](_.keys.toSeq)
 
     // for spark >= 2.3
     // import org.apache.spark.sql.functions.map_keys
 
     val keys = ds
-      .select(map_keys(col(columnName)))
+      .select(mapKeys(col(columnName)))
       .as[Seq[String]]
       .flatMap(identity)
       .distinct()
