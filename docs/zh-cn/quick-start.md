@@ -11,13 +11,19 @@
 
 ### Step 2: 下载 Waterdrop
 
-下载[Waterdrop安装包](https://github.com/InterestingLab/waterdrop/releases) 并解压:
+进入[Waterdrop安装包下载页面](https://github.com/InterestingLab/waterdrop/releases/latest)，下载最新版`Waterdrop-<version>.zip`
+
+或者直接下载指定版本（以1.1.2为例）：
 
 ```
-# 以waterdrop 1.1.0 为例:
-wget https://github.com/InterestingLab/waterdrop/releases/download/v1.1.0/waterdrop-1.1.0.zip -O waterdrop-1.1.0.zip
-unzip waterdrop-1.1.0.zip
-ln -s waterdrop-1.1.0 waterdrop
+wget https://github.com/InterestingLab/waterdrop/releases/download/v1.1.2/waterdrop-1.1.2.zip -O waterdrop-1.1.2.zip
+```
+
+下载后，解压：
+
+```
+unzip waterdrop-<version>.zip
+ln -s waterdrop-<version> waterdrop
 ```
 
 ### Step 3: 配置 Waterdrop
