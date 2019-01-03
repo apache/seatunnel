@@ -23,9 +23,9 @@
 
 ##### default_values [array]
 
-指定kv默认值，格式为 `key:defalut_value`, key与value之间使用`:`分割，可以指定多个，举例:
+指定kv默认值，格式为 `key=defalut_value`, key与value之间使用`=`分割，可以指定多个，举例:
 
-`default_values = ["mykey1:123", "mykey2:waterdrop"]`
+`default_values = ["mykey1=123", "mykey2=waterdrop"]`
 
 ##### exclude_fields [array]
 

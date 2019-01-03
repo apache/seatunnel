@@ -24,9 +24,9 @@ Extract all Key-Values of the specified string field with configured `field_spli
 
 ##### default_values [array]
 
-Default values can be set by `default_values` by `key:defalut_value`(key and value are separated by `:`).
+Default values can be set by `default_values` by `key=defalut_value`(key and value are separated by `=`).
 
-Multiple default values are specified as follows: `default_values = ["mykey1:123", "mykey2:waterdrop"]`
+Multiple default values are specified as follows: `default_values = ["mykey1=123", "mykey2=waterdrop"]`
 
 ##### exclude_fields [array]
 
