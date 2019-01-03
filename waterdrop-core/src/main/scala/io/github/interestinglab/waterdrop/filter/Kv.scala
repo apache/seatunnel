@@ -129,7 +129,7 @@ class Kv extends BaseFilter {
       })
 
     defaultValues foreach { dv =>
-      val pair = dv.split(":")
+      val pair = dv.split("=")
       if (pair.size == 2) {
         val key = pair(0).trim
         val value = pair(1).trim
