@@ -45,6 +45,7 @@ class Kv extends BaseFilter {
         "field_prefix" -> "",
         "include_fields" -> util.Arrays.asList(),
         "exclude_fields" -> util.Arrays.asList(),
+        "default_values" -> util.Arrays.asList(),
         "source_field" -> "raw_message",
         "target_field" -> RowConstant.ROOT
       )
@@ -106,6 +107,8 @@ class Kv extends BaseFilter {
 
     val includeFields = conf.getStringList("include_fields")
     val excludeFields = conf.getStringList("exclude_fields")
+    val defaultValues = conf.getStringList("default_values")
+
     var map: Map[String, String] = Map()
     str
       .split(conf.getString("field_split"))
@@ -124,6 +127,19 @@ class Kv extends BaseFilter {
           }
         }
       })
+
+    defaultValues foreach { dv =>
+      val pair = dv.split("=")
+      if (pair.size == 2) {
+        val key = pair(0).trim
+        val value = pair(1).trim
+
+        if (!map.contains(key)) {
+          map += (key -> value)
+        }
+      }
+    }
+
     map
   }
 }

@@ -1,5 +1,5 @@
 name         := "Waterdrop-core"
-version      := "1.1.1"
+version      := "1.1.3"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
