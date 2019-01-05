@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.output
 
 import java.text.SimpleDateFormat
 import java.util
+
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -9,6 +10,7 @@ import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionI
 
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConversions._
+import scala.collection.mutable.WrappedArray
 
 class Clickhouse extends BaseOutput {
 
@@ -17,6 +19,7 @@ class Clickhouse extends BaseOutput {
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
+  val arrayPattern = "(Array.*)".r
 
   var config: Config = ConfigFactory.empty()
 
@@ -184,6 +187,7 @@ class Clickhouse extends BaseOutput {
         statement.setLong(index + 1, 0)
       case "Float32" => statement.setFloat(index + 1, 0)
       case "Float64" => statement.setDouble(index + 1, 0)
+      case arrayPattern(_) => statement.setArray(index + 1, List())
       case _ => statement.setString(index + 1, "")
     }
   }
@@ -202,12 +206,14 @@ class Clickhouse extends BaseOutput {
         fieldType match {
           case "DateTime" | "Date" | "String" =>
             statement.setString(i + 1, item.getAs[String](field))
-          case "Int8" | "Int16" | "Int32" | "UInt8" | "UInt16" =>
+          case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
             statement.setInt(i + 1, item.getAs[Int](field))
-          case "UInt64" | "Int64" | "UInt32" =>
+          case "UInt32" | "UInt64" | "Int64" =>
             statement.setLong(i + 1, item.getAs[Long](field))
           case "Float32" => statement.setFloat(i + 1, item.getAs[Float](field))
           case "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
+          case arrayPattern(_) =>
+            statement.setArray(i + 1, item.getAs[WrappedArray[AnyRef]](field))
           case _ => statement.setString(i + 1, item.getAs[String](field))
         }
       }
