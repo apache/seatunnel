@@ -62,11 +62,12 @@ Clickhouse用户用户名，仅当Clickhouse中开启权限时需要此字段
 |Int16| integer| int()||
 |Uint16| integer| int()||
 |Int32| integer| int()||
-|Uint32| integer| int()||
+|Uint32| long | bigint()||
 |Int64| long| bigint()||
 |Uint64| long| bigint()||
 |Float32| float| float()||
 |Float64| double| double()||
+|Array(T)|-|-|
 
 
 ### Examples
