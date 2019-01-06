@@ -79,30 +79,7 @@ class Clickhouse extends BaseOutput {
       this.tableSchema = getClickHouseSchema(conn, table)
       this.fields = config.getStringList("fields")
 
-      val nonExistsFields = fields
-        .map(field => (field, tableSchema.contains(field)))
-        .filter(p => !p._2)
-
-      if (nonExistsFields.nonEmpty) {
-        (
-          false,
-          "field " + nonExistsFields
-            .map(option => "[" + option._1 + "]")
-            .mkString(", ") + " not exist in table " + this.table)
-      } else {
-        val nonSupportedType = fields
-          .map(field => (tableSchema(field), supportOrNot(tableSchema(field))))
-          .filter(p => !p._2)
-        if (nonSupportedType.nonEmpty) {
-          (
-            false,
-            "clickHouse data type " + nonSupportedType
-              .map(option => "[" + option._1 + "]")
-              .mkString(", ") + " not support in current version.")
-        } else {
-          (true, "")
-        }
-      }
+      acceptedClickHouseSchema()
     }
   }
 
@@ -169,6 +146,33 @@ class Clickhouse extends BaseOutput {
       prepare.mkString(","))
 
     sql
+  }
+
+  private def acceptedClickHouseSchema(): (Boolean, String) = {
+    val nonExistsFields = fields
+      .map(field => (field, tableSchema.contains(field)))
+      .filter { case (_, exist) => !exist }
+
+    if (nonExistsFields.nonEmpty) {
+      (
+        false,
+        "field " + nonExistsFields
+          .map { case (option) => "[" + option._1 + "]" }
+          .mkString(", ") + " not exist in table " + this.table)
+    } else {
+      val nonSupportedType = fields
+        .map(field => (tableSchema(field), supportOrNot(tableSchema(field))))
+        .filter { case (_, exist) => !exist }
+      if (nonSupportedType.nonEmpty) {
+        (
+          false,
+          "clickHouse data type " + nonSupportedType
+            .map { case (option) => "[" + option._1 + "]" }
+            .mkString(", ") + " not support in current version.")
+      } else {
+        (true, "")
+      }
+    }
   }
 
   /**
