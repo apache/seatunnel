@@ -157,7 +157,7 @@ class Clickhouse extends BaseOutput {
       (
         false,
         "field " + nonExistsFields
-          .map { case (option) => "[" + option._1 + "]" }
+          .map { case (option) => "[" + option + "]" }
           .mkString(", ") + " not exist in table " + this.table)
     } else {
       val nonSupportedType = fields
@@ -167,7 +167,7 @@ class Clickhouse extends BaseOutput {
         (
           false,
           "clickHouse data type " + nonSupportedType
-            .map { case (option) => "[" + option._1 + "]" }
+            .map { case (option) => "[" + option + "]" }
             .mkString(", ") + " not support in current version.")
       } else {
         (true, "")
