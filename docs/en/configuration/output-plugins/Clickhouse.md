@@ -62,11 +62,12 @@ ClickHouse username, only used when ClickHouse has authority authentication.
 |Int16| integer| int()||
 |Uint16| integer| int()||
 |Int32| integer| int()||
-|Uint32| integer| int()||
+|Uint32| long| bigint()||
 |Int64| long| bigint()||
 |Uint64| long| bigint()||
 |Float32| float| float()||
 |Float64| double| double()||
+|Array(T)|-|-|
 
 ### Examples
 

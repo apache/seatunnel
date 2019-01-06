@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.output
 
 import java.text.SimpleDateFormat
 import java.util
+
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -9,6 +10,8 @@ import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionI
 
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConversions._
+import scala.collection.mutable.WrappedArray
+import scala.util.matching.Regex
 
 class Clickhouse extends BaseOutput {
 
@@ -17,7 +20,10 @@ class Clickhouse extends BaseOutput {
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
-
+  val arrayPattern: Regex = "(Array.*)".r
+  val intPattern: Regex = "(Int.*)".r
+  val uintPattern: Regex = "(UInt.*)".r
+  val floatPattern: Regex = "(Float.*)".r
   var config: Config = ConfigFactory.empty()
 
   /**
@@ -71,28 +77,9 @@ class Clickhouse extends BaseOutput {
 
       this.table = config.getString("table")
       this.tableSchema = getClickHouseSchema(conn, table)
-
       this.fields = config.getStringList("fields")
 
-      val nonExistsFields = fields
-        .map(field => (field, this.tableSchema.contains(field)))
-        .filter({ p =>
-          val (field, exists) = p
-          !exists
-        })
-
-      if (nonExistsFields.nonEmpty) {
-        (
-          false,
-          "field " + nonExistsFields
-            .map { option =>
-              val (field, exists) = option
-              "[" + field + "]"
-            }
-            .mkString(", ") + " not exist in table " + this.table)
-      } else {
-        (true, "")
-      }
+      acceptedClickHouseSchema()
     }
   }
 
@@ -161,6 +148,49 @@ class Clickhouse extends BaseOutput {
     sql
   }
 
+  private def acceptedClickHouseSchema(): (Boolean, String) = {
+    val nonExistsFields = fields
+      .map(field => (field, tableSchema.contains(field)))
+      .filter { case (_, exist) => !exist }
+
+    if (nonExistsFields.nonEmpty) {
+      (
+        false,
+        "field " + nonExistsFields
+          .map { case (option) => "[" + option + "]" }
+          .mkString(", ") + " not exist in table " + this.table)
+    } else {
+      val nonSupportedType = fields
+        .map(field => (tableSchema(field), supportOrNot(tableSchema(field))))
+        .filter { case (_, exist) => !exist }
+      if (nonSupportedType.nonEmpty) {
+        (
+          false,
+          "clickHouse data type " + nonSupportedType
+            .map { case (option) => "[" + option + "]" }
+            .mkString(", ") + " not support in current version.")
+      } else {
+        (true, "")
+      }
+    }
+  }
+
+  /**
+   * Waterdrop support this clickhouse data type or not.
+   * @param dataType ClickHouse Data Type
+   * @return Boolean
+   **/
+  private def supportOrNot(dataType: String): Boolean = {
+    dataType match {
+      case "Date" | "DateTime" | "String" =>
+        true
+      case arrayPattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
+        true
+      case _ =>
+        false
+    }
+  }
+
   private def renderStringDefault(fieldType: String): String = {
     fieldType match {
       case "DateTime" =>
@@ -184,6 +214,7 @@ class Clickhouse extends BaseOutput {
         statement.setLong(index + 1, 0)
       case "Float32" => statement.setFloat(index + 1, 0)
       case "Float64" => statement.setDouble(index + 1, 0)
+      case arrayPattern(_) => statement.setArray(index + 1, List())
       case _ => statement.setString(index + 1, "")
     }
   }
@@ -202,12 +233,14 @@ class Clickhouse extends BaseOutput {
         fieldType match {
           case "DateTime" | "Date" | "String" =>
             statement.setString(i + 1, item.getAs[String](field))
-          case "Int8" | "Int16" | "Int32" | "UInt8" | "UInt16" =>
+          case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
             statement.setInt(i + 1, item.getAs[Int](field))
-          case "UInt64" | "Int64" | "UInt32" =>
+          case "UInt32" | "UInt64" | "Int64" =>
             statement.setLong(i + 1, item.getAs[Long](field))
           case "Float32" => statement.setFloat(i + 1, item.getAs[Float](field))
           case "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
+          case arrayPattern(_) =>
+            statement.setArray(i + 1, item.getAs[WrappedArray[AnyRef]](field))
           case _ => statement.setString(i + 1, item.getAs[String](field))
         }
       }
