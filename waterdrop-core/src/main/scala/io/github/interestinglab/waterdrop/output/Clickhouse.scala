@@ -11,6 +11,7 @@ import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionI
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConversions._
 import scala.collection.mutable.WrappedArray
+import scala.util.matching.Regex
 
 class Clickhouse extends BaseOutput {
 
@@ -19,8 +20,10 @@ class Clickhouse extends BaseOutput {
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
-  val arrayPattern = "(Array.*)".r
-
+  val arrayPattern: Regex = "(Array.*)".r
+  val intPattern: Regex = "(Int.*)".r
+  val uintPattern: Regex = "(UInt.*)".r
+  val floatPattern: Regex = "(Float.*)".r
   var config: Config = ConfigFactory.empty()
 
   /**
@@ -74,27 +77,31 @@ class Clickhouse extends BaseOutput {
 
       this.table = config.getString("table")
       this.tableSchema = getClickHouseSchema(conn, table)
-
       this.fields = config.getStringList("fields")
 
       val nonExistsFields = fields
-        .map(field => (field, this.tableSchema.contains(field)))
-        .filter({ p =>
-          val (field, exists) = p
-          !exists
-        })
+        .map(field => (field, tableSchema.contains(field)))
+        .filter(p => !p._2)
 
       if (nonExistsFields.nonEmpty) {
         (
           false,
           "field " + nonExistsFields
-            .map { option =>
-              val (field, exists) = option
-              "[" + field + "]"
-            }
+            .map(option => "[" + option._1 + "]")
             .mkString(", ") + " not exist in table " + this.table)
       } else {
-        (true, "")
+        val nonSupportedType = fields
+          .map(field => (tableSchema(field), supportOrNot(tableSchema(field))))
+          .filter(p => !p._2)
+        if (nonSupportedType.nonEmpty) {
+          (
+            false,
+            "clickHouse data type " + nonSupportedType
+              .map(option => "[" + option._1 + "]")
+              .mkString(", ") + " not support in current version.")
+        } else {
+          (true, "")
+        }
       }
     }
   }
@@ -162,6 +169,22 @@ class Clickhouse extends BaseOutput {
       prepare.mkString(","))
 
     sql
+  }
+
+  /**
+   * Waterdrop support this clickhouse data type or not.
+   * @param dataType ClickHouse Data Type
+   * @return Boolean
+   **/
+  private def supportOrNot(dataType: String): Boolean = {
+    dataType match {
+      case "Date" | "DateTime" | "String" =>
+        true
+      case arrayPattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
+        true
+      case _ =>
+        false
+    }
   }
 
   private def renderStringDefault(fieldType: String): String = {
