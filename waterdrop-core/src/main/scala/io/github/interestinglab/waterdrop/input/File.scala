@@ -5,6 +5,7 @@ import io.github.interestinglab.waterdrop.apis.BaseStaticInput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
+import com.databricks.spark.xml._
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -38,7 +39,12 @@ class File extends BaseStaticInput {
   override def checkConfig(): (Boolean, String) = {
 
     this.config.hasPath("path") match {
-      case true => (true, "")
+      case true =>
+        if (!this.config.hasPath("rowTag") && this.config.getString("format") == "xml") {
+          (false, "please specify [rowTag] if your format is xml")
+        } else {
+          (true, "")
+        }
       case false => (false, "please specify [path] as string")
     }
   }
@@ -57,6 +63,7 @@ class File extends BaseStaticInput {
 
     val format = config.getString("format")
     var reader = spark.read.format(format)
+    val rowTag = config.getString("rowTag")
 
     Try(config.getConfig("options")) match {
 
@@ -77,6 +84,7 @@ class File extends BaseStaticInput {
 
     format match {
       case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
+      case "xml" => reader.option("rowTag", rowTag).xml(path)
       case _ => reader.load(path)
     }
   }
