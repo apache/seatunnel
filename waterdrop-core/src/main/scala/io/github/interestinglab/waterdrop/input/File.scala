@@ -62,7 +62,6 @@ class File extends BaseStaticInput {
   protected def fileReader(spark: SparkSession, path: String): Dataset[Row] = {
     val format = config.getString("format")
     var reader = spark.read.format(format)
-    val rowTag = config.getString("rowTag")
 
     Try(config.getConfig("options")) match {
 
@@ -81,7 +80,9 @@ class File extends BaseStaticInput {
 
     format match {
       case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
-      case "xml" => reader.option("rowTag", rowTag).xml(path)
+      case "xml" =>
+        val rowTag = config.getString("rowTag")
+        reader.option("rowTag", rowTag).xml(path)
       case _ => reader.load(path)
     }
   }
