@@ -12,21 +12,35 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [format](#format-string) | string | yes | json |
+| [format](#format-string) | string | no | json |
+| [options](#options-object) | object | no | - |
+| [options.rowTag](#options.rowTag-string) | string | no | - |
 | [path](#path-string) | string | yes | - |
 | [table_name](#table_name-string) | string | yes | - |
 
 ##### format [string]
 
-文件格式，默认是json，支持text、csv等
+从HDFS中读取文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`和 `text`.
+
+
+##### options [object]
+
+自定义参数
+
+
+##### options.rowTag [string]
+
+当format为xml必须设置，配置XML格式数据的Tag
+
 
 ##### path [string]
 
-文件路径
+文件路径，以file://开头
+
 
 ##### table_name [string]
 
-注册的表名，可为任意字符串
+注册的表名
 
 ### Example
 
@@ -35,5 +49,16 @@ file {
     path = "file:///var/log/access.log"
     table_name = "accesslog"
     format = "text"
+}
+```
+
+也支持读取XML格式文件
+
+```
+file {
+    table_name = "books"
+    path = "file///data0/src/books.xml"
+    options.rowTag = "book"
+    format = "xml"
 }
 ```

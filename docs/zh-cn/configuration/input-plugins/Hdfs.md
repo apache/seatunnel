@@ -13,22 +13,31 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [options](#options-object) | object | no | - |
-| [path](#path-string) | string | yes | - |
 | [format](#format-string) | string | no | json |
+| [options](#options-object) | object | no | - |
+| [options.rowTag](#options.rowTag-string) | string | no | - |
+| [path](#path-string) | string | yes | - |
 | [table_name](#table_name-string) | string | yes | - |
+
+##### format [string]
+
+从HDFS中读取文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`和 `text`.
+
 
 ##### options [object]
 
 自定义参数
 
+
+##### options.rowTag [string]
+
+当format为xml必须设置，配置XML格式数据的Tag
+
+
 ##### path [string]
 
 Hadoop集群文件路径，以hdfs://开头
 
-##### format [string]
-
-从HDFS中读取文件的格式，目前支持`csv`、`json`、`parquet` 和 `text`.
 
 ##### table_name [string]
 
@@ -54,5 +63,17 @@ hdfs {
 hdfs {
     table_name = "access_log"
     path = "hdfs://m2:8022/waterdrop-logs/access.log"
+}
+```
+
+
+也支持读取XML格式的文件:
+
+```
+hdfs {
+    table_name = "books"
+    path = "hdfs://m2:8022/waterdrop-logs/books.xml"
+    options.rowTag = "book"
+    format = "xml"
 }
 ```
