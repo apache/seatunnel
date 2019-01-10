@@ -39,12 +39,7 @@ class File extends BaseStaticInput {
   override def checkConfig(): (Boolean, String) = {
 
     this.config.hasPath("path") match {
-      case true =>
-        if (!this.config.hasPath("rowTag") && this.config.getString("format") == "xml") {
-          (false, "please specify [rowTag] if your format is xml")
-        } else {
-          (true, "")
-        }
+      case true => (true, "")
       case false => (false, "please specify [path] as string")
     }
   }
@@ -80,9 +75,7 @@ class File extends BaseStaticInput {
 
     format match {
       case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
-      case "xml" =>
-        val rowTag = config.getString("rowTag")
-        reader.option("rowTag", rowTag).xml(path)
+      case "xml" => reader.xml(path)
       case _ => reader.load(path)
     }
   }
