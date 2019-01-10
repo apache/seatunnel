@@ -78,14 +78,19 @@ class Tidb extends BaseOutput {
 
     val saveMode = config.getString("save_mode")
 
-    if (firstProcess) {
-      df.write.mode(saveMode).jdbc(config.getString("url"), config.getString("table"), prop)
-      firstProcess = false
-    } else if (saveMode == "overwrite") {
-      // actually user only want the first time overwrite in streaming(generating multiple dataframe)
-      df.write.mode(SaveMode.Append).jdbc(config.getString("url"), config.getString("table"), prop)
-    } else {
-      df.write.mode(saveMode).jdbc(config.getString("url"), config.getString("table"), prop)
+    firstProcess match {
+      case true =>
+        df.write.mode(saveMode).jdbc(config.getString("url"), config.getString("table"), prop)
+        firstProcess = false
+      case false =>
+        saveMode match {
+          case "overwrite" =>
+            // actually user only want the first time overwrite in streaming(generating multiple dataframe)
+            df.write.mode(SaveMode.Append).jdbc(config.getString("url"), config.getString("table"), prop)
+          case _ =>
+            df.write.mode(saveMode).jdbc(config.getString("url"), config.getString("table"), prop)
+
+        }
     }
   }
 }
