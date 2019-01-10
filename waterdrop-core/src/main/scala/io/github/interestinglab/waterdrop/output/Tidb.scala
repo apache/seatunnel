@@ -46,7 +46,11 @@ class Tidb extends BaseOutput {
       }
 
     } else {
-      (false, "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(", ") + " as non-empty string")
+      (
+        false,
+        "please specify " + nonExistsOptions
+          .map { case (option) => "[" + option + "]" }
+          .mkString(", ") + " as non-empty string")
     }
   }
 
