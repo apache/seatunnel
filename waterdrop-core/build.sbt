@@ -56,7 +56,7 @@ dependencyOverrides += "com.google.guava" % "guava" % "15.0"
 
 resolvers += Resolver.mavenLocal
 
-javacOptions ++= Seq("-source", "1.7", "-target", "1.7")
+javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 
