@@ -14,8 +14,8 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [format](#format-string) | string | no | json |
-| [options](#options-object) | object | no | - |
-| [options.rowTag](#options.rowTag-string) | string | no | - |
+| [options.*](#options-object) | object | no | - |
+| [options.rowTag](#optionsrowTag-string) | string | no | - |
 | [path](#path-string) | string | yes | - |
 | [table_name](#table_name-string) | string | yes | - |
 
@@ -26,12 +26,12 @@
 
 ##### options [object]
 
-自定义参数
+自定义参数，当`format = "xml"`时必须设置`optionss.rowTag`，配置XML格式数据的Tag，其他参数不是必填参数。
 
 
 ##### options.rowTag [string]
 
-当format为xml必须设置，配置XML格式数据的Tag
+当format为xml必须设置`optionss.rowTag`，配置XML格式数据的Tag
 
 
 ##### path [string]
