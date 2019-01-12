@@ -30,7 +30,7 @@ Kafka consumer group id，用于区分不同的消费组。
 
 Kafka集群地址，多个用","隔开
 
-##### consumer [string]
+##### consumer.* [string]
 
 除了以上必备的kafka consumer客户端必须指定的参数外，用户还可以指定多个consumer客户端非必须参数，覆盖了[kafka官方文档指定的所有consumer参数](http://kafka.apache.org/documentation.html#oldconsumerconfigs).
 
