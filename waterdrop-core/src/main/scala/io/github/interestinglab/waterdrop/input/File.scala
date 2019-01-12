@@ -5,6 +5,7 @@ import io.github.interestinglab.waterdrop.apis.BaseStaticInput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
+import com.databricks.spark.xml._
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -43,7 +44,7 @@ class File extends BaseStaticInput {
     }
   }
 
-  private def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
+  protected def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
 
     val path = uri.startsWith("/") match {
       case true => defaultUriSchema + uri
@@ -53,8 +54,7 @@ class File extends BaseStaticInput {
     path
   }
 
-  override def getDataset(spark: SparkSession): Dataset[Row] = {
-
+  protected def fileReader(spark: SparkSession, path: String): Dataset[Row] = {
     val format = config.getString("format")
     var reader = spark.read.format(format)
 
@@ -73,11 +73,15 @@ class File extends BaseStaticInput {
 
     }
 
-    val path = buildPathWithDefaultSchema(config.getString("path"), "file://")
-
     format match {
       case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
+      case "xml" => reader.xml(path)
       case _ => reader.load(path)
     }
+  }
+
+  override def getDataset(spark: SparkSession): Dataset[Row] = {
+    val path = buildPathWithDefaultSchema(config.getString("path"), "file://")
+    fileReader(spark, path)
   }
 }
