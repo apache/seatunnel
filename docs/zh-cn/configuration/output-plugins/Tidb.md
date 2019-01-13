@@ -29,10 +29,6 @@
 
 Isolation level means whether do the resolve lock for the underlying tidb clusters.
 
-##### useSSL [boolean]
-
-useSSL
-
 ##### password [string]
 
 密码
@@ -54,6 +50,9 @@ JDBC连接的URL。参考一个案例: `jdbc:mysql://127.0.0.1:4000/test?rewrite
 
 用户名
 
+##### useSSL [boolean]
+
+useSSL
 
 ### Example
 
