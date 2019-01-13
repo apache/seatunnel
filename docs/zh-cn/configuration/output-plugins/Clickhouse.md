@@ -49,11 +49,26 @@ Clickhouse 表名
 
 Clickhouse用户用户名，仅当Clickhouse中开启权限时需要此字段
 
-### Note
+### ClickHouse类型对照表
 
-数据在写入ClickHouse之前，所有字段需要转换为ClickHouse中表结构对应的类型。
 
-需要注意的是，Date类型对应字段需要转换为`yyyy-MM-dd`格式字符串。DateTime类型对应字段需要转换为`yyyy-MM-dd HH:mm:ss`格式字符串。
+|ClickHouse字段类型|Convert插件转化目标类型|SQL转化表达式| Description |
+| :---: | :---: | :---:| :---:|
+|Date| string| string()|`yyyy-MM-dd`格式字符串|
+|DateTime| string| string()|`yyyy-MM-dd HH:mm:ss`格式字符串|
+|String| string| string()||
+|Int8| integer| int()||
+|Uint8| integer| int()||
+|Int16| integer| int()||
+|Uint16| integer| int()||
+|Int32| integer| int()||
+|Uint32| long | bigint()||
+|Int64| long| bigint()||
+|Uint64| long| bigint()||
+|Float32| float| float()||
+|Float64| double| double()||
+|Array(T)|-|-|
+
 
 ### Examples
 

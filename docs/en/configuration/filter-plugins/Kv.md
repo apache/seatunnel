@@ -13,6 +13,7 @@ Extract all Key-Values of the specified string field with configured `field_spli
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
+| [default_values](#default_values-array) | array | no | [] |
 | [exclude_fields](#exclude_fields-array) | array | no | [] |
 | [field_prefix](#field_prefix-string) | string | no |  |
 | [field_split](#field_split-string) | string | no | & |
@@ -20,6 +21,12 @@ Extract all Key-Values of the specified string field with configured `field_spli
 | [source_field](#source_field-string) | string | no | raw_message |
 | [target_field](#target_field-string) | string | no | \_\_root\_\_ |
 | [value_split](#value_split-string) | string | no | = |
+
+##### default_values [array]
+
+Default values can be set by `default_values` by `key=defalut_value`(key and value are separated by `=`).
+
+Multiple default values are specified as follows: `default_values = ["mykey1=123", "mykey2=waterdrop"]`
 
 ##### exclude_fields [array]
 

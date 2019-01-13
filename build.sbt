@@ -1,5 +1,5 @@
 name         := "Waterdrop"
-version      := "1.1.2"
+version      := "1.1.4"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
@@ -18,6 +18,8 @@ assemblyMergeStrategy in assembly := {
     val oldStrategy = (assemblyMergeStrategy in assembly).value
     oldStrategy(x)
 }
+
+dependencyOverrides += "com.google.guava" % "guava" % "15.0"
 
 // The 'run', 'runMain' task uses all the libraries, including the ones marked with "provided".
 // This is useful for running spark application in local

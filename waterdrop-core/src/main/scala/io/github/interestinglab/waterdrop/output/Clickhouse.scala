@@ -1,5 +1,6 @@
 package io.github.interestinglab.waterdrop.output
 
+import java.text.SimpleDateFormat
 import java.util
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -9,15 +10,20 @@ import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionI
 
 import scala.collection.immutable.HashMap
 import scala.collection.JavaConversions._
+import scala.collection.mutable.WrappedArray
+import scala.util.matching.Regex
 
 class Clickhouse extends BaseOutput {
 
-  var schema: Map[String, String] = new HashMap[String, String]()
+  var tableSchema: Map[String, String] = new HashMap[String, String]()
   var jdbcLink: String = _
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
-
+  val arrayPattern: Regex = "(Array.*)".r
+  val intPattern: Regex = "(Int.*)".r
+  val uintPattern: Regex = "(UInt.*)".r
+  val floatPattern: Regex = "(Float.*)".r
   var config: Config = ConfigFactory.empty()
 
   /**
@@ -70,29 +76,10 @@ class Clickhouse extends BaseOutput {
       }
 
       this.table = config.getString("table")
-      this.schema = getSchema(conn, table)
-
+      this.tableSchema = getClickHouseSchema(conn, table)
       this.fields = config.getStringList("fields")
 
-      val nonExistsFields = fields
-        .map(field => (field, this.schema.contains(field)))
-        .filter({ p =>
-          val (field, exists) = p
-          !exists
-        })
-
-      if (nonExistsFields.nonEmpty) {
-        (
-          false,
-          "field " + nonExistsFields
-            .map { option =>
-              val (field, exists) = option
-              "[" + field + "]"
-            }
-            .mkString(", ") + " not exist in table " + this.table)
-      } else {
-        (true, "")
-      }
+      acceptedClickHouseSchema()
     }
   }
 
@@ -104,13 +91,14 @@ class Clickhouse extends BaseOutput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "bulk_size" -> 20000
-        )
+      )
     )
     config = config.withFallback(defaultConfig)
     super.prepare(spark)
   }
 
   override def process(df: Dataset[Row]): Unit = {
+    val dfFields = df.schema.fieldNames
     val bulkSize = config.getInt("bulk_size")
     df.foreachPartition { iter =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink)
@@ -126,7 +114,7 @@ class Clickhouse extends BaseOutput {
       while (iter.hasNext) {
         val item = iter.next()
         length += 1
-        renderStatement(fields, item, statement)
+        renderStatement(fields, item, dfFields, statement)
         statement.addBatch()
 
         if (length >= bulkSize) {
@@ -139,7 +127,7 @@ class Clickhouse extends BaseOutput {
     }
   }
 
-  private def getSchema(conn: ClickHouseConnectionImpl, table: String): Map[String, String] = {
+  private def getClickHouseSchema(conn: ClickHouseConnectionImpl, table: String): Map[String, String] = {
     val sql = String.format("desc %s", table)
     val resultSet = conn.createStatement.executeQuery(sql)
     var schema = new HashMap[String, String]()
@@ -160,16 +148,101 @@ class Clickhouse extends BaseOutput {
     sql
   }
 
-  private def renderStatement(fields: util.List[String], item: Row, statement: ClickHousePreparedStatement): Unit = {
+  private def acceptedClickHouseSchema(): (Boolean, String) = {
+    val nonExistsFields = fields
+      .map(field => (field, tableSchema.contains(field)))
+      .filter { case (_, exist) => !exist }
+
+    if (nonExistsFields.nonEmpty) {
+      (
+        false,
+        "field " + nonExistsFields
+          .map { case (option) => "[" + option + "]" }
+          .mkString(", ") + " not exist in table " + this.table)
+    } else {
+      val nonSupportedType = fields
+        .map(field => (tableSchema(field), supportOrNot(tableSchema(field))))
+        .filter { case (_, exist) => !exist }
+      if (nonSupportedType.nonEmpty) {
+        (
+          false,
+          "clickHouse data type " + nonSupportedType
+            .map { case (option) => "[" + option + "]" }
+            .mkString(", ") + " not support in current version.")
+      } else {
+        (true, "")
+      }
+    }
+  }
+
+  /**
+   * Waterdrop support this clickhouse data type or not.
+   * @param dataType ClickHouse Data Type
+   * @return Boolean
+   **/
+  private def supportOrNot(dataType: String): Boolean = {
+    dataType match {
+      case "Date" | "DateTime" | "String" =>
+        true
+      case arrayPattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
+        true
+      case _ =>
+        false
+    }
+  }
+
+  private def renderStringDefault(fieldType: String): String = {
+    fieldType match {
+      case "DateTime" =>
+        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        dateFormat.format(System.currentTimeMillis())
+      case "Date" =>
+        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
+        dateFormat.format(System.currentTimeMillis())
+      case "String" =>
+        ""
+    }
+  }
+
+  private def renderDefaultStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
+    fieldType match {
+      case "DateTime" | "Date" | "String" =>
+        statement.setString(index + 1, renderStringDefault(fieldType))
+      case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
+        statement.setInt(index + 1, 0)
+      case "UInt64" | "Int64" =>
+        statement.setLong(index + 1, 0)
+      case "Float32" => statement.setFloat(index + 1, 0)
+      case "Float64" => statement.setDouble(index + 1, 0)
+      case arrayPattern(_) => statement.setArray(index + 1, List())
+      case _ => statement.setString(index + 1, "")
+    }
+  }
+
+  private def renderStatement(
+    fields: util.List[String],
+    item: Row,
+    dsFields: Array[String],
+    statement: ClickHousePreparedStatement): Unit = {
     for (i <- 0 until fields.size()) {
       val field = fields.get(i)
-      val fieldType = schema(field)
-      fieldType match {
-        case "DateTime" | "Date" | "String" => statement.setString(i + 1, item.getAs[String](field))
-        case "Int8" | "Int16" | "Int32" | "UInt8" | "UInt16" => statement.setInt(i + 1, item.getAs[Int](field))
-        case "UInt64" | "Int64" | "UInt32" => statement.setLong(i + 1, item.getAs[Long](field))
-        case "Float32" | "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
-        case _ => statement.setString(i + 1, item.getAs[String](field))
+      val fieldType = tableSchema(field)
+      if (dsFields.indexOf(field) == -1) {
+        renderDefaultStatement(i, fieldType, statement)
+      } else {
+        fieldType match {
+          case "DateTime" | "Date" | "String" =>
+            statement.setString(i + 1, item.getAs[String](field))
+          case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
+            statement.setInt(i + 1, item.getAs[Int](field))
+          case "UInt32" | "UInt64" | "Int64" =>
+            statement.setLong(i + 1, item.getAs[Long](field))
+          case "Float32" => statement.setFloat(i + 1, item.getAs[Float](field))
+          case "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
+          case arrayPattern(_) =>
+            statement.setArray(i + 1, item.getAs[WrappedArray[AnyRef]](field))
+          case _ => statement.setString(i + 1, item.getAs[String](field))
+        }
       }
     }
   }

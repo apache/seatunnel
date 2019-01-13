@@ -1,5 +1,5 @@
 name         := "Waterdrop-core"
-version      := "1.1.1"
+version      := "1.1.3"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
@@ -49,7 +49,10 @@ libraryDependencies ++= Seq(
   "org.apache.commons" % "commons-compress" % "1.15",
   "com.pingcap.tispark" % "tispark-core" % "1.1",
   "com.pingcap.tikv" % "tikv-client" % "1.1",
-  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39" exclude("com.google.guava","guava") excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core"))
+  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
+    exclude("com.google.guava","guava")
+    excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
+  "com.databricks" %% "spark-xml" % "0.5.0"
 )
 
 // For binary compatible conflicts, sbt provides dependency overrides.
