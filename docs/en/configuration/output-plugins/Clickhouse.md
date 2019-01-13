@@ -49,11 +49,25 @@ ClickHouse table name.
 
 ClickHouse username, only used when ClickHouse has authority authentication.
 
-### Note
+### ClickHouse Data Type Check List
 
-Before the data is written to ClickHouse, all fields need to be converted to the type corresponding to the table structure in ClickHouse.
 
-It should be noted that the corresponding field of the **Date** needs to be converted to String with format of `yyyy-MM-dd` and the corresponding field of the **DateTime** needs to be converted to String with format of `yyyy-MM-dd HH:mm:ss`.
+|ClickHouse Data Type|Convert Plugin Target Type|SQL Expression| Description |
+| :---: | :---: | :---:| :---:|
+|Date| string| string()|Format of `yyyy-MM-dd`|
+|DateTime| string| string()|Format of `yyyy-MM-dd HH:mm:ss`|
+|String| string| string()||
+|Int8| integer| int()||
+|Uint8| integer| int()||
+|Int16| integer| int()||
+|Uint16| integer| int()||
+|Int32| integer| int()||
+|Uint32| long| bigint()||
+|Int64| long| bigint()||
+|Uint64| long| bigint()||
+|Float32| float| float()||
+|Float64| double| double()||
+|Array(T)|-|-|
 
 ### Examples
 

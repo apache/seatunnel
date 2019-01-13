@@ -12,6 +12,7 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
+| [default_values](#default_values-array) | array | no | [] |
 | [exclude_fields](#exclude_fields-array) | array | no | [] |
 | [field_prefix](#field_prefix-string) | string | no |  |
 | [field_split](#field_split-string) | string | no | & |
@@ -19,6 +20,12 @@
 | [source_field](#source_field-string) | string | no | raw_message |
 | [target_field](#target_field-string) | string | no | \_\_root\_\_ |
 | [value_split](#value_split-string) | string | no | = |
+
+##### default_values [array]
+
+指定kv默认值，格式为 `key=defalut_value`, key与value之间使用`=`分割，可以指定多个，举例:
+
+`default_values = ["mykey1=123", "mykey2=waterdrop"]`
 
 ##### exclude_fields [array]
 
