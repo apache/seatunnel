@@ -2,8 +2,7 @@ package io.github.interestinglab.waterdrop.input
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.sql.TiContext
+import org.apache.spark.sql.{Dataset, Row, SparkSession, TiContext}
 
 class Tidb extends BaseStaticInput {
   var config: Config = ConfigFactory.empty()
