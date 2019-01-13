@@ -3,6 +3,7 @@ package io.github.interestinglab.waterdrop.output
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import org.apache.spark.sql.{Dataset, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 
 import scala.collection.JavaConversions._
 
@@ -61,7 +62,8 @@ class Tidb extends BaseOutput {
       Map(
         "save_mode" -> "append", // allowed values: overwrite, append, ignore, error
         "useSSL" -> "false",
-        "isolationLevel" -> "NONE"
+        "isolationLevel" -> "NONE",
+        "batchsize" -> 150
       )
     )
     config = config.withFallback(defaultConfig)
@@ -75,6 +77,7 @@ class Tidb extends BaseOutput {
     prop.setProperty("isolationLevel", config.getString("isolationLevel"))
     prop.setProperty("user", config.getString("user"))
     prop.setProperty("password", config.getString("password"))
+    prop.setProperty(JDBCOptions.JDBC_BATCH_INSERT_SIZE, config.getString("batchsize"))
 
     val saveMode = config.getString("save_mode")
 
