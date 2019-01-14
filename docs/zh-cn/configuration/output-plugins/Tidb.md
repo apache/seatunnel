@@ -1,4 +1,4 @@
-## Output plugin : Tidb
+## Output plugin : TiDB
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -6,7 +6,7 @@
 
 ### Description
 
-通过JDBC将数据写入Tidb
+通过JDBC将数据写入[TiDB](https://github.com/pingcap/tidb)
 
 ### Options
 
