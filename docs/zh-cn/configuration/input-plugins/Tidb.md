@@ -1,4 +1,4 @@
-## Input plugin : Tidb
+## Input plugin : TiDB
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
@@ -6,7 +6,7 @@
 
 ### Description
 
-从Tidb数据库中读取数据，当前仅仅支持Spark 2.1
+通过[TiSpark](https://github.com/pingcap/tispark)从[TiDB](https://github.com/pingcap/tidb)数据库中读取数据，当前仅仅支持Spark 2.1
 
 ### Options
 
@@ -18,7 +18,7 @@
 
 ##### database [string]
 
-Tidb库名
+TiDB库名
 
 ##### pre_sql [string]
 
@@ -33,9 +33,9 @@ Tidb库名
 ### Example
 
 
-使用Tidb Input必须在`spark-defaults.conf`或者Waterdrop配置文件中配置`spark.tispark.pd.addresses`和`spark.sql.extensions`。
+使用TiDB Input必须在`spark-defaults.conf`或者Waterdrop配置文件中配置`spark.tispark.pd.addresses`和`spark.sql.extensions`。
 
-Waterdrop配置文件如下：
+一个Waterdrop读取TiDB数据的配置文件如下：
 
 ```
 spark {
