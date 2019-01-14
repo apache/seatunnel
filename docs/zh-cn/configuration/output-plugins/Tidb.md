@@ -58,7 +58,7 @@ useSSL
 
 ```
 tidb {
-    url = "jdbc:mysql://127.0.0.1:4000/test?rewriteBatchedStatements=true"
+    url = "jdbc:mysql://127.0.0.1:4000/test??useUnicode=true&characterEncoding=utf8"
     table = "access"
     user = "username"
     password = "password"
