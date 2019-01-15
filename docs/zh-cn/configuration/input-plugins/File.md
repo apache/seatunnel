@@ -57,7 +57,7 @@ file {
 ```
 file {
     table_name = "books"
-    path = "file///data0/src/books.xml"
+    path = "file:///data0/src/books.xml"
     options.rowTag = "book"
     format = "xml"
 }
