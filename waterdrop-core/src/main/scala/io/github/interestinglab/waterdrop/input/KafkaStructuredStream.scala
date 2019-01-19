@@ -24,7 +24,7 @@ class KafkaStructuredStream extends BaseStructuredStreamingInput {
 
     val consumerConfig = config.getConfig(consumerPrefix)
 
-    config.hasPath("kafka.bootstrap.servers") match {
+    consumerConfig.hasPath("kafka.bootstrap.servers") match {
       case true => {
         consumerConfig.hasPath("subscribe") ||
           consumerConfig.hasPath("subscribePattern") ||
@@ -41,6 +41,7 @@ class KafkaStructuredStream extends BaseStructuredStreamingInput {
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
+    import spark.implicits._
     val consumerConfig = config.getConfig(consumerPrefix)
     val kafkaParams = consumerConfig
       .entrySet()
