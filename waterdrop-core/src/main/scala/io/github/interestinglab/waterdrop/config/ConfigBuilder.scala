@@ -129,6 +129,7 @@ class ConfigBuilder(configFile: String) {
     inputList
   }
 
+
   def createOutputs: List[BaseOutput] = {
 
     var outputList = List[BaseOutput]()
@@ -141,6 +142,50 @@ class ConfigBuilder(configFile: String) {
           .forName(className)
           .newInstance()
           .asInstanceOf[BaseOutput]
+
+        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+
+        outputList = outputList :+ obj
+      })
+
+    outputList
+  }
+
+  def createStructuredStreamingInputs: List[BaseStructuredStreamingInput] = {
+
+    var inputList = List[BaseStructuredStreamingInput]()
+    config
+      .getConfigList("input")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+
+        obj match {
+          case inputObject: BaseStructuredStreamingInput => {
+            val input = inputObject.asInstanceOf[BaseStructuredStreamingInput]
+            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            inputList = inputList :+ input
+          }
+          case _ => // do nothing
+        }
+      })
+    inputList
+  }
+
+  def createStructuredStreamingOutputs: List[BaseStructuredStreamingOutput] = {
+    var outputList = List[BaseStructuredStreamingOutput]()
+    config
+      .getConfigList("output")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+          .asInstanceOf[BaseStructuredStreamingOutput]
 
         obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
 
@@ -168,7 +213,9 @@ class ConfigBuilder(configFile: String) {
         (ServiceLoader load classOf[BaseStaticInput]).asScala ++
           (ServiceLoader load classOf[BaseStreamingInput]).asScala ++
           (ServiceLoader load classOf[BaseFilter]).asScala ++
-          (ServiceLoader load classOf[BaseOutput]).asScala
+          (ServiceLoader load classOf[BaseOutput]).asScala ++
+          (ServiceLoader load classOf[BaseStructuredStreamingInput]).asScala ++
+          (ServiceLoader load classOf[BaseStructuredStreamingOutput])
 
       var classFound = false
       breakable {
