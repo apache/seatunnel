@@ -5,19 +5,20 @@ import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.streaming.kafka010._
 
 import scala.collection.JavaConversions._
 
-class KafkaStream extends BaseStreamingInput {
+class KafkaStream extends BaseStreamingInput[(String, String)] {
 
   var config: Config = ConfigFactory.empty()
 
   override def setConfig(config: Config): Unit = {
     this.config = config
   }
-
 
   override def getConfig(): Config = {
     this.config
@@ -76,8 +77,10 @@ class KafkaStream extends BaseStreamingInput {
     }
 
     val topics = config.getString("topics").split(",").toSet
-    inputDStream = KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent
-      , ConsumerStrategies.Subscribe(topics, kafkaParams))
+    inputDStream = KafkaUtils.createDirectStream(
+      ssc,
+      LocationStrategies.PreferConsistent,
+      ConsumerStrategies.Subscribe(topics, kafkaParams))
 
     inputDStream.transform { rdd =>
       offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
@@ -96,9 +99,20 @@ class KafkaStream extends BaseStreamingInput {
       val fromOffset = offsets.fromOffset
       val untilOffset = offsets.untilOffset
       if (untilOffset != fromOffset) {
-        println(s"complete consume topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
+        println(
+          s"complete consume topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
       }
     }
   }
-}
 
+  override def rdd2dataset(spark: SparkSession, rdd: RDD[(String, String)]): Dataset[Row] = {
+
+    val rowsRDD = rdd.map(element => {
+      RowFactory.create(element._1, element._2)
+    })
+
+    val schema = StructType(
+      Array(StructField("topic", DataTypes.StringType), StructField("raw_message", DataTypes.StringType)))
+    spark.createDataFrame(rowsRDD, schema)
+  }
+}
