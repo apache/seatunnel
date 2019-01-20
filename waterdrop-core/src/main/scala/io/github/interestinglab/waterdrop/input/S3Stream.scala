@@ -2,10 +2,13 @@ package io.github.interestinglab.waterdrop.input
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class S3Stream extends BaseStreamingInput {
+class S3Stream extends BaseStreamingInput[String] {
 
   var config: Config = ConfigFactory.empty()
 
@@ -43,8 +46,18 @@ class S3Stream extends BaseStreamingInput {
     }
   }
 
-  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
+  override def getDStream(ssc: StreamingContext): DStream[String] = {
 
-    ssc.textFileStream(config.getString("path")).map(s => { ("", s) })
+    ssc.textFileStream(config.getString("path"))
+  }
+
+  override def rdd2dataset(spark: SparkSession, rdd: RDD[String]): Dataset[Row] = {
+
+    val rowsRDD = rdd.map(element => {
+      RowFactory.create(element)
+    })
+
+    val schema = StructType(Array(StructField("raw_message", DataTypes.StringType)))
+    spark.createDataFrame(rowsRDD, schema)
   }
 }
