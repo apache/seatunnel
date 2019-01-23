@@ -108,7 +108,11 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
   override def rdd2dataset(spark: SparkSession, rdd: RDD[(String, String)]): Dataset[Row] = {
 
     val rowsRDD = rdd.map(element => {
-      RowFactory.create(element._1, element._2)
+      element match {
+        case (topic, message) => {
+          RowFactory.create(topic, message)
+        }
+      }
     })
 
     val schema = StructType(
