@@ -81,7 +81,7 @@ class FileStream extends BaseStreamingInput[String] {
       val rowTag = this.config.getString("rowTag")
       ssc.sparkContext.hadoopConfiguration.set(XmlInputFormat.START_TAG_KEY, s"<$rowTag>")
       ssc.sparkContext.hadoopConfiguration.set(XmlInputFormat.END_TAG_KEY, s"</$rowTag>")
-      ssc.fileStream[LongWritable, Text, XmlInputFormat](path).map(_._2.toString)
+      ssc.fileStream[LongWritable, Text, XmlInputFormat](path).map { case (_, text) => text.toString }
     } else {
       ssc.textFileStream(path)
     }
