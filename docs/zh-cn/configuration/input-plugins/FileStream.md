@@ -12,16 +12,39 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
+| [format](#format-string) | no | yes | text |
 | [path](#path-string) | string | yes | - |
+| [rowTag](#rowtag-string) | no | yes | - |
+
+
+##### format [string]
+
+文件格式
+
 
 ##### path [string]
 
 文件目录路径
+
+
+##### rowTag [string]
+
+仅当format为xml时使用，表示XML格式数据的Tag
 
 ### Example
 
 ```
 fileStream {
     path = "file:///var/log/"
+}
+```
+
+或者指定`format`
+
+```
+fileStream {
+    path = "file:///var/log/"
+    format = "xml"
+    rowTag = "book"
 }
 ```

@@ -115,6 +115,7 @@ abstract class FileOutputBase extends BaseOutput {
       case "json" => writer.json(path)
       case "parquet" => writer.parquet(path)
       case "text" => writer.text(path)
+      case "orc" => writer.orc(path)
     }
   }
 }

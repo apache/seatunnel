@@ -20,7 +20,7 @@
 
 ##### format [string]
 
-文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`和 `text`.
+文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`、`orc`和 `text`.
 
 
 ##### options.* [object]

@@ -5,7 +5,9 @@ import java.util
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
@@ -13,7 +15,7 @@ import org.apache.spark.streaming.receiver.Receiver
 
 import scala.collection.JavaConversions._
 
-class FakeStream extends BaseStreamingInput {
+class FakeStream extends BaseStreamingInput[String] {
 
   var config: Config = ConfigFactory.empty()
 
@@ -92,10 +94,20 @@ class FakeStream extends BaseStreamingInput {
     config = config.withFallback(defaultConfig)
   }
 
-  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
+  override def getDStream(ssc: StreamingContext): DStream[String] = {
 
     val receiverInputDStream = ssc.receiverStream(new FakeReceiver(config))
-    receiverInputDStream.map(s => { ("", s) })
+    receiverInputDStream
+  }
+
+  override def rdd2dataset(spark: SparkSession, rdd: RDD[String]): Dataset[Row] = {
+
+    val rowsRDD = rdd.map(element => {
+      RowFactory.create(element)
+    })
+
+    val schema = StructType(Array(StructField("raw_message", DataTypes.StringType)))
+    spark.createDataFrame(rowsRDD, schema)
   }
 
 }
