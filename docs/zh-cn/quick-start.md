@@ -93,3 +93,12 @@ Waterdrop日志打印出:
 
 Waterdrop简单易用，还有更丰富的数据处理功能等待被发现。本文展示的数据处理案例，
 无需任何代码、编译、打包，比官方的[Quick Example](https://spark.apache.org/docs/latest/streaming-programming-guide.html#a-quick-example)更简单。
+
+
+---
+
+如果想了解更多的Waterdrop配置示例可参见：
+
+[配置示例1 : Streaming 流式计算](https://github.com/InterestingLab/waterdrop/blob/master/config/streaming.conf.template)
+
+[配置示例2 : Batch 离线批处理](https://github.com/InterestingLab/waterdrop/blob/master/config/batch.conf.template)
