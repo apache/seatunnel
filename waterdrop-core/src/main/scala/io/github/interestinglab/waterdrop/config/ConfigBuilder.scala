@@ -104,9 +104,9 @@ class ConfigBuilder(configFile: String) {
     inputList
   }
 
-  def createStreamingInputs: List[BaseStreamingInput] = {
+  def createStreamingInputs: List[BaseStreamingInput[Any]] = {
 
-    var inputList = List[BaseStreamingInput]()
+    var inputList = List[BaseStreamingInput[Any]]()
     config
       .getConfigList("input")
       .foreach(plugin => {
@@ -117,8 +117,8 @@ class ConfigBuilder(configFile: String) {
           .newInstance()
 
         obj match {
-          case inputObject: BaseStreamingInput => {
-            val input = inputObject.asInstanceOf[BaseStreamingInput]
+          case inputObject: BaseStreamingInput[Any] => {
+            val input = inputObject.asInstanceOf[BaseStreamingInput[Any]]
             input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
             inputList = inputList :+ input
           }
@@ -166,7 +166,7 @@ class ConfigBuilder(configFile: String) {
 
       val services: Iterable[Plugin] =
         (ServiceLoader load classOf[BaseStaticInput]).asScala ++
-          (ServiceLoader load classOf[BaseStreamingInput]).asScala ++
+          (ServiceLoader load classOf[BaseStreamingInput[Any]]).asScala ++
           (ServiceLoader load classOf[BaseFilter]).asScala ++
           (ServiceLoader load classOf[BaseOutput]).asScala
 
