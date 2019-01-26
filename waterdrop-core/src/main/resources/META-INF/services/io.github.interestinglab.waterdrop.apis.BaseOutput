@@ -7,5 +7,6 @@ io.github.interestinglab.waterdrop.output.Kafka
 io.github.interestinglab.waterdrop.output.Mysql
 io.github.interestinglab.waterdrop.output.S3
 io.github.interestinglab.waterdrop.output.Stdout
+io.github.interestinglab.waterdrop.output.Tidb
 io.github.interestinglab.waterdrop.output.MongoDB
 io.github.interestinglab.waterdrop.output.Kudu

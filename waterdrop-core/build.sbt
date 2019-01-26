@@ -47,6 +47,9 @@ libraryDependencies ++= Seq(
   "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "5.6.3",
   "com.github.scopt" %% "scopt" % "3.7.0",
   "org.apache.commons" % "commons-compress" % "1.15",
+  "com.pingcap.tispark" % "tispark-core" % "1.1"
+    excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
+  "com.pingcap.tikv" % "tikv-client" % "1.1",
   "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
     exclude("com.google.guava","guava")
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
