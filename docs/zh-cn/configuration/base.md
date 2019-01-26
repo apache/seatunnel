@@ -59,17 +59,31 @@ filter中的多个插件按配置顺序形成了数据处理的pipeline, 上一�
 
 一个示例如下：
 
+> 配置中, 以`#`开头的行为注释。
+
 ```
 spark {
+  # You can set spark configuration here
   # Waterdrop defined streaming batch duration in seconds
   spark.streaming.batchDuration = 5
 
+  # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
   spark.app.name = "Waterdrop"
-  spark.ui.port = 13000
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
 }
 
 input {
-  socket {}
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  fakestream {
+    content = ["Hello World, InterestingLab"]
+    rate = 1
+  }
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
 filter {
@@ -77,9 +91,22 @@ filter {
     fields = ["msg", "name"]
     delimiter = ","
   }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
 output {
   stdout {}
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 ```
+
+其他配置可参考：
+
+[配置示例1 : Streaming 流式计算](https://github.com/InterestingLab/waterdrop/blob/master/config/streaming.conf.template)
+
+[配置示例2 : Batch 离线批处理](https://github.com/InterestingLab/waterdrop/blob/master/config/batch.conf.template)
