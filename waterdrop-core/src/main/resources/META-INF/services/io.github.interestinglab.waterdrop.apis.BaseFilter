@@ -14,6 +14,7 @@ io.github.interestinglab.waterdrop.filter.Repartition
 io.github.interestinglab.waterdrop.filter.Replace
 io.github.interestinglab.waterdrop.filter.Sample
 io.github.interestinglab.waterdrop.filter.Script
+io.github.interestinglab.waterdrop.filter.Showschema
 io.github.interestinglab.waterdrop.filter.Split
 io.github.interestinglab.waterdrop.filter.Sql
 io.github.interestinglab.waterdrop.filter.Table
