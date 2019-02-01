@@ -1,13 +1,25 @@
 package io.github.interestinglab.waterdrop.pipelines
 
-import scala.collection.JavaConversions._
+import java.util.ServiceLoader
 
+import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 import com.typesafe.config.Config
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
-import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
+import io.github.interestinglab.waterdrop.apis._
+import io.github.interestinglab.waterdrop.config.{ConfigBuilder, ConfigRuntimeException}
 import io.github.interestinglab.waterdrop.pipelines.Pipeline._
 
+import scala.util.control.Breaks.{break, breakable}
+
 object PipelineBuilder {
+
+  val PackagePrefix = "io.github.interestinglab.waterdrop"
+  val FilterPackage = PackagePrefix + ".filter"
+  val InputPackage = PackagePrefix + ".input"
+  val OutputPackage = PackagePrefix + ".output"
+
+  val PluginNameKey = "name"
+  val PluginParamsKey = "entries"
 
   def recursiveBuilder(config: Config, pname: String): (Pipeline, PipelineType, StartingPoint) = {
 
@@ -95,23 +107,91 @@ object PipelineBuilder {
   }
 
   private def createStreamingInputs(config: Config): List[BaseStreamingInput[Any]] = {
-    // TODO:
-    List()
+    var inputList = List[BaseStreamingInput[Any]]()
+    config
+      .getConfigList("input")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+
+        obj match {
+          case inputObject: BaseStreamingInput[Any] => {
+            val input = inputObject.asInstanceOf[BaseStreamingInput[Any]]
+            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            inputList = inputList :+ input
+          }
+          case _ => // do nothing
+        }
+      })
+
+    inputList
   }
 
   private def createStaticInputs(config: Config): List[BaseStaticInput] = {
-    // TODO:
-    List()
+    var inputList = List[BaseStaticInput]()
+    config
+      .getConfigList("input")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+
+        obj match {
+          case inputObject: BaseStaticInput => {
+            val input = inputObject.asInstanceOf[BaseStaticInput]
+            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            inputList = inputList :+ input
+          }
+          case _ => // do nothing
+        }
+      })
+
+    inputList
   }
 
   private def createFilters(config: Config): List[BaseFilter] = {
-    // TODO:
-    List()
+    var filterList = List[BaseFilter]()
+    config
+      .getConfigList("filter")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "filter")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+          .asInstanceOf[BaseFilter]
+
+        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+
+        filterList = filterList :+ obj
+      })
+
+    filterList
   }
 
   private def createOutputs(config: Config): List[BaseOutput] = {
-    // TODO:
-    List()
+    var outputList = List[BaseOutput]()
+    config
+      .getConfigList("output")
+      .foreach(plugin => {
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+          .asInstanceOf[BaseOutput]
+
+        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+
+        outputList = outputList :+ obj
+      })
+
+    outputList
   }
 
   /**
@@ -125,5 +205,47 @@ object PipelineBuilder {
     //            对于一个pipeline，如果他有output，那么它不能再有subpipeline。
     //            对于一个pipeline，如果他有filter，那么它的subpipeline可以再有filter。
     //      (4) 所有pipeline datasource要么都是streaming的，要么都不是。
+  }
+
+  /**
+   * Get full qualified class name by reflection api, ignore case.
+   * */
+  private def buildClassFullQualifier(name: String, classType: String): String = {
+
+    var qualifier = name
+    if (qualifier.split("\\.").length == 1) {
+
+      val packageName = classType match {
+        case "input" => ConfigBuilder.InputPackage
+        case "filter" => ConfigBuilder.FilterPackage
+        case "output" => ConfigBuilder.OutputPackage
+      }
+
+      val services: Iterable[Plugin] =
+        (ServiceLoader load classOf[BaseStaticInput]).asScala ++
+          (ServiceLoader load classOf[BaseStreamingInput[Any]]).asScala ++
+          (ServiceLoader load classOf[BaseFilter]).asScala ++
+          (ServiceLoader load classOf[BaseOutput]).asScala
+
+      var classFound = false
+      breakable {
+        for (serviceInstance <- services) {
+          val clz = serviceInstance.getClass
+          // get class name prefixed by package name
+          val clzNameLowercase = clz.getName.toLowerCase()
+          val qualifierWithPackage = packageName + "." + qualifier
+          clzNameLowercase == qualifierWithPackage.toLowerCase match {
+            case true => {
+              qualifier = clz.getName
+              classFound = true
+              break
+            }
+            case false => // do nothing
+          }
+        }
+      }
+    }
+
+    qualifier
   }
 }

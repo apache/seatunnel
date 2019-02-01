@@ -8,8 +8,18 @@ import org.apache.spark.streaming.StreamingContext
 
 object PipelineRunner {
 
+  /**
+   * The order of call prepare of plugins is undefined, don't rely on this !
+   * */
   def preparePipelineRecursively(spark: SparkSession, pipeline: Pipeline): Unit = {
-    // TODO:
+    val plugins = pipeline.streamingInputList ::: pipeline.staticInputList ::: pipeline.filterList ::: pipeline.outputList ::: Nil
+    for (plugin <- plugins) {
+      plugin.prepare(spark)
+    }
+
+    for (subPipe <- pipeline.subPipelines) {
+      preparePipelineRecursively(spark, subPipe)
+    }
   }
 
   def pipelineRunnerForStreaming(pipeline: Pipeline, spark: SparkSession, ssc: StreamingContext): Unit = {
