@@ -53,7 +53,6 @@ object PipelineBuilder {
     }
 
     // subPipelineStartingPoint alignment order: PreInput --> PreFilter --> PreOutput
-    var subPipelineStartingPoint: StartingPoint = Unused
     var subPipelineType: PipelineType = Unknown
     val r = """^pipeline<([0-9a-zA-Z_]+)>""".r // pipeline<pname> pattern
     for (configName <- config.root.unwrapped.keySet) {
@@ -61,18 +60,50 @@ object PipelineBuilder {
         case name if name.startsWith("pipeline") => {
 
           val r(pipelineName) = name
-          println("pipeline: " + pipelineName)
 
           val (subPipeline, pType, subSP) = recursiveBuilder(config.getConfig(name), pipelineName)
 
           pipeline.subPipelines = pipeline.subPipelines :+ subPipeline
 
-          subPipelineStartingPoint = mergeStartingPoint(subPipelineStartingPoint, subSP)
+          pipeline.subPipelinesStartingPoint = mergeStartingPoint(pipeline.subPipelinesStartingPoint, subSP)
 
           subPipelineType = mergePipelineType(subPipelineType, pType)
         }
         case _ => {}
       }
+    }
+
+    isSubPipelineStartingPointValid(pipeline.subPipelines) match {
+      case false => {
+        val pipeNames = pipeline.subPipelines.map(p => p.getName)
+        throw new ConfigRuntimeException(
+          "Subpipelines execution starting point are not aligned, pipelines: " + pipeNames)
+      }
+      case _ => {}
+    }
+
+    pipeline.execStartingPoint = mergeStartingPoint(pipeline.execStartingPoint, pipeline.subPipelinesStartingPoint)
+
+    var pluginCnt = pipeline.streamingInputList.size + pipeline.staticInputList.size
+    pluginCnt += (pipeline.filterList.size + pipeline.outputList.size)
+    pluginCnt += pipeline.subPipelines.size
+
+    pluginCnt match {
+      case 0 => {
+        throw new ConfigRuntimeException(
+          "input {}, filter {}, output {} should not all be empty, please check your config[pipeline: %s]".format(
+            pname))
+      }
+      case _ => {}
+    }
+
+    pipeline.execStartingPoint match {
+      case Unused => {
+        throw new ConfigRuntimeException(
+          "Cannot detect pipeline execution starting point, please check your config[pipeline: %s]".format(pname))
+      }
+
+      case _ => {}
     }
 
     val pType = (pipeline.streamingInputList.nonEmpty, pipeline.staticInputList.nonEmpty) match {
@@ -82,6 +113,39 @@ object PipelineBuilder {
     }
 
     (pipeline, pType, pipeline.execStartingPoint)
+  }
+
+  private def isSubPipelineStartingPointValid(pipelines: List[Pipeline]): Boolean = {
+
+    if (pipelines.size == 0) {
+      true
+    } else {
+      var min: StartingPoint = Unused
+      var max: StartingPoint = PreInput
+
+      for (pipeline <- pipelines) {
+
+        pipeline.execStartingPoint.order < min.order match {
+          case true => min = pipeline.execStartingPoint
+          case false => {}
+        }
+
+        pipeline.execStartingPoint.order > max.order match {
+          case true => max = pipeline.execStartingPoint
+          case false => {}
+        }
+      }
+
+      (min, max) match {
+        case (Unused, _) => false
+        case (_, Unused) => false
+        case (PreInput, PreFilter) => false
+        case (PreInput, PreOutput) => false
+        case (PreFilter, PreInput) => false
+        case (PreOutput, PreInput) => false
+        case _ => true
+      }
+    }
   }
 
   private def mergePipelineType(t1: PipelineType, t2: PipelineType): PipelineType = {
@@ -95,6 +159,7 @@ object PipelineBuilder {
   }
 
   private def mergeStartingPoint(s1: StartingPoint, s2: StartingPoint): StartingPoint = {
+
     (s1, s2) match {
       case (PreInput, _) => PreInput
       case (_, PreInput) => PreInput
@@ -108,88 +173,95 @@ object PipelineBuilder {
 
   private def createStreamingInputs(config: Config): List[BaseStreamingInput[Any]] = {
     var inputList = List[BaseStreamingInput[Any]]()
-    config
-      .getConfigList("input")
-      .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
 
-        val obj = Class
-          .forName(className)
-          .newInstance()
+    val pluginNames = config.root().unwrapped().keySet()
+    for (pname <- pluginNames) {
+      val pluginConfig = config.getConfig(pname)
 
-        obj match {
-          case inputObject: BaseStreamingInput[Any] => {
-            val input = inputObject.asInstanceOf[BaseStreamingInput[Any]]
-            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
-            inputList = inputList :+ input
-          }
-          case _ => // do nothing
+      val className = buildClassFullQualifier(pname, "input")
+
+      val obj = Class
+        .forName(className)
+        .newInstance()
+
+      obj match {
+        case inputObject: BaseStreamingInput[Any] => {
+          val input = inputObject.asInstanceOf[BaseStreamingInput[Any]]
+          input.setConfig(pluginConfig)
+          inputList = inputList :+ input
         }
-      })
+        case _ => // do nothing
+      }
+    }
 
     inputList
   }
 
   private def createStaticInputs(config: Config): List[BaseStaticInput] = {
     var inputList = List[BaseStaticInput]()
-    config
-      .getConfigList("input")
-      .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
 
-        val obj = Class
-          .forName(className)
-          .newInstance()
+    val pluginNames = config.root().unwrapped().keySet()
+    for (pname <- pluginNames) {
+      val pluginConfig = config.getConfig(pname)
 
-        obj match {
-          case inputObject: BaseStaticInput => {
-            val input = inputObject.asInstanceOf[BaseStaticInput]
-            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
-            inputList = inputList :+ input
-          }
-          case _ => // do nothing
+      val className = buildClassFullQualifier(pname, "input")
+
+      val obj = Class
+        .forName(className)
+        .newInstance()
+
+      obj match {
+        case inputObject: BaseStaticInput => {
+          val input = inputObject.asInstanceOf[BaseStaticInput]
+          input.setConfig(pluginConfig)
+          inputList = inputList :+ input
         }
-      })
+        case _ => // do nothing
+      }
+    }
 
     inputList
   }
 
   private def createFilters(config: Config): List[BaseFilter] = {
     var filterList = List[BaseFilter]()
-    config
-      .getConfigList("filter")
-      .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "filter")
 
-        val obj = Class
-          .forName(className)
-          .newInstance()
-          .asInstanceOf[BaseFilter]
+    val pluginNames = config.root().unwrapped().keySet()
+    for (pname <- pluginNames) {
+      val pluginConfig = config.getConfig(pname)
 
-        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+      val className = buildClassFullQualifier(pname, "filter")
 
-        filterList = filterList :+ obj
-      })
+      val obj = Class
+        .forName(className)
+        .newInstance()
+        .asInstanceOf[BaseFilter]
+
+      obj.setConfig(pluginConfig)
+
+      filterList = filterList :+ obj
+    }
 
     filterList
   }
 
   private def createOutputs(config: Config): List[BaseOutput] = {
     var outputList = List[BaseOutput]()
-    config
-      .getConfigList("output")
-      .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output")
+    val pluginNames = config.root().unwrapped().keySet()
+    for (pname <- pluginNames) {
+      val pluginConfig = config.getConfig(pname)
 
-        val obj = Class
-          .forName(className)
-          .newInstance()
-          .asInstanceOf[BaseOutput]
+      val className = buildClassFullQualifier(pname, "output")
 
-        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+      val obj = Class
+        .forName(className)
+        .newInstance()
+        .asInstanceOf[BaseOutput]
 
-        outputList = outputList :+ obj
-      })
+      obj.setConfig(pluginConfig)
+
+      outputList = outputList :+ obj
+    }
 
     outputList
   }

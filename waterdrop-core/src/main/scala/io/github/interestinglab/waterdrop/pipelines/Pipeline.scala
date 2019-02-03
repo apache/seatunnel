@@ -12,6 +12,8 @@ import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStat
 
 class Pipeline(name: String) {
 
+  def getName: String = name
+
   var execStartingPoint: Pipeline.StartingPoint = Pipeline.Unused // 执行起始点，执行起始点必须比子Pipeline起始点靠前
   var streamingInputList: List[BaseStreamingInput[Any]] = List()
   var staticInputList: List[BaseStaticInput] = List()
@@ -22,15 +24,42 @@ class Pipeline(name: String) {
   var subPipelinesStartingPoint: Pipeline.StartingPoint = Pipeline.Unused // 子Pipeline起始点。
   var subPipelines: List[Pipeline] = List()
 
+  override def toString: String = {
+    ("[Pipeline: %s] execStartingPoint: %s, subPipelinesStartingPoint: %s, streamingInputList.size: %d, " +
+      "staticInputList.size: %d, filterList.size: %d, outputList.size: %d, subPipelines.size: %d")
+      .format(
+        name,
+        execStartingPoint.getClass.getSimpleName,
+        subPipelinesStartingPoint.getClass.getSimpleName,
+        streamingInputList.size,
+        staticInputList.size,
+        filterList.size,
+        outputList.size,
+        subPipelines.size
+      )
+  }
 }
 
 object Pipeline {
 
-  sealed trait StartingPoint {}
-  case object PreInput extends StartingPoint
-  case object PreFilter extends StartingPoint
-  case object PreOutput extends StartingPoint
-  case object Unused extends StartingPoint
+  sealed trait StartingPoint {
+    def order: Int
+  }
+  case object PreInput extends StartingPoint {
+    override def order: Int = 1
+  }
+  case object PreFilter extends StartingPoint {
+    override def order: Int = 2
+  }
+  case object PreOutput extends StartingPoint {
+    override def order: Int = 3
+  }
+  case object Unused extends StartingPoint {
+    override def order: Int = {
+      val ord = 4
+      ord
+    }
+  }
 
   sealed trait PipelineType {}
   case object Streaming extends PipelineType

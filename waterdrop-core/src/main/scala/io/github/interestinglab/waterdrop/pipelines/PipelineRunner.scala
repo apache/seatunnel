@@ -29,7 +29,7 @@ object PipelineRunner {
 
         processPreInputForStreaming(pipeline, spark, ssc)
       }
-      case (Unused, PreFilter, PreOutput) => {
+      case Unused | PreFilter | PreOutput => {
         // execution flow should not enter here.
         // **Must** throw exception --> config error, or logical error
       }
@@ -46,7 +46,7 @@ object PipelineRunner {
       case PreOutput => {
         processPreOutput(pipeline, spark, datasource)
       }
-      case (Unused, PreInput) => {
+      case Unused | PreInput => {
         // **理论上就不可能进入这个流程
         // **Must** throw Exception
       }
