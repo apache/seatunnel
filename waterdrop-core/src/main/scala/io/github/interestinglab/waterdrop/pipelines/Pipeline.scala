@@ -2,14 +2,6 @@ package io.github.interestinglab.waterdrop.pipelines
 
 import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
 
-// TODO:
-// [done] (1) pipeline 生成
-// [done] (2) pipeline 使用
-// (3) pipeline viewer UI (+ Spark Tab)
-// (4) pipeline builder UI
-// (5) 数据仓库刷新分区的需求。
-// (6) 考虑 end-to-end exactly once 实现方案。
-
 class Pipeline(name: String) {
 
   def getName: String = name
