@@ -35,7 +35,7 @@ libraryDependencies ++= Seq(
 
   "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion
     exclude("org.spark-project.spark", "unused")
-    exclude("net.jpountz.lz4", "unused"),
+    excludeAll(ExclusionRule(organization="net.jpountz.lz4")),
   "org.apache.spark" %% "spark-hive" % sparkVersion ,
   "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.0",
   "org.apache.kudu" %% "kudu-spark2" % "1.7.0",

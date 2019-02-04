@@ -23,14 +23,19 @@ class Sql extends BaseFilter {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    conf.hasPath("table_name") && conf.hasPath("sql") match {
+    conf.hasPath("sql") match {
       case true => (true, "")
       case false => (false, "please specify [table_name] and [sql]")
     }
   }
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
-    df.createOrReplaceTempView(this.conf.getString("table_name"))
+
+    conf.hasPath("table_name") match {
+      case true => df.createOrReplaceTempView(this.conf.getString("table_name"))
+      case false => {}
+    }
+
     spark.sql(conf.getString("sql"))
   }
 }

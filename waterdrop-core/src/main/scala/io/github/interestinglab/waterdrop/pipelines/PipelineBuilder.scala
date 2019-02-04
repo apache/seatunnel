@@ -150,10 +150,15 @@ object PipelineBuilder {
 
   private def mergePipelineType(t1: PipelineType, t2: PipelineType): PipelineType = {
     (t1, t2) match {
-      case (Streaming, _) => Streaming
-      case (_, Streaming) => Streaming
-      case (Batch, _) => Batch
-      case (_, Batch) => Batch
+      case (Streaming, Streaming) => Streaming
+      case (Batch, Batch) => Batch
+      case (Streaming, Batch) | (Batch, Streaming) => {
+        throw new ConfigRuntimeException("Pipeline Type conflict, encountered both Streaming and Batch")
+      }
+      case (Streaming, Unknown) => Streaming
+      case (Unknown, Streaming) => Streaming
+      case (Batch, Unknown) => Batch
+      case (Unknown, Batch) => Batch
       case _ => Unknown
     }
   }
