@@ -33,12 +33,9 @@ object PipelineMain {
 
     PipelineRunner.preparePipelineRecursively(spark, rootPipeline)
 
-    // TODO: 验证pipelineRunnerForStreaming直到执行ssc.start()才阻塞
-    // TODO: 验证pipelineRunnerForBatch遇到action立即会阻塞
+    // pipelineRunnerForStreaming直到执行ssc.start()才阻塞
+    // pipelineRunnerForBatch遇到action立即会阻塞
     rootPipelineType match {
-
-      // TODO: empty dataset
-      // TODO: multiple action need cache() ???
 
       case Streaming => {
 

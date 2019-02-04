@@ -168,7 +168,9 @@ object PipelineRunner {
 
               var ds = dataset
               for (filter <- pipeline.filterList) {
-                ds = filter.process(spark, ds)
+                if (ds.take(1).length > 0) {
+                  ds = filter.process(spark, ds)
+                }
               }
 
               for (subPipeline <- pipeline.subPipelines) {
@@ -202,7 +204,9 @@ object PipelineRunner {
 
           var ds = dataset
           for (filter <- pipeline.filterList) {
-            ds = filter.process(spark, ds)
+            if (ds.take(1).length > 0) {
+              ds = filter.process(spark, ds)
+            }
           }
 
           for (subPipeline <- pipeline.subPipelines) {
@@ -229,7 +233,9 @@ object PipelineRunner {
 
           var ds = dataset
           for (filter <- pipeline.filterList) {
-            ds = filter.process(spark, ds)
+            if (ds.take(1).length > 0) {
+              ds = filter.process(spark, ds)
+            }
           }
 
           pipeline
@@ -258,7 +264,9 @@ object PipelineRunner {
 
         var dataset = datasource
         for (filter <- pipeline.filterList) {
-          dataset = filter.process(spark, dataset)
+          if (dataset.take(1).length > 0) {
+            dataset = filter.process(spark, dataset)
+          }
         }
 
         for (subPipeline <- pipeline.subPipelines) {
@@ -269,7 +277,10 @@ object PipelineRunner {
         // process filterList, then process outputList
         var ds = datasource
         for (filter <- pipeline.filterList) {
-          ds = filter.process(spark, ds)
+
+          if (ds.take(1).length > 0) {
+            ds = filter.process(spark, ds)
+          }
         }
 
         for (output <- pipeline.outputList) {
