@@ -40,7 +40,7 @@ object Waterdrop extends Logging {
 
         cmdArgs.testConfig match {
           case true => {
-            new ConfigBuilder(configFilePath).checkConfig
+            // TODO:
             println("config OK !")
           }
           case false => {

@@ -6,7 +6,7 @@ import scala.collection.JavaConverters._
 import scala.collection.JavaConversions._
 import com.typesafe.config.Config
 import io.github.interestinglab.waterdrop.apis._
-import io.github.interestinglab.waterdrop.config.{ConfigBuilder, ConfigRuntimeException}
+import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.pipelines.Pipeline._
 
 import scala.util.{Failure, Success, Try}
@@ -324,9 +324,9 @@ object PipelineBuilder {
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
-        case "input" => ConfigBuilder.InputPackage
-        case "filter" => ConfigBuilder.FilterPackage
-        case "output" => ConfigBuilder.OutputPackage
+        case "input" => InputPackage
+        case "filter" => FilterPackage
+        case "output" => OutputPackage
       }
 
       val services: Iterable[Plugin] =
