@@ -9,6 +9,7 @@ import io.github.interestinglab.waterdrop.apis._
 import io.github.interestinglab.waterdrop.config.{ConfigBuilder, ConfigRuntimeException}
 import io.github.interestinglab.waterdrop.pipelines.Pipeline._
 
+import scala.util.{Failure, Success, Try}
 import scala.util.control.Breaks.{break, breakable}
 
 object PipelineBuilder {
@@ -269,6 +270,36 @@ object PipelineBuilder {
     }
 
     outputList
+  }
+
+  def checkConfigRecursively(pipeline: Pipeline): Unit = {
+
+    var configValid = true
+    val plugins = pipeline.streamingInputList ::: pipeline.staticInputList ::: pipeline.filterList ::: pipeline.outputList ::: Nil
+    for (plugin <- plugins) {
+      // plugin.checkConfig
+
+      val (isValid, msg) = Try(plugin.checkConfig) match {
+        case Success(info) => {
+          val (ret, message) = info
+          (ret, message)
+        }
+        case Failure(exception) => (false, exception.getMessage)
+      }
+
+      if (!isValid) {
+        configValid = false
+        printf("Plugin[%s] contains invalid config, error: %s\n", plugin.name, msg)
+      }
+    }
+
+    if (!configValid) {
+      System.exit(-1) // invalid configuration, must exit !
+    }
+
+    for (subPipe <- pipeline.subPipelines) {
+      checkConfigRecursively(subPipe)
+    }
   }
 
   /**

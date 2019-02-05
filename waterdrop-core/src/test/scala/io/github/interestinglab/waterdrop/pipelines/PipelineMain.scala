@@ -29,6 +29,8 @@ object PipelineMain {
 
     PipelineBuilder.validatePipeline(rootPipeline)
 
+    PipelineBuilder.checkConfigRecursively(rootPipeline)
+
     val spark = SparkSession.builder().getOrCreate()
 
     PipelineRunner.preparePipelineRecursively(spark, rootPipeline)

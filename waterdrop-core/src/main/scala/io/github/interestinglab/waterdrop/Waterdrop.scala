@@ -2,19 +2,18 @@ package io.github.interestinglab.waterdrop
 
 import java.io.File
 
-import io.github.interestinglab.waterdrop.Waterdrop.showWaterdropAsciiLogo
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
+import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
+import io.github.interestinglab.waterdrop.pipelines.Pipeline.{Batch, PipelineType, Streaming, Unknown}
+import io.github.interestinglab.waterdrop.pipelines.{Pipeline, PipelineBuilder, PipelineRunner}
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
 import io.github.interestinglab.waterdrop.utils.AsciiArt
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming._
 
 import scala.collection.JavaConversions._
@@ -93,32 +92,20 @@ object Waterdrop extends Logging {
 
   private def entrypoint(configFile: String): Unit = {
 
-    val configBuilder = new ConfigBuilder(configFile)
-    val staticInputs = configBuilder.createStaticInputs
-    val streamingInputs = configBuilder.createStreamingInputs
-    val outputs = configBuilder.createOutputs
-    val filters = configBuilder.createFilters
+    val rootConfig = ConfigFactory.parseFile(new File(configFile))
 
-    var configValid = true
-    val plugins = staticInputs ::: streamingInputs ::: filters ::: outputs
-    for (p <- plugins) {
-      val (isValid, msg) = Try(p.checkConfig) match {
-        case Success(info) => {
-          val (ret, message) = info
-          (ret, message)
-        }
-        case Failure(exception) => (false, exception.getMessage)
-      }
+    val (rootPipeline, rootPipelineType, _) = PipelineBuilder.recursiveBuilder(rootConfig, "ROOT_PIPELINE")
 
-      if (!isValid) {
-        configValid = false
-        printf("Plugin[%s] contains invalid config, error: %s\n", p.name, msg)
+    rootPipelineType match {
+      case Unknown => {
+        throw new ConfigRuntimeException("Cannot not detect pipeline type, please check your config")
       }
+      case _ => {}
     }
 
-    if (!configValid) {
-      System.exit(-1) // invalid configuration
-    }
+    PipelineBuilder.validatePipeline(rootPipeline)
+
+    PipelineBuilder.checkConfigRecursively(rootPipeline)
 
     Common.getDeployMode match {
       case Some(m) => {
@@ -155,18 +142,12 @@ object Waterdrop extends Logging {
       }
     }
 
-    process(configBuilder, staticInputs, streamingInputs, filters, outputs)
+    process(rootConfig, rootPipeline, rootPipelineType)
   }
 
-  private def process(
-    configBuilder: ConfigBuilder,
-    staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput[Any]],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
-
+  private def process(rootConfig: Config, rootPipeline: Pipeline, rootPipelineType: PipelineType): Unit = {
     println("[INFO] loading SparkConf: ")
-    val sparkConf = createSparkConf(configBuilder)
+    val sparkConf = createSparkConf(rootConfig.getConfig("spark"))
     sparkConf.getAll.foreach(entry => {
       val (key, value) = entry
       println("\t" + key + " => " + value)
@@ -177,193 +158,39 @@ object Waterdrop extends Logging {
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
-    streamingInputs.size match {
-      case 0 => {
-        batchProcessing(sparkSession, configBuilder, staticInputs, filters, outputs)
-      }
-      case _ => {
-        streamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
-      }
-    }
-  }
-
-  /**
-   * Streaming Processing
-   * */
-  private def streamingProcessing(
-    sparkSession: SparkSession,
-    configBuilder: ConfigBuilder,
-    staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput[Any]],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
-
-    val sparkConfig = configBuilder.getSparkConfigs
-    val duration = sparkConfig.getLong("spark.streaming.batchDuration")
-    val sparkConf = createSparkConf(configBuilder)
-    val ssc = new StreamingContext(sparkSession.sparkContext, Seconds(duration))
-
-    basePrepare(sparkSession, staticInputs, streamingInputs, filters, outputs)
-
-    // let static input register as table for later use if needed
-    var datasetMap = Map[String, Dataset[Row]]()
-    for (input <- staticInputs) {
-
-      val ds = input.getDataset(sparkSession)
-
-      val config = input.getConfig()
-      config.hasPath("table_name") match {
-        case true => {
-          val tableName = config.getString("table_name")
-
-          datasetMap.contains(tableName) match {
-            case true =>
-              throw new ConfigRuntimeException(
-                "Detected duplicated Dataset["
-                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
-            case _ => datasetMap += (tableName -> ds)
-          }
-
-          ds.createOrReplaceTempView(tableName)
-        }
-        case false => {
-          throw new ConfigRuntimeException(
-            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
-        }
-      }
-    }
+    PipelineRunner.preparePipelineRecursively(sparkSession, rootPipeline)
 
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
-    streamingInputs(0).start(
-      sparkSession,
-      ssc,
-      dataset => {
+    rootPipelineType match {
 
-        var ds = dataset
+      case Streaming => {
 
-        // Ignore empty schema dataset
-        for (f <- filters) {
-          if (ds.take(1).length > 0) {
-            ds = f.process(sparkSession, ds)
-          }
-        }
+        val sparkConfig = rootConfig.getConfig("spark")
+        val duration = sparkConfig.getLong("spark.streaming.batchDuration")
+        val ssc = new StreamingContext(sparkSession.sparkContext, Seconds(duration))
+        PipelineRunner.pipelineRunnerForStreaming(rootPipeline, sparkSession, ssc)
 
-        streamingInputs(0).beforeOutput
-
-        outputs.foreach(p => {
-          p.process(ds)
-        })
-
-        streamingInputs(0).afterOutput
-
+        ssc.start()
+        ssc.awaitTermination()
       }
-    )
-
-    ssc.start()
-    ssc.awaitTermination()
-  }
-
-  /**
-   * Batch Processing
-   * */
-  private def batchProcessing(
-    sparkSession: SparkSession,
-    configBuilder: ConfigBuilder,
-    staticInputs: List[BaseStaticInput],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
-
-    basePrepare(sparkSession, staticInputs, filters, outputs)
-
-    // let static input register as table for later use if needed
-    var datasetMap = Map[String, Dataset[Row]]()
-    for (input <- staticInputs) {
-
-      val ds = input.getDataset(sparkSession)
-
-      val config = input.getConfig()
-      config.hasPath("table_name") match {
-        case true => {
-          val tableName = config.getString("table_name")
-
-          datasetMap.contains(tableName) match {
-            case true =>
-              throw new ConfigRuntimeException(
-                "Detected duplicated Dataset["
-                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
-            case _ => datasetMap += (tableName -> ds)
-          }
-
-          ds.createOrReplaceTempView(tableName)
-        }
-        case false => {
-          throw new ConfigRuntimeException(
-            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
-        }
+      case Batch => {
+        PipelineRunner.pipelineRunnerForBatch(rootPipeline, sparkSession)
       }
     }
-
-    // when you see this ASCII logo, waterdrop is really started.
-    showWaterdropAsciiLogo()
-
-    if (staticInputs.nonEmpty) {
-      var ds = staticInputs.head.getDataset(sparkSession)
-
-      for (f <- filters) {
-        if (ds.take(1).length > 0) {
-          ds = f.process(sparkSession, ds)
-        }
-      }
-      outputs.foreach(p => {
-        p.process(ds)
-      })
-
-    } else {
-      throw new ConfigRuntimeException("Input must be configured at least once.")
-    }
   }
 
-  private def basePrepare(
-    sparkSession: SparkSession,
-    staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput[Any]],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
-    for (i <- streamingInputs) {
-      i.prepare(sparkSession)
-    }
-
-    basePrepare(sparkSession, staticInputs, filters, outputs)
-  }
-
-  private def basePrepare(
-    sparkSession: SparkSession,
-    staticInputs: List[BaseStaticInput],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
-
-    for (i <- staticInputs) {
-      i.prepare(sparkSession)
-    }
-
-    for (o <- outputs) {
-      o.prepare(sparkSession)
-    }
-
-    for (f <- filters) {
-      f.prepare(sparkSession)
-    }
-  }
-
-  private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
+  private def createSparkConf(sparkConfig: Config): SparkConf = {
     val sparkConf = new SparkConf()
 
-    configBuilder.getSparkConfigs
+    sparkConfig
       .entrySet()
       .foreach(entry => {
-        sparkConf.set(entry.getKey, String.valueOf(entry.getValue.unwrapped()))
+        val key = entry.getKey
+        val value = String.valueOf(entry.getValue.unwrapped())
+        logInfo("spark config - key: %s, value: %s".format(entry.getKey, value))
+        sparkConf.set(key, value)
       })
 
     sparkConf
