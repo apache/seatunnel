@@ -6,14 +6,15 @@ class Pipeline(name: String) {
 
   def getName: String = name
 
-  var execStartingPoint: Pipeline.StartingPoint = Pipeline.Unused // 执行起始点，执行起始点必须比子Pipeline起始点靠前
+  // Pipeline execution starting point, execution starting point **must be** prior to subpipeline subPipelinesStartingPoint
+  var execStartingPoint: Pipeline.StartingPoint = Pipeline.Unused
   var streamingInputList: List[BaseStreamingInput[Any]] = List()
   var staticInputList: List[BaseStaticInput] = List()
   var filterList: List[BaseFilter] = List()
   var outputList: List[BaseOutput] = List()
 
-  // pipeline 起始点 [point1] input [point2] filter [point3] output
-  var subPipelinesStartingPoint: Pipeline.StartingPoint = Pipeline.Unused // 子Pipeline起始点。
+  // pipeline execution starting point [PreInput] input [PreFilter] filter [PreOutput] output
+  var subPipelinesStartingPoint: Pipeline.StartingPoint = Pipeline.Unused
   var subPipelines: List[Pipeline] = List()
 
   override def toString: String = {
@@ -53,7 +54,7 @@ object Pipeline {
     }
   }
 
-  sealed trait PipelineType {}
+  sealed trait PipelineType
   case object Streaming extends PipelineType
   case object Batch extends PipelineType
   case object Unknown extends PipelineType
