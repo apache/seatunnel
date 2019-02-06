@@ -8,6 +8,7 @@
 
 - [配置](/zh-cn/configuration/base)
   - [通用配置](/zh-cn/configuration/base)
+  - [多Pipeline](/zh-cn/configuration/MultiplePipeline)
   - [Input插件](/zh-cn/configuration/input-plugin)
     - [AmazonKinesis [商业版]](/zh-cn/configuration/input-plugins/AmazonKinesisStream)
     - [FakeStream](/zh-cn/configuration/input-plugins/FakeStream)

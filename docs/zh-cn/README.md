@@ -4,6 +4,10 @@
 
 Waterdrop 是一个`非常易用`，`高性能`，能够应对`海量数据`的`实时`数据处理产品，构建于Apache Spark之上。
 
+## 立即开始使用Waterdrop
+
+查看[快速入门](https://interestinglab.github.io/waterdrop/#/zh-cn/quick-start)开始使用waterdrop
+
 ## 为什么我们需要 Waterdrop
 
 Databricks 开源的 Apache Spark 对于分布式数据处理来说是一个伟大的进步。我们在使用 Spark 时发现了很多可圈可点之处，同时我们也发现了我们的机会 —— 通过我们的努力让Spark的使用更简单，更高效，并将业界和我们使用Spark的优质经验固化到Waterdrop这个产品中，明显减少学习成本，加快分布式数据处理能力在生产环境落地。
@@ -36,7 +40,9 @@ Databricks 开源的 Apache Spark 对于分布式数据处理来说是一个伟�
 
 ## Waterdrop 的工作流程
 
-Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
+![](../images/pipelines/1.png ':size=300%')
+
+`Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]`
 
 多个Filter构建了数据处理的Pipeline，满足各种各样的数据处理需求，如果您熟悉SQL，也可以直接通过SQL构建数据处理的Pipeline，简单高效。目前Waterdrop支持的[Filter列表](zh-cn/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
@@ -44,15 +50,15 @@ Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
 
 * Input plugin
 
-Fake, File, Hdfs, Kafka, S3, Socket, 自行开发的Input plugin
+Fake, File, Hdfs, Kafka, S3, Socket, ..., 自行开发的Input plugin, 目前支持的插件列表参见[Plugin List](https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/input-plugin)
 
 * Filter plugin
 
-Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace, Sample, Split, Sql, Table, Truncate, Uppercase, Uuid, 自行开发的Filter plugin
+Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace, Sample, Split, Sql, Table, Truncate, Uppercase, Uuid, ..., 自行开发的Filter plugin, 目前支持的插件列表参见[Plugin List](https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/filter-plugin)
 
 * Output plugin
 
-Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output plugin
+Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, ..., 自行开发的Output plugin, 目前支持的插件列表参见[Plugin List](https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/output-plugin)
 
 ## 环境依赖
 

@@ -8,6 +8,7 @@
 
 - [配置](/zh-cn/configuration/base)
   - [通用配置](/zh-cn/configuration/base)
+  - [多Pipeline处理](/zh-cn/configuration/MultiplePipeline)
   - [Input插件](/zh-cn/configuration/input-plugin)
   - [Filter插件](/zh-cn/configuration/filter-plugin)
   - [Output插件](/zh-cn/configuration/output-plugin)
