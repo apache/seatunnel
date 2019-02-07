@@ -13,7 +13,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{AnalysisException, SparkSession}
 import org.apache.spark.streaming._
 
 import scala.collection.JavaConversions._
@@ -48,7 +48,9 @@ object Waterdrop extends Logging {
             Try(entrypoint(configFilePath)) match {
               case Success(_) => {}
               case Failure(exception) => {
-                exception.isInstanceOf[ConfigRuntimeException] match {
+                exception.isInstanceOf[ConfigRuntimeException] || exception
+                  .isInstanceOf[com.typesafe.config.ConfigException] || exception
+                  .isInstanceOf[AnalysisException] match {
                   case true => {
                     showConfigError(exception)
                   }
