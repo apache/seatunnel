@@ -320,7 +320,11 @@ object PipelineBuilder {
    * */
   private def buildClassFullQualifier(name: String, classType: String): String = {
 
-    var qualifier = name
+    // Because "." is reserved character in typesafe config path, so package name in config file is
+    // in "_" format, when we load it in typesafe config object, we should
+    // replace all "_" with "." in package name, such as "com_example_plugin" to "com.example.plugin"
+    var qualifier = name.replace("_", ".")
+
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
