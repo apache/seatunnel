@@ -135,9 +135,12 @@ object PipelineRunner {
           ds = f.process(spark, ds)
         }
       }
-      pipeline.outputList.foreach(p => {
-        p.process(ds)
-      })
+
+      if (ds.take(1).length > 0) {
+        pipeline.outputList.foreach(p => {
+          p.process(ds)
+        })
+      }
 
     } else {
       throw new ConfigRuntimeException("Input must be configured at least once.")
@@ -242,8 +245,10 @@ object PipelineRunner {
             .streamingInputList(0)
             .beforeOutput
 
-          for (output <- pipeline.outputList) {
-            output.process(ds)
+          if (ds.take(1).length > 0) {
+            for (output <- pipeline.outputList) {
+              output.process(ds)
+            }
           }
 
           pipeline
@@ -283,8 +288,10 @@ object PipelineRunner {
           }
         }
 
-        for (output <- pipeline.outputList) {
-          output.process(ds)
+        if (ds.take(1).length > 0) {
+          for (output <- pipeline.outputList) {
+            output.process(ds)
+          }
         }
       }
       case _ => {
@@ -303,8 +310,10 @@ object PipelineRunner {
         }
       }
       case Unused => {
-        for (output <- pipeline.outputList) {
-          output.process(datasource)
+        if (datasource.take(1).length > 0) {
+          for (output <- pipeline.outputList) {
+            output.process(datasource)
+          }
         }
       }
       case _ => {
