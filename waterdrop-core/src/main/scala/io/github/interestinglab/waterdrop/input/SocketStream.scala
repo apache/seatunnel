@@ -3,11 +3,13 @@ package io.github.interestinglab.waterdrop.input
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class SocketStream extends BaseStreamingInput {
+class SocketStream extends BaseStreamingInput[String] {
 
   var config: Config = ConfigFactory.empty()
 
@@ -38,12 +40,18 @@ class SocketStream extends BaseStreamingInput {
     config = config.withFallback(defaultConfig)
   }
 
-  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
+  override def getDStream(ssc: StreamingContext): DStream[String] = {
 
-    ssc
-      .socketTextStream(config.getString("host"), config.getInt("port"))
-      .map(s => {
-        ("", s)
-      })
+    ssc.socketTextStream(config.getString("host"), config.getInt("port"))
+  }
+
+  override def rdd2dataset(spark: SparkSession, rdd: RDD[String]): Dataset[Row] = {
+
+    val rowsRDD = rdd.map(element => {
+      RowFactory.create(element)
+    })
+
+    val schema = StructType(Array(StructField("raw_message", DataTypes.StringType)))
+    spark.createDataFrame(rowsRDD, schema)
   }
 }

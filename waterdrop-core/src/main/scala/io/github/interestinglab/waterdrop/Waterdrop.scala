@@ -161,7 +161,7 @@ object Waterdrop extends Logging {
   private def process(
     configBuilder: ConfigBuilder,
     staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput],
+    streamingInputs: List[BaseStreamingInput[Any]],
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
 
@@ -194,7 +194,7 @@ object Waterdrop extends Logging {
     sparkSession: SparkSession,
     configBuilder: ConfigBuilder,
     staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput],
+    streamingInputs: List[BaseStreamingInput[Any]],
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
 
@@ -236,54 +236,30 @@ object Waterdrop extends Logging {
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
-    val dstreamList = streamingInputs.map(p => {
-      p.getDStream(ssc)
-    })
+    streamingInputs(0).start(
+      sparkSession,
+      ssc,
+      dataset => {
 
-    val unionedDStream = dstreamList.reduce((d1, d2) => {
-      d1.union(d2)
-    })
+        var ds = dataset
 
-    val dStream = unionedDStream.mapPartitions { partitions =>
-      val strIterator = partitions.map(r => r._2)
-      val strList = strIterator.toList
-      strList.iterator
-    }
-
-    dStream.foreachRDD { strRDD =>
-      val rowsRDD = strRDD.mapPartitions { partitions =>
-        val row = partitions.map(Row(_))
-        val rows = row.toList
-        rows.iterator
-      }
-
-      // For implicit conversions like converting RDDs to DataFrames
-      import sparkSession.implicits._
-
-      val schema = StructType(Array(StructField("raw_message", StringType)))
-      val encoder = RowEncoder(schema)
-      var ds = sparkSession.createDataset(rowsRDD)(encoder)
-
-      // Ignore empty schema dataset
-
-      for (f <- filters) {
-        if (ds.take(1).length > 0) {
-          ds = f.process(sparkSession, ds)
+        // Ignore empty schema dataset
+        for (f <- filters) {
+          if (ds.take(1).length > 0) {
+            ds = f.process(sparkSession, ds)
+          }
         }
+
+        streamingInputs(0).beforeOutput
+
+        outputs.foreach(p => {
+          p.process(ds)
+        })
+
+        streamingInputs(0).afterOutput
+
       }
-
-      streamingInputs.foreach(p => {
-        p.beforeOutput
-      })
-
-      outputs.foreach(p => {
-        p.process(ds)
-      })
-
-      streamingInputs.foreach(p => {
-        p.afterOutput
-      })
-    }
+    )
 
     ssc.start()
     ssc.awaitTermination()
@@ -300,7 +276,6 @@ object Waterdrop extends Logging {
     outputs: List[BaseOutput]): Unit = {
 
     basePrepare(sparkSession, staticInputs, filters, outputs)
-
 
     // let static input register as table for later use if needed
     var datasetMap = Map[String, Dataset[Row]]()
@@ -353,7 +328,7 @@ object Waterdrop extends Logging {
   private def basePrepare(
     sparkSession: SparkSession,
     staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput],
+    streamingInputs: List[BaseStreamingInput[Any]],
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
     for (i <- streamingInputs) {
