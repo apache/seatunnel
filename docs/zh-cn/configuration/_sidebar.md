@@ -25,6 +25,7 @@
     - [Hive](/zh-cn/configuration/input-plugins/Hive)
     - [S3Stream](/zh-cn/configuration/input-plugins/S3Stream)
     - [SocketStream](/zh-cn/configuration/input-plugins/SocketStream)
+    - [Tidb](/zh-cn/configuration/input-plugins/Tidb)
     - [阿里云DTS [商业版]](/zh-cn/configuration/input-plugins/AliyunDtsStream)
     - [阿里云SLS [商业版]](/zh-cn/configuration/input-plugins/AliyunSlsStream)
     
@@ -67,6 +68,7 @@
     - [MySQL](/zh-cn/configuration/output-plugins/MySQL)
     - [S3](/zh-cn/configuration/output-plugins/S3)
     - [Stdout](/zh-cn/configuration/output-plugins/Stdout)
+    - [Tidb](/zh-cn/configuration/output-plugins/Tidb)
 
 - [部署与运行](/zh-cn/deployment)
 

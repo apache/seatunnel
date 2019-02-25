@@ -75,7 +75,11 @@ class File extends BaseStaticInput {
 
     format match {
       case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
+      case "parquet" => reader.parquet(path)
       case "xml" => reader.xml(path)
+      case "json" => reader.json(path)
+      case "orc" => reader.orc(path)
+      case "csv" => reader.csv(path)
       case _ => reader.load(path)
     }
   }

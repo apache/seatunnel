@@ -1,5 +1,5 @@
 name         := "Waterdrop-core"
-version      := "1.1.3"
+version      := "1.2.0"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
@@ -45,9 +45,12 @@ libraryDependencies ++= Seq(
   "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
   "mysql" % "mysql-connector-java" % "5.1.6",
-  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "5.6.3",
+  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "6.6.1",
   "com.github.scopt" %% "scopt" % "3.7.0",
   "org.apache.commons" % "commons-compress" % "1.15",
+  "com.pingcap.tispark" % "tispark-core" % "1.1"
+    excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
+  "com.pingcap.tikv" % "tikv-client" % "1.1",
   "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
     exclude("com.google.guava","guava")
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),

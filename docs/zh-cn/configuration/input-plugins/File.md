@@ -20,7 +20,7 @@
 
 ##### format [string]
 
-文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`和 `text`.
+文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`、`orc`和 `text`.
 
 
 ##### options.* [object]
@@ -57,7 +57,7 @@ file {
 ```
 file {
     table_name = "books"
-    path = "file///data0/src/books.xml"
+    path = "file:///data0/src/books.xml"
     options.rowTag = "book"
     format = "xml"
 }

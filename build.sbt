@@ -1,11 +1,12 @@
 name         := "Waterdrop"
-version      := "1.1.4"
+version      := "1.2.1"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
 
 // resolved sbt assembly merging file conflicts.
 assemblyMergeStrategy in assembly := {
+  case PathList("org", "joda", xs @ _*) => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".xml" => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".class" => MergeStrategy.first
