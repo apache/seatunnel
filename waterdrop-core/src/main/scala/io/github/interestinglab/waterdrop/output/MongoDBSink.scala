@@ -2,10 +2,9 @@ package io.github.interestinglab.waterdrop.output
 
 import java.util
 
-import com.alibaba.fastjson.JSONObject
 import com.mongodb.MongoClient
 import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.{InsertOneOptions, UpdateOptions}
+import com.mongodb.client.model.UpdateOptions
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import org.apache.spark.sql.streaming.DataStreamWriter
@@ -14,7 +13,7 @@ import org.bson.Document
 
 import scala.collection.JavaConversions._
 
-class MongoDBSink extends ForeachWriter[Row] with BaseStructuredStreamingOutput {
+class MongoDBSink extends BaseStructuredStreamingOutput {
 
   var config: Config = ConfigFactory.empty()
 
@@ -33,9 +32,8 @@ class MongoDBSink extends ForeachWriter[Row] with BaseStructuredStreamingOutput 
     this.config
   }
 
-
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("host") && config.hasPath("database") && config.hasPath("collection")  match {
+    config.hasPath("host") && config.hasPath("database") && config.hasPath("collection") match {
       case true => (true, "")
       case false => (false, "please specify [host]  and [database] and [collection]")
     }
@@ -75,7 +73,8 @@ class MongoDBSink extends ForeachWriter[Row] with BaseStructuredStreamingOutput 
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
     client = new MongoClient(config.getString("host"), config.getInt("port"))
-    mongoCollection = client.getDatabase(config.getString("database"))
+    mongoCollection = client
+      .getDatabase(config.getString("database"))
       .getCollection(config.getString("collection"))
     true
   }
@@ -99,7 +98,7 @@ class MongoDBSink extends ForeachWriter[Row] with BaseStructuredStreamingOutput 
         case false => {}
       }
     })
-    val update = new Document("$set",document)
+    val update = new Document("$set", document)
     config.getString("mongo_output_mode") match {
       case "insert" => mongoCollection.insertOne(document)
       case "updateOne" => mongoCollection.updateOne(query, update)
