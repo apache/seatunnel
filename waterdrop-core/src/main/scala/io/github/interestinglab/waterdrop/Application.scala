@@ -10,13 +10,16 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
+import org.apache.spark.sql.streaming.StreamingQueryListener.{
+  QueryProgressEvent,
+  QueryStartedEvent,
+  QueryTerminatedEvent
+}
 import org.apache.spark.sql.streaming.{StreamingQueryListener, Trigger}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
-
 
 object Application extends Logging {
 
@@ -151,8 +154,11 @@ object Application extends Logging {
     process(configBuilder, structuredStreamingInputs, filters, structuredStreamingOutputs)
   }
 
-  private def process(configBuilder: ConfigBuilder, structuredStreamingInputs: List[BaseStructuredStreamingInput],
-                      filters: List[BaseFilter], structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
+  private def process(
+    configBuilder: ConfigBuilder,
+    structuredStreamingInputs: List[BaseStructuredStreamingInput],
+    filters: List[BaseFilter],
+    structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
 
     println("[INFO] loading SparkConf: ")
     val sparkConf = createSparkConf(configBuilder)
@@ -180,12 +186,12 @@ object Application extends Logging {
     sparkConf
   }
 
-  private def streamingProcessing(sparkSession: SparkSession,
-                                  configBuilder: ConfigBuilder,
-                                  structuredStreamingInputs: List[BaseStructuredStreamingInput],
-                                  filters: List[BaseFilter],
-                                  structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
-
+  private def streamingProcessing(
+    sparkSession: SparkSession,
+    configBuilder: ConfigBuilder,
+    structuredStreamingInputs: List[BaseStructuredStreamingInput],
+    filters: List[BaseFilter],
+    structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
 
     basePrepare(sparkSession, structuredStreamingInputs, filters, structuredStreamingOutputs)
 
@@ -202,8 +208,11 @@ object Application extends Logging {
     start.awaitTermination()
   }
 
-  private def basePrepare(sparkSession: SparkSession,structuredStreamingInputs: List[BaseStructuredStreamingInput],filters: List[BaseFilter],
-                          structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
+  private def basePrepare(
+    sparkSession: SparkSession,
+    structuredStreamingInputs: List[BaseStructuredStreamingInput],
+    filters: List[BaseFilter],
+    structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
 
     for (i <- structuredStreamingInputs) {
       i.prepare(sparkSession)
