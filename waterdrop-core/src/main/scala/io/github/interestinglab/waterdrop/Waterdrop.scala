@@ -2,8 +2,7 @@ package io.github.interestinglab.waterdrop
 
 import java.io.File
 
-import io.github.interestinglab.waterdrop.Waterdrop.showWaterdropAsciiLogo
-import io.github.interestinglab.waterdrop.apis.{BaseFilter, BaseOutput, BaseStaticInput, BaseStreamingInput}
+import io.github.interestinglab.waterdrop.apis._
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
@@ -12,8 +11,12 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.streaming.StreamingQueryListener
+import org.apache.spark.sql.streaming.StreamingQueryListener.{
+  QueryProgressEvent,
+  QueryStartedEvent,
+  QueryTerminatedEvent
+}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming._
 
@@ -24,6 +27,7 @@ object Waterdrop extends Logging {
 
   def main(args: Array[String]) {
 
+    println(args(1))
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
@@ -39,6 +43,8 @@ object Waterdrop extends Logging {
           }
         }
 
+        val appType = cmdArgs.appType
+
         cmdArgs.testConfig match {
           case true => {
             new ConfigBuilder(configFilePath).checkConfig
@@ -46,7 +52,7 @@ object Waterdrop extends Logging {
           }
           case false => {
 
-            Try(entrypoint(configFilePath)) match {
+            Try(entrypoint(configFilePath, appType)) match {
               case Success(_) => {}
               case Failure(exception) => {
                 exception.isInstanceOf[ConfigRuntimeException] match {
@@ -91,80 +97,10 @@ object Waterdrop extends Logging {
     println("\n===============================================================================\n\n\n")
   }
 
-  private def entrypoint(configFile: String): Unit = {
+  private def entrypoint(configFile: String, appType: String): Unit = {
 
+    println(appType)
     val configBuilder = new ConfigBuilder(configFile)
-    val staticInputs = configBuilder.createStaticInputs
-    val streamingInputs = configBuilder.createStreamingInputs
-    val outputs = configBuilder.createOutputs
-    val filters = configBuilder.createFilters
-
-    var configValid = true
-    val plugins = staticInputs ::: streamingInputs ::: filters ::: outputs
-    for (p <- plugins) {
-      val (isValid, msg) = Try(p.checkConfig) match {
-        case Success(info) => {
-          val (ret, message) = info
-          (ret, message)
-        }
-        case Failure(exception) => (false, exception.getMessage)
-      }
-
-      if (!isValid) {
-        configValid = false
-        printf("Plugin[%s] contains invalid config, error: %s\n", p.name, msg)
-      }
-    }
-
-    if (!configValid) {
-      System.exit(-1) // invalid configuration
-    }
-
-    Common.getDeployMode match {
-      case Some(m) => {
-        if (m.equals("cluster")) {
-
-          logInfo("preparing cluster mode work dir files...")
-
-          // plugins.tar.gz is added in local app temp dir of driver and executors in cluster mode from --files specified in spark-submit
-          val workDir = new File(".")
-          logWarning("work dir exists: " + workDir.exists() + ", is dir: " + workDir.isDirectory)
-
-          workDir.listFiles().foreach(f => logWarning("\t list file: " + f.getAbsolutePath))
-
-          // decompress plugin dir
-          val compressedFile = new File("plugins.tar.gz")
-
-          Try(CompressionUtils.unGzip(compressedFile, workDir)) match {
-            case Success(tempFile) => {
-              Try(CompressionUtils.unTar(tempFile, workDir)) match {
-                case Success(_) => logInfo("succeeded to decompress plugins.tar.gz")
-                case Failure(ex) => {
-                  logError("failed to decompress plugins.tar.gz", ex)
-                  sys.exit(-1)
-                }
-              }
-
-            }
-            case Failure(ex) => {
-              logError("failed to decompress plugins.tar.gz", ex)
-              sys.exit(-1)
-            }
-          }
-        }
-      }
-    }
-
-    process(configBuilder, staticInputs, streamingInputs, filters, outputs)
-  }
-
-  private def process(
-    configBuilder: ConfigBuilder,
-    staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput[Any]],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
-
     println("[INFO] loading SparkConf: ")
     val sparkConf = createSparkConf(configBuilder)
     sparkConf.getAll.foreach(entry => {
@@ -177,14 +113,59 @@ object Waterdrop extends Logging {
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
-    streamingInputs.size match {
-      case 0 => {
-        batchProcessing(sparkSession, configBuilder, staticInputs, filters, outputs)
+    appType match {
+      case "streaming" => {
+        val inputs = configBuilder.createInputs[BaseStreamingInput[Any]](appType)
+        val filters = configBuilder.createFilters
+        val outputs = configBuilder.createOutputs[BaseOutput](appType)
+        baseCheckConfig(inputs, filters, outputs)
+        streamingProcessing(sparkSession, configBuilder, inputs, filters, outputs)
       }
-      case _ => {
-        streamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
+
+      case "structuredstreaming" => {
+        val inputs = configBuilder.createInputs[BaseStructuredStreamingInput](appType)
+        val filters = configBuilder.createFilters
+        val outputs = configBuilder.createOutputs[BaseStructuredStreamingOutput](appType)
+        baseCheckConfig(inputs, filters, outputs)
+        structuredStreamingProcessing(sparkSession, configBuilder, inputs, filters, outputs)
       }
+
+      case "batch" => {
+        val inputs = configBuilder.createInputs[BaseStaticInput](appType)
+        val filters = configBuilder.createFilters
+        val outputs = configBuilder.createOutputs[BaseOutput](appType)
+        baseCheckConfig(inputs, filters, outputs)
+        batchProcessing(sparkSession, configBuilder, inputs, filters, outputs)
+      }
+
+      case _ => logError("Unknown application type: " + appType)
     }
+
+  }
+
+  /**
+   * Structured Streaming Processing
+   * */
+  private def structuredStreamingProcessing(
+    sparkSession: SparkSession,
+    configBuilder: ConfigBuilder,
+    structuredStreamingInputs: List[BaseStructuredStreamingInput],
+    filters: List[BaseFilter],
+    structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
+
+    basePrepare(sparkSession, structuredStreamingInputs, filters, structuredStreamingOutputs)
+
+    val datasetList = structuredStreamingInputs.map(p => {
+      p.getDataset(sparkSession)
+    })
+
+    var ds: Dataset[Row] = datasetList.get(0)
+    for (f <- filters) {
+      ds = f.process(sparkSession, ds)
+    }
+    val output = structuredStreamingOutputs.get(0)
+    val start = output.process(ds).start()
+    start.awaitTermination()
   }
 
   /**
@@ -193,7 +174,6 @@ object Waterdrop extends Logging {
   private def streamingProcessing(
     sparkSession: SparkSession,
     configBuilder: ConfigBuilder,
-    staticInputs: List[BaseStaticInput],
     streamingInputs: List[BaseStreamingInput[Any]],
     filters: List[BaseFilter],
     outputs: List[BaseOutput]): Unit = {
@@ -203,35 +183,7 @@ object Waterdrop extends Logging {
     val sparkConf = createSparkConf(configBuilder)
     val ssc = new StreamingContext(sparkSession.sparkContext, Seconds(duration))
 
-    basePrepare(sparkSession, staticInputs, streamingInputs, filters, outputs)
-
-    // let static input register as table for later use if needed
-    var datasetMap = Map[String, Dataset[Row]]()
-    for (input <- staticInputs) {
-
-      val ds = input.getDataset(sparkSession)
-
-      val config = input.getConfig()
-      config.hasPath("table_name") match {
-        case true => {
-          val tableName = config.getString("table_name")
-
-          datasetMap.contains(tableName) match {
-            case true =>
-              throw new ConfigRuntimeException(
-                "Detected duplicated Dataset["
-                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
-            case _ => datasetMap += (tableName -> ds)
-          }
-
-          ds.createOrReplaceTempView(tableName)
-        }
-        case false => {
-          throw new ConfigRuntimeException(
-            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
-        }
-      }
-    }
+    basePrepare(sparkSession, streamingInputs, filters, outputs)
 
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
@@ -325,35 +277,70 @@ object Waterdrop extends Logging {
     }
   }
 
-  private def basePrepare(
-    sparkSession: SparkSession,
-    staticInputs: List[BaseStaticInput],
-    streamingInputs: List[BaseStreamingInput[Any]],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
-    for (i <- streamingInputs) {
-      i.prepare(sparkSession)
+  private def basePrepare(sparkSession: SparkSession, plugins: List[Plugin]*): Unit = {
+    for (pluginList <- plugins) {
+      for (p <- pluginList) {
+        p.prepare(sparkSession)
+      }
     }
-
-    basePrepare(sparkSession, staticInputs, filters, outputs)
   }
 
-  private def basePrepare(
-    sparkSession: SparkSession,
-    staticInputs: List[BaseStaticInput],
-    filters: List[BaseFilter],
-    outputs: List[BaseOutput]): Unit = {
+  private def baseCheckConfig(plugins: List[Plugin]*): Unit = {
+    var configValid = true
+    for (pluginList <- plugins) {
+      for (p <- pluginList) {
+        val (isValid, msg) = Try(p.checkConfig) match {
+          case Success(info) => {
+            val (ret, message) = info
+            (ret, message)
+          }
+          case Failure(exception) => (false, exception.getMessage)
+        }
 
-    for (i <- staticInputs) {
-      i.prepare(sparkSession)
+        if (!isValid) {
+          configValid = false
+          printf("Plugin[%s] contains invalid config, error: %s\n", p.name, msg)
+        }
+      }
+
+      if (!configValid) {
+        System.exit(-1) // invalid configuration
+      }
     }
 
-    for (o <- outputs) {
-      o.prepare(sparkSession)
-    }
+    Common.getDeployMode match {
+      case Some(m) => {
+        if (m.equals("cluster")) {
 
-    for (f <- filters) {
-      f.prepare(sparkSession)
+          logInfo("preparing cluster mode work dir files...")
+
+          // plugins.tar.gz is added in local app temp dir of driver and executors in cluster mode from --files specified in spark-submit
+          val workDir = new File(".")
+          logWarning("work dir exists: " + workDir.exists() + ", is dir: " + workDir.isDirectory)
+
+          workDir.listFiles().foreach(f => logWarning("\t list file: " + f.getAbsolutePath))
+
+          // decompress plugin dir
+          val compressedFile = new File("plugins.tar.gz")
+
+          Try(CompressionUtils.unGzip(compressedFile, workDir)) match {
+            case Success(tempFile) => {
+              Try(CompressionUtils.unTar(tempFile, workDir)) match {
+                case Success(_) => logInfo("succeeded to decompress plugins.tar.gz")
+                case Failure(ex) => {
+                  logError("failed to decompress plugins.tar.gz", ex)
+                  sys.exit(-1)
+                }
+              }
+
+            }
+            case Failure(ex) => {
+              logError("failed to decompress plugins.tar.gz", ex)
+              sys.exit(-1)
+            }
+          }
+        }
+      }
     }
   }
 
@@ -367,5 +354,21 @@ object Waterdrop extends Logging {
       })
 
     sparkConf
+  }
+
+  private def listener(sparkSession: SparkSession): Unit = {
+    sparkSession.streams.addListener(new StreamingQueryListener() {
+      override def onQueryStarted(event: QueryStartedEvent): Unit = {
+        //do something
+      }
+
+      override def onQueryProgress(event: QueryProgressEvent): Unit = {
+        //do listener
+      }
+
+      override def onQueryTerminated(event: QueryTerminatedEvent): Unit = {
+        //do something
+      }
+    })
   }
 }
