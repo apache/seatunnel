@@ -27,7 +27,6 @@ object Waterdrop extends Logging {
 
   def main(args: Array[String]) {
 
-    println(args(1))
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
@@ -99,7 +98,6 @@ object Waterdrop extends Logging {
 
   private def entrypoint(configFile: String, appType: String): Unit = {
 
-    println(appType)
     val configBuilder = new ConfigBuilder(configFile)
     println("[INFO] loading SparkConf: ")
     val sparkConf = createSparkConf(configBuilder)
