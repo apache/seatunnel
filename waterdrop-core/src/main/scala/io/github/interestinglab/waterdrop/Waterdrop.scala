@@ -305,7 +305,10 @@ object Waterdrop extends Logging {
         System.exit(-1) // invalid configuration
       }
     }
+    deployModeCheck()
+  }
 
+  private def deployModeCheck(): Unit = {
     Common.getDeployMode match {
       case Some(m) => {
         if (m.equals("cluster")) {
