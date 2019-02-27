@@ -48,9 +48,9 @@ class ConfigBuilder(configFile: String) {
    * */
   def checkConfig: Unit = {
     val sparkConfig = this.getSparkConfigs
-    val staticInput = this.createStaticInputs
-    val streamingInputs = this.createStreamingInputs
-    val outputs = this.createOutputs
+    val staticInput = this.createInputs[BaseStaticInput]("batch")
+    val streamingInputs = this.createInputs[BaseStreamingInput[Any]]("streaming")
+    val outputs = this.createOutputs[BaseOutput]("batch")
     val filters = this.createFilters
   }
 
@@ -79,21 +79,20 @@ class ConfigBuilder(configFile: String) {
     filterList
   }
 
-  def createStaticInputs: List[BaseStaticInput] = {
+  def createInputs[T <: Plugin](appType: String): List[T] = {
 
-    var inputList = List[BaseStaticInput]()
+    var inputList = List[T]()
     config
       .getConfigList("input")
       .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
-
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input", appType)
         val obj = Class
           .forName(className)
           .newInstance()
 
         obj match {
-          case inputObject: BaseStaticInput => {
-            val input = inputObject.asInstanceOf[BaseStaticInput]
+          case inputObject: T => {
+            val input = inputObject.asInstanceOf[T]
             input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
             inputList = inputList :+ input
           }
@@ -104,88 +103,18 @@ class ConfigBuilder(configFile: String) {
     inputList
   }
 
-  def createStreamingInputs: List[BaseStreamingInput] = {
+  def createOutputs[T <: Plugin](appType: String): List[T] = {
 
-    var inputList = List[BaseStreamingInput]()
-    config
-      .getConfigList("input")
-      .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
-
-        val obj = Class
-          .forName(className)
-          .newInstance()
-
-        obj match {
-          case inputObject: BaseStreamingInput => {
-            val input = inputObject.asInstanceOf[BaseStreamingInput]
-            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
-            inputList = inputList :+ input
-          }
-          case _ => // do nothing
-        }
-      })
-
-    inputList
-  }
-
-
-  def createOutputs: List[BaseOutput] = {
-
-    var outputList = List[BaseOutput]()
+    var outputList = List[T]()
     config
       .getConfigList("output")
       .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output")
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output", appType)
 
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseOutput]
-
-        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
-
-        outputList = outputList :+ obj
-      })
-
-    outputList
-  }
-
-  def createStructuredStreamingInputs: List[BaseStructuredStreamingInput] = {
-
-    var inputList = List[BaseStructuredStreamingInput]()
-    config
-      .getConfigList("input")
-      .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "input")
-
-        val obj = Class
-          .forName(className)
-          .newInstance()
-
-        obj match {
-          case inputObject: BaseStructuredStreamingInput => {
-            val input = inputObject.asInstanceOf[BaseStructuredStreamingInput]
-            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
-            inputList = inputList :+ input
-          }
-          case _ => // do nothing
-        }
-      })
-    inputList
-  }
-
-  def createStructuredStreamingOutputs: List[BaseStructuredStreamingOutput] = {
-    var outputList = List[BaseStructuredStreamingOutput]()
-    config
-      .getConfigList("output")
-      .foreach(plugin => {
-        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output")
-
-        val obj = Class
-          .forName(className)
-          .newInstance()
-          .asInstanceOf[BaseStructuredStreamingOutput]
+          .asInstanceOf[T]
 
         obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
 
@@ -199,19 +128,23 @@ class ConfigBuilder(configFile: String) {
    * Get full qualified class name by reflection api, ignore case.
    * */
   private def buildClassFullQualifier(name: String, classType: String): String = {
+    buildClassFullQualifier(name, classType, "")
+  }
+
+  private def buildClassFullQualifier(name: String, classType: String, appType: String): String = {
 
     var qualifier = name
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
-        case "input" => ConfigBuilder.InputPackage
+        case "input" => ConfigBuilder.InputPackage + "." + appType
         case "filter" => ConfigBuilder.FilterPackage
-        case "output" => ConfigBuilder.OutputPackage
+        case "output" => ConfigBuilder.OutputPackage + "." + appType
       }
 
       val services: Iterable[Plugin] =
         (ServiceLoader load classOf[BaseStaticInput]).asScala ++
-          (ServiceLoader load classOf[BaseStreamingInput]).asScala ++
+          (ServiceLoader load classOf[BaseStreamingInput[Any]]).asScala ++
           (ServiceLoader load classOf[BaseFilter]).asScala ++
           (ServiceLoader load classOf[BaseOutput]).asScala ++
           (ServiceLoader load classOf[BaseStructuredStreamingInput]).asScala ++

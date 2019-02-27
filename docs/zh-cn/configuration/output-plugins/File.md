@@ -52,7 +52,7 @@
 
 ##### serializer [string]
 
-序列化方法，当前支持csv、json、parquet和text
+序列化方法，当前支持csv、json、parquet、orc和text
 
 
 ### Example
