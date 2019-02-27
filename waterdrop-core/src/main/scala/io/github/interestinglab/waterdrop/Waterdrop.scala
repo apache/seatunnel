@@ -123,7 +123,7 @@ object Waterdrop extends Logging {
       case "structuredstreaming" => {
         val inputs = configBuilder.createInputs[BaseStructuredStreamingInput](appType)
         val filters = configBuilder.createFilters
-        val outputs = configBuilder.createOutputs[BaseStructuredStreamingOutput](appType)
+        val outputs = configBuilder.createOutputs[BaseStructuredStreamingOutputIntra](appType)
         baseCheckConfig(inputs, filters, outputs)
         structuredStreamingProcessing(sparkSession, configBuilder, inputs, filters, outputs)
       }
@@ -149,7 +149,7 @@ object Waterdrop extends Logging {
     configBuilder: ConfigBuilder,
     structuredStreamingInputs: List[BaseStructuredStreamingInput],
     filters: List[BaseFilter],
-    structuredStreamingOutputs: List[BaseStructuredStreamingOutput]): Unit = {
+    structuredStreamingOutputs: List[BaseStructuredStreamingOutputIntra]): Unit = {
 
     basePrepare(sparkSession, structuredStreamingInputs, filters, structuredStreamingOutputs)
 
