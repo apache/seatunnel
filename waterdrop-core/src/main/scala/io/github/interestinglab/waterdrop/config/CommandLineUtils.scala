@@ -18,5 +18,8 @@ object CommandLineUtils {
     opt[String]('m', "master")
       .required()
       .text("spark master")
+    opt[String]('t', "app-type")
+      .action((x, c) => c.copy(appType = x))
+      .text("application type")
   }
 }

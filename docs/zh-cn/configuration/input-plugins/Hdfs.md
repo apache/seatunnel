@@ -21,7 +21,7 @@
 
 ##### format [string]
 
-从HDFS中读取文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`和 `text`.
+从HDFS中读取文件的格式，目前支持`csv`、`json`、`parquet` 、`xml`、`orc`和 `text`.
 
 
 ##### options [object]
