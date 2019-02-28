@@ -6,9 +6,7 @@
 
 ### Description
 
-Read events from one or more kafka topics.
-
-This plugin uses Kafka Old Consumer. Supporting Kafka >= 0.8.2.X
+Read events from one or more kafka topics. Supporting Kafka >= 0.10.0
 
 
 ### Options

@@ -6,7 +6,7 @@
 
 ### Description
 
-Kafka Input实现Kafka的Old Consumer客户端, 从Kafka消费数据。支持的Kafka版本 >= 0.8.2.X. 
+从Kafka消费数据，支持的Kafka版本 >= 0.10.0.
 
 
 ### Options
