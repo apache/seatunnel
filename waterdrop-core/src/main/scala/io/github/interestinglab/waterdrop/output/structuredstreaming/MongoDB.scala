@@ -8,7 +8,7 @@ import com.mongodb.client.model.UpdateOptions
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import org.apache.spark.sql._
-import org.apache.spark.sql.streaming.DataStreamWriter
+import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
 import org.bson.Document
 
 import scala.collection.JavaConversions._
@@ -34,7 +34,23 @@ class MongoDB extends BaseStructuredStreamingOutput {
 
   override def checkConfig(): (Boolean, String) = {
     config.hasPath("host") && config.hasPath("database") && config.hasPath("collection") match {
-      case true => (true, "")
+      case true => {
+        if (config.hasPath("triggerMode")) {
+          val triggerMode = config.getString("triggerMode")
+          triggerMode match {
+            case "ProcessingTime" | "Continuous" => {
+              if (config.hasPath("interval")) {
+                (true, "")
+              } else {
+                (false, "please specify [interval] when [triggerMode] is ProcessingTime or Continuous")
+              }
+            }
+            case _ => (true, "")
+          }
+        } else {
+          (true, "")
+        }
+      }
       case false => (false, "please specify [host]  and [database] and [collection]")
     }
 
@@ -52,7 +68,8 @@ class MongoDB extends BaseStructuredStreamingOutput {
       Map(
         "port" -> 27017,
         "mongo_output_mode" -> "insert",
-        "streaming_output_mode" -> "append"
+        "streaming_output_mode" -> "append",
+        "triggerMode" -> "default"
       )
     )
     config = config.withFallback(defaultConfig)
@@ -114,9 +131,19 @@ class MongoDB extends BaseStructuredStreamingOutput {
   }
 
   override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
-    df.writeStream
+
+    val triggerMode = config.getString("triggerMode")
+
+    val writer = df.writeStream
       .outputMode(config.getString("streaming_output_mode"))
       .foreach(this)
       .options(options)
+
+    triggerMode match {
+      case "default" => writer
+      case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
+      case "OneTime" => writer.trigger(Trigger.Once())
+      case "Continuous" => writer.trigger(Trigger.Continuous(config.getString("interval")))
+    }
   }
 }
