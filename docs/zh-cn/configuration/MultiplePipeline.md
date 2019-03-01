@@ -30,13 +30,15 @@ Waterdrop 支持在一个实例中，以多Pipeline的方式来处理数据，�
 Waterdrop的多pipeline功能，可以满足多种数据处理流程。您可根据生产环境中实际的数据处理需求，来使用多pipeline功能，不需要写代码，简单配置即可，如下:
 
 ```
-pipeline<p1> {
+pipeline<pipe1> {
   ...
 }
 
 ```
 
 > `pipeline`是进入pipeline处理流程的关键词，`<>` 中指定的`p1`是pipeline的名称，用户可自行指定。
+
+> pipeline名称要求：由字母`a-z`,数字`0-9`以及下划线`_`任意组合，不允许其他字符出现，合法的pipeline名称举例：pipe1, p1, mypipe_1等，即需要满足正则表达式`[0-9a-zA-Z_]+`
 
 ---
 
@@ -102,7 +104,7 @@ filter {
   }
 }
 
-pipeline<pipeline-2> {
+pipeline<pipe2> {
   output {
     elasticsearch {
       ...
@@ -110,7 +112,7 @@ pipeline<pipeline-2> {
   }
 }
 
-pipeline<pipeline-3> {
+pipeline<pipe3> {
   output {
     mysql {
       ...
@@ -142,7 +144,7 @@ input {
 }
 
 
-pipeline<pipeline-2> {
+pipeline<pipe2> {
   filter {
     sql {
       table_name = "t1"
@@ -154,7 +156,7 @@ pipeline<pipeline-2> {
   }
 }
 
-pipeline<pipeline-3> {
+pipeline<pipe3> {
   filter {
     split {
       delimiter = ","
@@ -183,7 +185,7 @@ spark {
   ...
 }
 
-pipeline<pipeline-1> {
+pipeline<pipe1> {
   input {
     kafkaStream {
       ...
@@ -201,7 +203,7 @@ pipeline<pipeline-1> {
   }
 }
 
-pipeline<pipeline-2> {
+pipeline<pipe2> {
   input {
     kafkaStream {
       ...
