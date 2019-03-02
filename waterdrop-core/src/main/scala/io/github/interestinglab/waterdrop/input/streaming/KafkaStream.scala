@@ -12,7 +12,7 @@ import org.apache.spark.streaming.kafka010._
 
 import scala.collection.JavaConversions._
 
-class Kafka extends BaseStreamingInput[(String, String)] {
+class KafkaStream extends BaseStreamingInput[(String, String)] {
 
   var config: Config = ConfigFactory.empty()
 

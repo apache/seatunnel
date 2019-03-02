@@ -6,7 +6,7 @@ import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 
-class Kafka extends BaseStructuredStreamingInput {
+class KafkaStream extends BaseStructuredStreamingInput {
   var config: Config = ConfigFactory.empty()
 
   override def setConfig(config: Config): Unit = {

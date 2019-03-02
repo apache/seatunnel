@@ -12,7 +12,7 @@ import org.apache.spark.streaming.dstream.DStream
 
 import scala.collection.JavaConversions._
 
-class File extends BaseStreamingInput[String] {
+class FileStream extends BaseStreamingInput[String] {
 
   var config: Config = ConfigFactory.empty()
 

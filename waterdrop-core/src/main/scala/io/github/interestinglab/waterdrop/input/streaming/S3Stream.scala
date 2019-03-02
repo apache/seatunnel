@@ -8,7 +8,7 @@ import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class S3 extends BaseStreamingInput[String] {
+class S3Stream extends BaseStreamingInput[String] {
 
   var config: Config = ConfigFactory.empty()
 

@@ -15,7 +15,7 @@ import org.apache.spark.streaming.receiver.Receiver
 
 import scala.collection.JavaConversions._
 
-class Fake extends BaseStreamingInput[String] {
+class FakeStream extends BaseStreamingInput[String] {
 
   var config: Config = ConfigFactory.empty()
 
