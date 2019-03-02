@@ -10,7 +10,7 @@ import org.apache.spark.streaming.dstream.DStream
 
 import scala.collection.JavaConversions._
 
-class Socket extends BaseStreamingInput[String] {
+class SocketStream extends BaseStreamingInput[String] {
 
   var config: Config = ConfigFactory.empty()
 

@@ -1,6 +1,6 @@
-io.github.interestinglab.waterdrop.input.streaming.Fake
-io.github.interestinglab.waterdrop.input.streaming.File
-io.github.interestinglab.waterdrop.input.streaming.Hdfs
-io.github.interestinglab.waterdrop.input.streaming.Kafka
-io.github.interestinglab.waterdrop.input.streaming.S3
-io.github.interestinglab.waterdrop.input.streaming.Socket
+io.github.interestinglab.waterdrop.input.streaming.FakeStream
+io.github.interestinglab.waterdrop.input.streaming.FileStream
+io.github.interestinglab.waterdrop.input.streaming.HdfsStream
+io.github.interestinglab.waterdrop.input.streaming.KafkaStream
+io.github.interestinglab.waterdrop.input.streaming.S3Stream
+io.github.interestinglab.waterdrop.input.streaming.SocketStream

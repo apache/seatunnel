@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.input.streaming
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 
-class Hdfs extends File {
+class HdfsStream extends FileStream {
 
   override def getDStream(ssc: StreamingContext): DStream[String] = {
 

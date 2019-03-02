@@ -10,15 +10,3 @@ io.github.interestinglab.waterdrop.output.batch.Stdout
 io.github.interestinglab.waterdrop.output.batch.Tidb
 io.github.interestinglab.waterdrop.output.batch.MongoDB
 io.github.interestinglab.waterdrop.output.batch.Kudu
-io.github.interestinglab.waterdrop.output.streaming.Clickhouse
-io.github.interestinglab.waterdrop.output.streaming.Elasticsearch
-io.github.interestinglab.waterdrop.output.streaming.File
-io.github.interestinglab.waterdrop.output.streaming.Hdfs
-io.github.interestinglab.waterdrop.output.streaming.Jdbc
-io.github.interestinglab.waterdrop.output.streaming.Kafka
-io.github.interestinglab.waterdrop.output.streaming.Mysql
-io.github.interestinglab.waterdrop.output.streaming.S3
-io.github.interestinglab.waterdrop.output.streaming.Stdout
-io.github.interestinglab.waterdrop.output.streaming.Tidb
-io.github.interestinglab.waterdrop.output.streaming.MongoDB
-io.github.interestinglab.waterdrop.output.streaming.Kudu
