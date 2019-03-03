@@ -2,6 +2,7 @@ io.github.interestinglab.waterdrop.filter.Add
 io.github.interestinglab.waterdrop.filter.Checksum
 io.github.interestinglab.waterdrop.filter.Convert
 io.github.interestinglab.waterdrop.filter.Date
+io.github.interestinglab.waterdrop.filter.Deduplication
 io.github.interestinglab.waterdrop.filter.Dict
 io.github.interestinglab.waterdrop.filter.Drop
 io.github.interestinglab.waterdrop.filter.Grok
