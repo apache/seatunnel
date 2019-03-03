@@ -89,10 +89,25 @@ assemblyJarName=$(find ${LIB_DIR} -name Waterdrop-*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh
 
+## get spark conf from config file and specify them in spark-submit
+function get_spark_conf {
+    spark_conf=$(java -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
+    if [ "$?" != "0" ]; then
+        echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
+        exit -1
+    fi
+    echo ${spark_conf}
+}
+
+sparkconf=$(get_spark_conf)
+
+echo "[INFO] spark conf: ${sparkconf}"
+
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
     --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
+    ${sparkconf} \
     ${JarDepOpts} \
     ${FilesDepOpts} \
     ${assemblyJarName} ${CMD_ARGUMENTS}
