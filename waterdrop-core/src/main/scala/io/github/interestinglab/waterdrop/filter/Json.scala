@@ -111,7 +111,7 @@ class Json extends BaseFilter {
     println("[INFO] specify json schema file path: " + fullPath)
     val path = new File(fullPath)
     if (path.exists && !path.isDirectory) {
-      // try to load json schema from driver node local file system, instead of distributed file system.
+      // try to load json schema from driver node's local file system, instead of distributed file system.
       val source = Source.fromFile(path.getAbsolutePath)
       val schemaLines = try source.getLines().toList.mkString finally source.close()
       val schemaRdd = spark.sparkContext.parallelize(List(schemaLines))
