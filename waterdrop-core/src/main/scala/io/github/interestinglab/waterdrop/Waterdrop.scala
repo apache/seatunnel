@@ -166,7 +166,13 @@ object Waterdrop extends Logging {
     outputs: List[BaseOutput]): Unit = {
 
     println("[INFO] loading SparkConf: ")
-    val sparkSession = SparkSession.builder.enableHiveSupport().getOrCreate()
+    val sparkConf = createSparkConf(configBuilder)
+    sparkConf.getAll.foreach(entry => {
+      val (key, value) = entry
+      println("\t" + key + " => " + value)
+    })
+
+    val sparkSession = SparkSession.builder.config(sparkConf).enableHiveSupport().getOrCreate()
 
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
@@ -194,6 +200,7 @@ object Waterdrop extends Logging {
 
     val sparkConfig = configBuilder.getSparkConfigs
     val duration = sparkConfig.getLong("spark.streaming.batchDuration")
+    val sparkConf = createSparkConf(configBuilder)
     val ssc = new StreamingContext(sparkSession.sparkContext, Seconds(duration))
 
     basePrepare(sparkSession, staticInputs, streamingInputs, filters, outputs)
@@ -348,5 +355,17 @@ object Waterdrop extends Logging {
     for (f <- filters) {
       f.prepare(sparkSession)
     }
+  }
+
+  private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
+    val sparkConf = new SparkConf()
+
+    configBuilder.getSparkConfigs
+      .entrySet()
+      .foreach(entry => {
+        sparkConf.set(entry.getKey, String.valueOf(entry.getValue.unwrapped()))
+      })
+
+    sparkConf
   }
 }
