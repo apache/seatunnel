@@ -8,3 +8,5 @@
 
 @pluginOption string source_field="raw_message" no "源字段，若不配置默认为'raw_message'"
 @pluginOption string target_field="__root__" no "目标字段，若不配置默认为'__root__'"
+@pluginOption string schema_dir="-" no "json schema文件夹路径"
+@pluginOption string schema_file="-" no "json schema文件名"
