@@ -45,8 +45,8 @@ class Join extends BaseFilter {
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     val staticDf = spark.read.table(this.conf.getString("table_name"))
-    val source_field = this.conf.getString("source_field")
+    val sourceField = this.conf.getString("source_field")
     val joinType = this.conf.getString("join_type")
-    df.join(staticDf, col(source_field), joinType)
+    df.join(staticDf, col(sourceField), joinType)
   }
 }
