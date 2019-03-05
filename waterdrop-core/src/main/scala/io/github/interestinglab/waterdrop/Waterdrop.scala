@@ -154,16 +154,21 @@ object Waterdrop extends Logging {
   private def structuredStreamingProcessing(
     sparkSession: SparkSession,
     configBuilder: ConfigBuilder,
-    staticInput: List[BaseStaticInput],
+    staticInputs: List[BaseStaticInput],
     structuredStreamingInputs: List[BaseStructuredStreamingInput],
     filters: List[BaseFilter],
     structuredStreamingOutputs: List[BaseStructuredStreamingOutputIntra]): Unit = {
 
-    basePrepare(sparkSession, staticInput, structuredStreamingInputs, filters, structuredStreamingOutputs)
+    basePrepare(sparkSession, staticInputs, structuredStreamingInputs, filters, structuredStreamingOutputs)
 
     val datasetList = structuredStreamingInputs.map(p => {
       p.getDataset(sparkSession)
     })
+
+    // let static input register as table for later use if needed
+    registerTempView(staticInputs, sparkSession)
+
+    showWaterdropAsciiLogo()
 
     var ds: Dataset[Row] = datasetList.get(0)
     for (f <- filters) {
@@ -192,33 +197,8 @@ object Waterdrop extends Logging {
 
     basePrepare(sparkSession, staticInputs, streamingInputs, filters, outputs)
 
-    var datasetMap = Map[String, Dataset[Row]]()
-    for (input <- staticInputs) {
-
-      val ds = input.getDataset(sparkSession)
-
-      val config = input.getConfig()
-      config.hasPath("table_name") match {
-        case true => {
-          val tableName = config.getString("table_name")
-
-          datasetMap.contains(tableName) match {
-            case true =>
-              throw new ConfigRuntimeException(
-                "Detected duplicated Dataset["
-                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
-            case _ => datasetMap += (tableName -> ds)
-          }
-
-          ds.createOrReplaceTempView(tableName)
-        }
-        case false => {
-          throw new ConfigRuntimeException(
-            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
-        }
-      }
-    }
-
+    // let static input register as table for later use if needed
+    registerTempView(staticInputs, sparkSession)
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
@@ -264,32 +244,7 @@ object Waterdrop extends Logging {
     basePrepare(sparkSession, staticInputs, filters, outputs)
 
     // let static input register as table for later use if needed
-    var datasetMap = Map[String, Dataset[Row]]()
-    for (input <- staticInputs) {
-
-      val ds = input.getDataset(sparkSession)
-
-      val config = input.getConfig()
-      config.hasPath("table_name") match {
-        case true => {
-          val tableName = config.getString("table_name")
-
-          datasetMap.contains(tableName) match {
-            case true =>
-              throw new ConfigRuntimeException(
-                "Detected duplicated Dataset["
-                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
-            case _ => datasetMap += (tableName -> ds)
-          }
-
-          ds.createOrReplaceTempView(tableName)
-        }
-        case false => {
-          throw new ConfigRuntimeException(
-            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
-        }
-      }
-    }
+    registerTempView(staticInputs, sparkSession)
 
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
@@ -342,6 +297,35 @@ object Waterdrop extends Logging {
       }
     }
     deployModeCheck()
+  }
+
+  private def registerTempView(staticInputs: List[BaseStaticInput], sparkSession: SparkSession): Unit = {
+    var datasetMap = Map[String, Dataset[Row]]()
+    for (input <- staticInputs) {
+
+      val ds = input.getDataset(sparkSession)
+
+      val config = input.getConfig()
+      config.hasPath("table_name") match {
+        case true => {
+          val tableName = config.getString("table_name")
+
+          datasetMap.contains(tableName) match {
+            case true =>
+              throw new ConfigRuntimeException(
+                "Detected duplicated Dataset["
+                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
+            case _ => datasetMap += (tableName -> ds)
+          }
+
+          ds.createOrReplaceTempView(tableName)
+        }
+        case false => {
+          throw new ConfigRuntimeException(
+            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
+        }
+      }
+    }
   }
 
   private def deployModeCheck(): Unit = {
