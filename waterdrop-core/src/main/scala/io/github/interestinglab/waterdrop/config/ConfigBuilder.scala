@@ -220,13 +220,10 @@ class ConfigBuilder(configFile: String) {
           // get class name prefixed by package name
           val clzNameLowercase = clz.getName.toLowerCase()
           val qualifierWithPackage = packageName + "." + qualifier
-          clzNameLowercase == qualifierWithPackage.toLowerCase match {
-            case true => {
-              qualifier = clz.getName
-              classFound = true
-              break
-            }
-            case false => // do nothing
+          if (clzNameLowercase == qualifierWithPackage.toLowerCase) {
+            qualifier = clz.getName
+            classFound = true
+            break
           }
         }
       }
