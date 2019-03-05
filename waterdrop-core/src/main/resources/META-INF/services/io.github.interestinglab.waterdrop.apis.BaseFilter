@@ -6,6 +6,7 @@ io.github.interestinglab.waterdrop.filter.Deduplication
 io.github.interestinglab.waterdrop.filter.Dict
 io.github.interestinglab.waterdrop.filter.Drop
 io.github.interestinglab.waterdrop.filter.Grok
+io.github.interestinglab.waterdrop.filter.Join
 io.github.interestinglab.waterdrop.filter.Json
 io.github.interestinglab.waterdrop.filter.Kv
 io.github.interestinglab.waterdrop.filter.Lowercase
