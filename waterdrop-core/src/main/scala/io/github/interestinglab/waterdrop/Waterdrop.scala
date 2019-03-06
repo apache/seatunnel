@@ -114,14 +114,10 @@ object Waterdrop extends Logging {
     engine match {
       case "streaming" => {
         val staticInputs = configBuilder.createStaticInputs(engine)
-        println(staticInputs.size)
         val streamingInputs = configBuilder.createStreamingInputs(engine)
-        println(streamingInputs.size)
         val filters = configBuilder.createFilters
         val outputs = configBuilder.createOutputs[BaseOutput](engine)
 
-        println(filters.size)
-        println(outputs.size)
         baseCheckConfig(staticInputs, streamingInputs, filters, outputs)
         streamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
       }
