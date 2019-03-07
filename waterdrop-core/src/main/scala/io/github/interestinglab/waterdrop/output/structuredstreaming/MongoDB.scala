@@ -134,16 +134,26 @@ class MongoDB extends BaseStructuredStreamingOutput {
 
     val triggerMode = config.getString("triggerMode")
 
-    val writer = df.writeStream
+    var writer = df.writeStream
       .outputMode(config.getString("streaming_output_mode"))
       .foreach(this)
       .options(options)
+
+    writer = setCheckpointLocation(writer)
 
     triggerMode match {
       case "default" => writer
       case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
       case "OneTime" => writer.trigger(Trigger.Once())
       case "Continuous" => writer.trigger(Trigger.Continuous(config.getString("interval")))
+    }
+  }
+
+  private def setCheckpointLocation(dw: DataStreamWriter[Row]): DataStreamWriter[Row] = {
+    if (config.hasPath("checkpointLocation")) {
+      dw.option("checkpointLocation", config.getString("checkpointLocation"))
+    } else {
+      dw
     }
   }
 }
