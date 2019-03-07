@@ -52,7 +52,12 @@ Databricks 开源的 Apache Spark 对于分布式数据处理来说是一个伟�
 
 ## Waterdrop 的工作流程
 
+```
 Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
+```
+
+![wd-workflow](../images/wd-workflow.png ':size=300%')
+
 
 多个Filter构建了数据处理的Pipeline，满足各种各样的数据处理需求，如果您熟悉SQL，也可以直接通过SQL构建数据处理的Pipeline，简单高效。目前Waterdrop支持的[Filter列表](zh-cn/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
