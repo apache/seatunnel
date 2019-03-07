@@ -7,7 +7,7 @@ import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 
-class Stdout extends BaseStructuredStreamingOutputIntra {
+class Kafka extends BaseStructuredStreamingOutputIntra {
 
   var config: Config = ConfigFactory.empty()
 
@@ -28,6 +28,8 @@ class Stdout extends BaseStructuredStreamingOutputIntra {
         }
         case _ => (true, "")
       }
+    } else if (!config.hasPath("kafka.bootstrap.servers") || !config.hasPath("topic")) {
+      (false, "please specify [kafka.bootstrap.servers] and [topic]")
     } else {
       (true, "")
     }
@@ -48,11 +50,12 @@ class Stdout extends BaseStructuredStreamingOutputIntra {
 
     val triggerMode = config.getString("triggerMode")
     var writer = df.writeStream
-      .format("console")
+      .format("kafka")
+      .option("kafka.bootstrap.servers", config.getString("kafka.bootstrap.servers"))
+      .option("topic", config.getString("topic"))
       .outputMode(config.getString("outputMode"))
-      .option("checkpointLocation", "path/to/HDFS/dir")
 
-    setCheckpointLocation(writer)
+    writer = setCheckpointLocation(writer)
 
     triggerMode match {
       case "default" => writer
