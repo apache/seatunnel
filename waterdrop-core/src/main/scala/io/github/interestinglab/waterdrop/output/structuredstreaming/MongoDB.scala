@@ -35,20 +35,9 @@ class MongoDB extends BaseStructuredStreamingOutput {
   override def checkConfig(): (Boolean, String) = {
     config.hasPath("host") && config.hasPath("database") && config.hasPath("collection") match {
       case true => {
-        if (config.hasPath("triggerMode")) {
-          val triggerMode = config.getString("triggerMode")
-          triggerMode match {
-            case "ProcessingTime" | "Continuous" => {
-              if (config.hasPath("interval")) {
-                (true, "")
-              } else {
-                (false, "please specify [interval] when [triggerMode] is ProcessingTime or Continuous")
-              }
-            }
-            case _ => (true, "")
-          }
-        } else {
-          (true, "")
+        StructuredUtils.checkTriggerMode(config) match {
+          case true => (true, "")
+          case false => (false, "please specify [interval] when [triggerMode] is ProcessingTime or Continuous")
         }
       }
       case false => (false, "please specify [host]  and [database] and [collection]")
@@ -139,21 +128,13 @@ class MongoDB extends BaseStructuredStreamingOutput {
       .foreach(this)
       .options(options)
 
-    writer = setCheckpointLocation(writer)
+    writer = StructuredUtils.setCheckpointLocation(writer, config)
 
     triggerMode match {
       case "default" => writer
       case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
       case "OneTime" => writer.trigger(Trigger.Once())
       case "Continuous" => writer.trigger(Trigger.Continuous(config.getString("interval")))
-    }
-  }
-
-  private def setCheckpointLocation(dw: DataStreamWriter[Row]): DataStreamWriter[Row] = {
-    if (config.hasPath("checkpointLocation")) {
-      dw.option("checkpointLocation", config.getString("checkpointLocation"))
-    } else {
-      dw
     }
   }
 }

@@ -16,22 +16,15 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
   override def getConfig(): Config = config
 
   override def checkConfig(): (Boolean, String) = {
-    if (config.hasPath("triggerMode")) {
-      val triggerMode = config.getString("triggerMode")
-      triggerMode match {
-        case "ProcessingTime" | "Continuous" => {
-          if (config.hasPath("interval")) {
-            (true, "")
-          } else {
-            (false, "please specify [interval] when [triggerMode] is ProcessingTime or Continuous")
-          }
+
+    !config.hasPath("kafka.bootstrap.servers") || !config.hasPath("topic") match {
+      case true => (false, "please specify [kafka.bootstrap.servers] and [topic]")
+      case false => {
+        StructuredUtils.checkTriggerMode(config) match {
+          case true => (true, "")
+          case false => (false, "please specify [interval] when [triggerMode] is ProcessingTime or Continuous")
         }
-        case _ => (true, "")
       }
-    } else if (!config.hasPath("kafka.bootstrap.servers") || !config.hasPath("topic")) {
-      (false, "please specify [kafka.bootstrap.servers] and [topic]")
-    } else {
-      (true, "")
     }
   }
 
@@ -55,7 +48,7 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
       .option("topic", config.getString("topic"))
       .outputMode(config.getString("outputMode"))
 
-    writer = setCheckpointLocation(writer)
+    writer = StructuredUtils.setCheckpointLocation(writer, config)
 
     triggerMode match {
       case "default" => writer
@@ -65,11 +58,4 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
     }
   }
 
-  private def setCheckpointLocation(dw: DataStreamWriter[Row]): DataStreamWriter[Row] = {
-    if (config.hasPath("checkpointLocation")) {
-      dw.option("checkpointLocation", config.getString("checkpointLocation"))
-    } else {
-      dw
-    }
-  }
 }
