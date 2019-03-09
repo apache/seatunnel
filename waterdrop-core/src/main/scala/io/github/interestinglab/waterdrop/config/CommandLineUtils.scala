@@ -18,7 +18,8 @@ object CommandLineUtils {
     opt[String]('m', "master")
       .required()
       .text("spark master")
-    opt[String]('t', "engine")
+    opt[String]('e', "engine")
+      .required()
       .action((x, c) => c.copy(engine = x))
       .text("application engine")
   }

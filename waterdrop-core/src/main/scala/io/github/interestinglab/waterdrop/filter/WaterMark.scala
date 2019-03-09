@@ -5,7 +5,7 @@ import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import scala.collection.JavaConversions._
 
-class WaterMaker extends BaseFilter {
+class WaterMark extends BaseFilter {
 
   var config: Config = ConfigFactory.empty()
 
