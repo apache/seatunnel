@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.input.streaming
+package io.github.interestinglab.waterdrop.input.sparkstreaming
 
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream

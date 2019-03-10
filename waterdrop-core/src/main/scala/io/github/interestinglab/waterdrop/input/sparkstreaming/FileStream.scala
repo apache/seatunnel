@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.input.streaming
+package io.github.interestinglab.waterdrop.input.sparkstreaming
 
 import com.databricks.spark.xml.{XmlInputFormat, XmlReader}
 import com.typesafe.config.{Config, ConfigFactory}
