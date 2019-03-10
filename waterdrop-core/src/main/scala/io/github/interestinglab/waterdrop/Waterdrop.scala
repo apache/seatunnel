@@ -112,7 +112,7 @@ object Waterdrop extends Logging {
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
     engine match {
-      case "streaming" => {
+      case "sparkstreaming" => {
         val staticInputs = configBuilder.createStaticInputs(engine)
         val streamingInputs = configBuilder.createStreamingInputs(engine)
         val filters = configBuilder.createFilters

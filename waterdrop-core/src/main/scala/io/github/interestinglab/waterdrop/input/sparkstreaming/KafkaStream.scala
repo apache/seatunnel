@@ -1,13 +1,13 @@
-package io.github.interestinglab.waterdrop.input.streaming
+package io.github.interestinglab.waterdrop.input.sparkstreaming
 
+import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
-import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import org.apache.spark.streaming.kafka010._
 
 import scala.collection.JavaConversions._

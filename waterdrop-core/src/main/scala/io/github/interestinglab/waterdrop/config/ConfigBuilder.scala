@@ -162,7 +162,7 @@ class ConfigBuilder(configFile: String) {
       .foreach(plugin => {
 
         val className = engine match {
-          case "batch" | "streaming" =>
+          case "batch" | "sparkstreaming" =>
             buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output", "batch")
           case "structuredstreaming" =>
             buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "output", engine)
