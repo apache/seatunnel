@@ -39,7 +39,6 @@ class Stdout extends BaseStructuredStreamingOutputIntra {
     var writer = df.writeStream
       .format("console")
       .outputMode(config.getString("outputMode"))
-      .option("checkpointLocation", "path/to/HDFS/dir")
 
     writer = StructuredUtils.setCheckpointLocation(writer, config)
 

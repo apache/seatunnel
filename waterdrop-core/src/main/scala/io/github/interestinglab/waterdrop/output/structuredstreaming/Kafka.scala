@@ -17,8 +17,8 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
 
   override def checkConfig(): (Boolean, String) = {
 
-    !config.hasPath("kafka.bootstrap.servers") || !config.hasPath("topic") match {
-      case true => (false, "please specify [kafka.bootstrap.servers] and [topic]")
+    !config.hasPath("producer.bootstrap.servers") || !config.hasPath("topic") match {
+      case true => (false, "please specify [producer.bootstrap.servers] and [topic]")
       case false => {
         StructuredUtils.checkTriggerMode(config) match {
           case true => (true, "")
@@ -44,7 +44,7 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
     val triggerMode = config.getString("triggerMode")
     var writer = df.writeStream
       .format("kafka")
-      .option("kafka.bootstrap.servers", config.getString("kafka.bootstrap.servers"))
+      .option("kafka.bootstrap.servers", config.getString("producer.bootstrap.servers"))
       .option("topic", config.getString("topic"))
       .outputMode(config.getString("outputMode"))
 

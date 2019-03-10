@@ -11,7 +11,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.streaming.StreamingQueryListener
+import org.apache.spark.sql.streaming.{StreamingQuery, StreamingQueryListener}
 import org.apache.spark.sql.streaming.StreamingQueryListener.{
   QueryProgressEvent,
   QueryStartedEvent,
@@ -170,9 +170,17 @@ object Waterdrop extends Logging {
     for (f <- filters) {
       ds = f.process(sparkSession, ds)
     }
-    val output = structuredStreamingOutputs.get(0)
-    val start = output.process(ds).start()
-    start.awaitTermination()
+
+    var streamingQueryList = List[StreamingQuery]()
+
+    for (output <- structuredStreamingOutputs) {
+      val start = output.process(ds).start()
+      streamingQueryList = streamingQueryList :+ start
+    }
+
+    for (streamingQuery <- streamingQueryList) {
+      streamingQuery.awaitTermination()
+    }
   }
 
   /**
