@@ -22,23 +22,14 @@ class KafkaStream extends BaseStructuredStreamingInput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    val consumerConfig = config.getConfig(consumerPrefix)
-
-    consumerConfig.hasPath("kafka.bootstrap.servers") match {
-      case true => {
-        consumerConfig.hasPath("subscribe") ||
-          consumerConfig.hasPath("subscribePattern") ||
-          consumerConfig.hasPath("assign") match {
-          case true => (true, "")
-          case false =>
-            (false, "please specify [subscribe or subscribePattern or assign] as non-empty string")
-        }
-      }
-      case false => (false, "please specify [kafka.bootstrap.servers] as non-empty string")
+    config.hasPath("consumer.bootstrap.servers") && config.hasPath("topics") match {
+      case true => (true, "")
+      case false => (false, "please specify [consumer.bootstrap.servers] and [topics] as non-empty string")
     }
   }
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
+    val topics = config.getString("topics")
     val consumerConfig = config.getConfig(consumerPrefix)
     val kafkaParams = consumerConfig
       .entrySet()
@@ -53,6 +44,8 @@ class KafkaStream extends BaseStructuredStreamingInput {
     }
     spark.readStream
       .format("kafka")
+      .option("kafka.bootstrap.servers", config.getString("consumer.bootstrap.servers"))
+      .option("subscribe", config.getString("topics"))
       .options(kafkaParams)
       .load()
   }
