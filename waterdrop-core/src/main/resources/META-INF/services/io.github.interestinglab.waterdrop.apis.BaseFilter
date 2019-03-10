@@ -22,3 +22,4 @@ io.github.interestinglab.waterdrop.filter.Table
 io.github.interestinglab.waterdrop.filter.Truncate
 io.github.interestinglab.waterdrop.filter.Uppercase
 io.github.interestinglab.waterdrop.filter.Uuid
+io.github.interestinglab.waterdrop.filter.Watermark
