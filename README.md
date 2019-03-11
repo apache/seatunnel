@@ -55,11 +55,16 @@ Databricks 开源的 Apache Spark 对于分布式数据处理来说是一个伟�
 
 ## Waterdrop 的工作流程
 
-```
-Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
-```
 
-![wd-workflow](./docs/images/wd-workflow.png)
+
+<p align="center">
+    <img src="./docs/images/wd-workflow.png" height="460" width="280" >
+</p>
+
+
+```
+                         Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
+```
 
 多个Filter构建了数据处理的Pipeline，满足各种各样的数据处理需求，如果您熟悉SQL，也可以直接通过SQL构建数据处理的Pipeline，简单高效。目前Waterdrop支持的[Filter列表](zh-cn/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
@@ -100,21 +105,21 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 * [微博](https://weibo.com), 增值业务部数据平台
 
-![微博Logo](https://img.t.sinajs.cn/t5/style/images/staticlogo/groups3.png?version=f362a1c5be520a15)
+<img src="https://img.t.sinajs.cn/t5/style/images/staticlogo/groups3.png?version=f362a1c5be520a15" height="120" width="160" >
 
 * [新浪](http://www.sina.com.cn/), 大数据运维分析平台
 
-![新浪Logo](./docs/images/sina-logo.png)
+<img src="./docs/images/sina-logo.png" height="60" width="120" >
 
 * [一下科技](https://www.yixia.com/), 一直播数据平台
 
-![一下科技Logo](https://imgaliyuncdn.miaopai.com/static20131031/miaopai20140729/new_yixia/static/imgs/logo.png)
+<img src="https://imgaliyuncdn.miaopai.com/static20131031/miaopai20140729/new_yixia/static/imgs/logo.png" height="60" width="120" >
 
 * 永辉超市子公司-永辉云创，会员电商数据分析平台
 
 Waterdrop 为永辉云创旗下新零售品牌永辉生活提供电商用户行为数据实时流式与离线SQL计算。
 
-![永辉云创Logo](./docs/images/yonghuiyunchuang-logo.png)
+<img src="./docs/images/yonghuiyunchuang-logo.png" height="60" width="120" >
 
 * 其他公司 ... 期待您的加入，请联系微信: garyelephant
 
