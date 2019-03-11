@@ -48,7 +48,7 @@ class Json extends BaseFilter {
       Map(
         "source_field" -> "raw_message",
         "target_field" -> RowConstant.ROOT,
-        "schema_dir"  -> Paths
+        "schema_dir" -> Paths
           .get(Common.pluginFilesDir("json").toString, "schemas")
           .toString,
         "schema_file" -> ""
@@ -96,8 +96,15 @@ class Json extends BaseFilter {
       }
       case targetField: String => {
         // for backward-compatibility for spark < 2.2.0, we created rdd, not Dataset[String]
-        val jsonRDD = df.select(srcField).as[String].rdd
-        val schema = if (this.useCustomSchema) this.customSchema else spark.read.json(jsonRDD).schema
+        val schema = this.useCustomSchema match {
+          case true => {
+            this.customSchema
+          }
+          case false => {
+            val jsonRDD = df.select(srcField).as[String].rdd
+            spark.read.json(jsonRDD).schema
+          }
+        }
         df.withColumn(targetField, from_json(col(srcField), schema))
       }
     }
@@ -113,7 +120,8 @@ class Json extends BaseFilter {
     if (path.exists && !path.isDirectory) {
       // try to load json schema from driver node's local file system, instead of distributed file system.
       val source = Source.fromFile(path.getAbsolutePath)
-      val schemaLines = try source.getLines().toList.mkString finally source.close()
+      val schemaLines = try source.getLines().toList.mkString
+      finally source.close()
       val schemaRdd = spark.sparkContext.parallelize(List(schemaLines))
       val schemaJsonDF = spark.read.option("multiline", true).json(schemaRdd)
       schemaJsonDF.printSchema()
