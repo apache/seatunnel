@@ -5,7 +5,7 @@ import java.nio.file.Paths
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
-import io.github.interestinglab.waterdrop.config.Common
+import io.github.interestinglab.waterdrop.config.{Common, ConfigRuntimeException}
 import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
@@ -13,6 +13,7 @@ import org.apache.spark.sql.types.{DataType, StructType}
 
 import scala.collection.JavaConversions._
 import scala.io.Source
+import scala.util.{Failure, Success, Try}
 
 class Json extends BaseFilter {
 
@@ -120,8 +121,18 @@ class Json extends BaseFilter {
     if (path.exists && !path.isDirectory) {
       // try to load json schema from driver node's local file system, instead of distributed file system.
       val source = Source.fromFile(path.getAbsolutePath)
-      val schemaLines = try source.getLines().toList.mkString
-      finally source.close()
+
+      var schemaLines = ""
+      Try(source.getLines().toList.mkString) match {
+        case Success(schema: String) => {
+          schemaLines = schema
+          source.close()
+        }
+        case Failure(_) => {
+          source.close()
+          throw new ConfigRuntimeException("Loading file of " + fullPath + " failed.")
+        }
+      }
       val schemaRdd = spark.sparkContext.parallelize(List(schemaLines))
       val schemaJsonDF = spark.read.option("multiline", true).json(schemaRdd)
       schemaJsonDF.printSchema()
