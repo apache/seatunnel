@@ -195,7 +195,7 @@ class ConfigBuilder(configFile: String) {
     if (qualifier.split("\\.").length == 1) {
 
       val inputType = name match {
-        case _ if name.endsWith("Stream") => engine
+        case _ if name.toLowerCase.endsWith("stream") => engine
         case _ => "batch"
       }
       val packageName = classType match {
