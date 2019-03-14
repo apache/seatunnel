@@ -17,7 +17,7 @@ Write Rows to Elasticsearch. Support Elasticsearch >= 2.X
 | [index_type](#index_type-string) | string | no | log |
 | [index_time_format](#index_time_format-string) | string | no | yyyy.MM.dd |
 | [index](#index-string) | string | no | waterdrop |
-| [index](#es-string) | string | no | - |
+| [es](#es-string) | string | no | - |
 
 ##### hosts [array]
 
