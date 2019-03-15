@@ -14,6 +14,7 @@ Write Rows to ClickHouse via [Clickhouse-jdbc](https://github.com/yandex/clickho
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [bulk_size](#bulk_size-number) | number| no |20000|
+| [clickhouse.*](#clickhouse-string) | string | no | - |
 | [database](#database-string) | string |yes|-|
 | [fields](#fields-list) | list | yes |-|
 | [host](#host-string) | string | yes |-|
@@ -49,6 +50,13 @@ ClickHouse table name.
 
 ClickHouse username, only used when ClickHouse has authority authentication.
 
+##### clickhouse [string]
+
+In addition to the above parameters that must be specified for the clickhouse jdbc, you can also specify multiple parameters described in [clickhouse-jdbc settings](https://github.com/yandex/clickhouse-jdbc/blob/master/src/main/java/ru/yandex/clickhouse/settings/ClickHouseProperties.java)
+
+The way to specify parameters is to use the prefix "clickhouse" before the parameter. For example, `socket_timeout` is specified as: `clickhouse.socket_timeout = 50000`.If you do not specify these parameters, it will be set the default values according to clickhouse-jdbc.
+
+
 ### ClickHouse Data Type Check List
 
 
@@ -74,6 +82,7 @@ ClickHouse username, only used when ClickHouse has authority authentication.
 ```
 clickhouse {
     host = "localhost:8123"
+    clickhouse.socket_timeout = 50000
     database = "nginx"
     table = "access_msg"
     fields = ["date", "datetime", "hostname", "http_code", "data_size", "ua", "request_time"]
