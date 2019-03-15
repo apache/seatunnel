@@ -54,7 +54,8 @@ libraryDependencies ++= Seq(
   "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
     exclude("com.google.guava","guava")
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
-  "com.databricks" %% "spark-xml" % "0.5.0"
+  "com.databricks" %% "spark-xml" % "0.5.0",
+  "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3"
 )
 
 // For binary compatible conflicts, sbt provides dependency overrides.
