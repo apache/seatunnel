@@ -6,7 +6,7 @@ import java.util.ServiceLoader
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
 import io.github.interestinglab.waterdrop.apis._
 
 import util.control.Breaks._
@@ -24,7 +24,12 @@ class ConfigBuilder(configFile: String) {
 
     println("[INFO] Loading config file: " + configFile)
 
-    val config = ConfigFactory.parseFile(new File(configFile))
+    // variables substitution / variables resolution order:
+    // onfig file --> syste environment --> java properties
+    val config = ConfigFactory
+      .parseFile(new File(configFile))
+      .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+      .resolveWith(ConfigFactory.systemProperties, ConfigResolveOptions.defaults.setAllowUnresolved(true))
 
     val options: ConfigRenderOptions = ConfigRenderOptions.concise.setFormatted(true)
     println("[INFO] parsed config file: " + config.root().render(options))
