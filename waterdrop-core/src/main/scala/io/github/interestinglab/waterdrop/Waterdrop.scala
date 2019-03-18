@@ -11,12 +11,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.streaming.{StreamingQuery, StreamingQueryListener}
-import org.apache.spark.sql.streaming.StreamingQueryListener.{
-  QueryProgressEvent,
-  QueryStartedEvent,
-  QueryTerminatedEvent
-}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming._
 
@@ -42,8 +36,6 @@ object Waterdrop extends Logging {
           }
         }
 
-        val appType = cmdArgs.engine
-
         cmdArgs.testConfig match {
           case true => {
             new ConfigBuilder(configFilePath).checkConfig
@@ -51,7 +43,7 @@ object Waterdrop extends Logging {
           }
           case false => {
 
-            Try(entrypoint(configFilePath, appType)) match {
+            Try(entrypoint(configFilePath)) match {
               case Success(_) => {}
               case Failure(exception) => {
                 exception.isInstanceOf[ConfigRuntimeException] match {
@@ -73,11 +65,11 @@ object Waterdrop extends Logging {
     }
   }
 
-  private def showWaterdropAsciiLogo(): Unit = {
+  private[waterdrop] def showWaterdropAsciiLogo(): Unit = {
     AsciiArt.printAsciiArt("Waterdrop")
   }
 
-  private def showConfigError(throwable: Throwable): Unit = {
+  private[waterdrop] def showConfigError(throwable: Throwable): Unit = {
     println("\n\n===============================================================================\n\n")
     val errorMsg = throwable.getMessage
     println("Config Error:\n")
@@ -85,7 +77,7 @@ object Waterdrop extends Logging {
     println("\n===============================================================================\n\n\n")
   }
 
-  private def showFatalError(throwable: Throwable): Unit = {
+  private[waterdrop] def showFatalError(throwable: Throwable): Unit = {
     println("\n\n===============================================================================\n\n")
     val errorMsg = throwable.getMessage
     println("Fatal Error, \n")
@@ -96,7 +88,7 @@ object Waterdrop extends Logging {
     println("\n===============================================================================\n\n\n")
   }
 
-  private def entrypoint(configFile: String, engine: String): Unit = {
+  private def entrypoint(configFile: String): Unit = {
 
     val configBuilder = new ConfigBuilder(configFile)
     println("[INFO] loading SparkConf: ")
@@ -111,75 +103,17 @@ object Waterdrop extends Logging {
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
-    engine match {
-      case "sparkstreaming" => {
-        val staticInputs = configBuilder.createStaticInputs(engine)
-        val streamingInputs = configBuilder.createStreamingInputs(engine)
-        val filters = configBuilder.createFilters
-        val outputs = configBuilder.createOutputs[BaseOutput](engine)
+    val staticInputs = configBuilder.createStaticInputs("batch")
+    val streamingInputs = configBuilder.createStreamingInputs("batch")
+    val filters = configBuilder.createFilters
+    val outputs = configBuilder.createOutputs[BaseOutput]("batch")
 
-        baseCheckConfig(staticInputs, streamingInputs, filters, outputs)
-        streamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
-      }
+    baseCheckConfig(staticInputs, streamingInputs, filters, outputs)
 
-      case "structuredstreaming" => {
-        val staticInputs = configBuilder.createStaticInputs(engine)
-        val streamingInputs = configBuilder.createStructuredStreamingInputs(engine)
-        val filters = configBuilder.createFilters
-        val outputs = configBuilder.createOutputs[BaseStructuredStreamingOutputIntra](engine)
-        baseCheckConfig(staticInputs, streamingInputs, filters, outputs)
-        structuredStreamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
-      }
-
-      case "batch" => {
-        val inputs = configBuilder.createStaticInputs(engine)
-        val filters = configBuilder.createFilters
-        val outputs = configBuilder.createOutputs[BaseOutput](engine)
-        baseCheckConfig(inputs, filters, outputs)
-        batchProcessing(sparkSession, configBuilder, inputs, filters, outputs)
-      }
-
-      case _ => logError("Unknown application type: " + engine)
-    }
-
-  }
-
-  /**
-   * Structured Streaming Processing
-   * */
-  private def structuredStreamingProcessing(
-    sparkSession: SparkSession,
-    configBuilder: ConfigBuilder,
-    staticInputs: List[BaseStaticInput],
-    structuredStreamingInputs: List[BaseStructuredStreamingInput],
-    filters: List[BaseFilter],
-    structuredStreamingOutputs: List[BaseStructuredStreamingOutputIntra]): Unit = {
-
-    basePrepare(sparkSession, staticInputs, structuredStreamingInputs, filters, structuredStreamingOutputs)
-
-    val datasetList = structuredStreamingInputs.map(p => {
-      p.getDataset(sparkSession)
-    })
-
-    // let static input register as table for later use if needed
-    registerTempView(staticInputs, sparkSession)
-
-    showWaterdropAsciiLogo()
-
-    var ds: Dataset[Row] = datasetList.get(0)
-    for (f <- filters) {
-      ds = f.process(sparkSession, ds)
-    }
-
-    var streamingQueryList = List[StreamingQuery]()
-
-    for (output <- structuredStreamingOutputs) {
-      val start = output.process(ds).start()
-      streamingQueryList = streamingQueryList :+ start
-    }
-
-    for (streamingQuery <- streamingQueryList) {
-      streamingQuery.awaitTermination()
+    if (streamingInputs.nonEmpty) {
+      streamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
+    } else {
+      batchProcessing(sparkSession, configBuilder, staticInputs, filters, outputs)
     }
   }
 
@@ -270,7 +204,7 @@ object Waterdrop extends Logging {
     }
   }
 
-  private def basePrepare(sparkSession: SparkSession, plugins: List[Plugin]*): Unit = {
+  private[waterdrop] def basePrepare(sparkSession: SparkSession, plugins: List[Plugin]*): Unit = {
     for (pluginList <- plugins) {
       for (p <- pluginList) {
         p.prepare(sparkSession)
@@ -278,7 +212,7 @@ object Waterdrop extends Logging {
     }
   }
 
-  private def baseCheckConfig(plugins: List[Plugin]*): Unit = {
+  private[waterdrop] def baseCheckConfig(plugins: List[Plugin]*): Unit = {
     var configValid = true
     for (pluginList <- plugins) {
       for (p <- pluginList) {
@@ -303,7 +237,7 @@ object Waterdrop extends Logging {
     deployModeCheck()
   }
 
-  private def registerTempView(staticInputs: List[BaseStaticInput], sparkSession: SparkSession): Unit = {
+  private[waterdrop] def registerTempView(staticInputs: List[BaseStaticInput], sparkSession: SparkSession): Unit = {
     var datasetMap = Map[String, Dataset[Row]]()
     for (input <- staticInputs) {
 
@@ -332,7 +266,7 @@ object Waterdrop extends Logging {
     }
   }
 
-  private def deployModeCheck(): Unit = {
+  private[waterdrop] def deployModeCheck(): Unit = {
     Common.getDeployMode match {
       case Some(m) => {
         if (m.equals("cluster")) {
@@ -369,7 +303,7 @@ object Waterdrop extends Logging {
     }
   }
 
-  private def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
+  private[waterdrop] def createSparkConf(configBuilder: ConfigBuilder): SparkConf = {
     val sparkConf = new SparkConf()
 
     configBuilder.getSparkConfigs
@@ -379,21 +313,5 @@ object Waterdrop extends Logging {
       })
 
     sparkConf
-  }
-
-  private def listener(sparkSession: SparkSession): Unit = {
-    sparkSession.streams.addListener(new StreamingQueryListener() {
-      override def onQueryStarted(event: QueryStartedEvent): Unit = {
-        //do something
-      }
-
-      override def onQueryProgress(event: QueryProgressEvent): Unit = {
-        //do listener
-      }
-
-      override def onQueryTerminated(event: QueryTerminatedEvent): Unit = {
-        //do something
-      }
-    })
   }
 }
