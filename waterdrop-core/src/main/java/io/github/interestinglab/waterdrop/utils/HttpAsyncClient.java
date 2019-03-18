@@ -48,19 +48,14 @@ public class HttpAsyncClient {
 	// http代理相关参数
 	private String host = "baidu.com";
 	private int port = 0;
-	private String username = "";
-	private String password = "";
 
 	// 异步httpclient
 	private CloseableHttpAsyncClient asyncHttpClient;
 
-	// 异步加代理的httpclient
-	//private CloseableHttpAsyncClient proxyAsyncHttpClient;
 
 	public HttpAsyncClient() {
 		try {
 			this.asyncHttpClient = createAsyncClient(false);
-			//this.proxyAsyncHttpClient = createAsyncClient(true);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

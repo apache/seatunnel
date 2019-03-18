@@ -34,11 +34,11 @@ class Opentsdb extends BaseStructuredStreamingOutput {
   override def checkConfig(): (Boolean, String) = {
     config.hasPath("postUrl") && !config.getString("postUrl").trim.isEmpty &&
     config.hasPath("timestamp") && !config.getString("timestamp").trim.isEmpty &&
-    config.hasPath("metric_name") && !config.getString("metric_name").trim.isEmpty match {
+    config.hasPath("metric") && !config.getString("metric").trim.isEmpty match {
       case true => {
         (true, "")
       }
-      case false => (false, "[postUrl] and [timestamp] and [metric_name] must not be null")
+      case false => (false, "[postUrl] and [timestamp] and [metric] must not be null")
     }
 
   }
@@ -108,7 +108,7 @@ class Opentsdb extends BaseStructuredStreamingOutput {
   def map2Dbentity(map : Map[String,Any]):String = {
     val list : JSONArray = new JSONArray()
 
-    val metric_name: String = config.getString("metric_name")
+    val metric: String = config.getString("metric")
 
     val timestamp = config.getString("timestamp")
 
@@ -121,7 +121,7 @@ class Opentsdb extends BaseStructuredStreamingOutput {
       //add dimensions to every row
       if(map.contains(measure.toLowerCase())){
         val obj = new JSONObject()
-        obj.put("metric",metric_name)
+        obj.put("metric",metric)
         obj.put("timestamp",map.get(timestamp).get)
         //添加维度信息
         val tagObj = new JSONObject()

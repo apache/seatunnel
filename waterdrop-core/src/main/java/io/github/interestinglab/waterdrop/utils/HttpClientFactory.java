@@ -7,13 +7,13 @@ package io.github.interestinglab.waterdrop.utils;
 public class HttpClientFactory {
  
 	private static HttpAsyncClient httpAsyncClient = new HttpAsyncClient();
- 
+
+	private static HttpClientFactory httpClientFactory = new HttpClientFactory();
  
 	private HttpClientFactory() {
 	}
  
-	private static HttpClientFactory httpClientFactory = new HttpClientFactory();
- 
+
 	public static HttpClientFactory getInstance() {
  
 		return httpClientFactory;
