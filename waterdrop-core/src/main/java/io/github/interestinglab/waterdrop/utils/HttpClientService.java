@@ -11,6 +11,7 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +32,7 @@ public class HttpClientService {
  
 		if (baseUrl == null) {
 			logger.warn("we don't have base url, check config");
-			throw new Exception("missing base url");
+			throw new ConfigException("missing base url");
 		}
  
 		HttpPost httpPostMethod = new HttpPost(baseUrl);
@@ -73,7 +74,7 @@ public class HttpClientService {
  
 		if (baseUrl == null) {
 			logger.warn("we don't have base url, check config");
-			throw new Exception("missing base url");
+			throw new ConfigException("missing base url");
 		}
  
 		HttpRequestBase httpMethod = new HttpGet(baseUrl);
@@ -105,6 +106,13 @@ public class HttpClientService {
 			e.printStackTrace();
 		}
  
+	}
+
+	public static class ConfigException extends  Exception{
+
+		public ConfigException(String message) {
+			super(message);
+		}
 	}
  
 }

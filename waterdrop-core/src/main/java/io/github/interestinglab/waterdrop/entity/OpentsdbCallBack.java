@@ -14,11 +14,11 @@ public class OpentsdbCallBack implements FutureCallback<HttpResponse> {
 
     private String postBody = "";
 
+    private static Logger logger = LoggerFactory.getLogger(OpentsdbCallBack.class);
+
     public OpentsdbCallBack(String postBody) {
         this.postBody = postBody;
     }
-
-    private static Logger logger = LoggerFactory.getLogger(OpentsdbCallBack.class);
 
     public void completed(HttpResponse response) {
 
@@ -33,7 +33,7 @@ public class OpentsdbCallBack implements FutureCallback<HttpResponse> {
     }
 
     public void cancelled() {
-
+        logger.info("Send to Opentsdb cancelled");
     }
 
     public void failed(Exception e) {
