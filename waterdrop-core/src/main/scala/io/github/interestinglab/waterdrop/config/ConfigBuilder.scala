@@ -1,14 +1,13 @@
 package io.github.interestinglab.waterdrop.config
 
+import java.io.File
 import java.util.ServiceLoader
 
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import com.typesafe.config.{Config, ConfigRenderOptions}
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
 import io.github.interestinglab.waterdrop.apis._
-import org.antlr.v4.runtime.{ANTLRFileStream, CharStream, CommonTokenStream}
-import io.github.interestinglab.waterdrop.configparser.{ConfigLexer, ConfigParser, ConfigVisitor}
 
 import util.control.Breaks._
 
@@ -25,22 +24,17 @@ class ConfigBuilder(configFile: String) {
 
     println("[INFO] Loading config file: " + configFile)
 
-    // CharStreams is for Antlr4.7
-    // val charStream: CharStream = CharStreams.fromFileName(configFile)
-    val charStream: CharStream = new ANTLRFileStream(configFile)
-    val lexer: ConfigLexer = new ConfigLexer(charStream)
-    val tokens: CommonTokenStream = new CommonTokenStream(lexer)
-    val parser: ConfigParser = new ConfigParser(tokens)
-
-    val configContext: ConfigParser.ConfigContext = parser.config
-    val visitor: ConfigVisitor[Config] = new ConfigVisitorImpl
-
-    val parsedConfig = visitor.visit(configContext)
+    // variables substitution / variables resolution order:
+    // onfig file --> syste environment --> java properties
+    val config = ConfigFactory
+      .parseFile(new File(configFile))
+      .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+      .resolveWith(ConfigFactory.systemProperties, ConfigResolveOptions.defaults.setAllowUnresolved(true))
 
     val options: ConfigRenderOptions = ConfigRenderOptions.concise.setFormatted(true)
-    System.out.println("[INFO] Parsed Config: \n" + parsedConfig.root().render(options))
+    println("[INFO] parsed config file: " + config.root().render(options))
 
-    parsedConfig
+    config
   }
 
   /**
@@ -71,7 +65,7 @@ class ConfigBuilder(configFile: String) {
           .newInstance()
           .asInstanceOf[BaseFilter]
 
-        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+        obj.setConfig(plugin)
 
         filterList = filterList :+ obj
       })
@@ -94,7 +88,7 @@ class ConfigBuilder(configFile: String) {
         obj match {
           case inputObject: BaseStaticInput => {
             val input = inputObject.asInstanceOf[BaseStaticInput]
-            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            input.setConfig(plugin)
             inputList = inputList :+ input
           }
           case _ => // do nothing
@@ -119,7 +113,7 @@ class ConfigBuilder(configFile: String) {
         obj match {
           case inputObject: BaseStreamingInput[Any] => {
             val input = inputObject.asInstanceOf[BaseStreamingInput[Any]]
-            input.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+            input.setConfig(plugin)
             inputList = inputList :+ input
           }
           case _ => // do nothing
@@ -142,7 +136,7 @@ class ConfigBuilder(configFile: String) {
           .newInstance()
           .asInstanceOf[BaseOutput]
 
-        obj.setConfig(plugin.getConfig(ConfigBuilder.PluginParamsKey))
+        obj.setConfig(plugin)
 
         outputList = outputList :+ obj
       })
@@ -200,6 +194,5 @@ object ConfigBuilder {
   val InputPackage = PackagePrefix + ".input"
   val OutputPackage = PackagePrefix + ".output"
 
-  val PluginNameKey = "name"
-  val PluginParamsKey = "entries"
+  val PluginNameKey = "plugin_name"
 }
