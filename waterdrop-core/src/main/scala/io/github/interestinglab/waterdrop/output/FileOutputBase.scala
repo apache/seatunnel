@@ -4,6 +4,7 @@ import java.util
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.utils.StringTemplate
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
@@ -93,7 +94,7 @@ abstract class FileOutputBase extends BaseOutput {
       }
     }
 
-    Try(config.getConfig("option")) match {
+    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options", false)) match {
 
       case Success(options) => {
         val optionMap = options
