@@ -6,6 +6,7 @@ import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
@@ -52,8 +53,8 @@ class Clickhouse extends BaseOutput {
       !exists
     }
 
-    if (config.hasPath(clickhousePrefix)) {
-      val clickhouseConfig = config.getConfig(clickhousePrefix)
+    if (TypesafeConfigUtils.hasSubConfig(config, clickhousePrefix)) {
+      val clickhouseConfig = TypesafeConfigUtils.extractSubConfig(config, clickhousePrefix, false)
       clickhouseConfig
         .entrySet()
         .foreach(entry => {

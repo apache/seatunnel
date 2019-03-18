@@ -56,6 +56,9 @@ libraryDependencies ++= Seq(
   "com.databricks" %% "spark-xml" % "0.5.0"
 )
 
+excludeDependencies += "com.typesafe" % "config" % "1.2.0"
+excludeDependencies += "com.typesafe" % "config" % "1.2.1"
+
 // For binary compatible conflicts, sbt provides dependency overrides.
 // They are configured with the dependencyOverrides setting.
 dependencyOverrides += "com.google.guava" % "guava" % "15.0"
