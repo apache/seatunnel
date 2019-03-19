@@ -15,7 +15,7 @@ class MongoDB extends BaseStaticInput {
 
   var readConfig: ReadConfig = _
 
-  val confPrefix = "readconfig"
+  val confPrefix = "readconfig."
 
   override def setConfig(config: Config): Unit = {
     this.config = config

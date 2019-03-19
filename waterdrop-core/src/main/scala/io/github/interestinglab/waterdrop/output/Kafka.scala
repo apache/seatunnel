@@ -13,7 +13,7 @@ import scala.collection.JavaConversions._
 
 class Kafka extends BaseOutput {
 
-  val producerPrefix = "producer"
+  val producerPrefix = "producer."
 
   var kafkaSink: Option[Broadcast[KafkaSink]] = None
 

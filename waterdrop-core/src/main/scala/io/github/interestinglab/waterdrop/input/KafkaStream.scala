@@ -26,7 +26,7 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
   }
 
   // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
-  val consumerPrefix = "consumer"
+  val consumerPrefix = "consumer."
 
   var inputDStream: InputDStream[ConsumerRecord[String, String]] = _
 
