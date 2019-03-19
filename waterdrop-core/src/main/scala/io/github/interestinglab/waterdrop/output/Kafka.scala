@@ -49,8 +49,8 @@ class Kafka extends BaseOutput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "serializer" -> "json",
-        producerPrefix + ".key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
-        producerPrefix + ".value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
+        producerPrefix + "key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
+        producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
       )
     )
 
