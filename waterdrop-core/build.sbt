@@ -54,10 +54,14 @@ libraryDependencies ++= Seq(
     exclude("com.google.guava","guava")
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.databricks" %% "spark-xml" % "0.5.0"
-)
+).map(_.exclude("com.typesafe", "config"))
 
-excludeDependencies += "com.typesafe" % "config" % "1.2.0"
-excludeDependencies += "com.typesafe" % "config" % "1.2.1"
+//excludeDependencies += "com.typesafe" % "config" % "1.2.0"
+//excludeDependencies += "com.typesafe" % "config" % "1.2.1"
+
+//excludeDependencies ++= Seq(
+//  ExclusionRule("com.typesafe", "config")
+//)
 
 // For binary compatible conflicts, sbt provides dependency overrides.
 // They are configured with the dependencyOverrides setting.
