@@ -60,7 +60,7 @@ class File extends BaseStaticInput {
     val format = config.getString("format")
     var reader = spark.read.format(format)
 
-    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options", false)) match {
+    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
 
       case Success(options) => {
         val optionMap = options

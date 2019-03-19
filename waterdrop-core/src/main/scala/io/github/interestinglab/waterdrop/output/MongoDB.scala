@@ -13,7 +13,7 @@ class MongoDB extends BaseOutput {
 
   var config: Config = ConfigFactory.empty()
 
-  val confPrefix = "writeconfig"
+  val confPrefix = "writeconfig."
 
   var writeConfig: WriteConfig = _
 

@@ -27,7 +27,7 @@ class Clickhouse extends BaseOutput {
   val uintPattern: Regex = "(UInt.*)".r
   val floatPattern: Regex = "(Float.*)".r
   var config: Config = ConfigFactory.empty()
-  val clickhousePrefix = "clickhouse"
+  val clickhousePrefix = "clickhouse."
   val properties: Properties = new Properties()
 
   /**

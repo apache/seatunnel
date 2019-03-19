@@ -94,7 +94,7 @@ abstract class FileOutputBase extends BaseOutput {
       }
     }
 
-    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options", false)) match {
+    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
 
       case Success(options) => {
         val optionMap = options
