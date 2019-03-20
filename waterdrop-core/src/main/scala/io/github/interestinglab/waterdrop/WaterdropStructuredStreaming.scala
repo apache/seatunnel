@@ -1,11 +1,8 @@
 package io.github.interestinglab.waterdrop
 
-import java.io.File
-
 import io.github.interestinglab.waterdrop.apis._
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
-import org.apache.hadoop.fs.Path
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.streaming.StreamingQueryListener.{
   QueryProgressEvent,
@@ -14,6 +11,7 @@ import org.apache.spark.sql.streaming.StreamingQueryListener.{
 }
 import org.apache.spark.sql.streaming.{StreamingQuery, StreamingQueryListener}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.kafka.clients.consumer.OffsetOutOfRangeException
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
@@ -37,13 +35,10 @@ object WaterdropStructuredStreaming extends Logging {
             Try(entrypoint(configFilePath)) match {
               case Success(_) => {}
               case Failure(exception) => {
-                exception.isInstanceOf[ConfigRuntimeException] match {
-                  case true => {
-                    Waterdrop.showConfigError(exception)
-                  }
-                  case false => {
-                    Waterdrop.showFatalError(exception)
-                  }
+                exception match {
+                  case e: ConfigRuntimeException => Waterdrop.showConfigError(e)
+                  case e: OffsetOutOfRangeException => showKnownError("Please remove checkpoint dir.", e)
+                  case e: Exception => Waterdrop.showFatalError(e)
                 }
               }
             }
@@ -54,6 +49,16 @@ object WaterdropStructuredStreaming extends Logging {
       // CommandLineUtils.parser.showUsageAsError()
       // CommandLineUtils.parser.terminate(Right(()))
     }
+  }
+
+  private def showKnownError(str: String, throwable: Throwable): Unit = {
+    println("\n\n===============================================================================\n\n")
+    val errorMsg = throwable.getMessage
+    println("Known error:\n")
+    println(str + "\n")
+    println("Reason: " + errorMsg + "\n")
+    println("\n===============================================================================\n\n\n")
+
   }
 
   private def entrypoint(configFile: String): Unit = {
