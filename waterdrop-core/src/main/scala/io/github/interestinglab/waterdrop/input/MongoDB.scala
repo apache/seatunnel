@@ -4,6 +4,7 @@ import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
@@ -14,7 +15,7 @@ class MongoDB extends BaseStaticInput {
 
   var readConfig: ReadConfig = _
 
-  val confPrefix = "readconfig"
+  val confPrefix = "readconfig."
 
   override def setConfig(config: Config): Unit = {
     this.config = config
@@ -26,9 +27,9 @@ class MongoDB extends BaseStaticInput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    config.hasPath(confPrefix) && config.hasPath("table_name") match {
+    TypesafeConfigUtils.hasSubConfig(config, confPrefix) && config.hasPath("table_name") match {
       case true => {
-        val read = config.getConfig(confPrefix)
+        val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
           case true => (true, "")
           case false => (false, "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
@@ -41,8 +42,9 @@ class MongoDB extends BaseStaticInput {
   override def prepare(spark: SparkSession): Unit = {
     super.prepare(spark)
     val map = new collection.mutable.HashMap[String, String]
-    config
-      .getConfig(confPrefix)
+
+    TypesafeConfigUtils
+      .extractSubConfig(config, confPrefix, false)
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey
@@ -51,7 +53,6 @@ class MongoDB extends BaseStaticInput {
       })
     readConfig = ReadConfig(map)
   }
-
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
     MongoSpark.load(spark, readConfig)

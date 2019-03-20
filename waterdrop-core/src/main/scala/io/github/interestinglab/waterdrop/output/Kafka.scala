@@ -4,6 +4,7 @@ import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -12,7 +13,7 @@ import scala.collection.JavaConversions._
 
 class Kafka extends BaseOutput {
 
-  val producerPrefix = "producer"
+  val producerPrefix = "producer."
 
   var kafkaSink: Option[Broadcast[KafkaSink]] = None
 
@@ -34,7 +35,7 @@ class Kafka extends BaseOutput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    val producerConfig = config.getConfig(producerPrefix)
+    val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
     config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
       case true => (true, "")
@@ -48,16 +49,16 @@ class Kafka extends BaseOutput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "serializer" -> "json",
-        producerPrefix + ".key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
-        producerPrefix + ".value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
+        producerPrefix + "key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
+        producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
       )
     )
 
     config = config.withFallback(defaultConfig)
 
     val props = new Properties()
-    config
-      .getConfig(producerPrefix)
+    TypesafeConfigUtils
+      .extractSubConfig(config, producerPrefix, false)
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey
