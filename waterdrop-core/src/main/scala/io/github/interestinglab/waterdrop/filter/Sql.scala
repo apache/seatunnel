@@ -25,7 +25,8 @@ class Sql extends BaseFilter {
 
   override def checkConfig(): (Boolean, String) = {
     conf.hasPath("table_name") && conf.hasPath("sql") match {
-      case true => checkSQLSyntax(conf.getString("sql"))
+      case true => (true, "")
+      // case true => checkSQLSyntax(conf.getString("sql"))
       case false => (false, "please specify [table_name] and [sql]")
     }
   }
