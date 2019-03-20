@@ -6,6 +6,8 @@ import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 import com.databricks.spark.xml._
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -58,7 +60,7 @@ class File extends BaseStaticInput {
     val format = config.getString("format")
     var reader = spark.read.format(format)
 
-    Try(config.getConfig("options")) match {
+    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
 
       case Success(options) => {
         val optionMap = options

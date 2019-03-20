@@ -4,6 +4,7 @@ import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.WriteConfig
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
@@ -12,9 +13,9 @@ class MongoDB extends BaseOutput {
 
   var config: Config = ConfigFactory.empty()
 
-  val confPrefix = "writeconfig"
+  val confPrefix = "writeconfig."
 
-  var writeConfig :WriteConfig = _
+  var writeConfig: WriteConfig = _
 
   override def setConfig(config: Config): Unit = {
     this.config = config
@@ -24,15 +25,15 @@ class MongoDB extends BaseOutput {
     this.config
   }
 
-
   override def checkConfig(): (Boolean, String) = {
 
-    config.hasPath(confPrefix)  match {
+    TypesafeConfigUtils.hasSubConfig(config, confPrefix) match {
       case true => {
-        val read = config.getConfig(confPrefix)
+        val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
           case true => (true, "")
-          case false => (false, "please specify [writeconfig.uri] and [writeconfig.database] and [writeconfig.collection]")
+          case false =>
+            (false, "please specify [writeconfig.uri] and [writeconfig.database] and [writeconfig.collection]")
         }
       }
       case false => (false, "please specify [writeconfig] ")
@@ -42,8 +43,9 @@ class MongoDB extends BaseOutput {
   override def prepare(spark: SparkSession): Unit = {
     super.prepare(spark)
     val map = new collection.mutable.HashMap[String, String]
-    config
-      .getConfig(confPrefix)
+
+    TypesafeConfigUtils
+      .extractSubConfig(config, confPrefix, false)
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey
@@ -54,6 +56,6 @@ class MongoDB extends BaseOutput {
   }
 
   override def process(df: Dataset[Row]): Unit = {
-    MongoSpark.save(df,writeConfig)
+    MongoSpark.save(df, writeConfig)
   }
 }
