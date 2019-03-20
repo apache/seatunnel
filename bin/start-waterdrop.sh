@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# TODO: compress plugins/ dir before start-waterdrop.sh
-
 # copy command line arguments
 CMD_ARGUMENTS=$@
 
@@ -124,10 +122,30 @@ if [ ! -z "${variables_substitution}" ]; then
   clientModeDriverJavaOpts="--driver-java-options \"${variables_substitution}\""
 fi
 
-
 sparkconf="${sparkconf} ${driverJavaOpts} ${executorJavaOpts} ${clientModeDriverJavaOpts}"
 
 echo "[INFO] spark conf: ${sparkconf}"
+
+
+## compress plugins.tar.gz in cluster mode
+if [ "${DEPLOY_MODE}" == "cluster" ]; then
+
+  plugins_tar_gz="${APP_DIR}/plugins.tar.gz"
+
+  if [ ! -f "${plugins_tar_gz}" ]; then
+    cur_dir=$(pwd)
+    cd ${APP_DIR}
+    tar zcf plugins.tar.gz plugins
+    if [ "$?" != "0" ]; then
+      echo "[ERROR] failed to compress plugins.tar.gz in cluster mode"
+      exit -2
+    fi
+
+    echo "[INFO] successfully compressed plugins.tar.gz in cluster mode"
+    cd ${cur_dir}
+  fi
+fi
+
 
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
     --name $(getAppName ${CONFIG_FILE}) \
