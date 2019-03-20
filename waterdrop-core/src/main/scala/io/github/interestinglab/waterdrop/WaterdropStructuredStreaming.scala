@@ -25,19 +25,7 @@ object WaterdropStructuredStreaming extends Logging {
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
-
-        val configFilePath = Common.getDeployMode match {
-          case Some(m) => {
-            if (m.equals("cluster")) {
-              // only keep filename in cluster mode
-              new Path(cmdArgs.configFile).getName
-            } else {
-              cmdArgs.configFile
-            }
-          }
-        }
-
-        val appType = cmdArgs
+        val configFilePath = Waterdrop.getConfigFilePath(cmdArgs)
 
         cmdArgs.testConfig match {
           case true => {
