@@ -110,21 +110,19 @@ function get_spark_conf {
 
 sparkconf=$(get_spark_conf)
 
+echo "[INFO] spark conf: ${sparkconf}"
+
 # Spark Driver Options
 variables_substitution=$(string_trim "${variables_substitution}")
 driverJavaOpts=""
 executorJavaOpts=""
 clientModeDriverJavaOpts=""
 if [ ! -z "${variables_substitution}" ]; then
-  driverJavaOpts="--conf \"spark.driver.extraJavaOptions=${variables_substitution}\""
-  executorJavaOpts="--conf \"spark.executor.extraJavaOptions=${variables_substitution}\""
+  driverJavaOpts="${variables_substitution}"
+  executorJavaOpts="${variables_substitution}"
   # in local, client mode, driverJavaOpts can not work, we must use --driver-java-options
-  clientModeDriverJavaOpts="--driver-java-options \"${variables_substitution}\""
+  clientModeDriverJavaOpts="${variables_substitution}"
 fi
-
-sparkconf="${sparkconf} ${driverJavaOpts} ${executorJavaOpts} ${clientModeDriverJavaOpts}"
-
-echo "[INFO] spark conf: ${sparkconf}"
 
 
 ## compress plugins.tar.gz in cluster mode
@@ -151,6 +149,9 @@ exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.W
     --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
+    --driver-java-options "${clientModeDriverJavaOpts}" \
+    --conf spark.executor.extraJavaOptions="${executorJavaOpts}" \
+    --conf spark.driver.extraJavaOptions="${driverJavaOpts}" \
     ${sparkconf} \
     ${JarDepOpts} \
     ${FilesDepOpts} \
