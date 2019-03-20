@@ -24,17 +24,7 @@ object Waterdrop extends Logging {
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
-
-        val configFilePath = Common.getDeployMode match {
-          case Some(m) => {
-            if (m.equals("cluster")) {
-              // only keep filename in cluster mode
-              new Path(cmdArgs.configFile).getName
-            } else {
-              cmdArgs.configFile
-            }
-          }
-        }
+        val configFilePath = getConfigFilePath(cmdArgs)
 
         cmdArgs.testConfig match {
           case true => {
@@ -62,6 +52,19 @@ object Waterdrop extends Logging {
       case None =>
       // CommandLineUtils.parser.showUsageAsError()
       // CommandLineUtils.parser.terminate(Right(()))
+    }
+  }
+
+  private[waterdrop] def getConfigFilePath(cmdArgs: CommandLineArgs): String = {
+    Common.getDeployMode match {
+      case Some(m) => {
+        if (m.equals("cluster")) {
+          // only keep filename in cluster mode
+          new Path(cmdArgs.configFile).getName
+        } else {
+          cmdArgs.configFile
+        }
+      }
     }
   }
 
