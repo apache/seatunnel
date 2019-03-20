@@ -182,6 +182,18 @@ class ConfigBuilder(configFile: String) {
     outputList
   }
 
+  private def getInputType(name: String, engine: String): String = {
+    name match {
+      case _ if name.toLowerCase.endsWith("stream") => {
+        engine match {
+          case "batch" => "sparkstreaming"
+          case "structuredstreaming" => "structuredstreaming"
+        }
+      }
+      case _ => "batch"
+    }
+  }
+
   /**
    * Get full qualified class name by reflection api, ignore case.
    * */
@@ -194,17 +206,8 @@ class ConfigBuilder(configFile: String) {
     var qualifier = name
     if (qualifier.split("\\.").length == 1) {
 
-      val inputType = name match {
-        case _ if name.toLowerCase.endsWith("stream") => {
-          engine match {
-            case "batch" => "sparkstreaming"
-            case "structuredstreaming" => "structuredstreaming"
-          }
-        }
-        case _ => "batch"
-      }
       val packageName = classType match {
-        case "input" => ConfigBuilder.InputPackage + "." + inputType
+        case "input" => ConfigBuilder.InputPackage + "." + getInputType(name, engine)
         case "filter" => ConfigBuilder.FilterPackage
         case "output" => ConfigBuilder.OutputPackage + "." + engine
       }
