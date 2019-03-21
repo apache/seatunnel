@@ -41,21 +41,13 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
 
   override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
 
-    val triggerMode = config.getString("triggerMode")
     var writer = df.writeStream
       .format("kafka")
       .option("kafka.bootstrap.servers", config.getString("producer.bootstrap.servers"))
       .option("topic", config.getString("topic"))
       .outputMode(config.getString("outputMode"))
-
     writer = StructuredUtils.setCheckpointLocation(writer, config)
-
-    triggerMode match {
-      case "default" => writer
-      case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
-      case "OneTime" => writer.trigger(Trigger.Once())
-      case "Continuous" => writer.trigger(Trigger.Continuous(config.getString("interval")))
-    }
+    StructuredUtils.writeWithTrigger(config,writer)
   }
 
 }

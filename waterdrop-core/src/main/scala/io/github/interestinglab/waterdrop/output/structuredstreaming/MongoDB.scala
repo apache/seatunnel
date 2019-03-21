@@ -121,20 +121,12 @@ class MongoDB extends BaseStructuredStreamingOutput {
 
   override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
 
-    val triggerMode = config.getString("triggerMode")
-
     var writer = df.writeStream
       .outputMode(config.getString("streaming_output_mode"))
       .foreach(this)
       .options(options)
 
     writer = StructuredUtils.setCheckpointLocation(writer, config)
-
-    triggerMode match {
-      case "default" => writer
-      case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
-      case "OneTime" => writer.trigger(Trigger.Once())
-      case "Continuous" => writer.trigger(Trigger.Continuous(config.getString("interval")))
-    }
+    StructuredUtils.writeWithTrigger(config,writer)
   }
 }
