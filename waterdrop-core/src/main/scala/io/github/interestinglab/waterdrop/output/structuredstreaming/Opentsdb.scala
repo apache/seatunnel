@@ -48,8 +48,8 @@ class Opentsdb extends BaseStructuredStreamingOutput {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "dimensions" -> util.Arrays.asList(),
-        "measures" -> util.Arrays.asList(),
+        "tags_fields" -> util.Arrays.asList(),
+        "value_fields" -> util.Arrays.asList(),
         "streaming_output_mode" -> "append",
         "triggerMode" -> "default"
       )
@@ -64,7 +64,6 @@ class Opentsdb extends BaseStructuredStreamingOutput {
   override def process(value: Row): Unit = {
 
     val postBody = buildPostParam(value)
-
     val callBack = new OpentsdbCallBack(postBody)
 
     HttpClientService.execAsyncPost(config.getString("postUrl"), postBody, callBack)
@@ -112,12 +111,13 @@ class Opentsdb extends BaseStructuredStreamingOutput {
 
     val timestamp = config.getString("timestamp")
 
-    val dimensions = config.getStringList("dimensions")
+    val dimensions = config.getStringList("tags_fields")
     val dimensionsMap = map.filterKeys(key => {
       dimensions.contains(key)
     }).asJava
 
-    for( measure <- config.getStringList("measures").asScala){
+
+    for( measure <- config.getStringList("value_fields").asScala){
       //add dimensions to every row
       if(map.contains(measure.toLowerCase())){
         val obj = new JSONObject()
