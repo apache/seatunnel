@@ -103,9 +103,10 @@ class CustomKafkaSink extends BaseStructuredStreamingOutput{
    * Waterdrop Structured Streaming process.
    **/
   override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
-    val writer = df.writeStream
+    var writer = df.writeStream
       .foreach(this)
       .options(options)
+    writer = StructuredUtils.setCheckpointLocation(writer, config)
     StructuredUtils.writeWithTrigger(config,writer)
   }
 
