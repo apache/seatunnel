@@ -4,8 +4,7 @@ import java.util.Properties
 
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
-
-class KafkaProducerUtil(createProducer: () => KafkaProducer[String, String]) extends Serializable{
+class KafkaProducerUtil(createProducer: () => KafkaProducer[String, String]) extends Serializable {
 
   lazy val producer = createProducer()
 
@@ -13,7 +12,7 @@ class KafkaProducerUtil(createProducer: () => KafkaProducer[String, String]) ext
     producer.send(new ProducerRecord(topic, value))
 }
 
-object KafkaProducerUtil{
+object KafkaProducerUtil {
   def apply(config: Properties): KafkaProducerUtil = {
     val f = () => {
       val producer = new KafkaProducer[String, String](config)

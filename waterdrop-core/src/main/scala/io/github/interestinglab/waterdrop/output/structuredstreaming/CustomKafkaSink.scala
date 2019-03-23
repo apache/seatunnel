@@ -12,13 +12,14 @@ import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 
-class CustomKafkaSink extends BaseStructuredStreamingOutput{
+class CustomKafkaSink extends BaseStructuredStreamingOutput {
   var config = ConfigFactory.empty()
   val producerPrefix = "producer"
   val outputOptionPrefix = "output.option"
   var options = new collection.mutable.HashMap[String, String]
   var kafkaSink: Broadcast[KafkaProducerUtil] = _
   var topic: String = _
+
   override def setConfig(config: Config): Unit = this.config = config
 
   override def getConfig(): Config = config
@@ -79,6 +80,7 @@ class CustomKafkaSink extends BaseStructuredStreamingOutput{
       case false => {}
     }
   }
+
   /**
    * Things to do before process.
    **/
@@ -90,8 +92,8 @@ class CustomKafkaSink extends BaseStructuredStreamingOutput{
   override def process(row: Row): Unit = {
     val json = new JSONObject()
     row.schema.fieldNames
-      .foreach(field=>json.put(field,row.getAs(field)))
-    kafkaSink.value.send(topic,json.toJSONString)
+      .foreach(field => json.put(field, row.getAs(field)))
+    kafkaSink.value.send(topic, json.toJSONString)
   }
 
   /**
@@ -107,8 +109,7 @@ class CustomKafkaSink extends BaseStructuredStreamingOutput{
       .foreach(this)
       .options(options)
     writer = StructuredUtils.setCheckpointLocation(writer, config)
-    StructuredUtils.writeWithTrigger(config,writer)
+    StructuredUtils.writeWithTrigger(config, writer)
   }
-
 
 }

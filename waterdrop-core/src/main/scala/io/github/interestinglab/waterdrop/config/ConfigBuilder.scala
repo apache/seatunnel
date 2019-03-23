@@ -206,8 +206,6 @@ class ConfigBuilder(configFile: String) {
         case "output" => ConfigBuilder.OutputPackage + "." + engine
       }
 
-      println(packageName)
-
       val services: Iterable[Plugin] =
         (ServiceLoader load classOf[BaseStaticInput]).asScala ++
           (ServiceLoader load classOf[BaseStreamingInput[Any]]).asScala ++
