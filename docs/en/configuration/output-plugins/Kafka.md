@@ -28,7 +28,7 @@ Kafka Topic
 
 In addition to the above parameters that must be specified for the producer client, you can also specify multiple kafka's producer parameters described in [producerconfigs](http://kafka.apache.org/10/documentation.html#producerconfigs)
 
-The way to specify parameters is to use the prefix "producer" before the parameter. For example, `request.timeout.mss` is specified as: `producer.request.timeout.ms = 60000`.If you do not specify these parameters, it will be set the default values according to Kafka documentation
+The way to specify parameters is to use the prefix "producer" before the parameter. For example, `request.timeout.ms` is specified as: `producer.request.timeout.ms = 60000`.If you do not specify these parameters, it will be set the default values according to Kafka documentation
 
 
 ### Examples

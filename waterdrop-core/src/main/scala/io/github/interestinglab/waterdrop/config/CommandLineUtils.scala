@@ -18,5 +18,9 @@ object CommandLineUtils {
     opt[String]('m', "master")
       .required()
       .text("spark master")
+    opt[String]('i', "variable")
+      .optional()
+      .text("variable substitution, such as -i city=beijing, or -i date=20190318")
+      .maxOccurs(Integer.MAX_VALUE)
   }
 }

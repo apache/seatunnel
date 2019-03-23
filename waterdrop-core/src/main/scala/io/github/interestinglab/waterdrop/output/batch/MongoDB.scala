@@ -4,6 +4,7 @@ import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.WriteConfig
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
@@ -12,7 +13,7 @@ class MongoDB extends BaseOutput {
 
   var config: Config = ConfigFactory.empty()
 
-  val confPrefix = "writeconfig"
+  val confPrefix = "writeconfig."
 
   var writeConfig: WriteConfig = _
 
@@ -26,9 +27,9 @@ class MongoDB extends BaseOutput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    config.hasPath(confPrefix) match {
+    TypesafeConfigUtils.hasSubConfig(config, confPrefix) match {
       case true => {
-        val read = config.getConfig(confPrefix)
+        val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
           case true => (true, "")
           case false =>
@@ -42,8 +43,9 @@ class MongoDB extends BaseOutput {
   override def prepare(spark: SparkSession): Unit = {
     super.prepare(spark)
     val map = new collection.mutable.HashMap[String, String]
-    config
-      .getConfig(confPrefix)
+
+    TypesafeConfigUtils
+      .extractSubConfig(config, confPrefix, false)
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey

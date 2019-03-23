@@ -4,6 +4,7 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
@@ -25,7 +26,7 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
   }
 
   // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
-  val consumerPrefix = "consumer"
+  val consumerPrefix = "consumer."
 
   var inputDStream: InputDStream[ConsumerRecord[String, String]] = _
 
@@ -35,7 +36,7 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
 
     config.hasPath("topics") match {
       case true => {
-        val consumerConfig = config.getConfig(consumerPrefix)
+        val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
         consumerConfig.hasPath("group.id") &&
           !consumerConfig.getString("group.id").trim.isEmpty match {
           case true => (true, "")
@@ -52,9 +53,9 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        consumerPrefix + ".key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
-        consumerPrefix + ".value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
-        consumerPrefix + ".enable.auto.commit" -> false
+        consumerPrefix + "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+        consumerPrefix + "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+        consumerPrefix + "enable.auto.commit" -> false
       )
     )
 
@@ -63,7 +64,7 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
 
   override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
 
-    val consumerConfig = config.getConfig(consumerPrefix)
+    val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
     val kafkaParams = consumerConfig
       .entrySet()
       .foldRight(Map[String, String]())((entry, map) => {

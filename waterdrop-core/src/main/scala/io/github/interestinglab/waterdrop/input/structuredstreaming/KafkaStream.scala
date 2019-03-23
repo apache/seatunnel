@@ -1,8 +1,9 @@
 package io.github.interestinglab.waterdrop.input.structuredstreaming
 
-import com.alibaba.fastjson.{JSON, JSONObject}
+import com.alibaba.fastjson.JSON
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingInput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.core.RowConstant
 import io.github.interestinglab.waterdrop.utils.SparkSturctTypeUtil
 import org.apache.spark.sql.types.{DataTypes, StructType}
@@ -24,7 +25,7 @@ class KafkaStream extends BaseStructuredStreamingInput {
   }
 
   // kafka consumer configuration : http://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html
-  val consumerPrefix = "consumer"
+  val consumerPrefix = "consumer."
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -34,19 +35,19 @@ class KafkaStream extends BaseStructuredStreamingInput {
     }
   }
 
-  override def prepare(spark: SparkSession): Unit ={
+  override def prepare(spark: SparkSession): Unit = {
     config.hasPath("schema") match {
       case true => {
         val schemaJson = JSON.parseObject(config.getString("schema"))
-        schema = SparkSturctTypeUtil.getStructType(schema,schemaJson)
+        schema = SparkSturctTypeUtil.getStructType(schema, schemaJson)
       }
-      case false =>{}
+      case false => {}
     }
   }
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
     val topics = config.getString("topics")
-    val consumerConfig = config.getConfig(consumerPrefix)
+    val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
     val kafkaParams = consumerConfig
       .entrySet()
       .foldRight(Map[String, String]())((entry, map) => {
@@ -64,7 +65,7 @@ class KafkaStream extends BaseStructuredStreamingInput {
       .option("subscribe", topics)
       .options(kafkaParams)
       .load()
-    if (schema.size > 0){
+    if (schema.size > 0) {
       var tmpDf = dataFrame.withColumn(RowConstant.TMP, from_json(col("value").cast(DataTypes.StringType), schema))
       schema.map { field =>
         tmpDf = tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))

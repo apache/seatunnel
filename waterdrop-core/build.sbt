@@ -1,5 +1,5 @@
 name         := "Waterdrop-core"
-version      := "1.2.2"
+version      := "1.2.4"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
@@ -55,8 +55,18 @@ libraryDependencies ++= Seq(
     exclude("com.google.guava","guava")
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.databricks" %% "spark-xml" % "0.5.0",
-  "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3"
-)
+  "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3",
+  "com.databricks" %% "spark-xml" % "0.5.0"
+).map(_.exclude("com.typesafe", "config"))
+
+
+
+//excludeDependencies += "com.typesafe" % "config" % "1.2.0"
+//excludeDependencies += "com.typesafe" % "config" % "1.2.1"
+
+//excludeDependencies ++= Seq(
+//  ExclusionRule("com.typesafe", "config")
+//)
 
 // For binary compatible conflicts, sbt provides dependency overrides.
 // They are configured with the dependencyOverrides setting.

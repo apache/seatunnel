@@ -11,7 +11,7 @@ import scala.collection.JavaConversions._
 class Elasticsearch extends BaseOutput {
 
   var esCfg: Map[String, String] = Map()
-  val esPrefix = "es"
+  val esPrefix = "es."
 
   var config: Config = ConfigFactory.empty()
 
@@ -54,12 +54,14 @@ class Elasticsearch extends BaseOutput {
     config = config.withFallback(defaultConfig)
 
     config
-      .getConfig(esPrefix)
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey
-        val value = String.valueOf(entry.getValue.unwrapped())
-        esCfg += (esPrefix + "." + key -> value)
+
+        if (key.startsWith(esPrefix)) {
+          val value = String.valueOf(entry.getValue.unwrapped())
+          esCfg += (key -> value)
+        }
       })
 
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
