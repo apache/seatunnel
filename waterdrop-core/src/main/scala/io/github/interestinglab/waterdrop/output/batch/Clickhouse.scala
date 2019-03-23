@@ -2,9 +2,11 @@ package io.github.interestinglab.waterdrop.output.batch
 
 import java.text.SimpleDateFormat
 import java.util
+import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
@@ -25,6 +27,8 @@ class Clickhouse extends BaseOutput {
   val uintPattern: Regex = "(UInt.*)".r
   val floatPattern: Regex = "(Float.*)".r
   var config: Config = ConfigFactory.empty()
+  val clickhousePrefix = "clickhouse."
+  val properties: Properties = new Properties()
 
   /**
    * Set Config.
@@ -49,6 +53,17 @@ class Clickhouse extends BaseOutput {
       !exists
     }
 
+    if (TypesafeConfigUtils.hasSubConfig(config, clickhousePrefix)) {
+      val clickhouseConfig = TypesafeConfigUtils.extractSubConfig(config, clickhousePrefix, false)
+      clickhouseConfig
+        .entrySet()
+        .foreach(entry => {
+          val key = entry.getKey
+          val value = String.valueOf(entry.getValue.unwrapped())
+          properties.put(key, value)
+        })
+    }
+
     if (nonExistsOptions.nonEmpty) {
       (
         false,
@@ -65,15 +80,15 @@ class Clickhouse extends BaseOutput {
     } else {
 
       this.jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"), config.getString("database"))
-      val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcLink)
 
-      val conn = config.hasPath("username") match {
-        case true =>
-          balanced
-            .getConnection(config.getString("username"), config.getString("password"))
-            .asInstanceOf[ClickHouseConnectionImpl]
-        case false => balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
+      config.hasPath("username") match {
+        case true => {
+          properties.put("user", config.getString("username"))
+          properties.put("password", config.getString("password"))
+        }
       }
+      val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcLink, properties)
+      val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
 
       this.table = config.getString("table")
       this.tableSchema = getClickHouseSchema(conn, table)
@@ -101,14 +116,8 @@ class Clickhouse extends BaseOutput {
     val dfFields = df.schema.fieldNames
     val bulkSize = config.getInt("bulk_size")
     df.foreachPartition { iter =>
-      val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink)
-      val executorConn = config.hasPath("username") match {
-        case true =>
-          executorBalanced
-            .getConnection(config.getString("username"), config.getString("password"))
-            .asInstanceOf[ClickHouseConnectionImpl]
-        case false => executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
-      }
+      val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
+      val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
       val statement = executorConn.createClickHousePreparedStatement(this.initSQL)
       var length = 0
       while (iter.hasNext) {

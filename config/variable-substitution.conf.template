@@ -1,0 +1,73 @@
+######
+###### This config file is a demonstration of using variables substitution in waterdrop config
+######
+
+spark {
+  # You can set spark configuration here
+  # Waterdrop defined streaming batch duration in seconds
+  spark.streaming.batchDuration = 5
+
+  # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
+  spark.app.name = "Waterdrop"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+}
+
+vars {
+  # dt is a variable set in this config file
+  # you can take a reference of "dt" by ${vars->dt}, please don't use quote to surround ${vars->dt}
+  dt = "20190318"
+}
+
+input {
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  fakestream {
+    content = [
+        "20190318, beijing, first message",
+        "20190319, shanghai, second message",
+        "20190318, shanghai, third message"
+    ]
+    rate = 1
+  }
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+filter {
+  split {
+    fields = ["dt", "city", "msg"]
+    delimiter = ","
+  }
+
+
+  # This is an example of variables substitution for sql in the sql filter. Actually, you can use variables substitution anywhere
+  # city2 is a variable set in one of the following 3 ways (variables substitution order is 1 -> 2 -> 3):
+  #   1. variable values in "vars" section in this config file, such as ${var->city1}, please see vars section in this file
+  #   2. environment variables(e.g. export city2=shanghai)
+  #   3. system properties(e.g. -Dcity2=shanghai)
+  # You can take a reference of this "city2" variable by using ${city2}, please don't use quote.
+  # You can use variables substitution in quoted string like this, "string part1"${city2}"string part2"
+
+  sql {
+    table_name = "user_view"
+    sql = "select * from user_view where city = '"${city2}"'"
+  }
+
+  sql {
+    table_name = "user_view"
+    sql = "select * from user_view where dt = '"${vars->dt}"'"
+  }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+output {
+  stdout {}
+
+  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}

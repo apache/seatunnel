@@ -1,3 +1,7 @@
+######
+###### This config file is a demonstration of batch processing in waterdrop config
+######
+
 spark {
   # You can set spark configuration here
   # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
