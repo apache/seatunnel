@@ -62,3 +62,16 @@ kafkaStream {
     consumer.failOnDataLoss = false
 }
 ```
+###Notes
+* 在structuredStreaming模式下，如果kafka里的数据是json格式，可以指定json的schema，input将按照指定的schema进行解析
+如下
+```
+kafkaStream {
+    topics = "waterdrop"
+    consumer.bootstrap.servers = "localhost:9092"
+    consumer.group.id = "waterdrop_group"
+    consumer.rebalance.max.retries = 100
+    consumer.failOnDataLoss = false
+    schema = "{\"name\":\"string\",\"age\":\"integer\",\"addrs\":{\"country\":\"string\",\"city\":\"string\"}}"
+}
+```
