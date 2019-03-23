@@ -4,7 +4,7 @@ import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import io.github.interestinglab.waterdrop.output.KafkaProducerUtil
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
@@ -14,7 +14,7 @@ class Kafka extends BaseOutput {
 
   val producerPrefix = "producer"
 
-  var kafkaSink: Option[Broadcast[KafkaSink]] = None
+  var kafkaSink: Option[Broadcast[KafkaProducerUtil]] = None
 
   var config: Config = ConfigFactory.empty()
 
@@ -71,7 +71,7 @@ class Kafka extends BaseOutput {
       println("[INFO] \t" + key + " = " + value)
     })
 
-    kafkaSink = Some(spark.sparkContext.broadcast(KafkaSink(props)))
+    kafkaSink = Some(spark.sparkContext.broadcast(KafkaProducerUtil(props)))
   }
 
   override def process(df: Dataset[Row]) {
@@ -84,27 +84,4 @@ class Kafka extends BaseOutput {
     }
   }
 
-}
-
-class KafkaSink(createProducer: () => KafkaProducer[String, String]) extends Serializable {
-
-  lazy val producer = createProducer()
-
-  def send(topic: String, value: String): Unit =
-    producer.send(new ProducerRecord(topic, value))
-}
-
-object KafkaSink {
-  def apply(config: Properties): KafkaSink = {
-    val f = () => {
-      val producer = new KafkaProducer[String, String](config)
-
-      sys.addShutdownHook {
-        producer.close()
-      }
-
-      producer
-    }
-    new KafkaSink(f)
-  }
 }
