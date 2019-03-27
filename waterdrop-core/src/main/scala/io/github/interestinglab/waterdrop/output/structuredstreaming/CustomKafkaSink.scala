@@ -39,7 +39,7 @@ class CustomKafkaSink extends BaseStructuredStreamingOutput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "outputMode" -> "Append",
-        "triggerMode" -> "default",
+        "trigger_type" -> "default",
         producerPrefix + ".retries" -> 2,
         producerPrefix + ".acks" -> 1,
         producerPrefix + ".buffer.memory" -> 33554432,

@@ -33,8 +33,8 @@ object StructuredUtils {
     }
   }
 
-  def writeWithTrigger(config: Config,writer: DataStreamWriter[Row]): DataStreamWriter[Row] = {
-    config.getString("triggerMode") match {
+  def writeWithTrigger(config: Config, writer: DataStreamWriter[Row]): DataStreamWriter[Row] = {
+    config.getString("trigger_type") match {
       case "default" => writer
       case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
       case "OneTime" => writer.trigger(Trigger.Once())

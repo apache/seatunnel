@@ -27,7 +27,7 @@ class Stdout extends BaseStructuredStreamingOutputIntra {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "outputMode" -> "Append",
-        "triggerMode" -> "default"
+        "trigger_type" -> "default"
       )
     )
     config = config.withFallback(defaultConfig)
@@ -35,18 +35,12 @@ class Stdout extends BaseStructuredStreamingOutputIntra {
 
   override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
 
-    val triggerMode = config.getString("triggerMode")
     var writer = df.writeStream
       .format("console")
       .outputMode(config.getString("outputMode"))
 
     writer = StructuredUtils.setCheckpointLocation(writer, config)
 
-    triggerMode match {
-      case "default" => writer
-      case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
-      case "OneTime" => writer.trigger(Trigger.Once())
-      case "Continuous" => writer.trigger(Trigger.Continuous(config.getString("interval")))
-    }
+    StructuredUtils.writeWithTrigger(config, writer)
   }
 }
