@@ -8,7 +8,7 @@ import com.mongodb.client.model.UpdateOptions
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import org.apache.spark.sql._
-import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
+import org.apache.spark.sql.streaming.DataStreamWriter
 import org.bson.Document
 
 import scala.collection.JavaConversions._
@@ -37,7 +37,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
       case true => {
         StructuredUtils.checkTriggerMode(config) match {
           case true => (true, "")
-          case false => (false, "please specify [interval] when [triggerMode] is ProcessingTime or Continuous")
+          case false => (false, "please specify [interval] when [trigger_type] is ProcessingTime or Continuous")
         }
       }
       case false => (false, "please specify [host]  and [database] and [collection]")
@@ -58,7 +58,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
         "port" -> 27017,
         "mongo_output_mode" -> "insert",
         "streaming_output_mode" -> "append",
-        "triggerMode" -> "default"
+        "trigger_type" -> "default"
       )
     )
     config = config.withFallback(defaultConfig)
@@ -127,6 +127,6 @@ class MongoDB extends BaseStructuredStreamingOutput {
       .options(options)
 
     writer = StructuredUtils.setCheckpointLocation(writer, config)
-    StructuredUtils.writeWithTrigger(config,writer)
+    StructuredUtils.writeWithTrigger(config, writer)
   }
 }
