@@ -22,7 +22,6 @@ class Opentsdb extends BaseStructuredStreamingOutput {
 
   var options = new collection.mutable.HashMap[String, String]
 
-
   override def setConfig(config: Config): Unit = {
     this.config = config
   }
@@ -33,8 +32,8 @@ class Opentsdb extends BaseStructuredStreamingOutput {
 
   override def checkConfig(): (Boolean, String) = {
     config.hasPath("postUrl") && !config.getString("postUrl").trim.isEmpty &&
-    config.hasPath("timestamp") && !config.getString("timestamp").trim.isEmpty &&
-    config.hasPath("metric") && !config.getString("metric").trim.isEmpty match {
+      config.hasPath("timestamp") && !config.getString("timestamp").trim.isEmpty &&
+      config.hasPath("metric") && !config.getString("metric").trim.isEmpty match {
       case true => {
         (true, "")
       }
@@ -51,7 +50,7 @@ class Opentsdb extends BaseStructuredStreamingOutput {
         "tags_fields" -> util.Arrays.asList(),
         "value_fields" -> util.Arrays.asList(),
         "streaming_output_mode" -> "append",
-        "triggerMode" -> "default"
+        "trigger_type" -> "default"
       )
     )
     config = config.withFallback(defaultConfig)
@@ -69,13 +68,9 @@ class Opentsdb extends BaseStructuredStreamingOutput {
     HttpClientService.execAsyncPost(config.getString("postUrl"), postBody, callBack)
   }
 
-  override def close(errorOrNull: Throwable): Unit = {
-
-  }
+  override def close(errorOrNull: Throwable): Unit = {}
 
   override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
-
-    val triggerMode = config.getString("triggerMode")
 
     var writer = df.writeStream
       .outputMode(config.getString("streaming_output_mode"))
@@ -83,13 +78,7 @@ class Opentsdb extends BaseStructuredStreamingOutput {
       .options(options)
 
     writer = StructuredUtils.setCheckpointLocation(writer, config)
-
-    triggerMode match {
-      case "default" => writer
-      case "ProcessingTime" => writer.trigger(Trigger.ProcessingTime(config.getString("interval")))
-      case "OneTime" => writer.trigger(Trigger.Once())
-      case "Continuous" => writer.trigger(Trigger.Continuous(config.getString("interval")))
-    }
+    StructuredUtils.writeWithTrigger(config, writer)
   }
 
   def buildPostParam(row: Row): String = {
@@ -104,32 +93,33 @@ class Opentsdb extends BaseStructuredStreamingOutput {
    * @param map
    * @return
    */
-  def map2Dbentity(map : Map[String,Any]):String = {
-    val list : JSONArray = new JSONArray()
+  def map2Dbentity(map: Map[String, Any]): String = {
+    val list: JSONArray = new JSONArray()
 
     val metric: String = config.getString("metric")
 
     val timestamp = config.getString("timestamp")
 
     val dimensions = config.getStringList("tags_fields")
-    val dimensionsMap = map.filterKeys(key => {
-      dimensions.contains(key)
-    }).asJava
+    val dimensionsMap = map
+      .filterKeys(key => {
+        dimensions.contains(key)
+      })
+      .asJava
 
-
-    for( measure <- config.getStringList("value_fields").asScala){
+    for (measure <- config.getStringList("value_fields").asScala) {
       //add dimensions to every row
-      if(map.contains(measure.toLowerCase())){
+      if (map.contains(measure.toLowerCase())) {
         val obj = new JSONObject()
-        obj.put("metric",metric)
-        obj.put("timestamp",map.get(timestamp).get)
+        obj.put("metric", metric)
+        obj.put("timestamp", map.get(timestamp).get)
         //添加维度信息
         val tagObj = new JSONObject()
         tagObj.putAll(dimensionsMap)
-        tagObj.put("stat_group",measure)
-        obj.put("tags",tagObj)
+        tagObj.put("stat_group", measure)
+        obj.put("tags", tagObj)
 
-        obj.put("value",map.get(measure).get)
+        obj.put("value", map.get(measure).get)
         list.add(obj)
       }
     }
@@ -141,7 +131,6 @@ class Opentsdb extends BaseStructuredStreamingOutput {
    * @param row
    * @return
    */
-
   def row2Map(row: Row): Map[String, Any] = {
 
     var map: Map[String, Any] = Map()
@@ -171,10 +160,10 @@ class Opentsdb extends BaseStructuredStreamingOutput {
    * @param value
    * @return
    */
-  def replaceIllegalLetter(value : String): String ={
+  def replaceIllegalLetter(value: String): String = {
 
     val expression = "[^a-zA-Z0-9-._/\\u4E00-\\u9FA5]"
-    val ret = value.replaceAll(expression,"_")
+    val ret = value.replaceAll(expression, "_")
     ret
   }
 }

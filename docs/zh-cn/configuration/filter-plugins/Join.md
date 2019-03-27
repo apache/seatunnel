@@ -35,7 +35,7 @@ input {
   mysql {
     url = "jdbc:mysql://localhost:3306/info"
     table = "project_info"
-    table_name = "access_log"
+    table_name = "spark_project_info"
     user = "username"
     password = "password"
   }
@@ -48,7 +48,7 @@ filter {
   }
 
   join {
-    table_name = "user_info"
+    table_name = "spark_project_info"
     source_field = "project"
   }
 }

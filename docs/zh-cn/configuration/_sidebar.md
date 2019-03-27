@@ -38,6 +38,7 @@
     - [Geoip [商业版]](/zh-cn/configuration/filter-plugins/Geoip)
     - [Grok](/zh-cn/configuration/filter-plugins/Grok)
     - [IpipNet [商业版]](/zh-cn/configuration/filter-plugins/IpipNet)
+    - [Join](/zh-cn/configuration/filter-plugins/Join)
     - [Json](/zh-cn/configuration/filter-plugins/Json)
     - [Kv](/zh-cn/configuration/filter-plugins/Kv)
     - [Lowercase](/zh-cn/configuration/filter-plugins/Lowercase)
@@ -53,7 +54,8 @@
     - [Truncate](/zh-cn/configuration/filter-plugins/Truncate)
     - [Uppercase](/zh-cn/configuration/filter-plugins/Uppercase)
     - [Uuid](/zh-cn/configuration/filter-plugins/Uuid)
-    
+    - [Watermark](/zh-cn/configuration/filter-plugins/Watermark)
+
   - [Output插件](/zh-cn/configuration/output-plugin)
     - [Clickhouse](/zh-cn/configuration/output-plugins/Clickhouse)
     - [Elasticsearch](/zh-cn/configuration/output-plugins/Elasticsearch)
