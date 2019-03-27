@@ -37,7 +37,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
       case true => {
         StructuredUtils.checkTriggerMode(config) match {
           case true => (true, "")
-          case false => (false, "please specify [interval] when [trigger_mode] is ProcessingTime or Continuous")
+          case false => (false, "please specify [interval] when [trigger_type] is ProcessingTime or Continuous")
         }
       }
       case false => (false, "please specify [host]  and [database] and [collection]")
