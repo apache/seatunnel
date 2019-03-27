@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.output.structuredstreaming
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutputIntra
-import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
+import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
@@ -33,7 +33,7 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "outputMode" -> "Append",
-        "triggerMode" -> "default"
+        "trigger_type" -> "default"
       )
     )
     config = config.withFallback(defaultConfig)
@@ -47,7 +47,7 @@ class Kafka extends BaseStructuredStreamingOutputIntra {
       .option("topic", config.getString("topic"))
       .outputMode(config.getString("outputMode"))
     writer = StructuredUtils.setCheckpointLocation(writer, config)
-    StructuredUtils.writeWithTrigger(config,writer)
+    StructuredUtils.writeWithTrigger(config, writer)
   }
 
 }
