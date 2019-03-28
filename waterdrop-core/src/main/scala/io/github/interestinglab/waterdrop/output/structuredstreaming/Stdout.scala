@@ -26,7 +26,7 @@ class Stdout extends BaseStructuredStreamingOutputIntra {
     super.prepare(spark)
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "outputMode" -> "Append",
+        "streaming_output_mode" -> "Append",
         "trigger_type" -> "default"
       )
     )

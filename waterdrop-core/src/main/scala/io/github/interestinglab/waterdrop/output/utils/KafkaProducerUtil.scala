@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.output
+package io.github.interestinglab.waterdrop.output.utils
 
 import java.util.Properties
 
