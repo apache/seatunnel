@@ -62,7 +62,7 @@ kafkaStream {
     consumer.failOnDataLoss = false
 }
 ```
-###Notes
+### Notes
 * 在structuredStreaming模式下，如果kafka里的数据是json格式，可以指定json的schema，input将按照指定的schema进行解析
 如下
 ```

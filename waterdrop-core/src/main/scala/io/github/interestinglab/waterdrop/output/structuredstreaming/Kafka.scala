@@ -1,51 +1,113 @@
 package io.github.interestinglab.waterdrop.output.structuredstreaming
 
+import java.util.Properties
+
+import com.alibaba.fastjson.JSONObject
 import com.typesafe.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutputIntra
+import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
+import io.github.interestinglab.waterdrop.output.utils.KafkaProducerUtil
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 
-class Kafka extends BaseStructuredStreamingOutputIntra {
-
-  var config: Config = ConfigFactory.empty()
+class Kafka extends BaseStructuredStreamingOutput {
+  var config = ConfigFactory.empty()
+  val producerPrefix = "producer"
+  val outConfPrefix = "output.option"
+  var options = new collection.mutable.HashMap[String, String]
+  var kafkaSink: Broadcast[KafkaProducerUtil] = _
+  var topic: String = _
 
   override def setConfig(config: Config): Unit = this.config = config
 
   override def getConfig(): Config = config
 
   override def checkConfig(): (Boolean, String) = {
+    val producerConfig = config.getConfig(producerPrefix)
 
-    !config.hasPath("producer.bootstrap.servers") || !config.hasPath("topic") match {
-      case true => (false, "please specify [producer.bootstrap.servers] and [topic]")
-      case false => {
-        StructuredUtils.checkTriggerMode(config) match {
-          case true => (true, "")
-          case false => (false, "please specify [interval] when [triggerMode] is ProcessingTime or Continuous")
-        }
-      }
+    config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
+      case true => (true, "")
+      case false => (false, "please specify [topic] and [producer.bootstrap.servers]")
     }
   }
 
   override def prepare(spark: SparkSession): Unit = {
     super.prepare(spark)
+    topic = config.getString("topic")
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "outputMode" -> "Append",
-        "trigger_type" -> "default"
+        "streaming_output_mode" -> "Append",
+        "trigger_type" -> "default",
+        producerPrefix + ".retries" -> 2,
+        producerPrefix + ".acks" -> 1,
+        producerPrefix + ".buffer.memory" -> 33554432,
+        producerPrefix + ".key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
+        producerPrefix + ".value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
       )
     )
-    config = config.withFallback(defaultConfig)
+    config.withFallback(defaultConfig)
+    val props = new Properties()
+    config
+      .getConfig(producerPrefix)
+      .entrySet()
+      .foreach(entry => {
+        val key = entry.getKey
+        val value = String.valueOf(entry.getValue.unwrapped())
+        props.put(key, value)
+      })
+
+    println("[INFO] Kafka Output properties: ")
+    props.foreach(entry => {
+      val (key, value) = entry
+      println("[INFO] \t" + key + " = " + value)
+    })
+
+    kafkaSink = spark.sparkContext.broadcast(KafkaProducerUtil(props))
+
+    config.hasPath(outConfPrefix) match {
+      case true => {
+        config
+          .getConfig(outConfPrefix)
+          .entrySet()
+          .foreach(entry => {
+            val key = entry.getKey
+            val value = String.valueOf(entry.getValue.unwrapped())
+            options.put(key, value)
+          })
+      }
+      case false => {}
+    }
   }
 
-  override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
+  /**
+   * Things to do before process.
+   **/
+  override def open(partitionId: Long, epochId: Long): Boolean = true
 
+  /**
+   * Things to do with each Row.
+   **/
+  override def process(row: Row): Unit = {
+    val json = new JSONObject()
+    row.schema.fieldNames
+      .foreach(field => json.put(field, row.getAs(field)))
+    kafkaSink.value.send(topic, json.toJSONString)
+  }
+
+  /**
+   * Things to do after process.
+   **/
+  override def close(errorOrNull: Throwable): Unit = {}
+
+  /**
+   * Waterdrop Structured Streaming process.
+   **/
+  override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
     var writer = df.writeStream
-      .format("kafka")
-      .option("kafka.bootstrap.servers", config.getString("producer.bootstrap.servers"))
-      .option("topic", config.getString("topic"))
-      .outputMode(config.getString("outputMode"))
+      .foreach(this)
+      .options(options)
     writer = StructuredUtils.setCheckpointLocation(writer, config)
     StructuredUtils.writeWithTrigger(config, writer)
   }
