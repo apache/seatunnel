@@ -83,8 +83,8 @@ class MongoDB extends BaseStructuredStreamingOutput {
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
     mongoCollection = client.value.getClient
-      .getDatabase(config.getString("database"))
-      .getCollection(config.getString("collection"))
+      .getDatabase(config.getString("writeconfig.database"))
+      .getCollection(config.getString("writeconfig.collection"))
     true
   }
 
