@@ -37,7 +37,7 @@ class Stdout extends BaseStructuredStreamingOutputIntra {
 
     var writer = df.writeStream
       .format("console")
-      .outputMode(config.getString("outputMode"))
+      .outputMode(config.getString("streaming_output_mode"))
 
     writer = StructuredUtils.setCheckpointLocation(writer, config)
 
