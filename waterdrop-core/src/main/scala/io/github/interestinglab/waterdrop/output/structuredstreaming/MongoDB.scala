@@ -6,7 +6,8 @@ import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.UpdateOptions
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
-import io.github.interestinglab.waterdrop.output.utils.{MongoClientUtil}
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.output.utils.MongoClientUtil
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql._
 import org.apache.spark.sql.streaming.DataStreamWriter
@@ -23,8 +24,8 @@ class MongoDB extends BaseStructuredStreamingOutput {
 
   var updateFields: util.List[String] = _
   var options = new collection.mutable.HashMap[String, String]
-  val mongoPrefix = "writeconfig"
-  val outConfPrefix = "output.option"
+  val mongoPrefix = "writeconfig."
+  val outConfPrefix = "output.option."
 
   override def setConfig(config: Config): Unit = {
     this.config = config
@@ -35,7 +36,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    val mongoConfig = config.getConfig(mongoPrefix)
+    val mongoConfig = TypesafeConfigUtils.extractSubConfig(config, mongoPrefix, false)
     mongoConfig.hasPath("host") && mongoConfig.hasPath("database") && mongoConfig.hasPath("collection") match {
       case true => {
         StructuredUtils.checkTriggerMode(config) match {
@@ -58,17 +59,16 @@ class MongoDB extends BaseStructuredStreamingOutput {
     }
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        mongoPrefix + ".port" -> 27017,
+        mongoPrefix + "port" -> 27017,
         "mongo_output_mode" -> "insert",
         "streaming_output_mode" -> "append",
         "trigger_type" -> "default"
       )
     )
     config = config.withFallback(defaultConfig)
-    config.hasPath(outConfPrefix) match {
+    TypesafeConfigUtils.hasSubConfig(config,outConfPrefix) match {
       case true => {
-        config
-          .getConfig(outConfPrefix)
+        TypesafeConfigUtils.extractSubConfig(config, outConfPrefix, false)
           .entrySet()
           .foreach(entry => {
             val key = entry.getKey
