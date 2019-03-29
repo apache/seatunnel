@@ -48,7 +48,7 @@ class Kafka extends BaseStructuredStreamingOutput {
         producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
       )
     )
-    config.withFallback(defaultConfig)
+    config = config.withFallback(defaultConfig)
     val props = new Properties()
     TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
       .entrySet()
