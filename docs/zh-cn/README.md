@@ -118,6 +118,12 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 Waterdrop 为永辉云创旗下新零售品牌永辉生活提供电商用户行为数据实时流式与离线SQL计算。
 
+* 水滴筹, 数据平台
+
+![水滴筹logo](../images/shuidichou-logo.jpg ':size=130%')
+
+水滴筹在Yarn上使用Waterdrop做实时流式以及定时的离线批处理，每天处理3～4T的数据量，最终将数据写入Clickhouse。
+
 * 其他公司 ... 期待您的加入，请联系微信: garyelephant
 
 ## 贡献观点和代码
