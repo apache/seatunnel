@@ -10,10 +10,10 @@
 
 ### Options
 
-| name | type | required | default value |
-| --- | --- | --- | --- |
-| [limit](#limit-number) | number | no | 100 |
-| [serializer](#serializer-string) | string | no | plain |
+| name | type | required | default value | engine |
+| --- | --- | --- | --- | --- |
+| [limit](#limit-number) | number | no | 100 | batch/spark streaming |
+| [serializer](#serializer-string) | string | no | plain | batch/spark streaming |
 
 ##### limit [number]
 

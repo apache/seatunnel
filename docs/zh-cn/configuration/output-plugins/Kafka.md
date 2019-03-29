@@ -10,12 +10,14 @@
 
 ### Options
 
-| name | type | required | default value |
-| --- | --- | --- | --- |
-| [producer.bootstrap.servers](#producerbootstrapservers-string) | string | yes | - |
-| [topic](#topic-string) | string | yes | - |
-| [producer.*](#producer-string) | string | no | - |
-
+| name | type | required | default value | engine |
+| --- | --- | --- | --- | --- |
+| [producer.bootstrap.servers](#producerbootstrapservers-string) | string | yes | - | all streaming |
+| [topic](#topic-string) | string | yes | - | all streaming |
+| [producer.*](#producer-string) | string | no | - | all streaming |
+| [streaming_output_mode](#streaming_output_mode-string) | string | no | append | structured streaming |
+| [checkpointLocation](#checkpointLocation-string) | string | no | - | structured streaming |
+| [output.option.*](#output.option-string) | string | no | - | structured streaming |
 ##### producer.bootstrap.servers [string]
 
 Kafka Brokers List
@@ -36,5 +38,28 @@ Kafka Topic
 kafka {
     topic = "waterdrop"
     producer.bootstrap.servers = "localhost:9092"
+}
+```
+### Notes
+在作为structured streaming 的output的时候，你可以添加一些额外的参数，来达到相应的效果
+
+#### checkpointLocation [string]
+你可以指定是否启用checkpoint，通过配置**checkpointLocation**这个参数
+
+#### output.option.* [string]
+你可以指定一些额外的参数，详见Spark文档http://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-sinks
+
+#### streaming_output_mode [string]
+你可以指定输出模式，complete|append|update三种，详见Spark文档http://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-modes
+
+### Examples
+```
+kafka {
+    topic = "waterdrop"
+    producer.bootstrap.servers = "localhost:9092"
+    streaming_output_mode = "update"
+    checkpointLocation = "/your/path"
+    #或者你可以通过这种方式
+    #output.option.checkpointLocation = "/your/path"
 }
 ```
