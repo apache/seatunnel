@@ -21,7 +21,6 @@
 | [update_fields](#update_fields-string) | string | no | - | structured streaming |
 | [mongo_output_mode](#mongo_output_mode-string) | string | no | insert | structured streaming |
 | [streaming_output_mode](#streaming_output_mode-string) | string | no | append | structured streaming |
-| [output.option.*](#output.option-string) | string | no | - | structured streaming |
 | [checkpointLocation](#checkpointLocation-string) | string | no | - | structured streaming |
 
 
@@ -44,7 +43,25 @@
 指定参数的方式是在原参数名称上加上前缀"writeconfig." 如设置`localThreshold`的方式是 `writeconfig.localThreshold=20`。如果不指定这些非必须参数，将使用MongoDB官方文档的默认值
 
 
-### Example
+### Notes
+在作为structured streaming 的output的时候，你可以添加一些额外的参数，来达到相应的效果
+
+#### writeconfig.port [integer]
+如果你的mongoDB 的端口不是默认的27017，你可以手动指定
+
+#### mongo_output_mode [string]
+写入mongo中采取的模式,支持 insert|updateOne|updateMany|upsert|replace,默认为insert 
+
+#### update_fields [string]
+当你指定的模式是更新或者是替代的是，你需要指定根据哪些字段去更新。根据多个字段更新字段用逗号隔开，例如根据学号和姓名字段更新则：update_fields = "id,name"
+
+#### checkpointLocation [string]
+你可以指定是否启用checkpoint，通过配置**checkpointLocation**这个参数
+
+#### streaming_output_mode [string]
+你可以指定输出模式，complete|append|update三种，详见Spark文档http://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-modes
+
+> spark streaming or batch
 
 ```
 mongodb{
@@ -53,26 +70,8 @@ mongodb{
         writeconfig.collection="mycollection"
       }
 ```
-### Notes
-在作为structured streaming 的output的时候，你可以添加一些额外的参数，来达到相应的效果
 
-#### writeconfig.port [integer]
-如果你的mongoDB 的端口不是默认的27017，你可以手动指定
-
-#### mongo_output_mode [string]
-写入mongo中采取的模式,支持 insert|updateOne|updateMany|upsert|replace,默认为insert 详见https://docs.mongodb.com
-
-#### update_fields [string]
-当你指定的模式是更新或者是替代的是，你需要指定根据哪些字段去更新。根据多个字段更新字段用逗号隔开，例如根据学号和姓名字段更新则：update_fields = "id,name"
-
-#### checkpointLocation [string]
-你可以指定是否启用checkpoint，通过配置**checkpointLocation**这个参数
-
-#### output.option.* [string]
-你可以指定一些额外的参数，详见Spark文档http://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-sinks
-
-#### streaming_output_mode [string]
-你可以指定输出模式，complete|append|update三种，详见Spark文档http://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-modes
+> structured streaming
 
 ```
 mongodb{
@@ -84,7 +83,5 @@ mongodb{
         update_fields = "id,name"
         streaming_output_mode = "update"
         checkpointLocation = "/your/path"
-        #或者你可以通过这种方式
-        #output.option.checkpointLocation = "/your/path"
       }
 ```
