@@ -5,6 +5,7 @@ import java.util.Properties
 import com.alibaba.fastjson.JSONObject
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.KafkaProducerUtil
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.streaming.DataStreamWriter
@@ -14,8 +15,8 @@ import scala.collection.JavaConversions._
 
 class Kafka extends BaseStructuredStreamingOutput {
   var config = ConfigFactory.empty()
-  val producerPrefix = "producer"
-  val outConfPrefix = "output.option"
+  val producerPrefix = "producer."
+  val outConfPrefix = "output.option."
   var options = new collection.mutable.HashMap[String, String]
   var kafkaSink: Broadcast[KafkaProducerUtil] = _
   var topic: String = _
@@ -25,7 +26,7 @@ class Kafka extends BaseStructuredStreamingOutput {
   override def getConfig(): Config = config
 
   override def checkConfig(): (Boolean, String) = {
-    val producerConfig = config.getConfig(producerPrefix)
+    val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
     config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
       case true => (true, "")
@@ -40,17 +41,16 @@ class Kafka extends BaseStructuredStreamingOutput {
       Map(
         "streaming_output_mode" -> "Append",
         "trigger_type" -> "default",
-        producerPrefix + ".retries" -> 2,
-        producerPrefix + ".acks" -> 1,
-        producerPrefix + ".buffer.memory" -> 33554432,
-        producerPrefix + ".key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
-        producerPrefix + ".value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
+        producerPrefix + "retries" -> 2,
+        producerPrefix + "acks" -> 1,
+        producerPrefix + "buffer.memory" -> 33554432,
+        producerPrefix + "key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
+        producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
       )
     )
     config.withFallback(defaultConfig)
     val props = new Properties()
-    config
-      .getConfig(producerPrefix)
+    TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey
@@ -66,10 +66,9 @@ class Kafka extends BaseStructuredStreamingOutput {
 
     kafkaSink = spark.sparkContext.broadcast(KafkaProducerUtil(props))
 
-    config.hasPath(outConfPrefix) match {
+    TypesafeConfigUtils.hasSubConfig(config, outConfPrefix) match {
       case true => {
-        config
-          .getConfig(outConfPrefix)
+        TypesafeConfigUtils.extractSubConfig(config, outConfPrefix, false)
           .entrySet()
           .foreach(entry => {
             val key = entry.getKey
