@@ -68,6 +68,7 @@
     - [Kudu](/zh-cn/configuration/output-plugins/Kudu)
     - [MongoDB](/zh-cn/configuration/output-plugins/MongoDB)
     - [MySQL](/zh-cn/configuration/output-plugins/MySQL)
+    - [Opentsdb](/zh-cn/configuration/output-plugins/Opentsdb)
     - [S3](/zh-cn/configuration/output-plugins/S3)
     - [Stdout](/zh-cn/configuration/output-plugins/Stdout)
     - [Tidb](/zh-cn/configuration/output-plugins/Tidb)
