@@ -7,7 +7,7 @@ import org.apache.spark.sql.SparkSession
 /**
  * checkConfig --> prepare
  */
-abstract class Plugin extends Serializable with Logging {
+trait Plugin extends Serializable with Logging {
 
   /**
    * Set Config.

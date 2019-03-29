@@ -36,6 +36,7 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-streaming-kafka-0-10" % sparkVersion
     exclude("org.spark-project.spark", "unused")
     exclude("net.jpountz.lz4", "unused"),
+  "org.apache.spark" %% "spark-sql-kafka-0-10" % sparkVersion,
   "org.apache.spark" %% "spark-hive" % sparkVersion ,
   "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.0",
   "org.apache.kudu" %% "kudu-spark2" % "1.7.0",
@@ -53,8 +54,12 @@ libraryDependencies ++= Seq(
   "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
     exclude("com.google.guava","guava")
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
+  "com.databricks" %% "spark-xml" % "0.5.0",
+  "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3",
   "com.databricks" %% "spark-xml" % "0.5.0"
 ).map(_.exclude("com.typesafe", "config"))
+
+
 
 //excludeDependencies += "com.typesafe" % "config" % "1.2.0"
 //excludeDependencies += "com.typesafe" % "config" % "1.2.1"

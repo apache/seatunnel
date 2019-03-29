@@ -13,7 +13,7 @@ spark {
 
 input {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
-  fake2 {
+  fake {
     table_name = "my_dataset"
   }
 

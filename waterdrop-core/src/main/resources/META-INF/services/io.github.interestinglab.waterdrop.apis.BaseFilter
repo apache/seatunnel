@@ -2,9 +2,11 @@ io.github.interestinglab.waterdrop.filter.Add
 io.github.interestinglab.waterdrop.filter.Checksum
 io.github.interestinglab.waterdrop.filter.Convert
 io.github.interestinglab.waterdrop.filter.Date
+io.github.interestinglab.waterdrop.filter.Deduplication
 io.github.interestinglab.waterdrop.filter.Dict
 io.github.interestinglab.waterdrop.filter.Drop
 io.github.interestinglab.waterdrop.filter.Grok
+io.github.interestinglab.waterdrop.filter.Join
 io.github.interestinglab.waterdrop.filter.Json
 io.github.interestinglab.waterdrop.filter.Kv
 io.github.interestinglab.waterdrop.filter.Lowercase
@@ -20,3 +22,4 @@ io.github.interestinglab.waterdrop.filter.Table
 io.github.interestinglab.waterdrop.filter.Truncate
 io.github.interestinglab.waterdrop.filter.Uppercase
 io.github.interestinglab.waterdrop.filter.Uuid
+io.github.interestinglab.waterdrop.filter.Watermark
