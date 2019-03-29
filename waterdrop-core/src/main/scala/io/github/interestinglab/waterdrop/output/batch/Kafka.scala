@@ -4,8 +4,8 @@ import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
-import io.github.interestinglab.waterdrop.output.KafkaProducerUtil
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.output.utils.KafkaProducerUtil
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 

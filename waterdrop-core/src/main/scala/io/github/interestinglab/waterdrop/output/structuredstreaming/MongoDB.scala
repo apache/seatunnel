@@ -2,11 +2,13 @@ package io.github.interestinglab.waterdrop.output.structuredstreaming
 
 import java.util
 
-import com.mongodb.MongoClient
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.UpdateOptions
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.output.utils.MongoClientUtil
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql._
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.bson.Document
@@ -18,11 +20,12 @@ class MongoDB extends BaseStructuredStreamingOutput {
   var config: Config = ConfigFactory.empty()
 
   var mongoCollection: MongoCollection[Document] = _
-  var client: MongoClient = _
+  var client: Broadcast[MongoClientUtil] = _
 
   var updateFields: util.List[String] = _
   var options = new collection.mutable.HashMap[String, String]
-  val outConfPrefix = "outConfig"
+  val mongoPrefix = "writeconfig."
+  val outConfPrefix = "output.option."
 
   override def setConfig(config: Config): Unit = {
     this.config = config
@@ -33,14 +36,15 @@ class MongoDB extends BaseStructuredStreamingOutput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("host") && config.hasPath("database") && config.hasPath("collection") match {
+    val mongoConfig = TypesafeConfigUtils.extractSubConfig(config, mongoPrefix, false)
+    mongoConfig.hasPath("host") && mongoConfig.hasPath("database") && mongoConfig.hasPath("collection") match {
       case true => {
         StructuredUtils.checkTriggerMode(config) match {
           case true => (true, "")
           case false => (false, "please specify [interval] when [trigger_type] is ProcessingTime or Continuous")
         }
       }
-      case false => (false, "please specify [host]  and [database] and [collection]")
+      case false => (false, "please specify [writeconfig.host]  and [writeconfig.database] and [writeconfig.collection]")
     }
 
   }
@@ -55,17 +59,16 @@ class MongoDB extends BaseStructuredStreamingOutput {
     }
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "port" -> 27017,
+        mongoPrefix + "port" -> 27017,
         "mongo_output_mode" -> "insert",
         "streaming_output_mode" -> "append",
         "trigger_type" -> "default"
       )
     )
     config = config.withFallback(defaultConfig)
-    config.hasPath(outConfPrefix) match {
+    TypesafeConfigUtils.hasSubConfig(config,outConfPrefix) match {
       case true => {
-        config
-          .getConfig(outConfPrefix)
+        TypesafeConfigUtils.extractSubConfig(config, outConfPrefix, false)
           .entrySet()
           .foreach(entry => {
             val key = entry.getKey
@@ -75,23 +78,17 @@ class MongoDB extends BaseStructuredStreamingOutput {
       }
       case false => {}
     }
+    client = spark.sparkContext.broadcast(MongoClientUtil(config.getConfig(mongoPrefix)))
   }
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
-    client = new MongoClient(config.getString("host"), config.getInt("port"))
-    mongoCollection = client
+    mongoCollection = client.value.getClient
       .getDatabase(config.getString("database"))
       .getCollection(config.getString("collection"))
     true
   }
 
   override def process(value: Row): Unit = {
-    //这种方式没实现
-    //    val sparkSession = SparkSession.builder().getOrCreate()
-    //    val rows = List[Row](value)
-    //    val rowEncoder = RowEncoder(value.schema)
-    //    val dataSet = sparkSession.createDataset(rows)(rowEncoder)
-    //    MongoSpark.save(dataSet,writeConfig)
 
     val fieldNames = value.schema.fieldNames
     val document = new Document()
@@ -115,9 +112,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
     }
   }
 
-  override def close(errorOrNull: Throwable): Unit = {
-    client.close()
-  }
+  override def close(errorOrNull: Throwable): Unit = {}
 
   override def process(df: Dataset[Row]): DataStreamWriter[Row] = {
 

@@ -22,6 +22,8 @@ class Opentsdb extends BaseStructuredStreamingOutput {
 
   var options = new collection.mutable.HashMap[String, String]
 
+  val outConfPrefix = "output.option"
+
   override def setConfig(config: Config): Unit = {
     this.config = config
   }
@@ -54,6 +56,19 @@ class Opentsdb extends BaseStructuredStreamingOutput {
       )
     )
     config = config.withFallback(defaultConfig)
+    config.hasPath(outConfPrefix) match {
+      case true => {
+        config
+          .getConfig(outConfPrefix)
+          .entrySet()
+          .foreach(entry => {
+            val key = entry.getKey
+            val value = String.valueOf(entry.getValue.unwrapped())
+            options.put(key, value)
+          })
+      }
+      case false => {}
+    }
   }
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
