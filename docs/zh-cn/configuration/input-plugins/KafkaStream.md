@@ -17,6 +17,7 @@
 | [consumer.group.id](#consumergroupid-string) | string | yes | - | spark streaming |
 | [consumer.bootstrap.servers](#consumerbootstrapservers-string) | string | yes | - | all streaming |
 | [consumer.*](#consumer-string) | string | no | - | all streaming |
+| [table_name](#table_name-string) | string | no | - | Structured streaming |
 
 ##### topics [string]
 
@@ -63,7 +64,7 @@ kafkaStream {
 }
 ```
 ### Notes
-* 在structuredStreaming模式下，如果kafka里的数据是json格式，可以指定json的schema，input将按照指定的schema进行解析
+* 在structuredStreaming模式下，如果kafka里的数据是json格式，可以指定json的schema，input将按照指定的schema进行解析，如果你需要流关联功能，还需要指定`table_name`这个参数以便在sql插件中使用
 如下
 ```
 kafkaStream {
