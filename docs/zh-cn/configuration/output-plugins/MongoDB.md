@@ -25,7 +25,7 @@
 
 
 ##### writeconfig.uri [string]
-x
+
 要写入mongoDB的uri
 
 ##### writeconfig.database [string]
