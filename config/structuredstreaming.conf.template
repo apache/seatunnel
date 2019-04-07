@@ -49,7 +49,7 @@ filter {
 
 output {
   stdout {
-    outputMode = "Append"
+    streaming_output_mode = "Append"
     # triggerMode = "ProcessingTime"
     # interval = "5 seconds"
   }
