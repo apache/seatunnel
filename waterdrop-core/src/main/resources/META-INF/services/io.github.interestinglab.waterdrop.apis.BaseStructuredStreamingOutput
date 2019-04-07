@@ -1,2 +1,4 @@
 io.github.interestinglab.waterdrop.output.structuredstreaming.MongoDB
 io.github.interestinglab.waterdrop.output.structuredstreaming.Opentsdb
+io.github.interestinglab.waterdrop.output.structuredstreaming.Kafka
+io.github.interestinglab.waterdrop.output.structuredstreaming.Jdbc

@@ -7,6 +7,7 @@ import com.alibaba.fastjson.{JSONArray, JSONObject}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.entity.OpentsdbCallBack
+import io.github.interestinglab.waterdrop.output.utils.StructuredUtils
 import io.github.interestinglab.waterdrop.utils.HttpClientService
 import org.apache.spark.sql._
 import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
