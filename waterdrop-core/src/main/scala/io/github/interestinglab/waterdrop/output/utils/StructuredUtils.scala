@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.output.structuredstreaming
+package io.github.interestinglab.waterdrop.output.utils
 
 import com.typesafe.config.Config
 import org.apache.spark.sql.Row

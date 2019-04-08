@@ -14,10 +14,11 @@
 | name | type | required | default value | engine |
 | --- | --- | --- | --- | --- |
 | [topics](#topics-string) | string | yes | - | all streaming |
-| [consumer.group.id](#consumergroupid-string) | string | yes | - | spark streaming |
+| [consumer.group.id](#consumergroupid-string) | string | yes | - | all streaming |
 | [consumer.bootstrap.servers](#consumerbootstrapservers-string) | string | yes | - | all streaming |
 | [consumer.*](#consumer-string) | string | no | - | all streaming |
 | [table_name](#table_name-string) | string | no | - | Structured streaming |
+| [offset.location](#offset.location-string) | string | no | - | Structured streaming |
 
 ##### topics [string]
 
@@ -25,7 +26,7 @@ Kafka topic名称。如果有多个topic，用","分割，例如: "tpc1,tpc2"。
 
 ##### consumer.group.id [string]
 
-Kafka consumer group id，用于区分不同的消费组。仅在 Spark Streaming 中使用。
+Kafka consumer group id，用于区分不同的消费组。structured streaming本不用设置group id，但是其group id 每次启动都是不一样的，为了便于监控，将这个参数加上。
 
 ##### consumer.bootstrap.servers [string]
 
@@ -38,6 +39,10 @@ Kafka集群地址，多个用","隔开
 Spark Structured Streaming 中 Kafka Source 可选参数参考 [Structured Streaming + Kafka Integration Guide](https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html#reading-data-from-kafka)
 
 指定参数的方式是在原参数名称上加上前缀"consumer."，如指定`rebalance.max.retries`的方式是: `consumer.rebalance.max.retries = 100`。如果不指定这些非必须参数，它们将使用Kafka官方文档给出的默认值。
+
+##### offset.location [string]
+
+这个参数只有一个值，当你的checkpoint不可使用时，设置这个值为`broker`，将从broker获取offset进行消费。此参数仅在checkpoint不可使用时设置，否则可能发生不可预测的结果
 
 ### Examples
 
