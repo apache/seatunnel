@@ -124,19 +124,4 @@ object WaterdropStructuredStreaming extends Logging {
     }
   }
 
-  private def listener(sparkSession: SparkSession): Unit = {
-    sparkSession.streams.addListener(new StreamingQueryListener() {
-      override def onQueryStarted(event: QueryStartedEvent): Unit = {
-        //do something
-      }
-
-      override def onQueryProgress(event: QueryProgressEvent): Unit = {
-        //do listener
-      }
-
-      override def onQueryTerminated(event: QueryTerminatedEvent): Unit = {
-        //do something
-      }
-    })
-  }
 }
