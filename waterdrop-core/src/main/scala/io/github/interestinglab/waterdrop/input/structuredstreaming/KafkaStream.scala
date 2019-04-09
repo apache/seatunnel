@@ -29,7 +29,7 @@ class KafkaStream extends BaseStructuredStreamingInput {
   var consumer: KafkaConsumer[String,String] = _
   var kafkaParams: Map[String,String] = _
   val offsetMeta = new util.HashMap[String,util.HashMap[String,Long]]()
-
+  val pollDuration = 100
   override def setConfig(config: Config): Unit = {
     this.config = config
   }
@@ -65,7 +65,6 @@ class KafkaStream extends BaseStructuredStreamingInput {
     spark.streams.addListener(new StreamingQueryListener() {
 
       override def onQueryStarted(event: QueryStartedEvent): Unit = {
-
       }
 
       override def onQueryProgress(event: QueryProgressEvent): Unit = {
@@ -86,7 +85,7 @@ class KafkaStream extends BaseStructuredStreamingInput {
                   .foreach(partition=>{
                     val offset = partitionToOffset.getLong(partition)
                     val topicPartition = new TopicPartition(topic,Integer.parseInt(partition))
-                    val value = consumer.poll(Duration.ofMillis(100))
+                    consumer.poll(Duration.ofMillis(pollDuration))
                     consumer.seek(topicPartition,offset)
                   })
               })

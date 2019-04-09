@@ -27,7 +27,7 @@ Spark Structured Streaming Watermark
 
 ##### time_type [string]
 
-日志中的事件时间字段的类型，支持三种类型 `timestamp_13|timestamp_10|string`，timestamp_13为13位的时间戳，timestamp_10为10的时间戳，string为字符串类型的时间
+日志中的事件时间字段的类型，支持三种类型 `UNIX_MS|UNIX|string`，UNIX_MS为13位的时间戳，UNIX为10位的时间戳，string为字符串类型的时间,如2019-04-08 22:10:23
 
 ##### time_pattern [string]
 
@@ -55,7 +55,7 @@ Spark Structured Streaming Watermark
 Watermark {
          delay_threshold = "5 minutes"
          time_field = "tf"
-         time_type = "timestamp_10"
-         waterMark_field = "wm"
+         time_type = "UNIX"
+         watermark_field = "wm"
 }
 ```
