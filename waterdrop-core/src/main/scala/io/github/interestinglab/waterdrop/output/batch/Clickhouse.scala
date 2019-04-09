@@ -81,12 +81,11 @@ class Clickhouse extends BaseOutput {
 
       this.jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"), config.getString("database"))
 
-      config.hasPath("username") match {
-        case true => {
-          properties.put("user", config.getString("username"))
-          properties.put("password", config.getString("password"))
-        }
+      if (config.hasPath("username")) {
+        properties.put("user", config.getString("username"))
+        properties.put("password", config.getString("password"))
       }
+
       val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcLink, properties)
       val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
 
