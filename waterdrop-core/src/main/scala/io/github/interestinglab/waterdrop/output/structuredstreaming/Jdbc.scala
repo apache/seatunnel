@@ -33,13 +33,11 @@ class Jdbc extends BaseStructuredStreamingOutput{
 
 
   override def checkConfig(): (Boolean, String) = {
-    val jdbcConfig = TypesafeConfigUtils.extractSubConfig(config, jdbcPrefix, false)
 
-    jdbcConfig.hasPath("url") && jdbcConfig.hasPath("username") && jdbcConfig.hasPath("table")
-      jdbcConfig.hasPath("password") && jdbcConfig.hasPath("driverClassName") match {
+    config.hasPath("url") && config.hasPath("user") && config.hasPath("table")
+    config.hasPath("password") && config.hasPath("driver") match {
       case true => (true,"")
-      case false => (false,"please specify [jdbc.url] and [jdbc.username] and [jdbc.table]" +
-        "and [jdbc.password] and [jdbc.driverClassName]")
+      case false => (false,"please specify [url] and [user] and [table] and [password] and [driver]")
     }
 
   }
@@ -48,6 +46,11 @@ class Jdbc extends BaseStructuredStreamingOutput{
     super.prepare(spark)
     val defaultConf = ConfigFactory.parseMap(
       Map(
+        jdbcPrefix + "driverClassName" -> config.getString("driver"),
+        jdbcPrefix + "url" -> config.getString("url"),
+        jdbcPrefix + "username" -> config.getString("user"),
+        jdbcPrefix + "password" -> config.getString("password"),
+        jdbcPrefix + "table" -> config.getString("table"),
         jdbcPrefix + "initialSize" -> "1",
         jdbcPrefix + "minIdle" -> "1",
         jdbcPrefix + "maxActive" -> "10",
