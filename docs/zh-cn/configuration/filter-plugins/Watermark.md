@@ -12,13 +12,13 @@ Spark Structured Streaming Watermark
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [time_field](#time_field-string) | string | yes |  |
-| [time_type](#time_type-string) | string | yes |  |
+| [time_field](#time_field-string) | string | yes | - |
+| [time_type](#time_type-string) | string | no | UNIX |
 | [time_pattern](#time_pattern-string) | string | no | yyyy-MM-dd HH:mm:ss |
-| [delay_threshold](#delay_threshold-string) | string | yes |  |
-| [waterMark_field](#watermark_field-string) | string | yes |  |
-| [source_table_name](#source_table_name-string) | string | no |  |
-| [result_table_name](#result_table_name-string) | string | no |  |
+| [delay_threshold](#delay_threshold-string) | string | yes | - |
+| [watermark_field](#watermark_field-string) | string | yes | - |
+| [source_table_name](#source_table_name-string) | string | no | - |
+| [result_table_name](#result_table_name-string) | string | no | - |
 
 
 ##### time_field [string]
