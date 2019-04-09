@@ -118,3 +118,13 @@ cd waterdrop
 ./bin/start-waterdrop.sh --master local[4] --deploy-mode client --config ./config/batch.conf.template
 
 ```
+
+[配置示例3 : Structured Streaming 流式处理](https://github.com/InterestingLab/waterdrop/blob/master/config/structuredstreaming.conf.template)
+
+以上配置为默认【Structured Streaming 配置模版】，需配置Kafka输入源后运行，命令如下：
+
+```
+cd waterdrop
+./bin/start-waterdrop-structured-streaming.sh --master local[4] --deploy-mode client --config ./config/batch.conf.template
+
+```
