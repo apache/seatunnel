@@ -43,7 +43,7 @@ libraryDependencies ++= Seq(
   "com.alibaba" % "QLExpress" % "3.2.0",
   "com.alibaba" % "fastjson" % "1.2.47",
   "com.alibaba" % "druid" % "1.1.10",
-"commons-lang" % "commons-lang" % "2.6",
+  "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
   "mysql" % "mysql-connector-java" % "5.1.6",
   "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "6.6.1",

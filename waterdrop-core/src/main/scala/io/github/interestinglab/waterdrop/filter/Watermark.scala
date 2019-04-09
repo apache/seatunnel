@@ -29,7 +29,10 @@ class Watermark extends BaseFilter {
     timeField = config.getString("time_field")
     waterMarkField = config.getString("watermark_field")
     val defaultConfig = ConfigFactory.parseMap(
-      Map("time_pattern" -> "yyyy-MM-dd HH:mm:ss")
+      Map(
+        "time_pattern" -> "yyyy-MM-dd HH:mm:ss",
+        "time_type" -> "UNIX"
+      )
     )
     config = config.withFallback(defaultConfig)
   }
