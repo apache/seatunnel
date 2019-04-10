@@ -45,15 +45,15 @@ Databricks 开源的 Apache Spark 对于分布式数据处理来说是一个伟�
 
 ## Waterdrop 的特性
 
-* 简单易用，灵活配置，无需开发
-* 实时流式处理
-* 离线多源数据分析
-* 高性能
-* 海量数据处理能力
-* 模块化和插件化，易于扩展
-* 支持利用SQL做数据处理和聚合
-* 支持Spark Structured Streaming
-* 支持Spark 2.x
+*  简单易用，灵活配置，无需开发
+*  实时流式处理
+*  离线多源数据分析
+*  高性能
+*  海量数据处理能力
+*  模块化和插件化，易于扩展
+*  支持利用SQL做数据处理和聚合
+*  支持Spark Structured Streaming
+*  支持Spark 2.x
 
 ## Waterdrop 的工作流程
 
