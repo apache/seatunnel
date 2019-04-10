@@ -45,8 +45,8 @@ class Watermark extends BaseFilter {
     }
     val pattern = config.getString("time_pattern")
     val newDf = config.getString("time_type") match {
-      case "UNIX_MS" => realDf.withColumn(waterMarkField, expr(s"to_timestamp(from_unixtime($timeField /1000))"))
-      case "UNIX" => realDf.withColumn(waterMarkField, expr(s"to_timestamp(from_unixtime($timeField))"))
+      case "UNIX_MS" => realDf.withColumn(waterMarkField, expr(s"to_timestamp(from_unixtime($timeField /1000),'$pattern')"))
+      case "UNIX" => realDf.withColumn(waterMarkField, expr(s"to_timestamp(from_unixtime($timeField),'$pattern')"))
       case "string" => realDf.withColumn(waterMarkField, expr(s"to_timestamp($timeField,'$pattern')"))
     }
     val waterMarkDf = newDf.withWatermark(waterMarkField,config.getString("delay_threshold"))
