@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.output.structuredstreaming
 
-import java.sql.{Connection, Timestamp}
+import java.sql.{Connection, PreparedStatement, Timestamp}
 import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -105,8 +105,13 @@ class Jdbc extends BaseStructuredStreamingOutput{
       case _ => throw new RuntimeException("unknown output_mode,only support [replace] and [insert ignore]")
     }
     val ps = connection.prepareStatement(sql)
+    setPrepareStatement(row,ps)
+    ps.execute()
+  }
 
-    for (i <- 0 until fields.size) {
+  private def setPrepareStatement(row: Row,ps: PreparedStatement): Unit = {
+
+    for (i <- 0 until row.size) {
       row.get(i) match {
         case v: Int => ps.setInt(i + 1, v)
         case v: Long => ps.setLong(i + 1, v)
@@ -116,9 +121,7 @@ class Jdbc extends BaseStructuredStreamingOutput{
         case v: Timestamp => ps.setTimestamp(i + 1, v)
       }
     }
-    ps.execute()
   }
-
 
   override def close(errorOrNull: Throwable): Unit = {
 
