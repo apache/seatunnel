@@ -124,7 +124,7 @@ class Jdbc extends BaseStructuredStreamingOutput{
   }
 
   override def close(errorOrNull: Throwable): Unit = {
-
+    connection.close()
   }
 
 
