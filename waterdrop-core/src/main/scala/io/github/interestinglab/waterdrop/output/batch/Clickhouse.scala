@@ -22,10 +22,6 @@ class Clickhouse extends BaseOutput {
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
-  val arrayPattern: Regex = "(Array.*)".r
-  val intPattern: Regex = "(Int.*)".r
-  val uintPattern: Regex = "(UInt.*)".r
-  val floatPattern: Regex = "(Float.*)".r
   var config: Config = ConfigFactory.empty()
   val clickhousePrefix = "clickhouse."
   val properties: Properties = new Properties()
@@ -169,7 +165,7 @@ class Clickhouse extends BaseOutput {
           .mkString(", ") + " not exist in table " + this.table)
     } else {
       val nonSupportedType = fields
-        .map(field => (tableSchema(field), supportOrNot(tableSchema(field))))
+        .map(field => (tableSchema(field), Clickhouse.supportOrNot(tableSchema(field))))
         .filter { case (_, exist) => !exist }
       if (nonSupportedType.nonEmpty) {
         (
@@ -183,47 +179,51 @@ class Clickhouse extends BaseOutput {
     }
   }
 
-  /**
-   * Waterdrop support this clickhouse data type or not.
-   * @param dataType ClickHouse Data Type
-   * @return Boolean
-   **/
-  private def supportOrNot(dataType: String): Boolean = {
-    dataType match {
-      case "Date" | "DateTime" | "String" =>
-        true
-      case arrayPattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
-        true
-      case _ =>
-        false
-    }
-  }
-
-  private def renderStringDefault(fieldType: String): String = {
-    fieldType match {
-      case "DateTime" =>
-        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-        dateFormat.format(System.currentTimeMillis())
-      case "Date" =>
-        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
-        dateFormat.format(System.currentTimeMillis())
-      case "String" =>
-        ""
-    }
-  }
-
   private def renderDefaultStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
-        statement.setString(index + 1, renderStringDefault(fieldType))
+        statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
       case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
         statement.setInt(index + 1, 0)
       case "UInt64" | "Int64" =>
         statement.setLong(index + 1, 0)
       case "Float32" => statement.setFloat(index + 1, 0)
       case "Float64" => statement.setDouble(index + 1, 0)
-      case arrayPattern(_) => statement.setArray(index + 1, List())
+      case Clickhouse.arrayPattern(_) => statement.setArray(index + 1, List())
+      case Clickhouse.nullablePattern(nullFieldType) => renderNullStatement(index, nullFieldType, statement)
       case _ => statement.setString(index + 1, "")
+    }
+  }
+
+  private def renderNullStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
+    case "DateTime" | "Date" | "String" =>
+      statement.setNull(index + 1, java.sql.Types.VARCHAR)
+    case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
+      statement.setNull(index + 1, java.sql.Types.INTEGER)
+    case "UInt64" | "Int64" =>
+      statement.setNull(index + 1, java.sql.Types.BIGINT)
+    case "Float32" => statement.setNull(index + 1, java.sql.Types.FLOAT)
+    case "Float64" => statement.setNull(index + 1, java.sql.Types.DOUBLE)
+  }
+
+  private def renderBaseTypeStatement(
+    index: Int,
+    field: String,
+    fieldType: String,
+    item: Row,
+    statement: ClickHousePreparedStatement): Unit = {
+    fieldType match {
+      case "DateTime" | "Date" | "String" =>
+        statement.setString(index + 1, item.getAs[String](field))
+      case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
+        statement.setInt(index + 1, item.getAs[Int](field))
+      case "UInt32" | "UInt64" | "Int64" =>
+        statement.setLong(index + 1, item.getAs[Long](field))
+      case "Float32" => statement.setFloat(index + 1, item.getAs[Float](field))
+      case "Float64" => statement.setDouble(index + 1, item.getAs[Double](field))
+      case Clickhouse.arrayPattern(_) =>
+        statement.setArray(index + 1, item.getAs[WrappedArray[AnyRef]](field))
+      case _ => statement.setString(index + 1, item.getAs[String](field))
     }
   }
 
@@ -239,19 +239,53 @@ class Clickhouse extends BaseOutput {
         renderDefaultStatement(i, fieldType, statement)
       } else {
         fieldType match {
-          case "DateTime" | "Date" | "String" =>
-            statement.setString(i + 1, item.getAs[String](field))
-          case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
-            statement.setInt(i + 1, item.getAs[Int](field))
-          case "UInt32" | "UInt64" | "Int64" =>
-            statement.setLong(i + 1, item.getAs[Long](field))
-          case "Float32" => statement.setFloat(i + 1, item.getAs[Float](field))
-          case "Float64" => statement.setDouble(i + 1, item.getAs[Double](field))
-          case arrayPattern(_) =>
-            statement.setArray(i + 1, item.getAs[WrappedArray[AnyRef]](field))
+          case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) | Clickhouse.floatPattern(_) |
+              Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
+            renderBaseTypeStatement(i, field, fieldType, item, statement)
+          case Clickhouse.nullablePattern(nullType) =>
+            renderBaseTypeStatement(i, field, nullType, item, statement)
           case _ => statement.setString(i + 1, item.getAs[String](field))
         }
       }
+    }
+  }
+}
+
+object Clickhouse {
+
+  val arrayPattern: Regex = "(Array.*)".r
+  val nullablePattern: Regex = "Nullable\\((.*)\\)".r
+  val intPattern: Regex = "(Int.*)".r
+  val uintPattern: Regex = "(UInt.*)".r
+  val floatPattern: Regex = "(Float.*)".r
+
+  /**
+   * Waterdrop support this clickhouse data type or not.
+   *
+   * @param dataType ClickHouse Data Type
+   * @return Boolean
+   * */
+  private[waterdrop] def supportOrNot(dataType: String): Boolean = {
+    dataType match {
+      case "Date" | "DateTime" | "String" =>
+        true
+      case arrayPattern(_) | nullablePattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
+        true
+      case _ =>
+        false
+    }
+  }
+
+  private[waterdrop] def renderStringDefault(fieldType: String): String = {
+    fieldType match {
+      case "DateTime" =>
+        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        dateFormat.format(System.currentTimeMillis())
+      case "Date" =>
+        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
+        dateFormat.format(System.currentTimeMillis())
+      case "String" =>
+        ""
     }
   }
 }
