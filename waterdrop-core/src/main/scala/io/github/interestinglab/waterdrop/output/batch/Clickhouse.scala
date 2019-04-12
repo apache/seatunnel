@@ -196,14 +196,18 @@ class Clickhouse extends BaseOutput {
   }
 
   private def renderNullStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
-    case "DateTime" | "Date" | "String" =>
-      statement.setNull(index + 1, java.sql.Types.VARCHAR)
-    case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
-      statement.setNull(index + 1, java.sql.Types.INTEGER)
-    case "UInt64" | "Int64" =>
-      statement.setNull(index + 1, java.sql.Types.BIGINT)
-    case "Float32" => statement.setNull(index + 1, java.sql.Types.FLOAT)
-    case "Float64" => statement.setNull(index + 1, java.sql.Types.DOUBLE)
+    fieldType match {
+      case "String" =>
+        statement.setNull(index + 1, java.sql.Types.VARCHAR)
+      case "DateTime" => statement.setNull(index + 1, java.sql.Types.DATE)
+      case "Date" => statement.setNull(index + 1, java.sql.Types.TIME)
+      case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
+        statement.setNull(index + 1, java.sql.Types.INTEGER)
+      case "UInt64" | "Int64" =>
+        statement.setNull(index + 1, java.sql.Types.BIGINT)
+      case "Float32" => statement.setNull(index + 1, java.sql.Types.FLOAT)
+      case "Float64" => statement.setNull(index + 1, java.sql.Types.DOUBLE)
+    }
   }
 
   private def renderBaseTypeStatement(
@@ -239,9 +243,9 @@ class Clickhouse extends BaseOutput {
         renderDefaultStatement(i, fieldType, statement)
       } else {
         fieldType match {
-          case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) | Clickhouse.floatPattern(_) |
-              Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
+          case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
             renderBaseTypeStatement(i, field, fieldType, item, statement)
+          case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
           case Clickhouse.nullablePattern(nullType) =>
             renderBaseTypeStatement(i, field, nullType, item, statement)
           case _ => statement.setString(i + 1, item.getAs[String](field))
