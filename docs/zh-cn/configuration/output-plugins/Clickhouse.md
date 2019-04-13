@@ -76,6 +76,7 @@ Clickhouse用户用户名，仅当Clickhouse中开启权限时需要此字段
 |Float32| float| float()||
 |Float64| double| double()||
 |Array(T)|-|-|
+|Nullable(T)|取决于T|取决于T||
 
 
 ### Examples
