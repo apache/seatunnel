@@ -76,6 +76,7 @@ The way to specify parameters is to use the prefix "clickhouse" before the param
 |Float32| float| float()||
 |Float64| double| double()||
 |Array(T)|-|-|
+|Nullable(T)|depend on T|depend on T||
 
 ### Examples
 
