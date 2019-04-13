@@ -246,6 +246,7 @@ class Clickhouse extends BaseOutput {
           case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
             renderBaseTypeStatement(i, field, fieldType, item, statement)
           case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
+            renderBaseTypeStatement(i, field, fieldType, item, statement)
           case Clickhouse.nullablePattern(nullType) =>
             renderBaseTypeStatement(i, field, nullType, item, statement)
           case _ => statement.setString(i + 1, item.getAs[String](field))
