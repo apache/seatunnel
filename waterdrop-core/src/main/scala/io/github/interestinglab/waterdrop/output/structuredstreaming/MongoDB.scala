@@ -7,7 +7,7 @@ import com.mongodb.client.model.UpdateOptions
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
-import io.github.interestinglab.waterdrop.output.utils.MongoClientUtil
+import io.github.interestinglab.waterdrop.output.utils.{MongoClientUtil, StructuredUtils}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql._
 import org.apache.spark.sql.streaming.DataStreamWriter

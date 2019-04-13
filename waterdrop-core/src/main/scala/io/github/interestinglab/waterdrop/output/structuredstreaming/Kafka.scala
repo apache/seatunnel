@@ -6,7 +6,7 @@ import com.alibaba.fastjson.JSONObject
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
-import io.github.interestinglab.waterdrop.output.utils.KafkaProducerUtil
+import io.github.interestinglab.waterdrop.output.utils.{KafkaProducerUtil, StructuredUtils}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}

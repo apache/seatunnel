@@ -34,9 +34,11 @@ filter {
   //   table_name = "res"
   //   sql = "select name, count(name), date_format(window.end, 'MMM-dd HH:mm') as time from res group by window('datetime', '1 minutes', '1 seconds'), name"
   // }
-  // watermark {
-  //   event_time = "dt"
-  //   delay_threshold = "5 minutes"
+  // Watermark {
+  //      delay_threshold = "5 minutes"
+  //      time_field = "tf"
+  //      time_type = "UNIX"
+  //      watermark_field = "wm"
   // }
 
   // sql {
@@ -49,8 +51,8 @@ filter {
 
 output {
   stdout {
-    outputMode = "Append"
-    # triggerMode = "ProcessingTime"
+    streaming_output_mode = "Append"
+    # trigger_mode = "ProcessingTime"
     # interval = "5 seconds"
   }
 
