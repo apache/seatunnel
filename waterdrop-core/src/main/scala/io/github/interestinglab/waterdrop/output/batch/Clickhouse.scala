@@ -6,8 +6,9 @@ import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
-import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.config.{ConfigRuntimeException, TypesafeConfigUtils}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import ru.yandex.clickhouse.except.ClickHouseException
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
 import scala.collection.JavaConversions._
@@ -100,7 +101,8 @@ class Clickhouse extends BaseOutput {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "bulk_size" -> 20000
+        "bulk_size" -> 20000,
+        "retry" -> 1
       )
     )
     config = config.withFallback(defaultConfig)
@@ -110,6 +112,7 @@ class Clickhouse extends BaseOutput {
   override def process(df: Dataset[Row]): Unit = {
     val dfFields = df.schema.fieldNames
     val bulkSize = config.getInt("bulk_size")
+    val retry = config.getInt("retry")
     df.foreachPartition { iter =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
       val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
@@ -122,12 +125,31 @@ class Clickhouse extends BaseOutput {
         statement.addBatch()
 
         if (length >= bulkSize) {
-          statement.executeBatch()
+          execute(statement, retry)
           length = 0
         }
       }
 
+      execute(statement, retry)
+    }
+  }
+
+  private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
+    try {
       statement.executeBatch()
+      logInfo("Insert into clickhouse succeed")
+    } catch {
+      case e: ClickHouseException => {
+        logError(e.getMessage)
+      }
+      case e: Throwable => {
+        logError("Insert into clickhouse failed. Reason: ", e)
+        if (retry > 0) {
+          execute(statement, retry - 1)
+        } else {
+          logError("Insert into clickhouse and retry failed")
+        }
+      }
     }
   }
 
