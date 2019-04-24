@@ -72,29 +72,31 @@ class Elasticsearch extends BaseStaticInput {
     val index = config.getString("index")
     val queryString = config.getString("query_string")
     val sourceType = config.getString("source_type")
-    println(sourceType)
     val rdd = spark.sparkContext.esJsonRDD(index, "?q=" + queryString, esCfg)
 
     val df = rdd
       .toDF()
       .withColumnRenamed("_1", "_id")
-      .withColumnRenamed("_2", RowConstant.TMP)
+      .withColumnRenamed("_2", "_source")
 
-    val jsonRDD = df.select(RowConstant.TMP).as[String].rdd
+    if (sourceType == "string") {
+      df
+    } else {
+      val jsonRDD = df.select("_source").as[String].rdd
+      val schema = spark.read.json(jsonRDD).schema
 
-    val schema = spark.read.json(jsonRDD).schema
-
-    sourceType match {
-      case "nested" =>
-        df.withColumn("_source", from_json(col(RowConstant.TMP), schema)).drop(RowConstant.TMP)
-      case "flatten" => {
-        // TODO
-        // val tmpDf = df.withColumn(RowConstant.TMP, from_json(col(RowConstant.TMP), schema))
-        // schema.map { field =>
-        //   tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
-        // }
-        // tmpDf.drop(RowConstant.TMP)
-        df
+      sourceType match {
+        case "nested" =>
+          df.withColumn(RowConstant.TMP, from_json(col("_source"), schema))
+            .drop("_source")
+            .withColumnRenamed(RowConstant.TMP, "_source")
+        case "flatten" => {
+          var tmpDf = df.withColumn(RowConstant.TMP, from_json(col("_source"), schema))
+          schema.map { field =>
+            tmpDf = tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
+          }
+          tmpDf.drop(RowConstant.TMP)
+        }
       }
     }
 
