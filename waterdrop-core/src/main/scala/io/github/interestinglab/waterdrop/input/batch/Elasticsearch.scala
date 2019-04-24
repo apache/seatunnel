@@ -41,7 +41,7 @@ class Elasticsearch extends BaseStaticInput {
         .foreach(entry => {
           val key = entry.getKey
           val value = String.valueOf(entry.getValue.unwrapped())
-          esCfg += (key -> value)
+          esCfg += (esPrefix + key -> value)
         })
     }
 
