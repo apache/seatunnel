@@ -65,6 +65,12 @@ class Elasticsearch extends BaseOutput {
       })
 
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
+
+    println("[INFO] Output ElasticSearch Params:")
+    for (entry <- esCfg) {
+      val (key, value) = entry
+      println("[INFO] \t" + key + " = " + value)
+    }
   }
 
   override def process(df: Dataset[Row]): Unit = {

@@ -1,3 +1,4 @@
+io.github.interestinglab.waterdrop.input.batch.Elasticsearch
 io.github.interestinglab.waterdrop.input.batch.Fake
 io.github.interestinglab.waterdrop.input.batch.File
 io.github.interestinglab.waterdrop.input.batch.Hdfs
