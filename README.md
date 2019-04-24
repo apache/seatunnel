@@ -128,6 +128,12 @@ Waterdrop 为永辉云创旗下新零售品牌永辉生活提供电商用户行�
 
 水滴筹在Yarn上使用Waterdrop做实时流式以及定时的离线批处理，每天处理3～4T的数据量，最终将数据写入Clickhouse。
 
+* 浙江乐控信息科技有限公司
+
+<img src="./docs/images/zhejiang_lekong_xinxi_keji-logo.jpg" height="60" width="120" >
+
+Watedrop 为浙江乐控信息科技有限公司旗下乐控智能提供物联网交互数据实时流sql分析(Structured Streaming 引擎)和离线数据分析。每天处理的数据量8千万到一亿条数据 最终数据落地到kafka和mysql数据库。
+
 * 其他公司 ... 期待您的加入，请联系微信: garyelephant
 
 ## 贡献观点和代码
