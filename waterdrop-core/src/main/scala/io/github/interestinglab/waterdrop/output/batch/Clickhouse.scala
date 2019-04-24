@@ -4,11 +4,13 @@ import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
 
+import com.google.common.base.Throwables
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
-import io.github.interestinglab.waterdrop.config.{ConfigRuntimeException, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.except.ClickHouseException
+import ru.yandex.clickhouse.except.ClickHouseErrorCode
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
 import scala.collection.JavaConversions._
@@ -140,14 +142,19 @@ class Clickhouse extends BaseOutput {
       logInfo("Insert into clickhouse succeed")
     } catch {
       case e: ClickHouseException => {
-        logError(e.getMessage)
-      }
-      case e: Throwable => {
-        logError("Insert into clickhouse failed. Reason: ", e)
-        if (retry > 0) {
-          execute(statement, retry - 1)
-        } else {
-          logError("Insert into clickhouse and retry failed")
+        val exception = Clickhouse.getClickhouseException(e)
+        val errorCode = exception.getErrorCode
+
+        errorCode match {
+          case ClickHouseErrorCode.NETWORK_ERROR.code.toInt | ClickHouseErrorCode.TIMEOUT_EXCEEDED.code.toInt |
+              ClickHouseErrorCode.SOCKET_TIMEOUT.code.toInt => {
+            logError("Insert into clickhouse failed. Reason: ", e)
+            if (retry > 0) {
+              execute(statement, retry - 1)
+            } else {
+              logError("Insert into clickhouse and retry failed")
+            }
+          }
         }
       }
     }
@@ -314,5 +321,16 @@ object Clickhouse {
       case "String" =>
         ""
     }
+  }
+
+  private[waterdrop] def getClickhouseException(e: Exception): ClickHouseException = {
+    val causalChain = Throwables.getCausalChain(e)
+    import scala.collection.JavaConversions._
+    for (throwable <- causalChain) {
+      throwable match {
+        case ClickHouseException => throwable.asInstanceOf[ClickHouseException]
+      }
+    }
+    throw new IllegalArgumentException("no ClickHouseException found")
   }
 }
