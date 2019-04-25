@@ -4,13 +4,11 @@ import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
 
-import com.google.common.base.Throwables
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import ru.yandex.clickhouse.except.ClickHouseException
-import ru.yandex.clickhouse.except.ClickHouseErrorCode
+import ru.yandex.clickhouse.except.{ClickHouseErrorCode, ClickHouseException}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
 import scala.collection.JavaConversions._
@@ -142,12 +140,12 @@ class Clickhouse extends BaseOutput {
       logInfo("Insert into clickhouse succeed")
     } catch {
       case e: ClickHouseException => {
-        val exception = Clickhouse.getClickhouseException(e)
-        val errorCode = exception.getErrorCode
+        val errorCode = new ClickHouseErrorCode(e.getErrorCode)
 
         errorCode match {
-          case ClickHouseErrorCode.NETWORK_ERROR.code.toInt | ClickHouseErrorCode.TIMEOUT_EXCEEDED.code.toInt |
-              ClickHouseErrorCode.SOCKET_TIMEOUT.code.toInt => {
+          case ClickHouseErrorCode.NETWORK_ERROR | ClickHouseErrorCode.TIMEOUT_EXCEEDED |
+              ClickHouseErrorCode.SOCKET_TIMEOUT => {
+
             logError("Insert into clickhouse failed. Reason: ", e)
             if (retry > 0) {
               execute(statement, retry - 1)
@@ -321,16 +319,5 @@ object Clickhouse {
       case "String" =>
         ""
     }
-  }
-
-  private[waterdrop] def getClickhouseException(e: Exception): ClickHouseException = {
-    val causalChain = Throwables.getCausalChain(e)
-    import scala.collection.JavaConversions._
-    for (throwable <- causalChain) {
-      throwable match {
-        case ClickHouseException => throwable.asInstanceOf[ClickHouseException]
-      }
-    }
-    throw new IllegalArgumentException("no ClickHouseException found")
   }
 }
