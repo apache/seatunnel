@@ -23,6 +23,7 @@ class Clickhouse extends BaseOutput {
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
+  var retryCodes: java.util.List[Integer] = _
   var config: Config = ConfigFactory.empty()
   val clickhousePrefix = "clickhouse."
   val properties: Properties = new Properties()
@@ -102,10 +103,13 @@ class Clickhouse extends BaseOutput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "bulk_size" -> 20000,
+        // "retry_codes" -> util.Arrays.asList(ClickHouseErrorCode.NETWORK_ERROR.code),
+        "retry_codes" -> util.Arrays.asList(),
         "retry" -> 1
       )
     )
     config = config.withFallback(defaultConfig)
+    retryCodes = config.getIntList("retry_codes")
     super.prepare(spark)
   }
 
@@ -140,19 +144,16 @@ class Clickhouse extends BaseOutput {
       logInfo("Insert into clickhouse succeed")
     } catch {
       case e: ClickHouseException => {
-        val errorCode = new ClickHouseErrorCode(e.getErrorCode)
-
-        errorCode match {
-          case ClickHouseErrorCode.NETWORK_ERROR | ClickHouseErrorCode.TIMEOUT_EXCEEDED |
-            ClickHouseErrorCode.SOCKET_TIMEOUT => {
-
-            logError("Insert into clickhouse failed. Reason: ", e)
-            if (retry > 0) {
-              execute(statement, retry - 1)
-            } else {
-              logError("Insert into clickhouse and retry failed")
-            }
+        val errorCode = e.getErrorCode
+        if (retryCodes.contains(errorCode)) {
+          logError("Insert into clickhouse failed. Reason: ", e)
+          if (retry > 0) {
+            execute(statement, retry - 1)
+          } else {
+            logError("Insert into clickhouse and retry failed")
           }
+        } else {
+          throw e
         }
       }
     }
