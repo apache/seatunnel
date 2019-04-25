@@ -144,7 +144,7 @@ class Clickhouse extends BaseOutput {
 
         errorCode match {
           case ClickHouseErrorCode.NETWORK_ERROR | ClickHouseErrorCode.TIMEOUT_EXCEEDED |
-              ClickHouseErrorCode.SOCKET_TIMEOUT => {
+            ClickHouseErrorCode.SOCKET_TIMEOUT => {
 
             logError("Insert into clickhouse failed. Reason: ", e)
             if (retry > 0) {
