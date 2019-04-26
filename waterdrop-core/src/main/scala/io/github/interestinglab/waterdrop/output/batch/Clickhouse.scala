@@ -8,13 +8,14 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import ru.yandex.clickhouse.except.{ClickHouseErrorCode, ClickHouseException}
+import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.WrappedArray
 import scala.util.matching.Regex
+import scala.util.{Failure, Success, Try}
 
 class Clickhouse extends BaseOutput {
 
@@ -139,22 +140,24 @@ class Clickhouse extends BaseOutput {
   }
 
   private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
-    try {
-      statement.executeBatch()
-      logInfo("Insert into clickhouse succeed")
-    } catch {
-      case e: ClickHouseException => {
+    val res = Try(statement.executeBatch())
+    res match {
+      case Success(_) => logInfo("Insert into ClickHouse succeed")
+      case Failure(e: ClickHouseException) => {
         val errorCode = e.getErrorCode
         if (retryCodes.contains(errorCode)) {
-          logError("Insert into clickhouse failed. Reason: ", e)
+          logError("Insert into ClickHouse failed. Reason: ", e)
           if (retry > 0) {
             execute(statement, retry - 1)
           } else {
-            logError("Insert into clickhouse and retry failed")
+            logError("Insert into ClickHouse failed and retry failed, drop this bulk.")
           }
         } else {
           throw e
         }
+      }
+      case Failure(e: ClickHouseUnknownException) => {
+        throw e
       }
     }
   }
