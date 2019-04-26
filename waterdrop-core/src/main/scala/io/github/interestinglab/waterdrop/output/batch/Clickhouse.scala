@@ -159,6 +159,9 @@ class Clickhouse extends BaseOutput {
       case Failure(e: ClickHouseUnknownException) => {
         throw e
       }
+      case Failure(e: Exception) => {
+        throw e
+      }
     }
   }
 
