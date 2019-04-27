@@ -18,6 +18,8 @@
 | [fields](#fields-array) | array | yes |-|
 | [host](#host-string) | string | yes |-|
 | [password](#password-string) | string | no |-|
+| [retry](#retry-number) | number| no |1|
+| [retry_codes](#password-array) | array | no |[ ]|
 | [table](#table-string) | string | yes |-|
 | [username](#username-string) | string | no |-|
 
@@ -28,27 +30,37 @@
 
 ##### database [string]
 
-Clickhouse database
+ClickHouse database
 
 ##### fields [array]
 
-需要输出到Clickhouose的数据字段。
+需要输出到ClickHouse的数据字段。
 
 ##### host [string]
 
-Clickhouse集群地址，格式为host:port，允许指定多个host。如"host1:8123,host2:8123"。
+ClickHouse集群地址，格式为host:port，允许指定多个host。如"host1:8123,host2:8123"。
 
 ##### password [string]
 
-Clickhouse用户密码，仅当Clickhouse中开启权限时需要此字段。
+ClickHouse用户密码，仅当ClickHouse中开启权限时需要此字段。
+
+#### retry [number]
+
+重试次数，默认为1次
+
+##### retry_codes [array]
+
+出现异常时，会重试操作的ClickHouse异常错误码。详细错误码列表参考 [ClickHouseErrorCode](https://github.com/yandex/clickhouse-jdbc/blob/master/src/main/java/ru/yandex/clickhouse/except/ClickHouseErrorCode.java)
+
+如果多次重试都失败，将会丢弃这个批次的数据，慎用！！
 
 ##### table [string]
 
-Clickhouse 表名
+ClickHouse 表名
 
 ##### username [string]
 
-Clickhouse用户用户名，仅当Clickhouse中开启权限时需要此字段
+ClickHouse用户用户名，仅当ClickHouse中开启权限时需要此字段
 
 ##### clickhouse [string]
 
@@ -94,3 +106,18 @@ clickhouse {
 }
 ```
 
+```
+ClickHouse {
+    host = "localhost:8123"
+    database = "nginx"
+    table = "access_msg"
+    fields = ["date", "datetime", "hostname", "http_code", "data_size", "ua", "request_time"]
+    username = "username"
+    password = "password"
+    bulk_size = 20000
+    retry_codes = [209, 210]
+    retry = 3
+}
+```
+
+> 当出现网络超时或者网络异常的情况下，重试写入3次
