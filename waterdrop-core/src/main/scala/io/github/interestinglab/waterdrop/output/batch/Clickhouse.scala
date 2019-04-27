@@ -8,12 +8,14 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.WrappedArray
 import scala.util.matching.Regex
+import scala.util.{Failure, Success, Try}
 
 class Clickhouse extends BaseOutput {
 
@@ -22,6 +24,7 @@ class Clickhouse extends BaseOutput {
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
+  var retryCodes: java.util.List[Integer] = _
   var config: Config = ConfigFactory.empty()
   val clickhousePrefix = "clickhouse."
   val properties: Properties = new Properties()
@@ -100,16 +103,21 @@ class Clickhouse extends BaseOutput {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "bulk_size" -> 20000
+        "bulk_size" -> 20000,
+        // "retry_codes" -> util.Arrays.asList(ClickHouseErrorCode.NETWORK_ERROR.code),
+        "retry_codes" -> util.Arrays.asList(),
+        "retry" -> 1
       )
     )
     config = config.withFallback(defaultConfig)
+    retryCodes = config.getIntList("retry_codes")
     super.prepare(spark)
   }
 
   override def process(df: Dataset[Row]): Unit = {
     val dfFields = df.schema.fieldNames
     val bulkSize = config.getInt("bulk_size")
+    val retry = config.getInt("retry")
     df.foreachPartition { iter =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
       val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
@@ -122,12 +130,38 @@ class Clickhouse extends BaseOutput {
         statement.addBatch()
 
         if (length >= bulkSize) {
-          statement.executeBatch()
+          execute(statement, retry)
           length = 0
         }
       }
 
-      statement.executeBatch()
+      execute(statement, retry)
+    }
+  }
+
+  private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
+    val res = Try(statement.executeBatch())
+    res match {
+      case Success(_) => logInfo("Insert into ClickHouse succeed")
+      case Failure(e: ClickHouseException) => {
+        val errorCode = e.getErrorCode
+        if (retryCodes.contains(errorCode)) {
+          logError("Insert into ClickHouse failed. Reason: ", e)
+          if (retry > 0) {
+            execute(statement, retry - 1)
+          } else {
+            logError("Insert into ClickHouse failed and retry failed, drop this bulk.")
+          }
+        } else {
+          throw e
+        }
+      }
+      case Failure(e: ClickHouseUnknownException) => {
+        throw e
+      }
+      case Failure(e: Exception) => {
+        throw e
+      }
     }
   }
 
