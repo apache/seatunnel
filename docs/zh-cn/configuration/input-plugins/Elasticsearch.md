@@ -14,7 +14,6 @@
 | --- | --- | --- | --- |
 | [hosts](#hosts-array) | array | yes | - |
 | [index](#index-string) | string | yes |  |
-| [source_type](#source_type-string) | string | no | nested |
 | [es](#es-string) | string | no |  |
 | [table_name](#table_name-string) | string | yes | - |
 
@@ -27,14 +26,6 @@ ElasticSearch 集群地址，格式为host:port，允许指定多个host。如 \
 
 ElasticSearch index名称，支持 `*` 模糊匹配
 
-
-##### source_type [string]
-
-针对 ElasticSearch 中 `_source`处理方式，目前支持 **string**、**nested** 和 **flatten**
-
-* string: 作为字符串处理
-* nested: 作为嵌套字段处理，可以通过 `_source.field` 获取对应的值
-* flatten: 平铺处理，把所有顶级字段提取到表中作为单独一列处理
 
 ##### es.* [string]
 
@@ -61,10 +52,9 @@ elasticsearch {
 elasticsearch {
     hosts = ["localhost:9200"]
     index = "waterdrop-*"
-    es.read.metadata = true
-    source_type = "flatten"
+    es.read.field.include = "name, age"
     table_name = "my_dataset"
   }
 ```
 
-> 匹配所有以 `waterdrop-` 开头的索引， 并且对 `_source`中的内容JSON解析。
+> 匹配所有以 `waterdrop-` 开头的索引， 并且仅仅读取 `name`和 `age` 两个字段。
