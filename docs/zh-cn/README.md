@@ -2,7 +2,7 @@
 
 [![Join the chat at https://gitter.im/interestinglab_waterdrop/Lobby](https://badges.gitter.im/interestinglab_waterdrop/Lobby.svg)](https://gitter.im/interestinglab_waterdrop/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-Waterdrop 是一个`非常易用`，`高性能`，能够应对`海量数据`的`实时`数据处理产品，构建于Apache Spark之上。
+Waterdrop 是一个`非常易用`，`高性能`、支持`实时流式`和`离线批处理`的`海量数据`处理产品，架构于`Apache Spark` 和 `Apache Flink`之上。
 
 ---
 
@@ -78,12 +78,15 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 ## 环境依赖
 
-需要以下Spark集群环境的任意一种：
+1. java运行环境，java >= 8
+
+2. 如果您要在集群环境中运行Waterdrop，那么需要以下Spark集群环境的任意一种：
+
 * Spark on Yarn
 * Spark Standalone
 * Spark on Mesos
 
-如果您的数据量较小或者只是做功能验证，也可以仅使用local模式启动，无需集群环境。
+如果您的数据量较小或者只是做功能验证，也可以仅使用`local`模式启动，无需集群环境，Waterdrop支持单机运行。
 
 ## [配置/文档](zh-cn/configuration/base)
 
