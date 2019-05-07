@@ -18,7 +18,11 @@ import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.{SourceProgress, StreamingQueryListener}
-import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
+import org.apache.spark.sql.streaming.StreamingQueryListener.{
+  QueryProgressEvent,
+  QueryStartedEvent,
+  QueryTerminatedEvent
+}
 
 import scala.collection.JavaConversions._
 
@@ -26,9 +30,9 @@ class KafkaStream extends BaseStructuredStreamingInput {
   var config: Config = ConfigFactory.empty()
   var schema = new StructType()
   var topics: String = _
-  var consumer: KafkaConsumer[String,String] = _
-  var kafkaParams: Map[String,String] = _
-  val offsetMeta = new util.HashMap[String,util.HashMap[String,Long]]()
+  var consumer: KafkaConsumer[String, String] = _
+  var kafkaParams: Map[String, String] = _
+  val offsetMeta = new util.HashMap[String, util.HashMap[String, Long]]()
   val pollDuration = 100
   override def setConfig(config: Config): Unit = {
     this.config = config
@@ -46,7 +50,8 @@ class KafkaStream extends BaseStructuredStreamingInput {
     config.hasPath("consumer.bootstrap.servers") && config.hasPath("topics") &&
       config.hasPath("consumer.group.id") match {
       case true => (true, "")
-      case false => (false, "please specify [consumer.bootstrap.servers] and [topics] and [consumer.group.id] as non-empty string")
+      case false =>
+        (false, "please specify [consumer.bootstrap.servers] and [topics] and [consumer.group.id] as non-empty string")
     }
   }
 
@@ -64,16 +69,15 @@ class KafkaStream extends BaseStructuredStreamingInput {
     //offset异步回写
     spark.streams.addListener(new StreamingQueryListener() {
 
-      override def onQueryStarted(event: QueryStartedEvent): Unit = {
-      }
+      override def onQueryStarted(event: QueryStartedEvent): Unit = {}
 
       override def onQueryProgress(event: QueryProgressEvent): Unit = {
         //这个是kafkaInput的正则匹配
         val pattern = Pattern.compile(".+\\[Subscribe\\[(.+)\\]\\]");
         val sources = event.progress.sources
-        sources.foreach(source =>{
+        sources.foreach(source => {
           val matcher = pattern.matcher(source.description)
-          if (matcher.find() && topics.equals(matcher.group(1))){
+          if (matcher.find() && topics.equals(matcher.group(1))) {
             //每个input负责监控自己的topic
             val endOffset = JSON.parseObject(source.endOffset)
             endOffset
@@ -82,11 +86,11 @@ class KafkaStream extends BaseStructuredStreamingInput {
                 val partitionToOffset = endOffset.getJSONObject(topic)
                 partitionToOffset
                   .keySet()
-                  .foreach(partition=>{
+                  .foreach(partition => {
                     val offset = partitionToOffset.getLong(partition)
-                    val topicPartition = new TopicPartition(topic,Integer.parseInt(partition))
+                    val topicPartition = new TopicPartition(topic, Integer.parseInt(partition))
                     consumer.poll(Duration.ofMillis(pollDuration))
-                    consumer.seek(topicPartition,offset)
+                    consumer.seek(topicPartition, offset)
                   })
               })
           }
@@ -110,12 +114,15 @@ class KafkaStream extends BaseStructuredStreamingInput {
 
     //如果用户选择offset从broker获取
     config.hasPath("offset.location") match {
-      case true => config.getString("offset.location").equals("broker") match {
-        case true => {
-          setOffsetMeta(topicList)
-          kafkaParams += ("startingOffsets" -> JSON.toJSONString(offsetMeta,SerializerFeature.WriteMapNullValue))
+      case true =>
+        config.getString("offset.location").equals("broker") match {
+          case true => {
+            setOffsetMeta(topicList)
+            kafkaParams += ("startingOffsets" -> JSON.toJSONString(offsetMeta, SerializerFeature.WriteMapNullValue))
+          }
+          case false => {}
         }
-      }
+      case false => {}
     }
 
     println("[INFO] Input Kafka Params:")
@@ -125,8 +132,6 @@ class KafkaStream extends BaseStructuredStreamingInput {
     }
 
   }
-
-
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
@@ -149,9 +154,9 @@ class KafkaStream extends BaseStructuredStreamingInput {
     dataFrame
   }
 
-  private def initConsumer():  util.ArrayList[String]={
+  private def initConsumer(): util.ArrayList[String] = {
     val props = new Properties()
-    props.put("bootstrap.servers",config.getString("consumer.bootstrap.servers"))
+    props.put("bootstrap.servers", config.getString("consumer.bootstrap.servers"))
     props.put("group.id", config.getString("consumer.group.id"))
     props.put("enable.auto.commit", "false")
     props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
@@ -163,16 +168,16 @@ class KafkaStream extends BaseStructuredStreamingInput {
     topicList
   }
 
-  private def setOffsetMeta(topicList: util.ArrayList[String]): Unit={
-    topicList.foreach(topic =>{
-      val partition2offset = new util.HashMap[String,Long]()
+  private def setOffsetMeta(topicList: util.ArrayList[String]): Unit = {
+    topicList.foreach(topic => {
+      val partition2offset = new util.HashMap[String, Long]()
       val topicInfo = consumer.partitionsFor(topic)
       topicInfo.foreach(info => {
-        val topicPartition = new TopicPartition(topic,info.partition())
+        val topicPartition = new TopicPartition(topic, info.partition())
         val metadata = consumer.committed(topicPartition)
-        partition2offset.put(String.valueOf(info.partition()),metadata.offset())
+        partition2offset.put(String.valueOf(info.partition()), metadata.offset())
       })
-      offsetMeta.put(topic,partition2offset)
+      offsetMeta.put(topic, partition2offset)
     })
   }
 }
