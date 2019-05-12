@@ -63,12 +63,12 @@ check sbt native packager [universal plugin](http://www.scala-sbt.org/sbt-native
 
 ## FAQs
 
-1. Intellij Idea doesn't recognize antlr4 generated source ?
+1.   Intellij Idea doesn't recognize antlr4 generated source ?
 
 File -> Project Structure -> Modules, in `Sources` Tab, 
 mark directory `target/scala-2.11/src_managed/main/antlr4/` as `Sources`(blue icon)
 
-2. OutOfMemoryError occurs while compilation ?
+2.   OutOfMemoryError occurs while compilation ?
 
 ```
 # Linux, Mac
