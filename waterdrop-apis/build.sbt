@@ -6,6 +6,10 @@ scalaVersion := "2.11.8"
 
 val sparkVersion = "2.4.0"
 
+// We should put all spark or hadoop dependencies here,
+//   if coresponding jar file exists in jars directory of online Spark distribution,
+//     such as spark-core-xxx.jar, spark-sql-xxx.jar
+//   or jars in Hadoop distribution, such as hadoop-common-xxx.jar, hadoop-hdfs-xxx.jar
 lazy val providedDependencies = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,
   "org.apache.spark" %% "spark-sql" % sparkVersion,
@@ -32,5 +36,7 @@ unmanagedJars in Compile += file("lib/config-1.3.3-SNAPSHOT.jar")
 
 libraryDependencies ++= Seq(
 )
+
+// TODO: exclude spark, hadoop by for all dependencies
 
 dependencyOverrides += "com.google.guava" % "guava" % "15.0"
