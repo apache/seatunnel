@@ -22,6 +22,7 @@
     - [Kudu](/zh-cn/configuration/input-plugins/Kudu)
     - [MongoDB](/zh-cn/configuration/input-plugins/MongoDB)
     - [MongoDBOplogStream [商业版]](/zh-cn/configuration/input-plugins/MongoDBOplogStream)
+    - [MySQLBinlogStream[商业版]](/zh-cn/configuration/input-plugins/MySQLBinlogStream)
     - [MySQL](/zh-cn/configuration/input-plugins/MySQL)
     - [Hive](/zh-cn/configuration/input-plugins/Hive)
     - [S3Stream](/zh-cn/configuration/input-plugins/S3Stream)
@@ -76,7 +77,7 @@
 
 - [部署与运行](/zh-cn/deployment)
 
-- [监控](/zh-cn/monitoring)
+- [监控[商业版]](/zh-cn/monitoring)
 
 - [插件开发](/zh-cn/developing-plugin)
 
