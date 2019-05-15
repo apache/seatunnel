@@ -11,4 +11,7 @@ object WaterDropBuild extends Build {
 
   lazy val core = Project(id="waterdrop-core",
     base=file("waterdrop-core")) dependsOn(apis)
+
+  lazy val doctor = Project(id="waterdrop-doctor",
+    base=file("doctor"))
 }
