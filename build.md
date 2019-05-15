@@ -71,7 +71,7 @@ select module `waterdrop-core`, then
 mark directory `target/scala-2.11/src_managed/main/antlr4/` as `Sources Root`(blue icon)
 
 > If you don't have `target/scala-2.11/src_managed/main/antlr4/` directory, you can create this directory,
-or execute `sbt package` in command line first.
+> or execute `sbt package` in command line first.
 
 2.  OutOfMemoryError occurs while compilation ?
 
@@ -85,7 +85,7 @@ set JAVA_OPTS=-Xmx4G
 sbt ...
 ```
 
-3. How to auto-format code according to the coding style of this project in Intellij IDEA ？
+3.  How to auto-format code according to the coding style of this project in Intellij IDEA ？
 
 The coding style is defined in `scalastyle-config.xml` in this project root dir. 
 When you are using Intellij IDEA, you can install scalafmt plugin to auto-format code style.
