@@ -71,7 +71,7 @@ object WaterdropStructuredStreaming extends Logging {
       println("\t" + key + " => " + value)
     })
 
-    val sparkSession = SparkSession.builder.config(sparkConf).enableHiveSupport().getOrCreate()
+    val sparkSession = SparkSession.builder.config(sparkConf).getOrCreate()
 
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
