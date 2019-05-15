@@ -89,3 +89,4 @@ sbt ...
 
 The coding style is defined in `scalastyle-config.xml` in this project root dir. 
 When you are using Intellij IDEA, you can install scalafmt plugin to auto-format code style.
+Then you should check "Format on file save" in scalafmt configuration(in preferences or settings).
