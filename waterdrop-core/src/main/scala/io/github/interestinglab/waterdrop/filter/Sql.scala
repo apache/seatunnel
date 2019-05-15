@@ -53,7 +53,6 @@ class Sql extends BaseFilter {
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
     this.conf.hasPath("table_name") && StringUtils.isNotBlank(this.conf.getString("table_name")) match {
       case true => df.createOrReplaceTempView(this.conf.getString("table_name"))
-      case false => _
     }
 
     spark.sql(conf.getString("sql"))
