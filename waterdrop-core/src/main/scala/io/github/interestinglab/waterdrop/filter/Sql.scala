@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.filter
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
+import org.apache.commons.lang3.StringUtils
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
@@ -24,10 +25,10 @@ class Sql extends BaseFilter {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    conf.hasPath("table_name") && conf.hasPath("sql") match {
+    conf.hasPath("sql") match {
       case true => (true, "")
       // case true => checkSQLSyntax(conf.getString("sql"))
-      case false => (false, "please specify [table_name] and [sql]")
+      case false => (false, "please specify parameter [sql]")
     }
   }
 
@@ -50,7 +51,11 @@ class Sql extends BaseFilter {
   }
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
-    df.createOrReplaceTempView(this.conf.getString("table_name"))
+    this.conf.hasPath("table_name") && StringUtils.isNotBlank(this.conf.getString("table_name")) match {
+      case true => df.createOrReplaceTempView(this.conf.getString("table_name"))
+      case false => _
+    }
+
     spark.sql(conf.getString("sql"))
   }
 }

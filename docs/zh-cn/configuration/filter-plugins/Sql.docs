@@ -6,5 +6,5 @@
 @pluginHomepage https://interestinglab.github.io/waterdrop
 @pluginVersion 1.0.0
 
-@pluginOption string table="-" yes "表名，可为任意字符串"
+@pluginOption string table="-" no "表名，可为任意字符串"
 @pluginOption string sql="-" yes "SQL语句"
