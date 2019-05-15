@@ -61,7 +61,6 @@ libraryDependencies ++= Seq(
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.pingcap.tikv" % "tikv-client" % "1.1",
   "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
-    exclude("com.google.guava","guava")
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.databricks" %% "spark-xml" % "0.5.0",
   "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3"
