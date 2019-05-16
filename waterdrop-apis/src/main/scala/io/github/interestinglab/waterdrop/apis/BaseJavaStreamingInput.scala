@@ -7,9 +7,6 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.api.java.{JavaDStream, JavaStreamingContext}
 import org.apache.spark.streaming.dstream.DStream
 
-/**
- * Superclass of all streaming input, extends this abstract class to implement a streaming input.
- * */
 abstract class BaseJavaStreamingInput[T] extends BaseStreamingInput[T] {
 
   def rdd2dataset(spark: SparkSession, rdd: RDD[T]): Dataset[Row] = {
