@@ -189,9 +189,15 @@ object Waterdrop extends Logging {
       var ds = staticInputs.head.getDataset(sparkSession)
 
       for (f <- filters) {
-        if (ds.take(1).length > 0) {
-          ds = f.process(sparkSession, ds)
-        }
+        // WARN: we do not check whether dataset is empty or not
+        // because take(n)(limit in logic plan) do not support pushdown in spark sql
+        // To address the limit n problem, we can implemented in datasource code(such as hbase datasource)
+        // or just simply do not take(n).
+        // if (ds.take(1).length > 0) {
+        //  ds = f.process(sparkSession, ds)
+        // }
+
+        ds = f.process(sparkSession, ds)
       }
       outputs.foreach(p => {
         p.process(ds)
