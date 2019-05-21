@@ -7,6 +7,10 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.api.java.{JavaDStream, JavaStreamingContext}
 import org.apache.spark.streaming.dstream.DStream
 
+/**
+ * A Java-friendly version of [[BaseStreamingInput]] that returns
+ * [[BaseJavaStreamingInput]]s and works with JavaStreamingContext, JavaRDD instead of Scala ones.
+ * */
 abstract class BaseJavaStreamingInput[T] extends BaseStreamingInput[T] {
 
   def rdd2dataset(spark: SparkSession, rdd: RDD[T]): Dataset[Row] = {
