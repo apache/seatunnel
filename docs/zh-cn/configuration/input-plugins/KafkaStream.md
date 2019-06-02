@@ -38,7 +38,7 @@ Kafka集群地址，多个用","隔开
 
 Spark Structured Streaming 中 Kafka Source 可选参数参考 [Structured Streaming + Kafka Integration Guide](https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html#reading-data-from-kafka)
 
-指定参数的方式是在原参数名称上加上前缀"consumer."，如指定`rebalance.max.retries`的方式是: `consumer.rebalance.max.retries = 100`。如果不指定这些非必须参数，它们将使用Kafka官方文档给出的默认值。
+指定参数的方式是在原参数名称上加上前缀"consumer."，如指定`auto.offset.reset`的方式是: `consumer.auto.offset.reset = latest`。如果不指定这些非必须参数，它们将使用Kafka官方文档给出的默认值。
 
 ##### offset.location [string]
 
@@ -53,7 +53,6 @@ kafkaStream {
     topics = "waterdrop"
     consumer.bootstrap.servers = "localhost:9092"
     consumer.group.id = "waterdrop_group"
-    consumer.rebalance.max.retries = 100
 }
 ```
 
@@ -64,7 +63,6 @@ kafkaStream {
     topics = "waterdrop"
     consumer.bootstrap.servers = "localhost:9092"
     consumer.group.id = "waterdrop_group"
-    consumer.rebalance.max.retries = 100
     consumer.failOnDataLoss = false
 }
 ```
