@@ -15,6 +15,7 @@
 | [producer.bootstrap.servers](#producerbootstrapservers-string) | string | yes | - | all streaming |
 | [topic](#topic-string) | string | yes | - | all streaming |
 | [producer.*](#producer-string) | string | no | - | all streaming |
+| [serializer](#serializer-string) | string | no | json | all streaming |
 | [streaming_output_mode](#streaming_output_mode-string) | string | no | append | structured streaming |
 | [checkpointLocation](#checkpointLocation-string) | string | no | - | structured streaming |
 
@@ -34,14 +35,21 @@ Kafka Topic
 指定参数的方式是在原参数名称上加上前缀"producer."，如指定`request.timeout.ms`的方式是: `producer.request.timeout.ms = 60000`。如果不指定这些非必须参数，它们将使用Kafka官方文档给出的默认值。
 
 
-### Notes
+######  Notes
+
 在作为structured streaming 的output的时候，你可以添加一些额外的参数，来达到相应的效果
 
-#### checkpointLocation [string]
+##### checkpointLocation [string]
+
 你可以指定是否启用checkpoint，通过配置**checkpointLocation**这个参数
 
-#### streaming_output_mode [string]
+##### streaming_output_mode [string]
+
 你可以指定输出模式，complete|append|update三种，详见Spark文档http://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#output-modes
+
+##### serializer [string]
+
+序列化方法，当前支持json和text，如果选择text方式，需保证数据结构中仅有一个字段。
 
 ### Examples
 

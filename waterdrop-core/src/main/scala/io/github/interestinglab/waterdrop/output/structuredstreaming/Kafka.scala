@@ -4,6 +4,7 @@ import java.util.Properties
 
 import com.alibaba.fastjson.JSONObject
 import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.UserRuntimeException
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.{KafkaProducerUtil, StructuredUtils}
@@ -39,6 +40,7 @@ class Kafka extends BaseStructuredStreamingOutput {
     topic = config.getString("topic")
     val defaultConfig = ConfigFactory.parseMap(
       Map(
+        "serializer" -> "json",
         "streaming_output_mode" -> "Append",
         "trigger_type" -> "default",
         producerPrefix + "retries" -> 2,
@@ -50,7 +52,8 @@ class Kafka extends BaseStructuredStreamingOutput {
     )
     config = config.withFallback(defaultConfig)
     val props = new Properties()
-    TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
+    TypesafeConfigUtils
+      .extractSubConfig(config, producerPrefix, false)
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey
@@ -68,7 +71,8 @@ class Kafka extends BaseStructuredStreamingOutput {
 
     TypesafeConfigUtils.hasSubConfig(config, outConfPrefix) match {
       case true => {
-        TypesafeConfigUtils.extractSubConfig(config, outConfPrefix, false)
+        TypesafeConfigUtils
+          .extractSubConfig(config, outConfPrefix, false)
           .entrySet()
           .foreach(entry => {
             val key = entry.getKey
@@ -89,10 +93,25 @@ class Kafka extends BaseStructuredStreamingOutput {
    * Things to do with each Row.
    **/
   override def process(row: Row): Unit = {
-    val json = new JSONObject()
-    row.schema.fieldNames
-      .foreach(field => json.put(field, row.getAs(field)))
-    kafkaSink.value.send(topic, json.toJSONString)
+
+    config.getString("serializer") match {
+      case "text" => {
+        if (row.schema.size != 1) {
+          throw new UserRuntimeException(
+            s"Text data source supports only a single column," +
+              s" and you have ${row.schema.size} columns.")
+        } else {
+          kafkaSink.value.send(topic, row.getAs[String](0))
+        }
+      }
+      case _ => {
+        val json = new JSONObject()
+        row.schema.fieldNames
+          .foreach(field => json.put(field, row.getAs(field)))
+        kafkaSink.value.send(topic, json.toJSONString)
+      }
+    }
+
   }
 
   /**

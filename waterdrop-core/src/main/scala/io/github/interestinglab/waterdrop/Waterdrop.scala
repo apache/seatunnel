@@ -36,7 +36,7 @@ object Waterdrop extends Logging {
               case Success(_) => {}
               case Failure(exception) => {
                 exception match {
-                  case e: ConfigRuntimeException => showConfigError(e)
+                  case e @ (_: ConfigRuntimeException | _: UserRuntimeException) => Waterdrop.showConfigError(e)
                   case e: Exception => showFatalError(e)
                 }
               }

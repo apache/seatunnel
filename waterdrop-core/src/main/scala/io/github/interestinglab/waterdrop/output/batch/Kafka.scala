@@ -3,6 +3,7 @@ package io.github.interestinglab.waterdrop.output.batch
 import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.UserRuntimeException
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.KafkaProducerUtil
@@ -77,12 +78,29 @@ class Kafka extends BaseOutput {
 
   override def process(df: Dataset[Row]) {
 
-    val dataSet = df.toJSON
-    dataSet.foreach { row =>
-      kafkaSink.foreach { ks =>
-        ks.value.send(config.getString("topic"), row)
+    val topic = config.getString("topic")
+    config.getString("serializer") match {
+      case "text" => {
+        if (df.schema.size != 1) {
+          throw new UserRuntimeException(
+            s"Text data source supports only a single column," +
+              s" and you have ${df.schema.size} columns.")
+        } else {
+          df.foreach { row =>
+            kafkaSink.foreach { ks =>
+              ks.value.send(topic, row.getAs[String](0))
+            }
+          }
+        }
+      }
+      case _ => {
+        val dataSet = df.toJSON
+        dataSet.foreach { row =>
+          kafkaSink.foreach { ks =>
+            ks.value.send(topic, row)
+          }
+        }
       }
     }
   }
-
 }
