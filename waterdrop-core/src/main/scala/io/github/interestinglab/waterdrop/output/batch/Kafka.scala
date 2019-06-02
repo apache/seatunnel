@@ -80,14 +80,6 @@ class Kafka extends BaseOutput {
 
     val topic = config.getString("topic")
     config.getString("serializer") match {
-      case "json" => {
-        val dataSet = df.toJSON
-        dataSet.foreach { row =>
-          kafkaSink.foreach { ks =>
-            ks.value.send(topic, row)
-          }
-        }
-      }
       case "text" => {
         if (df.schema.size != 1) {
           throw new WaterdropRuntimeException(
@@ -96,8 +88,16 @@ class Kafka extends BaseOutput {
         } else {
           df.foreach { row =>
             kafkaSink.foreach { ks =>
-              ks.value.send(topic, row.getAs[String](1))
+              ks.value.send(topic, row.getAs[String](0))
             }
+          }
+        }
+      }
+      case _ => {
+        val dataSet = df.toJSON
+        dataSet.foreach { row =>
+          kafkaSink.foreach { ks =>
+            ks.value.send(topic, row)
           }
         }
       }
