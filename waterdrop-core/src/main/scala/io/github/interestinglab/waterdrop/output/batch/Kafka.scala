@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.output.batch
 import java.util.Properties
 
 import com.typesafe.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.WaterdropRuntimeException
+import io.github.interestinglab.waterdrop.UserRuntimeException
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.KafkaProducerUtil
@@ -82,7 +82,7 @@ class Kafka extends BaseOutput {
     config.getString("serializer") match {
       case "text" => {
         if (df.schema.size != 1) {
-          throw new WaterdropRuntimeException(
+          throw new UserRuntimeException(
             s"Text data source supports only a single column," +
               s" and you have ${df.schema.size} columns.")
         } else {
