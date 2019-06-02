@@ -36,7 +36,7 @@ object WaterdropStructuredStreaming extends Logging {
               case Success(_) => {}
               case Failure(exception) => {
                 exception match {
-                  case e: ConfigRuntimeException => Waterdrop.showConfigError(e)
+                  case e: ConfigRuntimeException | UserRuntimeException => Waterdrop.showConfigError(e)
                   case e: OffsetOutOfRangeException => showKnownError("Please remove checkpoint dir.", e)
                   case e: Exception => Waterdrop.showFatalError(e)
                 }

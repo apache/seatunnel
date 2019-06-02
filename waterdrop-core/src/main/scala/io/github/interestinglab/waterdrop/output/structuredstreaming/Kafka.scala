@@ -4,7 +4,7 @@ import java.util.Properties
 
 import com.alibaba.fastjson.JSONObject
 import com.typesafe.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.WaterdropRuntimeException
+import io.github.interestinglab.waterdrop.UserRuntimeException
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.{KafkaProducerUtil, StructuredUtils}
@@ -97,7 +97,7 @@ class Kafka extends BaseStructuredStreamingOutput {
     config.getString("serializer") match {
       case "text" => {
         if (row.schema.size != 1) {
-          throw new WaterdropRuntimeException(
+          throw new UserRuntimeException(
             s"Text data source supports only a single column," +
               s" and you have ${row.schema.size} columns.")
         } else {
