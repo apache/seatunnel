@@ -89,6 +89,7 @@ ClickHouse用户用户名，仅当ClickHouse中开启权限时需要此字段
 |Float64| double| double()||
 |Array(T)|-|-|
 |Nullable(T)|取决于T|取决于T||
+|LowCardinality(T)|取决于T|取决于T||
 
 
 ### Examples
