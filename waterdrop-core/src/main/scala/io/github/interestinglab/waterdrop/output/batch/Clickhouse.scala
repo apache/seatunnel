@@ -223,6 +223,8 @@ class Clickhouse extends BaseOutput {
         statement.setLong(index + 1, 0)
       case "Float32" => statement.setFloat(index + 1, 0)
       case "Float64" => statement.setDouble(index + 1, 0)
+      case Clickhouse.lowCardinalityPattern(lowCardinalityType) =>
+        renderDefaultStatement(index, lowCardinalityType, statement)
       case Clickhouse.arrayPattern(_) => statement.setArray(index + 1, List())
       case Clickhouse.nullablePattern(nullFieldType) => renderNullStatement(index, nullFieldType, statement)
       case _ => statement.setString(index + 1, "")
@@ -281,8 +283,10 @@ class Clickhouse extends BaseOutput {
             renderBaseTypeStatement(i, field, fieldType, item, statement)
           case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
             renderBaseTypeStatement(i, field, fieldType, item, statement)
-          case Clickhouse.nullablePattern(nullType) =>
-            renderBaseTypeStatement(i, field, nullType, item, statement)
+          case Clickhouse.nullablePattern(dataType) =>
+            renderBaseTypeStatement(i, field, dataType, item, statement)
+          case Clickhouse.lowCardinalityPattern(dataType) =>
+            renderBaseTypeStatement(i, field, dataType, item, statement)
           case _ => statement.setString(i + 1, item.getAs[String](field))
         }
       }
@@ -294,6 +298,7 @@ object Clickhouse {
 
   val arrayPattern: Regex = "(Array.*)".r
   val nullablePattern: Regex = "Nullable\\((.*)\\)".r
+  val lowCardinalityPattern: Regex = "LowCardinality\\((.*)\\)".r
   val intPattern: Regex = "(Int.*)".r
   val uintPattern: Regex = "(UInt.*)".r
   val floatPattern: Regex = "(Float.*)".r
@@ -309,6 +314,8 @@ object Clickhouse {
       case "Date" | "DateTime" | "String" =>
         true
       case arrayPattern(_) | nullablePattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
+        true
+      case lowCardinalityPattern(_) =>
         true
       case _ =>
         false
