@@ -154,9 +154,11 @@ object Waterdrop extends Logging {
 
         streamingInputs(0).beforeOutput
 
-        outputs.foreach(p => {
-          p.process(ds)
-        })
+        if (ds.take(1).length > 0) {
+          outputs.foreach(p => {
+            p.process(ds)
+          })
+        }
 
         streamingInputs(0).afterOutput
 
