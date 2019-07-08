@@ -98,9 +98,11 @@ string_trim() {
     echo $1 | awk '{$1=$1;print}'
 }
 
+variables_substitution=$(string_trim "${variables_substitution}")
+
 ## get spark conf from config file and specify them in spark-submit
 function get_spark_conf {
-    spark_conf=$(java -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
+    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
         exit -1
@@ -113,7 +115,6 @@ sparkconf=$(get_spark_conf)
 echo "[INFO] spark conf: ${sparkconf}"
 
 # Spark Driver Options
-variables_substitution=$(string_trim "${variables_substitution}")
 driverJavaOpts=""
 executorJavaOpts=""
 clientModeDriverJavaOpts=""
