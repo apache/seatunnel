@@ -118,7 +118,7 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 * [字节跳动](https://bytedance.com/zh)，广告数据平台
 
-![字节跳动 Logo](../images/bytedance-logo.jpeg ':size=100%')
+![字节跳动 Logo](../images/bytedance-logo.jpeg ':size=40%')
 
 字节跳动使用Waterdrop实现了多源数据的关联分析(如Hive和ES的数据源关联查询分析)，大大简化了不同数据源之间的分析对比工作，并且节省了大量的Spark程序的学习和开发时间。
 
@@ -146,7 +146,7 @@ Watedrop 为浙江乐控信息科技有限公司旗下乐控智能提供物联�
 
 * [上海分蛋信息科技](https://91fd.com)，大数据数据分析平台
 
-![上海分蛋信息科技 logo](../images/fendan-keji-logo.jpeg ':size=100%')
+![上海分蛋信息科技 logo](../images/fendan-keji-logo.jpeg ':size=70%')
 
 分蛋科技使用Waterdrop做数据仓库实时同步，近百个Pipeline同步处理；数据流实时统计，数据平台指标离线计算。
 
