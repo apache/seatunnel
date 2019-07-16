@@ -87,6 +87,7 @@ ClickHouse用户用户名，仅当ClickHouse中开启权限时需要此字段
 |Uint64| long| bigint()||
 |Float32| float| float()||
 |Float64| double| double()||
+|Decimal(P, S)| - | CAST(source AS DECIMAL(P, S)) |Decimal32(S), Decimal64(S), Decimal128(S)皆可使用|
 |Array(T)|-|-|
 |Nullable(T)|取决于T|取决于T||
 |LowCardinality(T)|取决于T|取决于T||
