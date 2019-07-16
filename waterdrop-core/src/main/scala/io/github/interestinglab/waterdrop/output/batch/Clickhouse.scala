@@ -3,6 +3,7 @@ package io.github.interestinglab.waterdrop.output.batch
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
+import java.math.BigDecimal;
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
@@ -142,7 +143,10 @@ class Clickhouse extends BaseOutput {
   private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
     val res = Try(statement.executeBatch())
     res match {
-      case Success(_) => logInfo("Insert into ClickHouse succeed")
+      case Success(_) => {
+        logInfo("Insert into ClickHouse succeed")
+        statement.close()
+      }
       case Failure(e: ClickHouseException) => {
         val errorCode = e.getErrorCode
         if (retryCodes.contains(errorCode)) {
@@ -151,12 +155,14 @@ class Clickhouse extends BaseOutput {
             execute(statement, retry - 1)
           } else {
             logError("Insert into ClickHouse failed and retry failed, drop this bulk.")
+            statement.close()
           }
         } else {
           throw e
         }
       }
       case Failure(e: ClickHouseUnknownException) => {
+        statement.close()
         throw e
       }
       case Failure(e: Exception) => {
@@ -263,6 +269,7 @@ class Clickhouse extends BaseOutput {
       case "Float64" => statement.setDouble(index + 1, item.getAs[Double](field))
       case Clickhouse.arrayPattern(_) =>
         statement.setArray(index + 1, item.getAs[WrappedArray[AnyRef]](field))
+      case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](field))
       case _ => statement.setString(index + 1, item.getAs[String](field))
     }
   }
@@ -287,6 +294,8 @@ class Clickhouse extends BaseOutput {
             renderBaseTypeStatement(i, field, dataType, item, statement)
           case Clickhouse.lowCardinalityPattern(dataType) =>
             renderBaseTypeStatement(i, field, dataType, item, statement)
+          case Clickhouse.decimalPattern(_) =>
+            renderBaseTypeStatement(i, field, "Decimal", item, statement)
           case _ => statement.setString(i + 1, item.getAs[String](field))
         }
       }
@@ -302,6 +311,7 @@ object Clickhouse {
   val intPattern: Regex = "(Int.*)".r
   val uintPattern: Regex = "(UInt.*)".r
   val floatPattern: Regex = "(Float.*)".r
+  val decimalPattern: Regex = "(Decimal.*)".r
 
   /**
    * Waterdrop support this clickhouse data type or not.
@@ -316,6 +326,8 @@ object Clickhouse {
       case arrayPattern(_) | nullablePattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
         true
       case lowCardinalityPattern(_) =>
+        true
+      case decimalPattern(_) =>
         true
       case _ =>
         false
