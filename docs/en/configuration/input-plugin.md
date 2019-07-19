@@ -1,5 +1,0 @@
-# Input Plugin
-
-## Introduction
-
-## list
