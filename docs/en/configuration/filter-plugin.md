@@ -1,5 +1,0 @@
-# Filter Plugin
-
-## Introduction
-
-## list
