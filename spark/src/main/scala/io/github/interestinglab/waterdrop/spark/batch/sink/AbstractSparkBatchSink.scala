@@ -4,6 +4,6 @@ import io.github.interestinglab.waterdrop.apis.BaseSink
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchEnv
 import org.apache.spark.sql.{Dataset, Row}
 
-class AbstractSparkBatchSink extends BaseSink[Dataset[Row], Void, SparkBatchEnv]{
+abstract class AbstractSparkBatchSink extends BaseSink[Dataset[Row], Void, SparkBatchEnv]{
 
 }
