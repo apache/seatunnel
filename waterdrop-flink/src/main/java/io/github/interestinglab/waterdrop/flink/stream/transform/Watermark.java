@@ -50,7 +50,7 @@ public class Watermark extends AbstractFlinkStreamTransform<Row,Row> {
 
     @Override
     public void prepare() {
-        if (config.hasPath("lateness")){
+        if (config.hasPath("eventTime.lateness")){
             lateness = config.getLong("eventTime.lateness");
         }
         if (config.hasPath("eventTime.index")){

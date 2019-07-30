@@ -18,11 +18,6 @@ public class DataSteamToTable extends AbstractFlinkStreamTransform<Row,Void> {
     @Override
     public DataStream<Void> process(DataStream<Row> dataStream, FlinkStreamEnv env) {
         StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
-        //===========窗口操作需要+wtime.rowtime
-//        String[] names = ((RowTypeInfo) dataStream.getType()).getFieldNames();
-//        String join = StringUtils.join(names, ",");
-//        tableEnvironment.registerDataStream(tableName,dataStream,"wtime.rowtime,"+join);
-        //===========
         tableEnvironment.registerDataStream(tableName,dataStream);
         return null;
     }

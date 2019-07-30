@@ -56,7 +56,7 @@ public class KafkaTableStream extends InternalFlinkStreamSource<Void> {
                 .withFormat(setFormat())
                 .withSchema(setSchema())
                 .inAppendMode()
-                .registerTableSink(tableName);
+                .registerTableSource(tableName);
         return null;
     }
 
@@ -74,7 +74,7 @@ public class KafkaTableStream extends InternalFlinkStreamSource<Void> {
 
     private Kafka getKafkaConnect(){
 
-        Kafka kafka = new Kafka().version("0.10");
+        Kafka kafka = new Kafka().version("universal");
         kafka.topic(topic);
         kafka.properties(kafkaParams);
         return kafka;
