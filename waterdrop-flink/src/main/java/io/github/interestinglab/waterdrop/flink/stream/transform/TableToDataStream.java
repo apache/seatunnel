@@ -31,18 +31,9 @@ public class TableToDataStream extends AbstractFlinkStreamTransform<Void, Row> {
         RowTypeInfo rowTypeInfo = new RowTypeInfo(informations, fieldNames);
         SingleOutputStreamOperator<Row> ds = tableEnvironment
                 .toRetractStream(table, rowTypeInfo)
-                .filter(new FilterFunction<Tuple2<Boolean, Row>>() {
-                    @Override
-                    public boolean filter(Tuple2<Boolean, Row> value) throws Exception {
-                        return value.f0;
-                    }
-                })
-                .map(new MapFunction<Tuple2<Boolean, Row>, Row>() {
-                    @Override
-                    public Row map(Tuple2<Boolean, Row> value) throws Exception {
-                        return value.f1;
-                    }
-                });
+                .filter(row -> row.f0)
+                .map(row -> row.f1)
+                .returns(rowTypeInfo);
         return ds;
     }
 
