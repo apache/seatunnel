@@ -106,8 +106,8 @@ class Clickhouse extends BaseOutput {
 
     if (config.hasPath("fields")) {
       this.initSQL = initPrepareSQL()
+      logInfo(this.initSQL)
     }
-    logInfo(this.initSQL)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
