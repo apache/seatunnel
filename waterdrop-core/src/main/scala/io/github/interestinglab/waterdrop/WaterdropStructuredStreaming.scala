@@ -103,7 +103,7 @@ object WaterdropStructuredStreaming extends Logging {
     })
 
     // let static input register as table for later use if needed
-    Waterdrop.registerTempView(staticInputs, sparkSession)
+    Waterdrop.registerInputTempView(staticInputs, sparkSession)
 
     Waterdrop.showWaterdropAsciiLogo()
 
