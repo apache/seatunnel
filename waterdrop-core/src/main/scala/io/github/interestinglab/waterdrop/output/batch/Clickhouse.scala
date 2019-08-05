@@ -46,7 +46,7 @@ class Clickhouse extends BaseOutput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    val requiredOptions = List("host", "table", "database", "fields")
+    val requiredOptions = List("host", "table", "database")
 
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
@@ -91,16 +91,23 @@ class Clickhouse extends BaseOutput {
 
       this.table = config.getString("table")
       this.tableSchema = getClickHouseSchema(conn, table)
-      this.fields = config.getStringList("fields")
 
-      acceptedClickHouseSchema()
+      if (this.config.hasPath("fields")) {
+        this.fields = config.getStringList("fields")
+        acceptedClickHouseSchema()
+      } else {
+        (true, "")
+      }
+
     }
   }
 
   override def prepare(spark: SparkSession): Unit = {
 
-    this.initSQL = initPrepareSQL()
-    logInfo(this.initSQL)
+    if (config.hasPath("fields")) {
+      this.initSQL = initPrepareSQL()
+      logInfo(this.initSQL)
+    }
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
@@ -119,6 +126,11 @@ class Clickhouse extends BaseOutput {
     val dfFields = df.schema.fieldNames
     val bulkSize = config.getInt("bulk_size")
     val retry = config.getInt("retry")
+
+    if (!config.hasPath("fields")) {
+      fields = dfFields.toList
+      initSQL = initPrepareSQL()
+    }
     df.foreachPartition { iter =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
       val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]

@@ -15,7 +15,7 @@
 | [bulk_size](#bulk_size-number) | number| no |20000|
 | [clickhouse.*](#clickhouse-string) | string| no ||
 | [database](#database-string) | string |yes|-|
-| [fields](#fields-array) | array | yes |-|
+| [fields](#fields-array) | array | no |-|
 | [host](#host-string) | string | yes |-|
 | [password](#password-string) | string | no |-|
 | [retry](#retry-number) | number| no |1|
@@ -34,7 +34,7 @@ ClickHouse database
 
 ##### fields [array]
 
-需要输出到ClickHouse的数据字段。
+需要输出到ClickHouse的数据字段，若不配置将会自动根据数据的Schema适配。
 
 ##### host [string]
 
