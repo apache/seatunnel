@@ -40,7 +40,7 @@ filter {
     result_table_name = "sql_result_table_1"
   }
 
-  # Read data from view table <temp_view_2> and register table view of <sql_result_table_2>
+  # Read data from view table <split_table> and register table view of <sql_result_table_2>
   sql {
     table_name = "temp_view_2"
     source_table_name = "split_table"
@@ -55,6 +55,8 @@ filter {
 }
 
 output {
+
+  # Output each source_table
   stdout {
     source_table_name = "split_table"
   }
