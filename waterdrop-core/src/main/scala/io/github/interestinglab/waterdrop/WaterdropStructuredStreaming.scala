@@ -107,6 +107,7 @@ object WaterdropStructuredStreaming extends Logging {
     var ds: Dataset[Row] = datasetList.get(0)
     for (f <- filters) {
       ds = Waterdrop.filterProcess(sparkSession, f, ds)
+      Waterdrop.registerTempView(f, ds)
     }
 
     var streamingQueryList = List[StreamingQuery]()
@@ -128,8 +129,8 @@ object WaterdropStructuredStreaming extends Logging {
     val config = output.getConfig()
     val fromDs = config.hasPath("source_table_name") match {
       case true => {
-        val SourceTableName = config.getString("source_table_name")
-        sparkSession.read.table(SourceTableName)
+        val sourceTableName = config.getString("source_table_name")
+        sparkSession.read.table(sourceTableName)
       }
       case false => ds
     }

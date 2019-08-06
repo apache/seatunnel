@@ -153,6 +153,7 @@ object Waterdrop extends Logging {
         for (f <- filters) {
           if (ds.take(1).length > 0) {
             ds = filterProcess(sparkSession, f, ds)
+            registerTempView(f, ds)
           }
         }
 
@@ -220,8 +221,8 @@ object Waterdrop extends Logging {
     val config = filter.getConfig()
     val fromDs = config.hasPath("source_table_name") match {
       case true => {
-        val SourceTableName = config.getString("source_table_name")
-        sparkSession.read.table(SourceTableName)
+        val sourceTableName = config.getString("source_table_name")
+        sparkSession.read.table(sourceTableName)
       }
       case false => ds
     }
@@ -233,8 +234,8 @@ object Waterdrop extends Logging {
     val config = output.getConfig()
     val fromDs = config.hasPath("source_table_name") match {
       case true => {
-        val SourceTableName = config.getString("source_table_name")
-        sparkSession.read.table(SourceTableName)
+        val sourceTableName = config.getString("source_table_name")
+        sparkSession.read.table(sourceTableName)
       }
       case false => ds
     }
