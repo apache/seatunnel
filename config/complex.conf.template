@@ -1,0 +1,77 @@
+######
+###### This config file is a demonstration of streaming processing in waterdrop config
+######
+
+spark {
+  # You can set spark configuration here
+  # Waterdrop defined streaming batch duration in seconds
+  spark.streaming.batchDuration = 5
+
+  # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
+  spark.app.name = "Waterdrop"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+}
+
+input {
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+
+  fake {
+    table_name = "my_dataset"
+  }
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+filter {
+  split {
+    fields = ["msg", "name"]
+    delimiter = " "
+    result_table_name = "split_table"
+  }
+
+  # Read data from <split_table> and register table view of <sql_result_table_1>
+  sql {
+    table_name = "temp_view_1"
+    sql = "select * from temp_view_1 where name = 'rickyhuo'"
+    result_table_name = "sql_result_table_1"
+  }
+
+  # Read data from view table <temp_view_2> and register table view of <sql_result_table_2>
+  sql {
+    table_name = "temp_view_2"
+    source_table_name = "split_table"
+    sql = "select * from temp_view_2 where name = 'kid-xiong'"
+    result_table_name = "sql_result_table_2"
+  }
+
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+output {
+  stdout {
+    source_table_name = "split_table"
+  }
+
+  stdout {
+    source_table_name = "sql_result_table_1"
+  }
+
+  stdout {
+    source_table_name = "sql_result_table_2"
+  }
+
+
+
+
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
