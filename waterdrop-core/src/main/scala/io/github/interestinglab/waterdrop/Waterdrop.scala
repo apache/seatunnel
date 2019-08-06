@@ -239,8 +239,6 @@ object Waterdrop extends Logging {
     val fromDs = config.hasPath("source_table_name") match {
       case true => {
         val sourceTableName = config.getString("source_table_name")
-        println(sourceTableName)
-        println(viewTableMap)
         sparkSession.read.table(sourceTableName)
       }
       case false => ds
@@ -317,7 +315,6 @@ object Waterdrop extends Logging {
     val config = plugin.getConfig()
     if (config.hasPath("result_table_name")) {
       val tableName = config.getString("result_table_name")
-      println(tableName)
       registerTempView(tableName, ds)
     }
   }
