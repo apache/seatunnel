@@ -4,12 +4,7 @@ import io.github.interestinglab.waterdrop.apis._
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.streaming.StreamingQueryListener.{
-  QueryProgressEvent,
-  QueryStartedEvent,
-  QueryTerminatedEvent
-}
-import org.apache.spark.sql.streaming.{StreamingQuery, StreamingQueryListener}
+import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.kafka.clients.consumer.OffsetOutOfRangeException
 
@@ -99,7 +94,9 @@ object WaterdropStructuredStreaming extends Logging {
     Waterdrop.basePrepare(sparkSession, staticInputs, structuredStreamingInputs, filters, structuredStreamingOutputs)
 
     val datasetList = structuredStreamingInputs.map(p => {
-      p.getDataset(sparkSession)
+      val ds = p.getDataset(sparkSession)
+      Waterdrop.registerTempView(p, ds)
+      ds
     })
 
     // let static input register as table for later use if needed
@@ -109,19 +106,35 @@ object WaterdropStructuredStreaming extends Logging {
 
     var ds: Dataset[Row] = datasetList.get(0)
     for (f <- filters) {
-      ds = f.process(sparkSession, ds)
+      ds = Waterdrop.filterProcess(sparkSession, f, ds)
     }
 
     var streamingQueryList = List[StreamingQuery]()
 
     for (output <- structuredStreamingOutputs) {
-      val start = output.process(ds).start()
+      val start = structuredStreamingOutputProcess(sparkSession, output, ds).start()
       streamingQueryList = streamingQueryList :+ start
     }
 
     for (streamingQuery <- streamingQueryList) {
       streamingQuery.awaitTermination()
     }
+  }
+
+  private def structuredStreamingOutputProcess(
+    sparkSession: SparkSession,
+    output: BaseStructuredStreamingOutputIntra,
+    ds: Dataset[Row]): DataStreamWriter[Row] = {
+    val config = output.getConfig()
+    val fromDs = config.hasPath("source_table_name") match {
+      case true => {
+        val SourceTableName = config.getString("source_table_name")
+        sparkSession.read.table(SourceTableName)
+      }
+      case false => ds
+    }
+
+    output.process(fromDs)
   }
 
 }

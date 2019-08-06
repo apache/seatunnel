@@ -140,17 +140,19 @@ object Waterdrop extends Logging {
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
-    streamingInputs(0).start(
+    val streamingInput = streamingInputs(0)
+    streamingInput.start(
       sparkSession,
       ssc,
       dataset => {
 
         var ds = dataset
+        registerTempView(streamingInput, ds)
 
         // Ignore empty schema dataset
         for (f <- filters) {
           if (ds.take(1).length > 0) {
-            ds = process(sparkSession, f, ds)
+            ds = filterProcess(sparkSession, f, ds)
           }
         }
 
@@ -158,7 +160,7 @@ object Waterdrop extends Logging {
 
         if (ds.take(1).length > 0) {
           outputs.foreach(p => {
-            p.process(ds)
+            outputProcess(sparkSession, p, ds)
           })
         }
 
@@ -201,12 +203,12 @@ object Waterdrop extends Logging {
         //  ds = f.process(sparkSession, ds)
         // }
 
-        ds = process(sparkSession, f, ds)
+        ds = filterProcess(sparkSession, f, ds)
         registerTempView(f, ds)
 
       }
       outputs.foreach(p => {
-        p.process(ds)
+        outputProcess(sparkSession, p, ds)
       })
 
     } else {
@@ -214,15 +216,30 @@ object Waterdrop extends Logging {
     }
   }
 
-  private[waterdrop] def process(sparkSession: SparkSession, filter: BaseFilter, ds: Dataset[Row]): Dataset[Row] = {
+  private[waterdrop] def filterProcess(sparkSession: SparkSession, filter: BaseFilter, ds: Dataset[Row]): Dataset[Row] = {
     val config = filter.getConfig()
-    config.hasPath("source_table_name") match {
+    val fromDs = config.hasPath("source_table_name") match {
       case true => {
         val SourceTableName = config.getString("source_table_name")
         sparkSession.read.table(SourceTableName)
       }
       case false => ds
     }
+
+    filter.process(sparkSession, fromDs)
+  }
+
+  private[waterdrop] def outputProcess(sparkSession: SparkSession, output: BaseOutput, ds: Dataset[Row]): Unit = {
+    val config = output.getConfig()
+    val fromDs = config.hasPath("source_table_name") match {
+      case true => {
+        val SourceTableName = config.getString("source_table_name")
+        sparkSession.read.table(SourceTableName)
+      }
+      case false => ds
+    }
+
+    output.process(fromDs)
   }
 
   private[waterdrop] def basePrepare(sparkSession: SparkSession, plugins: List[Plugin]*): Unit = {

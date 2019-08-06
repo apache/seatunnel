@@ -147,9 +147,6 @@ class KafkaStream extends BaseStructuredStreamingInput {
         tmpDf = tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
       }
       dataFrame = tmpDf.drop(RowConstant.TMP)
-      if (config.hasPath("table_name")) {
-        dataFrame.createOrReplaceTempView(config.getString("table_name"))
-      }
     }
     dataFrame
   }
