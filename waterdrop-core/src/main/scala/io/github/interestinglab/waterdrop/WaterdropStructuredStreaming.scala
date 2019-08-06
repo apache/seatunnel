@@ -95,7 +95,7 @@ object WaterdropStructuredStreaming extends Logging {
 
     val datasetList = structuredStreamingInputs.map(p => {
       val ds = p.getDataset(sparkSession)
-      Waterdrop.registerTempView(p, ds)
+      Waterdrop.registerInputTempView(p, ds)
       ds
     })
 
@@ -107,7 +107,7 @@ object WaterdropStructuredStreaming extends Logging {
     var ds: Dataset[Row] = datasetList.get(0)
     for (f <- filters) {
       ds = Waterdrop.filterProcess(sparkSession, f, ds)
-      Waterdrop.registerTempView(f, ds)
+      Waterdrop.registerFilterTempView(f, ds)
     }
 
     var streamingQueryList = List[StreamingQuery]()
