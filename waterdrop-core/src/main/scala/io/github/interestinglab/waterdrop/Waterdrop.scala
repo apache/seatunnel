@@ -147,7 +147,11 @@ object Waterdrop extends Logging {
       dataset => {
 
         var ds = dataset
-        registerInputTempView(streamingInput, ds)
+
+        val config = streamingInput.getConfig()
+        if (config.hasPath("table_name") || config.hasPath("result_table_name")) {
+          registerInputTempView(streamingInput, ds)
+        }
 
         // Ignore empty schema dataset
         for (f <- filters) {
