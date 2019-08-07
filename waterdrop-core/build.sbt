@@ -49,7 +49,7 @@ libraryDependencies ++= Seq(
   "org.mongodb.spark" %% "mongo-spark-connector" % "2.2.0",
   "org.apache.kudu" %% "kudu-spark2" % "1.7.0",
   "com.alibaba" % "QLExpress" % "3.2.0",
-  "com.alibaba" % "fastjson" % "1.2.47",
+  "com.alibaba" % "fastjson" % "1.2.51",
   "com.alibaba" % "druid" % "1.1.10",
   "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
