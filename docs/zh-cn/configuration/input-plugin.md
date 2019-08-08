@@ -1,6 +1,6 @@
 # Input 插件
 
-### 共有变量
+### Input插件通用参数
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
@@ -15,7 +15,8 @@
 
 ##### table_name [string]
 
-功能同 `result_table_name`，已弃置，后续将停止使用。
+**\[已废弃\]** 功能同 `result_table_name`，后续 Release 版本中将删除此参数，建议使用 `result_table_name` 参数
+
 
 ### 使用样例
 
@@ -24,3 +25,5 @@ fake {
     result_table_name = "view_table_2"
 }
 ```
+
+> 数据源 `fake` 的结果将注册为名为 `view_table_2` 的临时表。这个临时表，可以被任意 `Filter` 或者 `Output` 插件使用。

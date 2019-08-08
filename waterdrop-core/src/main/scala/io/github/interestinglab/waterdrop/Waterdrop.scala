@@ -221,7 +221,10 @@ object Waterdrop extends Logging {
     }
   }
 
-  private[waterdrop] def filterProcess(sparkSession: SparkSession, filter: BaseFilter, ds: Dataset[Row]): Dataset[Row] = {
+  private[waterdrop] def filterProcess(
+    sparkSession: SparkSession,
+    filter: BaseFilter,
+    ds: Dataset[Row]): Dataset[Row] = {
     val config = filter.getConfig()
     val fromDs = config.hasPath("source_table_name") match {
       case true => {
@@ -280,7 +283,9 @@ object Waterdrop extends Logging {
     deployModeCheck()
   }
 
-  private[waterdrop] def registerInputTempView(staticInputs: List[BaseStaticInput], sparkSession: SparkSession): Unit = {
+  private[waterdrop] def registerInputTempView(
+    staticInputs: List[BaseStaticInput],
+    sparkSession: SparkSession): Unit = {
     for (input <- staticInputs) {
 
       val ds = input.getDataset(sparkSession)
@@ -290,7 +295,7 @@ object Waterdrop extends Logging {
 
   private[waterdrop] def registerInputTempView(input: Plugin, ds: Dataset[Row]): Unit = {
     val config = input.getConfig()
-    config.hasPath("table_name") || config.hasPath("source_table_name") match {
+    config.hasPath("table_name") || config.hasPath("result_table_name") match {
       case true => {
         val tableName = config.hasPath("table_name") match {
           case true => {
@@ -305,7 +310,7 @@ object Waterdrop extends Logging {
 
       case false => {
         throw new ConfigRuntimeException(
-          "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
+          "Plugin[" + input.name + "] must be registered as dataset/table, please set \"result_table_name\" config")
 
       }
     }
@@ -324,7 +329,7 @@ object Waterdrop extends Logging {
       case true =>
         throw new ConfigRuntimeException(
           "Detected duplicated Dataset["
-            + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
+            + tableName + "], it seems that you configured result_table_name = \"" + tableName + "\" in multiple static inputs")
       case _ => {
         ds.createOrReplaceTempView(tableName)
         viewTableMap += (tableName -> "")

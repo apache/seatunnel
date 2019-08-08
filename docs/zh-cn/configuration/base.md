@@ -111,4 +111,4 @@ output {
 
 [配置示例2 : Batch 离线批处理](https://github.com/InterestingLab/waterdrop/blob/master/config/batch.conf.template)
 
-[配置示例3 : 复杂数据流处理](https://github.com/InterestingLab/waterdrop/blob/master/config/complex.conf.template)
+[配置示例3 : 一个灵活的多数据流程处理](https://github.com/InterestingLab/waterdrop/blob/master/config/complex.conf.template)

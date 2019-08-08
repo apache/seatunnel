@@ -18,7 +18,7 @@ input {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
 
   fake {
-    table_name = "my_dataset"
+    result_table_name = "my_dataset"
   }
 
 
@@ -56,7 +56,8 @@ filter {
 
 output {
 
-  # Output each source_table
+  # If you want to specify which dataset to be output, please specify source_table_name in each output plugin. The value of source_table_name is the same as previous result_table_name.
+  # Also, in default context, you don't need to set source_table_name, the output plugin will output the default dataset.
   stdout {
     source_table_name = "split_table"
   }

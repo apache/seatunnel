@@ -14,14 +14,14 @@ spark {
 input {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
   fake {
-    table_name = "my_dataset"
+    result_table_name = "my_dataset"
   }
 
 
 
   # You can also use other input plugins, such as hdfs
   # hdfs {
-  #   table_name = "accesslog"
+  #   result_table_name = "accesslog"
   #   path = "hdfs://hadoop-cluster-01/nginx/accesslog"
   #   format = "json"
   # }
