@@ -10,11 +10,15 @@
 
 ##### source_table_name [string]
 
-指定 `Filter` 插件数据来源临时表表名，如果没有配置该参数，则数据源为上一个 `Filter` 的处理结果
+不指定 `source_table_name` 时，当前插件处理的就是配置文件中上一个插件输出的数据集(dataset)；
+
+指定 `source_table_name` 的时候，当前插件处理的就是此参数对应的数据集。
 
 ##### result_table_name [string]
 
-指定 `Filter` 插件处理结果注册的临时表表名，如果没有配置该参数，则不注册临时表。
+不指定 `result_table_name时` ，此插件处理后的数据，不会被注册为一个可供其他插件直接访问的数据集(dataset)，或者被称为临时表(table);
+
+指定 `result_table_name` 时，此插件处理后的数据，会被注册为一个可供其他插件直接访问的数据集(dataset)，或者被称为临时表(table)。此处注册的数据集(dataset)，其他插件可通过指定 `source_table_name` 来直接访问。
 
 ### 使用样例
 
@@ -28,7 +32,7 @@ split {
 }
 ```
 
-> `Split` 插件将会处理临时表 `view_table_1` 中的数据，并将处理结果注册为名为 `view_table_2` 的临时表， 这张临时表可以被后续任意 `Filter` 或 `Output` 插件使用。
+> `Split` 插件将会处理临时表 `view_table_1` 中的数据，并将处理结果注册为名为 `view_table_2` 的临时表， 这张临时表可以被后续任意 `Filter` 或 `Output` 插件通过指定 `source_table_name` 使用。
 
 ```
 split {

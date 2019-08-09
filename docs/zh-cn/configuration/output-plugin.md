@@ -10,7 +10,9 @@
 
 ##### source_table_name [string]
 
-指定 `Output` 插件数据来源临时表表名。如果没有指定该参数，默认输出的数据集(dataset)为配置文件中最后一个 `Filter` 插件处理后的数据集(dataset)
+不指定 `source_table_name` 时，当前插件处理的就是配置文件中上一个插件输出的数据集(dataset)；
+
+指定 `source_table_name` 的时候，当前插件处理的就是此参数对应的数据集。
 
 
 ### 使用样例
