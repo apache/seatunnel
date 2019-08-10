@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.common;
+package io.github.interestinglab.waterdrop.common.config;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -61,7 +61,7 @@ public class TypesafeConfigUtils {
         Config config = extractSubConfig(source, prefix, keepPrefix);
 
         if (config.isEmpty()) {
-            throw new RuntimeException("config is empty");
+            throw new ConfigRuntimeException("config is empty");
         }
 
         return config;

@@ -11,6 +11,7 @@ import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchEnv;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnv;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingEnv;
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchEnv;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -64,7 +65,7 @@ public class ConfigParser {
                     runtimeEnv = new FlinkBatchEnv();
                     break;
                 case "sparkBatch":
-//                    runtimeEnv = new SparkbatchEnv();
+                    runtimeEnv = new SparkBatchEnv();
                     break;
                 case "sparkStreaming":
                     runtimeEnv = new SparkStreamingEnv();
@@ -75,7 +76,7 @@ public class ConfigParser {
                 default:
                     throw new RuntimeException("not found engine :" + engine);
             }
-            runtimeEnv.setConfig(config.getConfig("base"));
+            runtimeEnv.setConfig(config);
         }
 
         List<? extends Config> sources = config.getConfigList("source");
@@ -138,4 +139,19 @@ public class ConfigParser {
     }
 
 
+    public RuntimeEnv getRuntimeEnv() {
+        return runtimeEnv;
+    }
+
+    public List<BaseSink> getSinks() {
+        return sinks;
+    }
+
+    public List<BaseSource> getSources() {
+        return sources;
+    }
+
+    public List<BaseTransform> getTransforms() {
+        return transforms;
+    }
 }

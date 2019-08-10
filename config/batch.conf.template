@@ -1,0 +1,67 @@
+######
+###### This config file is a demonstration of batch processing in waterdrop config
+######
+
+spark {
+  # You can set spark configuration here
+  # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
+  spark.app.name = "Waterdrop"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+}
+
+input {
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  fake {
+    result_table_name = "my_dataset"
+  }
+
+
+
+  # You can also use other input plugins, such as hdfs
+  # hdfs {
+  #   result_table_name = "accesslog"
+  #   path = "hdfs://hadoop-cluster-01/nginx/accesslog"
+  #   format = "json"
+  # }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+filter {
+  # split data by specific delimiter
+  split {
+    fields = ["msg", "name"]
+    delimiter = " "
+    result_table_name = "accesslog"
+  }
+
+
+
+  # you can also you other filter plugins, such as sql
+  # sql {
+  #   sql = "select * from accesslog where request_time > 1000"
+  # }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+output {
+  # choose stdout output plugin to output data to console
+  stdout {
+  }
+
+
+
+  # you can also you other output plugins, such as sql
+  # hdfs {
+  #   path = "hdfs://hadoop-cluster-01/nginx/accesslog_processed"
+  #   save_mode = "append"
+  # }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
