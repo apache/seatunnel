@@ -35,13 +35,13 @@ filter {
   split {
     fields = ["msg", "name"]
     delimiter = " "
+    result_table_name = "accesslog"
   }
 
 
 
   # you can also you other filter plugins, such as sql
   # sql {
-  #   table_name = "accesslog"
   #   sql = "select * from accesslog where request_time > 1000"
   # }
 

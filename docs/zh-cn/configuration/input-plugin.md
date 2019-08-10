@@ -17,7 +17,7 @@
 
 ##### table_name [string]
 
-**\[已废弃\]** 功能同 `result_table_name`，后续 Release 版本中将删除此参数，建议使用 `result_table_name` 参数
+**\[从v1.4开始废弃\]** 功能同 `result_table_name`，后续 Release 版本中将删除此参数，建议使用 `result_table_name` 参数
 
 
 ### 使用样例

@@ -14,25 +14,25 @@ input {
   kafkaStream {
     consumer.bootstrap.servers = "127.0.0.1:9092"
     topics = "waterdrop_input"
+    result_table_name = "waterdrop_message"
   }
 }
 
 filter {
 
   sql {
-      table_name = "test"
-      sql = "select string(value) as raw_message from test"
+      sql = "select string(value) as raw_message from waterdrop_message"
   }
 
   json {
     source_field = "raw_message"
     target_field = "jsonMap"
     schema_file = "demo.json"
+    result_table_name = "flatten_msg"
   }
 
   // sql {
-  //   table_name = "res"
-  //   sql = "select name, count(name), date_format(window.end, 'MMM-dd HH:mm') as time from res group by window('datetime', '1 minutes', '1 seconds'), name"
+  //   sql = "select name, count(name), date_format(window.end, 'MMM-dd HH:mm') as time from flatten_msg group by window('datetime', '1 minutes', '1 seconds'), name"
   // }
   // Watermark {
   //      delay_threshold = "5 minutes"

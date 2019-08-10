@@ -35,16 +35,13 @@ filter {
 
   # Read data from <split_table> and register table view of <sql_result_table_1>
   sql {
-    table_name = "temp_view_1"
-    sql = "select * from temp_view_1 where name = 'rickyhuo'"
+    sql = "select * from split_table where name = 'rickyhuo'"
     result_table_name = "sql_result_table_1"
   }
 
   # Read data from view table <split_table> and register table view of <sql_result_table_2>
   sql {
-    table_name = "temp_view_2"
-    source_table_name = "split_table"
-    sql = "select * from temp_view_2 where name = 'kid-xiong'"
+    sql = "select * from split_table where name = 'kid-xiong'"
     result_table_name = "sql_result_table_2"
   }
 
