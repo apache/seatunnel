@@ -2,14 +2,20 @@ package io.github.interestinglab.waterdrop.spark.stream.source
 
 import java.util.Properties
 
-import io.github.interestinglab.waterdrop.common.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.common.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingEnv
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
-import org.apache.spark.streaming.kafka010.{ConsumerStrategies, HasOffsetRanges, KafkaUtils, LocationStrategies, OffsetRange}
+import org.apache.spark.streaming.kafka010.{
+  ConsumerStrategies,
+  HasOffsetRanges,
+  KafkaUtils,
+  LocationStrategies,
+  OffsetRange
+}
 
 import scala.collection.JavaConversions._
 
@@ -29,9 +35,12 @@ class KafkaStream extends AbstractSparkStreamingSource[(String, String)] {
 
   override def prepare(): Unit = {
     super.prepare()
-    schema = StructType(Array(StructField("topic", DataTypes.StringType), StructField("raw_message", DataTypes.StringType)))
+    schema = StructType(
+      Array(StructField("topic", DataTypes.StringType),
+            StructField("raw_message", DataTypes.StringType)))
     topics = config.getString("topics").split(",").toSet
-    val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
+    val consumerConfig =
+      TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
     consumerConfig.entrySet.foreach(entry => {
       val key = entry.getKey
       val value = entry.getValue.unwrapped
@@ -39,7 +48,8 @@ class KafkaStream extends AbstractSparkStreamingSource[(String, String)] {
     })
   }
 
-  override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[(String, String)]): Dataset[Row] = {
+  override def rdd2dataset(sparkSession: SparkSession,
+                           rdd: RDD[(String, String)]): Dataset[Row] = {
     val value = rdd.map(record => Row(record._1, record._2))
     sparkSession.createDataFrame(value, schema)
   }
