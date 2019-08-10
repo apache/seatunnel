@@ -266,23 +266,23 @@ class Clickhouse extends BaseOutput {
 
   private def renderBaseTypeStatement(
     index: Int,
-    field: String,
+    fieldIndex: Int,
     fieldType: String,
     item: Row,
     statement: ClickHousePreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
-        statement.setString(index + 1, item.getAs[String](field))
+        statement.setString(index + 1, item.getAs[String](fieldIndex))
       case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
-        statement.setInt(index + 1, item.getAs[Int](field))
+        statement.setInt(index + 1, item.getAs[Int](fieldIndex))
       case "UInt32" | "UInt64" | "Int64" =>
-        statement.setLong(index + 1, item.getAs[Long](field))
-      case "Float32" => statement.setFloat(index + 1, item.getAs[Float](field))
-      case "Float64" => statement.setDouble(index + 1, item.getAs[Double](field))
+        statement.setLong(index + 1, item.getAs[Long](fieldIndex))
+      case "Float32" => statement.setFloat(index + 1, item.getAs[Float](fieldIndex))
+      case "Float64" => statement.setDouble(index + 1, item.getAs[Double](fieldIndex))
       case Clickhouse.arrayPattern(_) =>
-        statement.setArray(index + 1, item.getAs[WrappedArray[AnyRef]](field))
-      case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](field))
-      case _ => statement.setString(index + 1, item.getAs[String](field))
+        statement.setArray(index + 1, item.getAs[WrappedArray[AnyRef]](fieldIndex))
+      case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
+      case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
     }
   }
 
@@ -295,20 +295,27 @@ class Clickhouse extends BaseOutput {
       val field = fields.get(i)
       val fieldType = tableSchema(field)
       if (dsFields.indexOf(field) == -1) {
+        // specified field does not existed in row.
         renderDefaultStatement(i, fieldType, statement)
       } else {
-        fieldType match {
-          case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
-            renderBaseTypeStatement(i, field, fieldType, item, statement)
-          case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
-            renderBaseTypeStatement(i, field, fieldType, item, statement)
-          case Clickhouse.nullablePattern(dataType) =>
-            renderBaseTypeStatement(i, field, dataType, item, statement)
-          case Clickhouse.lowCardinalityPattern(dataType) =>
-            renderBaseTypeStatement(i, field, dataType, item, statement)
-          case Clickhouse.decimalPattern(_) =>
-            renderBaseTypeStatement(i, field, "Decimal", item, statement)
-          case _ => statement.setString(i + 1, item.getAs[String](field))
+        val fieldIndex = item.fieldIndex(field)
+        if (item.isNullAt(fieldIndex)) {
+          // specified field is Null in row.
+          renderDefaultStatement(i, fieldType, statement)
+        } else {
+          fieldType match {
+            case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
+              renderBaseTypeStatement(i, fieldIndex, fieldType, item, statement)
+            case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
+              renderBaseTypeStatement(i, fieldIndex, fieldType, item, statement)
+            case Clickhouse.nullablePattern(dataType) =>
+              renderBaseTypeStatement(i, fieldIndex, dataType, item, statement)
+            case Clickhouse.lowCardinalityPattern(dataType) =>
+              renderBaseTypeStatement(i, fieldIndex, dataType, item, statement)
+            case Clickhouse.decimalPattern(_) =>
+              renderBaseTypeStatement(i, fieldIndex, "Decimal", item, statement)
+            case _ => statement.setString(i + 1, item.getAs[String](field))
+          }
         }
       }
     }
