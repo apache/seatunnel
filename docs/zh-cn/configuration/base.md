@@ -110,3 +110,5 @@ output {
 [配置示例1 : Streaming 流式计算](https://github.com/InterestingLab/waterdrop/blob/master/config/streaming.conf.template)
 
 [配置示例2 : Batch 离线批处理](https://github.com/InterestingLab/waterdrop/blob/master/config/batch.conf.template)
+
+[配置示例3 : 一个灵活的多数据流程处理](https://github.com/InterestingLab/waterdrop/blob/master/config/complex.conf.template)

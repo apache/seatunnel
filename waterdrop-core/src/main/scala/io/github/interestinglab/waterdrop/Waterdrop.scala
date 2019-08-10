@@ -19,6 +19,8 @@ import scala.util.{Failure, Success, Try}
 
 object Waterdrop extends Logging {
 
+  var viewTableMap: Map[String, String] = Map[String, String]()
+
   def main(args: Array[String]) {
 
     CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
@@ -134,21 +136,28 @@ object Waterdrop extends Logging {
     basePrepare(sparkSession, staticInputs, streamingInputs, filters, outputs)
 
     // let static input register as table for later use if needed
-    registerTempView(staticInputs, sparkSession)
+    registerInputTempView(staticInputs, sparkSession)
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
-    streamingInputs(0).start(
+    val streamingInput = streamingInputs(0)
+    streamingInput.start(
       sparkSession,
       ssc,
       dataset => {
 
         var ds = dataset
 
+        val config = streamingInput.getConfig()
+        if (config.hasPath("table_name") || config.hasPath("result_table_name")) {
+          registerInputTempView(streamingInput, ds)
+        }
+
         // Ignore empty schema dataset
         for (f <- filters) {
           if (ds.take(1).length > 0) {
-            ds = f.process(sparkSession, ds)
+            ds = filterProcess(sparkSession, f, ds)
+            registerFilterTempView(f, ds)
           }
         }
 
@@ -156,7 +165,7 @@ object Waterdrop extends Logging {
 
         if (ds.take(1).length > 0) {
           outputs.foreach(p => {
-            p.process(ds)
+            outputProcess(sparkSession, p, ds)
           })
         }
 
@@ -182,7 +191,7 @@ object Waterdrop extends Logging {
     basePrepare(sparkSession, staticInputs, filters, outputs)
 
     // let static input register as table for later use if needed
-    registerTempView(staticInputs, sparkSession)
+    registerInputTempView(staticInputs, sparkSession)
 
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
@@ -199,15 +208,46 @@ object Waterdrop extends Logging {
         //  ds = f.process(sparkSession, ds)
         // }
 
-        ds = f.process(sparkSession, ds)
+        ds = filterProcess(sparkSession, f, ds)
+        registerFilterTempView(f, ds)
+
       }
       outputs.foreach(p => {
-        p.process(ds)
+        outputProcess(sparkSession, p, ds)
       })
 
     } else {
       throw new ConfigRuntimeException("Input must be configured at least once.")
     }
+  }
+
+  private[waterdrop] def filterProcess(
+    sparkSession: SparkSession,
+    filter: BaseFilter,
+    ds: Dataset[Row]): Dataset[Row] = {
+    val config = filter.getConfig()
+    val fromDs = config.hasPath("source_table_name") match {
+      case true => {
+        val sourceTableName = config.getString("source_table_name")
+        sparkSession.read.table(sourceTableName)
+      }
+      case false => ds
+    }
+
+    filter.process(sparkSession, fromDs)
+  }
+
+  private[waterdrop] def outputProcess(sparkSession: SparkSession, output: BaseOutput, ds: Dataset[Row]): Unit = {
+    val config = output.getConfig()
+    val fromDs = config.hasPath("source_table_name") match {
+      case true => {
+        val sourceTableName = config.getString("source_table_name")
+        sparkSession.read.table(sourceTableName)
+      }
+      case false => ds
+    }
+
+    output.process(fromDs)
   }
 
   private[waterdrop] def basePrepare(sparkSession: SparkSession, plugins: List[Plugin]*): Unit = {
@@ -243,31 +283,56 @@ object Waterdrop extends Logging {
     deployModeCheck()
   }
 
-  private[waterdrop] def registerTempView(staticInputs: List[BaseStaticInput], sparkSession: SparkSession): Unit = {
-    var datasetMap = Map[String, Dataset[Row]]()
+  private[waterdrop] def registerInputTempView(
+    staticInputs: List[BaseStaticInput],
+    sparkSession: SparkSession): Unit = {
     for (input <- staticInputs) {
 
       val ds = input.getDataset(sparkSession)
+      registerInputTempView(input, ds)
+    }
+  }
 
-      val config = input.getConfig()
-      config.hasPath("table_name") match {
-        case true => {
-          val tableName = config.getString("table_name")
-
-          datasetMap.contains(tableName) match {
-            case true =>
-              throw new ConfigRuntimeException(
-                "Detected duplicated Dataset["
-                  + tableName + "], it seems that you configured table_name = \"" + tableName + "\" in multiple static inputs")
-            case _ => datasetMap += (tableName -> ds)
+  private[waterdrop] def registerInputTempView(input: Plugin, ds: Dataset[Row]): Unit = {
+    val config = input.getConfig()
+    config.hasPath("table_name") || config.hasPath("result_table_name") match {
+      case true => {
+        val tableName = config.hasPath("table_name") match {
+          case true => {
+            @deprecated
+            val oldTableName = config.getString("table_name")
+            oldTableName
           }
+          case false => config.getString("result_table_name")
+        }
+        registerTempView(tableName, ds)
+      }
 
-          ds.createOrReplaceTempView(tableName)
-        }
-        case false => {
-          throw new ConfigRuntimeException(
-            "Plugin[" + input.name + "] must be registered as dataset/table, please set \"table_name\" config")
-        }
+      case false => {
+        throw new ConfigRuntimeException(
+          "Plugin[" + input.name + "] must be registered as dataset/table, please set \"result_table_name\" config")
+
+      }
+    }
+  }
+
+  private[waterdrop] def registerFilterTempView(plugin: Plugin, ds: Dataset[Row]): Unit = {
+    val config = plugin.getConfig()
+    if (config.hasPath("result_table_name")) {
+      val tableName = config.getString("result_table_name")
+      registerTempView(tableName, ds)
+    }
+  }
+
+  private[waterdrop] def registerTempView(tableName: String, ds: Dataset[Row]): Unit = {
+    viewTableMap.contains(tableName) match {
+      case true =>
+        throw new ConfigRuntimeException(
+          "Detected duplicated Dataset["
+            + tableName + "], it seems that you configured result_table_name = \"" + tableName + "\" in multiple static inputs")
+      case _ => {
+        ds.createOrReplaceTempView(tableName)
+        viewTableMap += (tableName -> "")
       }
     }
   }

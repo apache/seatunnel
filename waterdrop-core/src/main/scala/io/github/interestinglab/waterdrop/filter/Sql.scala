@@ -26,10 +26,15 @@ class Sql extends BaseFilter {
 
   override def checkConfig(): (Boolean, String) = {
     conf.hasPath("sql") match {
-      case true => (true, "")
-      // case true => checkSQLSyntax(conf.getString("sql"))
-      case false => (false, "please specify parameter [sql]")
+      case true => {
+        if (conf.hasPath("sql")) {
+          logWarning("parameter [table_name] is deprecated since 1.4")
+        }
+        (true, "")
+      }
+      case false => (true, "")
     }
+
   }
 
   private def checkSQLSyntax(sql: String): (Boolean, String) = {

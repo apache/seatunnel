@@ -1,9 +1,12 @@
 ######
-###### This config file is a demonstration of batch processing in waterdrop config
+###### This config file is a demonstration of streaming processing in waterdrop config
 ######
 
 spark {
   # You can set spark configuration here
+  # Waterdrop defined streaming batch duration in seconds
+  spark.streaming.batchDuration = 5
+
   # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
   spark.app.name = "Waterdrop"
   spark.executor.instances = 2
@@ -13,54 +16,61 @@ spark {
 
 input {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
+
   fake {
     result_table_name = "my_dataset"
   }
 
-
-
-  # You can also use other input plugins, such as hdfs
-  # hdfs {
-  #   result_table_name = "accesslog"
-  #   path = "hdfs://hadoop-cluster-01/nginx/accesslog"
-  #   format = "json"
-  # }
 
   # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
 filter {
-  # split data by specific delimiter
   split {
     fields = ["msg", "name"]
     delimiter = " "
-    result_table_name = "accesslog"
+    result_table_name = "split_table"
+  }
+
+  # Read data from <split_table> and register table view of <sql_result_table_1>
+  sql {
+    sql = "select * from split_table where name = 'rickyhuo'"
+    result_table_name = "sql_result_table_1"
+  }
+
+  # Read data from view table <split_table> and register table view of <sql_result_table_2>
+  sql {
+    sql = "select * from split_table where name = 'kid-xiong'"
+    result_table_name = "sql_result_table_2"
   }
 
 
-
-  # you can also you other filter plugins, such as sql
-  # sql {
-  #   sql = "select * from accesslog where request_time > 1000"
-  # }
 
   # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
 output {
-  # choose stdout output plugin to output data to console
+
+  # If you want to specify which dataset to be output, please specify source_table_name in each output plugin. The value of source_table_name is the same as previous result_table_name.
+  # Also, in default context, you don't need to set source_table_name, the output plugin will output the default dataset.
   stdout {
+    source_table_name = "split_table"
+  }
+
+  stdout {
+    source_table_name = "sql_result_table_1"
+  }
+
+  stdout {
+    source_table_name = "sql_result_table_2"
   }
 
 
 
-  # you can also you other output plugins, such as sql
-  # hdfs {
-  #   path = "hdfs://hadoop-cluster-01/nginx/accesslog_processed"
-  #   save_mode = "append"
-  # }
+
+
 
   # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
