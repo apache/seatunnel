@@ -14,6 +14,8 @@
 | --- | --- | --- | --- |
 | [fraction](#fraction-number) | number | no | 0.1 |
 | [limit](#limit-number) | number | no | -1 |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### fraction [number]
 
@@ -22,6 +24,11 @@
 ##### limit [number]
 
 数据采样后的条数，其中`-1`代表不限制
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Examples
 

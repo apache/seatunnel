@@ -20,6 +20,7 @@
 | [url](#url-string) | string | yes | - |
 | [user](#user-string) | string | yes | - |
 | [useSSL](#useSSL-boolean) | boolean | no | false |
+| [common-options](#common-options-string)| string | no | - |
 
 ##### batchsize [number]
 
@@ -53,6 +54,11 @@ JDBC连接的URL。参考一个案例: `jdbc:mysql://127.0.0.1:4000/test?rewrite
 ##### useSSL [boolean]
 
 useSSL
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+
 
 ### Example
 

@@ -15,6 +15,8 @@
 | [method](#method-string) | string | no | SHA1 |
 | [source_field](#source_field-string) | string | no | raw_message |
 | [target_field](#target_field-string) | string | no | checksum |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### method [string]
 
@@ -27,6 +29,11 @@
 ##### target_field [string]
 
 转换后的字段
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Examples
 

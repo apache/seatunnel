@@ -14,6 +14,7 @@
 | --- | --- | --- | --- | --- |
 | [limit](#limit-number) | number | no | 100 | batch/spark streaming |
 | [serializer](#serializer-string) | string | no | plain | batch/spark streaming |
+| [common-options](#common-options-string)| string | no | - | all streaming |
 
 ##### limit [number]
 
@@ -22,6 +23,11 @@
 ##### serializer [string]
 
 输出时序列化的格式，可用的serializer包括: `json`, `plain`
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+
 
 ### Example
 

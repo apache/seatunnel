@@ -17,8 +17,9 @@
 | [consumer.group.id](#consumergroupid-string) | string | yes | - | all streaming |
 | [consumer.bootstrap.servers](#consumerbootstrapservers-string) | string | yes | - | all streaming |
 | [consumer.*](#consumer-string) | string | no | - | all streaming |
-| [table_name](#table_name-string) | string | no | - | Structured streaming |
 | [offset.location](#offset.location-string) | string | no | - | Structured streaming |
+| [common-options](#common-options-string)| string | yes | - |
+
 
 ##### topics [string]
 
@@ -43,6 +44,11 @@ Spark Structured Streaming 中 Kafka Source 可选参数参考 [Structured Strea
 ##### offset.location [string]
 
 这个参数只有一个值，当你的checkpoint不可使用时，设置这个值为`broker`，将从broker获取offset进行消费。此参数仅在checkpoint不可使用时设置，否则可能发生不可预测的结果
+
+##### common options [string]
+
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+
 
 ### Examples
 

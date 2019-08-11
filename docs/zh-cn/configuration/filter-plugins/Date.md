@@ -19,6 +19,8 @@
 | [target_field](#target_field-string) | string | no | datetime |
 | [target_time_format](#target_time_format-string) | string | no | `yyyy/MM/dd HH:mm:ss` |
 | [time_zone](#time_zone-string) | string | no | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### default_value [string]
 
@@ -48,7 +50,6 @@
 详细的时间格式语法见[Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)。
 
 
-
 ##### target_field [string]
 
 目标字段，若不配置默认为`datetime`
@@ -57,10 +58,13 @@
 
 目标字段时间格式，详细的时间格式语法见[Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)。
 
-
 ##### time_zone [string]
 
 时区
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
 
 
 ### Examples

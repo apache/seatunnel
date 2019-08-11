@@ -14,7 +14,7 @@
 | --- | --- | --- | --- |
 | [kudu_master](#kudu_master-string) | string | yes | - |
 | [kudu_table](#kudu_table) | string | yes | - |
-| [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
 
 
 ##### kudu_master [string]
@@ -25,10 +25,9 @@ kudu的master，多个master以逗号隔开
 
 kudu中要读取的表名
 
-##### table_name [string]
+##### common options [string]
 
-获取到的数据，注册成临时表的表名
-
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
 
 
 ### Example
@@ -37,6 +36,6 @@ kudu中要读取的表名
 kudu{
    kudu_master="hadoop01:7051,hadoop02:7051,hadoop03:7051"
    kudu_table="my_kudu_table"
-   table_name="reg_table"
+   result_table_name="reg_table"
  }
 ```

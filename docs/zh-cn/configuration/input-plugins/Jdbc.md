@@ -15,9 +15,10 @@
 | [driver](#driver-string) | string | yes | - |
 | [password](#password-string) | string | yes | - |
 | [table](#table-string) | string | yes | - |
-| [table_name](#table_name-string) | string | yes | - |
 | [url](#url-string) | string | yes | - |
 | [user](#user-string) | string | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
+
 
 ##### driver [string]
 
@@ -27,15 +28,10 @@
 
 密码
 
-
 ##### table [string]
 
 表名
 
-
-##### table_name [string]
-
-注册为Spark临时表的表名
 
 ##### url [string]
 
@@ -46,6 +42,10 @@ JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 
 用户名
 
+##### common options [string]
+
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+
 
 ### Example
 
@@ -54,7 +54,7 @@ jdbc {
     driver = "com.mysql.jdbc.Driver"
     url = "jdbc:mysql://localhost:3306/info"
     table = "access"
-    table_name = "access_log"
+    result_table_name = "access_log"
     user = "username"
     password = "password"
 }

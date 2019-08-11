@@ -14,7 +14,7 @@
 | --- | --- | --- | --- |
 | [database](#database-string) | string | yes | - |
 | [pre_sql](#pre_sql-string) | string | yes | - |
-| [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
 
 ##### database [string]
 
@@ -24,10 +24,9 @@ TiDB库名
 
 进行预处理的sql, 如果不需要预处理,可以使用select * from tidb_db.tidb_table
 
-##### table_name [string]
+##### common options [string]
 
-经过pre_sql获取到的数据，注册成临时表的表名
-
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
 
 
 ### Example
@@ -48,7 +47,7 @@ input {
     tidb {
         database = "test"
         pre_sql = "select * from test.my_table"
-        table_name = "myTable"
+        result_table_name = "myTable"
     }
 }
 

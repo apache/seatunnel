@@ -17,8 +17,7 @@ Spark Structured Streaming Watermark
 | [time_pattern](#time_pattern-string) | string | no | yyyy-MM-dd HH:mm:ss |
 | [delay_threshold](#delay_threshold-string) | string | yes | - |
 | [watermark_field](#watermark_field-string) | string | yes | - |
-| [source_table_name](#source_table_name-string) | string | no | - |
-| [result_table_name](#result_table_name-string) | string | no | - |
+| [common-options](#common-options-string)| string | no | - |
 
 
 ##### time_field [string]
@@ -41,13 +40,10 @@ Spark Structured Streaming Watermark
 
 经过这个filter处理之后将会增加一个timestamp类型的字段，这个字段用于添加watermark
 
-##### source_table_name [string]
+##### common options [string]
 
-除了为上游plugin流入的数据添加watermark之外，还可以为指定的dataset添加watermark，但是这个dataset必须要注册成了临时表。这样你就可以通过表名来为其添加。
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
 
-##### result_table_name [string]
-
-你也可以将添加好watermark的dataset注册成一个临时表，这可能会在流关联的时候用到
 
 ### Example
 

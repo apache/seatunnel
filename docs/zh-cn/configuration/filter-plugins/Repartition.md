@@ -13,10 +13,17 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [num_partitions](#num_partitions-number) | number | yes | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### num_partitions [number]
 
 目标分区个数
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Examples
 
