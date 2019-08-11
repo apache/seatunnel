@@ -16,6 +16,8 @@
 | [replacement](#replacement-string) | string | yes | - |
 | [source_field](#source_field-string) | string | no | raw_message |
 | [target_field](#target_field-string) | string | no | replaced |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### pattern [string]
 
@@ -33,6 +35,11 @@
 ##### target_field [string]
 
 目标字段，若不配置默认为`replaced`
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Examples
 

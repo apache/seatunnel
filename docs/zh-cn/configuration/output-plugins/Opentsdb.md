@@ -10,16 +10,17 @@
 
 ### Options
 
-| name | type | required | default value |
-| --- | --- | --- | --- |
-| [postUrl](#postUrl-string) | string | yes | - |
-| [metric](#metric-string) | string | yes | - |
-| [tags_fields](#tags_fields-array) | array | no | - |
-| [value_fields](#value_fields-array) | array | yes | - |
-| [timestamp](#user-string) | string | yes | - |
-| [streaming_output_mode](#streaming_output_mode-string) | string | no | append |
-| [trigger_type](#streaming_output_mode-string) | string | no | default |
-| [interval](#interval-string)| string | no | - |
+| name | type | required | default value | engine |
+| --- | --- | --- | --- | --- |
+| [postUrl](#postUrl-string) | string | yes | - | structured streaming |
+| [metric](#metric-string) | string | yes | - | structured streaming |
+| [tags_fields](#tags_fields-array) | array | no | - | structured streaming |
+| [value_fields](#value_fields-array) | array | yes | - | structured streaming |
+| [timestamp](#user-string) | string | yes | - | structured streaming |
+| [streaming_output_mode](#streaming_output_mode-string) | string | no | append | structured streaming |
+| [trigger_type](#streaming_output_mode-string) | string | no | default | structured streaming |
+| [interval](#interval-string)| string | no | - | structured streaming |
+| [common-options](#common-options-string)| string | no | - | structured streaming |
 
 
 ##### postUrl [string]
@@ -54,6 +55,10 @@ Trigger Type， 支持default、ProcessingTime、OneTime 和 Continuous
 ##### interval [string]
 
 Trigger触发周期。 当 trigger_type 为ProcessingTime 或 Continuous 时配置。
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
 
 ### Example
 

@@ -15,6 +15,7 @@
 | [kudu_master](#kudu_master-string) | string | yes | - |
 | [kudu_table](#kudu_table) | string | yes | - |
 | [mode](#mode-string) | string | no | insert |
+| [common-options](#common-options-string)| string | no | - |
 
 
 ##### kudu_master [string]
@@ -30,6 +31,10 @@ kudu中要写入的表名,表必须已经存在
 写入kudu中采取的模式,支持 insert|update|upsert|insertIgnore,默认为insert
 insert和insertIgnore :insert在遇见主键冲突将会报错，insertIgnore不会报错，将会舍弃这条数据
 update和upsert :update找不到要更新的主键将会报错，upsert不会，将会把这条数据插入
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
 
 
 ### Example

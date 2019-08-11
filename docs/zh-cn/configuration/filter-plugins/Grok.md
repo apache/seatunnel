@@ -19,6 +19,8 @@ grok pattern[grok pattern 测试地址](https://grokdebug.herokuapp.com/)
 | [patterns_dir](#patterns_dir-string) | string | no | - |
 | [source_field](#source_field-string) | string | no | raw_message |
 | [target_field](#target_field-string) | string | no | __root__ |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### named_captures_only [boolean]
 
@@ -39,6 +41,11 @@ patterns文件路径，可不填，Waterdrop自带了丰富的[grok-patterns文�
 ##### target_field [string]
 
 目标字段
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Example
 

@@ -18,6 +18,8 @@ Table 用于将静态文件映射为一张表，可与实时处理的流进行�
 | [fields](#fields-array) | array | yes | - |
 | [path](#path-string) | string | yes | - |
 | [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### cache [boolean]
 
@@ -42,6 +44,10 @@ Hadoop支持的文件路径(默认hdfs路径, 如/path/to/file), 如本地文件
 ##### table_name [string]
 
 将文件载入后将注册为一张表，这里指定的是表名称，可用于在SQL中直接与流处理数据关联
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
 
 
 ### Example

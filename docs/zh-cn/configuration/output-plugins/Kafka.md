@@ -18,6 +18,7 @@
 | [serializer](#serializer-string) | string | no | json | all streaming |
 | [streaming_output_mode](#streaming_output_mode-string) | string | no | append | structured streaming |
 | [checkpointLocation](#checkpointLocation-string) | string | no | - | structured streaming |
+| [common-options](#common-options-string)| string | no | all streaming |
 
 
 ##### producer.bootstrap.servers [string]
@@ -50,6 +51,11 @@ Kafka Topic
 ##### serializer [string]
 
 序列化方法，当前支持json和text，如果选择text方式，需保证数据结构中仅有一个字段。
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+
 
 ### Examples
 

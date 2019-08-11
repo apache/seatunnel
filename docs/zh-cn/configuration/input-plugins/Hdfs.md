@@ -17,7 +17,7 @@
 | [options.*](#options-object) | object | no | - |
 | [options.rowTag](#optionsrowTag-string) | string | no | - |
 | [path](#path-string) | string | yes | - |
-| [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
 
 ##### format [string]
 
@@ -38,10 +38,10 @@
 
 Hadoop集群文件路径，以hdfs://开头
 
+##### common options [string]
 
-##### table_name [string]
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
 
-注册的表名
 
 
 ### Example
@@ -49,7 +49,7 @@ Hadoop集群文件路径，以hdfs://开头
 ```
 hdfs {
     path = "hdfs:///var/waterdrop-logs"
-    table_name = "access_log"
+    result_table_name = "access_log"
     format = "json"
 }
 ```
@@ -61,7 +61,7 @@ hdfs {
 
 ```
 hdfs {
-    table_name = "access_log"
+    result_table_name = "access_log"
     path = "hdfs://m2:8022/waterdrop-logs/access.log"
 }
 ```
@@ -71,7 +71,7 @@ hdfs {
 
 ```
 hdfs {
-    table_name = "books"
+    result_table_name = "books"
     path = "hdfs://m2:8022/waterdrop-logs/books.xml"
     options.rowTag = "book"
     format = "xml"
