@@ -6,11 +6,13 @@ import com.typesafe.config.ConfigFactory;
 import io.github.interestinglab.waterdrop.apis.BaseSink;
 import io.github.interestinglab.waterdrop.apis.BaseSource;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
+import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
-import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchEnv;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnv;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
-import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingEnv;
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment;
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -38,6 +40,7 @@ public class ConfigParser {
     private List<BaseTransform> transforms = new ArrayList<>();
     private List<BaseSink> sinks = new ArrayList<>();
     private RuntimeEnv runtimeEnv;
+    private Execution execution;
 
     public ConfigParser(File file) {
 
@@ -58,16 +61,20 @@ public class ConfigParser {
             String engine = config.getString("base.engine");
             switch (engine) {
                 case "flinkStream":
-                    runtimeEnv = new FlinkStreamEnv();
+                    FlinkStreamEnvironment flinkStreamEnvironment = new FlinkStreamEnvironment();
+                    execution = new FlinkStreamExecution(flinkStreamEnvironment);
+                    runtimeEnv = flinkStreamEnvironment;
                     break;
                 case "flinkBatch":
-                    runtimeEnv = new FlinkBatchEnv();
+//                    runtimeEnv = new FlinkBatchEnv();
                     break;
                 case "sparkBatch":
 //                    runtimeEnv = new SparkbatchEnv();
                     break;
                 case "sparkStreaming":
-                    runtimeEnv = new SparkStreamingEnv();
+                    SparkEnvironment sparkEnvironment = new SparkEnvironment();
+                    execution = new SparkStreamingExecution(sparkEnvironment);
+                    runtimeEnv = sparkEnvironment;
                     break;
                 case "structStreaming":
 //                    runtimeEnv = new StructuredStreamingEnv();
