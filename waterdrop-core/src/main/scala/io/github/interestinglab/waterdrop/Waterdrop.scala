@@ -157,7 +157,7 @@ object Waterdrop extends Logging {
         for (f <- filters) {
           if (ds.take(1).length > 0) {
             ds = filterProcess(sparkSession, f, ds)
-            registerFilterTempView(f, ds)
+            registerStreamingFilterTempView(f, ds)
           }
         }
 
@@ -293,7 +293,7 @@ object Waterdrop extends Logging {
     }
   }
 
-  private[waterdrop] def registerInputTempView(input: Plugin, ds: Dataset[Row]): Unit = {
+  private[waterdrop] def registerInputTempView(input: BaseStaticInput, ds: Dataset[Row]): Unit = {
     val config = input.getConfig()
     config.hasPath("table_name") || config.hasPath("result_table_name") match {
       case true => {
@@ -316,11 +316,42 @@ object Waterdrop extends Logging {
     }
   }
 
+  private[waterdrop] def registerInputTempView(input: BaseStreamingInput[Any], ds: Dataset[Row]): Unit = {
+    val config = input.getConfig()
+    config.hasPath("table_name") || config.hasPath("result_table_name") match {
+      case true => {
+        val tableName = config.hasPath("table_name") match {
+          case true => {
+            @deprecated
+            val oldTableName = config.getString("table_name")
+            oldTableName
+          }
+          case false => config.getString("result_table_name")
+        }
+        registerStreamingTempView(tableName, ds)
+      }
+
+      case false => {
+        throw new ConfigRuntimeException(
+          "Plugin[" + input.name + "] must be registered as dataset/table, please set \"result_table_name\" config")
+
+      }
+    }
+  }
+
   private[waterdrop] def registerFilterTempView(plugin: Plugin, ds: Dataset[Row]): Unit = {
     val config = plugin.getConfig()
     if (config.hasPath("result_table_name")) {
       val tableName = config.getString("result_table_name")
       registerTempView(tableName, ds)
+    }
+  }
+
+  private[waterdrop] def registerStreamingFilterTempView(plugin: BaseFilter, ds: Dataset[Row]): Unit = {
+    val config = plugin.getConfig()
+    if (config.hasPath("result_table_name")) {
+      val tableName = config.getString("result_table_name")
+      registerStreamingTempView(tableName, ds)
     }
   }
 
@@ -335,6 +366,10 @@ object Waterdrop extends Logging {
         viewTableMap += (tableName -> "")
       }
     }
+  }
+
+  private[waterdrop] def registerStreamingTempView(tableName: String, ds: Dataset[Row]): Unit = {
+    ds.createOrReplaceTempView(tableName)
   }
 
   private[waterdrop] def deployModeCheck(): Unit = {
