@@ -95,7 +95,7 @@ object WaterdropStructuredStreaming extends Logging {
 
     val datasetList = structuredStreamingInputs.map(p => {
       val ds = p.getDataset(sparkSession)
-      Waterdrop.registerInputTempView(p, ds)
+      registerInputTempView(p, ds)
       ds
     })
 
@@ -107,7 +107,7 @@ object WaterdropStructuredStreaming extends Logging {
     var ds: Dataset[Row] = datasetList.get(0)
     for (f <- filters) {
       ds = Waterdrop.filterProcess(sparkSession, f, ds)
-      Waterdrop.registerFilterTempView(f, ds)
+      Waterdrop.registerStreamingFilterTempView(f, ds)
     }
 
     var streamingQueryList = List[StreamingQuery]()
@@ -119,6 +119,29 @@ object WaterdropStructuredStreaming extends Logging {
 
     for (streamingQuery <- streamingQueryList) {
       streamingQuery.awaitTermination()
+    }
+  }
+
+  private def registerInputTempView(input: BaseStructuredStreamingInput, ds: Dataset[Row]): Unit = {
+    val config = input.getConfig()
+    config.hasPath("table_name") || config.hasPath("result_table_name") match {
+      case true => {
+        val tableName = config.hasPath("table_name") match {
+          case true => {
+            @deprecated
+            val oldTableName = config.getString("table_name")
+            oldTableName
+          }
+          case false => config.getString("result_table_name")
+        }
+        Waterdrop.registerStreamingTempView(tableName, ds)
+      }
+
+      case false => {
+        throw new ConfigRuntimeException(
+          "Plugin[" + input.name + "] must be registered as dataset/table, please set \"result_table_name\" config")
+
+      }
     }
   }
 
