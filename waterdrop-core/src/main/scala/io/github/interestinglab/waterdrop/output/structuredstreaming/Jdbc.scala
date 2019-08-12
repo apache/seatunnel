@@ -22,9 +22,7 @@ class Jdbc extends BaseStructuredStreamingOutput{
 
   var tableName: String = _
 
-  var poll: JdbcConnectionPoll = _
-
-  var connection: Connection = _
+  var jdbcConnProps: Properties = new Properties()
 
   override def setConfig(config: Config): Unit = this.config = config
 
@@ -66,8 +64,6 @@ class Jdbc extends BaseStructuredStreamingOutput{
     )
     config = config.withFallback(defaultConf)
 
-    val properties = new Properties()
-
     TypesafeConfigUtils.hasSubConfig(config,jdbcPrefix) match {
       case true => {
         TypesafeConfigUtils.extractSubConfig(config, jdbcPrefix, false)
@@ -75,25 +71,24 @@ class Jdbc extends BaseStructuredStreamingOutput{
           .foreach(entry => {
             val key = entry.getKey
             val value = String.valueOf(entry.getValue.unwrapped())
-            properties.put(key, value)
+            jdbcConnProps.put(key, value)
           })
       }
       case false => {}
     }
 
-    poll = JdbcConnectionPoll.getPoll(properties)
-
     tableName = config.getString("jdbc.table")
-
   }
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
-    connection = poll.getConnection
     true
   }
 
 
   override def process(row: Row): Unit = {
+    // get connection
+    val connection = JdbcConnectionPoll.getPoll(jdbcConnProps).getConnection
+
     val fields = row.schema.fieldNames
     val values = ArrayBuffer[String]()
     fields.foreach(_ => values += "?")
@@ -107,10 +102,12 @@ class Jdbc extends BaseStructuredStreamingOutput{
     val ps = connection.prepareStatement(sql)
     setPrepareStatement(row,ps)
     ps.execute()
+
+    // close connection
+    connection.close()
   }
 
   private def setPrepareStatement(row: Row,ps: PreparedStatement): Unit = {
-
     for (i <- 0 until row.size) {
       row.get(i) match {
         case v: Int => ps.setInt(i + 1, v)
@@ -124,7 +121,6 @@ class Jdbc extends BaseStructuredStreamingOutput{
   }
 
   override def close(errorOrNull: Throwable): Unit = {
-    connection.close()
   }
 
 
