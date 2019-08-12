@@ -22,6 +22,8 @@ class Jdbc extends BaseStructuredStreamingOutput{
 
   var tableName: String = _
 
+  val properties = new Properties()
+
   var poll: JdbcConnectionPoll = _
 
   var connection: Connection = _
@@ -66,8 +68,6 @@ class Jdbc extends BaseStructuredStreamingOutput{
     )
     config = config.withFallback(defaultConf)
 
-    val properties = new Properties()
-
     TypesafeConfigUtils.hasSubConfig(config,jdbcPrefix) match {
       case true => {
         TypesafeConfigUtils.extractSubConfig(config, jdbcPrefix, false)
@@ -81,13 +81,12 @@ class Jdbc extends BaseStructuredStreamingOutput{
       case false => {}
     }
 
-    poll = JdbcConnectionPoll.getPoll(properties)
-
     tableName = config.getString("jdbc.table")
 
   }
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
+    poll = JdbcConnectionPoll.getPoll(properties)
     connection = poll.getConnection
     true
   }
