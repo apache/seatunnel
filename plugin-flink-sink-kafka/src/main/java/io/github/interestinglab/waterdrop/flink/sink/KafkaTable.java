@@ -1,7 +1,9 @@
-package io.github.interestinglab.waterdrop.flink.stream.sink;
+package io.github.interestinglab.waterdrop.flink.sink;
 
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnv;
-import io.github.interestinglab.waterdrop.flink.utils.PropertiesUtil;
+import com.typesafe.config.Config;
+import io.github.interestinglab.waterdrop.common.PropertiesUtil;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -20,8 +22,9 @@ import java.util.Properties;
  * @date 2019-07-22 18:39
  * @description
  */
-public class KafkaTable extends InternalFlinkStreamSink<Void,Void> {
+public class KafkaTable implements FlinkStreamSink<Void,Void> {
 
+    private Config config;
     private String tableName;
     private String sinkTableName;
     private Properties kafkaParams = new Properties();
@@ -29,7 +32,7 @@ public class KafkaTable extends InternalFlinkStreamSink<Void,Void> {
     private final String producerPrefix = "producer.";
 
     @Override
-    public DataStreamSink<Void> output(DataStream<Void> dataStream, FlinkStreamEnv env) {
+    public DataStreamSink<Void> output(DataStream<Void> dataStream, FlinkStreamEnvironment env) {
         StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
         Table table = tableEnvironment.scan(tableName);
         TypeInformation<?>[] informations = table.getSchema().getFieldTypes();
@@ -62,6 +65,16 @@ public class KafkaTable extends InternalFlinkStreamSink<Void,Void> {
 
     private FormatDescriptor setFormat(){
         return new Json().failOnMissingField(false).deriveSchema();
+    }
+
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
+    @Override
+    public Config getConfig() {
+        return config;
     }
 
     @Override
