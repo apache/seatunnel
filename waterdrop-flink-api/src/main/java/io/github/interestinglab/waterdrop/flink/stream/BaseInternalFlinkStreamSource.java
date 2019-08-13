@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.flink.stream.source;
+package io.github.interestinglab.waterdrop.flink.stream;
 
 import com.typesafe.config.Config;
 
@@ -7,7 +7,7 @@ import com.typesafe.config.Config;
  * @date 2019-05-31 17:07
  * @description
  */
-public abstract class InternalFlinkStreamSource<T> implements FlinkStreamSource<T> {
+public abstract class BaseInternalFlinkStreamSource<T> implements FlinkStreamSource<T> {
 
     protected Config config;
 
