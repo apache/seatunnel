@@ -128,9 +128,7 @@
                 <version>3.8</version>
                 <configuration>
                     <rulesets>
-                        <ruleset>rulesets/java/ali-comment.xml</ruleset>
                         <ruleset>rulesets/java/ali-concurrent.xml</ruleset>
-                        <ruleset>rulesets/java/ali-constant.xml</ruleset>
                         <ruleset>rulesets/java/ali-exception.xml</ruleset>
                         <ruleset>rulesets/java/ali-flowcontrol.xml</ruleset>
                         <ruleset>rulesets/java/ali-naming.xml</ruleset>
@@ -138,6 +136,7 @@
                         <ruleset>rulesets/java/ali-orm.xml</ruleset>
                         <ruleset>rulesets/java/ali-other.xml</ruleset>
                         <ruleset>rulesets/java/ali-set.xml</ruleset>
+                        <ruleset>rulesets/java/ali-util.xml</ruleset>
                     </rulesets>
                     <printFailingErrors>true</printFailingErrors>
                 </configuration>
