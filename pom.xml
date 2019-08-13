@@ -21,6 +21,8 @@
         <module>plugin-flink-transform-sql</module>
         <module>plugin-flink-sink-console</module>
         <module>plugin-flink-transform-table2datasteam</module>
+        <module>plugin-flink-sink-kafka</module>
+        <module>plugin-flink-transform-datastream2table</module>
     </modules>
 
     <properties>

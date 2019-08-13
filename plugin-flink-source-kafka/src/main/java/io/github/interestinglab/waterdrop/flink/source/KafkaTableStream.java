@@ -35,6 +35,7 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
     private String rowTimeField;
     private String tableName;
     private final String consumerPrefix = "consumer.";
+    private long watermark;
 
     @Override
     public void setConfig(Config config) {
@@ -59,6 +60,9 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
         String sourceContent = config.getString("source_content");
         if (config.hasPath("rowtime.field")){
             rowTimeField = config.getString("rowtime.field");
+            if (config.hasPath("watermark")){
+                watermark = config.getLong("watermark");
+            }
         }
         jsonDemo = JSONObject.parseObject(sourceContent);
     }
@@ -68,19 +72,19 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
         env.getTableEnvironment()
                 .connect(getKafkaConnect())
                 .withFormat(setFormat())
-                .withSchema(setSchema())
+                .withSchema(getSchema())
                 .inAppendMode()
                 .registerTableSource(tableName);
         return null;
     }
 
-    private Schema setSchema() {
+    private Schema getSchema() {
         Schema schema = new Schema();
-        setSchema(schema,jsonDemo);
+        getJsonSchema(schema,jsonDemo);
         if (StringUtils.isNotBlank(rowTimeField)){
             Rowtime rowtime = new Rowtime();
             rowtime.timestampsFromField(rowTimeField);
-            rowtime.watermarksPeriodicAscending();
+            rowtime.watermarksPeriodicBounded(watermark);
             schema.rowtime(rowtime);
         }
         return schema;
@@ -93,7 +97,7 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
         kafka.properties(kafkaParams);
         return kafka;
     }
-    private void setSchema(Schema schema, JSONObject json) {
+    private void getJsonSchema(Schema schema, JSONObject json) {
 
         for (Map.Entry<String, Object> entry : json.entrySet()) {
             String key = entry.getKey();
@@ -110,6 +114,10 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
                 schema.field(key, getTypeInformation((JSONObject) value));
             }
         }
+    }
+
+    private void getCsvSchema(){
+
     }
 
     private  TypeInformation getTypeInformation(JSONObject json) {

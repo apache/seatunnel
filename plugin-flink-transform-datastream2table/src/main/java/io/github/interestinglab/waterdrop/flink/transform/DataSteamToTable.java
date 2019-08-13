@@ -1,6 +1,7 @@
-package io.github.interestinglab.waterdrop.flink.stream.transform;
+package io.github.interestinglab.waterdrop.flink.transform;
 
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnv;
+import io.github.interestinglab.waterdrop.flink.stream.AbstractFlinkStreamTransform;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
@@ -16,7 +17,7 @@ public class DataSteamToTable extends AbstractFlinkStreamTransform<Row,Void> {
     private String tableName;
 
     @Override
-    public DataStream<Void> process(DataStream<Row> dataStream, FlinkStreamEnv env) {
+    public DataStream<Void> process(DataStream<Row> dataStream, FlinkStreamEnvironment env) {
         StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
         tableEnvironment.registerDataStream(tableName,dataStream);
         return null;
