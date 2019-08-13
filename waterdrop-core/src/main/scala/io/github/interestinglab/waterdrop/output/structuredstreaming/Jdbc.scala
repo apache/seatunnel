@@ -22,6 +22,8 @@ class Jdbc extends BaseStructuredStreamingOutput{
 
   var tableName: String = _
 
+  var connection: Connection = _
+
   var jdbcConnProps: Properties = new Properties()
 
   override def setConfig(config: Config): Unit = this.config = config
@@ -81,14 +83,12 @@ class Jdbc extends BaseStructuredStreamingOutput{
   }
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
+    connection = JdbcConnectionPoll.getPoll(jdbcConnProps).getConnection
     true
   }
 
 
   override def process(row: Row): Unit = {
-    // get connection
-    val connection = JdbcConnectionPoll.getPoll(jdbcConnProps).getConnection
-
     val fields = row.schema.fieldNames
     val values = ArrayBuffer[String]()
     fields.foreach(_ => values += "?")
@@ -102,9 +102,6 @@ class Jdbc extends BaseStructuredStreamingOutput{
     val ps = connection.prepareStatement(sql)
     setPrepareStatement(row,ps)
     ps.execute()
-
-    // close connection
-    connection.close()
   }
 
   private def setPrepareStatement(row: Row,ps: PreparedStatement): Unit = {
@@ -121,6 +118,7 @@ class Jdbc extends BaseStructuredStreamingOutput{
   }
 
   override def close(errorOrNull: Throwable): Unit = {
+    connection.close()
   }
 
 

@@ -13,7 +13,7 @@ public class JdbcConnectionPoll implements Serializable {
 
     private static JdbcConnectionPoll poll;
 
-    private transient DruidDataSource dataSource;
+    private DruidDataSource dataSource;
 
     private JdbcConnectionPoll(Properties properties) throws Exception {
         dataSource = (DruidDataSource) DruidDataSourceFactory.createDataSource(properties);
