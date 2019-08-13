@@ -28,9 +28,9 @@ public class ConfigParser {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigParser.class);
 
-    public static class ConfigError extends Exception {
+    public static class ConfigErrorException extends Exception {
 
-        public ConfigError(String message) {
+        public ConfigErrorException(String message) {
             super(message);
         }
     }
@@ -51,9 +51,9 @@ public class ConfigParser {
     /**
      * 配置解析
      *
-     * @throws ConfigError
+     * @throws ConfigErrorException
      */
-    public void parse() throws ConfigError {
+    public void parse() throws ConfigErrorException {
 
         logger.info("Parsing Config: \n" + config.root().render());
 
@@ -112,9 +112,9 @@ public class ConfigParser {
      *
      * @param config
      * @return
-     * @throws ConfigError
+     * @throws ConfigErrorException
      */
-    private Plugin parsePlugin(Config config) throws ConfigError {
+    private Plugin parsePlugin(Config config) throws ConfigErrorException {
         String pluginCls = getPluginCls(config.getString("type"));
 
         try {
@@ -123,9 +123,9 @@ public class ConfigParser {
             return plugin;
 
         } catch (ClassNotFoundException e) {
-            throw new ConfigError("plugin type not found: " + pluginCls);
+            throw new ConfigErrorException("plugin type not found: " + pluginCls);
         } catch (Exception e) {
-            throw new ConfigError("unknow error: " + ExceptionUtils.getStackTrace(e));
+            throw new ConfigErrorException("unknow error: " + ExceptionUtils.getStackTrace(e));
         }
     }
 
