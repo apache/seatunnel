@@ -16,7 +16,7 @@
 | [options.*](#options-object) | object | no | - |
 | [options.rowTag](#optionsrowTag-string) | string | no | - |
 | [path](#path-string) | string | yes | - |
-| [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
 
 ##### format [string]
 
@@ -38,16 +38,17 @@
 文件路径，以file://开头
 
 
-##### table_name [string]
+##### common options [string]
 
-注册的表名
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+
 
 ### Example
 
 ```
 file {
     path = "file:///var/log/access.log"
-    table_name = "accesslog"
+    result_table_name = "accesslog"
     format = "text"
 }
 ```
@@ -56,9 +57,9 @@ file {
 
 ```
 file {
-    table_name = "books"
     path = "file:///data0/src/books.xml"
     options.rowTag = "book"
     format = "xml"
+    result_table_name = "books"
 }
 ```

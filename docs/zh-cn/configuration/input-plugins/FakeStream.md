@@ -17,6 +17,8 @@ Fake Input主要用于方便得生成用户指定的数据，作为输入来对W
 | [num_of_fields](#num_of_fields-number) | number | no | 10 |
 | [rate](#rate-number) | number | yes | - |
 | [text_delimeter](#text_delimeter-string) | string | no | , |
+| [common-options](#common-options-string)| string | yes | - |
+
 
 ##### data_format [string]
 
@@ -37,6 +39,11 @@ json数据key列表，当`data_format`为json时使用
 ##### text_delimeter [string]
 
 文本数据分隔符，当`data_format`为text时使用
+
+##### common options [string]
+
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+
 
 ### Examples
 

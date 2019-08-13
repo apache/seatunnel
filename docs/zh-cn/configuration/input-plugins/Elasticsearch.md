@@ -15,7 +15,8 @@
 | [hosts](#hosts-array) | array | yes | - |
 | [index](#index-string) | string | yes |  |
 | [es](#es-string) | string | no |  |
-| [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
+
 
 ##### hosts [array]
 
@@ -33,9 +34,10 @@ ElasticSearch index名称，支持 `*` 模糊匹配
 
 如指定 `es.read.metadata` 的方式是: `es.read.metadata = true`。如果不指定这些非必须参数，它们将使用官方文档给出的默认值。
 
-##### table_name [string]
+##### common options [string]
 
-数据在 Spark 中注册的表名
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+
 
 ### Examples
 
@@ -43,7 +45,7 @@ ElasticSearch index名称，支持 `*` 模糊匹配
 elasticsearch {
     hosts = ["localhost:9200"]
     index = "waterdrop-20190424"
-    table_name = "my_dataset"
+    result_table_name = "my_dataset"
   }
 ```
 
@@ -53,7 +55,7 @@ elasticsearch {
     hosts = ["localhost:9200"]
     index = "waterdrop-*"
     es.read.field.include = "name, age"
-    table_name = "my_dataset"
+    resulttable_name = "my_dataset"
   }
 ```
 

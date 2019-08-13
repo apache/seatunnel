@@ -14,6 +14,8 @@
 | --- | --- | --- | --- |
 | [source_field](#source_field-string) | string | no | raw_message |
 | [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### source_field [string]
 
@@ -21,7 +23,12 @@
 
 ##### table_name [string]
 
-临时表表名。
+临时表表名
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Examples
 

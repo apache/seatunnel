@@ -20,6 +20,7 @@
 | [user](#user-string) | string | yes | - |all streaming |
 | [jdbc.*](#jdbc.*-string) | string | no | - |all streaming |
 | [jdbc_output_mode](#jdbc_output_mode-string) | string | no | replace |all streaming |
+| [common-options](#common-options-string)| string | no | - | all streaming|
 
 
 ##### driver [string]
@@ -47,7 +48,7 @@ JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 
 用户名
 
-#### jdbc.* [string]
+##### jdbc.* [string]
 
 阿里durid连接池配置，详见https://github.com/alibaba/druid/wiki/DruidDataSource%E9%85%8D%E7%BD%AE%E5%B1%9E%E6%80%A7%E5%88%97%E8%A1%A8
 在其列表属性之前添加jdbc.前缀，如配置initialSize(初始化连接池大小)，jdbc.initialSize="1"
@@ -57,6 +58,11 @@ JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 输出到jdbc的模式，支持两种模式`replace|insert ignore`,`insert ignore`如果主键重复会丢弃新数据不会报错，`replace`新数据会替代旧数据
 
 用户名
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+
 
 ### Example
 > spark streaming

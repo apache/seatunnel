@@ -14,6 +14,8 @@
 | --- | --- | --- | --- |
 | [sql](#sql-string) | string | yes | - |
 | [table_name](#table_name-string) | string | no | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### sql [string]
 
@@ -22,6 +24,10 @@ SQL语句，SQL中使用的表名为 `Input` 或 `Filter` 插件中配置的 `re
 ##### table_name [string]
 
 **\[从v1.4开始废弃\]**，后续 Release 版本中将删除此参数
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
 
 
 ### Examples

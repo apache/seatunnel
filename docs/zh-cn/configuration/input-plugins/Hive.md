@@ -13,16 +13,17 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [pre_sql](#pre_sql-string) | string | yes | - |
-| [table_name](#table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
 
 
 ##### pre_sql [string]
 
 进行预处理的sql, 如果不需要预处理,可以使用select * from hive_db.hive_table
 
-##### table_name [string]
+##### common options [string]
 
-经过pre_sql获取到的数据，注册成临时表的表名
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+
 
 **注意：从waterdrop v1.3.4 开始，使用hive input必须做如下配置：**
 
@@ -50,7 +51,7 @@ spark {
 input {
   hive {
     pre_sql = "select * from mydb.mytb"
-    table_name = "myTable"
+    result_table_name = "myTable"
   }
 }
 

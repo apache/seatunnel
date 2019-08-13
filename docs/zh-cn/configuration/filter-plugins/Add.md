@@ -14,6 +14,7 @@
 | --- | --- | --- | --- |
 | [target_field](#target_field-string) | string | yes | - |
 | [value](#value-string) | string | yes | - |
+| [common-options](#common-options-string)| string | no | - |
 
 ##### target_field [string]
 
@@ -21,7 +22,11 @@
 
 ##### value [string]
 
-新增字段的值, 目前仅支持固定值，不支持变量。
+新增字段的值, 目前仅支持固定值，不支持变量
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
 
 ### Examples
 

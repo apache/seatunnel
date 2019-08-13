@@ -14,6 +14,8 @@
 | --- | --- | --- | --- |
 | [new_type](#new_type-string) | string | yes | - |
 | [source_field](#source_field-string) | string | yes | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### new_type [string]
 
@@ -22,6 +24,10 @@
 ##### source_field [string]
 
 源数据字段
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
 
 
 ### Examples

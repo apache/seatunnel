@@ -13,10 +13,17 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [target_field](#target_field-string) | string | no | uuid |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### target_field [string]
 
 存储uuid的目标字段，若不配置默认为`uuid`
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Example
 

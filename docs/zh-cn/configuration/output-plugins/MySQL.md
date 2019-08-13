@@ -17,6 +17,7 @@
 | [table](#table-string) | string | yes | - |
 | [url](#url-string) | string | yes | - |
 | [user](#user-string) | string | yes | - |
+| [common-options](#common-options-string)| string | no | - |
 
 
 ##### password [string]
@@ -39,6 +40,10 @@ JDBC连接的URL。参考一个案例：`jdbc:mysql://localhose:3306/info`
 ##### user [string]
 
 用户名
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
 
 
 ### Example

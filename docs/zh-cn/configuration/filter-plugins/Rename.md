@@ -14,6 +14,8 @@
 | --- | --- | --- | --- |
 | [source_field](#source_field-string) | array | yes | - |
 | [target_field](#target_field-string) | array | yes | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### source_field [string]
 
@@ -22,6 +24,11 @@
 ##### target_field [string]
 
 变更之后的字段名
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Examples
 

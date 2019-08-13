@@ -16,6 +16,8 @@
 | [target_field](#target_field-string) | string | no | \_\_root\_\_ |
 | [schema_dir](#schema_dir-string) | string | no | - |
 | [schema_file](#schema_file-string) | string | no | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### source_field [string]
 
@@ -32,6 +34,11 @@
 ##### schema_file [string]
 
 样式文件名，若不配置默认为空，即不指定结构，由系统根据数据源输入自行推导。
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Use cases
 

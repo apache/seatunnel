@@ -22,6 +22,8 @@
 | [isCache](#isCache-boolean) | boolean | no | false |
 | [isTrace](#isTrace-boolean) | boolean | no | false |
 | [isPrecise](#isPrecise-boolean) | boolean | no | false |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### object_name [string]
 
@@ -46,6 +48,10 @@
 ##### isPrecise [boolean]
 
 是否需要高精度的计算
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
 
 
 ### Examples

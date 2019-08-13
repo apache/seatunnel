@@ -6,7 +6,7 @@
 
 ### Description
 
-输出数据到Elasticsearch，支持的Elasticsearch版本为 >= 2.x。
+输出数据到Elasticsearch，支持的Elasticsearch版本为 >= 2.x 且 < 7.0.0。
 
 ### Options
 
@@ -17,6 +17,8 @@
 | [index_time_format](#index_time_format-string) | string | no | yyyy.MM.dd |
 | [index](#index-string) | string | no | waterdrop |
 | [es](#es-string) | string | no |  |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### hosts [array]
 
@@ -52,6 +54,10 @@ Elasticsearch index名称，如果需要根据时间生成index，可以指定�
 
 如指定`es.batch.size.entries`的方式是: `es.batch.size.entries = 100000`。如果不指定这些非必须参数，它们将使用官方文档给出的默认值。
 
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+
 
 ### Examples
 
@@ -73,4 +79,4 @@ elasticsearch {
 }
 ```
 
-> 按天创建索引，例如**waterdrop-2017.11.03**
+> 按天创建索引，例如 **waterdrop-2017.11.03**

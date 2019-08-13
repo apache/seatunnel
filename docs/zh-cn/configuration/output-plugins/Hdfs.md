@@ -18,6 +18,8 @@
 | [path_time_format](#path_time_format-string) | string | no | yyyyMMddHHmmss |
 | [save_mode](#save_mode-string) | string | no | error |
 | [serializer](#serializer-string) | string | no | json |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### options [object]
 
@@ -53,6 +55,10 @@ Hadoop集群文件路径，以hdfs://开头
 ##### serializer [string]
 
 序列化方法，当前支持csv、json、parquet、orc和text
+
+##### common options [string]
+
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
 
 
 ### Example

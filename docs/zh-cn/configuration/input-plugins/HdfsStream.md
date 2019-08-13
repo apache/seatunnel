@@ -15,6 +15,7 @@
 | [format](#format-string) | no | yes | text |
 | [path](#path-string) | string | yes | - |
 | [rowTag](#rowtag-string) | no | yes | - |
+| [common-options](#common-options-string)| string | yes | - |
 
 
 ##### format [string]
@@ -30,6 +31,11 @@
 ##### rowTag [string]
 
 仅当format为xml时使用，表示XML格式数据的Tag
+
+##### common options [string]
+
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+
 
 ### Example
 

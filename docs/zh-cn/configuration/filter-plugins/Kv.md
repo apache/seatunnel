@@ -20,6 +20,8 @@
 | [source_field](#source_field-string) | string | no | raw_message |
 | [target_field](#target_field-string) | string | no | \_\_root\_\_ |
 | [value_split](#value_split-string) | string | no | = |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### default_values [array]
 
@@ -54,6 +56,11 @@
 ##### value_split [string]
 
 字段值分隔符
+
+##### common options [string]
+
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+
 
 ### Examples
 
