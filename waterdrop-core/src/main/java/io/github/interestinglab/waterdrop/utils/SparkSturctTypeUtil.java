@@ -2,11 +2,13 @@ package io.github.interestinglab.waterdrop.utils;
 
 
 import com.alibaba.fastjson.JSONObject;
+import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import io.github.interestinglab.waterdrop.config.ConfigRuntimeException;
 
+import java.util.List;
 import java.util.Map;
 
 
@@ -20,6 +22,22 @@ public class SparkSturctTypeUtil {
             if (type instanceof JSONObject) {
                 StructType st = getStructType(new StructType(), (JSONObject) type);
                 newSchema = newSchema.add(field, st);
+            } else if (type instanceof List) {
+                List list = (List) type;
+
+                if (list.size() == 0) {
+                    newSchema = newSchema.add(field, DataTypes.createArrayType(null, true));
+                } else {
+                    Object o = list.get(0);
+                    if (o instanceof JSONObject) {
+                        StructType st = getStructType(new StructType(), (JSONObject) o);
+                        newSchema = newSchema.add(field, DataTypes.createArrayType(st, true));
+                    } else {
+                        DataType st = getType(o.toString());
+                        newSchema = newSchema.add(field,  DataTypes.createArrayType(st, true));
+                    }
+                }
+
             } else {
                 newSchema = newSchema.add(field, getType(type.toString()));
             }
@@ -68,4 +86,5 @@ public class SparkSturctTypeUtil {
         }
         return dataType;
     }
+
 }
