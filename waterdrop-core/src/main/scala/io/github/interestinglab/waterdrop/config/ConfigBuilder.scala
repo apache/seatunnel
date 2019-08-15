@@ -9,6 +9,7 @@ import scala.collection.JavaConverters._
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
 import io.github.interestinglab.waterdrop.apis._
 
+import scala.util.{Failure, Success, Try}
 import util.control.Breaks._
 
 class ConfigBuilder(configFile: String) {
@@ -27,7 +28,7 @@ class ConfigBuilder(configFile: String) {
     // variables substitution / variables resolution order:
     // config file --> syste environment --> java properties
 
-    try {
+    Try({
       val config = ConfigFactory
         .parseFile(new File(configFile))
         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
@@ -37,8 +38,9 @@ class ConfigBuilder(configFile: String) {
       println("[INFO] parsed config file: " + config.root().render(options))
 
       config
-    } catch {
-      case e: Throwable => throw new ConfigRuntimeException(e)
+    }) match {
+      case Success(conf) => conf
+      case Failure(exception) => throw new ConfigRuntimeException(exception)
     }
   }
 
