@@ -2,7 +2,6 @@ package io.github.interestinglab.waterdrop.utils;
 
 
 import com.alibaba.fastjson.JSONObject;
-import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
