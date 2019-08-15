@@ -25,16 +25,21 @@ class ConfigBuilder(configFile: String) {
     println("[INFO] Loading config file: " + configFile)
 
     // variables substitution / variables resolution order:
-    // onfig file --> syste environment --> java properties
-    val config = ConfigFactory
-      .parseFile(new File(configFile))
-      .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-      .resolveWith(ConfigFactory.systemProperties, ConfigResolveOptions.defaults.setAllowUnresolved(true))
+    // config file --> syste environment --> java properties
 
-    val options: ConfigRenderOptions = ConfigRenderOptions.concise.setFormatted(true)
-    println("[INFO] parsed config file: " + config.root().render(options))
+    try {
+      val config = ConfigFactory
+        .parseFile(new File(configFile))
+        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+        .resolveWith(ConfigFactory.systemProperties, ConfigResolveOptions.defaults.setAllowUnresolved(true))
 
-    config
+      val options: ConfigRenderOptions = ConfigRenderOptions.concise.setFormatted(true)
+      println("[INFO] parsed config file: " + config.root().render(options))
+
+      config
+    } catch {
+      case e: Throwable => throw new ConfigRuntimeException(e)
+    }
   }
 
   /**
