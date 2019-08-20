@@ -56,7 +56,6 @@ public class ConfigParser {
     public void parse() throws ConfigErrorException {
 
         logger.info("Parsing Config: \n" + config.root().render());
-        System.out.print(config);
         if (config.getConfig("base").hasPath("engine")) {
             String engine = config.getString("base.engine");
             switch (engine) {
