@@ -20,7 +20,6 @@ class Fake extends SparkBatchSource {
     val schema = new StructType()
       .add("raw_message", DataTypes.StringType)
 
-    println(env.getSparkSession.sparkContext.getConf.getAll.toList)
     env.getSparkSession.createDataset(s)(RowEncoder(schema))
   }
 

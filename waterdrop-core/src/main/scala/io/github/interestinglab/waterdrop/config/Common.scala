@@ -3,13 +3,13 @@ import java.nio.file.{Path, Paths}
 
 object Common {
 
-  val ALLOWED_MODES = List("client", "cluster")
+  val allowedModes = List("client", "cluster")
 
   private var mode: Option[String] = None
 
   def isModeAllowed(mode: String): Boolean = {
 
-    ALLOWED_MODES.foldRight(false)((m, lastResult) => {
+    allowedModes.foldRight(false)((m, lastResult) => {
       lastResult match {
         case true  => true
         case false => mode.toLowerCase.equals(m)

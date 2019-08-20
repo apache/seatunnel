@@ -165,10 +165,10 @@ class ConfigBuilder(configFile: String) {
         case "transform" => ConfigBuilder.TransformPackage
         case "sink"      => ConfigBuilder.SinkPackage
       }
-      return packageName + "." + qualifier
+      packageName + "." + qualifier
+    } else {
+      qualifier
     }
-
-    qualifier
   }
 }
 
