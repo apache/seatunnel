@@ -77,7 +77,7 @@ object Waterdrop {
     val runtimeEnv =
       configBuilder.createRuntimeEnv
 
-    val execution = new SparkStreamingExecution(
+    val execution = new SparkBatchExecution(
       runtimeEnv.asInstanceOf[SparkEnvironment])
       .asInstanceOf[Execution[BaseSource[_, _],
                               BaseTransform[_, _, _],
