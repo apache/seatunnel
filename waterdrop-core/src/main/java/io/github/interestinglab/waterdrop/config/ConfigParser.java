@@ -6,11 +6,13 @@ import com.typesafe.config.ConfigFactory;
 import io.github.interestinglab.waterdrop.apis.BaseSink;
 import io.github.interestinglab.waterdrop.apis.BaseSource;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
+import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
-import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchEnv;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnv;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
-import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingEnv;
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment;
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -26,9 +28,9 @@ public class ConfigParser {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigParser.class);
 
-    public static class ConfigError extends Exception {
+    public static class ConfigErrorException extends Exception {
 
-        public ConfigError(String message) {
+        public ConfigErrorException(String message) {
             super(message);
         }
     }
@@ -38,6 +40,7 @@ public class ConfigParser {
     private List<BaseTransform> transforms = new ArrayList<>();
     private List<BaseSink> sinks = new ArrayList<>();
     private RuntimeEnv runtimeEnv;
+    private Execution execution;
 
     public ConfigParser(File file) {
 
@@ -48,26 +51,30 @@ public class ConfigParser {
     /**
      * 配置解析
      *
-     * @throws ConfigError
+     * @throws ConfigErrorException
      */
-    public void parse() throws ConfigError {
+    public void parse() throws ConfigErrorException {
 
         logger.info("Parsing Config: \n" + config.root().render());
-
+        System.out.print(config);
         if (config.getConfig("base").hasPath("engine")) {
             String engine = config.getString("base.engine");
             switch (engine) {
                 case "flinkStream":
-                    runtimeEnv = new FlinkStreamEnv();
+                    FlinkStreamEnvironment flinkStreamEnvironment = new FlinkStreamEnvironment();
+                    execution = new FlinkStreamExecution(flinkStreamEnvironment);
+                    runtimeEnv = flinkStreamEnvironment;
                     break;
                 case "flinkBatch":
-                    runtimeEnv = new FlinkBatchEnv();
+//                    runtimeEnv = new FlinkBatchEnv();
                     break;
                 case "sparkBatch":
 //                    runtimeEnv = new SparkbatchEnv();
                     break;
                 case "sparkStreaming":
-                    runtimeEnv = new SparkStreamingEnv();
+                    SparkEnvironment sparkEnvironment = new SparkEnvironment();
+                    execution = new SparkStreamingExecution(sparkEnvironment);
+                    runtimeEnv = sparkEnvironment;
                     break;
                 case "structStreaming":
 //                    runtimeEnv = new StructuredStreamingEnv();
@@ -105,9 +112,9 @@ public class ConfigParser {
      *
      * @param config
      * @return
-     * @throws ConfigError
+     * @throws ConfigErrorException
      */
-    private Plugin parsePlugin(Config config) throws ConfigError {
+    private Plugin parsePlugin(Config config) throws ConfigErrorException {
         String pluginCls = getPluginCls(config.getString("type"));
 
         try {
@@ -116,9 +123,9 @@ public class ConfigParser {
             return plugin;
 
         } catch (ClassNotFoundException e) {
-            throw new ConfigError("plugin type not found: " + pluginCls);
+            throw new ConfigErrorException("plugin type not found: " + pluginCls);
         } catch (Exception e) {
-            throw new ConfigError("unknow error: " + ExceptionUtils.getStackTrace(e));
+            throw new ConfigErrorException("unknow error: " + ExceptionUtils.getStackTrace(e));
         }
     }
 
