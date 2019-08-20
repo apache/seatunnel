@@ -1,21 +1,21 @@
 package io.github.interestinglab.waterdrop
 
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
-import io.github.interestinglab.waterdrop.config._
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchEnv
-import io.github.interestinglab.waterdrop.spark.config.ConfigBuilder
+import io.github.interestinglab.waterdrop.config.{ConfigBuilder, _}
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 
 import scala.collection.JavaConverters._
-
 import io.github.interestinglab.waterdrop.apis.{
   BaseSink,
   BaseSource,
   BaseTransform
 }
-import io.github.interestinglab.waterdrop.env.RuntimeEnv
+import io.github.interestinglab.waterdrop.env.{Execution, RuntimeEnv}
 import io.github.interestinglab.waterdrop.plugin.Plugin
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution
 
 import scala.util.{Failure, Success, Try}
 
@@ -75,17 +75,22 @@ object Waterdrop {
     val outputs = configBuilder.createOutputs
 
     val runtimeEnv =
-      new SparkBatchEnv().asInstanceOf[RuntimeEnv[BaseSource[_, _],
-                                                  BaseTransform[_, _, _],
-                                                  BaseSink[_, _, _]]]
+      configBuilder.createRuntimeEnv
+
+    val execution = new SparkStreamingExecution(
+      runtimeEnv.asInstanceOf[SparkEnvironment])
+      .asInstanceOf[Execution[BaseSource[_, _],
+                              BaseTransform[_, _, _],
+                              BaseSink[_, _, _]]]
+
     runtimeEnv.setConfig(configBuilder.config)
 
     prepare(runtimeEnv, staticInputs, filters, outputs)
-    runtimeEnv.start(staticInputs.asJava, filters.asJava, outputs.asJava);
+    execution.start(staticInputs.asJava, filters.asJava, outputs.asJava);
 
   }
 
-  private[waterdrop] def prepare(runtimeEnv: RuntimeEnv[_, _, _],
+  private[waterdrop] def prepare(runtimeEnv: RuntimeEnv,
                                  plugins: scala.List[Plugin]*): Unit = {
     runtimeEnv.prepare()
     for (pluginList <- plugins) {
