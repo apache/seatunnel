@@ -72,7 +72,6 @@ class File extends BaseStaticInput {
         reader = reader.options(optionMap)
       }
       case Failure(exception) => // do nothing
-
     }
 
     format match {
@@ -82,7 +81,7 @@ class File extends BaseStaticInput {
       case "json" => reader.json(path)
       case "orc" => reader.orc(path)
       case "csv" => reader.csv(path)
-      case _ => reader.load(path)
+      case _ => reader.format(format).load(path)
     }
   }
 
