@@ -6,16 +6,8 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 
 import scala.collection.JavaConverters._
-import io.github.interestinglab.waterdrop.apis.{
-  BaseSink,
-  BaseSource,
-  BaseTransform
-}
-import io.github.interestinglab.waterdrop.env.{Execution, RuntimeEnv}
+import io.github.interestinglab.waterdrop.env.RuntimeEnv
 import io.github.interestinglab.waterdrop.plugin.Plugin
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
-import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution
 
 import scala.util.{Failure, Success, Try}
 
@@ -67,21 +59,12 @@ object Waterdrop {
 
   private def entrypoint(configFile: String): Unit = {
 
-    val configBuilder = new ConfigBuilder(configFile)
-
+    val configBuilder = new ConfigBuilder(configFile, "spark")
     val staticInputs = configBuilder.createStaticInputs
-
     val filters = configBuilder.createFilters
     val outputs = configBuilder.createOutputs
 
-    val runtimeEnv =
-      configBuilder.createRuntimeEnv
-
-    val execution = new SparkBatchExecution(
-      runtimeEnv.asInstanceOf[SparkEnvironment])
-      .asInstanceOf[Execution[BaseSource[_, _],
-                              BaseTransform[_, _, _],
-                              BaseSink[_, _, _]]]
+    val (runtimeEnv, execution) = configBuilder.createExecution
 
     runtimeEnv.setConfig(configBuilder.config)
 
