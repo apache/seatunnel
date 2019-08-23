@@ -1,27 +1,28 @@
 package io.github.interestinglab.waterdrop.config
 
 import java.io.File
-import com.typesafe.config.{
-  Config,
-  ConfigFactory,
-  ConfigRenderOptions,
-  ConfigResolveOptions
-}
-import io.github.interestinglab.waterdrop.apis.{
-  BaseSink,
-  BaseSource,
-  BaseTransform
-}
+
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
+import io.github.interestinglab.waterdrop.apis.{BaseSink, BaseSource, BaseTransform}
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
-import io.github.interestinglab.waterdrop.env.RuntimeEnv
+import io.github.interestinglab.waterdrop.env.{Execution, RuntimeEnv}
+import io.github.interestinglab.waterdrop.flink.stream.{FlinkStreamEnvironment, FlinkStreamExecution}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
 
 import scala.collection.JavaConversions._
 import scala.language.reflectiveCalls
 
-class ConfigBuilder(configFile: String) {
+
+class ConfigBuilder(configFile: String, engine: String) {
+
+
+  def this(configFile: String) {
+    this(configFile, "")
+  }
 
   val config = load()
+  val configPackage = new ConfigPackage(engine)
 
   def load(): Config = {
 
@@ -49,15 +50,6 @@ class ConfigBuilder(configFile: String) {
     config
   }
 
-  /**
-    * check if config is valid.
-    * */
-  def checkConfig: Unit = {
-    val sparkConfig = this.getSparkConfigs
-    val staticInput = this.createStaticInputs
-    val outputs = this.createOutputs
-    val filters = this.createFilters
-  }
 
   def getSparkConfigs: Config = {
     config.getConfig("spark")
@@ -113,10 +105,42 @@ class ConfigBuilder(configFile: String) {
     filterList
   }
 
-  def createRuntimeEnv: RuntimeEnv = {
-    val env = new SparkEnvironment()
+  def createRuntimeEnv(engine: String): RuntimeEnv = {
+
+    val env = engine match {
+      case "spark" => new SparkEnvironment()
+      case "flink" => new FlinkStreamEnvironment()
+    }
     env.setConfig(config)
     env
+  }
+
+  /**
+    * check if config is valid.
+    **/
+  def checkConfig: Unit = {
+    this.getSparkConfigs
+    this.createStaticInputs
+    this.createOutputs
+    this.createFilters
+  }
+
+
+  def createExecution: (RuntimeEnv, Execution[BaseSource[_, _], BaseTransform[_, _, _], BaseSink[_, _, _]]) = {
+    val env = engine match {
+      case "spark" => new SparkEnvironment()
+      case "flink" => new FlinkStreamEnvironment()
+    }
+    env.setConfig(config)
+
+    engine match {
+      case "flink" => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkStreamEnvironment]).asInstanceOf[Execution[BaseSource[_, _],
+        BaseTransform[_, _, _],
+        BaseSink[_, _, _]]])
+      case "spark" => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource[_, _],
+        BaseTransform[_, _, _],
+        BaseSink[_, _, _]]])
+    }
   }
 
   def createOutputs: List[BaseSink[_, _, _]] = {
@@ -161,9 +185,9 @@ class ConfigBuilder(configFile: String) {
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
-        case "source"    => ConfigBuilder.SourcePackage
-        case "transform" => ConfigBuilder.TransformPackage
-        case "sink"      => ConfigBuilder.SinkPackage
+        case "source"    => configPackage.sourcePackage
+        case "transform" => configPackage.transformPackage
+        case "sink"      => configPackage.sinkPackage
       }
       packageName + "." + qualifier
     } else {
@@ -173,11 +197,6 @@ class ConfigBuilder(configFile: String) {
 }
 
 object ConfigBuilder {
-
-  val PackagePrefix = "io.github.interestinglab.waterdrop.spark"
-  val SourcePackage = PackagePrefix + ".source"
-  val TransformPackage = PackagePrefix + ".transform"
-  val SinkPackage = PackagePrefix + ".sink"
 
   val PluginNameKey = "plugin_name"
 

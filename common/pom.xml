@@ -11,13 +11,5 @@
 
     <artifactId>common</artifactId>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.github.scopt</groupId>
-            <artifactId>scopt_2.12</artifactId>
-            <version>3.7.0</version>
-        </dependency>
-    </dependencies>
-
 
 </project>
