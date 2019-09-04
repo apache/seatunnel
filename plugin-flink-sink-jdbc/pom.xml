@@ -9,14 +9,13 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-flink-source-kafka</artifactId>
+    <artifactId>plugin-flink-sink-jdbc</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>waterdrop-flink-api</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
 

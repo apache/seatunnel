@@ -8,11 +8,15 @@ import io.github.interestinglab.waterdrop.apis.BaseSource;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
 import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchEnvironment;
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchExcution;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment;
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution;
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
+import io.github.interestinglab.waterdrop.spark.structuredstream.StructuredStreamingExecution;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -66,23 +70,30 @@ public class ConfigParser {
                     runtimeEnv = flinkStreamEnvironment;
                     break;
                 case "flinkBatch":
-//                    runtimeEnv = new FlinkBatchEnv();
+                    FlinkBatchEnvironment flinkBatchEnvironment = new FlinkBatchEnvironment();
+                    execution = new FlinkBatchExcution(flinkBatchEnvironment);
+                    runtimeEnv = flinkBatchEnvironment;
                     break;
                 case "sparkBatch":
-//                    runtimeEnv = new SparkbatchEnv();
+                    SparkEnvironment sparkBatch = new SparkEnvironment();
+                    execution = new SparkBatchExecution(sparkBatch);
+                    runtimeEnv = sparkBatch;
                     break;
                 case "sparkStreaming":
-                    SparkEnvironment sparkEnvironment = new SparkEnvironment();
-                    execution = new SparkStreamingExecution(sparkEnvironment);
-                    runtimeEnv = sparkEnvironment;
+                    SparkEnvironment sparkStream = new SparkEnvironment();
+                    execution = new SparkStreamingExecution(sparkStream);
+                    runtimeEnv = sparkStream;
                     break;
-                case "structStreaming":
-//                    runtimeEnv = new StructuredStreamingEnv();
+                case "structuredStreaming":
+                    SparkEnvironment sparkStructured = new SparkEnvironment();
+                    execution = new StructuredStreamingExecution(sparkStructured);
+                    runtimeEnv = sparkStructured;
                     break;
                 default:
                     throw new RuntimeException("not found engine :" + engine);
             }
             runtimeEnv.setConfig(config.getConfig("base"));
+            execution.setConfig(config.getConfig("base"));
         }
 
         List<? extends Config> sources = config.getConfigList("source");
@@ -91,7 +102,7 @@ public class ConfigParser {
             this.sources.add((BaseSource) parsePlugin(conf));
         }
 
-        if (config.hasPath("transform")){
+        if (config.hasPath("transform")) {
             List<? extends Config> transforms = config.getConfigList("transform");
 
             for (Config conf : transforms) {

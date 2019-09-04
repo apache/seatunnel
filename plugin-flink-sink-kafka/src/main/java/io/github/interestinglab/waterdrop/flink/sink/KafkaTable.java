@@ -22,7 +22,7 @@ import java.util.Properties;
  * @date 2019-07-22 18:39
  * @description
  */
-public class KafkaTable implements FlinkStreamSink<Void,Void> {
+public class KafkaTable implements FlinkStreamSink<Void, Void> {
 
     private Config config;
     private String tableName;
@@ -47,15 +47,15 @@ public class KafkaTable implements FlinkStreamSink<Void,Void> {
         return null;
     }
 
-    private Schema getSchema( TypeInformation<?>[] informations,String[] fieldNames){
+    private Schema getSchema(TypeInformation<?>[] informations, String[] fieldNames) {
         Schema schema = new Schema();
-        for (int i = 0; i < informations.length; i++){
-            schema.field(fieldNames[i],informations[i]);
+        for (int i = 0; i < informations.length; i++) {
+            schema.field(fieldNames[i], informations[i]);
         }
         return schema;
     }
 
-    private Kafka getKafkaConnect(){
+    private Kafka getKafkaConnect() {
 
         org.apache.flink.table.descriptors.Kafka kafka = new Kafka().version("universal");
         kafka.topic(topic);
@@ -63,7 +63,7 @@ public class KafkaTable implements FlinkStreamSink<Void,Void> {
         return kafka;
     }
 
-    private FormatDescriptor setFormat(){
+    private FormatDescriptor setFormat() {
         return new Json().failOnMissingField(false).deriveSchema();
     }
 
@@ -79,7 +79,7 @@ public class KafkaTable implements FlinkStreamSink<Void,Void> {
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 
     @Override
@@ -87,6 +87,6 @@ public class KafkaTable implements FlinkStreamSink<Void,Void> {
         tableName = config.getString("table_name");
         sinkTableName = config.getString("sink_table_name");
         topic = config.getString("topics");
-        PropertiesUtil.setProperties(config, kafkaParams, producerPrefix);
+        PropertiesUtil.setProperties(config, kafkaParams, producerPrefix, false);
     }
 }

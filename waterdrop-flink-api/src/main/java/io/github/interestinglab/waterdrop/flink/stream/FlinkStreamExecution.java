@@ -3,6 +3,7 @@ package io.github.interestinglab.waterdrop.flink.stream;
 import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 
 import java.util.ArrayList;
@@ -18,6 +19,8 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, Abstra
     private Config config;
 
     private FlinkStreamEnvironment streamEnvironment;
+
+    private String jobName;
 
     public FlinkStreamExecution(FlinkStreamEnvironment streamEnvironment) {
         this.streamEnvironment = streamEnvironment;
@@ -41,7 +44,11 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, Abstra
             sink.output(input, streamEnvironment);
         }
         try {
-            streamEnvironment.getEnvironment().execute();
+            if (StringUtils.isBlank(jobName)){
+                streamEnvironment.getEnvironment().execute();
+            }else {
+                streamEnvironment.getEnvironment().execute(jobName);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -59,11 +66,13 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, Abstra
 
     @Override
     public CheckResult checkConfig() {
-        return null;
+        return new CheckResult(true,"");
     }
 
     @Override
     public void prepare() {
-
+        if (config.hasPath("job.name")){
+            jobName = config.getString("job.name");
+        }
     }
 }
