@@ -73,6 +73,7 @@ public class SchemaUtil {
             case "avro":
                 break;
             case "parquet":
+                break;
             default:
         }
         return formatDescriptor;
@@ -107,14 +108,30 @@ public class SchemaUtil {
     }
 
 
+    /**
+     * todo
+     * @param schema
+     * @param json
+     */
     private static void getOrcSchema(Schema schema, JSONObject json) {
 
     }
 
+
+    /**
+     * todo
+     * @param schema
+     * @param json
+     */
     private static void getParquetSchema(Schema schema, JSONObject json) {
 
     }
 
+    /**
+     * todo
+     * @param schema
+     * @param json
+     */
     private static void getAvroSchema(Schema schema, JSONObject json) {
 
     }
