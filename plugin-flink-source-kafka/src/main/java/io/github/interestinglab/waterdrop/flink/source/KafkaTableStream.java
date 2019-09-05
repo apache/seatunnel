@@ -3,13 +3,12 @@ package io.github.interestinglab.waterdrop.flink.source;
 import com.alibaba.fastjson.JSONObject;
 import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;
 import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.table.api.Table;
 import org.apache.flink.table.descriptors.*;
 
 import java.util.Properties;
@@ -64,7 +63,7 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
     }
 
     @Override
-    public DataStream<Void> getData(FlinkStreamEnvironment env) {
+    public DataStream<Void> getData(FlinkEnvironment env) {
         env.getTableEnvironment()
                 .connect(getKafkaConnect())
                 .withFormat(setFormat())

@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.flink.batch;
 
 import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.env.Execution;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.java.DataSet;
@@ -14,40 +15,40 @@ import java.util.List;
  * @date 2019-08-24 16:26
  * @description
  */
-public class FlinkBatchExcution implements Execution<FlinkBatchSource,AbstractFlinkBatchTransform,FlinkBatchSink> {
+public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink> {
 
     private Config config;
 
-    private FlinkBatchEnvironment flinkBatchEnvironment;
+    private FlinkEnvironment flinkEnvironment;
 
     private String jobName;
 
-    public FlinkBatchExcution(FlinkBatchEnvironment flinkBatchEnvironment){
-        this.flinkBatchEnvironment = flinkBatchEnvironment;
+    public FlinkBatchExecution(FlinkEnvironment flinkEnvironment) {
+        this.flinkEnvironment = flinkEnvironment;
     }
 
     @Override
-    public void start(List<FlinkBatchSource> sources, List<AbstractFlinkBatchTransform> transforms, List<FlinkBatchSink> sinks) {
+    public void start(List<FlinkBatchSource> sources, List<FlinkBatchTransform> transforms, List<FlinkBatchSink> sinks) {
         List<DataSet> data = new ArrayList<>();
 
         for (FlinkBatchSource source : sources) {
-            data.add(source.getData(flinkBatchEnvironment));
+            data.add(source.getData(flinkEnvironment));
         }
 
         DataSet input = data.get(0);
 
-        for (AbstractFlinkBatchTransform transform : transforms) {
-            input = transform.process(input, flinkBatchEnvironment);
+        for (FlinkBatchTransform transform : transforms) {
+            input = transform.processBatch(input, flinkEnvironment);
         }
 
         for (FlinkBatchSink sink : sinks) {
-            sink.output(input, flinkBatchEnvironment);
+            sink.outputBatch(input, flinkEnvironment);
         }
         try {
-            if (StringUtils.isBlank(jobName)){
-                flinkBatchEnvironment.getEnvironment().execute();
-            }else {
-                flinkBatchEnvironment.getEnvironment().execute(jobName);
+            if (StringUtils.isBlank(jobName)) {
+                flinkEnvironment.getBatchEnvironment().execute();
+            } else {
+                flinkEnvironment.getBatchEnvironment().execute(jobName);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -66,12 +67,12 @@ public class FlinkBatchExcution implements Execution<FlinkBatchSource,AbstractFl
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 
     @Override
     public void prepare() {
-        if (config.hasPath("job.name")){
+        if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
     }

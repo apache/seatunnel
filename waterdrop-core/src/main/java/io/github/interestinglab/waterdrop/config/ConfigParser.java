@@ -8,9 +8,8 @@ import io.github.interestinglab.waterdrop.apis.BaseSource;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
 import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
-import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchEnvironment;
-import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchExcution;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchExecution;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment;
@@ -65,13 +64,13 @@ public class ConfigParser {
             String engine = config.getString("base.engine");
             switch (engine) {
                 case "flinkStream":
-                    FlinkStreamEnvironment flinkStreamEnvironment = new FlinkStreamEnvironment();
+                    FlinkEnvironment flinkStreamEnvironment = new FlinkEnvironment();
                     execution = new FlinkStreamExecution(flinkStreamEnvironment);
                     runtimeEnv = flinkStreamEnvironment;
                     break;
                 case "flinkBatch":
-                    FlinkBatchEnvironment flinkBatchEnvironment = new FlinkBatchEnvironment();
-                    execution = new FlinkBatchExcution(flinkBatchEnvironment);
+                    FlinkEnvironment flinkBatchEnvironment = new FlinkEnvironment();
+                    execution = new FlinkBatchExecution(flinkBatchEnvironment);
                     runtimeEnv = flinkBatchEnvironment;
                     break;
                 case "sparkBatch":

@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.flink.stream;
+package io.github.interestinglab.waterdrop.flink;
 
 import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
@@ -6,6 +6,7 @@ import io.github.interestinglab.waterdrop.flink.util.ConfigKeyName;
 import io.github.interestinglab.waterdrop.flink.util.EnvironmentUtil;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -13,25 +14,32 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.StreamQueryConfig;
+import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * @author mr_xiong
- * @date 2019-08-12 22:58
+ * @date 2019-09-04 14:49
  * @description
  */
-public class FlinkStreamEnvironment implements RuntimeEnv {
+public class FlinkEnvironment  implements RuntimeEnv {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FlinkStreamEnvironment.class);
+    private static final Logger LOG = LoggerFactory.getLogger(FlinkEnvironment.class);
 
     private Config config;
 
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
+
+    private ExecutionEnvironment batchEnvironment;
+
+    private BatchTableEnvironment batchTableEnvironment;
+
+    private boolean isStreaming;
+
 
     @Override
     public void setConfig(Config config) {
@@ -50,8 +58,19 @@ public class FlinkStreamEnvironment implements RuntimeEnv {
 
     @Override
     public void prepare() {
-        createEnvironment();
-        createStreamTableEnvironment();
+        isStreaming = "flinkStream".equals(config.getString("engine"));
+        if (isStreaming){
+            createEnvironment();
+            createStreamTableEnvironment();
+        }else {
+            createBatchTableEnvironment();
+            createExecutionEnvironment();
+        }
+
+    }
+
+    public boolean isStreaming() {
+        return isStreaming;
     }
 
     public StreamExecutionEnvironment getEnvironment() {
@@ -95,8 +114,27 @@ public class FlinkStreamEnvironment implements RuntimeEnv {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
         }
+    }
 
+    public ExecutionEnvironment getBatchEnvironment() {
+        return batchEnvironment;
+    }
 
+    public BatchTableEnvironment getBatchTableEnvironment() {
+        return batchTableEnvironment;
+    }
+
+    private void createExecutionEnvironment() {
+        batchEnvironment = ExecutionEnvironment.createCollectionsEnvironment();
+        if (config.hasPath(ConfigKeyName.PARALLELISM)) {
+            int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
+            environment.setParallelism(parallelism);
+        }
+        EnvironmentUtil.setRestartStrategy(config, environment);
+    }
+
+    private void createBatchTableEnvironment() {
+        batchTableEnvironment = BatchTableEnvironment.create(batchEnvironment);
     }
 
     private void setTimeCharacteristic() {
@@ -176,6 +214,5 @@ public class FlinkStreamEnvironment implements RuntimeEnv {
             }
         }
     }
-
 
 }
