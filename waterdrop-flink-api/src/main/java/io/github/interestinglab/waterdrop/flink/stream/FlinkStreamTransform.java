@@ -1,6 +1,5 @@
 package io.github.interestinglab.waterdrop.flink.stream;
 
-import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import org.apache.flink.streaming.api.datastream.DataStream;
