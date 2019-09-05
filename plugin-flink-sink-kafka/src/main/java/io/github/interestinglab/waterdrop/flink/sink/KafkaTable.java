@@ -2,18 +2,19 @@ package io.github.interestinglab.waterdrop.flink.sink;
 
 import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
-import org.apache.flink.table.descriptors.FormatDescriptor;
-import org.apache.flink.table.descriptors.Json;
-import org.apache.flink.table.descriptors.Kafka;
-import org.apache.flink.table.descriptors.Schema;
+import org.apache.flink.table.descriptors.*;
 
 import java.util.Properties;
 
@@ -22,7 +23,7 @@ import java.util.Properties;
  * @date 2019-07-22 18:39
  * @description
  */
-public class KafkaTable implements FlinkStreamSink<Void, Void> {
+public class KafkaTable implements FlinkStreamSink<Void, Void>, FlinkBatchSink<Void, Void> {
 
     private Config config;
     private String tableName;
@@ -31,8 +32,9 @@ public class KafkaTable implements FlinkStreamSink<Void, Void> {
     private String topic;
     private final String producerPrefix = "producer.";
 
+
     @Override
-    public DataStreamSink<Void> output(DataStream<Void> dataStream, FlinkStreamEnvironment env) {
+    public DataStreamSink<Void> outputStream(FlinkEnvironment env, DataStream<Void> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
         Table table = tableEnvironment.scan(tableName);
         TypeInformation<?>[] informations = table.getSchema().getFieldTypes();
@@ -47,6 +49,22 @@ public class KafkaTable implements FlinkStreamSink<Void, Void> {
         return null;
     }
 
+    @Override
+    public DataSink<Void> outputBatch(DataSet<Void> voidDataSet, FlinkEnvironment env) {
+        BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
+        Table table = tableEnvironment.scan(tableName);
+        TypeInformation<?>[] informations = table.getSchema().getFieldTypes();
+        String[] fieldNames = table.getSchema().getFieldNames();
+        Schema schema = getSchema(informations, fieldNames);
+        tableEnvironment.connect(getKafkaConnect())
+                .withSchema(schema)
+                .withFormat(setFormat())
+                .registerTableSink(sinkTableName);
+        table.insertInto(sinkTableName);
+        return null;
+    }
+
+
     private Schema getSchema(TypeInformation<?>[] informations, String[] fieldNames) {
         Schema schema = new Schema();
         for (int i = 0; i < informations.length; i++) {
@@ -57,7 +75,7 @@ public class KafkaTable implements FlinkStreamSink<Void, Void> {
 
     private Kafka getKafkaConnect() {
 
-        org.apache.flink.table.descriptors.Kafka kafka = new Kafka().version("universal");
+        Kafka kafka = new Kafka().version("universal");
         kafka.topic(topic);
         kafka.properties(kafkaParams);
         return kafka;

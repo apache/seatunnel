@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.typesafe.config.Config;
-import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchEnvironment;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSource;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -21,8 +21,8 @@ public class FileSource implements FlinkBatchSource<Row> {
     private String path;
 
     @Override
-    public DataSet<Row> getData(FlinkBatchEnvironment env) {
-        ExecutionEnvironment environment = env.getEnvironment();
+    public DataSet<Row> getData(FlinkEnvironment env) {
+        ExecutionEnvironment environment = env.getBatchEnvironment();
         return environment.readTextFile(path)
                 .map(new MapFunction<String, Row>() {
                     @Override
@@ -31,6 +31,7 @@ public class FileSource implements FlinkBatchSource<Row> {
                     }
                 });
     }
+
 
     @Override
     public void setConfig(Config config) {

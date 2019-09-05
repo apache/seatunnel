@@ -1,14 +1,12 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import com.typesafe.config.Config;
-import io.github.interestinglab.waterdrop.common.PropertiesUtil;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.flink.api.java.io.jdbc.JDBCAppendTableSink;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.table.api.Table;
 
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
 
@@ -47,8 +45,9 @@ public class JdbcSink implements FlinkStreamSink<Void,Void> {
         tableName = config.getString("table_name");
     }
 
+
     @Override
-    public DataStreamSink<Void> output(DataStream<Void> dataStream, FlinkStreamEnvironment env) {
+    public DataStreamSink<Void> outputStream(FlinkEnvironment env, DataStream<Void> dataStream) {
         JDBCAppendTableSink sink = JDBCAppendTableSink.builder()
                 .setDrivername(driverName)
                 .setDBUrl(dbUrl)
