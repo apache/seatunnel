@@ -15,23 +15,23 @@ import org.apache.flink.types.Row;
  * @date 2019-07-12 18:52
  * @description
  */
-public class DataSteamToTable implements FlinkStreamTransform<Row,Void>, FlinkBatchTransform<Row,Void> {
+public class DataSteamToTable implements FlinkStreamTransform<Row,Row>, FlinkBatchTransform<Row,Row> {
 
     private String tableName;
 
     private Config config;
 
     @Override
-    public DataStream<Void> processStream(DataStream<Row> dataStream, FlinkEnvironment env) {
-        StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
+    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+        StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         tableEnvironment.registerDataStream(tableName,dataStream);
-        return null;
+        return dataStream;
     }
 
     @Override
-    public DataSet<Void> processBatch(DataSet<Row> data, FlinkEnvironment env) {
+    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
         env.getBatchTableEnvironment().registerDataSet(tableName,data);
-        return null;
+        return data;
     }
 
     @Override

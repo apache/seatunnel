@@ -3,12 +3,19 @@ package io.github.interestinglab.waterdrop.flink.stream;
 import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
+import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.plugin.Plugin;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.catalog.Catalog;
+import org.apache.flink.table.catalog.ObjectPath;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author mr_xiong
@@ -19,12 +26,13 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     private Config config;
 
-    private FlinkEnvironment streamEnvironment;
+    private FlinkEnvironment flinkEnvironment;
 
     private String jobName;
 
+
     public FlinkStreamExecution(FlinkEnvironment streamEnvironment) {
-        this.streamEnvironment = streamEnvironment;
+        this.flinkEnvironment = streamEnvironment;
     }
 
     @Override
@@ -32,27 +40,64 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         List<DataStream> data = new ArrayList<>();
 
         for (FlinkStreamSource source : sources) {
-            data.add(source.getData(streamEnvironment));
+            DataStream dataStream = source.getData(flinkEnvironment);
+            data.add(dataStream);
+            registerResultTable(source, dataStream);
         }
 
         DataStream input = data.get(0);
 
         for (FlinkStreamTransform transform : transforms) {
-            input = transform.processStream(input, streamEnvironment);
+            DataStream stream = fromSourceTable(transform);
+            if (Objects.nonNull(stream)) {
+                input = stream;
+            }
+            input = transform.processStream(flinkEnvironment, input);
+            registerResultTable(transform, input);
         }
 
         for (FlinkStreamSink sink : sinks) {
-            sink.outputStream(streamEnvironment,input);
+            DataStream stream = fromSourceTable(sink);
+            if (Objects.nonNull(stream)) {
+                input = stream;
+            }
+            sink.outputStream(flinkEnvironment, input);
         }
         try {
-            if (StringUtils.isBlank(jobName)){
-                streamEnvironment.getEnvironment().execute();
-            }else {
-                streamEnvironment.getEnvironment().execute(jobName);
+            if (StringUtils.isBlank(jobName)) {
+                flinkEnvironment.getStreamExecutionEnvironment().execute();
+            } else {
+                flinkEnvironment.getStreamExecutionEnvironment().execute(jobName);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void registerResultTable(Plugin plugin, DataStream dataStream) {
+        Config config = plugin.getConfig();
+        if (config.hasPath(RESULT_TABLE_NAME)) {
+            String name = config.getString(RESULT_TABLE_NAME);
+            StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
+            if (!TableUtil.tableExists(tableEnvironment,name)) {
+                if (config.hasPath("field_name")){
+                    String fieldName = config.getString("field_name");
+                    tableEnvironment.registerDataStream(name, dataStream,fieldName);
+                }else {
+                    tableEnvironment.registerDataStream(name, dataStream);
+                }
+            }
+        }
+    }
+
+    private DataStream fromSourceTable(Plugin plugin) {
+        Config config = plugin.getConfig();
+        if (config.hasPath(SOURCE_TABLE_NAME)) {
+            StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
+            Table table = tableEnvironment.scan(config.getString(SOURCE_TABLE_NAME));
+            return TableUtil.tableToDataStream(tableEnvironment, table, true);
+        }
+        return null;
     }
 
     @Override
@@ -67,12 +112,12 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 
     @Override
     public void prepare() {
-        if (config.hasPath("job.name")){
+        if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
     }

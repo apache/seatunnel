@@ -11,6 +11,6 @@ import org.apache.flink.api.java.DataSet;
  */
 public interface FlinkBatchTransform<IN,OUT> extends BaseTransform {
 
-    DataSet<OUT> processBatch(DataSet<IN> data, FlinkEnvironment env);
+    DataSet<OUT> processBatch(FlinkEnvironment env, DataSet<IN> data);
 
 }
