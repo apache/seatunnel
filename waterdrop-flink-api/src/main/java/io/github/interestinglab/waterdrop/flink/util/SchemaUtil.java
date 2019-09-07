@@ -9,13 +9,16 @@ import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.table.descriptors.*;
+import org.apache.flink.table.utils.TypeStringUtils;
 import org.apache.flink.types.Row;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * @author mr_xiong
@@ -23,6 +26,7 @@ import java.util.Map;
  * @description
  */
 public class SchemaUtil {
+
 
     public static void setSchema(Schema schema, Object info, String format) {
 
@@ -42,10 +46,11 @@ public class SchemaUtil {
             case "parquet":
                 getParquetSchema(schema, (JSONObject) info);
             default:
+                break;
         }
     }
 
-    public static FormatDescriptor setFormat(String format, Config config) throws Exception{
+    public static FormatDescriptor setFormat(String format, Config config) throws Exception {
         FormatDescriptor formatDescriptor = null;
         switch (format.toLowerCase()) {
             case "json":
@@ -59,11 +64,11 @@ public class SchemaUtil {
                 Class<DescriptorProperties> descCls = DescriptorProperties.class;
                 Method putMethod = descCls.getDeclaredMethod("put", String.class, String.class);
                 putMethod.setAccessible(true);
-                for (Map.Entry<String, ConfigValue> entry : config.entrySet()){
+                for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
                     String key = entry.getKey();
-                    if (key.startsWith("format.")){
+                    if (key.startsWith("format.")) {
                         String value = config.getString(key);
-                        putMethod.invoke(desc,key,value);
+                        putMethod.invoke(desc, key, value);
                     }
                 }
                 formatDescriptor = csv;
@@ -75,6 +80,7 @@ public class SchemaUtil {
             case "parquet":
                 break;
             default:
+                break;
         }
         return formatDescriptor;
     }
@@ -107,9 +113,20 @@ public class SchemaUtil {
         }
     }
 
+    public static TypeInformation[] getCsvType(List<Map<String, String>> schemaList) {
+        TypeInformation[] typeInformation = new TypeInformation[schemaList.size()];
+        int i = 0;
+        for (Map<String, String> map : schemaList) {
+            String type = map.get("type").toUpperCase();
+            typeInformation[i++] = TypeStringUtils.readTypeInfo(type);
+        }
+        return typeInformation;
+    }
+
 
     /**
      * todo
+     *
      * @param schema
      * @param json
      */
@@ -120,6 +137,7 @@ public class SchemaUtil {
 
     /**
      * todo
+     *
      * @param schema
      * @param json
      */
@@ -129,6 +147,7 @@ public class SchemaUtil {
 
     /**
      * todo
+     *
      * @param schema
      * @param json
      */
@@ -136,7 +155,7 @@ public class SchemaUtil {
 
     }
 
-    private static TypeInformation getTypeInformation(JSONObject json) {
+    public static RowTypeInfo getTypeInformation(JSONObject json) {
         int size = json.size();
         String[] fields = new String[size];
         TypeInformation[] informations = new TypeInformation[size];
@@ -162,5 +181,9 @@ public class SchemaUtil {
             i++;
         }
         return new RowTypeInfo(informations, fields);
+    }
+
+    public static String getUniqueTableName() {
+        return UUID.randomUUID().toString().replaceAll("-", "_");
     }
 }

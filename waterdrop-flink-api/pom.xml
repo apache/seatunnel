@@ -75,7 +75,6 @@
             <version>${flink.version}</version>
         </dependency>
 
-
         <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-avro -->
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -83,6 +82,17 @@
             <version>${flink.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-orc_2.11</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-parquet_2.11</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
 
     </dependencies>
 

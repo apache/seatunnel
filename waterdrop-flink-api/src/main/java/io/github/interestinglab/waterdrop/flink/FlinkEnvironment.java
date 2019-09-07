@@ -13,7 +13,7 @@ import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.table.api.StreamQueryConfig;
+import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.slf4j.Logger;
@@ -73,21 +73,21 @@ public class FlinkEnvironment  implements RuntimeEnv {
         return isStreaming;
     }
 
-    public StreamExecutionEnvironment getEnvironment() {
+    public StreamExecutionEnvironment getStreamExecutionEnvironment() {
         return environment;
     }
 
-    public StreamTableEnvironment getTableEnvironment() {
+    public StreamTableEnvironment getStreamTableEnvironment() {
         return tableEnvironment;
     }
 
     private void createStreamTableEnvironment() {
-        tableEnvironment = StreamTableEnvironment.create(getEnvironment());
-        StreamQueryConfig queryConfig = tableEnvironment.queryConfig();
-        if (config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)){
-            long max = config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
-            long min = config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
-            queryConfig.withIdleStateRetentionTime(Time.seconds(min),Time.seconds(max));
+        tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment());
+        TableConfig config = tableEnvironment.getConfig();
+        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)){
+            long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
+            long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
+            config.setIdleStateRetentionTime(Time.seconds(min),Time.seconds(max));
         }
     }
 
@@ -152,6 +152,7 @@ public class FlinkEnvironment  implements RuntimeEnv {
                     break;
                 default:
                     LOG.warn("set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time", timeType);
+                    break;
             }
         }
     }
@@ -174,6 +175,7 @@ public class FlinkEnvironment  implements RuntimeEnv {
                         break;
                     default:
                         LOG.warn("set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once", mode);
+                        break;
                 }
             }
 

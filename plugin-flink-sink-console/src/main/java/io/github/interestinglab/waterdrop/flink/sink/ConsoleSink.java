@@ -22,8 +22,10 @@ import java.io.IOException;
  */
 public class ConsoleSink  extends RichOutputFormat<Row> implements FlinkBatchSink<Row, Row>, FlinkStreamSink<Row,Row> {
 
+    private Config config;
+
     @Override
-    public DataSink<Row> outputBatch(DataSet<Row> rowDataSet, FlinkEnvironment env) {
+    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> rowDataSet) {
         return rowDataSet.output(this);
     }
 
@@ -34,12 +36,12 @@ public class ConsoleSink  extends RichOutputFormat<Row> implements FlinkBatchSin
 
     @Override
     public void setConfig(Config config) {
-
+        this.config = config;
     }
 
     @Override
     public Config getConfig() {
-        return null;
+        return config;
     }
 
     @Override
@@ -49,7 +51,6 @@ public class ConsoleSink  extends RichOutputFormat<Row> implements FlinkBatchSin
 
     @Override
     public void prepare() {
-
     }
 
     @Override

@@ -7,7 +7,7 @@ package io.github.interestinglab.waterdrop.flink.util;
  */
 public class ConfigKeyName {
     public final static String TIME_CHARACTERISTIC = "execution.time-characteristic";
-    public final static String BUFFER_TIMEOUT_MILLIS = "execution.time-characteristic";
+    public final static String BUFFER_TIMEOUT_MILLIS = "execution.buffer.timeout";
     public final static String PARALLELISM = "execution.parallelism";
     public final static String MAX_PARALLELISM = "execution.max-parallelism";
     public final static String CHECKPOINT_INTERVAL = "execution.checkpoint.interval";

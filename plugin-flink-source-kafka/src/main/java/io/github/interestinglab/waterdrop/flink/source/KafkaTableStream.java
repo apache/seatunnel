@@ -6,10 +6,14 @@ import io.github.interestinglab.waterdrop.common.PropertiesUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;
 import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
+import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.*;
+import org.apache.flink.types.Row;
 
 import java.util.Properties;
 
@@ -18,7 +22,7 @@ import java.util.Properties;
  * @date 2019-07-03 11:46
  * @description
  */
-public class KafkaTableStream implements FlinkStreamSource<Void> {
+public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private Config config;
 
@@ -50,7 +54,7 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
     public void prepare() {
         topic = config.getString("topics");
         PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix,false);
-        tableName = config.getString("table_name");
+        tableName = config.getString("result_table_name");
         if (config.hasPath("rowtime.field")){
             rowTimeField = config.getString("rowtime.field");
             if (config.hasPath("watermark")){
@@ -63,14 +67,16 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
     }
 
     @Override
-    public DataStream<Void> getData(FlinkEnvironment env) {
-        env.getTableEnvironment()
+    public DataStream<Row> getData(FlinkEnvironment env) {
+        StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
+        tableEnvironment
                 .connect(getKafkaConnect())
                 .withFormat(setFormat())
                 .withSchema(getSchema())
                 .inAppendMode()
                 .registerTableSource(tableName);
-        return null;
+        Table table = tableEnvironment.scan(tableName);
+        return TableUtil.tableToDataStream(tableEnvironment,table,true);
     }
 
     private Schema getSchema() {
