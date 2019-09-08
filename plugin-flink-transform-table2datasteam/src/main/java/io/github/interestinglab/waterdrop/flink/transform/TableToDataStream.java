@@ -1,13 +1,15 @@
 package io.github.interestinglab.waterdrop.flink.transform;
 
-import io.github.interestinglab.waterdrop.flink.stream.AbstractFlinkStreamTransform;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import com.typesafe.config.Config;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchTransform;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamTransform;
+import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
@@ -16,24 +18,39 @@ import org.apache.flink.types.Row;
  * @date 2019-07-12 18:55
  * @description
  */
-public class TableToDataStream extends AbstractFlinkStreamTransform<Void, Row> {
+public class TableToDataStream implements FlinkStreamTransform<Void, Row>, FlinkBatchTransform<Void, Row> {
 
     private String tableName;
 
+    private Config config;
+
+    private boolean isAppend;
+
     @Override
-    public DataStream<Row> process(DataStream<Void> dataStream, FlinkStreamEnvironment env) {
-        StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
+    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Void> dataStream) {
+        StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.scan(tableName);
-        TypeInformation<?>[] informations = table.getSchema().getFieldTypes();
-        String[] fieldNames = table.getSchema().getFieldNames();
-        RowTypeInfo rowTypeInfo = new RowTypeInfo(informations, fieldNames);
-        SingleOutputStreamOperator<Row> ds = tableEnvironment
-                .toRetractStream(table, rowTypeInfo)
-                .filter(row -> row.f0)
-                .map(row -> row.f1)
-                .returns(rowTypeInfo);
-        return ds;
+        return TableUtil.tableToDataStream(tableEnvironment,table,isAppend);
     }
+
+    @Override
+    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Void> data) {
+
+        BatchTableEnvironment batchTableEnvironment = env.getBatchTableEnvironment();
+        Table table = batchTableEnvironment.scan(tableName);
+        return TableUtil.tableToDataSet(batchTableEnvironment,table);
+    }
+
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
+    @Override
+    public Config getConfig() {
+        return config;
+    }
+
 
     @Override
     public CheckResult checkConfig() {
@@ -43,5 +60,8 @@ public class TableToDataStream extends AbstractFlinkStreamTransform<Void, Row> {
     @Override
     public void prepare() {
         tableName = config.getString("table_name");
+        if (config.hasPath("is_append")){
+            isAppend = config.getBoolean("is_append");
+        }
     }
 }

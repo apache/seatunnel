@@ -4,7 +4,7 @@ import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseTransform
 import org.apache.spark.sql.{Dataset, Row}
 
-trait BaseSparkTransform extends BaseTransform[Dataset[Row], Dataset[Row], SparkEnvironment] {
+trait BaseSparkTransform extends BaseTransform {
 
   protected var config: Config = ConfigFactory.empty()
 
@@ -12,4 +12,5 @@ trait BaseSparkTransform extends BaseTransform[Dataset[Row], Dataset[Row], Spark
 
   override def getConfig: Config = config
 
+  def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row];
 }
