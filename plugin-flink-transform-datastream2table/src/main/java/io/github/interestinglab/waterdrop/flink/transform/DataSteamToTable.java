@@ -1,8 +1,11 @@
 package io.github.interestinglab.waterdrop.flink.transform;
 
-import io.github.interestinglab.waterdrop.flink.stream.AbstractFlinkStreamTransform;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import com.typesafe.config.Config;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchTransform;
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamTransform;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
@@ -12,15 +15,33 @@ import org.apache.flink.types.Row;
  * @date 2019-07-12 18:52
  * @description
  */
-public class DataSteamToTable extends AbstractFlinkStreamTransform<Row,Void> {
+public class DataSteamToTable implements FlinkStreamTransform<Row,Row>, FlinkBatchTransform<Row,Row> {
 
     private String tableName;
 
+    private Config config;
+
     @Override
-    public DataStream<Void> process(DataStream<Row> dataStream, FlinkStreamEnvironment env) {
-        StreamTableEnvironment tableEnvironment = env.getTableEnvironment();
+    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+        StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         tableEnvironment.registerDataStream(tableName,dataStream);
-        return null;
+        return dataStream;
+    }
+
+    @Override
+    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
+        env.getBatchTableEnvironment().registerDataSet(tableName,data);
+        return data;
+    }
+
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
+    @Override
+    public Config getConfig() {
+        return config;
     }
 
     @Override

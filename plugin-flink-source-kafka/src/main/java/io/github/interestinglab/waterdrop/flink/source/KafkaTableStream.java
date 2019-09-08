@@ -1,23 +1,20 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.typesafe.config.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
-import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;
+import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
+import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
-import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.*;
 import org.apache.flink.types.Row;
 
-import java.math.BigDecimal;
-import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -25,17 +22,18 @@ import java.util.Properties;
  * @date 2019-07-03 11:46
  * @description
  */
-public class KafkaTableStream implements FlinkStreamSource<Void> {
+public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private Config config;
 
     private Properties kafkaParams = new Properties();
     private String topic;
-    private JSONObject jsonDemo;
+    private Object schemaInfo;
     private String rowTimeField;
     private String tableName;
     private final String consumerPrefix = "consumer.";
     private long watermark;
+    private String format;
 
     @Override
     public void setConfig(Config config) {
@@ -55,32 +53,35 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
     @Override
     public void prepare() {
         topic = config.getString("topics");
-        PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix);
-        tableName = config.getString("table_name");
-        String sourceContent = config.getString("source_content");
+        PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix,false);
+        tableName = config.getString("result_table_name");
         if (config.hasPath("rowtime.field")){
             rowTimeField = config.getString("rowtime.field");
             if (config.hasPath("watermark")){
                 watermark = config.getLong("watermark");
             }
         }
-        jsonDemo = JSONObject.parseObject(sourceContent);
+        String schemaContent = config.getString("schema");
+        format = config.getString("source_format");
+        schemaInfo = JSONObject.parse(schemaContent);
     }
 
     @Override
-    public DataStream<Void> getData(FlinkStreamEnvironment env) {
-        env.getTableEnvironment()
+    public DataStream<Row> getData(FlinkEnvironment env) {
+        StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
+        tableEnvironment
                 .connect(getKafkaConnect())
                 .withFormat(setFormat())
                 .withSchema(getSchema())
                 .inAppendMode()
                 .registerTableSource(tableName);
-        return null;
+        Table table = tableEnvironment.scan(tableName);
+        return TableUtil.tableToDataStream(tableEnvironment,table,true);
     }
 
     private Schema getSchema() {
         Schema schema = new Schema();
-        getJsonSchema(schema,jsonDemo);
+        SchemaUtil.setSchema(schema, schemaInfo,format);
         if (StringUtils.isNotBlank(rowTimeField)){
             Rowtime rowtime = new Rowtime();
             rowtime.timestampsFromField(rowTimeField);
@@ -91,65 +92,20 @@ public class KafkaTableStream implements FlinkStreamSource<Void> {
     }
 
     private Kafka getKafkaConnect(){
-
         Kafka kafka = new Kafka().version("universal");
         kafka.topic(topic);
         kafka.properties(kafkaParams);
         return kafka;
     }
-    private void getJsonSchema(Schema schema, JSONObject json) {
 
-        for (Map.Entry<String, Object> entry : json.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
-            if (value instanceof String) {
-                schema.field(key, Types.STRING());
-            } else if (value instanceof Integer) {
-                schema.field(key, Types.INT());
-            } else if (value instanceof Long) {
-                schema.field(key, Types.LONG());
-            } else if (value instanceof BigDecimal) {
-                schema.field(key, Types.JAVA_BIG_DEC());
-            } else if (value instanceof JSONObject) {
-                schema.field(key, getTypeInformation((JSONObject) value));
-            }
-        }
-    }
-
-    private void getCsvSchema(){
-
-    }
-
-    private  TypeInformation getTypeInformation(JSONObject json) {
-        int size = json.size();
-        String[] fields = new String[size];
-        TypeInformation[] informations = new TypeInformation[size];
-        int i = 0;
-        for (Map.Entry<String, Object> entry : json.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
-            fields[i] = key;
-            if (value instanceof String) {
-                informations[i] = Types.STRING();
-            } else if (value instanceof Integer) {
-                informations[i] = Types.INT();
-            } else if (value instanceof Long) {
-                informations[i] = Types.LONG();
-            } else if (value instanceof BigDecimal) {
-                informations[i] = Types.JAVA_BIG_DEC();
-            } else if (value instanceof JSONObject) {
-                informations[i] = getTypeInformation((JSONObject) value);
-            } else if (value instanceof JSONArray) {
-                JSONObject demo = ((JSONArray) value).getJSONObject(0);
-                informations[i] = ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation(demo));
-            }
-            i++;
-        }
-        return new RowTypeInfo(informations, fields);
-    }
 
     private FormatDescriptor setFormat(){
-        return new Json().failOnMissingField(false).deriveSchema();
+        try {
+            return SchemaUtil.setFormat(format,config);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        throw new RuntimeException("format配置错误");
     }
 
 }

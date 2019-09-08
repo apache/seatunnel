@@ -37,15 +37,15 @@ public class Application {
 
         List<BaseSink> sinks = configParser.getSinks();
 
-        prepare(runtimeEnv,sources,transforms,sinks);
+        prepare(runtimeEnv,execution,sources,transforms,sinks);
 
         execution.start(sources,transforms,sinks);
     }
 
-    private static void prepare(RuntimeEnv runtimeEnv, List<? extends Plugin>... plugins){
+    private static void prepare(RuntimeEnv runtimeEnv,Execution execution, List<? extends Plugin>... plugins){
 
         runtimeEnv.prepare();
-
+        execution.prepare();
         for (List<? extends Plugin> list : plugins){
             list.forEach(plugin -> plugin.prepare());
         }
