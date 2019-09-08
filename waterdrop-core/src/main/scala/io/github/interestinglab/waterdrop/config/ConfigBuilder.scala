@@ -61,7 +61,7 @@ class ConfigBuilder(configFile: String, engine: String) {
 
     val sourceConfigList = config.getConfigList("input")
 
-    val isStreaming = sourceConfigList.get(0).getString(ConfigBuilder.PluginNameKey).endsWith("Streaming")
+    val isStreaming = sourceConfigList.get(0).getString(ConfigBuilder.PluginNameKey).toLowerCase.endsWith("stream")
 
     sourceConfigList
       .foreach(plugin => {

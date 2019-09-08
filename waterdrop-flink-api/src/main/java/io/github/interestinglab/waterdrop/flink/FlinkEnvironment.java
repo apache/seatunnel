@@ -65,7 +65,13 @@ public class FlinkEnvironment  implements RuntimeEnv {
 
     @Override
     public void prepare(boolean isStreaming) {
-        prepare();
+        if (isStreaming) {
+            createEnvironment();
+            createStreamTableEnvironment();
+        } else {
+            createBatchTableEnvironment();
+            createExecutionEnvironment();
+        }
     }
 
     public boolean isStreaming() {
