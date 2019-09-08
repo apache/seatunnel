@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.spark
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.env.RuntimeEnv
 import io.github.interestinglab.waterdrop.plugin.CheckResult
 import org.apache.spark.SparkConf

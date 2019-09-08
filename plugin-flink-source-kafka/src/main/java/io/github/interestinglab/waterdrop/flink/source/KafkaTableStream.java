@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;

@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.common;
 
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 
 import java.util.Properties;
 

@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.config
 
 import java.io.File
 
-import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
 import io.github.interestinglab.waterdrop.apis.{BaseSink, BaseSource, BaseTransform}
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.env.{Execution, RuntimeEnv}
