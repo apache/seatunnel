@@ -60,22 +60,21 @@ object Waterdrop {
   private def entrypoint(configFile: String): Unit = {
 
     val configBuilder = new ConfigBuilder(configFile, "spark")
-    val staticInputs = configBuilder.createStaticInputs
-    val filters = configBuilder.createFilters
-    val outputs = configBuilder.createOutputs
+    val (sources, isStreaming) = configBuilder.createSources
+    val transforms = configBuilder.createTransforms
+    val sinks = configBuilder.createSinks
 
     val (runtimeEnv, execution) = configBuilder.createExecution
 
     runtimeEnv.setConfig(configBuilder.config)
+    runtimeEnv.prepare(isStreaming)
 
-    prepare(runtimeEnv, staticInputs, filters, outputs)
-    execution.start(staticInputs.asJava, filters.asJava, outputs.asJava);
+    prepare(sources, transforms, sinks)
+    execution.start(sources.asJava, transforms.asJava, sinks.asJava);
 
   }
 
-  private[waterdrop] def prepare(runtimeEnv: RuntimeEnv,
-                                 plugins: scala.List[Plugin]*): Unit = {
-    runtimeEnv.prepare()
+  private[waterdrop] def prepare(plugins: scala.List[Plugin]*): Unit = {
     for (pluginList <- plugins) {
       for (p <- pluginList) {
         p.prepare()
