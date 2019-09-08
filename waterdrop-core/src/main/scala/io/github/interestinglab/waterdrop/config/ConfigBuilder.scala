@@ -6,7 +6,8 @@ import com.typesafe.config.waterdrop.{Config, ConfigFactory, ConfigRenderOptions
 import io.github.interestinglab.waterdrop.apis.{BaseSink, BaseSource, BaseTransform}
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.env.{Execution, RuntimeEnv}
-import io.github.interestinglab.waterdrop.flink.stream.{FlinkStreamEnvironment, FlinkStreamExecution}
+import io.github.interestinglab.waterdrop.flink.FlinkEnvironment
+import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
 
@@ -55,10 +56,14 @@ class ConfigBuilder(configFile: String, engine: String) {
     config.getConfig("spark")
   }
 
-  def createStaticInputs: List[BaseSource[_, _]] = {
-    var inputList = List[BaseSource[_, _]]()
-    config
-      .getConfigList("input")
+  def createSources: (List[BaseSource], Boolean) = {
+    var sourceList = List[BaseSource]()
+
+    val sourceConfigList = config.getConfigList("input")
+
+    val isStreaming = sourceConfigList.get(0).getString(ConfigBuilder.PluginNameKey).endsWith("Streaming")
+
+    sourceConfigList
       .foreach(plugin => {
         val className =
           buildClassFullQualifier(
@@ -69,20 +74,20 @@ class ConfigBuilder(configFile: String, engine: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseSource[_, _]]
+          .asInstanceOf[BaseSource]
 
         obj.setConfig(plugin)
 
-        inputList = inputList :+ obj
+        sourceList = sourceList :+ obj
       })
 
-    inputList
+    (sourceList, isStreaming)
 
   }
 
-  def createFilters: List[BaseTransform[_, _, _]] = {
+  def createTransforms: List[BaseTransform] = {
 
-    var filterList = List[BaseTransform[_, _, _]]()
+    var filterList = List[BaseTransform]()
     config
       .getConfigList("filter")
       .foreach(plugin => {
@@ -95,7 +100,7 @@ class ConfigBuilder(configFile: String, engine: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseTransform[_, _, _]]
+          .asInstanceOf[BaseTransform]
 
         obj.setConfig(plugin)
 
@@ -105,47 +110,9 @@ class ConfigBuilder(configFile: String, engine: String) {
     filterList
   }
 
-  def createRuntimeEnv(engine: String): RuntimeEnv = {
+  def createSinks: List[BaseSink] = {
 
-    val env = engine match {
-      case "spark" => new SparkEnvironment()
-      case "flink" => new FlinkStreamEnvironment()
-    }
-    env.setConfig(config)
-    env
-  }
-
-  /**
-    * check if config is valid.
-    **/
-  def checkConfig: Unit = {
-    this.getSparkConfigs
-    this.createStaticInputs
-    this.createOutputs
-    this.createFilters
-  }
-
-
-  def createExecution: (RuntimeEnv, Execution[BaseSource[_, _], BaseTransform[_, _, _], BaseSink[_, _, _]]) = {
-    val env = engine match {
-      case "spark" => new SparkEnvironment()
-      case "flink" => new FlinkStreamEnvironment()
-    }
-    env.setConfig(config)
-
-    engine match {
-      case "flink" => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkStreamEnvironment]).asInstanceOf[Execution[BaseSource[_, _],
-        BaseTransform[_, _, _],
-        BaseSink[_, _, _]]])
-      case "spark" => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource[_, _],
-        BaseTransform[_, _, _],
-        BaseSink[_, _, _]]])
-    }
-  }
-
-  def createOutputs: List[BaseSink[_, _, _]] = {
-
-    var outputList = List[BaseSink[_, _, _]]()
+    var outputList = List[BaseSink]()
     config
       .getConfigList("output")
       .foreach(plugin => {
@@ -159,7 +126,7 @@ class ConfigBuilder(configFile: String, engine: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseSink[_, _, _]]
+          .asInstanceOf[BaseSink]
 
         obj.setConfig(plugin)
 
@@ -167,6 +134,33 @@ class ConfigBuilder(configFile: String, engine: String) {
       })
 
     outputList
+  }
+
+  /**
+    * check if config is valid.
+    **/
+  def checkConfig: Unit = {
+    this.getSparkConfigs
+    this.createSources
+    this.createSinks
+    this.createTransforms
+  }
+
+  def createExecution: (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
+    val env = engine match {
+      case "spark" => new SparkEnvironment()
+      case "flink" => new FlinkEnvironment()
+    }
+    env.setConfig(config)
+
+    engine match {
+      case "flink" => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+        BaseTransform,
+        BaseSink]])
+      case "spark" => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+        BaseTransform,
+        BaseSink]])
+    }
   }
 
   /**

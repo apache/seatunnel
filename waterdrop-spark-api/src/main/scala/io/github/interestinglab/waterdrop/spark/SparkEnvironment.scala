@@ -29,6 +29,10 @@ class SparkEnvironment extends RuntimeEnv {
     createStreamingContext
   }
 
+  override def prepare(isStreaming: Boolean): Unit = {
+    prepare()
+  }
+
   private def createSparkConf(): SparkConf = {
     val sparkConf = new SparkConf()
     config

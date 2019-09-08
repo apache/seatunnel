@@ -101,7 +101,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private FormatDescriptor setFormat(){
         try {
-            return SchemaUtil.setFormat(format,config);
+            return SchemaUtil.setFormat(format, config);
         } catch (Exception e) {
             e.printStackTrace();
         }
