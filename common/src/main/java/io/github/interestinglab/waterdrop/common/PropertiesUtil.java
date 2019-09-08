@@ -11,12 +11,16 @@ import java.util.Properties;
  */
 public class PropertiesUtil {
 
-    public static void setProperties(Config config, Properties properties,String prefix){
+    public static void setProperties(Config config, Properties properties,String prefix, boolean keepPrefix){
         config.entrySet().forEach(entry -> {
             String key = entry.getKey();
             Object value = entry.getValue().unwrapped();
             if (key.startsWith(prefix)) {
-                properties.put(key.substring(prefix.length()), value);
+                if (keepPrefix){
+                    properties.put(key,value);
+                }else {
+                    properties.put(key.substring(prefix.length()), value);
+                }
             }
         });
     }

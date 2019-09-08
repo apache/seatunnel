@@ -25,6 +25,11 @@
         <module>plugin-flink-transform-table2datasteam</module>
         <module>plugin-flink-sink-kafka</module>
         <module>plugin-flink-transform-datastream2table</module>
+        <module>plugin-flink-source-file</module>
+        <module>plugin-flink-sink-jdbc</module>
+        <module>plugin-flink-source-fake</module>
+        <module>plugin-flink-source-jdbc</module>
+        <module>plugin-flink-sink-file</module>
     </modules>
 
     <properties>
@@ -35,7 +40,8 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <spark.version>2.4.0</spark.version>
-        <flink.version>1.8.0</flink.version>
+        <flink.version>1.9.0</flink.version>
+        <hadoop.version>2.7.5</hadoop.version>
     </properties>
 
 
