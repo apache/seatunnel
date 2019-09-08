@@ -11,5 +11,14 @@
 
     <artifactId>common</artifactId>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.typesafe.config.waterdrop</groupId>
+            <artifactId>config</artifactId>
+            <version>1.3.3</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/config-1.3.3.jar</systemPath>
+        </dependency>
+    </dependencies>
 
 </project>

@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.plugin;
 
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 
 import java.io.Serializable;
 

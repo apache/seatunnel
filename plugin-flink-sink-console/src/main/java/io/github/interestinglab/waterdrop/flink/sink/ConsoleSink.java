@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
