@@ -59,7 +59,7 @@ class ConfigBuilder(configFile: String, engine: String) {
   def createSources: (List[BaseSource], Boolean) = {
     var sourceList = List[BaseSource]()
 
-    val sourceConfigList = config.getConfigList("input")
+    val sourceConfigList = config.getConfigList("source")
 
     val isStreaming = sourceConfigList.get(0).getString(ConfigBuilder.PluginNameKey).toLowerCase.endsWith("stream")
 
@@ -89,7 +89,7 @@ class ConfigBuilder(configFile: String, engine: String) {
 
     var filterList = List[BaseTransform]()
     config
-      .getConfigList("filter")
+      .getConfigList("transform")
       .foreach(plugin => {
         val className =
           buildClassFullQualifier(
@@ -114,7 +114,7 @@ class ConfigBuilder(configFile: String, engine: String) {
 
     var outputList = List[BaseSink]()
     config
-      .getConfigList("output")
+      .getConfigList("sink")
       .foreach(plugin => {
 
         val className =
