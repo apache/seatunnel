@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;
@@ -101,7 +101,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private FormatDescriptor setFormat(){
         try {
-            return SchemaUtil.setFormat(format,config);
+            return SchemaUtil.setFormat(format, config);
         } catch (Exception e) {
             e.printStackTrace();
         }

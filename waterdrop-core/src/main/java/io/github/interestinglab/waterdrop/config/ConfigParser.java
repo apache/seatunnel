@@ -1,8 +1,8 @@
 package io.github.interestinglab.waterdrop.config;
 
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.waterdrop.Config;
+import com.typesafe.config.waterdrop.ConfigFactory;
 import io.github.interestinglab.waterdrop.apis.BaseSink;
 import io.github.interestinglab.waterdrop.apis.BaseSource;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
@@ -59,7 +59,6 @@ public class ConfigParser {
     public void parse() throws ConfigErrorException {
 
         logger.info("Parsing Config: \n" + config.root().render());
-
         if (config.getConfig("base").hasPath("engine")) {
             String engine = config.getString("base.engine");
             switch (engine) {

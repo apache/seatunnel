@@ -1,6 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.stream;
 
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
+
 
 /**
  * @author mr_xiong

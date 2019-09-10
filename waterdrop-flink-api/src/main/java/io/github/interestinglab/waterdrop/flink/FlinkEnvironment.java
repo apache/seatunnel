@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink;
 
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
 import io.github.interestinglab.waterdrop.flink.util.ConfigKeyName;
 import io.github.interestinglab.waterdrop.flink.util.EnvironmentUtil;
@@ -59,14 +59,19 @@ public class FlinkEnvironment  implements RuntimeEnv {
     @Override
     public void prepare() {
         isStreaming = "flinkStream".equals(config.getString("engine"));
-        if (isStreaming){
+        prepare(isStreaming);
+
+    }
+
+    @Override
+    public void prepare(boolean isStreaming) {
+        if (isStreaming) {
             createEnvironment();
             createStreamTableEnvironment();
-        }else {
+        } else {
             createBatchTableEnvironment();
             createExecutionEnvironment();
         }
-
     }
 
     public boolean isStreaming() {
