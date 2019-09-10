@@ -1,0 +1,45 @@
+######
+###### This config file is a demonstration of streaming processing in waterdrop config
+######
+
+spark {
+  # You can set spark configuration here
+  # Waterdrop defined streaming batch duration in seconds
+  spark.streaming.batchDuration = 5
+
+  # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
+  spark.app.name = "Waterdrop"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+}
+
+input {
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  fakestream {
+    content = ["Hello World, InterestingLab"]
+    rate = 1
+  }
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+filter {
+  split {
+    fields = ["msg", "name"]
+    delimiter = ","
+  }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+output {
+  stdout {}
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}

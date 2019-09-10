@@ -11,4 +11,5 @@ import io.github.interestinglab.waterdrop.plugin.Plugin;
  */
 public interface RuntimeEnv extends Plugin {
 
+    void prepare(boolean isStreaming);
 }

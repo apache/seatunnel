@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.spark
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.env.RuntimeEnv
 import io.github.interestinglab.waterdrop.plugin.CheckResult
 import org.apache.spark.SparkConf
@@ -29,12 +29,19 @@ class SparkEnvironment extends RuntimeEnv {
     createStreamingContext
   }
 
+  override def prepare(isStreaming: Boolean): Unit = {
+    prepare()
+  }
+
   private def createSparkConf(): SparkConf = {
     val sparkConf = new SparkConf()
-    config.entrySet()
+    config
+      .getConfig("spark")
+      .entrySet()
       .foreach(entry => {
         sparkConf.set(entry.getKey, String.valueOf(entry.getValue.unwrapped()))
       })
+
     sparkConf
   }
 
@@ -42,7 +49,8 @@ class SparkEnvironment extends RuntimeEnv {
     val conf = sparkSession.sparkContext.getConf
     val duration = conf.getLong("spark.stream.batchDuration", 5)
     if (streamingContext == null) {
-      streamingContext = new StreamingContext(sparkSession.sparkContext, Seconds(duration))
+      streamingContext =
+        new StreamingContext(sparkSession.sparkContext, Seconds(duration))
     }
     streamingContext
   }
