@@ -39,7 +39,7 @@ object Waterdrop extends Logging {
               case Failure(exception) => {
                 exception match {
                   case e @ (_: ConfigRuntimeException | _: UserRuntimeException) => Waterdrop.showConfigError(e)
-                  case e: Exception => showFatalError(e)
+                  case e: Exception => throw new Exception(e)
                 }
               }
             }
@@ -75,9 +75,11 @@ object Waterdrop extends Logging {
     println("Config Error:\n")
     println("Reason: " + errorMsg + "\n")
     println("\n===============================================================================\n\n\n")
+    throw new ConfigRuntimeException(throwable)
   }
 
   private[waterdrop] def showFatalError(throwable: Throwable): Unit = {
+
     println("\n\n===============================================================================\n\n")
     val errorMsg = throwable.getMessage
     println("Fatal Error, \n")
@@ -86,6 +88,7 @@ object Waterdrop extends Logging {
     println("Reason: " + errorMsg + "\n")
     println("Exception StackTrace: " + ExceptionUtils.getStackTrace(throwable))
     println("\n===============================================================================\n\n\n")
+    throw new Exception(throwable)
   }
 
   private def entrypoint(configFile: String): Unit = {
