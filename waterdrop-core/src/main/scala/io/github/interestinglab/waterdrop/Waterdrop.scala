@@ -6,7 +6,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 
 import scala.collection.JavaConverters._
-import io.github.interestinglab.waterdrop.env.RuntimeEnv
 import io.github.interestinglab.waterdrop.plugin.Plugin
 
 import scala.util.{Failure, Success, Try}
