@@ -30,6 +30,7 @@
         <module>plugin-flink-source-fake</module>
         <module>plugin-flink-source-jdbc</module>
         <module>plugin-flink-sink-file</module>
+        <module>waterdrop-dist</module>
     </modules>
 
     <properties>
@@ -46,11 +47,6 @@
 
 
     <dependencies>
-        <dependency>
-            <groupId>com.typesafe</groupId>
-            <artifactId>config</artifactId>
-            <version>1.3.3</version>
-        </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
