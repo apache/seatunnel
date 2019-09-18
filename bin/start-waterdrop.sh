@@ -90,8 +90,7 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
     echo ""
 fi
 
-assemblyJarName="modules/waterdrop-core-2.0.0.jar"
-
+assemblyJarName=$(find ${LIB_DIR} -name waterdrop-core*.jar)
 
 
 source ${CONF_DIR}/waterdrop-env.sh
@@ -104,7 +103,7 @@ variables_substitution=$(string_trim "${variables_substitution}")
 
 ## get spark conf from config file and specify them in spark-submit
 function get_spark_conf {
-    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName},libs/wd-config-1.3.3.jar io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
+    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName}:libs/wd-config-1.3.3.jar io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
         exit -1
