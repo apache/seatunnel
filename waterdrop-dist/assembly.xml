@@ -43,7 +43,7 @@
                 <include>README.MD</include>
                 <include>LICENSE</include>
                 <include>bin/**</include>
-                <include>conf/**</include>
+                <include>config/**</include>
             </includes>
         </fileSet>
 
