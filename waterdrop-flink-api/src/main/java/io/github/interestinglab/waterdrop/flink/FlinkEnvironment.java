@@ -7,6 +7,7 @@ import io.github.interestinglab.waterdrop.flink.util.EnvironmentUtil;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -125,12 +126,12 @@ public class FlinkEnvironment  implements RuntimeEnv {
     }
 
     private void createExecutionEnvironment() {
-        batchEnvironment = ExecutionEnvironment.createCollectionsEnvironment();
+        batchEnvironment = ExecutionEnvironment.getExecutionEnvironment();
         if (config.hasPath(ConfigKeyName.PARALLELISM)) {
             int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
-            environment.setParallelism(parallelism);
+            batchEnvironment.setParallelism(parallelism);
         }
-        EnvironmentUtil.setRestartStrategy(config, environment);
+        EnvironmentUtil.setRestartStrategy(config, batchEnvironment);
     }
 
     private void createBatchTableEnvironment() {

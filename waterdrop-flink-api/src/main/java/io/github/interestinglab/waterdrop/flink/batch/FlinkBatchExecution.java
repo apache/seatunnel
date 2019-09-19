@@ -48,19 +48,19 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
 
         for (FlinkBatchTransform transform : transforms) {
             DataSet dataSet = fromSourceTable(transform);
-            if (Objects.nonNull(dataSet)){
-                input = dataSet;
+            if (Objects.isNull(dataSet)){
+                dataSet = input;
             }
-            input = transform.processBatch(flinkEnvironment, input);
+            input = transform.processBatch(flinkEnvironment, dataSet);
             registerResultTable(transform,input);
         }
 
         for (FlinkBatchSink sink : sinks) {
             DataSet dataSet = fromSourceTable(sink);
-            if (Objects.nonNull(dataSet)){
-                input = dataSet;
+            if (Objects.isNull(dataSet)){
+                dataSet = input;
             }
-            sink.outputBatch(flinkEnvironment, input);
+            sink.outputBatch(flinkEnvironment, dataSet);
         }
         try {
             if (StringUtils.isBlank(jobName)) {
