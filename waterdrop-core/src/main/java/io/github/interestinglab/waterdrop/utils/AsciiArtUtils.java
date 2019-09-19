@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.utils;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
-public class AsciiArt {
+public class AsciiArtUtils {
 
     /**
      * Print ASCII art of string
