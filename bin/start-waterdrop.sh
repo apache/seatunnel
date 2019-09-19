@@ -90,7 +90,7 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
     echo ""
 fi
 
-assemblyJarName=$(find ${LIB_DIR} -name waterdrop-core*.jar)
+assemblyJarName=$(find ${PLUGINS_DIR} -name waterdrop-core*.jar)
 
 
 source ${CONF_DIR}/waterdrop-env.sh
@@ -147,7 +147,6 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-set -x
 
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
     --name $(getAppName ${CONFIG_FILE}) \
