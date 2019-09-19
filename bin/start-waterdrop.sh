@@ -150,7 +150,7 @@ fi
 
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
     --name $(getAppName ${CONFIG_FILE}) \
-    --jars $(echo libs/*.jar | tr ' ' ','),$(echo modules/*.jar | tr ' ' ',') \
+    --jars $(echo ${LIB_DIR}/*.jar | tr ' ' ','),$(echo ${PLUGINS_DIR}/*.jar | tr ' ' ',') \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
     --driver-java-options "${clientModeDriverJavaOpts}" \

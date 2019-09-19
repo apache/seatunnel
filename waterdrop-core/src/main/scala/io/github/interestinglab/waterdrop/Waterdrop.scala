@@ -7,7 +7,7 @@ import org.apache.hadoop.fs.Path
 
 import scala.collection.JavaConverters._
 import io.github.interestinglab.waterdrop.plugin.Plugin
-import io.github.interestinglab.waterdrop.utils.AsciiArt
+import io.github.interestinglab.waterdrop.utils.AsciiArtUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -78,7 +78,7 @@ object Waterdrop {
   }
 
   private[waterdrop] def showWaterdropAsciiLogo(): Unit = {
-    AsciiArt.printAsciiArt("Waterdrop")
+    AsciiArtUtils.printAsciiArt("Waterdrop")
   }
 
 
