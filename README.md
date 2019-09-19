@@ -157,6 +157,15 @@ Watedrop 为浙江乐控信息科技有限公司旗下乐控智能提供物联�
 
 * 其他公司 ... 期待您的加入，请联系微信: garyelephant
 
+## 项目Star增长趋势
+
+```
+Waterdrop已进入高速成长期，如果你支持此项目，请点Star.
+```
+
+[![Stargazers over time](https://starchart.cc/InterestingLab/waterdrop.svg)](https://starchart.cc/InterestingLab/waterdrop)
+
+
 ## 贡献观点和代码
 
 提交问题和建议：https://github.com/InterestingLab/waterdrop/issues
