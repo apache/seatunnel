@@ -10,8 +10,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
-import org.apache.flink.table.catalog.Catalog;
-import org.apache.flink.table.catalog.ObjectPath;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,19 +47,19 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
         for (FlinkStreamTransform transform : transforms) {
             DataStream stream = fromSourceTable(transform);
-            if (Objects.nonNull(stream)) {
-                input = stream;
+            if (Objects.isNull(stream)) {
+                stream = input;
             }
-            input = transform.processStream(flinkEnvironment, input);
+            input = transform.processStream(flinkEnvironment, stream);
             registerResultTable(transform, input);
         }
 
         for (FlinkStreamSink sink : sinks) {
             DataStream stream = fromSourceTable(sink);
-            if (Objects.nonNull(stream)) {
-                input = stream;
+            if (Objects.isNull(stream)) {
+                stream = input;
             }
-            sink.outputStream(flinkEnvironment, input);
+            sink.outputStream(flinkEnvironment, stream);
         }
         try {
             if (StringUtils.isBlank(jobName)) {
