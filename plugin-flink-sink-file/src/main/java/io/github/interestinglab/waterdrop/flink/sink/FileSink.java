@@ -5,53 +5,57 @@ import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
 import io.github.interestinglab.waterdrop.plugin.CheckResult;
-import org.apache.avro.Schema;
-import org.apache.avro.reflect.ReflectData;
-import org.apache.avro.specific.SpecificData;
+import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.serialization.Encoder;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.io.TextOutputFormat;
 import org.apache.flink.api.java.operators.DataSink;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.formats.parquet.avro.ParquetAvroWriters;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
 import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.PrintStream;
 
 /**
  * @author mr_xiong
  * @date 2019-09-07 13:57
  * @description
  */
-public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,Row> {
+public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FileSink.class);
 
     private Config config;
+
+    private FileOutputFormat outputFormat;
+
+    private RowTypeInfo rowTypeInfo;
+
+    private Path filePath;
 
     @Override
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
 
-        Path path = new Path("hdfs://localhost:9000/output/csv");
-//        final StreamingFileSink<Row> sink = StreamingFileSink
-//                .forBulkFormat(path, ParquetAvroWriters.forReflectRecord(Row.class))
-////                .forRowFormat(new Path("/Users/mr_xiong/test.text"), (Encoder<Row>) (element, stream) -> {
-////                    PrintStream out = new PrintStream(stream);
-////                    out.println(element);
-////                })
-//                .build();
+        final StreamingFileSink<Row> sink = StreamingFileSink
+                .forRowFormat(filePath, (Encoder<Row>) (element, stream) -> {
+                    PrintStream out = new PrintStream(stream);
+                    out.println(element);
+                })
+                .build();
 
-        CsvRowOutputFormat format = new CsvRowOutputFormat(path);
-        format.setWriteMode(FileSystem.WriteMode.OVERWRITE);
-        return dataStream.writeUsingOutputFormat(format);
-//        return dataStream.writeAsText("hdfs://localhost:9000/output/text", FileSystem.WriteMode.OVERWRITE);
+        return dataStream.addSink(sink);
     }
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        Path path = new Path("hdfs://localhost:9000/output/batch/csv");
-        CsvRowOutputFormat format = new CsvRowOutputFormat(path);
-        format.setWriteMode(FileSystem.WriteMode.OVERWRITE);
-        return  dataSet.output(format);
+        rowTypeInfo = (RowTypeInfo) dataSet.getType();
+        return dataSet.output(outputFormat);
     }
 
     @Override
@@ -71,6 +75,28 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,R
 
     @Override
     public void prepare() {
+        String path = config.getString("file.path");
+        String format = config.getString("file_format");
+        filePath = new Path(path);
+        switch (format) {
+            case "json":
+                outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
+                break;
+            case "csv":
+                CsvRowOutputFormat csvFormat = new CsvRowOutputFormat(filePath);
+                outputFormat = csvFormat;
+                break;
+            case "text":
+                outputFormat = new TextOutputFormat(filePath);
+                break;
+            default:
+                LOG.warn(" unknown file_format [{}],only support json,csv,text", format);
+                break;
 
+        }
+        if (config.hasPath("file.write.mode")){
+            String mode = config.getString("file.write.mode");
+            outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
+        }
     }
 }
