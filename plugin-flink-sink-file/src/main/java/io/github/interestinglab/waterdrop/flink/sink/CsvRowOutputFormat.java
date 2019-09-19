@@ -20,7 +20,7 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
 
     public static final String DEFAULT_LINE_DELIMITER = CsvInputFormat.DEFAULT_LINE_DELIMITER;
 
-    public static final String DEFAULT_FIELD_DELIMITER = String.valueOf(CsvInputFormat.DEFAULT_FIELD_DELIMITER);
+    public static final String DEFAULT_FIELD_DELIMITER = CsvInputFormat.DEFAULT_FIELD_DELIMITER;
 
 
     private transient Writer wrt;
@@ -31,7 +31,7 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
 
     private String charsetName;
 
-    private boolean allowNullValues = true;
+    private boolean allowNullValues;
 
     private boolean quoteStrings = false;
 
@@ -82,7 +82,7 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
 
         this.fieldDelimiter = fieldDelimiter;
         this.recordDelimiter = recordDelimiter;
-        this.allowNullValues = false;
+        this.allowNullValues = true;
     }
 
     /**

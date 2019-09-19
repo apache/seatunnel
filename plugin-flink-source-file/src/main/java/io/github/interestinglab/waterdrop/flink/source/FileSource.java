@@ -11,7 +11,6 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 
 import org.apache.flink.api.java.io.RowCsvInputFormat;
-import org.apache.flink.api.java.io.TextInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
