@@ -6,8 +6,8 @@ import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 
 import scala.collection.JavaConverters._
-import io.github.interestinglab.waterdrop.env.RuntimeEnv
 import io.github.interestinglab.waterdrop.plugin.Plugin
+import io.github.interestinglab.waterdrop.utils.AsciiArtUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -70,9 +70,17 @@ object Waterdrop {
     runtimeEnv.prepare(isStreaming)
 
     prepare(sources, transforms, sinks)
+
+    showWaterdropAsciiLogo()
+
     execution.start(sources.asJava, transforms.asJava, sinks.asJava);
 
   }
+
+  private[waterdrop] def showWaterdropAsciiLogo(): Unit = {
+    AsciiArtUtils.printAsciiArt("Waterdrop")
+  }
+
 
   private[waterdrop] def prepare(plugins: scala.List[Plugin]*): Unit = {
     for (pluginList <- plugins) {

@@ -1,0 +1,67 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
+    <id>release-bin</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <dependencySets>
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <outputDirectory>libs</outputDirectory>
+            <unpack>false</unpack>
+            <excludes>
+                <exclude>${project.groupId}:*:*</exclude>
+            </excludes>
+        </dependencySet>
+    </dependencySets>
+    <moduleSets>
+        <moduleSet>
+            <useAllReactorProjects>true</useAllReactorProjects>
+            <binaries>
+                <outputDirectory>modules</outputDirectory>
+                <unpack>false</unpack>
+            </binaries>
+        </moduleSet>
+    </moduleSets>
+    <fileSets>
+        <fileSet>
+            <directory>../</directory>
+
+            <excludes>
+                <exclude>**/target/**</exclude>
+                <exclude>**/.classpath</exclude>
+                <exclude>**/.project</exclude>
+                <exclude>**/.settings/**</exclude>
+                <exclude>lib/**</exclude>
+            </excludes>
+
+            <includes>
+                <include>log4j2.xml</include>
+                <include>README.MD</include>
+                <include>LICENSE</include>
+                <include>bin/**</include>
+                <include>config/**</include>
+            </includes>
+        </fileSet>
+
+        <fileSet>
+            <directory>../target/site</directory>
+            <includes>
+                <include>/**</include>
+            </includes>
+            <outputDirectory>docs</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <includes>
+                <include>*</include>
+            </includes>
+            <fileMode>0755</fileMode>
+        </fileSet>
+
+    </fileSets>
+</assembly>
