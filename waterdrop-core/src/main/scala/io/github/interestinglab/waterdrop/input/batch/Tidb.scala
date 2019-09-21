@@ -16,9 +16,9 @@ class Tidb extends BaseStaticInput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("table_name") && config.hasPath("pre_sql") && config.hasPath("database") match {
+    config.hasPath("pre_sql") && config.hasPath("database") match {
       case true => (true, "")
-      case false => (false, "please specify [table_name] and [pre_sql]")
+      case false => (false, "please specify [pre_sql]")
     }
   }
 
