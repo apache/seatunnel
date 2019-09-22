@@ -2,7 +2,12 @@ package io.github.interestinglab.waterdrop.input.batch
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+
+import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
+import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConversions._
+
 
 class Jdbc extends BaseStaticInput {
 
@@ -18,7 +23,7 @@ class Jdbc extends BaseStaticInput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    val requiredOptions = List("url", "table", "user", "password");
+    val requiredOptions = List("url", "table", "user", "password", "driver");
 
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
@@ -40,14 +45,34 @@ class Jdbc extends BaseStaticInput {
     super.prepare(spark)
   }
 
-  override def getDataset(spark: SparkSession): Dataset[Row] = {
-    spark.read
+  def jdbcReader(sparkSession: SparkSession, driver: String): DataFrameReader = {
+
+    val reader = sparkSession.read
       .format("jdbc")
       .option("url", config.getString("url"))
       .option("dbtable", config.getString("table"))
       .option("user", config.getString("user"))
       .option("password", config.getString("password"))
-      .option("driver", config.getString("driver"))
-      .load()
+      .option("driver", driver)
+
+    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "jdbc.", false)) match {
+
+      case Success(options) => {
+        val optionMap = options
+          .entrySet()
+          .foldRight(Map[String, String]())((entry, m) => {
+            m + (entry.getKey -> entry.getValue.unwrapped().toString)
+          })
+
+        reader.options(optionMap)
+      }
+      case Failure(exception) => // do nothing
+    }
+
+    reader
+  }
+
+  override def getDataset(spark: SparkSession): Dataset[Row] = {
+    jdbcReader(spark, config.getString("driver")).load()
   }
 }
