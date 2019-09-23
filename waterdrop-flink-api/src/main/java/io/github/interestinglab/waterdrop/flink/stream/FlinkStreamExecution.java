@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.stream;
 
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.util.TableUtil;

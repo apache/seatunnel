@@ -13,11 +13,11 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.github.interestinglab</groupId>
-            <artifactId>waterdrop-flink-api</artifactId>
-            <version>2.0.0</version>
-            <scope>compile</scope>
+            <groupId>com.github.scopt</groupId>
+            <artifactId>scopt_2.11</artifactId>
+            <version>3.7.1</version>
         </dependency>
+
         <dependency>
 
             <groupId>io.github.interestinglab</groupId>
@@ -33,6 +33,16 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-source-fake</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-source-jdbc</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-transform-sql</artifactId>
             <version>2.0.0</version>
             <scope>compile</scope>
@@ -43,8 +53,6 @@
             <version>2.0.0</version>
             <scope>compile</scope>
         </dependency>
-
-
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-kafka</artifactId>

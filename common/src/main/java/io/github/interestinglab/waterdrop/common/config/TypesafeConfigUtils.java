@@ -1,8 +1,8 @@
-package io.github.interestinglab.waterdrop.common;
+package io.github.interestinglab.waterdrop.common.config;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValue;
+import com.typesafe.config.waterdrop.Config;
+import com.typesafe.config.waterdrop.ConfigFactory;
+import com.typesafe.config.waterdrop.ConfigValue;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -61,7 +61,7 @@ public class TypesafeConfigUtils {
         Config config = extractSubConfig(source, prefix, keepPrefix);
 
         if (config.isEmpty()) {
-            throw new RuntimeException("config is empty");
+            throw new ConfigRuntimeException("config is empty");
         }
 
         return config;

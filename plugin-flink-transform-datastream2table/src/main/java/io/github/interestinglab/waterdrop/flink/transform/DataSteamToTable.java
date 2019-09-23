@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.transform;
 
-import com.typesafe.config.Config;
+import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchTransform;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamTransform;
