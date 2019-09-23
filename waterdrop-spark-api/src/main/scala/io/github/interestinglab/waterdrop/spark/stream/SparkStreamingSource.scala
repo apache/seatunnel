@@ -1,6 +1,9 @@
 package io.github.interestinglab.waterdrop.spark.stream
 
-import io.github.interestinglab.waterdrop.spark.{BaseSparkSource, SparkEnvironment}
+import io.github.interestinglab.waterdrop.spark.{
+  BaseSparkSource,
+  SparkEnvironment
+}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.dstream.DStream

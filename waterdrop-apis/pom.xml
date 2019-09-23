@@ -8,7 +8,6 @@
         <version>2.0.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
     <artifactId>waterdrop-apis</artifactId>
 
     <dependencies>
@@ -18,5 +17,4 @@
             <version>2.0.0</version>
         </dependency>
     </dependencies>
-
 </project>
