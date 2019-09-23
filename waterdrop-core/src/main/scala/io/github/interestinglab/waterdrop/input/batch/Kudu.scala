@@ -18,9 +18,9 @@ class Kudu extends BaseStaticInput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    config.hasPath("kudu_master") && config.hasPath("kudu_table") && config.hasPath("table_name") match {
+    config.hasPath("kudu_master") && config.hasPath("kudu_table") match {
       case true => (true, "")
-      case false => (false, "please specify [kudu_master] and [kudu_table] and [table_name]")
+      case false => (false, "please specify [kudu_master] and [kudu_table]")
     }
   }
 

@@ -27,7 +27,7 @@ class MongoDB extends BaseStaticInput {
 
   override def checkConfig(): (Boolean, String) = {
 
-    TypesafeConfigUtils.hasSubConfig(config, confPrefix) && config.hasPath("table_name") match {
+    TypesafeConfigUtils.hasSubConfig(config, confPrefix) match {
       case true => {
         val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
@@ -35,7 +35,7 @@ class MongoDB extends BaseStaticInput {
           case false => (false, "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
         }
       }
-      case false => (false, "please specify [readconfig]  and [table_name]")
+      case false => (false, "please specify [readconfig]")
     }
   }
 
