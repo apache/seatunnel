@@ -26,5 +26,6 @@ public class ConfigKeyName {
     public final static String RESTART_DELAY_INTERVAL = "execution.restart.delayInterval";
     public final static String MAX_STATE_RETENTION_TIME = "execution.query.state.max-retention";
     public final static String MIN_STATE_RETENTION_TIME = "execution.query.state.min-retention";
+    public final static String STATE_BACKEND = "execution.state.backend";
 
 }
