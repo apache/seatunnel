@@ -4,7 +4,7 @@ import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
@@ -46,7 +46,7 @@ public class ConsoleSink  extends RichOutputFormat<Row> implements FlinkBatchSin
 
     @Override
     public CheckResult checkConfig() {
-        return null;
+        return new CheckResult(true,"");
     }
 
     @Override

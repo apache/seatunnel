@@ -1,9 +1,11 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSource;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
@@ -81,7 +83,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return null;
+        return CheckConfigUtil.check(config, "driver", "url", "username", "query");
     }
 
     @Override

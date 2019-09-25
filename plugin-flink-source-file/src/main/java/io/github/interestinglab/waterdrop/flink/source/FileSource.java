@@ -2,10 +2,11 @@ package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
 import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSource;
 import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
@@ -35,6 +36,9 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     private InputFormat inputFormat;
 
+    private final static String PATH = "file.path";
+    private final static String SOURCE_FORMAT = "source_format";
+    private final static String SCHEMA = "schema";
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
@@ -54,14 +58,14 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return null;
+        return CheckConfigUtil.check(config,PATH,SOURCE_FORMAT,SCHEMA);
     }
 
     @Override
     public void prepare() {
-        String path = config.getString("file.path");
-        String format = config.getString("source_format");
-        String schemaContent = config.getString("schema");
+        String path = config.getString(PATH);
+        String format = config.getString(SOURCE_FORMAT);
+        String schemaContent = config.getString(SCHEMA);
         Path filePath = new Path(path);
         switch (format) {
             case "json":

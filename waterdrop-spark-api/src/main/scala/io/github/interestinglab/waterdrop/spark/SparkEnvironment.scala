@@ -1,8 +1,8 @@
 package io.github.interestinglab.waterdrop.spark
 
 import com.typesafe.config.waterdrop.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.env.RuntimeEnv
-import io.github.interestinglab.waterdrop.plugin.CheckResult
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
