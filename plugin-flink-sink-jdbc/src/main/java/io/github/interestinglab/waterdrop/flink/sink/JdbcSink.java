@@ -1,11 +1,12 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
 import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.io.jdbc.JDBCAppendTableSink;
@@ -46,12 +47,12 @@ public class JdbcSink implements FlinkStreamSink<Void, Void>, FlinkBatchSink<Voi
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true, "");
+        return CheckConfigUtil.check(config,"jdbc_table_name","driver","url","username","query");
     }
 
     @Override
     public void prepare() {
-        tableName = config.getString("source_table_name");
+        tableName = config.getString("jdbc_table_name");
         driverName = config.getString("driver");
         dbUrl = config.getString("url");
         username = config.getString("username");

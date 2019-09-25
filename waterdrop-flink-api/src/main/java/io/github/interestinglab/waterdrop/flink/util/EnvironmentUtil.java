@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.util;
 
 import com.typesafe.config.waterdrop.Config;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.slf4j.Logger;

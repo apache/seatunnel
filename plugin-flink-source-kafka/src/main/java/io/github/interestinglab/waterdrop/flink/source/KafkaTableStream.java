@@ -3,11 +3,13 @@ package io.github.interestinglab.waterdrop.flink.source;
 import com.alibaba.fastjson.JSONObject;
 import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
+import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
+import io.github.interestinglab.waterdrop.common.config.TypesafeConfigUtils;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;
 import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
 import io.github.interestinglab.waterdrop.flink.util.TableUtil;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
@@ -35,6 +37,13 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private long watermark;
     private String format;
 
+    private static final String TOPICS = "topics";
+    private static final String ROWTIME_FIELD = "rowtime.field";
+    private static final String WATERMARK_VAL = "watermark";
+    private static final String SCHEMA = "schema";
+    private static final String SOURCE_FORMAT = "source_format";
+    private static final String GROUP_ID = "group.id";
+
     @Override
     public void setConfig(Config config) {
         this.config = config;
@@ -47,22 +56,30 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return null;
+
+        CheckResult result = CheckConfigUtil.check(config, TOPICS, SCHEMA, SOURCE_FORMAT, RESULT_TABLE_NAME);
+
+        if (result.isSuccess()) {
+            Config consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false);
+            return CheckConfigUtil.check(consumerConfig, GROUP_ID);
+        }
+
+        return result;
     }
 
     @Override
     public void prepare() {
-        topic = config.getString("topics");
-        PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix,false);
-        tableName = config.getString("result_table_name");
-        if (config.hasPath("rowtime.field")){
-            rowTimeField = config.getString("rowtime.field");
-            if (config.hasPath("watermark")){
-                watermark = config.getLong("watermark");
+        topic = config.getString(TOPICS);
+        PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix, false);
+        tableName = config.getString(RESULT_TABLE_NAME);
+        if (config.hasPath(ROWTIME_FIELD)) {
+            rowTimeField = config.getString(ROWTIME_FIELD);
+            if (config.hasPath(WATERMARK_VAL)) {
+                watermark = config.getLong(WATERMARK_VAL);
             }
         }
-        String schemaContent = config.getString("schema");
-        format = config.getString("source_format");
+        String schemaContent = config.getString(SCHEMA);
+        format = config.getString(SOURCE_FORMAT);
         schemaInfo = JSONObject.parse(schemaContent);
     }
 
@@ -76,13 +93,13 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
                 .inAppendMode()
                 .registerTableSource(tableName);
         Table table = tableEnvironment.scan(tableName);
-        return TableUtil.tableToDataStream(tableEnvironment,table,true);
+        return TableUtil.tableToDataStream(tableEnvironment, table, true);
     }
 
     private Schema getSchema() {
         Schema schema = new Schema();
-        SchemaUtil.setSchema(schema, schemaInfo,format);
-        if (StringUtils.isNotBlank(rowTimeField)){
+        SchemaUtil.setSchema(schema, schemaInfo, format);
+        if (StringUtils.isNotBlank(rowTimeField)) {
             Rowtime rowtime = new Rowtime();
             rowtime.timestampsFromField(rowTimeField);
             rowtime.watermarksPeriodicBounded(watermark);
@@ -91,7 +108,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         return schema;
     }
 
-    private Kafka getKafkaConnect(){
+    private Kafka getKafkaConnect() {
         Kafka kafka = new Kafka().version("universal");
         kafka.topic(topic);
         kafka.properties(kafkaParams);
@@ -99,7 +116,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     }
 
 
-    private FormatDescriptor setFormat(){
+    private FormatDescriptor setFormat() {
         try {
             return SchemaUtil.setFormat(format, config);
         } catch (Exception e) {
