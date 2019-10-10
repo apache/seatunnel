@@ -151,7 +151,7 @@ class ConfigBuilder(configFile: String, engine: String) {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
     }
-    env.setConfig(config)
+    env.setConfig(config.getConfig("env"))
 
     engine match {
       case "flink" => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,

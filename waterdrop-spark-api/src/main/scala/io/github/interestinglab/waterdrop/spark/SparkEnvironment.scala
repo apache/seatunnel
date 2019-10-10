@@ -36,7 +36,6 @@ class SparkEnvironment extends RuntimeEnv {
   private def createSparkConf(): SparkConf = {
     val sparkConf = new SparkConf()
     config
-      .getConfig("spark")
       .entrySet()
       .foreach(entry => {
         sparkConf.set(entry.getKey, String.valueOf(entry.getValue.unwrapped()))
