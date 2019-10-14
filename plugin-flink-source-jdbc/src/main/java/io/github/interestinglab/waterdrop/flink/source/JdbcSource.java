@@ -5,7 +5,6 @@ import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSource;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
