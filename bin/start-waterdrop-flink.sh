@@ -16,21 +16,21 @@ DEPLOY_MODE=${DEPLOY_MODE:-$DEFAULT_DEPLOY_MODE}
 # scan jar dependencies for all plugins
 source ${UTILS_DIR}/file.sh
 source ${UTILS_DIR}/app.sh
-jarDependencies=$(listJarDependenciesOfPlugins ${PLUGINS_DIR})
-JarDepOpts=""
-if [ "$jarDependencies" != "" ]; then
-    JarDepOpts="--jars $jarDependencies"
-fi
-FilesDepOpts=""
-if [ "$DEPLOY_MODE" == "cluster" ]; then
-    ## add config file
-    FilesDepOpts="--files ${CONFIG_FILE}"
-    ## add plugin files
-    FilesDepOpts="${FilesDepOpts},${APP_DIR}/plugins.tar.gz"
-    echo ""
-elif [ "$DEPLOY_MODE" == "client" ]; then
-    echo ""
-fi
+#jarDependencies=$(listJarDependenciesOfPlugins ${PLUGINS_DIR})
+#JarDepOpts=""
+#if [ "$jarDependencies" != "" ]; then
+#    JarDepOpts="--jars $jarDependencies"
+#fi
+#FilesDepOpts=""
+#if [ "$DEPLOY_MODE" == "cluster" ]; then
+#    ## add config file
+#    FilesDepOpts="--files ${CONFIG_FILE}"
+#    ## add plugin files
+#    FilesDepOpts="${FilesDepOpts},${APP_DIR}/plugins.tar.gz"
+#    echo ""
+#elif [ "$DEPLOY_MODE" == "client" ]; then
+#    echo ""
+#fi
 assemblyJarName=$(find ${PLUGINS_DIR} -name waterdrop-core*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh
