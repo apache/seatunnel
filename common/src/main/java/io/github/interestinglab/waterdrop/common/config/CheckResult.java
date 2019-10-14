@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.plugin;
+package io.github.interestinglab.waterdrop.common.config;
 
 
 import lombok.Data;
@@ -11,12 +11,12 @@ import lombok.Data;
 @Data
 public class CheckResult {
 
-    private boolean result;
+    private boolean success;
 
     private String msg;
 
-    public CheckResult(boolean result, String msg) {
-        this.result = result;
+    public CheckResult(boolean success, String msg) {
+        this.success = success;
         this.msg = msg;
     }
 }

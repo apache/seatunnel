@@ -54,7 +54,7 @@
 
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-kafka_2.11</artifactId>
+            <artifactId>flink-connector-kafka_${scala.binary.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
         <dependency>
@@ -71,7 +71,7 @@
         <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-jdbc -->
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-jdbc_2.11</artifactId>
+            <artifactId>flink-jdbc_${scala.binary.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
 
@@ -84,15 +84,22 @@
 
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-orc_2.11</artifactId>
+            <artifactId>flink-orc_${scala.binary.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-parquet_2.11</artifactId>
+            <artifactId>flink-parquet_${scala.binary.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-statebackend-rocksdb -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
 
     </dependencies>
 

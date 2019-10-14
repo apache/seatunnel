@@ -4,10 +4,10 @@ import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
 import io.github.interestinglab.waterdrop.flink.util.ConfigKeyName;
 import io.github.interestinglab.waterdrop.flink.util.EnvironmentUtil;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.configuration.Configuration;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -17,6 +17,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -192,8 +193,16 @@ public class FlinkEnvironment  implements RuntimeEnv {
 
             if (config.hasPath(ConfigKeyName.CHECKPOINT_DATA_URI)) {
                 String uri = config.getString(ConfigKeyName.CHECKPOINT_DATA_URI);
-                StateBackend backend = new FsStateBackend(uri);
-                environment.setStateBackend(backend);
+                StateBackend fsStateBackend = new FsStateBackend(uri);
+                if (config.hasPath(ConfigKeyName.STATE_BACKEND)){
+                    String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
+                    if ("rocksdb".equals(stateBackend.toLowerCase())){
+                        StateBackend rocksDBStateBackend = new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
+                        environment.setStateBackend(rocksDBStateBackend);
+                    }
+                }else {
+                    environment.setStateBackend(fsStateBackend);
+                }
             }
 
             if (config.hasPath(ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS)) {
@@ -217,8 +226,8 @@ public class FlinkEnvironment  implements RuntimeEnv {
             }
 
             if (config.hasPath(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS)) {
-                boolean fail = config.getBoolean(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS);
-                checkpointConfig.setFailOnCheckpointingErrors(fail);
+                int failNum = config.getInt(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS);
+                checkpointConfig.setTolerableCheckpointFailureNumber(failNum);
             }
         }
     }
