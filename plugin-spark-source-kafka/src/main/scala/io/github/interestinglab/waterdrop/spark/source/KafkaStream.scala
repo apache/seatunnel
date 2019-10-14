@@ -1,8 +1,8 @@
 package io.github.interestinglab.waterdrop.spark.source
 
 import java.util.Properties
-import io.github.interestinglab.waterdrop.common.config.TypesafeConfigUtils
-import io.github.interestinglab.waterdrop.plugin.CheckResult
+
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -10,13 +10,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
-import org.apache.spark.streaming.kafka010.{
-  ConsumerStrategies,
-  HasOffsetRanges,
-  KafkaUtils,
-  LocationStrategies,
-  OffsetRange
-}
+import org.apache.spark.streaming.kafka010.{ConsumerStrategies, HasOffsetRanges, KafkaUtils, LocationStrategies, OffsetRange}
 
 import scala.collection.JavaConversions._
 

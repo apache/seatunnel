@@ -3,8 +3,8 @@ package io.github.interestinglab.waterdrop.spark.stream
 import java.util.{List => JList}
 
 import com.typesafe.config.waterdrop.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.env.Execution
-import io.github.interestinglab.waterdrop.plugin.CheckResult
 import io.github.interestinglab.waterdrop.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 
 import scala.collection.JavaConversions._

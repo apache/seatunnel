@@ -1,10 +1,11 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
-import io.github.interestinglab.waterdrop.plugin.CheckResult;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.serialization.Encoder;
 import org.apache.flink.api.java.DataSet;
@@ -70,13 +71,13 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return null;
+        return CheckConfigUtil.check(config,"file.path","file.format");
     }
 
     @Override
     public void prepare() {
         String path = config.getString("file.path");
-        String format = config.getString("file_format");
+        String format = config.getString("file.format");
         filePath = new Path(path);
         switch (format) {
             case "json":
