@@ -52,8 +52,8 @@ class ConfigBuilder(configFile: String, engine: String) {
   }
 
 
-  def getSparkConfigs: Config = {
-    config.getConfig("spark")
+  def getEnvConfigs: Config = {
+    config.getConfig("env")
   }
 
   def createSources: (List[BaseSource], Boolean) = {
@@ -140,7 +140,7 @@ class ConfigBuilder(configFile: String, engine: String) {
     * check if config is valid.
     **/
   def checkConfig: Unit = {
-    this.getSparkConfigs
+    this.getEnvConfigs
     this.createSources
     this.createSinks
     this.createTransforms
