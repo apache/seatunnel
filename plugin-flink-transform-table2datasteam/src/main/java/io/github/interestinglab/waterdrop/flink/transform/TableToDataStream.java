@@ -19,7 +19,7 @@ import org.apache.flink.types.Row;
  * @date 2019-07-12 18:55
  * @description
  */
-public class TableToDataStream implements FlinkStreamTransform<Void, Row>, FlinkBatchTransform<Void, Row> {
+public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
 
     private Config config;
@@ -27,14 +27,14 @@ public class TableToDataStream implements FlinkStreamTransform<Void, Row>, Flink
     private boolean isAppend;
 
     @Override
-    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Void> dataStream) {
+    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.scan(SOURCE_TABLE_NAME);
         return TableUtil.tableToDataStream(tableEnvironment, table, isAppend);
     }
 
     @Override
-    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Void> data) {
+    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
 
         BatchTableEnvironment batchTableEnvironment = env.getBatchTableEnvironment();
         Table table = batchTableEnvironment.scan(SOURCE_TABLE_NAME);
