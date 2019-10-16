@@ -1,10 +1,8 @@
 package io.github.interestinglab.waterdrop
 
+import io.github.interestinglab.waterdrop.Waterdrop.showWaterdropAsciiLogo
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.config.{ConfigBuilder, _}
-import io.github.interestinglab.waterdrop.plugin.Plugin
-import org.apache.commons.lang3.exception.ExceptionUtils
-import org.apache.hadoop.fs.Path
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -46,7 +44,6 @@ object WaterdropFlink {
 
     val configBuilder = new ConfigBuilder(configFile, "flink")
     val (sources, isStreaming) = configBuilder.createSources
-    println(isStreaming)
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
 
@@ -56,6 +53,8 @@ object WaterdropFlink {
     runtimeEnv.prepare(isStreaming)
 
     Waterdrop.prepare(sources, transforms, sinks)
+
+    showWaterdropAsciiLogo()
     execution.start(sources.asJava, transforms.asJava, sinks.asJava);
 
   }
