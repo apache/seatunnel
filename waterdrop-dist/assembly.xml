@@ -5,7 +5,7 @@
     <formats>
         <format>zip</format>
     </formats>
-    <includeBaseDirectory>false</includeBaseDirectory>
+    <includeBaseDirectory>true</includeBaseDirectory>
     <dependencySets>
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
