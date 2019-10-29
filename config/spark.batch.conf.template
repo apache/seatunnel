@@ -2,7 +2,7 @@
 ###### This config file is a demonstration of batch processing in waterdrop config
 ######
 
-spark {
+env {
   # You can set spark configuration here
   # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
   spark.app.name = "Waterdrop"
@@ -11,9 +11,9 @@ spark {
   spark.executor.memory = "1g"
 }
 
-input {
+source {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
-  fake {
+  Fake {
     result_table_name = "my_dataset"
   }
 
@@ -30,13 +30,9 @@ input {
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
-filter {
+transform {
   # split data by specific delimiter
-  split {
-    fields = ["msg", "name"]
-    delimiter = " "
-    result_table_name = "accesslog"
-  }
+
 
 
 
@@ -49,10 +45,9 @@ filter {
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
-output {
+sink {
   # choose stdout output plugin to output data to console
-  stdout {
-  }
+  Console {}
 
 
 
