@@ -21,4 +21,5 @@ public interface Plugin extends Serializable {
     CheckResult checkConfig();
 
     void prepare();
+
 }
