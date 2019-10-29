@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.spark.source
 
 import java.util.Properties
 
+import com.typesafe.config.waterdrop.ConfigFactory
 import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
@@ -30,6 +31,15 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
 
   override def prepare(): Unit = {
 
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        consumerPrefix + "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+        consumerPrefix + "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+        consumerPrefix + "enable.auto.commit" -> false
+      )
+    )
+
+    config = config.withFallback(defaultConfig)
     schema = StructType(
       Array(StructField("topic", DataTypes.StringType),
             StructField("raw_message", DataTypes.StringType)))

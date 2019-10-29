@@ -64,10 +64,8 @@ object Waterdrop {
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
 
-    val (runtimeEnv, execution) = configBuilder.createExecution
 
-    runtimeEnv.setConfig(configBuilder.config)
-    runtimeEnv.prepare(isStreaming)
+    val (runtimeEnv, execution) = configBuilder.createExecution(isStreaming)
 
     prepare(sources, transforms, sinks)
 
