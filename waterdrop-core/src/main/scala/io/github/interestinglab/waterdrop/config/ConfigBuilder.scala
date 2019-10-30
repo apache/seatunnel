@@ -10,6 +10,7 @@ import io.github.interestinglab.waterdrop.flink.FlinkEnvironment
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution
 
 import scala.collection.JavaConversions._
 import scala.language.reflectiveCalls
@@ -146,26 +147,36 @@ class ConfigBuilder(configFile: String, engine: String) {
     this.createTransforms
   }
 
-  def createExecution: (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
+  def createExecution(isStreaming: Boolean): (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
     val env = engine match {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
     }
+
+    env.prepare(isStreaming)
     env.setConfig(config.getConfig("env"))
 
     engine match {
       case "flink" => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
         BaseTransform,
         BaseSink]])
-      case "spark" => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
-        BaseTransform,
-        BaseSink]])
+      case "spark" => {
+        if (isStreaming) {
+          (env, new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]])
+        } else {
+          (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]])
+        }
+      }
     }
   }
 
   /**
     * Get full qualified class name by reflection api, ignore case.
-    * */
+    **/
   private def buildClassFullQualifier(name: String,
                                       classType: String): String = {
     buildClassFullQualifier(name, classType, "")
@@ -179,9 +190,9 @@ class ConfigBuilder(configFile: String, engine: String) {
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
-        case "source"    => configPackage.sourcePackage
+        case "source" => configPackage.sourcePackage
         case "transform" => configPackage.transformPackage
-        case "sink"      => configPackage.sinkPackage
+        case "sink" => configPackage.sinkPackage
       }
       packageName + "." + qualifier
     } else {
