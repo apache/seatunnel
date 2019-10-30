@@ -53,8 +53,8 @@ class SparkBatchExecution(environment: SparkEnvironment)
 
 object SparkBatchExecution {
 
-  private[waterdrop] val SOURCE_TABLE_NAME = "source_table_name"
-  private[waterdrop] val RESULT_TABLE_NAME = "result_table_name"
+  private[waterdrop] val sourceTableName = "source_table_name"
+  private[waterdrop] val resultTableName = "result_table_name"
 
   private[waterdrop] def registerTempView(tableName: String, ds: Dataset[Row]): Unit = {
     ds.createOrReplaceTempView(tableName)
@@ -62,9 +62,9 @@ object SparkBatchExecution {
 
   private[waterdrop] def registerInputTempView(source: BaseSparkSource[Dataset[Row]], environment: SparkEnvironment): Unit = {
     val conf = source.getConfig
-    conf.hasPath(SparkBatchExecution.RESULT_TABLE_NAME) match {
+    conf.hasPath(SparkBatchExecution.resultTableName) match {
       case true => {
-        val tableName = conf.getString(SparkBatchExecution.RESULT_TABLE_NAME)
+        val tableName = conf.getString(SparkBatchExecution.resultTableName)
         registerTempView(tableName, source.getData(environment))
       }
       case false => {
@@ -77,9 +77,9 @@ object SparkBatchExecution {
 
   private[waterdrop] def transformProcess(environment: SparkEnvironment, transform: BaseSparkTransform, ds: Dataset[Row]): Dataset[Row] = {
     val config = transform.getConfig()
-    val fromDs = config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME) match {
+    val fromDs = config.hasPath(SparkBatchExecution.sourceTableName) match {
       case true => {
-        val sourceTableName = config.getString(SparkBatchExecution.SOURCE_TABLE_NAME)
+        val sourceTableName = config.getString(SparkBatchExecution.sourceTableName)
         environment.getSparkSession.read.table(sourceTableName)
       }
       case false => ds
@@ -90,17 +90,17 @@ object SparkBatchExecution {
 
   private[waterdrop] def registerTransformTempView(plugin: BaseSparkTransform, ds: Dataset[Row]): Unit = {
     val config = plugin.getConfig()
-    if (config.hasPath(SparkBatchExecution.RESULT_TABLE_NAME)) {
-      val tableName = config.getString(SparkBatchExecution.RESULT_TABLE_NAME)
+    if (config.hasPath(SparkBatchExecution.resultTableName)) {
+      val tableName = config.getString(SparkBatchExecution.resultTableName)
       registerTempView(tableName, ds)
     }
   }
 
   private[waterdrop] def sinkProcess(environment: SparkEnvironment, sink: BaseSparkSink[_], ds: Dataset[Row]): Unit = {
     val config = sink.getConfig()
-    val fromDs = config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME) match {
+    val fromDs = config.hasPath(SparkBatchExecution.sourceTableName) match {
       case true => {
-        val sourceTableName = config.getString(SparkBatchExecution.SOURCE_TABLE_NAME)
+        val sourceTableName = config.getString(SparkBatchExecution.sourceTableName)
         environment.getSparkSession.read.table(sourceTableName)
       }
       case false => ds
