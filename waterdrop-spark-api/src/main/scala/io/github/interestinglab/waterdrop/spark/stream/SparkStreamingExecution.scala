@@ -26,8 +26,8 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment) extends Execut
     })
     source.start(sparkEnvironment, dataset => {
       val conf = source.getConfig
-      if (conf.hasPath(SparkBatchExecution.RESULT_TABLE_NAME)) {
-        SparkBatchExecution.registerTempView(conf.getString(SparkBatchExecution.RESULT_TABLE_NAME), dataset)
+      if (conf.hasPath(SparkBatchExecution.resultTableName)) {
+        SparkBatchExecution.registerTempView(conf.getString(SparkBatchExecution.resultTableName), dataset)
       }
       var ds = dataset
       for (tf <- transforms) {
