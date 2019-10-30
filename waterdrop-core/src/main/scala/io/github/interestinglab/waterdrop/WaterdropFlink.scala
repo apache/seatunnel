@@ -47,10 +47,7 @@ object WaterdropFlink {
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
 
-    val (runtimeEnv, execution) = configBuilder.createExecution
-
-    runtimeEnv.setConfig(configBuilder.config)
-    runtimeEnv.prepare(isStreaming)
+    val (_, execution) = configBuilder.createExecution(isStreaming)
 
     Waterdrop.prepare(sources, transforms, sinks)
 
