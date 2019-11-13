@@ -127,6 +127,12 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 字节跳动使用Waterdrop实现了多源数据的关联分析(如Hive和ES的数据源关联查询分析)，大大简化了不同数据源之间的分析对比工作，并且节省了大量的Spark程序的学习和开发时间。
 
+* [搜狗](http://agent.e.sogou.com/)，搜狗奇点系统
+
+<img src="./docs/images/sougou-logo.png" height="70" width="200" >
+
+搜狗奇点系统使用 waterdrop 作为 etl 工具, 帮助建立实时数仓体系
+
 * [一下科技](https://www.yixia.com/), 一直播数据平台
 
 <img src="https://imgaliyuncdn.miaopai.com/static20131031/miaopai20140729/new_yixia/static/imgs/logo.png" height="60" width="120" >
