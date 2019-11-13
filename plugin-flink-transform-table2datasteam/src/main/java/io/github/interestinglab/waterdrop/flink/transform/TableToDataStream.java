@@ -29,7 +29,7 @@ public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkB
     @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
-        Table table = tableEnvironment.scan(SOURCE_TABLE_NAME);
+        Table table = tableEnvironment.scan(config.getString(SOURCE_TABLE_NAME));
         return TableUtil.tableToDataStream(tableEnvironment, table, isAppend);
     }
 
@@ -37,7 +37,7 @@ public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkB
     public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
 
         BatchTableEnvironment batchTableEnvironment = env.getBatchTableEnvironment();
-        Table table = batchTableEnvironment.scan(SOURCE_TABLE_NAME);
+        Table table = batchTableEnvironment.scan(config.getString(SOURCE_TABLE_NAME));
         return TableUtil.tableToDataSet(batchTableEnvironment, table);
     }
 

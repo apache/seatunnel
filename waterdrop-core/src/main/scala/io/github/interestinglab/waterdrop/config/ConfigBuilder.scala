@@ -35,7 +35,7 @@ class ConfigBuilder(configFile: String, engine: String) {
     println("[INFO] Loading config file: " + configFile)
 
     // variables substitution / variables resolution order:
-    // onfig file --> syste environment --> java properties
+    // config file --> system environment --> java properties
     val config = ConfigFactory
       .parseFile(new File(configFile))
       .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
@@ -183,6 +183,7 @@ class ConfigBuilder(configFile: String, engine: String) {
         case "transform" => configPackage.transformPackage
         case "sink"      => configPackage.sinkPackage
       }
+
       packageName + "." + qualifier
     } else {
       qualifier
