@@ -129,7 +129,7 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 * [搜狗](http://agent.e.sogou.com/)，搜狗奇点系统
 
-<img src="./docs/images/sougou-logo.jpeg" height="90" width="150" >
+<img src="./docs/images/sougou-logo.png" height="70" width="200" >
 
 搜狗奇点系统使用 waterdrop 作为 etl 工具, 帮助建立实时数仓体系
 
