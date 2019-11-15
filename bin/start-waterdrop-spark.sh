@@ -53,8 +53,8 @@ BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 UTILS_DIR=${BIN_DIR}/utils
 APP_DIR=$(dirname ${BIN_DIR})
 CONF_DIR=${APP_DIR}/config
-LIB_DIR=${APP_DIR}/libs
-PLUGINS_DIR=${APP_DIR}/modules
+LIB_DIR=${APP_DIR}/lib
+PLUGINS_DIR=${APP_DIR}/plugins
 
 DEFAULT_CONFIG=${CONF_DIR}/application.conf
 CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
@@ -68,6 +68,7 @@ DEPLOY_MODE=${DEPLOY_MODE:-$DEFAULT_DEPLOY_MODE}
 # scan jar dependencies for all plugins
 source ${UTILS_DIR}/file.sh
 source ${UTILS_DIR}/app.sh
+
 jarDependencies=$(listJarDependenciesOfPlugins ${PLUGINS_DIR})
 JarDepOpts=""
 if [ "$jarDependencies" != "" ]; then
@@ -90,8 +91,7 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
     echo ""
 fi
 
-assemblyJarName=$(find ${PLUGINS_DIR} -name waterdrop-core*.jar)
-
+assemblyJarName=$(find ${LIB_DIR} -name waterdrop-core*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh
 
@@ -103,7 +103,7 @@ variables_substitution=$(string_trim "${variables_substitution}")
 
 ## get spark conf from config file and specify them in spark-submit
 function get_spark_conf {
-    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName}:libs/wd-config-1.3.3.jar io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
+    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
         exit -1
@@ -147,10 +147,9 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
     --name $(getAppName ${CONFIG_FILE}) \
-    --jars $(echo ${LIB_DIR}/*.jar | tr ' ' ','),$(echo ${PLUGINS_DIR}/*.jar | tr ' ' ',') \
+    --jars $(echo ${LIB_DIR}/*.jar | tr ' ' ',') \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
     --driver-java-options "${clientModeDriverJavaOpts}" \
