@@ -130,6 +130,12 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的Output
 
 搜狗奇点系统使用 waterdrop 作为 etl 工具, 帮助建立实时数仓体系
 
+* [趣头条](https://www.qutoutiao.net/)，趣头条数据中心
+
+![趣头条 Logo](../images/qutoutiao-logo.jpg ':size=40%')
+
+ 趣头条数据中心，使用waterdrop支撑mysql to hive的离线etl任务、实时hive to clickhouse的backfill技术支撑，很好的cover离线、实时大部分任务场景。
+
 * [一下科技](https://www.yixia.com/), 一直播数据平台
 
 ![一下科技 Logo](https://imgaliyuncdn.miaopai.com/static20131031/miaopai20140729/new_yixia/static/imgs/logo.png ':size=170%')
