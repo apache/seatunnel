@@ -6,7 +6,7 @@ hs_err_pid*
 
 # build targets
 target/
-**/resources
+**/resources/*
 # Intellij Idea files
 .idea/
 *.iml
