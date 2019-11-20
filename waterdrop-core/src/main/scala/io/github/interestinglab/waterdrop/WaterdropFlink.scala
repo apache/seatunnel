@@ -11,10 +11,10 @@ object WaterdropFlink {
 
   def main(args: Array[String]) {
 
-    CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
+    CommandLineUtils.flinkParser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
-        val configFilePath = Waterdrop.getConfigFilePath(cmdArgs)
+        val configFilePath = Waterdrop.getConfigFilePath(cmdArgs,"flink")
 
         cmdArgs.testConfig match {
           case true => {
@@ -35,8 +35,8 @@ object WaterdropFlink {
         }
       }
       case None =>
-      // CommandLineUtils.parser.showUsageAsError()
-      // CommandLineUtils.parser.terminate(Right(()))
+      // CommandLineUtils.sparkParser.showUsageAsError()
+      // CommandLineUtils.sparkParser.terminate(Right(()))
     }
   }
 
@@ -47,7 +47,7 @@ object WaterdropFlink {
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
 
-    val (runtimeEnv, execution) = configBuilder.createExecution
+    val (runtimeEnv, execution) = configBuilder.createExecution(isStreaming)
 
     runtimeEnv.setConfig(configBuilder.config)
     runtimeEnv.prepare(isStreaming)

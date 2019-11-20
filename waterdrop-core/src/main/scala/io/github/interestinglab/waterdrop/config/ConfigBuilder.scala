@@ -7,9 +7,11 @@ import io.github.interestinglab.waterdrop.apis.{BaseSink, BaseSource, BaseTransf
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.env.{Execution, RuntimeEnv}
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchExecution
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution
 
 import scala.collection.JavaConversions._
 import scala.language.reflectiveCalls
@@ -27,7 +29,6 @@ class ConfigBuilder(configFile: String, engine: String) {
 
   def load(): Config = {
 
-    // val configFile = System.getProperty("config.path", "")
     if (configFile == "") {
       throw new ConfigRuntimeException("Please specify config file")
     }
@@ -146,7 +147,7 @@ class ConfigBuilder(configFile: String, engine: String) {
     this.createTransforms
   }
 
-  def createExecution: (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
+  def createExecution(isStreaming: Boolean): (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
     val env = engine match {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
@@ -154,34 +155,42 @@ class ConfigBuilder(configFile: String, engine: String) {
     env.setConfig(config.getConfig("env"))
 
     engine match {
-      case "flink" => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
-        BaseTransform,
-        BaseSink]])
-      case "spark" => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
-        BaseTransform,
-        BaseSink]])
+      case "flink" => {
+        isStreaming match {
+          case true => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]])
+          case false => (env, new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]])
+        }
+      }
+      case "spark" => {
+        isStreaming match {
+          case true => (env, new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]])
+          case false => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]])
+        }
+      }
     }
   }
 
   /**
     * Get full qualified class name by reflection api, ignore case.
-    * */
-  private def buildClassFullQualifier(name: String,
-                                      classType: String): String = {
-    buildClassFullQualifier(name, classType, "")
-  }
+    **/
 
-  private def buildClassFullQualifier(name: String,
-                                      classType: String,
-                                      engine: String): String = {
+  private def buildClassFullQualifier(name: String, classType: String): String = {
 
     val qualifier = name
     if (qualifier.split("\\.").length == 1) {
 
       val packageName = classType match {
-        case "source"    => configPackage.sourcePackage
+        case "source" => configPackage.sourcePackage
         case "transform" => configPackage.transformPackage
-        case "sink"      => configPackage.sinkPackage
+        case "sink" => configPackage.sinkPackage
       }
 
       packageName + "." + qualifier
