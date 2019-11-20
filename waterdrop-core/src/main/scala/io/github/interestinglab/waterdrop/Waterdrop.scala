@@ -15,7 +15,7 @@ object Waterdrop {
 
   def main(args: Array[String]) {
 
-    CommandLineUtils.parser.parse(args, CommandLineArgs()) match {
+    CommandLineUtils.sparkParser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
         val configFilePath = getConfigFilePath(cmdArgs)
@@ -31,7 +31,7 @@ object Waterdrop {
               case Failure(exception) => {
                 exception match {
                   case e: ConfigRuntimeException => showConfigError(e)
-                  case e: Exception              => showFatalError(e)
+                  case e: Exception => showFatalError(e)
                 }
               }
             }
@@ -39,22 +39,28 @@ object Waterdrop {
         }
       }
       case None =>
-      // CommandLineUtils.parser.showUsageAsError()
-      // CommandLineUtils.parser.terminate(Right(()))
+      // CommandLineUtils.sparkParser.showUsageAsError()
+      // CommandLineUtils.sparkParser.terminate(Right(()))
     }
   }
 
-  private[waterdrop] def getConfigFilePath(cmdArgs: CommandLineArgs): String = {
-    Common.getDeployMode match {
-      case Some(m) => {
-        if (m.equals("cluster")) {
-          // only keep filename in cluster mode
-          new Path(cmdArgs.configFile).getName
-        } else {
-          cmdArgs.configFile
+  private[waterdrop] def getConfigFilePath(cmdArgs: CommandLineArgs, engine: String = "spark"): String = {
+    engine match {
+      case "flink" => cmdArgs.configFile
+      case "spark" => {
+        Common.getDeployMode match {
+          case Some(m) => {
+            if (m.equals("cluster")) {
+              // only keep filename in cluster mode
+              new Path(cmdArgs.configFile).getName
+            } else {
+              cmdArgs.configFile
+            }
+          }
         }
       }
     }
+
   }
 
   private def entrypoint(configFile: String): Unit = {
@@ -64,7 +70,7 @@ object Waterdrop {
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
 
-    val (runtimeEnv, execution) = configBuilder.createExecution
+    val (runtimeEnv, execution) = configBuilder.createExecution(isStreaming)
 
     runtimeEnv.setConfig(configBuilder.config)
     runtimeEnv.prepare(isStreaming)

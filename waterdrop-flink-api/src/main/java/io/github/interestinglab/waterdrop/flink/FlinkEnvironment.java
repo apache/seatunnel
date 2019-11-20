@@ -60,13 +60,11 @@ public class FlinkEnvironment  implements RuntimeEnv {
 
     @Override
     public void prepare() {
-        isStreaming = "flinkStream".equals(config.getString("engine"));
-        prepare(isStreaming);
-
     }
 
     @Override
     public void prepare(boolean isStreaming) {
+        this.isStreaming = isStreaming;
         if (isStreaming) {
             createStreamEnvironment();
             createStreamTableEnvironment();
