@@ -23,7 +23,7 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
     private Config config;
 
-    private final static String prefix = "";
+    private final static String PREFIX = "";
 
     private final ElasticsearchSinkFunction<T> elasticsearchSinkFunction;
 
@@ -44,8 +44,8 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
         config.entrySet().forEach(entry -> {
             String key = entry.getKey();
             Object value = entry.getValue().unwrapped();
-            if (key.startsWith(prefix)) {
-                settings.put(key.substring(prefix.length()), value.toString());
+            if (key.startsWith(PREFIX)) {
+                settings.put(key.substring(PREFIX.length()), value.toString());
             }
         });
 
