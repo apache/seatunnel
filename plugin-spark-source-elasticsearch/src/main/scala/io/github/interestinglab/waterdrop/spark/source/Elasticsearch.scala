@@ -1,9 +1,9 @@
-package io.github.interesting.waterdrop.spark.source
+package io.github.interestinglab.waterdrop.spark.source
 
-import io.github.interestinglab.waterdrop.common.config.TypesafeConfigUtils
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
-import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.common.config.{TypesafeConfigUtils, CheckResult}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
+
 import org.apache.spark.sql.{Dataset, Row}
 import scala.collection.JavaConversions._
 
