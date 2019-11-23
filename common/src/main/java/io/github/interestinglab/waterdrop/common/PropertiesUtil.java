@@ -4,6 +4,11 @@ import com.typesafe.config.waterdrop.Config;
 
 import java.util.Properties;
 
+/**
+ * @author mr_xiong
+ * @date 2019-07-12 18:25
+ * @description
+ */
 public class PropertiesUtil {
 
     public static void setProperties(Config config, Properties properties,String prefix, boolean keepPrefix){
