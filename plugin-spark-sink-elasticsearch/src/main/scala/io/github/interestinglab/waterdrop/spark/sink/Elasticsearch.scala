@@ -1,4 +1,4 @@
-package io.github.interestinglab.spark.sink
+package io.github.interestinglab.waterdrop.spark.sink
 
 import com.typesafe.config.waterdrop.ConfigFactory
 import io.github.interestinglab.waterdrop.common.config.CheckResult
