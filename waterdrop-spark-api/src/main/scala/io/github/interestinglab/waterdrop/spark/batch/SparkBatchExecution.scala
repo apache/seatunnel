@@ -44,7 +44,7 @@ class SparkBatchExecution(environment: SparkEnvironment)
       sinks.foreach(sink => {
         SparkBatchExecution.sinkProcess(environment, sink, ds)
       })
-      //      }
+      // }
     }
   }
 
