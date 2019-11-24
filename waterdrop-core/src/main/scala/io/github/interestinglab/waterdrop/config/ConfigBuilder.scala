@@ -147,32 +147,36 @@ class ConfigBuilder(configFile: String, engine: String) {
     this.createTransforms
   }
 
-  def createExecution(isStreaming: Boolean): (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
+  def createExecution(isStreaming: Boolean):  Execution[BaseSource, BaseTransform, BaseSink] = {
     val env = engine match {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
     }
+
+    env.prepare(isStreaming)
     env.setConfig(config.getConfig("env"))
 
     engine match {
       case "flink" => {
-        isStreaming match {
-          case true => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+        if (isStreaming) {
+          new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
-          case false => (env, new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseSink]]
+        } else {
+          new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         }
       }
       case "spark" => {
-        isStreaming match {
-          case true => (env, new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+        if (isStreaming) {
+          new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
-          case false => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseSink]]
+        } else {
+          new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         }
       }
     }
@@ -181,7 +185,6 @@ class ConfigBuilder(configFile: String, engine: String) {
   /**
     * Get full qualified class name by reflection api, ignore case.
     **/
-
   private def buildClassFullQualifier(name: String, classType: String): String = {
 
     val qualifier = name

@@ -44,6 +44,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-source-elasticsearch</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-transform-sql</artifactId>
             <version>2.0.0</version>
             <!--<scope>provided</scope>-->
@@ -60,6 +65,12 @@
             <artifactId>waterdrop-flink-api</artifactId>
             <version>2.0.0</version>
             <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-sink-elasticsearch</artifactId>
+            <version>2.0.0</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
@@ -126,6 +137,11 @@
             <artifactId>plugin-flink-sink-file</artifactId>
             <version>2.0.0</version>
             <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-flink-sink-elasticsearch</artifactId>
+            <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
