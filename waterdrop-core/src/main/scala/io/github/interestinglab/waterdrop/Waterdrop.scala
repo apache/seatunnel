@@ -83,6 +83,7 @@ object Waterdrop {
   private[waterdrop] def prepare(plugins: scala.List[Plugin]*): Unit = {
     for (pluginList <- plugins) {
       for (p <- pluginList) {
+        p.checkConfig()
         p.prepare()
       }
     }
