@@ -11,10 +11,11 @@ public class TypesafeConfigUtils {
 
     /**
      * Extract sub config with fixed prefix
+     *
      * @param source
      * @param prefix
      * @param keepPrefix
-     * */
+     */
     public static Config extractSubConfig(Config source, String prefix, boolean keepPrefix) {
 
         // use LinkedHashMap to keep insertion order
@@ -39,7 +40,7 @@ public class TypesafeConfigUtils {
 
     /**
      * Check if config with specific prefix exists
-     * */
+     */
     public static boolean hasSubConfig(Config source, String prefix) {
 
         boolean hasConfig = false;
