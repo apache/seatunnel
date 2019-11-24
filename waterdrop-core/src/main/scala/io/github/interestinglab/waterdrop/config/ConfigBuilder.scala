@@ -192,8 +192,8 @@ class ConfigBuilder(configFile: String, engine: String) {
         case "transform" => configPackage.transformPackage
         case "sink" => configPackage.sinkPackage
       }
-
-      packageName + "." + qualifier
+      val firstUppercase = qualifier.substring(0,1).toUpperCase + qualifier.substring(1)
+      packageName + "." + firstUppercase
     } else {
       qualifier
     }

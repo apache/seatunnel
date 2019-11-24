@@ -8,7 +8,7 @@ env {
   #execution.checkpoint.data-uri = "hdfs://localhost:9000/checkpoint"
 }
 
-input {
+source {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
     FakeSourceStream {
       result_table_name = "fake"
@@ -20,8 +20,8 @@ input {
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
-filter {
-    Sql {
+transform {
+    sql {
       sql = "select name,age from fake"
     }
 
@@ -29,7 +29,7 @@ filter {
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
-output {
+sink {
   ConsoleSink {}
 
 

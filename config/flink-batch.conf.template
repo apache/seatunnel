@@ -7,7 +7,7 @@ env {
   execution.parallelism = 1
 }
 
-input {
+source {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
   FileSource{
     file.path = "hdfs://localhost:9000/output/text"
@@ -19,7 +19,7 @@ input {
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
-filter {
+transform {
   Sql {
     sql = "select * from test"
   }
@@ -28,7 +28,7 @@ filter {
   # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
 }
 
-output {
+sink {
   # choose stdout output plugin to output data to console
   ConsoleSink {
   }
