@@ -48,7 +48,6 @@ object WaterdropFlink {
     val sinks = configBuilder.createSinks
 
     val (runtimeEnv, execution) = configBuilder.createExecution(isStreaming)
-
     runtimeEnv.setConfig(configBuilder.config)
     runtimeEnv.prepare(isStreaming)
 

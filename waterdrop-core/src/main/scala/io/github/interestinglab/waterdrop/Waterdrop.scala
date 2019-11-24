@@ -72,9 +72,6 @@ object Waterdrop {
 
     val (runtimeEnv, execution) = configBuilder.createExecution(isStreaming)
 
-    runtimeEnv.setConfig(configBuilder.config)
-    runtimeEnv.prepare(isStreaming)
-
     prepare(sources, transforms, sinks)
 
     showWaterdropAsciiLogo()

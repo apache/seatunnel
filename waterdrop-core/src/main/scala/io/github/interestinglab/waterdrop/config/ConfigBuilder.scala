@@ -152,25 +152,29 @@ class ConfigBuilder(configFile: String, engine: String) {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
     }
+
+    env.prepare(isStreaming)
     env.setConfig(config.getConfig("env"))
 
     engine match {
       case "flink" => {
-        isStreaming match {
-          case true => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+        if (isStreaming) {
+          (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
             BaseSink]])
-          case false => (env, new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+        } else {
+          (env, new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
             BaseSink]])
         }
       }
       case "spark" => {
-        isStreaming match {
-          case true => (env, new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+        if (isStreaming) {
+          (env, new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
             BaseSink]])
-          case false => (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+        } else {
+          (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
             BaseSink]])
         }
