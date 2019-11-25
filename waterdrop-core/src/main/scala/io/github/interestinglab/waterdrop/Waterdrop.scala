@@ -13,12 +13,13 @@ import scala.util.{Failure, Success, Try}
 
 object Waterdrop {
 
+  val engine = "spark"
   def main(args: Array[String]) {
 
     CommandLineUtils.sparkParser.parse(args, CommandLineArgs()) match {
       case Some(cmdArgs) => {
         Common.setDeployMode(cmdArgs.deployMode)
-        val configFilePath = getConfigFilePath(cmdArgs)
+        val configFilePath = getConfigFilePath(cmdArgs,engine)
 
         cmdArgs.testConfig match {
           case true => {
@@ -26,7 +27,7 @@ object Waterdrop {
             println("config OK !")
           }
           case false => {
-            Try(entrypoint(configFilePath)) match {
+            Try(entrypoint(configFilePath,engine)) match {
               case Success(_) => {}
               case Failure(exception) => {
                 exception match {
@@ -44,7 +45,7 @@ object Waterdrop {
     }
   }
 
-  private[waterdrop] def getConfigFilePath(cmdArgs: CommandLineArgs, engine: String = "spark"): String = {
+  private[waterdrop] def getConfigFilePath(cmdArgs: CommandLineArgs, engine: String): String = {
     engine match {
       case "flink" => cmdArgs.configFile
       case "spark" => {
@@ -63,21 +64,16 @@ object Waterdrop {
 
   }
 
-  private def entrypoint(configFile: String): Unit = {
+  private[waterdrop] def entrypoint(configFile: String,engine: String): Unit = {
 
-    val configBuilder = new ConfigBuilder(configFile, "spark")
+    val configBuilder = new ConfigBuilder(configFile, engine)
     val (sources, isStreaming) = configBuilder.createSources
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
-
-    val (runtimeEnv, execution) = configBuilder.createExecution(isStreaming)
-
+    val  execution = configBuilder.createExecution(isStreaming)
     prepare(sources, transforms, sinks)
-
     showWaterdropAsciiLogo()
-
     execution.start(sources.asJava, transforms.asJava, sinks.asJava);
-
   }
 
   private[waterdrop] def showWaterdropAsciiLogo(): Unit = {

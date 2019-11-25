@@ -147,36 +147,36 @@ class ConfigBuilder(configFile: String, engine: String) {
     this.createTransforms
   }
 
-  def createExecution(isStreaming: Boolean): (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
+  def createExecution(isStreaming: Boolean):  Execution[BaseSource, BaseTransform, BaseSink] = {
     val env = engine match {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
     }
 
-    env.prepare(isStreaming)
     env.setConfig(config.getConfig("env"))
+    env.prepare(isStreaming)
 
     engine match {
       case "flink" => {
         if (isStreaming) {
-          (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+           new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         } else {
-          (env, new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+          new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         }
       }
       case "spark" => {
         if (isStreaming) {
-          (env, new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+          new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         } else {
-          (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+          new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         }
       }
     }
