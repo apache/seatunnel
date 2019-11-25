@@ -3,7 +3,7 @@
 PARAMS=""
 while (( "$#" )); do
   case "$1" in
-    -conf|--config)
+    -c|--config)
       CONFIG_FILE=$2
       shift 2
       ;;
