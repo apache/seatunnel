@@ -26,7 +26,7 @@ import java.util.Properties;
  * @date 2019-07-22 18:39
  * @description
  */
-public class KafkaTable implements FlinkStreamSink<Row, Void>, FlinkBatchSink<Row, Void> {
+public class KafkaTable implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private Config config;
     private Properties kafkaParams = new Properties();
@@ -35,7 +35,7 @@ public class KafkaTable implements FlinkStreamSink<Row, Void>, FlinkBatchSink<Ro
 
 
     @Override
-    public DataStreamSink<Void> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
         TypeInformation<?>[] types = table.getSchema().getFieldTypes();
@@ -52,7 +52,7 @@ public class KafkaTable implements FlinkStreamSink<Row, Void>, FlinkBatchSink<Ro
     }
 
     @Override
-    public DataSink<Void> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
         Table table = tableEnvironment.fromDataSet(dataSet);
         TypeInformation<?>[] types = table.getSchema().getFieldTypes();
