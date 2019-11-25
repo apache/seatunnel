@@ -17,9 +17,11 @@
         <module>plugin-spark-source-kafka</module>
         <module>plugin-spark-source-jdbc</module>
         <module>plugin-spark-source-fake</module>
+        <module>plugin-spark-source-elasticsearch</module>
         <module>plugin-spark-transform-sql</module>
         <module>plugin-spark-sink-console</module>
         <module>plugin-spark-sink-clickhouse</module>
+        <module>plugin-spark-sink-elasticsearch</module>
         <module>plugin-flink-source-kafka</module>
         <module>plugin-flink-transform-sql</module>
         <module>plugin-flink-sink-console</module>
@@ -31,6 +33,7 @@
         <module>plugin-flink-source-fake</module>
         <module>plugin-flink-source-jdbc</module>
         <module>plugin-flink-sink-file</module>
+        <module>plugin-flink-sink-elasticsearch</module>
         <module>waterdrop-dist</module>
     </modules>
 
@@ -44,31 +47,21 @@
         <spark.version>2.4.0</spark.version>
         <flink.version>1.9.0</flink.version>
         <hadoop.version>2.7.5</hadoop.version>
+        <fastjson.version>1.2.60</fastjson.version>
+        <lombok.version>1.18.0</lombok.version>
+        <mysql.version>5.1.46</mysql.version>
     </properties>
 
 
     <dependencies>
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>fastjson</artifactId>
-            <version>1.2.60</version>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.0</version>
-        </dependency>
+
+        <!--spark-->
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_2.11</artifactId>
             <version>${spark.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!--<dependency>-->
-            <!--<groupId>org.apache.spark</groupId>-->
-            <!--<artifactId>spark-sql-kafka-0-10_2.11</artifactId>-->
-            <!--<version>${spark.version}</version>-->
-        <!--</dependency>-->
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_2.11</artifactId>
@@ -85,10 +78,47 @@
             <groupId>net.jpountz.lz4</groupId>
             <artifactId>lz4</artifactId>
             <version>1.3.0</version>
+        <!--flink-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-java</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>janino</artifactId>
+            <version>3.0.9</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.janino</groupId>
+                    <artifactId>janino</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-scala_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
     <build>
+        <finalName>${project.artifactId}-${version}-${scala.version}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -117,6 +147,31 @@
                         <phase>process-test-resources</phase>
                         <goals>
                             <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.4.3</version>
+                <configuration>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
                         </goals>
                     </execution>
                 </executions>

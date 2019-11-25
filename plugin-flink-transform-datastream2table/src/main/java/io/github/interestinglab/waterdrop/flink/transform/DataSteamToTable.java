@@ -23,13 +23,13 @@ public class DataSteamToTable implements FlinkStreamTransform<Row,Row>, FlinkBat
     @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
-        tableEnvironment.registerDataStream(RESULT_TABLE_NAME,dataStream);
+        tableEnvironment.registerDataStream(config.getString(RESULT_TABLE_NAME),dataStream);
         return dataStream;
     }
 
     @Override
     public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
-        env.getBatchTableEnvironment().registerDataSet(RESULT_TABLE_NAME,data);
+        env.getBatchTableEnvironment().registerDataSet(config.getString(RESULT_TABLE_NAME),data);
         return data;
     }
 

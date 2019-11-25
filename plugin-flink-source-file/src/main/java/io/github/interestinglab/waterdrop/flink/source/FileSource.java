@@ -92,6 +92,7 @@ public class FileSource implements FlinkBatchSource<Row> {
             case "text":
                 TextRowInputFormat textInputFormat = new TextRowInputFormat(filePath);
                 inputFormat = textInputFormat;
+                break;
             default:
                 break;
         }

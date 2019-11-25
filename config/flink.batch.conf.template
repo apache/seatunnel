@@ -1,0 +1,39 @@
+######
+###### This config file is a demonstration of batch processing in waterdrop config
+######
+
+env {
+  # You can set flink configuration here
+  execution.parallelism = 1
+}
+
+source {
+  # This is a example input plugin **only for test and demonstrate the feature input plugin**
+  FileSource{
+    file.path = "hdfs://localhost:9000/output/text"
+    source_format = "text"
+    result_table_name = "test"
+  }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+transform {
+  Sql {
+    sql = "select * from test"
+  }
+
+  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}
+
+sink {
+  # choose stdout output plugin to output data to console
+  ConsoleSink {
+  }
+
+
+  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+}

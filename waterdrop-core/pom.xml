@@ -19,37 +19,56 @@
         </dependency>
 
         <dependency>
-
             <groupId>io.github.interestinglab</groupId>
             <artifactId>waterdrop-spark-api</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-source-kafka</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-source-fake</artifactId>
             <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-source-jdbc</artifactId>
+            <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-source-elasticsearch</artifactId>
             <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-transform-sql</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-sink-console</artifactId>
+            <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>waterdrop-flink-api</artifactId>
+            <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-sink-elasticsearch</artifactId>
             <version>2.0.0</version>
             <scope>compile</scope>
         </dependency>
@@ -63,65 +82,78 @@
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-kafka</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-sink-kafka</artifactId>
             <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-transform-sql</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-transform-table2datasteam</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-transform-datastream2table</artifactId>
             <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-sink-console</artifactId>
             <version>2.0.0</version>
-            <scope>compile</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-sink-jdbc</artifactId>
             <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-fake</artifactId>
             <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-file</artifactId>
             <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-jdbc</artifactId>
             <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-sink-file</artifactId>
+            <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-flink-sink-elasticsearch</artifactId>
             <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>waterdrop-apis</artifactId>
             <version>2.0.0</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
