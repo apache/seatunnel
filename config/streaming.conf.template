@@ -2,7 +2,7 @@
 ###### This config file is a demonstration of streaming processing in waterdrop config
 ######
 
-spark {
+env {
   # You can set spark configuration here
   # Waterdrop defined streaming batch duration in seconds
   spark.streaming.batchDuration = 5

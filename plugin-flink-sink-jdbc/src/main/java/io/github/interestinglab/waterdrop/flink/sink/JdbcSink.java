@@ -16,7 +16,7 @@ import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.sinks.TableSink;
-
+import org.apache.flink.types.Row;
 
 
 /**
@@ -24,7 +24,7 @@ import org.apache.flink.table.sinks.TableSink;
  * @date 2019-08-31 16:40
  * @description
  */
-public class JdbcSink implements FlinkStreamSink<Void, Void>, FlinkBatchSink<Void, Void> {
+public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private Config config;
     private String tableName;
@@ -67,13 +67,13 @@ public class JdbcSink implements FlinkStreamSink<Void, Void>, FlinkBatchSink<Voi
 
 
     @Override
-    public DataStreamSink<Void> outputStream(FlinkEnvironment env, DataStream<Void> dataStream) {
+    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         createSink(env.getStreamTableEnvironment());
         return null;
     }
 
     @Override
-    public DataSink<Void> outputBatch(FlinkEnvironment env, DataSet<Void> voidDataSet) {
+    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         createSink(env.getBatchTableEnvironment());
         return null;
     }

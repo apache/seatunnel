@@ -7,6 +7,7 @@ import io.github.interestinglab.waterdrop.apis.{BaseSink, BaseSource, BaseTransf
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.env.{Execution, RuntimeEnv}
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment
+import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchExecution
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
@@ -28,7 +29,6 @@ class ConfigBuilder(configFile: String, engine: String) {
 
   def load(): Config = {
 
-    // val configFile = System.getProperty("config.path", "")
     if (configFile == "") {
       throw new ConfigRuntimeException("Please specify config file")
     }
@@ -36,7 +36,7 @@ class ConfigBuilder(configFile: String, engine: String) {
     println("[INFO] Loading config file: " + configFile)
 
     // variables substitution / variables resolution order:
-    // onfig file --> syste environment --> java properties
+    // config file --> system environment --> java properties
     val config = ConfigFactory
       .parseFile(new File(configFile))
       .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
@@ -53,8 +53,8 @@ class ConfigBuilder(configFile: String, engine: String) {
   }
 
 
-  def getSparkConfigs: Config = {
-    config.getConfig("spark")
+  def getEnvConfigs: Config = {
+    config.getConfig("env")
   }
 
   def createSources: (List[BaseSource], Boolean) = {
@@ -141,34 +141,42 @@ class ConfigBuilder(configFile: String, engine: String) {
     * check if config is valid.
     **/
   def checkConfig: Unit = {
-    this.getSparkConfigs
+    this.getEnvConfigs
     this.createSources
     this.createSinks
     this.createTransforms
   }
 
-  def createExecution(isStreaming: Boolean): (RuntimeEnv, Execution[BaseSource, BaseTransform, BaseSink]) = {
+  def createExecution(isStreaming: Boolean):  Execution[BaseSource, BaseTransform, BaseSink] = {
     val env = engine match {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
     }
 
-    env.prepare(isStreaming)
     env.setConfig(config.getConfig("env"))
+    env.prepare(isStreaming)
 
     engine match {
-      case "flink" => (env, new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
-        BaseTransform,
-        BaseSink]])
+      case "flink" => {
+        if (isStreaming) {
+           new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]]
+        } else {
+          new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
+            BaseTransform,
+            BaseSink]]
+        }
+      }
       case "spark" => {
         if (isStreaming) {
-          (env, new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+          new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         } else {
-          (env, new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
+          new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
             BaseTransform,
-            BaseSink]])
+            BaseSink]]
         }
       }
     }
@@ -177,14 +185,8 @@ class ConfigBuilder(configFile: String, engine: String) {
   /**
     * Get full qualified class name by reflection api, ignore case.
     **/
-  private def buildClassFullQualifier(name: String,
-                                      classType: String): String = {
-    buildClassFullQualifier(name, classType, "")
-  }
 
-  private def buildClassFullQualifier(name: String,
-                                      classType: String,
-                                      engine: String): String = {
+  private def buildClassFullQualifier(name: String, classType: String): String = {
 
     val qualifier = name
     if (qualifier.split("\\.").length == 1) {
@@ -194,7 +196,8 @@ class ConfigBuilder(configFile: String, engine: String) {
         case "transform" => configPackage.transformPackage
         case "sink" => configPackage.sinkPackage
       }
-      packageName + "." + qualifier
+      val firstUppercase = qualifier.substring(0,1).toUpperCase + qualifier.substring(1)
+      packageName + "." + firstUppercase
     } else {
       qualifier
     }
