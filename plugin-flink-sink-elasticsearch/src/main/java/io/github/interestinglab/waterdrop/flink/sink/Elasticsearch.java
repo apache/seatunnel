@@ -105,13 +105,13 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
-        return dataSet.output(new ElasticsearchOutputFormat<Row>(config, new ElasticsearchSinkFunction<Row>() {
+        return dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
             @Override
             public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {
                 indexer.add(createIndexRequest(element));
             }
 
-            public IndexRequest createIndexRequest(Row element) {
+            private IndexRequest createIndexRequest(Row element) {
                 Map<String, Object> json = new HashMap<>(100);
                 int elementLen = element.getArity();
                 for (int i = 0; i < elementLen; i++) {
