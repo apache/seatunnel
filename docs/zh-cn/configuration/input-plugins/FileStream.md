@@ -12,9 +12,9 @@
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| [format](#format-string) | no | yes | text |
+| [format](#format-string) | string | yes | text |
 | [path](#path-string) | string | yes | - |
-| [rowTag](#rowtag-string) | no | yes | - |
+| [rowTag](#rowtag-string) | string | yes | - |
 | [common-options](#common-options-string)| string | yes | - |
 
 

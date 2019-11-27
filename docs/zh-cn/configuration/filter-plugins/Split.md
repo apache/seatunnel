@@ -14,8 +14,8 @@
 | --- | --- | --- | --- |
 | [delimiter](#delimiter-string) | string | no | " "(空格) |
 | [fields](#fields-array) | array | yes | - |
-| [source_field](#source_field-string) | string | no | _root_ |
-| [target_field](#target_field-string) | string | no | raw_message |
+| [source_field](#source_field-string) | string | no | raw_message |
+| [target_field](#target_field-string) | string | no | _root_ |
 | [common-options](#common-options-string)| string | no | - |
 
 
