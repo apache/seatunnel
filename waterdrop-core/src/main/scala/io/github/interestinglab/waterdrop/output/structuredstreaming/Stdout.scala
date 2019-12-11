@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.output.structuredstreaming
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutputIntra
 import io.github.interestinglab.waterdrop.output.utils.StructuredUtils
 import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}

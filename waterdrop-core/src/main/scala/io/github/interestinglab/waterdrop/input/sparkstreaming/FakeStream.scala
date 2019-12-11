@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.input.sparkstreaming
 import java.security.SecureRandom
 import java.util
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}

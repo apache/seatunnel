@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.input.batch
 
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 

@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.input.batch
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 

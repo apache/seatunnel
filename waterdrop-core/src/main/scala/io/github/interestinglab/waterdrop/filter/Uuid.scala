@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.filter
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.functions.monotonically_increasing_id
 import org.apache.spark.sql.{Dataset, Row, SparkSession}

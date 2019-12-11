@@ -1,8 +1,8 @@
 package io.github.interestinglab.waterdrop.config;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValue;
+import com.typesafe.config.waterdrop.Config;
+import com.typesafe.config.waterdrop.ConfigFactory;
+import com.typesafe.config.waterdrop.ConfigValue;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

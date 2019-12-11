@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.output.batch
 
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.WriteConfig
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}

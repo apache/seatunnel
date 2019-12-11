@@ -4,7 +4,7 @@ import java.util
 
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.UpdateOptions
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.{MongoClientUtil, StructuredUtils}

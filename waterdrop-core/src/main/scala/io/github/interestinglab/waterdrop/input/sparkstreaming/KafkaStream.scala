@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.input.sparkstreaming
 
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.kafka.clients.consumer.ConsumerRecord
