@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.filter
 
-import com.typesafe.config.{Config, ConfigException, ConfigFactory}
+import com.typesafe.config.waterdrop.{Config, ConfigException, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
