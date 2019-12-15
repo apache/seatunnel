@@ -60,7 +60,7 @@ libraryDependencies ++= Seq(
   "com.pingcap.tispark" % "tispark-core" % "1.1"
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.pingcap.tikv" % "tikv-client" % "1.1",
-  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
+  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.2"
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.databricks" %% "spark-xml" % "0.5.0",
   "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3"

@@ -3,18 +3,18 @@ package io.github.interestinglab.waterdrop.output.batch
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
-import java.math.BigDecimal;
+import java.math.BigDecimal
+import java.sql.PreparedStatement
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
-import scala.collection.mutable.WrappedArray
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -134,7 +134,7 @@ class Clickhouse extends BaseOutput {
     df.foreachPartition { iter =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
       val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
-      val statement = executorConn.createClickHousePreparedStatement(this.initSQL)
+      val statement = executorConn.prepareStatement(this.initSQL)
       var length = 0
       while (iter.hasNext) {
         val item = iter.next()
@@ -152,7 +152,7 @@ class Clickhouse extends BaseOutput {
     }
   }
 
-  private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
+  private def execute(statement: PreparedStatement, retry: Int): Unit = {
     val res = Try(statement.executeBatch())
     res match {
       case Success(_) => {
@@ -231,7 +231,7 @@ class Clickhouse extends BaseOutput {
     }
   }
 
-  private def renderDefaultStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
+  private def renderDefaultStatement(index: Int, fieldType: String, statement: PreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
@@ -243,13 +243,13 @@ class Clickhouse extends BaseOutput {
       case "Float64" => statement.setDouble(index + 1, 0)
       case Clickhouse.lowCardinalityPattern(lowCardinalityType) =>
         renderDefaultStatement(index, lowCardinalityType, statement)
-      case Clickhouse.arrayPattern(_) => statement.setArray(index + 1, List())
+      case Clickhouse.arrayPattern(_) => statement.setNull(index + 1, java.sql.Types.ARRAY)
       case Clickhouse.nullablePattern(nullFieldType) => renderNullStatement(index, nullFieldType, statement)
       case _ => statement.setString(index + 1, "")
     }
   }
 
-  private def renderNullStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
+  private def renderNullStatement(index: Int, fieldType: String, statement: PreparedStatement): Unit = {
     fieldType match {
       case "String" =>
         statement.setNull(index + 1, java.sql.Types.VARCHAR)
@@ -269,7 +269,7 @@ class Clickhouse extends BaseOutput {
     fieldIndex: Int,
     fieldType: String,
     item: Row,
-    statement: ClickHousePreparedStatement): Unit = {
+    statement: PreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
@@ -280,7 +280,7 @@ class Clickhouse extends BaseOutput {
       case "Float32" => statement.setFloat(index + 1, item.getAs[Float](fieldIndex))
       case "Float64" => statement.setDouble(index + 1, item.getAs[Double](fieldIndex))
       case Clickhouse.arrayPattern(_) =>
-        statement.setArray(index + 1, item.getAs[WrappedArray[AnyRef]](fieldIndex))
+        statement.setArray(index + 1, item.getAs[java.sql.Array](fieldIndex))
       case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
       case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
     }
@@ -290,7 +290,7 @@ class Clickhouse extends BaseOutput {
     fields: util.List[String],
     item: Row,
     dsFields: Array[String],
-    statement: ClickHousePreparedStatement): Unit = {
+    statement: PreparedStatement): Unit = {
     for (i <- 0 until fields.size()) {
       val field = fields.get(i)
       val fieldType = tableSchema(field)
