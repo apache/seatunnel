@@ -21,6 +21,9 @@ Waterdrop 提供可直接执行的软件包，没有必要自行编译源代码�
 
 <img src="./docs/images/wechat-qrcode/garyelephant.jpeg" height="240" width="240">
 
+```
+想了解Waterdrop的设计与实现原理，请查看视频：https://time.geekbang.org/dailylesson/detail/100028486
+```
 
 ---
 
