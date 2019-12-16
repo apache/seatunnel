@@ -154,7 +154,7 @@ class Table extends BaseFilter {
       case false =>
     }
 
-    df.createOrReplaceTempView(config.getString("table_name"))
+    df.createOrReplaceTempView(config.getString("result_table_name"))
   }
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
@@ -179,7 +179,7 @@ object Table {
       "allowedValues" -> None,
       "checkers" -> List()),
     Map(
-      "name" -> "table_name",
+      "name" -> "result_table_name",
       "type" -> "string",
       "required" -> true,
       "defaultValue" -> None,

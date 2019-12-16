@@ -31,7 +31,6 @@ class Kudu extends BaseStaticInput {
       .format("org.apache.kudu.spark.kudu")
       .options(mapConf)
       .kudu
-    ds.createOrReplaceTempView(config.getString("table_name"))
     ds
   }
 }

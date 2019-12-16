@@ -25,9 +25,9 @@ class Join extends BaseFilter {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    conf.hasPath("table_name") match {
+    conf.hasPath("source_table_name") match {
       case true => (true, "")
-      case false => (false, "please specify [table_name]")
+      case false => (false, "please specify [source_table_name]")
     }
   }
 
@@ -44,7 +44,7 @@ class Join extends BaseFilter {
   }
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
-    val staticDf = spark.read.table(this.conf.getString("table_name"))
+    val staticDf = spark.read.table(this.conf.getString("source_table_name"))
     val sourceField = this.conf.getString("source_field")
     // TODO: Support joinType
     // val joinType = this.conf.getString("join_type")

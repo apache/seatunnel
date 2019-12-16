@@ -24,9 +24,7 @@ class Hive extends BaseStaticInput {
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
-    val regTable = config.getString("table_name")
     val ds = spark.sql(config.getString("pre_sql"))
-    ds.createOrReplaceTempView(s"$regTable")
     ds
   }
 

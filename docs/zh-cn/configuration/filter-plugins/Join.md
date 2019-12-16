@@ -13,7 +13,7 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [source_field](#source_field-string) | string | no | raw_message |
-| [table_name](#table_name-string) | string | yes | - |
+| [source_table_name](#source_table_name-string) | string | yes | - |
 | [common-options](#common-options-string)| string | no | - |
 
 
@@ -21,7 +21,7 @@
 
 源字段，若不配置默认为`raw_message`
 
-##### table_name [string]
+##### source_table_name [string]
 
 临时表表名
 
@@ -42,7 +42,7 @@ input {
   mysql {
     url = "jdbc:mysql://localhost:3306/info"
     table = "project_info"
-    table_name = "spark_project_info"
+    result_table_name = "spark_project_info"
     user = "username"
     password = "password"
   }
@@ -55,7 +55,7 @@ filter {
   }
 
   join {
-    table_name = "spark_project_info"
+    source_table_name = "spark_project_info"
     source_field = "project"
   }
 }
