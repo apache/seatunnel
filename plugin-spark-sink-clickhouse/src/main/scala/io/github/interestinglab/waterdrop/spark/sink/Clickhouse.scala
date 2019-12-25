@@ -197,7 +197,7 @@ class Clickhouse extends SparkBatchSink {
       case "Float64" => statement.setDouble(index + 1, 0)
       case Clickhouse.lowCardinalityPattern(lowCardinalityType) =>
         renderDefaultStatement(index, lowCardinalityType, statement)
-//      case Clickhouse.arrayPattern(_) => statement.setArray(index + 1, util.Arrays)
+      case Clickhouse.arrayPattern(_) => statement.setNull(index, java.sql.Types.ARRAY)
       case Clickhouse.nullablePattern(nullFieldType) => renderNullStatement(index, nullFieldType, statement)
       case _ => statement.setString(index + 1, "")
     }
@@ -232,8 +232,8 @@ class Clickhouse extends SparkBatchSink {
         statement.setLong(index + 1, item.getAs[Long](fieldIndex))
       case "Float32" => statement.setFloat(index + 1, item.getAs[Float](fieldIndex))
       case "Float64" => statement.setDouble(index + 1, item.getAs[Double](fieldIndex))
-//      case Clickhouse.arrayPattern(_) =>
-//        statement.setArray(index + 1, item.getAs[WrappedArray[AnyRef]](fieldIndex))
+      case Clickhouse.arrayPattern(_) =>
+        statement.setArray(index + 1, item.getAs[java.sql.Array](fieldIndex))
       case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
       case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
     }
@@ -324,8 +324,8 @@ object Clickhouse {
         true
       case nullablePattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
         true
-//      case arrayPattern(_) =>
-//        true
+      case arrayPattern(_) =>
+        true
       case lowCardinalityPattern(_) =>
         true
       case decimalPattern(_) =>
