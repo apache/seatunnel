@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop
 
-import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, ConfigRuntimeException}
 import io.github.interestinglab.waterdrop.config.{ConfigBuilder, _}
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
@@ -61,7 +61,6 @@ object Waterdrop {
         }
       }
     }
-
   }
 
   private[waterdrop] def entrypoint(configFile: String,engine: String): Unit = {
@@ -71,6 +70,7 @@ object Waterdrop {
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
     val  execution = configBuilder.createExecution(isStreaming)
+    baseCheckConfig(sources, transforms, sinks)
     prepare(sources, transforms, sinks)
     showWaterdropAsciiLogo()
     execution.start(sources.asJava, transforms.asJava, sinks.asJava);
@@ -80,11 +80,33 @@ object Waterdrop {
     AsciiArtUtils.printAsciiArt("Waterdrop")
   }
 
+  private[waterdrop] def baseCheckConfig(plugins: scala.List[Plugin]*): Unit = {
+    var configValid = true
+    for (pluginList <- plugins) {
+      for (p <- pluginList) {
+        val checkResult = Try(p.checkConfig) match {
+          case Success(info) => {
+            info
+          }
+          case Failure(exception) => new CheckResult(false, exception.getMessage)
+        }
+
+        if (!checkResult.isSuccess) {
+          configValid = false
+          printf("Plugin[%s] contains invalid config, error: %s\n", p.getClass.getName, checkResult.getMsg)
+        }
+      }
+
+      if (!configValid) {
+        System.exit(-1) // invalid configuration
+      }
+    }
+    // deployModeCheck()
+  }
 
   private[waterdrop] def prepare(plugins: scala.List[Plugin]*): Unit = {
     for (pluginList <- plugins) {
       for (p <- pluginList) {
-        p.checkConfig()
         p.prepare()
       }
     }

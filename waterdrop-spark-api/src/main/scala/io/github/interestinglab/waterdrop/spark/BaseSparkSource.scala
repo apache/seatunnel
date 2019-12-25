@@ -13,5 +13,4 @@ trait BaseSparkSource[Data] extends BaseSource {
 
   def getData(env: SparkEnvironment): Data;
 
-  def name: String = this.getClass.getName
 }
