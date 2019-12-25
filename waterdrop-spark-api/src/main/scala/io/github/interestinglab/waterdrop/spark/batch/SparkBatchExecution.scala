@@ -44,7 +44,7 @@ class SparkBatchExecution(environment: SparkEnvironment)
       sinks.foreach(sink => {
         SparkBatchExecution.sinkProcess(environment, sink, ds)
       })
-      //      }
+      // }
     }
   }
 
@@ -69,7 +69,7 @@ object SparkBatchExecution {
       }
       case false => {
         throw new ConfigRuntimeException(
-          "Plugin[" + source.name + "] must be registered as dataset/table, please set \"result_table_name\" config")
+          "Plugin[" + source.getClass.getName + "] must be registered as dataset/table, please set \"result_table_name\" config")
 
       }
     }
