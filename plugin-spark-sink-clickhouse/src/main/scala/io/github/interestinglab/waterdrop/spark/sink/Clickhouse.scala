@@ -47,8 +47,8 @@ class Clickhouse extends SparkBatchSink {
       val statement = executorConn.prepareStatement(this.initSQL)
 
       var length = 0
-      while (iter.hasNext) {
-        val item = iter.next()
+
+      for (item <- iter) {
         length += 1
         renderStatement(fields, item, dfFields, statement)
         statement.addBatch()
@@ -65,7 +65,6 @@ class Clickhouse extends SparkBatchSink {
 
   override def checkConfig(): CheckResult = {
     val requiredOptions = List("host", "table", "database")
-
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
       !exists
@@ -96,9 +95,7 @@ class Clickhouse extends SparkBatchSink {
       && !config.hasPath("username")) {
       new CheckResult(false, "please specify username and password at the same time")
     } else {
-
       this.jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"), config.getString("database"))
-
       if (config.hasPath("username")) {
         properties.put("user", config.getString("username"))
         properties.put("password", config.getString("password"))
@@ -116,7 +113,6 @@ class Clickhouse extends SparkBatchSink {
       } else {
         new CheckResult(true, "")
       }
-
     }
   }
 
