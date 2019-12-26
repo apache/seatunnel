@@ -129,14 +129,17 @@ class Kv extends BaseFilter {
       })
 
     defaultValues foreach { dv =>
-      val pair = dv.split("=")
+      var key, value = ""
+      val pair = dv.split("=", 2)
       if (pair.size == 2) {
-        val key = pair(0).trim
-        val value = pair(1).trim
+        key = pair(0).trim
+        value = pair(1).trim
+      } else {
+        key = dv.trim
+      }
 
-        if (!map.contains(key)) {
-          map += (key -> value)
-        }
+      if (!map.contains(key)) {
+        map += (key -> value)
       }
     }
 
