@@ -1,0 +1,13 @@
+@waterdropPlugin
+@pluginGroup filter
+@pluginName Grok
+@pluginDesc "对指定字段进行正则解析"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption string pattern="" yes "正则表达式"
+@pluginOption string patterns_dir="-" no "patterns文件路径"
+@pluginOption boolean named_captures_only="true" no "If true, only store named captures from grok."
+@pluginOption string source_field="raw_message" no "数据源字段"
+@pluginOption string target_field="__root__" no "目标字段"

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <meta name="description" content="Description">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="//unpkg.com/docsify/lib/themes/vue.css">
+
+</head>
+<body>
+  <div id="app"></div>
+</body>
+<script>
+  window.$docsify = {
+    repo: '',
+    loadSidebar: true,
+    loadNavbar: true,
+    coverpage: true,
+    repo: 'https://github.com/InterestingLab/waterdrop/',
+    name: 'Waterdrop',
+    plugins: [
+      function(hook, vm) {
+        hook.beforeEach(function (html) {
+          var url = 'https://github.com/InterestingLab/waterdrop/blob/master/docs/' + vm.route.file
+          var editHtml = '[📝 EDIT DOCUMENT](' + url + ')\n'
+
+          return editHtml
+            + html
+            + '\n----\n'
+            + 'Last modified 08/17 17:18 '
+            + editHtml
+        })
+      }
+    ],
+    alias: {
+      '/_sidebar.md': '/zh-cn/_sidebar.md',
+      '/.*/_navbar.md': '/_navbar.md'
+    },
+  };
+
+</script>
+
+<!-- Add comments plugin for docsify -->
+<link rel="stylesheet" href="//unpkg.com/gitalk/dist/gitalk.css">
+
+<script src="//unpkg.com/docsify/lib/plugins/gitalk.min.js"></script>
+<script src="//unpkg.com/gitalk/dist/gitalk.min.js"></script>
+<script>
+    const gitalk = new Gitalk({
+        clientID: 'c422ca57da0be032bf4b',
+        clientSecret: 'b3668a03e69c36b5374580fc38975f977d76c0f4',
+        repo: 'waterdrop',
+        owner: 'interestinglab',
+        admin: ['garyelephant', 'RickyHuo'],
+        // facebook-like distraction free mode
+        distractionFreeMode: false
+    })
+</script>
+
+<script src="//unpkg.com/docsify/lib/docsify.min.js"></script>
+</html>

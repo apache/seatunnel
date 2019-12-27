@@ -1,0 +1,10 @@
+@waterdropPlugin
+@pluginGroup filter
+@pluginName Remove
+@pluginDesc "重命名数据中的字段"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption array source_field yes "需要重命名的字段"
+@pluginOption array target_field yes "变更之后的字段名"
