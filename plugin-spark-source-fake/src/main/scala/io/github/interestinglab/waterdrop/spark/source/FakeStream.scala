@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.spark.source
 
-import com.typesafe.config.waterdrop.Config
+import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
@@ -17,7 +17,13 @@ import scala.collection.JavaConversions._
 
 class FakeStream extends SparkStreamingSource[String] {
 
-  override def prepare(): Unit = {}
+  override def prepare(): Unit = {
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "rate" -> 1 // rate per second, X records/sec
+      ))
+    config = config.withFallback(defaultConfig)
+  }
 
   override def getData(env: SparkEnvironment): DStream[String] = {
     val receiverInputDStream = env.getStreamingContext.receiverStream(new FakeReceiver(config))
