@@ -24,24 +24,6 @@ class Fake extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List("url", "table", "user", "password");
-
-    val nonExistsOptions = requiredOptions
-      .map(optionName => (optionName, config.hasPath(optionName)))
-      .filter { p =>
-        val (optionName, exists) = p
-        !exists
-      }
-
-    if (nonExistsOptions.isEmpty) {
-      new CheckResult(true, "")
-    } else {
-      new CheckResult(
-        false,
-        "please specify " + nonExistsOptions
-          .map { case (field, _) => "[" + field + "]" }
-          .mkString(", ") + " as non-empty string"
-      )
-    }
+    new CheckResult(true, "")
   }
 }
