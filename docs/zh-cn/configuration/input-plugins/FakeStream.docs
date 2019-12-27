@@ -1,0 +1,13 @@
+@waterdropPlugin
+@pluginGroup input
+@pluginName Fake
+@pluginDesc "生成测试数据以供逻辑测试使用"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption string data_format="text" no "测试数据类型，支持text以及json"
+@pluginOption string text_delimeter="," no "文本数据分隔符，当'data_format'为text时使用"
+@pluginOption array json_keys no "json数据key列表，当'data_format'为json时使用"
+@pluginOption number num_of_fields="10" no "字段个数，当'data_format'为text时使用"
+@pluginOption number rate="1" yes "每秒生成测试用例个数"
