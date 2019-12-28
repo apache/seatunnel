@@ -6,23 +6,23 @@
 
 - [Waterdrop v2.x For Spark](/zh-cn/v2/spark/)
 
-  - [快速开始](/zh-cn/v2/quick-start)
+  - [快速开始](/zh-cn/v2/spark/quick-start)
 
-  - [下载、安装](/zh-cn/v2/installation)
+  - [下载、安装](/zh-cn/v2/spark/installation)
 
-  - [行业应用案例](/zh-cn/v2/case_study/base)
+  - [行业应用案例](/zh-cn/v2/spark/case_study/base)
 
-  - [配置文件](/zh-cn/v2/configuration/base)
-    - [通用配置](/zh-cn/v2/configuration/base)
-    - [Source 插件配置](/zh-cn/v2/configuration/input-plugin)
-    - [Transform 插件配置](/zh-cn/v2/configuration/filter-plugin)
-    - [Sink 插件配置](/zh-cn/v2/configuration/output-plugin)
+  - [配置文件](/zh-cn/v2/spark/configuration/base)
+    - [通用配置](/zh-cn/v2/spark/configuration/base)
+    - [Source 插件配置](/zh-cn/v2/spark/configuration/source-plugin)
+    - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugin)
+    - [Sink 插件配置](/zh-cn/v2/spark/configuration/sink-plugin)
 
-  - [部署与运行](/zh-cn/v2/deployment)
+  - [部署与运行](/zh-cn/v2/spark/deployment)
 
-  - [监控[商业版]](/zh-cn/v2/monitoring)
+  - [监控[商业版]](/zh-cn/v2/spark/monitoring)
 
-  - [插件开发](/zh-cn/v2/developing-plugin)
+  - [插件开发](/zh-cn/v2/spark/developing-plugin)
 
 - [深入Waterdrop](/zh-cn/v2/internal.md)
 
