@@ -10,7 +10,7 @@ import java.io.Serializable;
  * @date 2019-05-28
  * @description
  */
-public interface Plugin extends Serializable {
+public interface Plugin<T> extends Serializable {
     String RESULT_TABLE_NAME = "result_table_name";
     String SOURCE_TABLE_NAME = "source_table_name";
 
@@ -20,6 +20,6 @@ public interface Plugin extends Serializable {
 
     CheckResult checkConfig();
 
-    void prepare();
+    void prepare(T prepareEnv);
 
 }

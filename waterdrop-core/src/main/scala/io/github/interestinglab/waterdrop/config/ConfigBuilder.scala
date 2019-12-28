@@ -57,8 +57,8 @@ class ConfigBuilder(configFile: String, engine: String) {
     config.getConfig("env")
   }
 
-  def createSources: (List[BaseSource], Boolean) = {
-    var sourceList = List[BaseSource]()
+  def createSources: (List[BaseSource[RuntimeEnv]], Boolean) = {
+    var sourceList = List[BaseSource[RuntimeEnv]]()
 
     val sourceConfigList = config.getConfigList("source")
 
@@ -75,7 +75,7 @@ class ConfigBuilder(configFile: String, engine: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseSource]
+          .asInstanceOf[BaseSource[RuntimeEnv]]
 
         obj.setConfig(plugin)
 
@@ -86,9 +86,9 @@ class ConfigBuilder(configFile: String, engine: String) {
 
   }
 
-  def createTransforms: List[BaseTransform] = {
+  def createTransforms: List[BaseTransform[RuntimeEnv]] = {
 
-    var filterList = List[BaseTransform]()
+    var filterList = List[BaseTransform[RuntimeEnv]]()
     config
       .getConfigList("transform")
       .foreach(plugin => {
@@ -101,7 +101,7 @@ class ConfigBuilder(configFile: String, engine: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseTransform]
+          .asInstanceOf[BaseTransform[RuntimeEnv]]
 
         obj.setConfig(plugin)
 
@@ -111,9 +111,9 @@ class ConfigBuilder(configFile: String, engine: String) {
     filterList
   }
 
-  def createSinks: List[BaseSink] = {
+  def createSinks: List[BaseSink[RuntimeEnv]] = {
 
-    var outputList = List[BaseSink]()
+    var outputList = List[BaseSink[RuntimeEnv]]()
     config
       .getConfigList("sink")
       .foreach(plugin => {
@@ -127,7 +127,7 @@ class ConfigBuilder(configFile: String, engine: String) {
         val obj = Class
           .forName(className)
           .newInstance()
-          .asInstanceOf[BaseSink]
+          .asInstanceOf[BaseSink[RuntimeEnv]]
 
         obj.setConfig(plugin)
 
@@ -147,7 +147,7 @@ class ConfigBuilder(configFile: String, engine: String) {
     this.createTransforms
   }
 
-  def createExecution(isStreaming: Boolean):  Execution[BaseSource, BaseTransform, BaseSink] = {
+  def createExecution(isStreaming: Boolean):  (Execution[BaseSource[RuntimeEnv], BaseTransform[RuntimeEnv], BaseSink[RuntimeEnv]], RuntimeEnv) = {
     val env = engine match {
       case "spark" => new SparkEnvironment()
       case "flink" => new FlinkEnvironment()
@@ -159,24 +159,24 @@ class ConfigBuilder(configFile: String, engine: String) {
     engine match {
       case "flink" => {
         if (isStreaming) {
-           new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
-            BaseTransform,
-            BaseSink]]
+          (new FlinkStreamExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource[RuntimeEnv],
+            BaseTransform[RuntimeEnv],
+            BaseSink[RuntimeEnv]]], env)
         } else {
-          new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource,
-            BaseTransform,
-            BaseSink]]
+          (new FlinkBatchExecution(env.asInstanceOf[FlinkEnvironment]).asInstanceOf[Execution[BaseSource[RuntimeEnv],
+            BaseTransform[RuntimeEnv],
+            BaseSink[RuntimeEnv]]], env)
         }
       }
       case "spark" => {
         if (isStreaming) {
-          new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
-            BaseTransform,
-            BaseSink]]
+          (new SparkStreamingExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource[RuntimeEnv],
+            BaseTransform[RuntimeEnv],
+            BaseSink[RuntimeEnv]]], env)
         } else {
-          new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource,
-            BaseTransform,
-            BaseSink]]
+          (new SparkBatchExecution(env.asInstanceOf[SparkEnvironment]).asInstanceOf[Execution[BaseSource[RuntimeEnv],
+            BaseTransform[RuntimeEnv],
+            BaseSink[RuntimeEnv]]], env)
         }
       }
     }

@@ -21,7 +21,6 @@ import org.apache.flink.types.Row;
  */
 public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
-
     private Config config;
 
     private boolean isAppend;
@@ -58,7 +57,7 @@ public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkB
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
         if (config.hasPath("is_append")) {
             isAppend = config.getBoolean("is_append");
         }

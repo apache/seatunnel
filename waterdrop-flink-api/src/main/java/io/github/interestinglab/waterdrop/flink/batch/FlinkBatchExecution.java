@@ -114,7 +114,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     }
 
     @Override
-    public void prepare() {
+    public void prepare(Void prepareEnv) {
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }

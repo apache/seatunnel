@@ -2,11 +2,13 @@ package io.github.interestinglab.waterdrop
 
 import io.github.interestinglab.waterdrop.common.config.{CheckResult, ConfigRuntimeException}
 import io.github.interestinglab.waterdrop.config.{ConfigBuilder, _}
+import io.github.interestinglab.waterdrop.env.RuntimeEnv
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.hadoop.fs.Path
 
 import scala.collection.JavaConverters._
 import io.github.interestinglab.waterdrop.plugin.Plugin
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.utils.AsciiArtUtils
 
 import scala.util.{Failure, Success, Try}
@@ -63,16 +65,17 @@ object Waterdrop {
     }
   }
 
-  private[waterdrop] def entrypoint(configFile: String,engine: String): Unit = {
+  private def entrypoint(configFile: String, engine: String): Unit = {
 
     val configBuilder = new ConfigBuilder(configFile, engine)
     val (sources, isStreaming) = configBuilder.createSources
     val transforms = configBuilder.createTransforms
     val sinks = configBuilder.createSinks
-    val  execution = configBuilder.createExecution(isStreaming)
+    val (execution, env) = configBuilder.createExecution(isStreaming)
     baseCheckConfig(sources, transforms, sinks)
-    prepare(sources, transforms, sinks)
+    prepare(env.asInstanceOf[SparkEnvironment], sources, transforms, sinks)
     showWaterdropAsciiLogo()
+
     execution.start(sources.asJava, transforms.asJava, sinks.asJava);
   }
 
@@ -80,7 +83,7 @@ object Waterdrop {
     AsciiArtUtils.printAsciiArt("Waterdrop")
   }
 
-  private[waterdrop] def baseCheckConfig(plugins: scala.List[Plugin]*): Unit = {
+  private[waterdrop] def baseCheckConfig(plugins: scala.List[Plugin[_]]*): Unit = {
     var configValid = true
     for (pluginList <- plugins) {
       for (p <- pluginList) {
@@ -104,10 +107,10 @@ object Waterdrop {
     // deployModeCheck()
   }
 
-  private[waterdrop] def prepare(plugins: scala.List[Plugin]*): Unit = {
+  private def prepare(env: SparkEnvironment, plugins: scala.List[Plugin[RuntimeEnv]]*): Unit = {
     for (pluginList <- plugins) {
       for (p <- pluginList) {
-        p.prepare()
+        p.prepare(env)
       }
     }
   }

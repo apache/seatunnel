@@ -46,9 +46,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     }
 
     @Override
-    public void prepare() {
-
-    }
+    public void prepare(FlinkEnvironment env) {}
 
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};

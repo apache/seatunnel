@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.flink.stream;
 
 import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.env.Execution;
+import io.github.interestinglab.waterdrop.env.RuntimeEnv;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
@@ -114,7 +115,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
     }
 
     @Override
-    public void prepare() {
+    public void prepare(Void prepareEnv) {
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }

@@ -11,7 +11,7 @@ import org.apache.flink.types.Row;
  * @date 2019-05-28 23:00
  * @description
  */
-public interface FlinkStreamSource<T> extends BaseSource {
+public interface FlinkStreamSource<T> extends BaseSource<FlinkEnvironment> {
 
     DataStream<T> getData(FlinkEnvironment env);
 
