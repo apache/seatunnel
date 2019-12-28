@@ -14,5 +14,5 @@ class Console extends SparkBatchSink {
 
   override def checkConfig(): CheckResult = new CheckResult(true, "")
 
-  override def prepare(): Unit = {}
+  override def prepare(env: SparkEnvironment): Unit = {}
 }

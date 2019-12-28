@@ -62,7 +62,7 @@ public class FileSource implements FlinkBatchSource<Row> {
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
         String path = config.getString(PATH);
         String format = config.getString(SOURCE_FORMAT);
         String schemaContent = config.getString(SCHEMA);

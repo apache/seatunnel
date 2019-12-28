@@ -21,7 +21,7 @@ class SparkBatchExecution(environment: SparkEnvironment)
 
   override def checkConfig(): CheckResult = new CheckResult(true, "")
 
-  override def prepare(): Unit = {}
+  override def prepare(prepareEnv: Void): Unit = {}
 
   override def start(sources: JList[SparkBatchSource],
                      transforms: JList[SparkBatchTransform],

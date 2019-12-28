@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
  * @date 2019-09-04 14:49
  * @description
  */
-public class FlinkEnvironment  implements RuntimeEnv {
+public class FlinkEnvironment implements RuntimeEnv {
 
     private static final Logger LOG = LoggerFactory.getLogger(FlinkEnvironment.class);
 
@@ -59,11 +59,7 @@ public class FlinkEnvironment  implements RuntimeEnv {
     }
 
     @Override
-    public void prepare() {
-    }
-
-    @Override
-    public void prepare(boolean isStreaming) {
+    public void prepare(Boolean isStreaming) {
         this.isStreaming = isStreaming;
         if (isStreaming) {
             createStreamEnvironment();

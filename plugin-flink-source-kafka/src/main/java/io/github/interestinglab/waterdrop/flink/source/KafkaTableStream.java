@@ -68,7 +68,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
         topic = config.getString(TOPICS);
         PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix, false);
         tableName = config.getString(RESULT_TABLE_NAME);

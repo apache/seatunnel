@@ -8,7 +8,7 @@ import org.apache.spark.sql.{Dataset, Row}
 class Sql extends BaseSparkTransform with SparkBatchTransform {
 
 
-  override def process(data: Dataset[Row],env: SparkEnvironment): Dataset[Row] = {
+  override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
 
     if (config.hasPath("table_name")) {
       data.createOrReplaceTempView(config.getString("table_name"))
@@ -18,5 +18,5 @@ class Sql extends BaseSparkTransform with SparkBatchTransform {
 
   override def checkConfig(): CheckResult = new CheckResult(true, "")
 
-  override def prepare(): Unit = {}
+  override def prepare(env: SparkEnvironment): Unit = {}
 }

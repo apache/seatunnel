@@ -59,5 +59,5 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment) extends Execut
 
   override def checkConfig(): CheckResult = new CheckResult(true,"")
 
-  override def prepare(): Unit = {}
+  override def prepare(void: Void): Unit = {}
 }

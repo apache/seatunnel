@@ -49,6 +49,6 @@ public class DataSteamToTable implements FlinkStreamTransform<Row,Row>, FlinkBat
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
     }
 }

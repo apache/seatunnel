@@ -7,5 +7,5 @@ import io.github.interestinglab.waterdrop.plugin.Plugin;
  * @date 2019-05-28 22:45
  * @description
  */
-public interface BaseSink extends Plugin {
+public interface BaseSink<T> extends Plugin<T> {
 }

@@ -104,7 +104,7 @@ public class KafkaTable implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
         topic = config.getString("topics");
         PropertiesUtil.setProperties(config, kafkaParams, producerPrefix, false);
     }
