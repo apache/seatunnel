@@ -1,6 +1,6 @@
 # 部署与运行
 
-> Waterdrop 依赖Java运行环境和Spark，详细的Waterdrop 安装步骤参考[安装Waterdrop](/zh-cn/installation)
+> Waterdrop 依赖Java运行环境和Spark，详细的Waterdrop 安装步骤参考[安装Waterdrop](/zh-cn/v1/installation)
 
 下面重点说明不同平台的运行方式:
 
@@ -55,4 +55,4 @@ spark {
 
 ```
 
-关于如何配置Waterdrop, 请见[Waterdrop 配置](/zh-cn/configuration/base)
+关于如何配置Waterdrop, 请见[Waterdrop 配置](/zh-cn/v1/configuration/base)

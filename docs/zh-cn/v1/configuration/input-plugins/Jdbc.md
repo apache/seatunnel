@@ -53,7 +53,7 @@ JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 
 ##### common options [string]
 
-`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/v1/configuration/input-plugin)
 
 
 ### Example

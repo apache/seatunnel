@@ -6,7 +6,7 @@
 
 - [行业应用案例](/zh-cn/v1/case_study/base)
 
-- [配置](/zh-cn/configuration/base)
+- [配置](/zh-cn/v1/configuration/base)
   - [通用配置](/zh-cn/v1/configuration/base)
   - [Input插件](/zh-cn/v1/configuration/input-plugin)
   - [Filter插件](/zh-cn/v1/configuration/filter-plugin)

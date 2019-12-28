@@ -22,7 +22,7 @@
 
 ##### common options [string]
 
-`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/v1/configuration/input-plugin)
 
 
 **注意：从waterdrop v1.3.4 开始，使用hive input必须做如下配置：**
