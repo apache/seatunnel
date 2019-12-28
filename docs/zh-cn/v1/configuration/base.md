@@ -83,7 +83,7 @@ input {
 
 
   # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
-  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/v1/configuration/base
 }
 
 filter {
@@ -93,7 +93,7 @@ filter {
   }
 
   # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
-  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/v1/configuration/base
 }
 
 output {
@@ -101,7 +101,7 @@ output {
 
 
   # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
-  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/v1/configuration/base
 }
 ```
 

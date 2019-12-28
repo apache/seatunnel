@@ -71,7 +71,7 @@ ClickHouse用户用户名，仅当ClickHouse中开启权限时需要此字段
 
 ##### common options [string]
 
-`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/v1/configuration/output-plugin)
 
 
 ### ClickHouse类型对照表

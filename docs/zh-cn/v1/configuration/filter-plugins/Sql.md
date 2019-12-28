@@ -27,7 +27,7 @@ SQL语句，SQL中使用的表名为 `Input` 或 `Filter` 插件中配置的 `re
 
 ##### common options [string]
 
-`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/configuration/filter-plugin)
+`Filter` 插件通用参数，详情参照 [Filter Plugin](/zh-cn/v1/configuration/filter-plugin)
 
 
 ### Examples

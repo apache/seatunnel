@@ -40,7 +40,7 @@ Hadoop集群文件路径，以hdfs://开头
 
 ##### common options [string]
 
-`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/configuration/input-plugin)
+`Input` 插件通用参数，详情参照 [Input Plugin](/zh-cn/v1/configuration/input-plugin)
 
 
 

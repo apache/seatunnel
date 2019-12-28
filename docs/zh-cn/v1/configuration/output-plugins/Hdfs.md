@@ -58,7 +58,7 @@ Hadoop集群文件路径，以hdfs://开头
 
 ##### common options [string]
 
-`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/v1/configuration/output-plugin)
 
 
 ### Example

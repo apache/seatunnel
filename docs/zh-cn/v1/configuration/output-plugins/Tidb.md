@@ -57,7 +57,7 @@ useSSL
 
 ##### common options [string]
 
-`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/configuration/output-plugin)
+`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/v1/configuration/output-plugin)
 
 
 ### Example

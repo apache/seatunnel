@@ -10,7 +10,7 @@
 
 ### Options
 
-此插件为Waterdrop商业版本中包含的功能，如有需要，请[下载安装商业版](/zh-cn/installation)。
+此插件为Waterdrop商业版本中包含的功能，如有需要，请[下载安装商业版](/zh-cn/v1/installation)。
 
 商业合作、咨询、购买以及产品支持，请联系：
 
