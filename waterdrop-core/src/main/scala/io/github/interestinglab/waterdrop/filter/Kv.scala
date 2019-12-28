@@ -55,8 +55,6 @@ class Kv extends BaseFilter {
 
   override def process(spark: SparkSession, df: Dataset[Row]): Dataset[Row] = {
 
-    import spark.implicits._
-
     val kvUDF = udf((s: String) => kv(s))
 
     var df2 = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
@@ -113,18 +111,21 @@ class Kv extends BaseFilter {
     str
       .split(conf.getString("field_split"))
       .foreach(s => {
-        val pair = s.split(conf.getString("value_split"))
+        val pair = s.split(conf.getString("value_split"), 2)
+        var key, value = ""
         if (pair.size == 2) {
-          val key = pair(0).trim
-          val value = pair(1).trim
+          key = pair(0).trim
+          value = pair(1).trim
+        } else {
+          key = s.trim
+        }
 
-          if (includeFields.length == 0 && excludeFields.length == 0) {
-            map += (conf.getString("field_prefix") + key -> value)
-          } else if (includeFields.length > 0 && includeFields.contains(key)) {
-            map += (conf.getString("field_prefix") + key -> value)
-          } else if (excludeFields.length > 0 && !excludeFields.contains(key)) {
-            map += (conf.getString("field_prefix") + key -> value)
-          }
+        if (includeFields.length == 0 && excludeFields.length == 0) {
+          map += (conf.getString("field_prefix") + key -> value)
+        } else if (includeFields.length > 0 && includeFields.contains(key)) {
+          map += (conf.getString("field_prefix") + key -> value)
+        } else if (excludeFields.length > 0 && !excludeFields.contains(key)) {
+          map += (conf.getString("field_prefix") + key -> value)
         }
       })
 
