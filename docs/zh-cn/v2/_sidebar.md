@@ -2,19 +2,17 @@
 
 - [v2.x与v1.x的区别](/zh-cn/v2/diff_v1_v2)
 
+- [行业应用案例](/zh-cn/case_study/)
+
 - [Waterdrop v2.x For Flink](/zh-cn/v2/flink/)
 
   - [快速开始](/zh-cn/v2/flink/quick-start)
 
   - [下载、安装](/zh-cn/v2/flink/installation)
 
-  - [行业应用案例](/zh-cn/v2/flink/case_study/base)
-
   - [配置文件](/zh-cn/v2/flink/configuration/base)
 
   - [部署与运行](/zh-cn/v2/flink/deployment)
-
-  - [监控[商业版]](/zh-cn/v2/flink/monitoring)
 
   - [插件开发](/zh-cn/v2/flink/developing-plugin)
 
@@ -24,13 +22,9 @@
 
   - [下载、安装](/zh-cn/v2/spark/installation)
 
-  - [行业应用案例](/zh-cn/v2/spark/case_study/base)
-
   - [配置文件](/zh-cn/v2/spark/configuration/base)
 
   - [部署与运行](/zh-cn/v2/spark/deployment)
-
-  - [监控[商业版]](/zh-cn/v2/spark/monitoring)
 
   - [插件开发](/zh-cn/v2/spark/developing-plugin)
 
