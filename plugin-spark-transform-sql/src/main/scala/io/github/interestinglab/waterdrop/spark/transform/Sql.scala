@@ -1,12 +1,10 @@
 package io.github.interestinglab.waterdrop.spark.transform
 
 import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchTransform
 import io.github.interestinglab.waterdrop.spark.{BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
 
-class Sql extends BaseSparkTransform with SparkBatchTransform {
-
+class Sql extends BaseSparkTransform {
 
   override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
 
