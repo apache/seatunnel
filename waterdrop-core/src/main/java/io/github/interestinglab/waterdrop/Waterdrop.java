@@ -33,7 +33,7 @@ public class Waterdrop {
     private static final String SPARK = "spark";
     public static void main(String[] args) {
         OptionParser<CommandLineArgs> sparkParser = CommandLineUtils.sparkParser();
-        run(sparkParser,SPARK,args);
+        run(sparkParser, SPARK, args);
     }
 
     public static void run(OptionParser<CommandLineArgs> parser,String engine,String[] args){
@@ -48,7 +48,7 @@ public class Waterdrop {
                 System.out.println("config OK !");
             } else {
                 try {
-                    entrypoint(configFilePath,engine);
+                    entrypoint(configFilePath, engine);
                 } catch (ConfigRuntimeException e) {
                     showConfigError(e);
                 }catch (Exception e){

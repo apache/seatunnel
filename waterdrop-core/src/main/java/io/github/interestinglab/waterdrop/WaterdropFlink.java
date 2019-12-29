@@ -15,7 +15,7 @@ public class WaterdropFlink {
 
     public static void main(String[] args) {
         OptionParser<CommandLineArgs> flinkParser = CommandLineUtils.flinkParser();
-        Waterdrop.run(flinkParser,FLINK,args);
+        Waterdrop.run(flinkParser, FLINK, args);
     }
 
 }
