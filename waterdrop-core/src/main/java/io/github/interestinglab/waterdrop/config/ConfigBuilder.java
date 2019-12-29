@@ -55,7 +55,7 @@ public class ConfigBuilder {
 
     private Config load() {
 
-        if (configFile == "") {
+        if (configFile.isEmpty()) {
             throw new ConfigRuntimeException("Please specify config file");
         }
 
