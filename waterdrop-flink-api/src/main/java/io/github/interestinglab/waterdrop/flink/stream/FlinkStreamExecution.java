@@ -26,8 +26,6 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     private FlinkEnvironment flinkEnvironment;
 
-    private String jobName;
-
 
     public FlinkStreamExecution(FlinkEnvironment streamEnvironment) {
         this.flinkEnvironment = streamEnvironment;
@@ -62,6 +60,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             sink.outputStream(flinkEnvironment, stream);
         }
         try {
+            String jobName = flinkEnvironment.getJobName();
             if (StringUtils.isBlank(jobName)) {
                 flinkEnvironment.getStreamExecutionEnvironment().execute();
             } else {
@@ -115,8 +114,5 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     @Override
     public void prepare() {
-        if (config.hasPath("job.name")) {
-            jobName = config.getString("job.name");
-        }
     }
 }
