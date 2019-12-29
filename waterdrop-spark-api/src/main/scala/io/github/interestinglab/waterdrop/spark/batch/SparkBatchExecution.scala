@@ -11,7 +11,7 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.collection.JavaConversions._
 
 class SparkBatchExecution(environment: SparkEnvironment)
-  extends Execution[SparkBatchSource, SparkBatchTransform, SparkBatchSink] {
+  extends Execution[SparkBatchSource, BaseSparkTransform, SparkBatchSink] {
 
   private var config = ConfigFactory.empty()
 
@@ -24,7 +24,7 @@ class SparkBatchExecution(environment: SparkEnvironment)
   override def prepare(prepareEnv: Void): Unit = {}
 
   override def start(sources: JList[SparkBatchSource],
-                     transforms: JList[SparkBatchTransform],
+                     transforms: JList[BaseSparkTransform],
                      sinks: JList[SparkBatchSink]): Unit = {
 
     sources.foreach(s => {
