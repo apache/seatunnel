@@ -4,7 +4,7 @@
 
 - [下载、安装](/zh-cn/v1/installation)
 
-- [行业应用案例](/zh-cn/v1/case_study/base)
+- [行业应用案例](/zh-cn/v1/case_study/)
 
 - [配置](/zh-cn/v1/configuration/base)
   - [通用配置](/zh-cn/v1/configuration/base)
