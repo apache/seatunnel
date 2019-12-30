@@ -9,7 +9,7 @@ import org.apache.flink.api.java.DataSet;
  * @date 2019-08-24 16:23
  * @description
  */
-public interface FlinkBatchTransform<IN,OUT> extends BaseTransform {
+public interface FlinkBatchTransform<IN,OUT> extends BaseTransform<FlinkEnvironment> {
 
     DataSet<OUT> processBatch(FlinkEnvironment env, DataSet<IN> data);
 

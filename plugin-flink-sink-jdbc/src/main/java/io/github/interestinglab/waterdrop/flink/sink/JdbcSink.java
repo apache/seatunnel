@@ -51,7 +51,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
         tableName = config.getString("jdbc_table_name");
         driverName = config.getString("driver");
         dbUrl = config.getString("url");

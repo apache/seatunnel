@@ -17,7 +17,7 @@ class StructuredStreamingExecution(environment: SparkEnvironment) extends Execut
 
   override def checkConfig(): CheckResult = new CheckResult(true, "")
 
-  override def prepare(): Unit = {}
+  override def prepare(void: Void): Unit = {}
 
   override def start(sources: JList[StructuredStreamingSource],
                      transforms: JList[BaseSparkTransform],

@@ -50,7 +50,7 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
     }
 
     @Override

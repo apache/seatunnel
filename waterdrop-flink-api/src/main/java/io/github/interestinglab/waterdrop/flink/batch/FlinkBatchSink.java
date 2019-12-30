@@ -10,7 +10,7 @@ import org.apache.flink.api.java.operators.DataSink;
  * @date 2019-08-24 16:19
  * @description
  */
-public interface FlinkBatchSink<IN, OUT> extends BaseSink {
+public interface FlinkBatchSink<IN, OUT> extends BaseSink<FlinkEnvironment> {
 
     DataSink<OUT> outputBatch(FlinkEnvironment env, DataSet<IN> inDataSet);
 }

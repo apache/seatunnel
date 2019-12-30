@@ -75,7 +75,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
         String path = config.getString("file.path");
         String format = config.getString("file.format");
         filePath = new Path(path);
