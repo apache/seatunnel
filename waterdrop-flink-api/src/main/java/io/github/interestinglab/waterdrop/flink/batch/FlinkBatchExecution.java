@@ -26,8 +26,6 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
 
     private FlinkEnvironment flinkEnvironment;
 
-    private String jobName;
-
     public FlinkBatchExecution(FlinkEnvironment flinkEnvironment) {
         this.flinkEnvironment = flinkEnvironment;
     }
@@ -60,6 +58,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             }
             sink.outputBatch(flinkEnvironment, dataSet);
         }
+        String jobName = flinkEnvironment.getJobName();
         try {
             if (StringUtils.isBlank(jobName)) {
                 flinkEnvironment.getBatchEnvironment().execute();
@@ -115,8 +114,5 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
 
     @Override
     public void prepare() {
-        if (config.hasPath("job.name")) {
-            jobName = config.getString("job.name");
-        }
     }
 }
