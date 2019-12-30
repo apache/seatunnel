@@ -12,11 +12,15 @@
 
   - [下载、安装](/zh-cn/v2/spark/installation)
 
-  - [配置文件](/zh-cn/v2/spark/configuration/base)
-    - [通用配置](/zh-cn/v2/spark/configuration/base)
-    - [Source 插件配置](/zh-cn/v2/spark/configuration/source-plugin)
-    - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugin)
-    - [Sink 插件配置](/zh-cn/v2/spark/configuration/sink-plugin)
+  - [配置文件](/zh-cn/v2/spark/configuration/)
+
+    - [通用配置](/zh-cn/v2/spark/configuration/)
+
+    - [Source 插件配置](/zh-cn/v2/spark/configuration/source-plugins/)
+
+    - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugins/)
+
+    - [Sink 插件配置](/zh-cn/v2/spark/configuration/sink-plugins/)
 
   - [部署与运行](/zh-cn/v2/spark/deployment)
 
