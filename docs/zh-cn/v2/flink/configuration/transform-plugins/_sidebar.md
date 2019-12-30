@@ -10,6 +10,8 @@
 
   - [下载、安装](/zh-cn/v2/flink/installation)
 
+  - [命令使用说明](/zh-cn/v2/flink/commands/)
+
   - [配置文件](/zh-cn/v2/flink/configuration/)
     - [通用配置](/zh-cn/v2/flink/configuration/)
 
