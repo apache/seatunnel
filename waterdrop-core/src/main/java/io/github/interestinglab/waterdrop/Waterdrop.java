@@ -7,7 +7,7 @@ import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException;
 import io.github.interestinglab.waterdrop.config.CommandLineArgs;
 import io.github.interestinglab.waterdrop.config.CommandLineUtils;
-import io.github.interestinglab.waterdrop.config.Common;
+import io.github.interestinglab.waterdrop.common.config.Common;
 import io.github.interestinglab.waterdrop.config.ConfigBuilder;
 import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
