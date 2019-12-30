@@ -19,6 +19,16 @@
 
     - [Sink 插件配置](/zh-cn/v2/flink/configuration/sink-plugins/)
 
+      - [Console](/zh-cn/v2/flink/configuration/sink-plugins/Console.md)
+
+      - [Elasticsearch](/zh-cn/v2/flink/configuration/sink-plugins/Elasticsearch.md)
+
+      - [File](/zh-cn/v2/flink/configuration/sink-plugins/File.md)
+
+      - [JDBC](/zh-cn/v2/flink/configuration/sink-plugins/Jdbc.md)
+
+      - [Kafka](/zh-cn/v2/flink/configuration/sink-plugins/Kafka.md)
+
   - [部署与运行](/zh-cn/v2/flink/deployment)
 
   - [插件开发](/zh-cn/v2/flink/developing-plugin)

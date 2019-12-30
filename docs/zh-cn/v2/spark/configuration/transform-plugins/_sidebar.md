@@ -20,6 +20,10 @@
 
     - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugins/)
 
+      - [Json](/zh-cn/v2/spark/configuration/transform-plugins/Json.md)
+
+      - [SQL](/zh-cn/v2/spark/configuration/transform-plugins/Sql.md)
+
     - [Sink 插件配置](/zh-cn/v2/spark/configuration/sink-plugins/)
 
   - [部署与运行](/zh-cn/v2/spark/deployment)

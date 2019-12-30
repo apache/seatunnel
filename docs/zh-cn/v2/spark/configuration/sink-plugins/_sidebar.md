@@ -22,6 +22,12 @@
 
     - [Sink 插件配置](/zh-cn/v2/spark/configuration/sink-plugins/)
 
+      - [Clickhouse](/zh-cn/v2/spark/configuration/sink-plugins/Clickhouse.md)
+
+      - [Console](/zh-cn/v2/spark/configuration/sink-plugins/Console.md)
+
+      - [Elasticsearch](/zh-cn/v2/spark/configuration/sink-plugins/Elasticsearch.md)
+
   - [部署与运行](/zh-cn/v2/spark/deployment)
 
   - [插件开发](/zh-cn/v2/spark/developing-plugin)
