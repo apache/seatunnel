@@ -11,10 +11,16 @@
   - [下载、安装](/zh-cn/v2/flink/installation)
 
   - [配置文件](/zh-cn/v2/flink/configuration/)
+
     - [通用配置](/zh-cn/v2/flink/configuration/)
+
     - [Source 插件配置](/zh-cn/v2/flink/configuration/source-plugins/)
+
     - [Transform 插件配置](/zh-cn/v2/flink/configuration/transform-plugins/)
+
     - [Sink 插件配置](/zh-cn/v2/flink/configuration/sink-plugins/)
+
+    - [完整配置文件案例](/zh-cn/v2/flink/configuration/ConfigExamples.md)
 
   - [部署与运行](/zh-cn/v2/flink/deployment)
 
