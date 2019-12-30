@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.spark
 import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseSource
 
-trait BaseSparkSource[Data] extends BaseSource {
+trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
 
   protected var config: Config = ConfigFactory.empty()
 

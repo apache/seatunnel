@@ -32,7 +32,7 @@ class Elasticsearch extends SparkBatchSink {
     }
   }
 
-  override def prepare(): Unit = {
+  override def prepare(environment: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "index" -> "waterdrop",

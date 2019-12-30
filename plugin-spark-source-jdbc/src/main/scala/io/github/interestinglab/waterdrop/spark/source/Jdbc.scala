@@ -7,7 +7,7 @@ import org.apache.spark.sql.{Dataset, Row}
 
 class Jdbc extends SparkBatchSource {
 
-  override def prepare(): Unit = {}
+  override def prepare(env: SparkEnvironment): Unit = {}
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     val spark = env.getSparkSession

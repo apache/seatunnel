@@ -86,7 +86,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     }
 
     @Override
-    public void prepare() {
+    public void prepare(FlinkEnvironment env) {
         driverName = config.getString("driver");
         dbUrl = config.getString("url");
         username = config.getString("username");

@@ -1,5 +1,7 @@
 package io.github.interestinglab.waterdrop.spark
 
+import java.lang
+
 import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.env.RuntimeEnv
@@ -23,14 +25,10 @@ class SparkEnvironment extends RuntimeEnv {
 
   override def checkConfig(): CheckResult = new CheckResult(true, "")
 
-  override def prepare(): Unit = {
+  override def prepare(prepareEnv: lang.Boolean): Unit = {
     val sparkConf = createSparkConf()
     sparkSession = SparkSession.builder().config(sparkConf).getOrCreate()
     createStreamingContext
-  }
-
-  override def prepare(isStreaming: Boolean): Unit = {
-    prepare()
   }
 
   private def createSparkConf(): SparkConf = {

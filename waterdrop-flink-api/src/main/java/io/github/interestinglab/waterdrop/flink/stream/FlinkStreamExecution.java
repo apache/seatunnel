@@ -113,6 +113,5 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
     }
 
     @Override
-    public void prepare() {
-    }
+    public void prepare(Void prepareEnv) {}
 }

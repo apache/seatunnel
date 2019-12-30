@@ -35,6 +35,7 @@
         <module>plugin-flink-sink-file</module>
         <module>plugin-flink-sink-elasticsearch</module>
         <module>waterdrop-dist</module>
+        <module>plugin-spark-sink-file</module>
     </modules>
 
     <properties>

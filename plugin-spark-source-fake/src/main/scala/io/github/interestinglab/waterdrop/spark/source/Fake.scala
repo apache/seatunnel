@@ -9,7 +9,8 @@ import org.apache.spark.sql.{Dataset, Row, RowFactory}
 
 class Fake extends SparkBatchSource {
 
-  override def prepare(): Unit = {}
+
+  override def prepare(env: SparkEnvironment): Unit = {}
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
 

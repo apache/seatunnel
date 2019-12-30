@@ -4,7 +4,7 @@ import com.typesafe.config.waterdrop.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseSink
 import org.apache.spark.sql.{Dataset, Row}
 
-trait BaseSparkSink[OUT] extends BaseSink {
+trait BaseSparkSink[OUT] extends BaseSink[SparkEnvironment] {
 
   protected var config: Config = ConfigFactory.empty()
 
