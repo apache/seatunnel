@@ -1,0 +1,14 @@
+@waterdropPlugin
+@pluginGroup filter
+@pluginName Table
+@pluginDesc "Table 用于将静态文件映射为一张表，可与实时处理的流进行关联，常用于用户昵称，国家省市等字典表关联"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption string path yes "Hadoop支持的文件路径(默认hdfs路径, 如/path/to/file), 如本地文件：file:///path/to/file, hdfs:///path/to/file, s3:///path/to/file ..."
+@pluginOption string delimiter="," no "文件中列与列之间的分隔符"
+@pluginOption string table_name yes "将文件载入后将注册为一张表，这里指定的是表名称，可用于在SQL中直接与流处理数据关联"
+@pluginOption array fields yes "文件中，每行中各个列的名称，按照数据中实际列顺序提供"
+@pluginOption array field_types no "每个列的类型，顺序与个数必须与`fields`参数一一对应, 不指定此参数，默认所有列的类型为字符串; 支持的数据类型包括：boolean, double, long, string"
+@pluginOption boolean cache="true" no "是否内存中缓存文件内容，true表示缓存，false表示每次需要时重新加载"
