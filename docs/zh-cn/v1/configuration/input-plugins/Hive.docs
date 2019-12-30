@@ -1,0 +1,11 @@
+@waterdropPlugin
+@pluginGroup input
+@pluginName Hive
+@pluginDesc "从hive读取原始数据"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption
+string pre_sql yes "进行预处理的sql, 如果不需要预处理,可以使用select * from hive_db.hive_table"
+string table_name yes "预处理sql的到数据注册成的临时表名"

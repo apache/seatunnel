@@ -1,0 +1,10 @@
+@waterdropPlugin
+@pluginGroup input
+@pluginName Socket
+@pluginDesc "Socket作为数据源"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption string host="localhost" no "socket server hostname"
+@pluginOption number port="9999" no "socket server port"

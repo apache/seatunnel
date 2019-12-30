@@ -1,0 +1,13 @@
+@waterdropPlugin
+@pluginGroup input
+@pluginName MongoDB
+@pluginDesc "从[MongoDB](https://www.mongodb.com/)读取数据"
+@pluginAuthor InterestingLab
+@pluginHomepage https://interestinglab.github.io/waterdrop
+@pluginVersion 1.0.0
+
+@pluginOption
+string readConfig.uri yes "mongoDB uri"
+string readConfig.database yes "要读取的database"
+string readConfig.collection yes "要读取的collection"
+string table_name yes "读取数据注册成的临时表名"
