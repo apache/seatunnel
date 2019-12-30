@@ -15,6 +15,16 @@
 
     - [Source 插件配置](/zh-cn/v2/flink/configuration/source-plugins/)
 
+      - [Elasticsearch](/zh-cn/v2/flink/configuration/source-plugins/Elasticsearch.md)
+
+      - [Fake](/zh-cn/v2/flink/configuration/source-plugins/Fake.md)
+
+      - [File](/zh-cn/v2/flink/configuration/source-plugins/File.md)
+
+      - [JDBC](/zh-cn/v2/flink/configuration/source-plugins/Jdbc.md)
+
+      - [Kafka](/zh-cn/v2/flink/configuration/source-plugins/Kafka.md)
+
     - [Transform 插件配置](/zh-cn/v2/flink/configuration/transform-plugins/)
 
     - [Sink 插件配置](/zh-cn/v2/flink/configuration/sink-plugins/)

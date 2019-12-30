@@ -17,6 +17,12 @@
 
     - [Transform 插件配置](/zh-cn/v2/flink/configuration/transform-plugins/)
 
+      - [DataStream2Table](/zh-cn/v2/flink/configuration/transform-plugins/DataStream2Table.md)
+
+      - [SQL](/zh-cn/v2/flink/configuration/transform-plugins/Sql.md)
+
+      - [DataStream2Table](/zh-cn/v2/flink/configuration/transform-plugins/DataStream2Table.md)
+
     - [Sink 插件配置](/zh-cn/v2/flink/configuration/sink-plugins/)
 
   - [部署与运行](/zh-cn/v2/flink/deployment)

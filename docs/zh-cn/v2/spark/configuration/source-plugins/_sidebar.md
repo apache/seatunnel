@@ -18,6 +18,14 @@
 
     - [Source 插件配置](/zh-cn/v2/spark/configuration/source-plugins/)
 
+      - [Elasticsearch](/zh-cn/v2/spark/configuration/source-plugins/Elasticsearch.md)
+
+      - [Fake](/zh-cn/v2/spark/configuration/source-plugins/Fake.md)
+
+      - [JDBC](/zh-cn/v2/spark/configuration/source-plugins/Jdbc.md)
+
+      - [Kafka](/zh-cn/v2/spark/configuration/source-plugins/Kafka.md)
+
     - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugins/)
 
     - [Sink 插件配置](/zh-cn/v2/spark/configuration/sink-plugins/)
