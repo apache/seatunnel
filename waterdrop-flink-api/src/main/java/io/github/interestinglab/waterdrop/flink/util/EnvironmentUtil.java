@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.flink.util;
 
 import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.slf4j.Logger;
@@ -19,25 +20,24 @@ public class EnvironmentUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(EnvironmentUtil.class);
 
-    public static void setRestartStrategy(Config config, Object environment) {
+    public static void setRestartStrategy(Config config, ExecutionConfig executionConfig) {
         try {
             if (config.hasPath(ConfigKeyName.RESTART_STRATEGY)) {
                 String restartStrategy = config.getString(ConfigKeyName.RESTART_STRATEGY);
-                Method method = environment.getClass().getMethod("setRestartStrategy");
                 switch (restartStrategy.toLowerCase()) {
                     case "no":
-                        method.invoke(environment, RestartStrategies.noRestart());
+                        executionConfig.setRestartStrategy(RestartStrategies.noRestart());
                         break;
                     case "fixed-delay":
                         int attempts = config.getInt(ConfigKeyName.RESTART_ATTEMPTS);
                         long delay = config.getLong(ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS);
-                        method.invoke(environment,RestartStrategies.fixedDelayRestart(attempts, delay));
+                        executionConfig.setRestartStrategy(RestartStrategies.fixedDelayRestart(attempts, delay));
                         break;
                     case "failure-rate":
                         long failureInterval = config.getLong(ConfigKeyName.RESTART_FAILURE_INTERVAL);
                         int rate = config.getInt(ConfigKeyName.RESTART_FAILURE_RATE);
                         long delayInterval = config.getLong(ConfigKeyName.RESTART_DELAY_INTERVAL);
-                        method.invoke(environment,RestartStrategies.failureRateRestart(rate,
+                        executionConfig.setRestartStrategy(RestartStrategies.failureRateRestart(rate,
                                 Time.of(failureInterval, TimeUnit.MILLISECONDS),
                                 Time.of(delayInterval, TimeUnit.MILLISECONDS)));
                         break;
