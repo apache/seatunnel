@@ -42,6 +42,8 @@ public class FlinkEnvironment  implements RuntimeEnv {
 
     private boolean isStreaming;
 
+    private String jobName;
+
 
     @Override
     public void setConfig(Config config) {
@@ -72,6 +74,11 @@ public class FlinkEnvironment  implements RuntimeEnv {
             createBatchTableEnvironment();
             createExecutionEnvironment();
         }
+        jobName = config.getString("job.name");
+    }
+
+    public String getJobName() {
+        return jobName;
     }
 
     public boolean isStreaming() {
@@ -102,7 +109,7 @@ public class FlinkEnvironment  implements RuntimeEnv {
 
         setCheckpoint();
 
-        EnvironmentUtil.setRestartStrategy(config,environment);
+        EnvironmentUtil.setRestartStrategy(config,environment.getConfig());
 
         if (config.hasPath(ConfigKeyName.BUFFER_TIMEOUT_MILLIS)) {
             long timeout = config.getLong(ConfigKeyName.BUFFER_TIMEOUT_MILLIS);
@@ -134,7 +141,7 @@ public class FlinkEnvironment  implements RuntimeEnv {
             int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
             batchEnvironment.setParallelism(parallelism);
         }
-        EnvironmentUtil.setRestartStrategy(config, batchEnvironment);
+        EnvironmentUtil.setRestartStrategy(config, batchEnvironment.getConfig());
     }
 
     private void createBatchTableEnvironment() {
@@ -228,5 +235,7 @@ public class FlinkEnvironment  implements RuntimeEnv {
             }
         }
     }
+
+
 
 }
