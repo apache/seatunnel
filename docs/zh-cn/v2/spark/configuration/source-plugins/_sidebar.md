@@ -12,6 +12,8 @@
 
   - [下载、安装](/zh-cn/v2/spark/installation)
 
+  - [命令使用说明](/zh-cn/v2/spark/commands/)
+
   - [配置文件](/zh-cn/v2/spark/configuration/)
 
     - [通用配置](/zh-cn/v2/spark/configuration/)

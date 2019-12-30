@@ -10,6 +10,8 @@
 
   - [下载、安装](/zh-cn/v2/flink/installation)
 
+  - [命令使用说明](/zh-cn/v2/flink/commands/)
+
   - [配置文件](/zh-cn/v2/flink/configuration/)
 
   - [部署与运行](/zh-cn/v2/flink/deployment)
@@ -21,6 +23,8 @@
   - [快速开始](/zh-cn/v2/spark/quick-start)
 
   - [下载、安装](/zh-cn/v2/spark/installation)
+
+  - [命令使用说明](/zh-cn/v2/spark/commands/)
 
   - [配置文件](/zh-cn/v2/spark/configuration/)
 
