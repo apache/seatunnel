@@ -28,6 +28,8 @@
 
       - [Elasticsearch](/zh-cn/v2/spark/configuration/sink-plugins/Elasticsearch.md)
 
+    - [完整配置文件案例](/zh-cn/v2/spark/configuration/ConfigExamples.md)
+
   - [部署与运行](/zh-cn/v2/spark/deployment)
 
   - [插件开发](/zh-cn/v2/spark/developing-plugin)
