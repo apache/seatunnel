@@ -1,4 +1,5 @@
-package io.github.interestinglab.waterdrop.config
+package io.github.interestinglab.waterdrop.common.config
+
 import java.nio.file.{Path, Paths}
 
 object Common {
