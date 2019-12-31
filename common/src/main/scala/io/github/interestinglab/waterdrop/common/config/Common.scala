@@ -50,7 +50,7 @@ object Common {
 
         val path =
           Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath
-        Paths.get(path).getParent.getParent
+        Paths.get(path).getParent.getParent.getParent
       }
 
       case Some("cluster") => {
