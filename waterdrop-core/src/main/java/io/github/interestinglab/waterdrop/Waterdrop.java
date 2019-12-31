@@ -41,6 +41,7 @@ public class Waterdrop {
         Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client", "application.conf", false));
         if (option.isDefined()) {
             CommandLineArgs commandLineArgs = option.get();
+            Common.setDeployMode(commandLineArgs.deployMode());
             String configFilePath = getConfigFilePath(commandLineArgs, engine);
             boolean testConfig = commandLineArgs.testConfig();
             if (testConfig) {
