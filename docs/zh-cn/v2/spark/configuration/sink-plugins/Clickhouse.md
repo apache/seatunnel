@@ -25,7 +25,7 @@
 | [username](#username-string) | string | no |-|
 | [common-options](#common-options-string)| string | no | - |
 
-#### bulk_size [number]
+##### bulk_size [number]
 
 每次通过[ClickHouse JDBC](https://github.com/yandex/clickhouse-jdbc)写入数据的条数，默认为20000。
 
@@ -45,7 +45,7 @@ ClickHouse集群地址，格式为host:port，允许指定多个host。如"host1
 
 ClickHouse用户密码，仅当ClickHouse中开启权限时需要此字段。
 
-#### retry [number]
+##### retry [number]
 
 重试次数，默认为1次
 
@@ -71,10 +71,10 @@ ClickHouse用户用户名，仅当ClickHouse中开启权限时需要此字段
 
 ##### common options [string]
 
-`Output` 插件通用参数，详情参照 [Output Plugin](/zh-cn/v2/spark/configuration/sink-plugin)
+`Sink` 插件通用参数，详情参照 [Output Plugin](/zh-cn/v2/spark/configuration/sink-plugin)
 
 
-### ClickHouse类型对照表
+#### ClickHouse类型对照表
 
 |ClickHouse字段类型|Convert插件转化目标类型|SQL转化表达式| Description |
 | :---: | :---: | :---:| :---:|
