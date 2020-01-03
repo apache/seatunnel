@@ -55,7 +55,7 @@ Elasticsearch index名称，如果需要根据时间生成index，可以指定�
 
 ##### common options [string]
 
-`Sink` 插件通用参数，详情参照 [Output Plugin](/zh-cn/v2/spark/configuration/sink-plugin)
+`Sink` 插件通用参数，详情参照 [Sink Plugin](/zh-cn/v2/spark/configuration/sink-plugins/)
 
 
 ### Examples
