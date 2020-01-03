@@ -71,7 +71,7 @@ ClickHouse用户用户名，仅当ClickHouse中开启权限时需要此字段
 
 ##### common options [string]
 
-`Sink` 插件通用参数，详情参照 [Output Plugin](/zh-cn/v2/spark/configuration/sink-plugin)
+`Sink` 插件通用参数，详情参照 [Sink Plugin](/zh-cn/v2/spark/configuration/sink-plugins/)
 
 
 #### ClickHouse类型对照表
