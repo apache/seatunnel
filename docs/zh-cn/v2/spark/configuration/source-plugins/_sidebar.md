@@ -23,6 +23,8 @@
       - [Elasticsearch](/zh-cn/v2/spark/configuration/source-plugins/Elasticsearch.md)
 
       - [Fake](/zh-cn/v2/spark/configuration/source-plugins/Fake.md)
+      
+      - [FakeStream](/zh-cn/v2/spark/configuration/source-plugins/FakeStream.md)
 
       - [JDBC](/zh-cn/v2/spark/configuration/source-plugins/Jdbc.md)
 
