@@ -1,4 +1,4 @@
-## Sink plugin : Clickhouse \[Spark\]
+## Sink plugin : Clickhouse [Spark]
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
