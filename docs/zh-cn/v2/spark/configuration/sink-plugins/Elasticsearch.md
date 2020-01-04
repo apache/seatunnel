@@ -1,4 +1,4 @@
-## Sink plugin : Elasticsearch \[Spark\]
+## Sink plugin : Elasticsearch [Spark]
 
 * Author: InterestingLab
 * Homepage: https://interestinglab.github.io/waterdrop
