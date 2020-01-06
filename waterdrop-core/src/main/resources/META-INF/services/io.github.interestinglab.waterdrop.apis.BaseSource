@@ -1,0 +1,9 @@
+io.github.interestinglab.waterdrop.spark.source.Fake
+io.github.interestinglab.waterdrop.spark.source.FakeStream
+io.github.interestinglab.waterdrop.spark.source.KafkaStream
+io.github.interestinglab.waterdrop.spark.source.Elasticsearch
+io.github.interestinglab.waterdrop.spark.source.Jdbc
+io.github.interestinglab.waterdrop.flink.source.FakeSourceStream
+io.github.interestinglab.waterdrop.flink.source.FileSource
+io.github.interestinglab.waterdrop.flink.source.JdbcSource
+io.github.interestinglab.waterdrop.flink.source.KafkaTableStream
