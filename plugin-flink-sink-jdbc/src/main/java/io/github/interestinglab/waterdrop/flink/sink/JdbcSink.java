@@ -27,7 +27,6 @@ import org.apache.flink.types.Row;
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private Config config;
-    private String tableName;
     private String driverName;
     private String dbUrl;
     private String username;
@@ -47,12 +46,11 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config,"jdbc_table_name","driver","url","username","query");
+        return CheckConfigUtil.check(config,"driver","url","username","query");
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        tableName = config.getString("jdbc_table_name");
         driverName = config.getString("driver");
         dbUrl = config.getString("url");
         username = config.getString("username");
@@ -68,18 +66,19 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
-        createSink(env.getStreamTableEnvironment());
+        Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
+        createSink(env.getStreamTableEnvironment(),table);
         return null;
     }
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        createSink(env.getBatchTableEnvironment());
+        final Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
+        createSink(env.getBatchTableEnvironment(),table);
         return null;
     }
 
-    private void createSink(TableEnvironment tableEnvironment) {
-        Table table = tableEnvironment.scan(tableName);
+    private void createSink(TableEnvironment tableEnvironment,Table table) {
         TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
         String[] fieldNames = table.getSchema().getFieldNames();
         TableSink sink = JDBCAppendTableSink.builder()

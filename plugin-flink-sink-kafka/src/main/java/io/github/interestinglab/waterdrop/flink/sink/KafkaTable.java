@@ -31,7 +31,6 @@ public class KafkaTable implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row
     private Config config;
     private Properties kafkaParams = new Properties();
     private String topic;
-    private final String producerPrefix = "producer.";
 
 
     @Override
@@ -106,6 +105,9 @@ public class KafkaTable implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row
     @Override
     public void prepare(FlinkEnvironment env) {
         topic = config.getString("topics");
+        String producerPrefix = "producer.";
         PropertiesUtil.setProperties(config, kafkaParams, producerPrefix, false);
+        kafkaParams.put("key.serializer","org.apache.kafka.common.serialization.ByteArraySerializer");
+        kafkaParams.put("value.serializer","org.apache.kafka.common.serialization.ByteArraySerializer");
     }
 }

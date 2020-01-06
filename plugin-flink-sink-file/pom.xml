@@ -18,6 +18,11 @@
             <version>2.0.0</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <version>1.10.0</version>
+        </dependency>
     </dependencies>
 
 </project>

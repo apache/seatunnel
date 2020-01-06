@@ -7,6 +7,7 @@ import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSource;
 import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
+import org.apache.avro.Schema;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
@@ -14,11 +15,12 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.io.RowCsvInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.formats.parquet.ParquetRowInputFormat;
 import org.apache.flink.formats.parquet.utils.ParquetSchemaConverter;
 import org.apache.flink.orc.OrcRowInputFormat;
 import org.apache.flink.types.Row;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
 
 import java.util.List;
@@ -36,7 +38,7 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     private InputFormat inputFormat;
 
-    private final static String PATH = "file.path";
+    private final static String PATH = "path";
     private final static String SOURCE_FORMAT = "source_format";
     private final static String SCHEMA = "schema";
 
@@ -75,8 +77,8 @@ public class FileSource implements FlinkBatchSource<Row> {
                 inputFormat = jsonInputFormat;
                 break;
             case "parquet":
-                TypeInformation<Object> typeInfo = AvroSchemaConverter.convertToTypeInfo(schemaContent);
-                MessageType messageType = ParquetSchemaConverter.toParquetType(typeInfo, true);
+                final Schema parse = new Schema.Parser().parse(schemaContent);
+                final MessageType messageType = new AvroSchemaConverter().convert(parse);
                 inputFormat = new ParquetRowInputFormat(filePath, messageType);
                 break;
             case "orc":

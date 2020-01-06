@@ -33,7 +33,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     private String dbUrl;
     private String username;
     private String password;
-    private String query;
+    private int fetchSize = Integer.MIN_VALUE;
     private Set<String> fields;
 
     private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
@@ -90,7 +90,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         driverName = config.getString("driver");
         dbUrl = config.getString("url");
         username = config.getString("username");
-        query = config.getString("query");
+        String query = config.getString("query");
         Matcher matcher = COMPILE.matcher(query);
         if (matcher.find()) {
             String var = matcher.group(1);
@@ -109,6 +109,9 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         if (config.hasPath("password")) {
             password = config.getString("password");
         }
+        if (config.hasPath("fetch_size")) {
+            fetchSize = config.getInt("fetch_size");
+        }
 
         jdbcInputFormat = JDBCInputFormat.buildJDBCInputFormat()
                 .setDrivername(driverName)
@@ -116,8 +119,8 @@ public class JdbcSource implements FlinkBatchSource<Row> {
                 .setUsername(username)
                 .setPassword(password)
                 .setQuery(query)
+                .setFetchSize(fetchSize)
                 .setRowTypeInfo(getRowTypeInfo())
-//                .setParametersProvider(new GenericParameterValuesProvider(queryParameters))
                 .finish();
     }
 
@@ -137,9 +140,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
                 }
             }
             connection.close();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
