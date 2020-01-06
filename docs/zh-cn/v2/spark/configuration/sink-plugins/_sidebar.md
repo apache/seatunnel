@@ -23,12 +23,16 @@
     - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugins/)
 
     - [Sink 插件配置](/zh-cn/v2/spark/configuration/sink-plugins/)
-
+            
       - [Clickhouse](/zh-cn/v2/spark/configuration/sink-plugins/Clickhouse.md)
 
       - [Console](/zh-cn/v2/spark/configuration/sink-plugins/Console.md)
 
       - [Elasticsearch](/zh-cn/v2/spark/configuration/sink-plugins/Elasticsearch.md)
+      
+      - [File](/zh-cn/v2/spark/configuration/sink-plugins/File.md)
+  
+      - [Hdfs](/zh-cn/v2/spark/configuration/sink-plugins/Hdfs.md)
 
     - [完整配置文件案例](/zh-cn/v2/spark/configuration/ConfigExamples.md)
 
