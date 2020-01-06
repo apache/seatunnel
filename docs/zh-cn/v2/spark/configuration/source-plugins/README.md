@@ -1,6 +1,6 @@
 # Source Plugin
 
-### Transform Common Options
+### Source Common Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
