@@ -23,10 +23,12 @@
       - [Elasticsearch](/zh-cn/v2/spark/configuration/source-plugins/Elasticsearch.md)
 
       - [Fake](/zh-cn/v2/spark/configuration/source-plugins/Fake.md)
+      
+      - [FakeStream](/zh-cn/v2/spark/configuration/source-plugins/FakeStream.md)
 
       - [JDBC](/zh-cn/v2/spark/configuration/source-plugins/Jdbc.md)
 
-      - [Kafka](/zh-cn/v2/spark/configuration/source-plugins/Kafka.md)
+      - [KafkaStream](/zh-cn/v2/spark/configuration/source-plugins/KafkaStream.md)
 
     - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugins/)
 
