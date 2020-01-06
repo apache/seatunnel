@@ -42,7 +42,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     private boolean isStreaming;
 
-    private String jobName;
+    private String jobName = "waterdrop";
 
 
     @Override
@@ -70,7 +70,9 @@ public class FlinkEnvironment implements RuntimeEnv {
             createBatchTableEnvironment();
             createExecutionEnvironment();
         }
-        jobName = config.getString("job.name");
+        if (config.hasPath("job.name")){
+            jobName = config.getString("job.name");
+        }
     }
 
     public String getJobName() {
