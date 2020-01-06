@@ -1,5 +1,7 @@
 package io.github.interestinglab.waterdrop.config
 
+import io.github.interestinglab.waterdrop.common.config.Common
+
 object CommandLineUtils {
 
   /**
