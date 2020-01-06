@@ -20,7 +20,9 @@ import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ServiceLoader;
 
 /**
  * @author mr_xiong
@@ -92,28 +94,38 @@ public class ConfigBuilder {
     /**
      * Get full qualified class name by reflection api, ignore case.
      **/
-
     private String buildClassFullQualifier(String name, String classType) {
 
         if (name.split("\\.").length == 1) {
             String packageName = null;
+            Iterable<? extends Plugin> plugins = null;
             switch (classType) {
                 case "source":
                     packageName = configPackage.sourcePackage();
+                    plugins = ServiceLoader.load(BaseSource.class);
                     break;
                 case "transform":
                     packageName = configPackage.transformPackage();
+                    plugins = ServiceLoader.load(BaseTransform.class);
                     break;
                 case "sink":
                     packageName = configPackage.sinkPackage();
+                    plugins = ServiceLoader.load(BaseSink.class);
                     break;
                 default:
                     break;
-
             }
 
-            String firstUppercase = name.substring(0, 1).toUpperCase() + name.substring(1);
-            return packageName + "." + firstUppercase;
+            String qualifierWithPackage = packageName + "." + name;
+            for (Plugin plugin : plugins) {
+                Class serviceClass = plugin.getClass();
+                String serviceClassName = serviceClass.getName();
+                String clsNameToLower = serviceClassName.toLowerCase();
+                if (clsNameToLower.equals(qualifierWithPackage.toLowerCase())) {
+                    return serviceClassName;
+                }
+            }
+            return qualifierWithPackage;
         } else {
             return name;
         }

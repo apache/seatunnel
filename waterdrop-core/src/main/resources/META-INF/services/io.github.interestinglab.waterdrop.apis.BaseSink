@@ -1,0 +1,10 @@
+io.github.interestinglab.waterdrop.spark.sink.Clickhouse
+io.github.interestinglab.waterdrop.spark.sink.Console
+io.github.interestinglab.waterdrop.spark.sink.Elasticsearch
+io.github.interestinglab.waterdrop.spark.sink.File
+io.github.interestinglab.waterdrop.spark.sink.Hdfs
+io.github.interestinglab.waterdrop.flink.sink.ConsoleSink
+io.github.interestinglab.waterdrop.flink.sink.Elasticsearch
+io.github.interestinglab.waterdrop.flink.sink.FileSink
+io.github.interestinglab.waterdrop.flink.sink.JdbcSink
+io.github.interestinglab.waterdrop.flink.sink.KafkaTable
