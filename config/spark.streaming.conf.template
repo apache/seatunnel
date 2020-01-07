@@ -14,10 +14,8 @@ env {
 
 source {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
-  KafkaStream {
-    topics = "waterdrop_topic"
-    consumer.bootstrap.servers = "localhost:9092"
-    consumer.group.id = "waterdrop_topic_group"
+  fakeStream {
+    content = ["Hello World, InterestingLab"]
   }
 
 
@@ -34,6 +32,11 @@ source {
 }
 
 transform {
+
+  split {
+    fields = ["msg", "name"]
+    delimiter = ","
+  }
 
   # you can also you other filter plugins, such as sql
   # Sql {

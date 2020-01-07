@@ -37,6 +37,7 @@
         <module>plugin-spark-sink-file</module>
         <module>plugin-spark-transform-json</module>
         <module>waterdrop-dist</module>
+        <module>plugin-spark-transform-split</module>
     </modules>
 
     <properties>
