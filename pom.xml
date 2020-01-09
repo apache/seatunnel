@@ -38,6 +38,7 @@
         <module>plugin-spark-transform-json</module>
         <module>waterdrop-dist</module>
         <module>plugin-spark-transform-split</module>
+        <module>plugin-spark-source-socket</module>
     </modules>
 
     <properties>

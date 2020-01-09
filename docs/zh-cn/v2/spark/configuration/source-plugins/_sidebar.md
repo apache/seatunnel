@@ -29,6 +29,8 @@
       - [JDBC](/zh-cn/v2/spark/configuration/source-plugins/Jdbc.md)
 
       - [KafkaStream](/zh-cn/v2/spark/configuration/source-plugins/KafkaStream.md)
+      
+      - [SocketStream](/zh-cn/v2/spark/configuration/source-plugins/SocketStream.md)
 
     - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugins/)
 
