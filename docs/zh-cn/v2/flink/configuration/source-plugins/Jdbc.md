@@ -43,10 +43,10 @@ JDBC连接的URL。如：`jdbc:mysql://localhost:3306/test`
 
 ```
 JdbcSource {
-     driver = com.mysql.jdbc.Driver
-     url = "jdbc:mysql://localhost/test"
-     username = root
-     query = "select * from test"
-}
+        driver = com.mysql.jdbc.Driver
+        url = "jdbc:mysql://localhost/test"
+        username = root
+        query = "select * from test"
+   }
 
 ```

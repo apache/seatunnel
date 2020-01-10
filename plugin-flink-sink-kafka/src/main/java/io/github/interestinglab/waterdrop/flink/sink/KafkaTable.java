@@ -14,6 +14,7 @@ import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.*;
@@ -26,7 +27,7 @@ import java.util.Properties;
  * @date 2019-07-22 18:39
  * @description
  */
-public class KafkaTable implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class KafkaTable implements FlinkStreamSink<Row, Row> {
 
     private Config config;
     private Properties kafkaParams = new Properties();
@@ -37,6 +38,12 @@ public class KafkaTable implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
+        insert(tableEnvironment,table);
+        return null;
+    }
+
+
+    private void insert(TableEnvironment tableEnvironment,Table table){
         TypeInformation<?>[] types = table.getSchema().getFieldTypes();
         String[] fieldNames = table.getSchema().getFieldNames();
         Schema schema = getSchema(types, fieldNames);
@@ -47,23 +54,6 @@ public class KafkaTable implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row
                 .inAppendMode()
                 .registerTableSink(uniqueTableName);
         table.insertInto(uniqueTableName);
-        return null;
-    }
-
-    @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
-        Table table = tableEnvironment.fromDataSet(dataSet);
-        TypeInformation<?>[] types = table.getSchema().getFieldTypes();
-        String[] fieldNames = table.getSchema().getFieldNames();
-        Schema schema = getSchema(types, fieldNames);
-        String uniqueTableName = SchemaUtil.getUniqueTableName();
-        tableEnvironment.connect(getKafkaConnect())
-                .withSchema(schema)
-                .withFormat(setFormat())
-                .registerTableSink(uniqueTableName);
-        table.insertInto(uniqueTableName);
-        return null;
     }
 
 
