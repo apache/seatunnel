@@ -5,7 +5,7 @@
 * Version: 2.0.0
 
 ### Description
-用于功能测试和和debug
+用于功能测试和和debug，结果将输出在taskManager的stdout选项卡
 
 ### Options
 None

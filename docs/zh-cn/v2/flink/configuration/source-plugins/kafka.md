@@ -78,7 +78,7 @@ csv格式通过这个参数来设置分隔符等。例如设置列分隔符为\t
     consumer.group.id = "waterdrop5"
     topics = test
     result_table_name = test
-    source_format = csv
+    format = csv
     schema = "[{\"field\":\"name\",\"type\":\"string\"},{\"field\":\"age\",\"type\":\"int\"}]"
     format.field-delimiter = ";"
     format.allow-comments = "true"
