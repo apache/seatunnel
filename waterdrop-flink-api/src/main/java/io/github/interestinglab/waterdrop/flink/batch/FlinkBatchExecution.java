@@ -37,34 +37,29 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
         for (FlinkBatchSource source : sources) {
             DataSet dataSet = source.getData(flinkEnvironment);
             data.add(dataSet);
-            registerResultTable(source,dataSet);
+            registerResultTable(source, dataSet);
         }
 
         DataSet input = data.get(0);
 
         for (FlinkBatchTransform transform : transforms) {
             DataSet dataSet = fromSourceTable(transform);
-            if (Objects.isNull(dataSet)){
+            if (Objects.isNull(dataSet)) {
                 dataSet = input;
             }
             input = transform.processBatch(flinkEnvironment, dataSet);
-            registerResultTable(transform,input);
+            registerResultTable(transform, input);
         }
 
         for (FlinkBatchSink sink : sinks) {
             DataSet dataSet = fromSourceTable(sink);
-            if (Objects.isNull(dataSet)){
+            if (Objects.isNull(dataSet)) {
                 dataSet = input;
             }
             sink.outputBatch(flinkEnvironment, dataSet);
         }
-        String jobName = flinkEnvironment.getJobName();
         try {
-            if (StringUtils.isBlank(jobName)) {
-                flinkEnvironment.getBatchEnvironment().execute();
-            } else {
-                flinkEnvironment.getBatchEnvironment().execute(jobName);
-            }
+            flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -75,11 +70,11 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
         if (config.hasPath(RESULT_TABLE_NAME)) {
             String name = config.getString(RESULT_TABLE_NAME);
             BatchTableEnvironment tableEnvironment = flinkEnvironment.getBatchTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment,name)) {
-                if (config.hasPath("field_name")){
+            if (!TableUtil.tableExists(tableEnvironment, name)) {
+                if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataSet(name, dataSet,fieldName);
-                }else {
+                    tableEnvironment.registerDataSet(name, dataSet, fieldName);
+                } else {
                     tableEnvironment.registerDataSet(name, dataSet);
                 }
             }
@@ -113,5 +108,6 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     }
 
     @Override
-    public void prepare(Void prepareEnv) {}
+    public void prepare(Void prepareEnv) {
+    }
 }

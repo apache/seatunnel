@@ -1,7 +1,10 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.flink.api.common.io.FileOutputFormat;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.types.Row;
@@ -73,14 +76,43 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
 
     @Override
     public void writeRecord(Row record) throws IOException {
+        final JSONObject json = getJson(record, rowTypeInfo);
+        byte[] bytes = json.toString().getBytes(charset);
+        this.stream.write(bytes);
+        this.stream.write(NEWLINE);
+    }
+
+    private JSONObject getJson(Row record,RowTypeInfo rowTypeInfo){
         String[] fieldNames = rowTypeInfo.getFieldNames();
         int i = 0;
         JSONObject json = new JSONObject();
         for (String name : fieldNames){
-            json.put(name,record.getField(i++));
+            Object field = record.getField(i);
+            final TypeInformation type = rowTypeInfo.getTypeAt(i);
+            if (type.isBasicType()){
+                json.put(name, field);
+            }else if (type instanceof ObjectArrayTypeInfo){
+                ObjectArrayTypeInfo arrayTypeInfo = (ObjectArrayTypeInfo) type;
+                TypeInformation componentInfo = arrayTypeInfo.getComponentInfo();
+                JSONArray jsonArray = new JSONArray();
+                if (componentInfo instanceof RowTypeInfo){
+                    final Row[] rows = (Row[]) field;
+                    for (Row r : rows){
+                        jsonArray.add(getJson(r,(RowTypeInfo)componentInfo));
+                    }
+                }else {
+                    final Object[] objects = (Object[]) field;
+                    for (Object o : objects){
+                        jsonArray.add(o);
+                    }
+                }
+                json.put(name,jsonArray);
+            }else if (type instanceof RowTypeInfo){
+                RowTypeInfo typeInfo = (RowTypeInfo) type;
+                json.put(name,getJson((Row)field,typeInfo));
+            }
+            i++;
         }
-        byte[] bytes = json.toString().getBytes(charset);
-        this.stream.write(bytes);
-        this.stream.write(NEWLINE);
+        return json;
     }
 }
