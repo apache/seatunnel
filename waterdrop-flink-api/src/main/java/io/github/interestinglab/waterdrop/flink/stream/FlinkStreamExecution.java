@@ -60,12 +60,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             sink.outputStream(flinkEnvironment, stream);
         }
         try {
-            String jobName = flinkEnvironment.getJobName();
-            if (StringUtils.isBlank(jobName)) {
-                flinkEnvironment.getStreamExecutionEnvironment().execute();
-            } else {
-                flinkEnvironment.getStreamExecutionEnvironment().execute(jobName);
-            }
+            flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -76,11 +71,11 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         if (config.hasPath(RESULT_TABLE_NAME)) {
             String name = config.getString(RESULT_TABLE_NAME);
             StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment,name)) {
-                if (config.hasPath("field_name")){
+            if (!TableUtil.tableExists(tableEnvironment, name)) {
+                if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream,fieldName);
-                }else {
+                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
+                } else {
                     tableEnvironment.registerDataStream(name, dataStream);
                 }
             }
@@ -113,5 +108,6 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
     }
 
     @Override
-    public void prepare(Void prepareEnv) {}
+    public void prepare(Void prepareEnv) {
+    }
 }

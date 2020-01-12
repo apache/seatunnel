@@ -17,6 +17,7 @@ import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.*;
 import org.apache.flink.types.Row;
 
+import java.util.HashMap;
 import java.util.Properties;
 
 /**
@@ -41,8 +42,10 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private static final String ROWTIME_FIELD = "rowtime.field";
     private static final String WATERMARK_VAL = "watermark";
     private static final String SCHEMA = "schema";
-    private static final String SOURCE_FORMAT = "source_format";
+    private static final String SOURCE_FORMAT = "format";
     private static final String GROUP_ID = "group.id";
+    private static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
+    private static final String OFFSET_RESET = "offset.reset";
 
     @Override
     public void setConfig(Config config) {
@@ -61,7 +64,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
 
         if (result.isSuccess()) {
             Config consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false);
-            return CheckConfigUtil.check(consumerConfig, GROUP_ID);
+            return CheckConfigUtil.check(consumerConfig, BOOTSTRAP_SERVERS, GROUP_ID);
         }
 
         return result;
@@ -71,6 +74,8 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     public void prepare(FlinkEnvironment env) {
         topic = config.getString(TOPICS);
         PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix, false);
+        kafkaParams.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        kafkaParams.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         tableName = config.getString(RESULT_TABLE_NAME);
         if (config.hasPath(ROWTIME_FIELD)) {
             rowTimeField = config.getString(ROWTIME_FIELD);
@@ -112,6 +117,25 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         Kafka kafka = new Kafka().version("universal");
         kafka.topic(topic);
         kafka.properties(kafkaParams);
+        if (config.hasPath(OFFSET_RESET)) {
+            String reset = config.getString(OFFSET_RESET);
+            switch (reset) {
+                case "latest":
+                    kafka.startFromLatest();
+                    break;
+                case "earliest":
+                    kafka.startFromEarliest();
+                    break;
+                case "specific":
+                    String offset = config.getString("offset.reset.specific");
+                    HashMap<Integer, Long> map = new HashMap<>(16);
+                    JSONObject.parseObject(offset).forEach((k, v) -> map.put(Integer.valueOf(k), Long.valueOf(v.toString())));
+                    kafka.startFromSpecificOffsets(map);
+                    break;
+                default:
+                    break;
+            }
+        }
         return kafka;
     }
 

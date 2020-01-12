@@ -5,11 +5,14 @@
 * Version: 2.0.0
 
 ### Description
-
+将DataStream转化为Table
 
 ### Options
-
+None
 
 ### Examples
 
-
+```
+ DataSteamToTable {
+ }
+```

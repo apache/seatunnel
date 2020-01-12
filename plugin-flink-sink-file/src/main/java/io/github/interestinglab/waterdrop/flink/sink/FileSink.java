@@ -32,11 +32,13 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     private static final Logger LOG = LoggerFactory.getLogger(FileSink.class);
 
+    private final static String PATH = "path";
+    private final static String FORMAT = "format";
+    private final static String WRITE_MODE = "write_mode";
+
     private Config config;
 
     private FileOutputFormat outputFormat;
-
-    private RowTypeInfo rowTypeInfo;
 
     private Path filePath;
 
@@ -49,13 +51,33 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
                     out.println(element);
                 })
                 .build();
-
         return dataStream.addSink(sink);
     }
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        rowTypeInfo = (RowTypeInfo) dataSet.getType();
+        String format = config.getString(FORMAT);
+        switch (format) {
+            case "json":
+                RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
+                outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
+                break;
+            case "csv":
+                CsvRowOutputFormat csvFormat = new CsvRowOutputFormat(filePath);
+                outputFormat = csvFormat;
+                break;
+            case "text":
+                outputFormat = new TextOutputFormat(filePath);
+                break;
+            default:
+                LOG.warn(" unknown file_format [{}],only support json,csv,text", format);
+                break;
+
+        }
+        if (config.hasPath(WRITE_MODE)){
+            String mode = config.getString(WRITE_MODE);
+            outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
+        }
         return dataSet.output(outputFormat);
     }
 
@@ -71,33 +93,12 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config,"file.path","file.format");
+        return CheckConfigUtil.check(config,PATH,FORMAT);
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        String path = config.getString("file.path");
-        String format = config.getString("file.format");
+        String path = config.getString(PATH);
         filePath = new Path(path);
-        switch (format) {
-            case "json":
-                outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
-                break;
-            case "csv":
-                CsvRowOutputFormat csvFormat = new CsvRowOutputFormat(filePath);
-                outputFormat = csvFormat;
-                break;
-            case "text":
-                outputFormat = new TextOutputFormat(filePath);
-                break;
-            default:
-                LOG.warn(" unknown file_format [{}],only support json,csv,text", format);
-                break;
-
-        }
-        if (config.hasPath("file.write.mode")){
-            String mode = config.getString("file.write.mode");
-            outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
-        }
     }
 }
