@@ -1,5 +1,2 @@
 io.github.interestinglab.waterdrop.spark.transform.Json
 io.github.interestinglab.waterdrop.spark.transform.Sql
-io.github.interestinglab.waterdrop.flink.transform.DataSteamToTable
-io.github.interestinglab.waterdrop.flink.transform.Sql
-io.github.interestinglab.waterdrop.flink.transform.TableToDataStream
