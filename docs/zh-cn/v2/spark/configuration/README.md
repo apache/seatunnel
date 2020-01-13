@@ -108,6 +108,6 @@ sink {
 
 其他配置可参考：
 
-[配置示例1 : Streaming 流式计算](https://github.com/InterestingLab/waterdrop/blob/master/config/spark.streaming.conf.template)
+[配置示例1 : Streaming 流式计算](https://github.com/InterestingLab/waterdrop/blob/wd-v2-baseline/config/spark.streaming.conf.template)
 
-[配置示例2 : Batch 离线批处理](https://github.com/InterestingLab/waterdrop/blob/master/config/spark.batch.conf.template)
+[配置示例2 : Batch 离线批处理](https://github.com/InterestingLab/waterdrop/blob/wd-v2-baseline/config/spark.batch.conf.template)
