@@ -14,6 +14,9 @@ import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchExecution;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamExecution;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
+import io.github.interestinglab.waterdrop.spark.BaseSparkSink;
+import io.github.interestinglab.waterdrop.spark.BaseSparkSource;
+import io.github.interestinglab.waterdrop.spark.BaseSparkTransform;
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment;
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution;
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
@@ -93,7 +96,7 @@ public class ConfigBuilder {
     /**
      * Get full qualified class name by reflection api, ignore case.
      **/
-    private String buildClassFullQualifier(String name, String classType) {
+    private String buildClassFullQualifier(String name, String classType) throws Exception {
 
         if (name.split("\\.").length == 1) {
             String packageName = null;
@@ -101,15 +104,18 @@ public class ConfigBuilder {
             switch (classType) {
                 case "source":
                     packageName = configPackage.sourcePackage();
-                    plugins = ServiceLoader.load(BaseSource.class);
+                    Class baseSource = Class.forName(configPackage.baseSourcePackage());
+                    plugins = ServiceLoader.load(baseSource);
                     break;
                 case "transform":
                     packageName = configPackage.transformPackage();
-                    plugins = ServiceLoader.load(BaseTransform.class);
+                    Class baseTransform = Class.forName(configPackage.baseTransformPackage());
+                    plugins = ServiceLoader.load(baseTransform);
                     break;
                 case "sink":
                     packageName = configPackage.sinkPackage();
-                    plugins = ServiceLoader.load(BaseSink.class);
+                    Class baseSink = Class.forName(configPackage.baseSinkPackage());
+                    plugins = ServiceLoader.load(baseSink);
                     break;
                 default:
                     break;
@@ -148,15 +154,17 @@ public class ConfigBuilder {
         List<? extends Config> configList = config.getConfigList(type);
 
         configList.forEach(plugin -> {
-            final String className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), type);
-            T t = null;
             try {
+                final String className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), type);
+                T t = null;
+
                 t = (T) Class.forName(className).newInstance();
+
+                t.setConfig(plugin);
+                basePluginList.add(t);
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            t.setConfig(plugin);
-            basePluginList.add(t);
         });
 
         return basePluginList;
