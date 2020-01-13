@@ -1,6 +1,5 @@
 package io.github.interestinglab.waterdrop.flink.batch;
 
-import io.github.interestinglab.waterdrop.apis.BaseSink;
 import io.github.interestinglab.waterdrop.flink.BaseFlinkSink;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import org.apache.flink.api.java.DataSet;
