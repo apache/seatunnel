@@ -1,6 +1,7 @@
 ## Sink(数据输出) 插件的配置
 
 ### Sink插件通用参数
+
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [source_table_name](#source_table_name-string) | string | no | - |
