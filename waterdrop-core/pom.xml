@@ -34,13 +34,16 @@
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-source-fake</artifactId>
             <version>2.0.0</version>
-            <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-source-socket</artifactId>
+            <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-source-jdbc</artifactId>
             <version>2.0.0</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
@@ -51,7 +54,16 @@
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-spark-transform-sql</artifactId>
             <version>2.0.0</version>
-            <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-transform-json</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-transform-split</artifactId>
+            <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
@@ -80,6 +92,12 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-spark-sink-file</artifactId>
+            <version>2.0.0</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-kafka</artifactId>
             <version>2.0.0</version>
             <!--<scope>provided</scope>-->
@@ -94,8 +112,8 @@
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-transform-sql</artifactId>
             <version>2.0.0</version>
-            <!--<scope>provided</scope>-->
         </dependency>
+
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-transform-table2datasteam</artifactId>
