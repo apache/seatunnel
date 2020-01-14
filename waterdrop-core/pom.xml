@@ -128,6 +128,12 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-flink-source-socket</artifactId>
+            <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-file</artifactId>
             <version>2.0.0</version>
             <!--<scope>provided</scope>-->
