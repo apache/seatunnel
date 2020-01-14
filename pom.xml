@@ -35,9 +35,12 @@
         <module>plugin-flink-source-jdbc</module>
         <module>plugin-flink-sink-file</module>
         <module>plugin-flink-sink-elasticsearch</module>
-        <module>waterdrop-dist</module>
         <module>plugin-spark-sink-file</module>
         <module>plugin-flink-transform-split</module>
+        <module>plugin-spark-transform-json</module>
+        <module>waterdrop-dist</module>
+        <module>plugin-spark-transform-split</module>
+        <module>plugin-spark-source-socket</module>
     </modules>
 
     <properties>

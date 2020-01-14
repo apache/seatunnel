@@ -23,6 +23,8 @@
     - [Transform 插件配置](/zh-cn/v2/spark/configuration/transform-plugins/)
 
       - [Json](/zh-cn/v2/spark/configuration/transform-plugins/Json.md)
+      
+      - [Split](/zh-cn/v2/spark/configuration/transform-plugins/Split.md)
 
       - [SQL](/zh-cn/v2/spark/configuration/transform-plugins/Sql.md)
 

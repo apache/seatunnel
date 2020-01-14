@@ -7,14 +7,16 @@ import org.apache.spark.sql.{Dataset, Row}
 class Sql extends BaseSparkTransform {
 
   override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-
-    if (config.hasPath("table_name")) {
-      data.createOrReplaceTempView(config.getString("table_name"))
-    }
     env.getSparkSession.sql(config.getString("sql"))
   }
 
-  override def checkConfig(): CheckResult = new CheckResult(true, "")
+  override def checkConfig(): CheckResult = {
+    if (config.hasPath("sql")) {
+      new CheckResult(true, "")
+    } else {
+      new CheckResult(false, "please specify [sql]")
+    }
+  }
 
   override def prepare(env: SparkEnvironment): Unit = {}
 }

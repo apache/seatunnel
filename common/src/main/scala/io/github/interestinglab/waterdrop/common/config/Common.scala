@@ -1,4 +1,5 @@
-package io.github.interestinglab.waterdrop.config
+package io.github.interestinglab.waterdrop.common.config
+
 import java.nio.file.{Path, Paths}
 
 object Common {
@@ -49,7 +50,7 @@ object Common {
 
         val path =
           Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath
-        Paths.get(path).getParent.getParent
+        Paths.get(path).getParent.getParent.getParent
       }
 
       case Some("cluster") => {
