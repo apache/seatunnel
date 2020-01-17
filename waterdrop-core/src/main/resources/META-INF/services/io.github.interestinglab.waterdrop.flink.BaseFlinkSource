@@ -1,5 +1,0 @@
-io.github.interestinglab.waterdrop.flink.source.FakeSourceStream
-io.github.interestinglab.waterdrop.flink.source.SocketStream
-io.github.interestinglab.waterdrop.flink.source.FileSource
-io.github.interestinglab.waterdrop.flink.source.JdbcSource
-io.github.interestinglab.waterdrop.flink.source.KafkaTableStream
