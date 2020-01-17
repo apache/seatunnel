@@ -15,3 +15,7 @@ None
 ```
 ConsoleSink{}
 ```
+
+### Note
+flink的console输出在flink的web UI
+![flink_console](../../../../images/flink/flink-console.png)

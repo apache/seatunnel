@@ -50,6 +50,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             }
             input = transform.processStream(flinkEnvironment, stream);
             registerResultTable(transform, input);
+            transform.registerFunction(flinkEnvironment);
         }
 
         for (FlinkStreamSink sink : sinks) {
