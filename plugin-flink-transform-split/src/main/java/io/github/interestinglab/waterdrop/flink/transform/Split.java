@@ -1,21 +1,20 @@
 package io.github.interestinglab.waterdrop.flink.transform;
 
 import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchTransform;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamTransform;
-import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.Collector;
 
 import java.util.List;
+
 
 /**
  * @author mr_xiong
@@ -26,9 +25,14 @@ public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransfor
 
     private Config config;
 
+    private static final String SEPARATOR = "separator";
+    private static final String FIELDS = "fields";
+
     private String separator = ",";
 
     private int num;
+
+    private List<String> fields;
 
     private RowTypeInfo rowTypeInfo;
 
@@ -43,9 +47,16 @@ public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransfor
     }
 
     @Override
-    public List<TableFunction<Row>> getTableFunction(FlinkEnvironment flinkEnvironment) {
-
-        return null;
+    public void registerFunction(FlinkEnvironment flinkEnvironment) {
+        if (flinkEnvironment.isStreaming()){
+            flinkEnvironment
+                    .getStreamTableEnvironment()
+                    .registerFunction("split",new ScalarSplit(rowTypeInfo,num,separator));
+        }else {
+            flinkEnvironment
+                    .getBatchTableEnvironment()
+                    .registerFunction("split",new ScalarSplit(rowTypeInfo,num,separator));
+        }
     }
 
     @Override
@@ -60,31 +71,22 @@ public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransfor
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true,"");
+        return CheckConfigUtil.check(config,FIELDS);
     }
 
     @Override
     public void prepare(FlinkEnvironment prepareEnv) {
-        num = config.getInt("num");
-        TypeInformation[] types = new  TypeInformation[num];
+        fields = config.getStringList(FIELDS);
+        num = fields.size();
+        if (config.hasPath(SEPARATOR)){
+            separator = config.getString(SEPARATOR);
+        }
+        TypeInformation[] types = new  TypeInformation[fields.size()];
         for (int i = 0; i< types.length; i++){
             types[i] = Types.STRING();
         }
+        rowTypeInfo = new RowTypeInfo(types,fields.toArray(new String[]{}));
     }
 
-    class SplitFunction extends TableFunction<Row> {
-        public void eval(String str) {
-            Row row = new Row(num);
-            int i = 0;
-            for (String s : str.split(separator,num)) {
-                row.setField(i++, s);
-                collect(row);
-            }
-        }
 
-        @Override
-        public TypeInformation<Row> getResultType() {
-            return rowTypeInfo;
-        }
-    }
 }

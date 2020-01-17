@@ -40,5 +40,5 @@ ln -s waterdrop-<version> waterdrop
 
 没有任何复杂的安装配置步骤，Waterdrop的使用方法请参考[Quick Start](/zh-cn/v2/flink/quick-start.md), 配置请参考[Configuration](/zh-cn/v2/flink/configuration/)。
 
-如果想把Waterdrop部署在Spark Standalone/Yarn集群上运行，请参考[Waterdrop部署](/zh-cn/v2/flink/deployment)
+如果想把Waterdrop部署在Flink Standalone/Yarn集群上运行，请参考[Waterdrop部署](/zh-cn/v2/flink/deployment)
 

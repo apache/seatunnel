@@ -21,6 +21,9 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     private Config config;
 
+    private static final String HOST = "host";
+    private static final String PORT = "port";
+
     private String host = "localhost";
 
     private int port = 9999;
@@ -55,6 +58,11 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     @Override
     public void prepare(FlinkEnvironment prepareEnv) {
-
+        if (config.hasPath(HOST)){
+            host = config.getString(HOST);
+        }
+        if (config.hasPath(PORT)){
+            port = config.getInt(PORT);
+        }
     }
 }
