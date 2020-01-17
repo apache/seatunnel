@@ -11,8 +11,8 @@ public class CheckConfigUtil {
 
     public static CheckResult check(Config config, String... params) {
         for (String param : params) {
-            if (!config.hasPath(param) || config.getString(param) == null || config.getString(param).trim().isEmpty()) {
-                return new CheckResult(false, "please specify [" + param + "] as non-empty string");
+            if (!config.hasPath(param) || config.getAnyRef(param) == null) {
+                return new CheckResult(false, "please specify [" + param + "] as non-empty");
             }
         }
         return new CheckResult(true,"");

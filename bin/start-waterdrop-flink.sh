@@ -8,6 +8,13 @@ while (( "$#" )); do
       shift 2
       ;;
 
+    -i|--variable)
+      variable=$2
+      java_property_value="-D${variable}"
+      variables_substitution="${java_property_value} ${variables_substitution}"
+      shift 2
+      ;;
+
     *) # preserve positional arguments
       PARAMS="$PARAMS $1"
       shift
@@ -30,6 +37,13 @@ CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
 assemblyJarName=$(find ${PLUGINS_DIR} -name waterdrop-core*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh
+
+string_trim() {
+    echo $1 | awk '{$1=$1;print}'
+}
+
+variables_substitution=$(string_trim "${variables_substitution}")
+
 
 echo ${assemblyJarName}
 set -x
