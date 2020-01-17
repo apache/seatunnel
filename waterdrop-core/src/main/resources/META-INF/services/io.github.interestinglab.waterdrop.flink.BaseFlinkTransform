@@ -1,3 +1,2 @@
-io.github.interestinglab.waterdrop.flink.transform.DataSteamToTable
 io.github.interestinglab.waterdrop.flink.transform.Sql
-io.github.interestinglab.waterdrop.flink.transform.TableToDataStream
+io.github.interestinglab.waterdrop.flink.transform.Split
