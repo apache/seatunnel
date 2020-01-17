@@ -42,11 +42,8 @@ string_trim() {
     echo $1 | awk '{$1=$1;print}'
 }
 
-variables_substitution=$(string_trim "${variables_substitution}")
+export JVM_ARGS=$(string_trim "${variables_substitution}")
 
-
-echo ${assemblyJarName}
-set -x
 exec ${FLINK_HOME}/bin/flink run \
     ${PARAMS} \
     -c io.github.interestinglab.waterdrop.WaterdropFlink \
