@@ -116,6 +116,12 @@
 
         <dependency>
             <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-flink-transform-split</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-transform-table2datasteam</artifactId>
             <version>2.0.0</version>
             <!--<scope>provided</scope>-->
@@ -141,6 +147,12 @@
         <dependency>
             <groupId>io.github.interestinglab</groupId>
             <artifactId>plugin-flink-source-fake</artifactId>
+            <version>2.0.0</version>
+            <!--<scope>provided</scope>-->
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>plugin-flink-source-socket</artifactId>
             <version>2.0.0</version>
             <!--<scope>provided</scope>-->
         </dependency>

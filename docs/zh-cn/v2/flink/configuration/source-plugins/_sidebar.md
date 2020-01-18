@@ -18,6 +18,8 @@
     - [Source 插件配置](/zh-cn/v2/flink/configuration/source-plugins/)
 
       - [Fake](/zh-cn/v2/flink/configuration/source-plugins/Fake.md)
+      
+      - [Socket](/zh-cn/v2/flink/configuration/source-plugins/Socket.md)
 
       - [File](/zh-cn/v2/flink/configuration/source-plugins/File.md)
 
