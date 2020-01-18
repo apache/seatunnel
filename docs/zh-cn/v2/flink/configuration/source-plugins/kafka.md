@@ -21,6 +21,7 @@
 | [rowtime.field](#rowtime.field-string) | string | no | - | 
 | [watermark](#watermark-string) | long | no | - | 
 | [offset.reset](#offset.reset-string) | string | no | - | 
+| [common-options](#common-options-string)| string | no | - |
 
 ##### topics [string]
 
@@ -69,6 +70,10 @@ csv格式通过这个参数来设置分隔符等。例如设置列分隔符为\t
   - 从最早的offset开始消费
 - specific 
   - 从指定的offset开始消费，此时要指定各个分区的起始offset。设置方式通过`offset.reset.specific="{0:111,1:123}"`
+
+##### common options [string]
+
+`Source` 插件通用参数，详情参照 [Source Plugin](README.md)
 
 ### Examples
 

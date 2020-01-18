@@ -11,6 +11,12 @@
 | name | type | required | default value |
 | --- | --- | --- | --- |
 | [sql](#sql-string) | string | yes | - |
+| [common-options](#common-options-string)| string | no | - |
+
+
+##### common options [string]
+
+`Transform` 插件通用参数，详情参照 [Transform Plugin](README.md)
 
 ### Examples
 
