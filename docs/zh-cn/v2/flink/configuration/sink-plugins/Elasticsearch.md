@@ -16,6 +16,8 @@
 | [index_type](#index_type-string) | string | no | log |
 | [index_time_format](#index_time_format-string) | string | no | yyyy.MM.dd |
 | [index](#index-string) | string | no | waterdrop |
+| [common-options](#common-options-string)| string | no | - |
+
 
 ##### hosts [array]
 
@@ -44,6 +46,10 @@ Elasticsearch index type
 ##### index [string]
 
 Elasticsearch index名称，如果需要根据时间生成index，可以指定时间变量，如：`waterdrop-${now}`。`now`代表当前数据处理的时间。
+
+##### common options [string]
+
+`Sink` 插件通用参数，详情参照 [Sink Plugin](/zh-cn/v2/flink/configuration/sink-plugins/)
 
 
 ### Examples
