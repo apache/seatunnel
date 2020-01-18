@@ -16,7 +16,7 @@
 
 ##### common options [string]
 
-`Transform` 插件通用参数，详情参照 [Transform Plugin](README.md)
+`Transform` 插件通用参数，详情参照 [Transform Plugin](/zh-cn/v2/flink/configuration/transform-plugins/)
 
 ### Examples
 

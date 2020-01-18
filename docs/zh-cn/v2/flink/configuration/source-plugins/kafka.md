@@ -73,7 +73,7 @@ csv格式通过这个参数来设置分隔符等。例如设置列分隔符为\t
 
 ##### common options [string]
 
-`Source` 插件通用参数，详情参照 [Source Plugin](README.md)
+`Source` 插件通用参数，详情参照 [Source Plugin](/zh-cn/v2/flink/configuration/source-plugins/)
 
 ### Examples
 

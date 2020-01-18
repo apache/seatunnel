@@ -24,7 +24,7 @@ socket server port
 
 ##### common options [string]
 
-`Source` 插件通用参数，详情参照 [Source Plugin](README.md)
+`Source` 插件通用参数，详情参照 [Source Plugin](/zh-cn/v2/flink/configuration/source-plugins/)
 
 ### Examples
 ```

@@ -43,7 +43,7 @@ JDBC连接的URL。如：`jdbc:mysql://localhost:3306/test`
 
 ##### common options [string]
 
-`Sink` 插件通用参数，详情参照 [Sink Plugin](README.md)
+`Sink` 插件通用参数，详情参照 [Sink Plugin](/zh-cn/v2/flink/configuration/sink-plugins/)
 
 ### Examples
 ```
