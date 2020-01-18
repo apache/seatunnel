@@ -13,7 +13,7 @@
 | [format](#format-string) | string | yes | - |
 | [path](#path-string) | string | yes | - |
 | [schema](#schema-string)| string | yes | - |
-
+| [common-options](#common-options-string)| string | no | - |
 
 ##### format [string]
 
@@ -35,6 +35,12 @@
    - orc的schema是orc schema的字符串，如`"struct<name:string,addresses:array<struct<street:string,zip:smallint>>>"`。
 - text 
    - text的schema填为string即可。
+   
+
+##### common options [string]
+
+`Source` 插件通用参数，详情参照 [Source Plugin](README.md)
+
 ### Examples
 
 ```

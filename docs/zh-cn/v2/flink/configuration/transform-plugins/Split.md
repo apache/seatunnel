@@ -12,6 +12,8 @@
 | --- | --- | --- | --- |
 | [separator](#separator-string) | string | no | , |
 | [fields](#fields-array) | array | yes | - |
+| [common-options](#common-options-string)| string | no | - |
+
 
 
 ##### separator [string]
@@ -21,6 +23,10 @@
 ##### fields [array]
 
 分割后各个字段的名称
+
+##### common options [string]
+
+`Transform` 插件通用参数，详情参照 [Transform Plugin](README.md)
 
 ### Examples
 
