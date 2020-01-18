@@ -54,4 +54,4 @@ env {
 
 ```
 
-关于如何配置 Waterdrop, 请见[Waterdrop 通用配置](/zh-cn/v2/spark/configuration)
+关于如何配置 Waterdrop, 请见 [Waterdrop 通用配置](/zh-cn/v2/spark/configuration/)

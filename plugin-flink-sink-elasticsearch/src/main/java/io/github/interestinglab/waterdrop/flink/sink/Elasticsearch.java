@@ -2,6 +2,7 @@ package io.github.interestinglab.waterdrop.flink.sink;
 
 import com.typesafe.config.waterdrop.Config;
 import com.typesafe.config.waterdrop.ConfigFactory;
+import io.github.interestinglab.waterdrop.common.utils.StringTemplate;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSink;
@@ -29,6 +30,7 @@ import java.util.Map;
 public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private Config config;
+    private String indexName;
 
     @Override
     public void setConfig(Config config) {
@@ -42,7 +44,11 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public CheckResult checkConfig() {
-        return null;
+        if (config.hasPath("hosts")) {
+            return new CheckResult(true, "");
+        } else {
+            return new CheckResult(false, "please specify [hosts] as a non-empty string list");
+        }
     }
 
 
@@ -52,9 +58,9 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
             {
                 put("index", "waterdrop");
                 put("index_type", "log");
+                put("index_time_format", "yyyy.MM.dd");
             }
         });
-
         config = config.withFallback(defaultConfig);
     }
 
@@ -69,6 +75,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataStream.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
+        indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
         ElasticsearchSink.Builder<Row> esSinkBuilder = new ElasticsearchSink.Builder<>(
                 httpHosts,
                 new ElasticsearchSinkFunction<Row>() {
@@ -80,7 +87,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
                         }
 
                         return Requests.indexRequest()
-                                .index(config.getString("index"))
+                                .index(indexName)
                                 .type(config.getString("index_type"))
                                 .source(json);
                     }
@@ -105,6 +112,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
+        indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
         return dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
             @Override
             public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {
@@ -119,7 +127,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
                 }
 
                 return Requests.indexRequest()
-                        .index(config.getString("index"))
+                        .index(indexName)
                         .type(config.getString("index_type"))
                         .source(json);
             }
