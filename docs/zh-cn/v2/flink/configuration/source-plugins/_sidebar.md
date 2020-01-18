@@ -17,8 +17,6 @@
 
     - [Source 插件配置](/zh-cn/v2/flink/configuration/source-plugins/)
 
-      - [Elasticsearch](/zh-cn/v2/flink/configuration/source-plugins/Elasticsearch.md)
-
       - [Fake](/zh-cn/v2/flink/configuration/source-plugins/Fake.md)
 
       - [File](/zh-cn/v2/flink/configuration/source-plugins/File.md)
