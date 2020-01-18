@@ -42,7 +42,7 @@ JDBC连接的URL。如：`jdbc:mysql://localhost:3306/test`
 
 ##### common options [string]
 
-`Source` 插件通用参数，详情参照 [Source Plugin](README.md)
+`Source` 插件通用参数，详情参照 [Source Plugin](/zh-cn/v2/flink/configuration/source-plugins/)
 
 ### Examples
 
