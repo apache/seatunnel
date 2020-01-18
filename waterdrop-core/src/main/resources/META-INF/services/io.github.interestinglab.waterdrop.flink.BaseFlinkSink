@@ -1,5 +1,0 @@
-io.github.interestinglab.waterdrop.flink.sink.ConsoleSink
-io.github.interestinglab.waterdrop.flink.sink.Elasticsearch
-io.github.interestinglab.waterdrop.flink.sink.FileSink
-io.github.interestinglab.waterdrop.flink.sink.JdbcSink
-io.github.interestinglab.waterdrop.flink.sink.KafkaTable

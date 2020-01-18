@@ -8,6 +8,13 @@ while (( "$#" )); do
       shift 2
       ;;
 
+    -i|--variable)
+      variable=$2
+      java_property_value="-D${variable}"
+      variables_substitution="${java_property_value} ${variables_substitution}"
+      shift 2
+      ;;
+
     *) # preserve positional arguments
       PARAMS="$PARAMS $1"
       shift
@@ -31,8 +38,12 @@ assemblyJarName=$(find ${PLUGINS_DIR} -name waterdrop-core*.jar)
 
 source ${CONF_DIR}/waterdrop-env.sh
 
-echo ${assemblyJarName}
-set -x
+string_trim() {
+    echo $1 | awk '{$1=$1;print}'
+}
+
+export JVM_ARGS=$(string_trim "${variables_substitution}")
+
 exec ${FLINK_HOME}/bin/flink run \
     ${PARAMS} \
     -c io.github.interestinglab.waterdrop.WaterdropFlink \

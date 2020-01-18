@@ -30,5 +30,6 @@ apidoc
 
 Test.java
 Test.scala
-
+test.conf
+log4j.properties
 spark-warehouse

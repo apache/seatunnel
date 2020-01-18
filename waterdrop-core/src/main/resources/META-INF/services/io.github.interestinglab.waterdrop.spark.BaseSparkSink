@@ -1,5 +1,0 @@
-io.github.interestinglab.waterdrop.spark.sink.Clickhouse
-io.github.interestinglab.waterdrop.spark.sink.Console
-io.github.interestinglab.waterdrop.spark.sink.Elasticsearch
-io.github.interestinglab.waterdrop.spark.sink.File
-io.github.interestinglab.waterdrop.spark.sink.Hdfs
