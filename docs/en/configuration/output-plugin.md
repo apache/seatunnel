@@ -1,5 +1,0 @@
-# Output Plugin
-
-## Introduction
-
-## list
