@@ -12,7 +12,7 @@
 
 
 [GitHub](https://github.com/InterestingLab/waterdrop/)
-[Get Started](/zh-cn/)
+[Get Started](/zh-cn/v1/)
 
 <!-- 背景色 -->
 ![color](#C5EFF7)
