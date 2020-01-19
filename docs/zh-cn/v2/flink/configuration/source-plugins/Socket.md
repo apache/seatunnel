@@ -12,6 +12,7 @@
 | --- | --- | --- | --- |
 | [host](#host-string) | string | no | localhost |
 | [port](#port-int) | int | no | 9999 |
+| [common-options](#common-options-string)| string | no | - |
 
 ##### host [string]
 
@@ -20,6 +21,10 @@ socket server hostname
 ##### port [int]
 
 socket server port
+
+##### common options [string]
+
+`Source` 插件通用参数，详情参照 [Source Plugin](/zh-cn/v2/flink/configuration/source-plugins/)
 
 ### Examples
 ```

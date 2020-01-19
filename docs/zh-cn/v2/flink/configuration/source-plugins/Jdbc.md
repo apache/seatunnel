@@ -16,6 +16,7 @@
 | [password](#password-string) | string | no | - |
 | [query](#query-string) | string | yes | - |
 | [fetch_size](#fetch_size-int) | int | no | - |
+| [common-options](#common-options-string)| string | no | - |
 
 ##### driver [string]
 
@@ -38,6 +39,10 @@ JDBC连接的URL。如：`jdbc:mysql://localhost:3306/test`
 
 ##### fetch_size [int]
 拉取数量
+
+##### common options [string]
+
+`Source` 插件通用参数，详情参照 [Source Plugin](/zh-cn/v2/flink/configuration/source-plugins/)
 
 ### Examples
 

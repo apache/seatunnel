@@ -14,6 +14,7 @@
 | [producer.bootstrap.servers](#producerbootstrapservers-string) | string | yes | - | 
 | [topic](#topic-string) | string | yes | - | 
 | [producer.*](#producer-string) | string | no | - | 
+| [common-options](#common-options-string)| string | no | - |
 
 
 ##### producer.bootstrap.servers [string]
@@ -30,6 +31,9 @@ Kafka Topic
 
 指定参数的方式是在原参数名称上加上前缀"producer."，如指定`request.timeout.ms`的方式是: `producer.request.timeout.ms = 60000`。如果不指定这些非必须参数，它们将使用Kafka官方文档给出的默认值。
 
+##### common options [string]
+
+`Sink` 插件通用参数，详情参照 [Sink Plugin](/zh-cn/v2/flink/configuration/sink-plugins/)
 
 ### Examples
 
