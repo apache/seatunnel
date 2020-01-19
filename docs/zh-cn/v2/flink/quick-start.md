@@ -73,7 +73,7 @@ nc -l -p 9999
 
 ```
 cd waterdrop
-./bin/start-waterdrop.sh  --config ./config/application.conf
+./bin/start-waterdrop-flink.sh  --config ./config/application.conf
 
 ```
 
@@ -100,7 +100,7 @@ xg#1995,xg,1995
 
 ```
 cd waterdrop
-./bin/start-waterdrop.sh --config ./config/flink.streaming.conf.template
+./bin/start-waterdrop-flink.sh --config ./config/flink.streaming.conf.template
 
 ```
 
@@ -110,6 +110,6 @@ cd waterdrop
 
 ```
 cd waterdrop
-./bin/start-waterdrop.sh --config ./config/flink.batch.conf.template
+./bin/start-waterdrop-flink.sh --config ./config/flink.batch.conf.template
 
 ```
