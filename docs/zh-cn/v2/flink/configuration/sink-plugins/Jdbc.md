@@ -17,6 +17,7 @@
 | [query](#query-string) | string | yes | - |
 | [batch_size](#batch_size-int) | int | no | - |
 | [source_table_name](#source_table_name-string) | string | yes | - |
+| [common-options](#common-options-string)| string | no | - |
 
 ##### driver [string]
 
@@ -40,6 +41,9 @@ JDBC连接的URL。如：`jdbc:mysql://localhost:3306/test`
 ##### batch_size [int]
 每批写入数量
 
+##### common options [string]
+
+`Sink` 插件通用参数，详情参照 [Sink Plugin](/zh-cn/v2/flink/configuration/sink-plugins/)
 
 ### Examples
 ```

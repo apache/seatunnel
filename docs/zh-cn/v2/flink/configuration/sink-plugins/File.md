@@ -15,6 +15,7 @@
 | [format](#format-string) | string | yes | - |
 | [path](#path-string) | string | yes | - |
 | [write_mode](#write_mode-string)| string | no | - |
+| [common-options](#common-options-string)| string | no | - |
 
 ##### format [string]
 
@@ -30,7 +31,10 @@
   - 不覆盖，路径存在报错
 - OVERWRITE 
   - 覆盖，路径存在则先删除再写入
+  
+##### common options [string]
 
+`Sink` 插件通用参数，详情参照 [Sink Plugin](/zh-cn/v2/flink/configuration/sink-plugins/)
 
 ### Examples
 
