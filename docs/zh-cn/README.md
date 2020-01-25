@@ -14,7 +14,7 @@ Waterdrop 提供可直接执行的软件包，没有必要自行编译源代码�
 
 文档地址：https://interestinglab.github.io/waterdrop/
 
-各种线上应用案例，请见: https://interestinglab.github.io/waterdrop/#/zh-cn/v1/case_study/base
+各种线上应用案例，请见: https://interestinglab.github.io/waterdrop/#/zh-cn/v1/case_study/
 
 **如果你遇到任何问题，请联系项目负责人 Gary(微信: `garyelephant`) , RickyHuo(微信: `chodomatte1994`)，加微信备注"waterdrop"，我们把你拉到`Waterdrop & Spark & Flink 交流群`里，并为你提供全程免费服务，你也可以与其他伙伴交流大数据技术。扫码加我，拉你入群：**
 
@@ -65,7 +65,7 @@ Input/Source[数据源输入] -> Filter/Transform[数据处理] -> Output/Sink[�
 ![wd-workflow](../images/wd-workflow.png ':size=300%')
 
 
-多个Filter构建了数据处理的Pipeline，满足各种各样的数据处理需求，如果您熟悉SQL，也可以直接通过SQL构建数据处理的Pipeline，简单高效。目前Waterdrop支持的[Filter列表](zh-cn/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
+多个Filter构建了数据处理的Pipeline，满足各种各样的数据处理需求，如果您熟悉SQL，也可以直接通过SQL构建数据处理的Pipeline，简单高效。目前Waterdrop支持的[Filter列表](https://interestinglab.github.io/waterdrop/#/zh-cn/v1/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
 ## Waterdrop 支持的插件
 
