@@ -41,6 +41,9 @@
         <module>waterdrop-dist</module>
         <module>plugin-spark-transform-split</module>
         <module>plugin-spark-source-socket</module>
+        <module>plugin-spark-source-phoenix</module>
+        <module>plugin-spark-phoenix-core</module>
+        <module>plugin-spark-sink-phoenix</module>
     </modules>
 
     <properties>
