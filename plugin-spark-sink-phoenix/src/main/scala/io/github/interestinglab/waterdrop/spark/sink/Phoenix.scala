@@ -4,17 +4,16 @@ import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 import org.apache.commons.lang3.StringUtils
-import org.apache.phoenix.spark.ZkConnectUtil._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
-
+import org.apache.phoenix.spark.ZkConnectUtil._
 import scala.collection.JavaConverters._
 import scala.util.Try
 
 class Phoenix extends SparkBatchSink with Logging {
 
   var phoenixCfg: Map[String, String] = _
-  val phoenixPrefix = "phoenix."
+  val phoenixPrefix = "phoenix"
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     import org.apache.phoenix.spark.sparkExtend._
@@ -33,7 +32,7 @@ class Phoenix extends SparkBatchSink with Logging {
 
   override def checkConfig(): CheckResult = {
     if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(config.getString("zk-connect"))) {
-      checkZkConnect(phoenixCfg(s"$phoenixPrefix.zk-connect"))
+      checkZkConnect(config.getString("zk-connect"))
       new CheckResult(true, "")
     } else {
       new CheckResult(false, "please specify [zk-connect] as a non-empty string")
