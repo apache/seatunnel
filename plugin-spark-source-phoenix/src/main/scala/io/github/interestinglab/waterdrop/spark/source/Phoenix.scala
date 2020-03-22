@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.spark.source
 
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
 import org.apache.commons.lang3.StringUtils
@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 class Phoenix extends SparkBatchSource with Logging {
 
   var phoenixCfg: Map[String, String] = _
-  val phoenixPrefix = "phoenix."
+  val phoenixPrefix = "phoenix"
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     import org.apache.phoenix.spark.sparkExtend._
@@ -29,7 +29,7 @@ class Phoenix extends SparkBatchSource with Logging {
 
   override def checkConfig(): CheckResult = {
     if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(config.getString("zk-connect"))) {
-      checkZkConnect(phoenixCfg(s"$phoenixPrefix.zk-connect"))
+      checkZkConnect(config.getString("zk-connect"))
       new CheckResult(true, "")
     } else {
       new CheckResult(false, "please specify [zk-connect] as a non-empty string")
@@ -37,12 +37,9 @@ class Phoenix extends SparkBatchSource with Logging {
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
-    if (TypesafeConfigUtils.hasSubConfig(config, phoenixPrefix)) {
-      val esConfig = TypesafeConfigUtils.extractSubConfig(config, phoenixPrefix, false)
-      phoenixCfg = esConfig.entrySet().asScala.map {
-        entry => s"$phoenixPrefix.${entry.getKey}" -> String.valueOf(entry.getValue.unwrapped())
-      }.toMap
-    }
+    phoenixCfg = config.entrySet().asScala.map {
+      entry => s"$phoenixPrefix.${entry.getKey}" -> String.valueOf(entry.getValue.unwrapped())
+    }.toMap
 
     printParams()
   }
