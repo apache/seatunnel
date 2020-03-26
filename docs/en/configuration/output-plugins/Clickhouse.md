@@ -18,6 +18,8 @@ Write Rows to ClickHouse via [Clickhouse-jdbc](https://github.com/yandex/clickho
 | [database](#database-string) | string |yes|-|
 | [fields](#fields-list) | list | yes |-|
 | [host](#host-string) | string | yes |-|
+| [port](#jdbcport-string) | string | no |8123|
+| [cluster](#cluster-string) | string | no |-|
 | [password](#password-string) | string | no |-|
 | [table](#table-string) | string | yes |-|
 | [username](#username-string) | string | no |-|
@@ -37,6 +39,14 @@ Field list which need to be written to ClickHouse。
 ##### host [string]
 
 ClickHouse hosts, format as `hostname:port`
+
+##### port [string]
+
+ClickHouse JDBC port, if using cluster table to insert and port is not 8123, you need to setting it
+
+##### cluster [string]
+
+ClickHouse cluster name, see [Distributed](https://clickhouse.tech/docs/en/operations/table_engines/distributed/)
 
 ##### password [string]
 

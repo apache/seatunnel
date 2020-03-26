@@ -3,7 +3,8 @@ package io.github.interestinglab.waterdrop.output.batch
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
-import java.math.BigDecimal;
+import java.math.BigDecimal
+import java.sql.ResultSet
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
@@ -14,6 +15,7 @@ import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionI
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.WrappedArray
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
@@ -21,10 +23,16 @@ import scala.util.{Failure, Success, Try}
 class Clickhouse extends BaseOutput {
 
   var tableSchema: Map[String, String] = new HashMap[String, String]()
-  var jdbcLink: String = _
+  var jdbcPort: String = "8123"
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
+
+  var cluster: String = _
+
+  //contians cluster basic info
+  var clusterInfo: ArrayBuffer[(String, Int, Int, String)] = _
+
   var retryCodes: java.util.List[Integer] = _
   var config: Config = ConfigFactory.empty()
   val clickhousePrefix = "clickhouse."
@@ -65,48 +73,44 @@ class Clickhouse extends BaseOutput {
     }
 
     if (nonExistsOptions.nonEmpty) {
-      (
-        false,
+      (false,
         "please specify " + nonExistsOptions
           .map { option =>
             val (name, exists) = option
             "[" + name + "]"
           }
-          .mkString(", ") + " as non-empty string"
-      )
-    } else if (config.hasPath("username") && !config.hasPath("password") || config.hasPath("password")
-      && !config.hasPath("username")) {
-      (false, "please specify username and password at the same time")
-    } else {
-
-      this.jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"), config.getString("database"))
-
-      if (config.hasPath("username")) {
-        properties.put("user", config.getString("username"))
-        properties.put("password", config.getString("password"))
-      }
-
-      val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcLink, properties)
-      val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
-
-      this.table = config.getString("table")
-      this.tableSchema = getClickHouseSchema(conn, table)
-
-      if (this.config.hasPath("fields")) {
-        this.fields = config.getStringList("fields")
-        acceptedClickHouseSchema()
-      } else {
-        (true, "")
-      }
-
+          .mkString(", ") + " as non-empty string")
     }
+
+    val hasUserName = config.hasPath("username")
+    val hasPassword = config.hasPath("password")
+
+    if (hasUserName && !hasPassword || !hasUserName && hasPassword) {
+      (false, "please specify username and password at the same time")
+    }
+    if (hasPassword) {
+      properties.put("user", config.getString("username"))
+      properties.put("password", config.getString("password"))
+    }
+
+    (true, "")
   }
 
   override def prepare(spark: SparkSession): Unit = {
+    if(config.hasPath("port")) {
+      this.jdbcPort = config.getString("port")
+    }
 
-    if (config.hasPath("fields")) {
-      this.initSQL = initPrepareSQL()
-      logInfo(this.initSQL)
+    val jdbcURL = getJDBCUrl(config.getString("host"), this.jdbcPort, config.getString("database"))
+    val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcURL, properties)
+    val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
+
+    this.table = config.getString("table")
+    this.tableSchema = getClickHouseSchema(conn, table)
+
+    if (this.config.hasPath("fields")) {
+      this.fields = config.getStringList("fields")
+      acceptedClickHouseSchema()
     }
 
     val defaultConfig = ConfigFactory.parseMap(
@@ -117,6 +121,19 @@ class Clickhouse extends BaseOutput {
         "retry" -> 1
       )
     )
+
+    if(config.hasPath("cluster")){
+      this.cluster = config.getString("cluster")
+
+      this.clusterInfo = getClickHouseClusterInfo(conn, cluster)
+      if(this.clusterInfo.size == 0 ){
+        val errorInfo = s"cloud not find cluster config in system.clusters, config cluster = $cluster"
+        logError(errorInfo)
+        throw new RuntimeException(errorInfo)
+      }
+      logInfo(s"get [$cluster] config from system.clusters, the replica info is [$clusterInfo].")
+    }
+
     config = config.withFallback(defaultConfig)
     retryCodes = config.getIntList("retry_codes")
     super.prepare(spark)
@@ -129,17 +146,34 @@ class Clickhouse extends BaseOutput {
 
     if (!config.hasPath("fields")) {
       fields = dfFields.toList
-      initSQL = initPrepareSQL()
     }
+
+    this.initSQL = initPrepareSQL()
+    logInfo(this.initSQL)
+
     df.foreachPartition { iter =>
-      val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
+      var jdbcURL = getJDBCUrl(config.getString("host"), this.jdbcPort, config.getString("database"))
+      if(this.clusterInfo.size > 0){
+        //using random policy to select shard when insert data
+        val randomShard =  (Math.random() * this.clusterInfo.size).asInstanceOf[Int];
+        val shardInfo = this.clusterInfo.get(randomShard)
+
+        jdbcURL = getJDBCUrl(shardInfo._4, this.jdbcPort, config.getString("database"))
+        logInfo(s"cluster mode, select shard index [$randomShard] to insert data, the jdbc url is [$jdbcURL].")
+      }
+      else{
+        logInfo(s"single mode, the jdbc url is [$jdbcURL].")
+      }
+
+      val executorBalanced = new BalancedClickhouseDataSource(jdbcURL, this.properties)
       val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
-      val statement = executorConn.createClickHousePreparedStatement(this.initSQL)
+      val statement = executorConn.createClickHousePreparedStatement(this.initSQL, ResultSet.TYPE_FORWARD_ONLY)
       var length = 0
       while (iter.hasNext) {
-        val item = iter.next()
+        val row = iter.next()
         length += 1
-        renderStatement(fields, item, dfFields, statement)
+
+        renderStatement(fields, row, dfFields, statement)
         statement.addBatch()
 
         if (length >= bulkSize) {
@@ -150,6 +184,16 @@ class Clickhouse extends BaseOutput {
 
       execute(statement, retry)
     }
+  }
+
+  private def getJDBCUrl(host: String, port: String, database: String): String = {
+    var jdbcURL: String = s"jdbc:clickhouse://$host:$port/$database"
+
+    //compatible with old configration, provided both host and port
+    if(host.contains(":")){
+      jdbcURL = s"jdbc:clickhouse://$host/$database"
+    }
+    jdbcURL
   }
 
   private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
@@ -184,13 +228,33 @@ class Clickhouse extends BaseOutput {
   }
 
   private def getClickHouseSchema(conn: ClickHouseConnectionImpl, table: String): Map[String, String] = {
-    val sql = String.format("desc %s", table)
+    val sql = s"desc $table"
     val resultSet = conn.createStatement.executeQuery(sql)
     var schema = new HashMap[String, String]()
     while (resultSet.next()) {
       schema += (resultSet.getString(1) -> resultSet.getString(2))
     }
     schema
+  }
+
+  private def getClickHouseClusterInfo(conn: ClickHouseConnectionImpl, cluster: String): ArrayBuffer[(String, Int, Int, String)] = {
+    val sql = s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1"
+    val resultSet = conn.createStatement.executeQuery(sql)
+
+    val clusterInfo = ArrayBuffer[(String, Int, Int, String)]()
+    while (resultSet.next()) {
+      val shardWeight = resultSet.getInt("shard_weight")
+      for(i <- 1 to shardWeight){
+
+        val custerName = resultSet.getString("cluster")
+        val shardNum = resultSet.getInt("shard_num")
+        val hostAddress = resultSet.getString("host_address")
+
+        val shardInfo = new Tuple4(custerName, shardNum, shardWeight, hostAddress)
+        clusterInfo += shardInfo
+      }
+    }
+    clusterInfo
   }
 
   private def initPrepareSQL(): String = {
@@ -261,6 +325,7 @@ class Clickhouse extends BaseOutput {
         statement.setNull(index + 1, java.sql.Types.BIGINT)
       case "Float32" => statement.setNull(index + 1, java.sql.Types.FLOAT)
       case "Float64" => statement.setNull(index + 1, java.sql.Types.DOUBLE)
+      case "Array" => statement.setNull(index + 1, java.sql.Types.ARRAY)
     }
   }
 
@@ -273,9 +338,9 @@ class Clickhouse extends BaseOutput {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
-      case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
+      case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" | "UInt32" =>
         statement.setInt(index + 1, item.getAs[Int](fieldIndex))
-      case "UInt32" | "UInt64" | "Int64" =>
+      case "UInt64" | "Int64" =>
         statement.setLong(index + 1, item.getAs[Long](fieldIndex))
       case "Float32" => statement.setFloat(index + 1, item.getAs[Float](fieldIndex))
       case "Float64" => statement.setDouble(index + 1, item.getAs[Double](fieldIndex))
