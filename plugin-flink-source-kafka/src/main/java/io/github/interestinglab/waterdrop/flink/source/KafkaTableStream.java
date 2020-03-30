@@ -1,6 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.parser.Feature;
 import com.typesafe.config.waterdrop.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
@@ -85,7 +86,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         }
         String schemaContent = config.getString(SCHEMA);
         format = config.getString(SOURCE_FORMAT);
-        schemaInfo = JSONObject.parse(schemaContent);
+        schemaInfo = JSONObject.parse(schemaContent, Feature.OrderedField);
     }
 
     @Override
