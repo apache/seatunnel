@@ -21,7 +21,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
 
   var mongoCollection: MongoCollection[Document] = _
   var client: Broadcast[MongoClientUtil] = _
-
+  var mongoConfig: Config = _
   var updateFields: util.List[String] = _
   var options = new collection.mutable.HashMap[String, String]
   val mongoPrefix = "writeconfig."
@@ -36,7 +36,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
   }
 
   override def checkConfig(): (Boolean, String) = {
-    val mongoConfig = TypesafeConfigUtils.extractSubConfig(config, mongoPrefix, false)
+    mongoConfig = TypesafeConfigUtils.extractSubConfig(config, mongoPrefix, false)
     mongoConfig.hasPath("host") && mongoConfig.hasPath("database") && mongoConfig.hasPath("collection") match {
       case true => {
         StructuredUtils.checkTriggerMode(config) match {
@@ -78,7 +78,7 @@ class MongoDB extends BaseStructuredStreamingOutput {
       }
       case false => {}
     }
-    client = spark.sparkContext.broadcast(MongoClientUtil(config.getConfig(mongoPrefix)))
+    client = spark.sparkContext.broadcast(MongoClientUtil(mongoConfig))
   }
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
