@@ -21,7 +21,7 @@ target/
 *.iml
 
 .DS_Store
-
+log4j.properties
 metastore_db/
 
 work_dir
