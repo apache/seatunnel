@@ -6,7 +6,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.utils.StringTemplate
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrameWriter, Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
@@ -68,25 +68,10 @@ abstract class FileOutputBase extends BaseOutput {
     path
   }
 
-  override def prepare(spark: SparkSession): Unit = {
-    super.prepare(spark)
-
-    val defaultConfig = ConfigFactory.parseMap(
-      Map(
-        "partition_by" -> util.Arrays.asList(),
-        "save_mode" -> "error", // allowed values: overwrite, append, ignore, error
-        "serializer" -> "json", // allowed values: csv, json, parquet, text
-        "path_time_format" -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
-      )
-    )
-    config = config.withFallback(defaultConfig)
-  }
-
-  def processImpl(df: Dataset[Row], defaultUriSchema: String): Unit = {
-
+  protected def fileWriter(df: Dataset[Row]): DataFrameWriter[Row] = {
     var writer = df.write.mode(config.getString("save_mode"))
 
-    writer = config.getStringList("partition_by").length == 0 match {
+    writer = config.getStringList("partition_by").isEmpty match {
       case true => writer
       case false => {
         val partitionKeys = config.getStringList("partition_by")
@@ -109,14 +94,35 @@ abstract class FileOutputBase extends BaseOutput {
 
     }
 
+    writer
+  }
+
+  override def prepare(spark: SparkSession): Unit = {
+    super.prepare(spark)
+
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "partition_by" -> util.Arrays.asList(),
+        "save_mode" -> "error", // allowed values: overwrite, append, ignore, error
+        "serializer" -> "json", // allowed values: csv, json, parquet, text
+        "path_time_format" -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
+      )
+    )
+    config = config.withFallback(defaultConfig)
+  }
+
+  def processImpl(df: Dataset[Row], defaultUriSchema: String): Unit = {
+    val writer = fileWriter(df)
     var path = buildPathWithDefaultSchema(config.getString("path"), defaultUriSchema)
     path = StringTemplate.substitute(path, config.getString("path_time_format"))
-    config.getString("serializer") match {
+    val format = config.getString("serializer")
+    format match {
       case "csv" => writer.csv(path)
       case "json" => writer.json(path)
       case "parquet" => writer.parquet(path)
       case "text" => writer.text(path)
       case "orc" => writer.orc(path)
+      case _ => writer.format(format).save(path)
     }
   }
 }
