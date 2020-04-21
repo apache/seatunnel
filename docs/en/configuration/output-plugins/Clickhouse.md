@@ -40,10 +40,6 @@ Field list which need to be written to ClickHouse。
 
 ClickHouse hosts, format as `hostname:port`
 
-##### port [string]
-
-ClickHouse JDBC port, if using cluster table to insert and port is not 8123, you need to setting it
-
 ##### cluster [string]
 
 ClickHouse cluster name, see [Distributed](https://clickhouse.tech/docs/en/operations/table_engines/distributed/)

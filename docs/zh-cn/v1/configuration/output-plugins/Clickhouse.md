@@ -43,10 +43,6 @@ ClickHouse database
 
 ClickHouse集群地址，格式为host，允许指定多个host。如"host1:port,host2:port"。
 
-##### port [string]
-
-ClickHouse JDBC端口，主要针对cluster模式下使用，并且JDBC端口非8123的时指定，非cluster模式可以使用host:port模式
-
 ##### cluster [string]
 
 ClickHouse 配置分布式表的时候，提供配置表隶属的集群名称，参考官方文档[Distributed](https://clickhouse.tech/docs/en/operations/table_engines/distributed/)
@@ -142,8 +138,7 @@ ClickHouse {
 #### 分布式表配置
 ```
 ClickHouse {
-    host = "localhost"
-    port = "8123"
+    host = "localhost:8123"
     database = "nginx"
     table = "access_msg"
     cluster = "no_replica_cluster"

@@ -11,7 +11,8 @@ import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement}
+import ru.yandex.clickhouse.settings.ClickHouseProperties
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement, ClickhouseJdbcUrlParser}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
@@ -23,7 +24,7 @@ import scala.util.{Failure, Success, Try}
 class Clickhouse extends BaseOutput {
 
   var tableSchema: Map[String, String] = new HashMap[String, String]()
-  var jdbcPort: String = "8123"
+  var jdbcLink: String = _
   var initSQL: String = _
   var table: String = _
   var fields: java.util.List[String] = _
@@ -97,12 +98,9 @@ class Clickhouse extends BaseOutput {
   }
 
   override def prepare(spark: SparkSession): Unit = {
-    if(config.hasPath("port")) {
-      this.jdbcPort = config.getString("port")
-    }
+    this.jdbcLink = String.format("jdbc:clickhouse://%s/%s", config.getString("host"), config.getString("database"))
 
-    val jdbcURL = getJDBCUrl(config.getString("host"), this.jdbcPort, config.getString("database"))
-    val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcURL, properties)
+    val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(this.jdbcLink, properties)
     val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
 
     this.table = config.getString("table")
@@ -152,20 +150,24 @@ class Clickhouse extends BaseOutput {
     logInfo(this.initSQL)
 
     df.foreachPartition { iter =>
-      var jdbcURL = getJDBCUrl(config.getString("host"), this.jdbcPort, config.getString("database"))
-      if(this.clusterInfo.size > 0){
+      var jdbcUrl = this.jdbcLink
+      if(this.clusterInfo != null && this.clusterInfo.size > 0){
         //using random policy to select shard when insert data
-        val randomShard =  (Math.random() * this.clusterInfo.size).asInstanceOf[Int];
+        val randomShard = (Math.random() * this.clusterInfo.size).asInstanceOf[Int];
         val shardInfo = this.clusterInfo.get(randomShard)
 
-        jdbcURL = getJDBCUrl(shardInfo._4, this.jdbcPort, config.getString("database"))
-        logInfo(s"cluster mode, select shard index [$randomShard] to insert data, the jdbc url is [$jdbcURL].")
+        val host = shardInfo._4
+        val port = getJDBCPort(this.jdbcLink)
+        val database = config.getString("database")
+
+        jdbcUrl = s"jdbc:clickhouse://$host:$port/$database"
+        logInfo(s"cluster mode, select shard index [$randomShard] to insert data, the jdbc url is [$jdbcUrl].")
       }
       else{
-        logInfo(s"single mode, the jdbc url is [$jdbcURL].")
+        logInfo(s"single mode, the jdbc url is [$jdbcUrl].")
       }
 
-      val executorBalanced = new BalancedClickhouseDataSource(jdbcURL, this.properties)
+      val executorBalanced = new BalancedClickhouseDataSource(jdbcUrl, this.properties)
       val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
       val statement = executorConn.createClickHousePreparedStatement(this.initSQL, ResultSet.TYPE_FORWARD_ONLY)
       var length = 0
@@ -186,14 +188,9 @@ class Clickhouse extends BaseOutput {
     }
   }
 
-  private def getJDBCUrl(host: String, port: String, database: String): String = {
-    var jdbcURL: String = s"jdbc:clickhouse://$host:$port/$database"
-
-    //compatible with old configration, provided both host and port
-    if(host.contains(":")){
-      jdbcURL = s"jdbc:clickhouse://$host/$database"
-    }
-    jdbcURL
+  private def getJDBCPort(jdbcUrl: String): Int = {
+    val clickHouseProperties: ClickHouseProperties = ClickhouseJdbcUrlParser.parse(jdbcUrl, properties)
+    clickHouseProperties.getPort
   }
 
   private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
@@ -244,13 +241,13 @@ class Clickhouse extends BaseOutput {
     val clusterInfo = ArrayBuffer[(String, Int, Int, String)]()
     while (resultSet.next()) {
       val shardWeight = resultSet.getInt("shard_weight")
-      for(i <- 1 to shardWeight){
+      for(_ <- 1 to shardWeight){
 
         val custerName = resultSet.getString("cluster")
         val shardNum = resultSet.getInt("shard_num")
         val hostAddress = resultSet.getString("host_address")
 
-        val shardInfo = new Tuple4(custerName, shardNum, shardWeight, hostAddress)
+        val shardInfo = Tuple4(custerName, shardNum, shardWeight, hostAddress)
         clusterInfo += shardInfo
       }
     }
