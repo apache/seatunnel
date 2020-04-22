@@ -335,9 +335,9 @@ class Clickhouse extends BaseOutput {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
-      case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" | "UInt32" =>
+      case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
         statement.setInt(index + 1, item.getAs[Int](fieldIndex))
-      case "UInt64" | "Int64" =>
+      case "UInt32" | "UInt64" | "Int64" =>
         statement.setLong(index + 1, item.getAs[Long](fieldIndex))
       case "Float32" => statement.setFloat(index + 1, item.getAs[Float](fieldIndex))
       case "Float64" => statement.setDouble(index + 1, item.getAs[Double](fieldIndex))
