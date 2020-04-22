@@ -21,3 +21,5 @@ jobs:
       run: sbt scalastyle
     - name: Run tests
       run: sbt test
+    - name: Waterdrop package
+      run: sbt "-DprovidedDeps=true" universal:packageBin
