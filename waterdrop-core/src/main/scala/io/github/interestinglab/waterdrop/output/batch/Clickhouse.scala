@@ -8,6 +8,7 @@ import java.sql.ResultSet
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
+import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
@@ -108,7 +109,10 @@ class Clickhouse extends BaseOutput {
 
     if (this.config.hasPath("fields")) {
       this.fields = config.getStringList("fields")
-      acceptedClickHouseSchema()
+      val (flag, msg) = acceptedClickHouseSchema()
+      if (!flag) {
+        throw new ConfigRuntimeException(msg)
+      }
     }
 
     val defaultConfig = ConfigFactory.parseMap(
@@ -266,6 +270,7 @@ class Clickhouse extends BaseOutput {
   }
 
   private def acceptedClickHouseSchema(): (Boolean, String) = {
+
     val nonExistsFields = fields
       .map(field => (field, tableSchema.contains(field)))
       .filter { case (_, exist) => !exist }
