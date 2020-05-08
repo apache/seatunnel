@@ -263,7 +263,7 @@ class Clickhouse extends BaseOutput {
     val sql = String.format(
       "insert into %s (%s) values (%s)",
       this.table,
-      this.fields.map(a => a).mkString(","),
+      this.fields.map(a => s"`$a`").mkString(","),
       prepare.mkString(","))
 
     sql
