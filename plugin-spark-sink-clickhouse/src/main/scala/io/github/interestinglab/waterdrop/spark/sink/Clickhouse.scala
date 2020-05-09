@@ -6,7 +6,7 @@ import java.util.Properties
 import java.math.BigDecimal
 import java.sql.PreparedStatement
 
-import com.typesafe.config.waterdrop.ConfigFactory
+import io.github.interestinglab.waterdrop.config.ConfigFactory
 import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink

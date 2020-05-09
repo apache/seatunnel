@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.common.config;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 
 /**
  * @author mr_xiong
