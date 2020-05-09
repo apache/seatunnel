@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.spark.transform
 
-import com.typesafe.config.waterdrop.ConfigFactory
+import io.github.interestinglab.waterdrop.config.ConfigFactory
 import io.github.interestinglab.waterdrop.common.RowConstant
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.{BaseSparkTransform, SparkEnvironment}

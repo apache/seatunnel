@@ -18,10 +18,10 @@
     </repositories>
     <dependencies>
         <dependency>
-            <groupId>com.typesafe.config.waterdrop</groupId>
-            <artifactId>wd-config</artifactId>
-            <version>1.3.3</version>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>waterdrop-config</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>

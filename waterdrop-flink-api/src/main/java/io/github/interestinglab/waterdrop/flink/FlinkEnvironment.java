@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
 import io.github.interestinglab.waterdrop.flink.util.ConfigKeyName;
 import io.github.interestinglab.waterdrop.flink.util.EnvironmentUtil;

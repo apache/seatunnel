@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.transform;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;

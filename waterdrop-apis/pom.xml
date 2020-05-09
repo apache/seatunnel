@@ -16,5 +16,10 @@
             <artifactId>common</artifactId>
             <version>2.0.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.github.interestinglab</groupId>
+            <artifactId>waterdrop-config</artifactId>
+        </dependency>
     </dependencies>
 </project>

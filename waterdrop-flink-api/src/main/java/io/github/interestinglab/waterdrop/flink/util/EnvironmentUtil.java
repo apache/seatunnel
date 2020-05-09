@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.util;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;

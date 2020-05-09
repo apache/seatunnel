@@ -1,9 +1,5 @@
 package io.github.interestinglab.waterdrop.config;
 
-import com.typesafe.config.waterdrop.Config;
-import com.typesafe.config.waterdrop.ConfigFactory;
-import com.typesafe.config.waterdrop.ConfigRenderOptions;
-import com.typesafe.config.waterdrop.ConfigResolveOptions;
 import io.github.interestinglab.waterdrop.apis.BaseSink;
 import io.github.interestinglab.waterdrop.apis.BaseSource;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
