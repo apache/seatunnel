@@ -93,6 +93,7 @@
         <mysql.version>5.1.46</mysql.version>
         <waterdrop.version>2.0.0</waterdrop.version>
         <skip.pmd.check>false</skip.pmd.check>
+        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
 
@@ -277,6 +278,9 @@
             <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <version>2.8.2</version>
+                <configuration>
+                    <skip>${maven.deploy.skip}</skip>
+                </configuration>
                 <executions>
                     <execution>
                         <id>default-deploy</id>
