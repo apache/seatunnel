@@ -2,11 +2,6 @@ package io.github.interestinglab.waterdrop.common.config;
 
 import io.github.interestinglab.waterdrop.config.Config;
 
-/**
- * @author mr_xiong
- * @date 2019-09-25 16:00
- * @description
- */
 public class CheckConfigUtil {
 
     public static CheckResult check(Config config, String... params) {

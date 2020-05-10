@@ -12,9 +12,9 @@ public class TypesafeConfigUtils {
     /**
      * Extract sub config with fixed prefix
      *
-     * @param source
-     * @param prefix
-     * @param keepPrefix
+     * @param source config source
+     * @param prefix config prefix
+     * @param keepPrefix true if keep prefix
      */
     public static Config extractSubConfig(Config source, String prefix, boolean keepPrefix) {
 
@@ -40,6 +40,9 @@ public class TypesafeConfigUtils {
 
     /**
      * Check if config with specific prefix exists
+     * @param source config source
+     * @param prefix config prefix
+     * @return true if it has sub config
      */
     public static boolean hasSubConfig(Config source, String prefix) {
 
