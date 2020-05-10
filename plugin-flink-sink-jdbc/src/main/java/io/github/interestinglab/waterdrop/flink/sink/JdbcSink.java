@@ -19,11 +19,6 @@ import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.types.Row;
 
 
-/**
- * @author mr_xiong
- * @date 2019-08-31 16:40
- * @description
- */
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private Config config;

@@ -22,11 +22,6 @@ import org.apache.flink.types.Row;
 
 import java.util.Properties;
 
-/**
- * @author mr_xiong
- * @date 2019-07-22 18:39
- * @description
- */
 public class KafkaTable implements FlinkStreamSink<Row, Row> {
 
     private Config config;

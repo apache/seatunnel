@@ -11,11 +11,6 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 
-/**
- * @author mr_xiong
- * @date 2019-09-07 16:38
- * @description
- */
 public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
 
     public static final String DEFAULT_LINE_DELIMITER = CsvInputFormat.DEFAULT_LINE_DELIMITER;

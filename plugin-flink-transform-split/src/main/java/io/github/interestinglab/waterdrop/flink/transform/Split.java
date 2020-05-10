@@ -16,11 +16,6 @@ import org.apache.flink.types.Row;
 import java.util.List;
 
 
-/**
- * @author mr_xiong
- * @date 2020-01-14 16:37
- * @description
- */
 public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
     private Config config;
