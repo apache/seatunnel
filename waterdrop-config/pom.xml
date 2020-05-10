@@ -20,6 +20,7 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <skip.pmd.check>true</skip.pmd.check>
+        <maven.deploy.skip>false</maven.deploy.skip>
     </properties>
 
     <dependencies>

@@ -12,6 +12,10 @@
     <artifactId>waterdrop-spark-api</artifactId>
 
 
+    <properties>
+        <maven.deploy.skip>false</maven.deploy.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab</groupId>
