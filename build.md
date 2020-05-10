@@ -14,3 +14,12 @@ Command:
 ```
 mvn clean deploy
 ```
+
+Note: If you encounter such error:
+
+please execute deploy command as follows:
+
+```
+export GPG_TTY=$(tty); mvn clean deploy
+```
+

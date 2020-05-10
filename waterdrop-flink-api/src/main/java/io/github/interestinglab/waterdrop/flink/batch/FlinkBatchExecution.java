@@ -6,7 +6,6 @@ import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
@@ -15,11 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * @author mr_xiong
- * @date 2019-08-24 16:26
- * @description
- */
 public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink> {
 
     private Config config;

@@ -21,6 +21,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <skip.pmd.check>true</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
     </properties>
 
     <dependencies>
