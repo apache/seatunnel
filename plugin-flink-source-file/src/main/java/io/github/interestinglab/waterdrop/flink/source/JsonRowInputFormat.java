@@ -13,11 +13,6 @@ import org.apache.flink.types.Row;
 
 import java.io.IOException;
 
-/**
- * @author mr_xiong
- * @date 2019-09-06 17:52
- * @description
- */
 public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements  ResultTypeQueryable<Row> {
 
 

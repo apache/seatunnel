@@ -23,11 +23,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
 
-/**
- * @author mr_xiong
- * @date 2019-09-07 13:57
- * @description
- */
 public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private static final Logger LOG = LoggerFactory.getLogger(FileSink.class);

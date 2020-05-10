@@ -15,11 +15,6 @@ import org.apache.flink.types.Row;
 
 import java.io.IOException;
 
-/**
- * @author mr_xiong
- * @date 2019-09-04 15:15
- * @description
- */
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink<Row, Row>, FlinkStreamSink<Row,Row> {
 
     private Config config;

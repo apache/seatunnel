@@ -12,11 +12,6 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.types.Row;
 
-/**
- * @author mr_xiong
- * @date 2020-01-14 15:24
- * @description
- */
 public class SocketStream implements FlinkStreamSource<Row> {
 
     private Config config;

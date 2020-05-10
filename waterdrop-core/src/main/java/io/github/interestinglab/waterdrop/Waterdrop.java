@@ -23,11 +23,6 @@ import scopt.OptionParser;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * @author mr_xiong
- * @date 2019-12-29 17:20
- * @description
- */
 public class Waterdrop {
 
     private static final String SPARK = "spark";

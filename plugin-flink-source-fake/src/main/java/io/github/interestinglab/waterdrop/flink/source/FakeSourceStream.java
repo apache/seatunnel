@@ -12,11 +12,6 @@ import org.apache.flink.types.Row;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
 
-/**
- * @author mr_xiong
- * @date 2019-09-05 15:22
- * @description
- */
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource<Row> {
 
     private volatile boolean running = true;
