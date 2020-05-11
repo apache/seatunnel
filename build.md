@@ -8,6 +8,7 @@ References:
 1. https://central.sonatype.org/pages/producers.html
 2. https://central.sonatype.org/pages/working-with-pgp-signatures.html
 3. http://tutorials.jenkov.com/maven/publish-to-central-maven-repository.html
+4. https://www.jannikarndt.de/blog/2017/09/releasing_a_scala_maven_project_to_maven_central/
 
 Command:
 
