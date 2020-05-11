@@ -207,6 +207,21 @@
                             <goal>testCompile</goal>
                         </goals>
                     </execution>
+
+                    <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>doc-jar</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                    </execution>
+
                 </executions>
             </plugin>
             <plugin>
