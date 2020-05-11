@@ -18,6 +18,10 @@ mvn clean deploy
 
 Note: If you encounter such error:
 
+```
+gpg: signing failed: Operation cancelled
+```
+
 please execute deploy command as follows:
 
 ```
