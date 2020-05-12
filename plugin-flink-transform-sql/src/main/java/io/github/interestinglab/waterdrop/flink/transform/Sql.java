@@ -14,11 +14,6 @@ import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-/**
- * @author mr_xiong
- * @date 2019-07-02 10:20
- * @description
- */
 public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
     private String sql;

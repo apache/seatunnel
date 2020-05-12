@@ -21,11 +21,6 @@ import org.apache.flink.types.Row;
 import java.util.HashMap;
 import java.util.Properties;
 
-/**
- * @author mr_xiong
- * @date 2019-07-03 11:46
- * @description
- */
 public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private Config config;

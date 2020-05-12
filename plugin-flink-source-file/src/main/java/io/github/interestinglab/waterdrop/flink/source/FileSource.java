@@ -27,11 +27,6 @@ import java.util.List;
 import java.util.Map;
 
 
-/**
- * @author mr_xiong
- * @date 2019-08-24 17:15
- * @description
- */
 public class FileSource implements FlinkBatchSource<Row> {
 
     private Config config;

@@ -11,11 +11,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-/**
- * @author mr_xiong
- * @date 2019-07-12 18:52
- * @description
- */
 public class DataSteamToTable implements FlinkStreamTransform<Row,Row>, FlinkBatchTransform<Row,Row> {
 
     private Config config;

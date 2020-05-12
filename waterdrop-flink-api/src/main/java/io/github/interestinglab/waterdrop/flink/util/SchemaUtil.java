@@ -20,11 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * @author mr_xiong
- * @date 2019-08-29 18:01
- * @description
- */
 public class SchemaUtil {
 
 
