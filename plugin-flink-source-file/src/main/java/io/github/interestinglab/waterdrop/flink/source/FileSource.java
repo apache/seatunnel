@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSource;
@@ -27,11 +27,6 @@ import java.util.List;
 import java.util.Map;
 
 
-/**
- * @author mr_xiong
- * @date 2019-08-24 17:15
- * @description
- */
 public class FileSource implements FlinkBatchSource<Row> {
 
     private Config config;

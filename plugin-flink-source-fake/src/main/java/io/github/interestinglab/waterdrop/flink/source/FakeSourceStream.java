@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
@@ -12,11 +12,6 @@ import org.apache.flink.types.Row;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
 
-/**
- * @author mr_xiong
- * @date 2019-09-05 15:22
- * @description
- */
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource<Row> {
 
     private volatile boolean running = true;

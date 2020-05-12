@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
-import com.typesafe.config.waterdrop.Config;
-import com.typesafe.config.waterdrop.ConfigFactory;
+import io.github.interestinglab.waterdrop.config.Config;
+import io.github.interestinglab.waterdrop.config.ConfigFactory;
 import io.github.interestinglab.waterdrop.common.utils.StringTemplate;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;

@@ -5,11 +5,6 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.table.functions.ScalarFunction;
 import org.apache.flink.types.Row;
 
-/**
- * @author mr_xiong
- * @date 2020-01-14 23:32
- * @description
- */
 public class ScalarSplit extends ScalarFunction {
 
     private RowTypeInfo rowTypeInfo;

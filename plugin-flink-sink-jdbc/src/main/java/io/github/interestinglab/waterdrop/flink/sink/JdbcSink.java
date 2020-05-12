@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
@@ -19,11 +19,6 @@ import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.types.Row;
 
 
-/**
- * @author mr_xiong
- * @date 2019-08-31 16:40
- * @description
- */
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private Config config;
