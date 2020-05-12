@@ -20,11 +20,6 @@ import java.util.regex.Pattern;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.*;
 import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
 
-/**
- * @author mr_xiong
- * @date 2019-09-07 17:19
- * @description
- */
 public class JdbcSource implements FlinkBatchSource<Row> {
 
     private Config config;

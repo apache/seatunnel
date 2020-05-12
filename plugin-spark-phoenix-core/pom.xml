@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>waterdop</artifactId>
-        <groupId>io.github.interestinglab</groupId>
+        <groupId>io.github.interestinglab.waterdrop</groupId>
         <version>2.0.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -13,7 +13,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.github.interestinglab</groupId>
+            <groupId>io.github.interestinglab.waterdrop</groupId>
             <artifactId>waterdrop-spark-api</artifactId>
             <version>2.0.0</version>
         </dependency>

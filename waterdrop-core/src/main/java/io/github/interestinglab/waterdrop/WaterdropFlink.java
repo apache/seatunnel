@@ -5,11 +5,6 @@ import io.github.interestinglab.waterdrop.config.CommandLineUtils;
 import scopt.OptionParser;
 
 
-/**
- * @author mr_xiong
- * @date 2019-12-29 16:15
- * @description
- */
 public class WaterdropFlink {
     private static final String FLINK = "flink";
 

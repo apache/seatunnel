@@ -24,7 +24,7 @@ public final class ConfigParseOptions {
 
     /**
      * a.b.c
-     * a->b->c
+     * a-&gt;b-&gt;c
      * */
     public static final String pathTokenSeparator = "->";
 
