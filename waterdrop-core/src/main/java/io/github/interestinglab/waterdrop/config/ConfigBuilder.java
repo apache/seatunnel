@@ -1,9 +1,5 @@
 package io.github.interestinglab.waterdrop.config;
 
-import com.typesafe.config.waterdrop.Config;
-import com.typesafe.config.waterdrop.ConfigFactory;
-import com.typesafe.config.waterdrop.ConfigRenderOptions;
-import com.typesafe.config.waterdrop.ConfigResolveOptions;
 import io.github.interestinglab.waterdrop.apis.BaseSink;
 import io.github.interestinglab.waterdrop.apis.BaseSource;
 import io.github.interestinglab.waterdrop.apis.BaseTransform;
@@ -23,11 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
 
-/**
- * @author mr_xiong
- * @date 2019-12-29 14:56
- * @description
- */
 public class ConfigBuilder {
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";

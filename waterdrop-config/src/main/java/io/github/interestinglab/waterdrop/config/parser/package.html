@@ -1,0 +1,33 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<!--
+ Copyright (C) 2015 Typesafe Inc. <http://typesafe.com>
+-->
+
+</head>
+<body bgcolor="white">
+
+<p>
+This package supplies a raw parser and syntax tree for individual HOCON and JSON
+files. You do not want this package for everyday config in your app: see
+the <code>com.typesafe.config</code> package instead. You would use the raw
+parser if you're doing something like reading, modifying, and re-saving a config
+file. For info on the main config API this parser is a part of,
+see <a href="https://github.com/lightbend/config/">the project site</a>.
+</p>
+
+<p>
+    For working with the raw syntax tree, some important classes are:
+    <ul>
+        <li>{@link com.typesafe.config.parser.ConfigDocument} - a loaded HOCON
+            or JSON document</li>
+        <li>{@link com.typesafe.config.parser.ConfigDocumentFactory} -
+            static methods to instantiate a document</li>
+        <li>{@link com.typesafe.config.parser.ConfigNode} - syntax node
+            in a document</li>
+    </ul>
+</p>
+
+</body>
+</html>

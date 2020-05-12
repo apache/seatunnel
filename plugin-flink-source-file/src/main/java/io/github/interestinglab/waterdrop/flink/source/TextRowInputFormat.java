@@ -13,11 +13,6 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
-/**
- * @author mr_xiong
- * @date 2019-09-07 13:02
- * @description
- */
 public class TextRowInputFormat extends DelimitedInputFormat<Row> implements ResultTypeQueryable<Row> {
 
     private static final byte CARRIAGE_RETURN = (byte) '\r';
