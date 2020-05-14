@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.common.utils;
 
-import org.apache.commons.lang.text.StrSubstitutor;
+import org.apache.commons.lang3.text.StrSubstitutor;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
