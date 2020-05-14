@@ -100,12 +100,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.github.interestinglab.waterdrop</groupId>
-                <artifactId>waterdrop-config</artifactId>
-                <version>${waterdrop.version}</version>
-            </dependency>
-
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>

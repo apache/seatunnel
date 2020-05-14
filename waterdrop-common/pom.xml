@@ -10,16 +10,11 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>waterdrop-common</artifactId>
 
-    <repositories>
-        <repository>
-            <id>local-repo</id>
-            <url>file://${basedir}/lib</url>
-        </repository>
-    </repositories>
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab.waterdrop</groupId>
             <artifactId>waterdrop-config</artifactId>
+            <version>2.0.2</version>
         </dependency>
 
         <dependency>
