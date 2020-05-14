@@ -29,6 +29,17 @@
             <artifactId>zkclient</artifactId>
             <version>0.3</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_2.11</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_2.11</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

@@ -18,49 +18,19 @@
             <version>2.0.2</version>
         </dependency>
 
-
-
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-kafka_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <artifactId>flink-java</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-json</artifactId>
-            <version>${flink.version}</version>
+            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-csv -->
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-csv</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-jdbc -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-jdbc_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
+            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-avro -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-avro</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-orc_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-parquet_${scala.binary.version}</artifactId>
-            <version>${flink.version}</version>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.flink/flink-statebackend-rocksdb -->
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -68,6 +38,32 @@
             <version>${flink.version}</version>
         </dependency>
 
+        <!-- 这是Flink最常用的几个依赖，先加在这里，后续如果需要再做合理安排 -->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-csv</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-orc_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-parquet_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-json</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-avro</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
 
     </dependencies>
 
