@@ -89,6 +89,10 @@
             <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.github.interestinglab.waterdrop</groupId>
             <artifactId>plugin-spark-sink-elasticsearch</artifactId>
             <version>2.0.2</version>
