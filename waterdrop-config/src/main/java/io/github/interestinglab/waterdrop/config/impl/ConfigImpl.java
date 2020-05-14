@@ -30,7 +30,7 @@ import java.util.concurrent.Callable;
 
 /**
  * Internal implementation detail, not ABI stable, do not touch.
- * For use only by the {@link com.typesafe.config} package.
+ * For use only by the {@link io.github.interestinglab.waterdrop.config} package.
  */
 public class ConfigImpl {
 
