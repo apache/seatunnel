@@ -6,7 +6,6 @@ import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
