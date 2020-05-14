@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * Internal implementation detail, not ABI stable, do not touch.
- * For use only by the {@link com.typesafe.config} package.
+ * For use only by the {@link io.github.interestinglab.waterdrop.config} package.
  */
 final public class ConfigImplUtil {
     static boolean equalsHandlingNull(Object a, Object b) {
