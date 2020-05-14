@@ -135,6 +135,12 @@
             <!--flink-->
             <dependency>
                 <groupId>org.apache.flink</groupId>
+                <artifactId>flink-core</artifactId>
+                <version>${flink.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
                 <artifactId>flink-java</artifactId>
                 <version>${flink.version}</version>
                 <scope>provided</scope>
