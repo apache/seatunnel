@@ -6,7 +6,7 @@ import java.util.ServiceLoader
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
 import io.github.interestinglab.waterdrop.apis._
 
 import scala.util.{Failure, Success, Try}

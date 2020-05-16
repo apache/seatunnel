@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.output.utils
 
 import com.mongodb.MongoClient
-import com.typesafe.config.Config
+import io.github.interestinglab.waterdrop.config.Config
 
 
 class MongoClientUtil(crateMongoClient: () => MongoClient) extends Serializable{

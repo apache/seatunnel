@@ -3,6 +3,7 @@ package io.github.interestinglab.waterdrop
 import java.io.File
 
 import io.github.interestinglab.waterdrop.apis._
+import io.github.interestinglab.waterdrop.config.Config
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils

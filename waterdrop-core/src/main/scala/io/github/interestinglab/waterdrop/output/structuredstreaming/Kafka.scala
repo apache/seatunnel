@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.output.structuredstreaming
 import java.util.Properties
 
 import com.alibaba.fastjson.JSONObject
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.UserRuntimeException
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils

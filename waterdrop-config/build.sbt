@@ -1,0 +1,11 @@
+name         := "Waterdrop-config"
+version      := "1.4.0"
+organization := "io.github.interestinglab.waterdrop"
+
+scalaVersion := "2.11.8"
+
+libraryDependencies ++= Seq(
+)
+
+// TODO: exclude spark, hadoop by for all dependencies
+

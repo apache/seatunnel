@@ -1,0 +1,15 @@
+{
+   "letters" : {
+       "numbers" : {
+         "2" : "abcd",
+         "1" : 1
+       },
+       "a" : "ok",
+       "b" : 507,
+       "c" : {
+           "fromConf" : 89,
+           "fromProp" : "true"
+       }
+   },
+   "root" : "this gets included at the root"
+}

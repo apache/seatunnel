@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.filter
 
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
 import org.apache.spark.sql.functions._

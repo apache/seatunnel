@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.input.batch
 
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
