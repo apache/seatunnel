@@ -220,6 +220,8 @@ object Waterdrop extends Logging {
         outputProcess(sparkSession, p, ds)
       })
 
+      sparkSession.stop()
+
     } else {
       throw new ConfigRuntimeException("Input must be configured at least once.")
     }
