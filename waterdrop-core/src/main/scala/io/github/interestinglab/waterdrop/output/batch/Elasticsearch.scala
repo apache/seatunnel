@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.output.batch
 
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.utils.StringTemplate
 import org.apache.spark.sql._

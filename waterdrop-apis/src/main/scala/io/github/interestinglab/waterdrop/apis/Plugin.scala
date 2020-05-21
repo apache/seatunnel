@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.apis
 
-import com.typesafe.config.Config
+import io.github.interestinglab.waterdrop.config.Config
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 

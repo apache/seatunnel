@@ -3,6 +3,7 @@ package io.github.interestinglab.waterdrop
 import java.io.File
 
 import io.github.interestinglab.waterdrop.apis._
+import io.github.interestinglab.waterdrop.config.Config
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
@@ -218,6 +219,8 @@ object Waterdrop extends Logging {
       outputs.foreach(p => {
         outputProcess(sparkSession, p, ds)
       })
+
+      sparkSession.stop()
 
     } else {
       throw new ConfigRuntimeException("Input must be configured at least once.")

@@ -6,7 +6,7 @@ import java.util.Properties
 import java.math.BigDecimal
 import java.sql.ResultSet
 
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils

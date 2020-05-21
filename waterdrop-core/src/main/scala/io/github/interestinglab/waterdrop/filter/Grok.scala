@@ -4,7 +4,7 @@ import java.io.File
 import java.nio.file.Paths
 import java.util
 
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.config.Common
 import io.github.interestinglab.waterdrop.core.RowConstant
