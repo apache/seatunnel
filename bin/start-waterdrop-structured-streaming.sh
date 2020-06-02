@@ -151,8 +151,6 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
 fi
 
 
-
-
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.WaterdropStructuredStreaming \
     --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
