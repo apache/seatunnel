@@ -195,13 +195,13 @@ object Waterdrop extends Logging {
     basePrepare(sparkSession, staticInputs, filters, outputs)
 
     // let static input register as table for later use if needed
-    registerInputTempView(staticInputs, sparkSession)
+    val headDs = registerInputTempViewWithHead(staticInputs, sparkSession)
 
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
     if (staticInputs.nonEmpty) {
-      var ds = staticInputs.head.getDataset(sparkSession)
+      var ds = headDs
 
       for (f <- filters) {
         // WARN: we do not check whether dataset is empty or not
@@ -296,6 +296,31 @@ object Waterdrop extends Logging {
 
       val ds = input.getDataset(sparkSession)
       registerInputTempView(input, ds)
+    }
+  }
+
+  /**
+   * Return Head Static Input DataSet
+   */
+  private[waterdrop] def registerInputTempViewWithHead(
+    staticInputs: List[BaseStaticInput],
+    sparkSession: SparkSession): Dataset[Row] = {
+
+    if (staticInputs.nonEmpty) {
+      val headInput = staticInputs.head
+      val ds = headInput.getDataset(sparkSession)
+      registerInputTempView(headInput, ds)
+
+      for (input <- staticInputs.slice(1, staticInputs.length)) {
+
+        val ds = input.getDataset(sparkSession)
+        registerInputTempView(input, ds)
+      }
+
+      ds
+
+    } else {
+      throw new ConfigRuntimeException("You must set static input plugin at least once.")
     }
   }
 

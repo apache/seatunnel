@@ -28,6 +28,11 @@ while (( "$#" )); do
       shift 2
       ;;
 
+    -q|--queue)
+      QUEUE=$2
+      shift 2
+      ;;
+
     --) # end argument parsing
       shift
       break
@@ -144,6 +149,8 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
     cd ${cur_dir}
   fi
 fi
+
+
 
 
 exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.WaterdropStructuredStreaming \
