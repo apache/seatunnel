@@ -26,12 +26,5 @@ public class ExposeSparkDriverConf {
 
             System.out.println(stringBuilder.toString());
         }
-//        appConfig.getConfig("spark").entrySet()
-//        for (Map.Entry<String, ConfigValue> entry: appConfig.getConfig("spark").entrySet()) {
-//            String conf = String.format(" --conf \"%s=%s\" ", entry.getKey(), entry.getValue().unwrapped());
-//            stringBuilder.append(conf);
-//        }
-//
-//        System.out.print(stringBuilder.toString());
     }
 }
