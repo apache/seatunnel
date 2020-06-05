@@ -70,6 +70,9 @@ MASTER=${MASTER:-$DEFAULT_MASTER}
 DEFAULT_DEPLOY_MODE=client
 DEPLOY_MODE=${DEPLOY_MODE:-$DEFAULT_DEPLOY_MODE}
 
+DEFAULT_QUEUE=default
+QUEUE=${QUEUE:-$DEFAULT_QUEUE}
+
 # scan jar dependencies for all plugins
 source ${UTILS_DIR}/file.sh
 source ${UTILS_DIR}/app.sh
@@ -155,6 +158,7 @@ exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.W
     --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
+    --queue "${QUEUE}" \
     --driver-java-options "${clientModeDriverJavaOpts}" \
     --conf spark.executor.extraJavaOptions="${executorJavaOpts}" \
     --conf spark.driver.extraJavaOptions="${driverJavaOpts}" \
