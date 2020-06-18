@@ -623,7 +623,8 @@ object JdbcUtils extends Logging {
                      batchSize: Int,
                      dialect: JdbcDialect,
                      isolationLevel: Int,
-                     mode: JDBCSaveMode): Iterator[Byte] = {
+                     mode: JDBCSaveMode,
+                     customUpdateStmt: Boolean): Iterator[Byte] = {
     val conn = getConnection()
     var committed = false
 
@@ -662,7 +663,7 @@ object JdbcUtils extends Logging {
       val setters: Array[JDBCValueSetter] = getSetter(rddSchema.fields, conn, dialect, isUpdateMode)
       val nullTypes = rddSchema.fields.map(f => getJdbcType(f.dataType, dialect).jdbcNullType)
       val length = rddSchema.fields.length
-      val numFields = if (isUpdateMode) length * 2 else length
+      val numFields = if (isUpdateMode && !customUpdateStmt) length * 2 else length
       val midField = numFields / 2
       try {
         var rowCount = 0
@@ -670,7 +671,7 @@ object JdbcUtils extends Logging {
           val row = iterator.next()
           var i = 0
           while (i < numFields) {
-            if (isUpdateMode) {
+            if (isUpdateMode && !customUpdateStmt) {
               i < midField match {
                 case true ⇒
                   if (row.isNullAt(i)) {
@@ -856,8 +857,11 @@ object JdbcUtils extends Logging {
     val getConnection: () => Connection = createConnectionFactory(options)
     val batchSize = options.batchSize
     val isolationLevel = options.isolationLevel
-
-    val insertStmt = getInsertStatement(table, rddSchema, tableSchema, isCaseSensitive, dialect, mode, options)
+    val customUpdateStmt = options.customUpdateStmt
+    val (insertStmt, hasCustomUpdateStmt) = customUpdateStmt match {
+      case Some(customStmt) if StringUtils.isNotBlank(customStmt) => (customStmt, true)
+      case _ => (getInsertStatement(table, rddSchema, tableSchema, isCaseSensitive, dialect, mode, options), false)
+    }
     val repartitionedDF = options.numPartitions match {
       case Some(n) if n <= 0 => throw new IllegalArgumentException(
         s"Invalid value `$n` for parameter `${JDBCOptions.JDBC_NUM_PARTITIONS}` in table writing " +
@@ -866,7 +870,7 @@ object JdbcUtils extends Logging {
       case _ => df
     }
     repartitionedDF.rdd.foreachPartition(iterator => savePartition(
-      getConnection, table, iterator, rddSchema, insertStmt, batchSize, dialect, isolationLevel, mode)
+      getConnection, table, iterator, rddSchema, insertStmt, batchSize, dialect, isolationLevel, mode, hasCustomUpdateStmt)
     )
   }
 

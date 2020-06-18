@@ -122,6 +122,9 @@ class JDBCOptions(
     }
   // An option to execute custom SQL before fetching data from the remote DB
   val sessionInitStatement = parameters.get(JDBC_SESSION_INIT_STATEMENT)
+
+  // Custom mysql duplicate key update statement when saveMode is update
+  val customUpdateStmt = parameters.get(JDBC_CUSTOME_UPDATE_STMT)
 }
 
 object JDBCOptions {
@@ -148,4 +151,5 @@ object JDBCOptions {
   val JDBC_TXN_ISOLATION_LEVEL = newOption("isolationLevel")
   val JDBC_SESSION_INIT_STATEMENT = newOption("sessionInitStatement")
   val JDBC_DUPLICATE_INCS = newOption("duplicateIncs")
+  val JDBC_CUSTOME_UPDATE_STMT = newOption("customUpdateStmt")
 }
