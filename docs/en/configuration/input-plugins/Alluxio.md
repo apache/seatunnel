@@ -18,6 +18,15 @@ Read raw data from Alluxio.
 
 File path on Alluxio cluster.
 
+### Note 
+if use alluxio with zookeeper, please add below in start-waterdrop.sh
+
+```
+driverJavaOpts="-Dalluxio.user.file.writetype.default=CACHE_THROUGH -Dalluxio.zookeeper.address=your.zookeeper.address:zookeeper.port -Dalluxio.zookeeper.enabled=true"
+executorJavaOpts="-Dalluxio.user.file.writetype.default=CACHE_THROUGH -Dalluxio.zookeeper.address=your.zookeeper.address:zookeeper.port -Dalluxio.zookeeper.enabled=true"
+```
+
+
 ### Example
 
 ```
