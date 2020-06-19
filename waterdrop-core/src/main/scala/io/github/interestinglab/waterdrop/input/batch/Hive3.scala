@@ -26,6 +26,8 @@ class Hive3 extends BaseStaticInput {
   override def getDataset(spark: SparkSession): Dataset[Row] = {
     val sql = config.getString("sql")
     val hive = HiveWarehouseSession.session(spark).build()
-    hive.sql(sql)
+    val df=hive.sql(sql)
+    hive.close()
+    df
   }
 }
