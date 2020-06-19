@@ -8,3 +8,4 @@ io.github.interestinglab.waterdrop.input.batch.Kudu
 io.github.interestinglab.waterdrop.input.batch.MongoDB
 io.github.interestinglab.waterdrop.input.batch.Mysql
 io.github.interestinglab.waterdrop.input.batch.Tidb
+io.github.interestinglab.waterdrop.input.batch.Alluxio
