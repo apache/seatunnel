@@ -10,3 +10,4 @@ io.github.interestinglab.waterdrop.output.batch.Stdout
 io.github.interestinglab.waterdrop.output.batch.Tidb
 io.github.interestinglab.waterdrop.output.batch.MongoDB
 io.github.interestinglab.waterdrop.output.batch.Kudu
+io.github.interestinglab.waterdrop.output.batch.Hive3
