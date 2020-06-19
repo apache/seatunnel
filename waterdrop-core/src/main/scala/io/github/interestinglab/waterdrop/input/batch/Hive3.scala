@@ -5,8 +5,9 @@ import io.github.interestinglab.waterdrop.apis.BaseStaticInput
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
-class Hive3 extends BaseStaticInput{
+class Hive3 extends BaseStaticInput {
   var config: Config = ConfigFactory.empty()
+
   override def setConfig(config: Config): Unit = {
     this.config = config
   }
