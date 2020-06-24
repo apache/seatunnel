@@ -165,7 +165,7 @@ object Waterdrop extends Logging {
           }
         }
 
-        streamingInputs(0).beforeOutput
+        streamingInput.beforeOutput
 
         if (ds.take(1).length > 0) {
           outputs.foreach(p => {
@@ -173,7 +173,7 @@ object Waterdrop extends Logging {
           })
         }
 
-        streamingInputs(0).afterOutput
+        streamingInput.afterOutput(ds.rdd)
 
       }
     )

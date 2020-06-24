@@ -18,7 +18,7 @@ abstract class BaseStreamingInput[T] extends Plugin {
   /**
    * Things to do after output, such as update offset
    * */
-  def afterOutput: Unit = {}
+  def afterOutput(rdd: RDD[Row]): Unit = {}
 
   /**
    * This must be implemented to convert RDD[T] to Dataset[Row] for later processing
