@@ -173,7 +173,7 @@ object Waterdrop extends Logging {
           })
         }
 
-        streamingInput.afterOutput(ds.rdd)
+        streamingInput.afterOutput
 
       }
     )

@@ -11,6 +11,11 @@ import org.apache.spark.streaming.dstream.DStream
 abstract class BaseStreamingInput[T] extends Plugin {
 
   /**
+    * Things to do after input and before filter
+    * */
+  def afterInput(rdd: RDD[T]): Unit = {}
+
+  /**
    * Things to do after filter and before output
    * */
   def beforeOutput: Unit = {}
@@ -18,7 +23,7 @@ abstract class BaseStreamingInput[T] extends Plugin {
   /**
    * Things to do after output, such as update offset
    * */
-  def afterOutput(rdd: RDD[Row]): Unit = {}
+  def afterOutput: Unit = {}
 
   /**
    * This must be implemented to convert RDD[T] to Dataset[Row] for later processing
@@ -31,6 +36,7 @@ abstract class BaseStreamingInput[T] extends Plugin {
   def start(spark: SparkSession, ssc: StreamingContext, handler: Dataset[Row] => Unit): Unit = {
 
     getDStream(ssc).foreachRDD(rdd => {
+      afterInput(rdd)
       val dataset = rdd2dataset(spark, rdd)
       handler(dataset)
     })

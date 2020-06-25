@@ -30,6 +30,8 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
 
   var inputDStream: InputDStream[ConsumerRecord[String, String]] = _
 
+  var offsetRanges = Array[OffsetRange]()
+
   override def checkConfig(): (Boolean, String) = {
 
     config.hasPath("topics") match {
@@ -90,9 +92,12 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
     }
   }
 
-  override def afterOutput(rdd: RDD[Row]) {
+  override def afterInput(rdd: RDD[(String, String)]): Unit = {
 
-    val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+    offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+  }
+
+  override def afterOutput() {
 
     // update offset after output
     inputDStream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
