@@ -11,8 +11,8 @@ import org.apache.spark.streaming.dstream.DStream
 abstract class BaseStreamingInput[T] extends Plugin {
 
   /**
-    * Things to do after input and before filter
-    * */
+   * Things to do after input and before filter
+   * */
   def afterInput(rdd: RDD[T]): Unit = {}
 
   /**
