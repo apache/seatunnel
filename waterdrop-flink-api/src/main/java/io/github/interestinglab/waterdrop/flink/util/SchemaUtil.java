@@ -100,6 +100,13 @@ public class SchemaUtil {
                 schema.field(key, Types.JAVA_BIG_DEC());
             } else if (value instanceof JSONObject) {
                 schema.field(key, getTypeInformation((JSONObject) value));
+            } else if (value instanceof JSONArray) {
+                Object obj = ((JSONArray) value).get(0);
+                if (obj instanceof JSONObject) {
+                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class,getTypeInformation((JSONObject) obj)));
+                }else {
+                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Object[].class,TypeInformation.of(Object.class)));
+                }
             }
         }
     }
