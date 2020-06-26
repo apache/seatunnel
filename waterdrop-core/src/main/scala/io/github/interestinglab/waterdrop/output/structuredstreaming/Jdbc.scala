@@ -22,6 +22,8 @@ class Jdbc extends BaseStructuredStreamingOutput{
 
   var tableName: String = _
 
+  var sql: String = _
+
   var connection: Connection = _
 
   var jdbcConnProps: Properties = new Properties()
@@ -35,9 +37,9 @@ class Jdbc extends BaseStructuredStreamingOutput{
   override def checkConfig(): (Boolean, String) = {
 
     config.hasPath("url") && config.hasPath("user") && config.hasPath("table")
-    config.hasPath("password") && config.hasPath("driver") match {
+    config.hasPath("password") && config.hasPath("driver") && config.hasPath("output_sql") match {
       case true => (true,"")
-      case false => (false,"please specify [url] and [user] and [table] and [password] and [driver]")
+      case false => (false,"please specify [url] and [user] and [table] and [password] and [driver] and [output_sql]")
     }
 
   }
@@ -80,6 +82,7 @@ class Jdbc extends BaseStructuredStreamingOutput{
     }
 
     tableName = config.getString("jdbc.table")
+    sql = config.getString("output_sql")
   }
 
   override def open(partitionId: Long, epochId: Long): Boolean = {
@@ -89,19 +92,10 @@ class Jdbc extends BaseStructuredStreamingOutput{
 
 
   override def process(row: Row): Unit = {
-    val fields = row.schema.fieldNames
-    val values = ArrayBuffer[String]()
-    fields.foreach(_ => values += "?")
-    val fieldStr = fields.mkString("(",",",")")
-    val valueStr = values.mkString("(",",",")")
-    val sql = config.getString("jdbc_output_mode") match {
-      case "replace" => s"REPLACE INTO $tableName$fieldStr VALUES$valueStr"
-      case "insert ignore" => s"INSERT IGNORE INTO $tableName$fieldStr VALUES$valueStr"
-      case _ => throw new RuntimeException("unknown output_mode,only support [replace] and [insert ignore]")
-    }
     val ps = connection.prepareStatement(sql)
     setPrepareStatement(row,ps)
     ps.execute()
+    ps.close()
   }
 
   private def setPrepareStatement(row: Row,ps: PreparedStatement): Unit = {
