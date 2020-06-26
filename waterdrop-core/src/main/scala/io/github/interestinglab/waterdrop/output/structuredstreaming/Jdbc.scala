@@ -10,7 +10,7 @@ import io.github.interestinglab.waterdrop.output.utils.StructuredUtils
 import io.github.interestinglab.waterdrop.utils.JdbcConnectionPoll
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-
+import scala.collection.JavaConversions._
 
 class Jdbc extends BaseStructuredStreamingOutput{
 
