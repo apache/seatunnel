@@ -1,5 +1,5 @@
 name         := "Waterdrop-core"
-version      := "1.4.2"
+version      := "1.5.0"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
@@ -54,13 +54,13 @@ libraryDependencies ++= Seq(
   "commons-lang" % "commons-lang" % "2.6",
   "io.thekraken" % "grok" % "0.1.5",
   "mysql" % "mysql-connector-java" % "5.1.6",
-  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "6.6.1",
+  "org.elasticsearch" % "elasticsearch-spark-20_2.11" % "7.6.2",
   "com.github.scopt" %% "scopt" % "3.7.0",
   "org.apache.commons" % "commons-compress" % "1.15",
   "com.pingcap.tispark" % "tispark-core" % "1.1"
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.pingcap.tikv" % "tikv-client" % "1.1",
-  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.1.39"
+  "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.2.4"
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.databricks" %% "spark-xml" % "0.5.0",
   "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3"
@@ -85,13 +85,6 @@ lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
-
-// antlr4 source code generatioin is invoked in command: sbt compile
-antlr4Settings
-antlr4Version in Antlr4 := "4.5.3"
-antlr4PackageName in Antlr4 := Some("io.github.interestinglab.waterdrop.configparser")
-antlr4GenListener in Antlr4 := false
-antlr4GenVisitor in Antlr4 := true
 
 publishTo := Some(
   if (isSnapshot.value)

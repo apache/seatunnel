@@ -3,7 +3,7 @@ package io.github.interestinglab.waterdrop.output.structuredstreaming
 import java.sql.{Connection, PreparedStatement, Timestamp}
 import java.util.Properties
 
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStructuredStreamingOutput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.StructuredUtils
@@ -11,8 +11,6 @@ import io.github.interestinglab.waterdrop.utils.JdbcConnectionPoll
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
-import scala.collection.JavaConversions._
-import scala.collection.mutable.ArrayBuffer
 
 class Jdbc extends BaseStructuredStreamingOutput{
 

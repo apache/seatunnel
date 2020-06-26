@@ -1,5 +1,5 @@
 name         := "Waterdrop-apis"
-version      := "1.4.0"
+version      := "1.5.0"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
@@ -32,7 +32,6 @@ providedDeps match {
 
 // We forked and modified code of Typesafe config, the jar in unmanagedJars is packaged by InterestingLab
 // Project: https://github.com/InterestingLab/config
-unmanagedJars in Compile += file("lib/config-1.3.3-SNAPSHOT.jar")
 
 libraryDependencies ++= Seq(
 )

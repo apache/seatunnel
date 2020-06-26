@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.input.batch
 
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
@@ -24,10 +24,7 @@ class Hive extends BaseStaticInput {
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
-    val regTable = config.getString("table_name")
-    val ds = spark.sql(config.getString("pre_sql"))
-    ds.createOrReplaceTempView(s"$regTable")
-    ds
+    spark.sql(config.getString("pre_sql"))
   }
 
 }

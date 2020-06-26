@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.serializer
 
-import com.typesafe.config.Config
+import io.github.interestinglab.waterdrop.config.Config
 
 
 // TODO : 是否需要checkConfig, prepare, 何时调用serializer的serialize, deserialize

@@ -3,6 +3,7 @@ package io.github.interestinglab.waterdrop
 import java.io.File
 
 import io.github.interestinglab.waterdrop.apis._
+import io.github.interestinglab.waterdrop.config.Config
 import io.github.interestinglab.waterdrop.config._
 import io.github.interestinglab.waterdrop.filter.UdfRegister
 import io.github.interestinglab.waterdrop.utils.CompressionUtils
@@ -194,13 +195,13 @@ object Waterdrop extends Logging {
     basePrepare(sparkSession, staticInputs, filters, outputs)
 
     // let static input register as table for later use if needed
-    registerInputTempView(staticInputs, sparkSession)
+    val headDs = registerInputTempViewWithHead(staticInputs, sparkSession)
 
     // when you see this ASCII logo, waterdrop is really started.
     showWaterdropAsciiLogo()
 
     if (staticInputs.nonEmpty) {
-      var ds = staticInputs.head.getDataset(sparkSession)
+      var ds = headDs
 
       for (f <- filters) {
         // WARN: we do not check whether dataset is empty or not
@@ -218,6 +219,8 @@ object Waterdrop extends Logging {
       outputs.foreach(p => {
         outputProcess(sparkSession, p, ds)
       })
+
+      sparkSession.stop()
 
     } else {
       throw new ConfigRuntimeException("Input must be configured at least once.")
@@ -293,6 +296,31 @@ object Waterdrop extends Logging {
 
       val ds = input.getDataset(sparkSession)
       registerInputTempView(input, ds)
+    }
+  }
+
+  /**
+   * Return Head Static Input DataSet
+   */
+  private[waterdrop] def registerInputTempViewWithHead(
+    staticInputs: List[BaseStaticInput],
+    sparkSession: SparkSession): Dataset[Row] = {
+
+    if (staticInputs.nonEmpty) {
+      val headInput = staticInputs.head
+      val ds = headInput.getDataset(sparkSession)
+      registerInputTempView(headInput, ds)
+
+      for (input <- staticInputs.slice(1, staticInputs.length)) {
+
+        val ds = input.getDataset(sparkSession)
+        registerInputTempView(input, ds)
+      }
+
+      ds
+
+    } else {
+      throw new ConfigRuntimeException("You must set static input plugin at least once.")
     }
   }
 

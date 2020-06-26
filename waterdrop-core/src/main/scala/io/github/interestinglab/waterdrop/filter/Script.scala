@@ -7,7 +7,7 @@ import java.util
 import com.alibaba.fastjson.JSON
 import com.alibaba.fastjson.serializer.SerializerFeature
 import com.ql.util.express.{DefaultContext, ExpressRunner}
-import com.typesafe.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.config.Common
 import org.apache.spark.sql.{DataFrame, SparkSession}

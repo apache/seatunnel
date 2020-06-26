@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.output.utils
 
-import com.typesafe.config.Config
+import io.github.interestinglab.waterdrop.config.Config
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.{DataStreamWriter, Trigger}
 
