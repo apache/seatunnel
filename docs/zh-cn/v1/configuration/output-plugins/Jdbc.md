@@ -18,8 +18,8 @@
 | [table](#table-string) | string | yes | - |all streaming |
 | [url](#url-string) | string | yes | - |all streaming |
 | [user](#user-string) | string | yes | - |all streaming |
-| [jdbc.*](#jdbc.*-string) | string | no | - |all streaming |
-| [jdbc_output_mode](#jdbc_output_mode-string) | string | no | replace |all streaming |
+| [jdbc.*](#jdbc.*-string) | string | no | - |structured streaming |
+| [output_sql](#output_sql-string) | string | yes | - |structured streaming |
 | [common-options](#common-options-string)| string | no | - | all streaming|
 
 
@@ -53,9 +53,9 @@ JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 阿里durid连接池配置，详见https://github.com/alibaba/druid/wiki/DruidDataSource%E9%85%8D%E7%BD%AE%E5%B1%9E%E6%80%A7%E5%88%97%E8%A1%A8
 在其列表属性之前添加jdbc.前缀，如配置initialSize(初始化连接池大小)，jdbc.initialSize="1"
 
-##### jdbc_output_mode [string]
+##### output_sql [string]
 
-输出到jdbc的模式，支持两种模式`replace|insert ignore`,`insert ignore`如果主键重复会丢弃新数据不会报错，`replace`新数据会替代旧数据
+输出到jdbc的sql，例如 `insert into test(age,name,city) values(?,?,?)`。注意的是，字段的顺序需要与`source_table_name(来自input或者filter)`的schema顺序一致
 
 用户名
 
@@ -84,7 +84,7 @@ jdbc {
     table = "access"
     user = "username"
     password = "password"
+    output_sql = "insert into test(age,name,city) values(?,?,?)"
 }
 ```
 
-> 将数据通过JDBC写入MySQL
