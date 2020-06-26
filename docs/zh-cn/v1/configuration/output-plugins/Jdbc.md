@@ -50,7 +50,7 @@ JDBC连接的URL。参考一个案例: `jdbc:postgresql://localhost/test`
 
 ##### jdbc.* [string]
 
-阿里durid连接池配置，详见https://github.com/alibaba/druid/wiki/DruidDataSource%E9%85%8D%E7%BD%AE%E5%B1%9E%E6%80%A7%E5%88%97%E8%A1%A8
+阿里druid连接池配置，详见https://github.com/alibaba/druid/wiki/DruidDataSource%E9%85%8D%E7%BD%AE%E5%B1%9E%E6%80%A7%E5%88%97%E8%A1%A8
 在其列表属性之前添加jdbc.前缀，如配置initialSize(初始化连接池大小)，jdbc.initialSize="1"
 
 ##### output_sql [string]
