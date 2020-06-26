@@ -11,16 +11,6 @@ import org.apache.spark.streaming.dstream.DStream
 abstract class BaseStreamingInput[T] extends Plugin {
 
   /**
-   * Things to do after filter and before output
-   * */
-  def beforeOutput: Unit = {}
-
-  /**
-   * Things to do after output, such as update offset
-   * */
-  def afterOutput: Unit = {}
-
-  /**
    * This must be implemented to convert RDD[T] to Dataset[Row] for later processing
    * */
   def rdd2dataset(spark: SparkSession, rdd: RDD[T]): Dataset[Row]
