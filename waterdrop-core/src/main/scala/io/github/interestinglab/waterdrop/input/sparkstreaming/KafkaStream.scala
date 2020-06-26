@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.input.sparkstreaming
 
 import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.dstream.DStream
+import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
@@ -74,7 +74,7 @@ class KafkaStream extends BaseStreamingInput[ConsumerRecord[String, String]] {
     }
 
     val topics = config.getString("topics").split(",").toSet
-    val inputDStream = KafkaUtils.createDirectStream[String, String](
+    val inputDStream : InputDStream[ConsumerRecord[String, String]] = KafkaUtils.createDirectStream(
       ssc,
       LocationStrategies.PreferConsistent,
       ConsumerStrategies.Subscribe(topics, kafkaParams))
