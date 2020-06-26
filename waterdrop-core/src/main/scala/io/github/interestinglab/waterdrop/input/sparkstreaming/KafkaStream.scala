@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.input.sparkstreaming
 
 import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.dstream.{DStream, InputDStream}
+import org.apache.spark.streaming.dstream.DStream
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
@@ -13,7 +13,7 @@ import org.apache.spark.streaming.kafka010._
 
 import scala.collection.JavaConversions._
 
-class KafkaStream extends BaseStreamingInput[(String, String)] {
+class KafkaStream extends BaseStreamingInput[ConsumerRecord[String, String]] {
 
   var config: Config = ConfigFactory.empty()
 
@@ -27,10 +27,6 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
 
   // kafka consumer configuration : http://kafka.apache.org/documentation.html#oldconsumerconfigs
   val consumerPrefix = "consumer."
-
-  var inputDStream: InputDStream[ConsumerRecord[String, String]] = _
-
-  var offsetRanges = Array[OffsetRange]()
 
   override def checkConfig(): (Boolean, String) = {
 
@@ -62,7 +58,7 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
     config = config.withFallback(defaultConfig)
   }
 
-  override def getDStream(ssc: StreamingContext): DStream[(String, String)] = {
+  override def getDStream(ssc: StreamingContext): DStream[ConsumerRecord[String, String]] = {
 
     val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
     val kafkaParams = consumerConfig
@@ -78,42 +74,46 @@ class KafkaStream extends BaseStreamingInput[(String, String)] {
     }
 
     val topics = config.getString("topics").split(",").toSet
-    inputDStream = KafkaUtils.createDirectStream(
+    val inputDStream = KafkaUtils.createDirectStream[String, String](
       ssc,
       LocationStrategies.PreferConsistent,
       ConsumerStrategies.Subscribe(topics, kafkaParams))
 
-    inputDStream.transform { rdd =>
-      rdd.map(record => {
-        val topic = record.topic()
-        val value = record.value()
-        (topic, value)
-      })
-    }
+    inputDStream
   }
 
-  override def afterInput(rdd: RDD[(String, String)]): Unit = {
+  override def start(spark: SparkSession, ssc: StreamingContext, handler: Dataset[Row] => Unit): Unit = {
 
-    offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-  }
+    val inputDStream = getDStream(ssc)
 
-  override def afterOutput() {
+    inputDStream.foreachRDD(rdd => {
 
-    // update offset after output
-    inputDStream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
-    for (offsets <- offsetRanges) {
-      val fromOffset = offsets.fromOffset
-      val untilOffset = offsets.untilOffset
-      if (untilOffset != fromOffset) {
-        println(
-          s"complete consume topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
+      // do not define offsetRanges in KafkaStream Object level, to avoid commit wrong offsets
+      val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+
+      val dataset = rdd2dataset(spark, rdd)
+
+      handler(dataset)
+
+      // update offset after output
+      inputDStream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
+      for (offsets <- offsetRanges) {
+        val fromOffset = offsets.fromOffset
+        val untilOffset = offsets.untilOffset
+        if (untilOffset != fromOffset) {
+          log.info(s"completed consuming topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
+        }
       }
-    }
+    })
   }
 
-  override def rdd2dataset(spark: SparkSession, rdd: RDD[(String, String)]): Dataset[Row] = {
+  override def rdd2dataset(spark: SparkSession, rdd: RDD[ConsumerRecord[String, String]]): Dataset[Row] = {
 
-    val rowsRDD = rdd.map(element => {
+    val transformedRDD = rdd.map(record => {
+      (record.topic(), record.value())
+    })
+
+    val rowsRDD = transformedRDD.map(element => {
       element match {
         case (topic, message) => {
           RowFactory.create(topic, message)

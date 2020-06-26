@@ -165,16 +165,11 @@ object Waterdrop extends Logging {
           }
         }
 
-        streamingInput.beforeOutput
-
         if (ds.take(1).length > 0) {
           outputs.foreach(p => {
             outputProcess(sparkSession, p, ds)
           })
         }
-
-        streamingInput.afterOutput
-
       }
     )
 
