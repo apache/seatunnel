@@ -1,6 +1,14 @@
 ## Compiling and Building Waterdrop Source Code
 
 
+### How to Build Binary Release Package
+
+
+```
+mvn clean package
+```
+
+then, you will see waterdrop release zip file in `waterdrop-dist/target/`, such as `waterdrop-dist-2.0.2-2.11.8-release.zip`
 
 ### How to deploy waterdrop artifacts to central maven repo
 
