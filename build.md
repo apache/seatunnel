@@ -1,6 +1,12 @@
 ## Compiling and Building Waterdrop Source Code
 
 
+### How to Build Binary Release Package
+
+
+```
+mvn clean package
+```
 
 ### How to deploy waterdrop artifacts to central maven repo
 
