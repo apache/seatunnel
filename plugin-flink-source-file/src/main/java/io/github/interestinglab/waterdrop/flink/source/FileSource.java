@@ -16,10 +16,8 @@ import org.apache.flink.api.java.io.RowCsvInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetRowInputFormat;
-import org.apache.flink.formats.parquet.utils.ParquetSchemaConverter;
 import org.apache.flink.orc.OrcRowInputFormat;
 import org.apache.flink.types.Row;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
 
@@ -34,7 +32,7 @@ public class FileSource implements FlinkBatchSource<Row> {
     private InputFormat inputFormat;
 
     private final static String PATH = "path";
-    private final static String SOURCE_FORMAT = "source_format";
+    private final static String SOURCE_FORMAT = "format.type";
     private final static String SCHEMA = "schema";
 
     @Override
