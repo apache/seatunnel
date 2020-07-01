@@ -63,6 +63,9 @@ class Stdout extends BaseOutput {
           df.toJSON.take(limit).foreach(s => println(s))
         }
       }
+      case "schema" => {
+        df.printSchema()
+      }
     }
   }
 }
