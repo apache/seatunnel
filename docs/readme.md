@@ -1,1 +1,1 @@
-Waterdrop docs refer to [waterdrop-docs](https://github.com/InterestingLab/waterdrop-docs)
+Waterdrop docs refer to [waterdrop-docs](https://interestinglab.github.io/waterdrop-docs/#/)
