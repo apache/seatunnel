@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.config.ConfigValue;
+import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -46,7 +47,7 @@ public class SchemaUtil {
 
     public static FormatDescriptor setFormat(String format, Config config) throws Exception {
         FormatDescriptor formatDescriptor = null;
-        switch (format.toLowerCase()) {
+        switch (format.toLowerCase().trim()) {
             case "json":
                 formatDescriptor = new Json().failOnMissingField(false).deriveSchema();
                 break;
@@ -60,7 +61,7 @@ public class SchemaUtil {
                 putMethod.setAccessible(true);
                 for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
                     String key = entry.getKey();
-                    if (key.startsWith("format.")) {
+                    if (key.startsWith("format.") && ! StringUtils.equals(key, "format.type")) {
                         String value = config.getString(key);
                         putMethod.invoke(desc, key, value);
                     }
