@@ -71,8 +71,6 @@ public class SchemaUtil {
             case "orc":
                 break;
             case "avro":
-
-
                 break;
             case "parquet":
                 break;
