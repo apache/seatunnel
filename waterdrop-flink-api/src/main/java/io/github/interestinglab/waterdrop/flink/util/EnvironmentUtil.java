@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.util;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
@@ -8,14 +8,8 @@ import org.apache.flink.api.common.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @author mr_xiong
- * @date 2019-08-24 15:55
- * @description
- */
 public class EnvironmentUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(EnvironmentUtil.class);

@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;

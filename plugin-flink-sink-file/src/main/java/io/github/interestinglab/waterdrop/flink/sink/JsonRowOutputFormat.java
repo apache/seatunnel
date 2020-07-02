@@ -14,11 +14,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.UnsupportedCharsetException;
 
-/**
- * @author mr_xiong
- * @date 2019-09-07 17:35
- * @description
- */
 public class JsonRowOutputFormat extends FileOutputFormat<Row> {
 
     private static final long serialVersionUID = 1L;

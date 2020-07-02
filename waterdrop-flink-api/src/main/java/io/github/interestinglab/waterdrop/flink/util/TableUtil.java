@@ -11,11 +11,6 @@ import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.types.Row;
 
-/**
- * @author mr_xiong
- * @date 2019-09-05 16:28
- * @description
- */
 public class TableUtil {
 
     public static DataStream<Row> tableToDataStream(StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {

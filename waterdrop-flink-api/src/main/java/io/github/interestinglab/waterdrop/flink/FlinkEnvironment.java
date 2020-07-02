@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
 import io.github.interestinglab.waterdrop.flink.util.ConfigKeyName;
 import io.github.interestinglab.waterdrop.flink.util.EnvironmentUtil;
@@ -21,11 +21,6 @@ import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * @author mr_xiong
- * @date 2019-09-04 14:49
- * @description
- */
 public class FlinkEnvironment implements RuntimeEnv {
 
     private static final Logger LOG = LoggerFactory.getLogger(FlinkEnvironment.class);
