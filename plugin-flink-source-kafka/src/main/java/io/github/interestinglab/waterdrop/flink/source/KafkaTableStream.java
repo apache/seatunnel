@@ -75,8 +75,6 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     public void prepare(FlinkEnvironment env) {
         topic = config.getString(TOPICS);
         PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix, false);
-        kafkaParams.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        kafkaParams.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         tableName = config.getString(RESULT_TABLE_NAME);
         if (config.hasPath(ROWTIME_FIELD)) {
             rowTimeField = config.getString(ROWTIME_FIELD);
