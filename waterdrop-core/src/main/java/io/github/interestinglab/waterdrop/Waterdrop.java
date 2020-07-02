@@ -16,7 +16,7 @@ import io.github.interestinglab.waterdrop.utils.AsciiArtUtils;
 import io.github.interestinglab.waterdrop.utils.Engine;
 import io.github.interestinglab.waterdrop.utils.PluginType;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.flink.core.fs.Path;
+import org.apache.hadoop.fs.Path;
 import scala.Option;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
