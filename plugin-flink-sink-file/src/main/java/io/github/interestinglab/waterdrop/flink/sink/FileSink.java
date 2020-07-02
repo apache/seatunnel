@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.sink;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSink;
@@ -23,11 +23,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
 
-/**
- * @author mr_xiong
- * @date 2019-09-07 13:57
- * @description
- */
 public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private static final Logger LOG = LoggerFactory.getLogger(FileSink.class);

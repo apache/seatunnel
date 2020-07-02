@@ -2,8 +2,9 @@ package io.github.interestinglab.waterdrop.flink.util;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.typesafe.config.waterdrop.Config;
-import com.typesafe.config.waterdrop.ConfigValue;
+import io.github.interestinglab.waterdrop.config.Config;
+import io.github.interestinglab.waterdrop.config.ConfigValue;
+import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -16,16 +17,10 @@ import org.apache.flink.types.Row;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * @author mr_xiong
- * @date 2019-08-29 18:01
- * @description
- */
 public class SchemaUtil {
 
 
@@ -53,7 +48,7 @@ public class SchemaUtil {
 
     public static FormatDescriptor setFormat(String format, Config config) throws Exception {
         FormatDescriptor formatDescriptor = null;
-        switch (format.toLowerCase()) {
+        switch (format.toLowerCase().trim()) {
             case "json":
                 formatDescriptor = new Json().failOnMissingField(false).deriveSchema();
                 break;
@@ -67,7 +62,7 @@ public class SchemaUtil {
                 putMethod.setAccessible(true);
                 for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
                     String key = entry.getKey();
-                    if (key.startsWith("format.")) {
+                    if (key.startsWith("format.") && ! StringUtils.equals(key, "format.type")) {
                         String value = config.getString(key);
                         putMethod.invoke(desc, key, value);
                     }

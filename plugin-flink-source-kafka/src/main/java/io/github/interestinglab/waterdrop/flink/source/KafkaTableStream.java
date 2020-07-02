@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.common.config.TypesafeConfigUtils;
@@ -21,11 +21,6 @@ import org.apache.flink.types.Row;
 import java.util.HashMap;
 import java.util.Properties;
 
-/**
- * @author mr_xiong
- * @date 2019-07-03 11:46
- * @description
- */
 public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private Config config;
@@ -43,7 +38,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private static final String ROWTIME_FIELD = "rowtime.field";
     private static final String WATERMARK_VAL = "watermark";
     private static final String SCHEMA = "schema";
-    private static final String SOURCE_FORMAT = "format";
+    private static final String SOURCE_FORMAT = "format.type";
     private static final String GROUP_ID = "group.id";
     private static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
     private static final String OFFSET_RESET = "offset.reset";
@@ -143,6 +138,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         try {
             return SchemaUtil.setFormat(format, config);
         } catch (Exception e) {
+            // TODO: logging
             e.printStackTrace();
         }
         throw new RuntimeException("format配置错误");

@@ -27,11 +27,6 @@ import java.util.List;
 
 import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
 
-/**
- * @author mr_xiong
- * @date 2019-12-29 17:20
- * @description
- */
 public class Waterdrop {
 
     public static void main(String[] args) {

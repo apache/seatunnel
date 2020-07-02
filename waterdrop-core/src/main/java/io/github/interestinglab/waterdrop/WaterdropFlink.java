@@ -7,11 +7,6 @@ import scopt.OptionParser;
 import static io.github.interestinglab.waterdrop.utils.Engine.FLINK;
 
 
-/**
- * @author mr_xiong
- * @date 2019-12-29 16:15
- * @description
- */
 public class WaterdropFlink {
 
     public static void main(String[] args) {
