@@ -9,6 +9,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
+import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
 import org.apache.flink.table.descriptors.*;
 import org.apache.flink.table.utils.TypeStringUtils;
 import org.apache.flink.types.Row;
@@ -71,6 +72,7 @@ public class SchemaUtil {
             case "orc":
                 break;
             case "avro":
+                formatDescriptor = new Avro().avroSchema(config.getString("schema"));
                 break;
             case "parquet":
                 break;
@@ -147,14 +149,13 @@ public class SchemaUtil {
 
     }
 
-    /**
-     * todo
-     *
-     * @param schema
-     * @param json
-     */
-    private static void getAvroSchema(Schema schema, JSONObject json) {
 
+    private static void getAvroSchema(Schema schema, JSONObject json) {
+        RowTypeInfo typeInfo = (RowTypeInfo) AvroSchemaConverter.<Row>convertToTypeInfo(json.toString());
+        String[] fieldNames = typeInfo.getFieldNames();
+        for(String name : fieldNames){
+            schema.field(name,typeInfo.getTypeAt(name));
+        }
     }
 
     public static RowTypeInfo getTypeInformation(JSONObject json) {

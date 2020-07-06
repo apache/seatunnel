@@ -2,15 +2,15 @@ package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
-import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.PropertiesUtil;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
+import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.common.config.TypesafeConfigUtils;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.stream.FlinkStreamSource;
 import io.github.interestinglab.waterdrop.flink.util.SchemaUtil;
 import io.github.interestinglab.waterdrop.flink.util.TableUtil;
-import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
@@ -70,8 +70,6 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     public void prepare(FlinkEnvironment env) {
         topic = config.getString(TOPICS);
         PropertiesUtil.setProperties(config, kafkaParams, consumerPrefix, false);
-        kafkaParams.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        kafkaParams.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         tableName = config.getString(RESULT_TABLE_NAME);
         if (config.hasPath(ROWTIME_FIELD)) {
             rowTimeField = config.getString(ROWTIME_FIELD);

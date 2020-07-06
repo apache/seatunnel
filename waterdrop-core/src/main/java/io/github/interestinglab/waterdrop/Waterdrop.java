@@ -13,8 +13,10 @@ import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
 import io.github.interestinglab.waterdrop.utils.AsciiArtUtils;
+import io.github.interestinglab.waterdrop.utils.Engine;
+import io.github.interestinglab.waterdrop.utils.PluginType;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.flink.core.fs.Path;
+import org.apache.hadoop.fs.Path;
 import scala.Option;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
@@ -23,15 +25,16 @@ import scopt.OptionParser;
 import java.util.Arrays;
 import java.util.List;
 
+import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
+
 public class Waterdrop {
 
-    private static final String SPARK = "spark";
     public static void main(String[] args) {
         OptionParser<CommandLineArgs> sparkParser = CommandLineUtils.sparkParser();
         run(sparkParser, SPARK, args);
     }
 
-    public static void run(OptionParser<CommandLineArgs> parser,String engine,String[] args){
+    public static void run(OptionParser<CommandLineArgs> parser,Engine engine,String[] args){
         Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();
         Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client", "application.conf", false));
         if (option.isDefined()) {
@@ -44,7 +47,7 @@ public class Waterdrop {
                 System.out.println("config OK !");
             } else {
                 try {
-                    entrypoint(configFilePath, engine);
+                    entryPoint(configFilePath, engine);
                 } catch (ConfigRuntimeException e) {
                     showConfigError(e);
                 }catch (Exception e){
@@ -54,13 +57,13 @@ public class Waterdrop {
         }
     }
 
-    private static String getConfigFilePath(CommandLineArgs cmdArgs, String engine) {
+    private static String getConfigFilePath(CommandLineArgs cmdArgs, Engine engine) {
         String path = null;
         switch (engine) {
-            case "flink":
+            case FLINK:
                 path = cmdArgs.configFile();
                 break;
-            case "spark":
+            case SPARK:
                 final Option<String> mode = Common.getDeployMode();
                 if (mode.isDefined() && "cluster".equals(mode.get())) {
                     path = new Path(cmdArgs.configFile()).getName();
@@ -74,12 +77,12 @@ public class Waterdrop {
         return path;
     }
 
-    private static void entrypoint(String configFile, String engine) {
+    private static void entryPoint(String configFile, Engine engine) {
 
         ConfigBuilder configBuilder = new ConfigBuilder(configFile, engine);
-        List<BaseSource> sources = configBuilder.createPlugins("source", BaseSource.class);
-        List<BaseTransform> transforms = configBuilder.createPlugins("transform", BaseTransform.class);
-        List<BaseSink> sinks = configBuilder.createPlugins("sink", BaseSink.class);
+        List<BaseSource> sources = configBuilder.createPlugins(PluginType.SOURCE);
+        List<BaseTransform> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
+        List<BaseSink> sinks = configBuilder.createPlugins(PluginType.SINK);
         Execution execution = configBuilder.createExecution();
         baseCheckConfig(sources, transforms, sinks);
         prepare(configBuilder.getEnv(), sources, transforms, sinks);
