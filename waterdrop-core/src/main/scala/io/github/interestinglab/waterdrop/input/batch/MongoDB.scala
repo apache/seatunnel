@@ -1,10 +1,13 @@
 package io.github.interestinglab.waterdrop.input.batch
 
+import com.alibaba.fastjson.JSON
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStaticInput
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.utils.SparkSturctTypeUtil
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
@@ -16,6 +19,8 @@ class MongoDB extends BaseStaticInput {
   var readConfig: ReadConfig = _
 
   val confPrefix = "readconfig."
+
+  var schema = new StructType()
 
   override def setConfig(config: Config): Unit = {
     this.config = config
@@ -51,11 +56,22 @@ class MongoDB extends BaseStaticInput {
         val value = String.valueOf(entry.getValue.unwrapped())
         map.put(key, value)
       })
+    config.hasPath("schema") match {
+      case true => {
+        val schemaJson = JSON.parseObject(config.getString("schema"))
+        schema = SparkSturctTypeUtil.getStructType(schema, schemaJson)
+      }
+      case false => {}
+    }
     readConfig = ReadConfig(map)
   }
 
   override def getDataset(spark: SparkSession): Dataset[Row] = {
-    MongoSpark.load(spark, readConfig)
+    if (schema.length > 0) {
+      MongoSpark.builder().sparkSession(spark).readConfig(readConfig).build().toDF(schema)
+    } else {
+      MongoSpark.load(spark, readConfig);
+    }
   }
 
 }
