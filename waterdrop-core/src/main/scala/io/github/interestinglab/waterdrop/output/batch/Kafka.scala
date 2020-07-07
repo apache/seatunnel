@@ -49,7 +49,7 @@ class Kafka extends BaseOutput {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "serializer" -> "json",
+        "format" -> "json",
         producerPrefix + "key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
         producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
       )
@@ -79,7 +79,11 @@ class Kafka extends BaseOutput {
   override def process(df: Dataset[Row]) {
 
     val topic = config.getString("topic")
-    config.getString("serializer") match {
+    var format = config.getString("format")
+    if (config.hasPath("serializer")) {
+      format = config.getString("serializer")
+    }
+    format match {
       case "text" => {
         if (df.schema.size != 1) {
           throw new UserRuntimeException(

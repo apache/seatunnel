@@ -37,7 +37,7 @@ class Stdout extends BaseOutput {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "limit" -> 100,
-        "serializer" -> "plain" // plain | json
+        "format" -> "plain" // plain | json | schema
       )
     )
     config = config.withFallback(defaultConfig)
@@ -47,7 +47,11 @@ class Stdout extends BaseOutput {
 
     val limit = config.getInt("limit")
 
-    config.getString("serializer") match {
+    var format = config.getString("format")
+    if (config.hasPath("serializer")) {
+      format = config.getString("serializer")
+    }
+    format match {
       case "plain" => {
         if (limit == -1) {
           df.show(Int.MaxValue, false)
