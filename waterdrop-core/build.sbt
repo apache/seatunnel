@@ -65,7 +65,7 @@ libraryDependencies ++= Seq(
   "com.databricks" %% "spark-xml" % "0.5.0",
   "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3",
   "redis.clients" % "jedis" % "2.9.0"
-)
+).map(_.exclude("com.typesafe", "config"))
 
 // TODO: exclude spark, hadoop by for all dependencies
 
