@@ -63,7 +63,8 @@ libraryDependencies ++= Seq(
   "ru.yandex.clickhouse" % "clickhouse-jdbc" % "0.2.4"
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.databricks" %% "spark-xml" % "0.5.0",
-  "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3"
+  "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3",
+  "redis.clients" % "jedis" % "2.9.0"
 ).map(_.exclude("com.typesafe", "config"))
 
 // TODO: exclude spark, hadoop by for all dependencies
