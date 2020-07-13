@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.receiver.redis
 
-import com.typesafe.config.Config
+import io.github.interestinglab.waterdrop.config.Config
 
 case class RedisInfo(config: Config) {
   var host: String = config.getString("host")
