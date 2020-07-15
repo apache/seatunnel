@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.io.File;
+
 import io.github.interestinglab.waterdrop.config.SparkDriverSettings;
 
 
@@ -13,7 +14,7 @@ public class ExposeSparkDriverConf {
     public static List<String> splitKey(String key) {
         List<String> keys = new LinkedList<>();
         int index = 0;
-        for (int i = 0; i < key.length(); i ++) {
+        for (int i = 0; i < key.length(); i++) {
             char symbol = key.charAt(i);
             if (symbol >= 'A' && symbol <= 'Z') {
                 keys.add(key.substring(index, i).toLowerCase());
@@ -42,7 +43,7 @@ public class ExposeSparkDriverConf {
         } else {
             Config sparkDriverConfig = TypesafeConfigUtils.extractSubConfig(sparkConfig, driverPrefix, true);
             StringBuilder stringBuilder = new StringBuilder();
-            for (Map.Entry<String, ConfigValue> entry: sparkDriverConfig.entrySet()) {
+            for (Map.Entry<String, ConfigValue> entry : sparkDriverConfig.entrySet()) {
                 String key = entry.getKey();
                 SparkDriverSettings settings = SparkDriverSettings.fromProperty(key);
                 if (settings != null) {
