@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.io.File;
+import io.github.interestinglab.waterdrop.config.SparkDriverSettings;
 
 
 public class ExposeSparkDriverConf {
@@ -39,12 +40,15 @@ public class ExposeSparkDriverConf {
         if (!TypesafeConfigUtils.hasSubConfig(sparkConfig, driverPrefix)) {
             System.out.println("");
         } else {
-            Config sparkDriverConfig = TypesafeConfigUtils.extractSubConfig(sparkConfig, driverPrefix, false);
+            Config sparkDriverConfig = TypesafeConfigUtils.extractSubConfig(sparkConfig, driverPrefix, true);
             StringBuilder stringBuilder = new StringBuilder();
             for (Map.Entry<String, ConfigValue> entry: sparkDriverConfig.entrySet()) {
-                List<String> keys = splitKey(entry.getKey());
-                String conf = String.format(" --driver-%s=%s ", String.join("-", keys), entry.getValue().unwrapped());
-                stringBuilder.append(conf);
+                String key = entry.getKey();
+                SparkDriverSettings settings = SparkDriverSettings.fromProperty(key);
+                if (settings != null) {
+                    String conf = String.format("%s=%s", settings.option, entry.getValue().unwrapped());
+                    stringBuilder.append(conf);
+                }
             }
 
             System.out.println(stringBuilder.toString());
