@@ -40,7 +40,7 @@ class Kafka extends BaseStructuredStreamingOutput {
     topic = config.getString("topic")
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "serializer" -> "json",
+        "format" -> "json",
         "streaming_output_mode" -> "Append",
         "trigger_type" -> "default",
         producerPrefix + "retries" -> 2,
@@ -93,8 +93,11 @@ class Kafka extends BaseStructuredStreamingOutput {
    * Things to do with each Row.
    **/
   override def process(row: Row): Unit = {
-
-    config.getString("serializer") match {
+    var format = config.getString("format")
+    if (config.hasPath("serializer")) {
+      format = config.getString("serializer")
+    }
+    format match {
       case "text" => {
         if (row.schema.size != 1) {
           throw new UserRuntimeException(

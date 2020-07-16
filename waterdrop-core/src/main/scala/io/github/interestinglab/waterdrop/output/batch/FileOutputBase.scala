@@ -104,7 +104,7 @@ abstract class FileOutputBase extends BaseOutput {
       Map(
         "partition_by" -> util.Arrays.asList(),
         "save_mode" -> "error", // allowed values: overwrite, append, ignore, error
-        "serializer" -> "json", // allowed values: csv, json, parquet, text
+        "format" -> "json",
         "path_time_format" -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
       )
     )
@@ -115,7 +115,10 @@ abstract class FileOutputBase extends BaseOutput {
     val writer = fileWriter(df)
     var path = buildPathWithDefaultSchema(config.getString("path"), defaultUriSchema)
     path = StringTemplate.substitute(path, config.getString("path_time_format"))
-    val format = config.getString("serializer")
+    var format = config.getString("format")
+    if (config.hasPath("serializer")) {
+      format = config.getString("serializer")
+    }
     format match {
       case "csv" => writer.csv(path)
       case "json" => writer.json(path)
