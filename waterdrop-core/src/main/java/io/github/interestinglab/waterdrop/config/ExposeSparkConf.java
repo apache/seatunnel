@@ -12,7 +12,7 @@ public class ExposeSparkConf {
                 .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         StringBuilder stringBuilder = new StringBuilder();
-        for (Map.Entry<String, ConfigValue> entry: appConfig.getConfig("spark").entrySet()) {
+        for (Map.Entry<String, ConfigValue> entry : appConfig.getConfig("spark").entrySet()) {
             String conf = String.format(" --conf \"%s=%s\" ", entry.getKey(), entry.getValue().unwrapped());
             stringBuilder.append(conf);
         }
