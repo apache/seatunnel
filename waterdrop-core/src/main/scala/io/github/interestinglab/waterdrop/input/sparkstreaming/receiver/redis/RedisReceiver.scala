@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.receiver.redis
+package io.github.interestinglab.waterdrop.input.sparkstreaming.redis
 
 import java.util
 
@@ -76,13 +76,6 @@ class RedisReceiver(redisInfo: RedisInfo) extends Receiver[String](StorageLevel.
         restart("Error receiving data", t)
     }
     println("get Data Thread end")
-  }
-
-
-  class Job() extends Runnable {
-    override def run(): Unit = {
-
-    }
   }
 
 

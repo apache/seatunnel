@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.input.sparkstreaming
 
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseStreamingInput
-import io.github.interestinglab.waterdrop.receiver.redis.{RedisInfo, RedisReceiver}
+import io.github.interestinglab.waterdrop.input.sparkstreaming.redis.{RedisInfo, RedisReceiver}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
@@ -23,16 +23,32 @@ class RedisStream extends BaseStreamingInput[String] {
     this.config
   }
 
-  override def checkConfig(): (Boolean, String) = (true, "")
+  override def checkConfig(): (Boolean, String) = {
+    val requiredOptions = List("host", "prefKey", "queue")
+
+    val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
+      val (optionName, exists) = p
+      !exists
+    }
+
+    if (nonExistsOptions.nonEmpty) {
+      (false,
+        "please specify " + nonExistsOptions
+          .map { option =>
+            val (name, exists) = option
+            "[" + name + "]"
+          }
+          .mkString(", ") + " as non-empty string")
+    }else{
+      (true, "")
+    }
+  }
 
   override def prepare(spark: SparkSession): Unit = {
     super.prepare(spark)
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "host" -> "127.0.0.1:6379",
-        "prefKey" -> "",
-        "queue" -> "",
         "password" -> "",
         "maxTotal" -> 200,
         "maxIdle" -> 200,

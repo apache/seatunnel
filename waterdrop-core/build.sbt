@@ -64,7 +64,8 @@ libraryDependencies ++= Seq(
     excludeAll(ExclusionRule(organization="com.fasterxml.jackson.core")),
   "com.databricks" %% "spark-xml" % "0.5.0",
   "org.apache.httpcomponents" % "httpasyncclient" % "4.1.3",
-  "redis.clients" % "jedis" % "2.9.0"
+  "redis.clients" % "jedis" % "2.9.0",
+  "org.apache.commons" % "commons-pool2" % "2.8.0"
 ).map(_.exclude("com.typesafe", "config"))
 
 // TODO: exclude spark, hadoop by for all dependencies
