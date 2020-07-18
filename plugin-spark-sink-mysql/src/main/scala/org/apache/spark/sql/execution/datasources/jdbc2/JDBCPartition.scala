@@ -1,7 +1,27 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.spark.sql.execution.datasources.jdbc2
 
 import java.sql.{Connection, PreparedStatement, ResultSet, SQLException}
 
+import scala.util.control.NonFatal
+
+import org.apache.spark.{InterruptibleIterator, Partition, SparkContext, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -9,14 +29,10 @@ import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.util.CompletionIterator
-import org.apache.spark.{InterruptibleIterator, Partition, SparkContext, TaskContext}
-import scala.collection.JavaConversions._
-
-import scala.util.control.NonFatal
 
 /**
-  * Data corresponding to one partition of a JDBCRDD.
-  */
+ * Data corresponding to one partition of a JDBCRDD.
+ */
 case class JDBCPartition(whereClause: String, idx: Int) extends Partition {
   override def index: Int = idx
 }
@@ -24,23 +40,24 @@ case class JDBCPartition(whereClause: String, idx: Int) extends Partition {
 object JDBCRDD extends Logging {
 
   /**
-    * Takes a (schema, table) specification and returns the table's Catalyst
-    * schema.
-    *
-    * @param options - JDBC options that contains url, table and other information.
-    *
-    * @return A StructType giving the table's Catalyst schema.
-    * @throws SQLException if the table specification is garbage.
-    * @throws SQLException if the table contains an unsupported type.
-    */
+   * Takes a (schema, table) specification and returns the table's Catalyst
+   * schema.
+   *
+   * @param options - JDBC options that contains url, table and other information.
+   *
+   * @return A StructType giving the table's Catalyst schema.
+   * @throws SQLException if the table specification is garbage.
+   * @throws SQLException if the table contains an unsupported type.
+   */
   def resolveTable(options: JDBCOptions): StructType = {
     val url = options.url
-    val table = options.table
+    val table = options.tableOrQuery
     val dialect = JdbcDialects.get(url)
     val conn: Connection = JdbcUtils.createConnectionFactory(options)()
     try {
       val statement = conn.prepareStatement(dialect.getSchemaQuery(table))
       try {
+        statement.setQueryTimeout(options.queryTimeout)
         val rs = statement.executeQuery()
         try {
           JdbcUtils.getSchema(rs, dialect, alwaysNullable = true)
@@ -56,22 +73,22 @@ object JDBCRDD extends Logging {
   }
 
   /**
-    * Prune all but the specified columns from the specified Catalyst schema.
-    *
-    * @param schema - The Catalyst schema of the master table
-    * @param columns - The list of desired columns
-    *
-    * @return A Catalyst schema corresponding to columns in the given order.
-    */
+   * Prune all but the specified columns from the specified Catalyst schema.
+   *
+   * @param schema - The Catalyst schema of the master table
+   * @param columns - The list of desired columns
+   *
+   * @return A Catalyst schema corresponding to columns in the given order.
+   */
   private def pruneSchema(schema: StructType, columns: Array[String]): StructType = {
     val fieldMap = Map(schema.fields.map(x => x.name -> x): _*)
     new StructType(columns.map(name => fieldMap(name)))
   }
 
   /**
-    * Turns a single Filter into a String representing a SQL expression.
-    * Returns None for an unhandled filter.
-    */
+   * Turns a single Filter into a String representing a SQL expression.
+   * Returns None for an unhandled filter.
+   */
   def compileFilter(f: Filter, dialect: JdbcDialect): Option[String] = {
     def quote(colName: String): String = dialect.quoteIdentifier(colName)
 
@@ -117,25 +134,25 @@ object JDBCRDD extends Logging {
   }
 
   /**
-    * Build and return JDBCRDD from the given information.
-    *
-    * @param sc - Your SparkContext.
-    * @param schema - The Catalyst schema of the underlying database table.
-    * @param requiredColumns - The names of the columns to SELECT.
-    * @param filters - The filters to include in all WHERE clauses.
-    * @param parts - An array of JDBCPartitions specifying partition ids and
-    *    per-partition WHERE clauses.
-    * @param options - JDBC options that contains url, table and other information.
-    *
-    * @return An RDD representing "SELECT requiredColumns FROM fqTable".
-    */
+   * Build and return JDBCRDD from the given information.
+   *
+   * @param sc - Your SparkContext.
+   * @param schema - The Catalyst schema of the underlying database table.
+   * @param requiredColumns - The names of the columns to SELECT.
+   * @param filters - The filters to include in all WHERE clauses.
+   * @param parts - An array of JDBCPartitions specifying partition ids and
+   *    per-partition WHERE clauses.
+   * @param options - JDBC options that contains url, table and other information.
+   *
+   * @return An RDD representing "SELECT requiredColumns FROM fqTable".
+   */
   def scanTable(
-                 sc: SparkContext,
-                 schema: StructType,
-                 requiredColumns: Array[String],
-                 filters: Array[Filter],
-                 parts: Array[Partition],
-                 options: JDBCOptions): RDD[InternalRow] = {
+      sc: SparkContext,
+      schema: StructType,
+      requiredColumns: Array[String],
+      filters: Array[Filter],
+      parts: Array[Partition],
+      options: JDBCOptions): RDD[InternalRow] = {
     val url = options.url
     val dialect = JdbcDialects.get(url)
     val quotedColumns = requiredColumns.map(colName => dialect.quoteIdentifier(colName))
@@ -152,29 +169,29 @@ object JDBCRDD extends Logging {
 }
 
 /**
-  * An RDD representing a table in a database accessed via JDBC.  Both the
-  * driver code and the workers must be able to access the database; the driver
-  * needs to fetch the schema while the workers need to fetch the data.
-  */
+ * An RDD representing a table in a database accessed via JDBC.  Both the
+ * driver code and the workers must be able to access the database; the driver
+ * needs to fetch the schema while the workers need to fetch the data.
+ */
 private[jdbc2] class JDBCRDD(
-                             sc: SparkContext,
-                             getConnection: () => Connection,
-                             schema: StructType,
-                             columns: Array[String],
-                             filters: Array[Filter],
-                             partitions: Array[Partition],
-                             url: String,
-                             options: JDBCOptions)
+    sc: SparkContext,
+    getConnection: () => Connection,
+    schema: StructType,
+    columns: Array[String],
+    filters: Array[Filter],
+    partitions: Array[Partition],
+    url: String,
+    options: JDBCOptions)
   extends RDD[InternalRow](sc, Nil) {
 
   /**
-    * Retrieve the list of partitions corresponding to this RDD.
-    */
+   * Retrieve the list of partitions corresponding to this RDD.
+   */
   override def getPartitions: Array[Partition] = partitions
 
   /**
-    * `columns`, but as a String suitable for injection into a SQL query.
-    */
+   * `columns`, but as a String suitable for injection into a SQL query.
+   */
   private val columnList: String = {
     val sb = new StringBuilder()
     columns.foreach(x => sb.append(",").append(x))
@@ -182,16 +199,16 @@ private[jdbc2] class JDBCRDD(
   }
 
   /**
-    * `filters`, but as a WHERE clause suitable for injection into a SQL query.
-    */
+   * `filters`, but as a WHERE clause suitable for injection into a SQL query.
+   */
   private val filterWhereClause: String =
     filters
       .flatMap(JDBCRDD.compileFilter(_, JdbcDialects.get(url)))
       .map(p => s"($p)").mkString(" AND ")
 
   /**
-    * A WHERE clause representing both `filters`, if any, and the current partition.
-    */
+   * A WHERE clause representing both `filters`, if any, and the current partition.
+   */
   private def getWhereClause(part: JDBCPartition): String = {
     if (part.whereClause != null && filterWhereClause.length > 0) {
       "WHERE " + s"($filterWhereClause)" + " AND " + s"(${part.whereClause})"
@@ -205,9 +222,9 @@ private[jdbc2] class JDBCRDD(
   }
 
   /**
-    * Runs the SQL query against the JDBC driver.
-    *
-    */
+   * Runs the SQL query against the JDBC driver.
+   *
+   */
   override def compute(thePart: Partition, context: TaskContext): Iterator[InternalRow] = {
     var closed = false
     var rs: ResultSet = null
@@ -248,13 +265,14 @@ private[jdbc2] class JDBCRDD(
       closed = true
     }
 
-    context.addTaskCompletionListener{ context => close() }
+    context.addTaskCompletionListener[Unit]{ context => close() }
 
     val inputMetrics = context.taskMetrics().inputMetrics
     val part = thePart.asInstanceOf[JDBCPartition]
     conn = getConnection()
     val dialect = JdbcDialects.get(url)
-    dialect.beforeFetch(conn, options.asProperties.toMap)
+    import scala.collection.JavaConverters._
+    dialect.beforeFetch(conn, options.asProperties.asScala.toMap)
 
     // This executes a generic SQL statement (or PL/SQL block) before reading
     // the table/query via JDBC. Use this feature to initialize the database
@@ -264,6 +282,7 @@ private[jdbc2] class JDBCRDD(
         val statement = conn.prepareStatement(sql)
         logInfo(s"Executing sessionInitStatement: $sql")
         try {
+          statement.setQueryTimeout(options.queryTimeout)
           statement.execute()
         } finally {
           statement.close()
@@ -277,10 +296,11 @@ private[jdbc2] class JDBCRDD(
 
     val myWhereClause = getWhereClause(part)
 
-    val sqlText = s"SELECT $columnList FROM ${options.table} $myWhereClause"
+    val sqlText = s"SELECT $columnList FROM ${options.tableOrQuery} $myWhereClause"
     stmt = conn.prepareStatement(sqlText,
-      ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
+        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
     stmt.setFetchSize(options.fetchSize)
+    stmt.setQueryTimeout(options.queryTimeout)
     rs = stmt.executeQuery()
     val rowsIterator = JdbcUtils.resultSetToSparkInternalRows(rs, schema, inputMetrics)
 
