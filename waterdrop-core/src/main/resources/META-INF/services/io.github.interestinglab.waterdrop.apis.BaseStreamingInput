@@ -4,3 +4,4 @@ io.github.interestinglab.waterdrop.input.sparkstreaming.HdfsStream
 io.github.interestinglab.waterdrop.input.sparkstreaming.KafkaStream
 io.github.interestinglab.waterdrop.input.sparkstreaming.S3Stream
 io.github.interestinglab.waterdrop.input.sparkstreaming.SocketStream
+io.github.interestinglab.waterdrop.input.sparkstreaming.RedisStream
