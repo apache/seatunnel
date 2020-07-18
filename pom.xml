@@ -44,6 +44,7 @@
         <module>plugin-spark-source-phoenix</module>
         <module>plugin-spark-phoenix-core</module>
         <module>plugin-spark-sink-phoenix</module>
+        <module>plugin-spark-sink-mysql</module>
     </modules>
 
     <properties>
