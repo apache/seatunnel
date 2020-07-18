@@ -1,10 +1,10 @@
 package org.apache.spark.sql.execution.datasources.jdbc2
 
-import org.apache.spark.sql.execution.datasources.jdbc2.JDBCOptions._
 import org.apache.spark.sql.execution.datasources.jdbc2.JdbcUtils._
 import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, DataSourceRegister, RelationProvider}
 import org.apache.spark.sql.{AnalysisException, DataFrame, SQLContext, SaveMode}
 
+// Waterdrop: DefaultSource for mysql to custom saveMode
 class DefaultSource extends CreatableRelationProvider with RelationProvider with DataSourceRegister {
 
   override def shortName(): String = "jdbc2"
@@ -13,24 +13,13 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider with
       sqlContext: SQLContext,
       parameters: Map[String, String]): BaseRelation = {
 
-    val jdbcOptions = new JDBCOptions(parameters)
-    val partitionColumn = jdbcOptions.partitionColumn
-    val lowerBound = jdbcOptions.lowerBound
-    val upperBound = jdbcOptions.upperBound
-    val numPartitions = jdbcOptions.numPartitions
+    val jdbcOptions = new JdbcOptionsInWrite(parameters)
 
-    val partitionInfo = if (partitionColumn.isEmpty) {
-      assert(lowerBound.isEmpty && upperBound.isEmpty, "When 'partitionColumn' is not specified, " +
-        s"'$JDBC_LOWER_BOUND' and '$JDBC_UPPER_BOUND' are expected to be empty")
-      null
-    } else {
-      assert(lowerBound.nonEmpty && upperBound.nonEmpty && numPartitions.nonEmpty,
-        s"When 'partitionColumn' is specified, '$JDBC_LOWER_BOUND', '$JDBC_UPPER_BOUND', and " +
-          s"'$JDBC_NUM_PARTITIONS' are also required")
-      JDBCPartitioningInfo(
-        partitionColumn.get, lowerBound.get, upperBound.get, numPartitions.get)
-    }
-    val parts = JDBCRelation.columnPartition(partitionInfo)
+    val resolver = sqlContext.conf.resolver
+    val timeZoneId = sqlContext.conf.sessionLocalTimeZone
+    val schema = JDBCRelation.getSchema(resolver, jdbcOptions)
+    val parts = JDBCRelation.columnPartition(schema, resolver, timeZoneId, jdbcOptions)
+
     JDBCRelation(parts, jdbcOptions)(sqlContext.sparkSession)
   }
 
@@ -39,7 +28,8 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider with
       mode: SaveMode,
       parameters: Map[String, String],
       df: DataFrame): BaseRelation = {
-    val options = new JDBCOptions(parameters)
+
+    val options = new JdbcOptionsInWrite(parameters)
     val isCaseSensitive = sqlContext.conf.caseSensitiveAnalysis
 
     var saveMode = mode match {
@@ -66,7 +56,7 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider with
               saveTable(df, tableSchema, isCaseSensitive, options, saveMode)
             } else {
               // Otherwise, do not truncate the table, instead drop and recreate it
-              dropTable(conn, options.table)
+              dropTable(conn, options.table, options)
               createTable(conn, df, options)
               saveTable(df, Some(df.schema), isCaseSensitive, options, saveMode)
             }

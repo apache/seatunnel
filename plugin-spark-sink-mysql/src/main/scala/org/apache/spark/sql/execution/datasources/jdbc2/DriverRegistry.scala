@@ -19,14 +19,24 @@ package org.apache.spark.sql.execution.datasources.jdbc2
 
 import java.sql.{Driver, DriverManager}
 
+import scala.collection.mutable
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.util.Utils
 
-import scala.collection.mutable
-
-
+/**
+ * java.sql.DriverManager is always loaded by bootstrap classloader,
+ * so it can't load JDBC drivers accessible by Spark ClassLoader.
+ *
+ * To solve the problem, drivers from user-supplied jars are wrapped into thin wrapper.
+ */
 object DriverRegistry extends Logging {
 
+  /**
+   * Load DriverManager first to avoid any race condition between
+   * DriverManager static initialization block and specific driver class's
+   * static initialization block. e.g. PhoenixDriver
+   */
   DriverManager.getDrivers
 
   private val wrapperMap: mutable.Map[String, DriverWrapper] = mutable.Map.empty

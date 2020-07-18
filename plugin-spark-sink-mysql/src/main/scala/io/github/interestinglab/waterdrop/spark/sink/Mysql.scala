@@ -10,6 +10,8 @@ class Mysql extends SparkBatchSink{
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val saveMode = config.getString("save_mode")
+    val customUpdateStmt = if (config.hasPath("customUpdateStmt")) config.getString("customUpdateStmt") else ""
+    val duplicateIncs = if (config.hasPath("duplicateIncs")) config.getString("duplicateIncs") else ""
     if ("update".equals(saveMode)) {
       data.write.format("org.apache.spark.sql.execution.datasources.jdbc2").options(
         Map(
@@ -20,7 +22,8 @@ class Mysql extends SparkBatchSink{
           "password" -> config.getString("password"),
           "dbtable" -> config.getString("dbtable"),
           "useSSL" -> "false",
-          //"duplicateIncs" -> config.getString("duplicateIncs"),更新这些字段为原始值加现有值
+          "duplicateIncs" -> duplicateIncs,
+          "customUpdateStmt" -> customUpdateStmt, //Custom mysql duplicate key update statement when saveMode is update
           "showSql" -> "true"
         )
       ).save()
