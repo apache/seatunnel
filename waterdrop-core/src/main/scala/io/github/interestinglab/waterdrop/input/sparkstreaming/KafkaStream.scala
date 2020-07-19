@@ -1,5 +1,7 @@
 package io.github.interestinglab.waterdrop.input.sparkstreaming
 
+import java.time.LocalDateTime
+
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
@@ -97,11 +99,12 @@ class KafkaStream extends BaseStreamingInput[ConsumerRecord[String, String]] {
 
       // update offset after output
       inputDStream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
+      val now = LocalDateTime.now()
       for (offsets <- offsetRanges) {
         val fromOffset = offsets.fromOffset
         val untilOffset = offsets.untilOffset
         if (untilOffset != fromOffset) {
-          log.info(s"completed consuming topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
+          log.info(s"${now}: completed consuming topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
         }
       }
     })
