@@ -13,7 +13,12 @@ import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 import ru.yandex.clickhouse.settings.ClickHouseProperties
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement, ClickhouseJdbcUrlParser}
+import ru.yandex.clickhouse.{
+  BalancedClickhouseDataSource,
+  ClickHouseConnectionImpl,
+  ClickHousePreparedStatement,
+  ClickhouseJdbcUrlParser
+}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
@@ -75,7 +80,8 @@ class Clickhouse extends BaseOutput {
     }
 
     if (nonExistsOptions.nonEmpty) {
-      (false,
+      (
+        false,
         "please specify " + nonExistsOptions
           .map { option =>
             val (name, exists) = option
@@ -124,11 +130,11 @@ class Clickhouse extends BaseOutput {
       )
     )
 
-    if(config.hasPath("cluster")){
+    if (config.hasPath("cluster")) {
       this.cluster = config.getString("cluster")
 
       this.clusterInfo = getClickHouseClusterInfo(conn, cluster)
-      if(this.clusterInfo.size == 0 ){
+      if (this.clusterInfo.size == 0) {
         val errorInfo = s"cloud not find cluster config in system.clusters, config cluster = $cluster"
         logError(errorInfo)
         throw new RuntimeException(errorInfo)
@@ -155,9 +161,9 @@ class Clickhouse extends BaseOutput {
 
     df.foreachPartition { iter =>
       var jdbcUrl = this.jdbcLink
-      if(this.clusterInfo != null && this.clusterInfo.size > 0){
+      if (this.clusterInfo != null && this.clusterInfo.size > 0) {
         //using random policy to select shard when insert data
-        val randomShard = (Math.random() * this.clusterInfo.size).asInstanceOf[Int];
+        val randomShard = (Math.random() * this.clusterInfo.size).asInstanceOf[Int]
         val shardInfo = this.clusterInfo.get(randomShard)
 
         val host = shardInfo._4
@@ -166,8 +172,7 @@ class Clickhouse extends BaseOutput {
 
         jdbcUrl = s"jdbc:clickhouse://$host:$port/$database"
         logInfo(s"cluster mode, select shard index [$randomShard] to insert data, the jdbc url is [$jdbcUrl].")
-      }
-      else{
+      } else {
         logInfo(s"single mode, the jdbc url is [$jdbcUrl].")
       }
 
@@ -238,14 +243,17 @@ class Clickhouse extends BaseOutput {
     schema
   }
 
-  private def getClickHouseClusterInfo(conn: ClickHouseConnectionImpl, cluster: String): ArrayBuffer[(String, Int, Int, String)] = {
-    val sql = s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1"
+  private def getClickHouseClusterInfo(
+    conn: ClickHouseConnectionImpl,
+    cluster: String): ArrayBuffer[(String, Int, Int, String)] = {
+    val sql =
+      s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1"
     val resultSet = conn.createStatement.executeQuery(sql)
 
     val clusterInfo = ArrayBuffer[(String, Int, Int, String)]()
     while (resultSet.next()) {
       val shardWeight = resultSet.getInt("shard_weight")
-      for(_ <- 1 to shardWeight){
+      for (_ <- 1 to shardWeight) {
 
         val custerName = resultSet.getString("cluster")
         val shardNum = resultSet.getInt("shard_num")
@@ -328,6 +336,7 @@ class Clickhouse extends BaseOutput {
       case "Float32" => statement.setNull(index + 1, java.sql.Types.FLOAT)
       case "Float64" => statement.setNull(index + 1, java.sql.Types.DOUBLE)
       case "Array" => statement.setNull(index + 1, java.sql.Types.ARRAY)
+      case Clickhouse.decimalPattern(_) => statement.setNull(index + 1, java.sql.Types.DECIMAL)
     }
   }
 
@@ -353,6 +362,27 @@ class Clickhouse extends BaseOutput {
     }
   }
 
+  private def renderStatementEntry(
+    index: Int,
+    fieldIndex: Int,
+    fieldType: String,
+    item: Row,
+    statement: ClickHousePreparedStatement): Unit = {
+    fieldType match {
+      case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
+        renderBaseTypeStatement(index, fieldIndex, fieldType, item, statement)
+      case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
+        renderBaseTypeStatement(index, fieldIndex, fieldType, item, statement)
+      case Clickhouse.nullablePattern(dataType) =>
+        renderStatementEntry(index, fieldIndex, dataType, item, statement)
+      case Clickhouse.lowCardinalityPattern(dataType) =>
+        renderBaseTypeStatement(index, fieldIndex, dataType, item, statement)
+      case Clickhouse.decimalPattern(_) =>
+        renderBaseTypeStatement(index, fieldIndex, "Decimal", item, statement)
+      case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
+    }
+  }
+
   private def renderStatement(
     fields: util.List[String],
     item: Row,
@@ -367,22 +397,10 @@ class Clickhouse extends BaseOutput {
       } else {
         val fieldIndex = item.fieldIndex(field)
         if (item.isNullAt(fieldIndex)) {
-          // specified field is Null in row.
+          // specified field is Null in Row.
           renderDefaultStatement(i, fieldType, statement)
         } else {
-          fieldType match {
-            case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
-              renderBaseTypeStatement(i, fieldIndex, fieldType, item, statement)
-            case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
-              renderBaseTypeStatement(i, fieldIndex, fieldType, item, statement)
-            case Clickhouse.nullablePattern(dataType) =>
-              renderBaseTypeStatement(i, fieldIndex, dataType, item, statement)
-            case Clickhouse.lowCardinalityPattern(dataType) =>
-              renderBaseTypeStatement(i, fieldIndex, dataType, item, statement)
-            case Clickhouse.decimalPattern(_) =>
-              renderBaseTypeStatement(i, fieldIndex, "Decimal", item, statement)
-            case _ => statement.setString(i + 1, item.getAs[String](field))
-          }
+          renderStatementEntry(i, fieldIndex, fieldType, item, statement)
         }
       }
     }
