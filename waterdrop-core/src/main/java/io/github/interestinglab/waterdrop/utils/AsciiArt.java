@@ -10,7 +10,7 @@ public class AsciiArt {
      * Print ASCII art of string
      * @param str
      * */
-    public static void printAsciiArt(String str) {
+    public static void printAsciiArtOnFailure(String str) {
 
         final int width = 144;
         final int height = 32;
@@ -32,8 +32,8 @@ public class AsciiArt {
         }
     }
 
-    public static void printAsciiArtOnFailure(String str) throws Exception {
-        String name = System.getProperty("user.dir") + "/config/font/slant.flf";
+    public static void printAsciiArt(String str) throws Exception {
+        String name = System.getProperty("user.dir") + "/plugins/script/files/slant.flf";
         File file = new File(name);
         String asciiArt = FigletFont.convertOneLine(file, "Waterdrop");
         System.out.println("Welcome to");
