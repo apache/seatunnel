@@ -67,6 +67,7 @@ object Waterdrop extends Logging {
   private[waterdrop] def showWaterdropAsciiLogo(): Unit = {
     try{
       AsciiArt.printAsciiArt("Waterdrop")
+
     }catch {
       case e:Exception =>{
         AsciiArt.printAsciiArtOnFailure("Waterdrop")
