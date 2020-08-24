@@ -21,6 +21,7 @@ import java.sql.{Connection, DriverManager}
 import java.util.{Locale, Properties}
 
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.types.StructType
 
 /**
  * Options for the JDBC data source.
@@ -64,7 +65,6 @@ class JDBCOptions(
   // Required parameters
   // ------------------------------------------------------------
   require(parameters.isDefinedAt(JDBC_URL), s"Option '$JDBC_URL' is required.")
-  require(parameters.isDefinedAt(JDBC_TABLE_NAME), s"Option '$JDBC_TABLE_NAME' is required.")
   // a JDBC URL
   val url = parameters(JDBC_URL)
 
@@ -210,7 +210,7 @@ class JdbcOptionsInWrite(
 
   val table = parameters(JDBC_TABLE_NAME)
 
-  // Custom mysql duplicate key update statement when saveMode is update
+  // Waterdrop: custom mysql duplicate key update statement when saveMode is update
   val customUpdateStmt = parameters.get(JDBC_CUSTOM_UPDATE_STMT)
 }
 
@@ -242,6 +242,7 @@ object JDBCOptions {
   val JDBC_TXN_ISOLATION_LEVEL = newOption("isolationLevel")
   val JDBC_SESSION_INIT_STATEMENT = newOption("sessionInitStatement")
   val JDBC_PUSHDOWN_PREDICATE = newOption("pushDownPredicate")
+  // Waterdrop: add extra options
   val JDBC_DUPLICATE_INCS = newOption("duplicateIncs")
   val JDBC_CUSTOM_UPDATE_STMT = newOption("customUpdateStmt")
 }
