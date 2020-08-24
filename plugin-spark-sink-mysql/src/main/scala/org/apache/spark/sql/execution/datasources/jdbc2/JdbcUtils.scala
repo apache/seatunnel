@@ -23,7 +23,6 @@ import java.util.Locale
 import scala.collection.JavaConverters._
 import scala.util.Try
 import scala.util.control.NonFatal
-
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.executor.InputMetrics
@@ -41,6 +40,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.SchemaUtils
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.NextIterator
+import org.apache.spark.sql.execution.datasources.jdbc.{DriverRegistry, DriverWrapper}
 
 /**
  * Util functions for JDBC tables.
