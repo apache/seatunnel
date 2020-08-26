@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.flink.transform;
 
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchTransform;
@@ -14,11 +14,6 @@ import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-/**
- * @author mr_xiong
- * @date 2019-07-12 18:55
- * @description
- */
 public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
     private Config config;

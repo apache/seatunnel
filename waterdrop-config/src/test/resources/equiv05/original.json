@@ -1,0 +1,16 @@
+{
+  "a" : "hello",
+  "b" : "hello\nworld",
+  "b1" : "hello\\nworld",
+  "c" : "  \n  hello  \n world  \n ",
+  "d" : " \"hello\" ",
+  "e" : "\"hello\"",
+  "f1" : "hello\"",
+  "f2" : "hello\"\"",
+  "f3" : "hello\"\"\"",
+  "f4" : "hello\"\"\"\"",
+  "g1" : "\"hello",
+  "g2" : "\"\"hello",
+  "h" : "\"\"",
+  "i" : "foo\"\"bar"
+}

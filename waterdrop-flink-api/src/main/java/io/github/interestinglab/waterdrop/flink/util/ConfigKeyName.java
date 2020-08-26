@@ -1,10 +1,5 @@
 package io.github.interestinglab.waterdrop.flink.util;
 
-/**
- * @author mr_xiong
- * @date 2019-08-24
- * @description
- */
 public class ConfigKeyName {
     public final static String TIME_CHARACTERISTIC = "execution.time-characteristic";
     public final static String BUFFER_TIMEOUT_MILLIS = "execution.buffer.timeout";

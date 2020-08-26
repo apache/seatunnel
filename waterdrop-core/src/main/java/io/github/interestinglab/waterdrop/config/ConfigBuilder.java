@@ -1,12 +1,5 @@
 package io.github.interestinglab.waterdrop.config;
 
-import com.typesafe.config.waterdrop.Config;
-import com.typesafe.config.waterdrop.ConfigFactory;
-import com.typesafe.config.waterdrop.ConfigRenderOptions;
-import com.typesafe.config.waterdrop.ConfigResolveOptions;
-import io.github.interestinglab.waterdrop.apis.BaseSink;
-import io.github.interestinglab.waterdrop.apis.BaseSource;
-import io.github.interestinglab.waterdrop.apis.BaseTransform;
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException;
 import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
@@ -17,39 +10,37 @@ import io.github.interestinglab.waterdrop.plugin.Plugin;
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment;
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution;
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
+import io.github.interestinglab.waterdrop.utils.Engine;
+import io.github.interestinglab.waterdrop.utils.PluginType;
+
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
 
-/**
- * @author mr_xiong
- * @date 2019-12-29 14:56
- * @description
- */
 public class ConfigBuilder {
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
     private String configFile;
-    private String engine;
+    private Engine engine;
     private ConfigPackage configPackage;
     private Config config;
     private boolean streaming;
     private Config envConfig;
     private RuntimeEnv env;
 
-    public ConfigBuilder(String configFile, String engine) {
+    public ConfigBuilder(String configFile, Engine engine) {
         this.configFile = configFile;
         this.engine = engine;
-        this.configPackage = new ConfigPackage(engine);
+        this.configPackage = new ConfigPackage(engine.getEngine());
         this.config = load();
         this.env = createEnv();
     }
 
     public ConfigBuilder(String configFile) {
         this.configFile = configFile;
-        this.engine = "";
+        this.engine = Engine.NULL;
         this.config = load();
         this.env = createEnv();
     }
@@ -85,7 +76,7 @@ public class ConfigBuilder {
     }
 
     private boolean checkIsStreaming() {
-        List<? extends Config> sourceConfigList = config.getConfigList("source");
+        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
 
         return sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream");
     }
@@ -93,23 +84,23 @@ public class ConfigBuilder {
     /**
      * Get full qualified class name by reflection api, ignore case.
      **/
-    private String buildClassFullQualifier(String name, String classType) throws Exception {
+    private String buildClassFullQualifier(String name, PluginType classType) throws Exception {
 
         if (name.split("\\.").length == 1) {
             String packageName = null;
             Iterable<? extends Plugin> plugins = null;
             switch (classType) {
-                case "source":
+                case SOURCE:
                     packageName = configPackage.sourcePackage();
                     Class baseSource = Class.forName(configPackage.baseSourcePackage());
                     plugins = ServiceLoader.load(baseSource);
                     break;
-                case "transform":
+                case TRANSFORM:
                     packageName = configPackage.transformPackage();
                     Class baseTransform = Class.forName(configPackage.baseTransformPackage());
                     plugins = ServiceLoader.load(baseTransform);
                     break;
-                case "sink":
+                case SINK:
                     packageName = configPackage.sinkPackage();
                     Class baseSink = Class.forName(configPackage.baseSinkPackage());
                     plugins = ServiceLoader.load(baseSink);
@@ -139,24 +130,21 @@ public class ConfigBuilder {
      **/
     public void checkConfig() {
         this.createEnv();
-        this.createPlugins("source", BaseSource.class);
-        this.createPlugins("transform", BaseTransform.class);
-        this.createPlugins("sink", BaseSink.class);
+        this.createPlugins(PluginType.SOURCE);
+        this.createPlugins(PluginType.TRANSFORM);
+        this.createPlugins(PluginType.SINK);
     }
 
-    public <T extends Plugin> List<T> createPlugins(String type, Class<T> clazz) {
+    public <T extends Plugin> List<T> createPlugins(PluginType type) {
 
         List<T> basePluginList = new ArrayList<>();
 
-        List<? extends Config> configList = config.getConfigList(type);
+        List<? extends Config> configList = config.getConfigList(type.getType());
 
         configList.forEach(plugin -> {
             try {
                 final String className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), type);
-                T t = null;
-
-                t = (T) Class.forName(className).newInstance();
-
+                T t =  (T) Class.forName(className).newInstance();
                 t.setConfig(plugin);
                 basePluginList.add(t);
             } catch (Exception e) {
@@ -172,10 +160,10 @@ public class ConfigBuilder {
         streaming = checkIsStreaming();
         RuntimeEnv env = null;
         switch (engine) {
-            case "spark":
+            case SPARK:
                 env = new SparkEnvironment();
                 break;
-            case "flink":
+            case FLINK:
                 env = new FlinkEnvironment();
                 break;
             default:
@@ -190,7 +178,7 @@ public class ConfigBuilder {
     public Execution createExecution() {
         Execution execution = null;
         switch (engine) {
-            case "spark":
+            case SPARK:
                 SparkEnvironment sparkEnvironment = (SparkEnvironment) env;
                 if (streaming) {
                     execution = new SparkStreamingExecution(sparkEnvironment);
@@ -198,7 +186,7 @@ public class ConfigBuilder {
                     execution = new SparkBatchExecution(sparkEnvironment);
                 }
                 break;
-            case "flink":
+            case FLINK:
                 FlinkEnvironment flinkEnvironment = (FlinkEnvironment) env;
                 if (streaming) {
                     execution = new FlinkStreamExecution(flinkEnvironment);
