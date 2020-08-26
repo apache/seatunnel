@@ -1,10 +1,5 @@
 package io.github.interestinglab.waterdrop.config;
 
-import com.typesafe.config.waterdrop.Config;
-import com.typesafe.config.waterdrop.ConfigFactory;
-import com.typesafe.config.waterdrop.ConfigResolveOptions;
-import com.typesafe.config.waterdrop.ConfigValue;
-
 import java.io.File;
 import java.util.Map;
 

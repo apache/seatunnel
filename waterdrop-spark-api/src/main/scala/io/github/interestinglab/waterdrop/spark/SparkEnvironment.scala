@@ -2,7 +2,7 @@ package io.github.interestinglab.waterdrop.spark
 
 import java.lang
 
-import com.typesafe.config.waterdrop.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.env.RuntimeEnv
 import org.apache.spark.SparkConf

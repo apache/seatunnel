@@ -1,7 +1,7 @@
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
-import com.typesafe.config.waterdrop.Config;
+import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.common.config.CheckConfigUtil;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import io.github.interestinglab.waterdrop.flink.batch.FlinkBatchSource;
@@ -16,10 +16,8 @@ import org.apache.flink.api.java.io.RowCsvInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetRowInputFormat;
-import org.apache.flink.formats.parquet.utils.ParquetSchemaConverter;
 import org.apache.flink.orc.OrcRowInputFormat;
 import org.apache.flink.types.Row;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
 
@@ -27,11 +25,6 @@ import java.util.List;
 import java.util.Map;
 
 
-/**
- * @author mr_xiong
- * @date 2019-08-24 17:15
- * @description
- */
 public class FileSource implements FlinkBatchSource<Row> {
 
     private Config config;
@@ -39,7 +32,7 @@ public class FileSource implements FlinkBatchSource<Row> {
     private InputFormat inputFormat;
 
     private final static String PATH = "path";
-    private final static String SOURCE_FORMAT = "source_format";
+    private final static String SOURCE_FORMAT = "format.type";
     private final static String SCHEMA = "schema";
 
     @Override
