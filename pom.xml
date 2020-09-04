@@ -76,6 +76,7 @@
         <module>plugin-spark-phoenix-core</module>
         <module>plugin-spark-sink-phoenix</module>
         <module>plugin-spark-sink-mysql</module>
+        <module>plugin-spark-sink-email</module>
         <module>waterdrop-config</module>
     </modules>
 
