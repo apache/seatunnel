@@ -8,7 +8,7 @@ import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.BatchTableEnvironment;
+import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 
 import java.util.ArrayList;
 import java.util.List;

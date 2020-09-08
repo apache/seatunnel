@@ -29,6 +29,7 @@
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_2.11</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.jpountz.lz4</groupId>
@@ -38,6 +39,7 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -66,6 +68,7 @@
                 <artifactId>scala-maven-plugin</artifactId>
             </plugin>
         </plugins>
+        </pluginManagement>
     </build>
 
 </project>

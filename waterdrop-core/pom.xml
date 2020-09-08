@@ -194,9 +194,15 @@
             <artifactId>plugin-flink-sink-elasticsearch</artifactId>
             <version>2.0.2</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab.waterdrop</groupId>
+            <artifactId>waterdrop-common</artifactId>
+            <version>2.0.2</version>
+        </dependency>
     </dependencies>
 
     <build>
+        <pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -225,6 +231,7 @@
                 <artifactId>scala-maven-plugin</artifactId>
             </plugin>
         </plugins>
+        </pluginManagement>
     </build>
 
 </project>

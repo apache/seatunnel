@@ -44,6 +44,7 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -70,5 +71,6 @@
                 <artifactId>maven-gpg-plugin</artifactId>
             </plugin>
         </plugins>
+        </pluginManagement>
     </build>
 </project>

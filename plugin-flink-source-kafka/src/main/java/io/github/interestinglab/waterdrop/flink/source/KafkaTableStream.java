@@ -14,7 +14,7 @@ import io.github.interestinglab.waterdrop.flink.util.TableUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.*;
 import org.apache.flink.types.Row;
 

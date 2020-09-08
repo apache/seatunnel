@@ -40,13 +40,14 @@
 
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-jdbc_${scala.binary.version}</artifactId>
+            <artifactId>flink-connector-jdbc_${scala.binary.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
 
     </dependencies>
 
     <build>
+        <pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -73,6 +74,7 @@
                 <artifactId>maven-gpg-plugin</artifactId>
             </plugin>
         </plugins>
+        </pluginManagement>
     </build>
 
 </project>
