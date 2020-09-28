@@ -1,3 +1,4 @@
+io.github.interestinglab.waterdrop.input.batch.Alluxio
 io.github.interestinglab.waterdrop.input.batch.Elasticsearch
 io.github.interestinglab.waterdrop.input.batch.Fake
 io.github.interestinglab.waterdrop.input.batch.File
@@ -7,5 +8,5 @@ io.github.interestinglab.waterdrop.input.batch.Jdbc
 io.github.interestinglab.waterdrop.input.batch.Kudu
 io.github.interestinglab.waterdrop.input.batch.MongoDB
 io.github.interestinglab.waterdrop.input.batch.Mysql
+io.github.interestinglab.waterdrop.input.batch.Redis
 io.github.interestinglab.waterdrop.input.batch.Tidb
-io.github.interestinglab.waterdrop.input.batch.Alluxio
