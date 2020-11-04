@@ -13,21 +13,29 @@ import io.github.interestinglab.waterdrop.env.Execution;
 import io.github.interestinglab.waterdrop.env.RuntimeEnv;
 import io.github.interestinglab.waterdrop.plugin.Plugin;
 import io.github.interestinglab.waterdrop.utils.AsciiArtUtils;
+import io.github.interestinglab.waterdrop.utils.CompressionUtils;
 import io.github.interestinglab.waterdrop.utils.Engine;
 import io.github.interestinglab.waterdrop.utils.PluginType;
+import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.hadoop.fs.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.Option;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 import scopt.OptionParser;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
 
 public class Waterdrop {
+    private static final Logger logger = LoggerFactory.getLogger(Waterdrop.class);
 
     public static void main(String[] args) {
         OptionParser<CommandLineArgs> sparkParser = CommandLineUtils.sparkParser();
@@ -109,6 +117,36 @@ public class Waterdrop {
                 if (!configValid) {
                     System.exit(-1); // invalid configuration
                 }
+            }
+        }
+        deployModeCheck();
+    }
+
+    private static void deployModeCheck() {
+        final Option<String> mode = Common.getDeployMode();
+        if (mode.isDefined() && "cluster".equals(mode.get())) {
+
+            logger.info("preparing cluster mode work dir files...");
+            File workDir = new File(".");
+
+            for (File file : Objects.requireNonNull(workDir.listFiles())) {
+                logger.warn("\t list file: " + file.getAbsolutePath());
+            }
+            // decompress plugin dir
+            File compressedFile = new File("plugins.tar.gz");
+
+            try {
+                File tempFile = CompressionUtils.unGzip(compressedFile, workDir);
+                try {
+                    CompressionUtils.unTar(tempFile, workDir);
+                    logger.info("succeeded to decompress plugins.tar.gz");
+                } catch (ArchiveException e) {
+                    logger.error("failed to decompress plugins.tar.gz", e);
+                    System.exit(-1);
+                }
+            } catch (IOException e) {
+                logger.error("failed to decompress plugins.tar.gz", e);
+                System.exit(-1);
             }
         }
     }
