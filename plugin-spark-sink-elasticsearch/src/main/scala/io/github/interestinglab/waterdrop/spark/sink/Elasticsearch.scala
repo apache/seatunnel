@@ -17,6 +17,28 @@ class Elasticsearch extends SparkBatchSink {
   var esCfg: Map[String, String] = Map()
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
+
+    val hosts = config.getStringList("hosts")
+    val numberOFShards = config.getInt("number_of_shards")
+    val numberOfReplicas = config.getInt("number_of_replicas")
+    val mappings = config.getString("mappings")
+    val saveMode = config.getString("save_mode")
+    val indexName = config.getString("index")
+
+
+    val es = new ElasticsearchImpl()
+    es.initClient(hosts)
+    if (saveMode == ElasticsearchSaveMode.Overwrite.toString.toLowerCase) {
+      es.truncateIndex(indexName)
+    }
+    else{
+      if(!es.indexExists(indexName)){
+        es.createIndex(indexName, mappings, numberOFShards, numberOfReplicas)
+      }
+    }
+    // 必须执行关闭操作
+    es.closeClient()
+
     val index = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
     df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
   }
@@ -35,6 +57,10 @@ class Elasticsearch extends SparkBatchSink {
   override def prepare(environment: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
+        "number_of_shards" -> "5",
+        "number_of_replicas" -> "1",
+        "mappings" -> "",
+        "save_mode" -> ElasticsearchSaveMode.Append.toString.toLowerCase,
         "index" -> "waterdrop",
         "index_type" -> "log",
         "index_time_format" -> "yyyy.MM.dd"
