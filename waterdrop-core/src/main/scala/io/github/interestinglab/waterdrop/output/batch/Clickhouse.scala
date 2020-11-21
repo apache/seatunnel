@@ -197,7 +197,7 @@ class Clickhouse extends BaseOutput {
     } else {
       finalDf = df
     }
-    val param = ClickhouseUtilParam(clusterInfo, "database","user", "password", initSQL, tableSchema, fields.toList, shardingKey, bulkSize,retry,retryCodes)
+    val param = ClickhouseUtilParam(clusterInfo, "database","user", "password", initSQL, tableSchema, fields.toList, shardingKey, bulkSize,retry,retryCodes.toList)
     finalDf.foreachPartition( partitionData => {
       val clickhouseUtil = new ClickhouseUtil(param)
       clickhouseUtil.initConnectionList()
