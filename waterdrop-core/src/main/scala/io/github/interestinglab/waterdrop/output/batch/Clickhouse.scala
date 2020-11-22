@@ -10,16 +10,14 @@ import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.{ClickhouseUtil, ClickhouseUtilParam}
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.settings.ClickHouseProperties
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatement, ClickHouseStatement, ClickhouseJdbcUrlParser}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHouseStatement, ClickhouseJdbcUrlParser}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.ArrayBuffer
 import scala.util.matching.Regex
-import scala.util.{Failure, Success, Try}
 
 class Clickhouse extends BaseOutput {
 
@@ -197,8 +195,8 @@ class Clickhouse extends BaseOutput {
     } else {
       finalDf = df
     }
-    val param = ClickhouseUtilParam(clusterInfo, "database","user", "password", initSQL, tableSchema, fields.toList, shardingKey, bulkSize,retry,retryCodes.toList)
-    finalDf.foreachPartition( partitionData => {
+    val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, bulkSize, retry, retryCodes.toList)
+    finalDf.foreachPartition(partitionData => {
       val clickhouseUtil = new ClickhouseUtil(param)
       clickhouseUtil.initConnectionList()
       clickhouseUtil.add(partitionData)
