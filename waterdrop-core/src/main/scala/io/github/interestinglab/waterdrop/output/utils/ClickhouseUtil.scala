@@ -9,41 +9,22 @@ import org.apache.spark.sql.Row
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 import ru.yandex.clickhouse.{ClickHouseConnectionImpl, ClickHousePreparedStatement}
 
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Random, Success, Try}
 
-case class ClickhouseUtilParam(clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)], database: String, user: String, password: String, initSql: String, tableSchema: Map[String, String], fields: List[String], shardingKey: String, batchSize: Int, retry: Int,retryCodes: List[Integer])
+case class ClickhouseUtilParam(clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)], database: String, user: String, password: String, initSql: String, tableSchema: Map[String, String], fields: List[String], shardingKey: String, batchSize: Int, retry: Int, retryCodes: List[Integer])
 
 
 class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with Logging {
 
-  private val connectionList = new ListBuffer[ClickHouseConnectionImpl]
-  private val preparedStatementList = new ListBuffer[ClickHousePreparedStatement]
   private val rand = "rand()"
 
-  def initConnectionList(): Unit = {
-    if (utilParam.clusterInfo == null || utilParam.clusterInfo.isEmpty) throw new Exception("ClickHouse connection info is empty!")
-    for (elem <- utilParam.clusterInfo) {
-      val host: String = elem._4
-      val port: Int = elem._5
-      val connectionHost = s"jdbc:clickhouse://$host:$port/${utilParam.database}"
-      logInfo(s"will connection to ${connectionHost}, user is ${utilParam.user}")
-      val connection: ClickHouseConnectionImpl = DriverManager.getConnection(connectionHost, utilParam.user, utilParam.password).asInstanceOf[ClickHouseConnectionImpl]
-      val statement: ClickHousePreparedStatement = connection.createClickHousePreparedStatement(utilParam.initSql, ResultSet.TYPE_FORWARD_ONLY)
-      preparedStatementList.append(statement)
-      connectionList.append(connection)
-    }
-  }
-
-  def closeConnection(): Unit = {
-    logInfo("will close all connection")
-    for (elem <- preparedStatementList) {
-      elem.close()
-    }
-    for (elem <- connectionList) {
-      elem.close()
-    }
-    logInfo("all connection closed!")
+  def getConnection(connectionInfo: (String, Int, Int, String, Int)): ClickHouseConnectionImpl = {
+    val host: String = connectionInfo._4
+    val port: Int = connectionInfo._5
+    val connectionHost = s"jdbc:clickhouse://$host:$port/${utilParam.database}"
+    logInfo(s"will connection to ${connectionHost}, user is ${utilParam.user}")
+    DriverManager.getConnection(connectionHost, utilParam.user, utilParam.password).asInstanceOf[ClickHouseConnectionImpl]
   }
 
   /**
@@ -54,43 +35,46 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
    * @param rows
    */
   def add(rows: Iterator[Row]): Unit = {
+    // each partition only create one connection with the node that needs to be inserted
+    var connection: ClickHouseConnectionImpl = null
+    var preparedStatement: ClickHousePreparedStatement = null
     rows.grouped(utilParam.batchSize).foreach(batchData => {
-      var preparedStatement: ClickHousePreparedStatement = null
-      // each batch use same PreparedStatement
       batchData.foreach(row => {
         if (preparedStatement == null) {
-          if (utilParam.shardingKey == null) {
-            // for stand alone case, randomly select a node
-            val randomIndex: Int = Random.nextInt(connectionList.length)
-            preparedStatement = preparedStatementList(randomIndex)
+          var index: Int = 0
+          if (utilParam.shardingKey == null || utilParam.shardingKey == rand) {
+            // for stand alone case or random sharding, randomly select a node
+            index = Random.nextInt(utilParam.clusterInfo.length)
           } else {
-            if (utilParam.shardingKey == rand) {
-              val index: Int = Random.nextInt(connectionList.size)
-              preparedStatement = preparedStatementList(index)
-            } else {
-              // for distributed table case. Use shard key to select insert node
-              // shardingKey is a numeric type, use Long
-              val shardingNumeric: AnyVal = row.getAs(utilParam.shardingKey)
-              var shardingValue: Long = 0L
-              shardingNumeric match {
-                case v: Int =>
-                  shardingValue = v.asInstanceOf[Long]
-                case v: Long =>
-                  shardingValue = v
-                case _ =>
-                  throw new Exception("sharding key is not an Numeric!")
-              }
-              val slot: Int = (shardingValue % connectionList.size).intValue()
-              preparedStatement = preparedStatementList(slot)
+            // for distributed table case. Use shard key to select insert node
+            // shardingKey is a numeric type, use Long
+            val shardingNumeric: AnyVal = row.getAs(utilParam.shardingKey)
+            var shardingValue: Long = 0L
+            shardingNumeric match {
+              case v: Int =>
+                shardingValue = v.asInstanceOf[Long]
+              case v: Long =>
+                shardingValue = v
+              case _ =>
+                throw new Exception("sharding key is not an Numeric!")
             }
+            index = (shardingValue % utilParam.clusterInfo.size).intValue()
           }
+          val connectionInfo: (String, Int, Int, String, Int) = utilParam.clusterInfo(index)
+          connection = getConnection(connectionInfo)
+          preparedStatement = connection.createClickHousePreparedStatement(utilParam.initSql, ResultSet.TYPE_FORWARD_ONLY)
         }
-
         renderStatement(utilParam.fields, row, row.schema.fieldNames, preparedStatement)
         preparedStatement.addBatch()
       })
-      execute(preparedStatement,utilParam.retry)
+      execute(preparedStatement, utilParam.retry)
     })
+    if (preparedStatement != null) {
+      preparedStatement.close()
+    }
+    if (connection != null) {
+      connection.close()
+    }
   }
 
   private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {

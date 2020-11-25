@@ -36,7 +36,6 @@ class Clickhouse extends BaseOutput {
   private val Distributed = "Distributed"
   private val rand = "rand()"
   private val brackets = ")"
-  private val localTableSuffix = "_local"
   private var shardingKey: String = _
 
   var retryCodes: java.util.List[Integer] = _
@@ -157,21 +156,27 @@ class Clickhouse extends BaseOutput {
     }
     // if table use distributed engine, get the sharding key.
     if (tableDDLString.contains(Distributed)) {
-      val subIndex: Int = tableDDLString.indexOf(Distributed) + Distributed.length
+      val subIndex: Int = tableDDLString.indexOf(Distributed) + Distributed.length + 1
       val configSettings: String = tableDDLString.substring(subIndex)
-      val configs: Array[String] = configSettings.split(",")
-      val shardingKeyAndOtherSetting: String = configs(3)
-      if (shardingKeyAndOtherSetting.contains(rand)) {
+      val endIndex: Int = configSettings.indexOf(brackets)
+      // Distributed('cluster_name', 'database_name', 'remote_table_name'[, sharding_key[, policy_name]])
+      val distributedSettings: String = configSettings.substring(0, endIndex).replace("'", "")
+      val settings: Array[String] = distributedSettings.split(",")
+      // if remote table`s cluster is different with distributed table, rebuild cluster info
+      if (settings(0).trim != cluster) {
+        this.clusterInfo = getClickHouseClusterInfo(conn, settings(0))
+      }
+      // if remote table`s database is different with distributed table`s database, rebuild jdbc url
+      if (settings(1).trim != config.getString("database")) {
+        this.jdbcLink.replace(config.getString("database"), settings(1))
+      }
+      localTable = settings(2).trim
+      // not setting sharding key, or sharding key is rand()
+      // Distributed(cluster_name, database_name, remote_table_name) or Distributed(cluster_name, database_name, remote_table_name,rand())
+      if (settings.length == 3 || settings(3).equals(rand)) {
         shardingKey = rand
       } else {
-        val endIndex: Int = shardingKeyAndOtherSetting.indexOf(brackets)
-        val sKey: String = shardingKeyAndOtherSetting.substring(0, endIndex).trim
-        shardingKey = sKey
-      }
-      if (config.hasPath("local_table")) {
-        localTable = config.getString("local_table")
-      } else {
-        localTable = table.concat(localTableSuffix)
+        shardingKey = settings(3).trim
       }
     }
     statement.close()
@@ -198,9 +203,7 @@ class Clickhouse extends BaseOutput {
     val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, bulkSize, retry, retryCodes.toList)
     finalDf.foreachPartition(partitionData => {
       val clickhouseUtil = new ClickhouseUtil(param)
-      clickhouseUtil.initConnectionList()
       clickhouseUtil.add(partitionData)
-      clickhouseUtil.closeConnection()
     })
 
   }
@@ -236,8 +239,8 @@ class Clickhouse extends BaseOutput {
         val custerName = resultSet.getString("cluster")
         val shardNum = resultSet.getInt("shard_num")
         val hostAddress = resultSet.getString("host_address")
-        val port = getJDBCPort(jdbcLink)
-        val shardInfo = Tuple5(custerName, shardNum, shardWeight, hostAddress, port)
+        val port: Int = getJDBCPort(jdbcLink)
+        val shardInfo: (String, Int, Int, String, Int) = Tuple5(custerName, shardNum, shardWeight, hostAddress, port)
         clusterInfo += shardInfo
       }
     }
