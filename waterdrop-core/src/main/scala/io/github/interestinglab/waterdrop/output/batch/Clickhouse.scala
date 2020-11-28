@@ -35,8 +35,11 @@ class Clickhouse extends BaseOutput {
   // for distributed table, parse out the shardKey
   private val Distributed = "Distributed"
   private val rand = "rand()"
+  private val intHash = "intHash"
+  private val preBrackets = "("
   private val brackets = ")"
   private var shardingKey: String = _
+  private var shardingStrategy: String = _
 
   var retryCodes: java.util.List[Integer] = _
   var config: Config = ConfigFactory.empty()
@@ -139,6 +142,10 @@ class Clickhouse extends BaseOutput {
       }
       logInfo(s"get [$cluster] config from system.clusters, the replica info is [$clusterInfo].")
       verifyTableEngine(table, conn)
+    } else {
+      val tuples: ArrayBuffer[(String, Int, Int, String, Int)] = ArrayBuffer[(String, Int, Int, String, Int)]()
+      tuples += Tuple5("", 1, 1, config.getString("host"), getJDBCPort(jdbcLink))
+      this.clusterInfo = tuples
     }
 
     config = config.withFallback(defaultConfig)
@@ -146,6 +153,13 @@ class Clickhouse extends BaseOutput {
     super.prepare(spark)
   }
 
+  /**
+   * now use table DDL get the sharding key or other setting, because now it not has other solution
+   * if feature has better way to get it this method should be replace
+   *
+   * @param tableName
+   * @param conn
+   */
   private def verifyTableEngine(tableName: String, conn: ClickHouseConnectionImpl): Unit = {
     val showCreateTable = s"show create table $tableName}"
     val statement: ClickHouseStatement = conn.createStatement()
@@ -158,25 +172,41 @@ class Clickhouse extends BaseOutput {
     if (tableDDLString.contains(Distributed)) {
       val subIndex: Int = tableDDLString.indexOf(Distributed) + Distributed.length + 1
       val configSettings: String = tableDDLString.substring(subIndex)
-      val endIndex: Int = configSettings.indexOf(brackets)
-      // Distributed('cluster_name', 'database_name', 'remote_table_name'[, sharding_key[, policy_name]])
+      var endIndex: Int = configSettings.indexOf(brackets)
+      if (configSettings.contains(intHash)) {
+        // if use intHash as the sharding key, setting would like this
+        // Distributed('cluster_name','database_name','remote_table_name',intHash64(shardingKey)[,policy_name])
+        endIndex = configSettings.indexOf(brackets, endIndex)
+      }
       val distributedSettings: String = configSettings.substring(0, endIndex).replace("'", "")
       val settings: Array[String] = distributedSettings.split(",")
-      // if remote table`s cluster is different with distributed table, rebuild cluster info
+      // if remote table's cluster is different with distributed table, rebuild cluster info
       if (settings(0).trim != cluster) {
         this.clusterInfo = getClickHouseClusterInfo(conn, settings(0))
       }
-      // if remote table`s database is different with distributed table`s database, rebuild jdbc url
+      // if remote table's database is different with distributed table`s database, rebuild jdbc url
       if (settings(1).trim != config.getString("database")) {
         this.jdbcLink.replace(config.getString("database"), settings(1))
       }
       localTable = settings(2).trim
-      // not setting sharding key, or sharding key is rand()
+      // not setting sharding key, means only can insert to one node, same as stand-alone mode
+      // if remote_table on multiple node, will get error
+      if (settings.length == 3) {
+        shardingKey = null
+      }
       // Distributed(cluster_name, database_name, remote_table_name) or Distributed(cluster_name, database_name, remote_table_name,rand())
-      if (settings.length == 3 || settings(3).equals(rand)) {
+      val shardingKeySetting: String = settings(3).trim
+      if (shardingKeySetting.equals(rand)) {
         shardingKey = rand
       } else {
-        shardingKey = settings(3).trim
+        if (shardingKeySetting.contains(intHash)) {
+          val startIndex: Int = shardingKeySetting.indexOf(preBrackets)
+          val endIndex: Int = shardingKeySetting.lastIndexOf(brackets)
+          shardingStrategy = shardingKeySetting.substring(0, startIndex)
+          shardingKey = shardingKeySetting.substring(startIndex + 1, endIndex)
+        } else {
+          shardingKey = shardingKeySetting
+        }
       }
     }
     statement.close()
@@ -200,10 +230,10 @@ class Clickhouse extends BaseOutput {
     } else {
       finalDf = df
     }
-    val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, bulkSize, retry, retryCodes.toList)
+    val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, shardingStrategy, bulkSize, retry, retryCodes.toList)
     finalDf.foreachPartition(partitionData => {
       val clickhouseUtil = new ClickhouseUtil(param)
-      clickhouseUtil.add(partitionData)
+      clickhouseUtil.insertData(partitionData)
     })
 
   }
@@ -224,11 +254,9 @@ class Clickhouse extends BaseOutput {
     schema
   }
 
-  private def getClickHouseClusterInfo(
-    conn: ClickHouseConnectionImpl,
-    cluster: String): ArrayBuffer[(String, Int, Int, String,Int)] = {
+  private def getClickHouseClusterInfo(conn: ClickHouseConnectionImpl, cluster: String): ArrayBuffer[(String, Int, Int, String, Int)] = {
     val sql =
-      s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1"
+      s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1 order by shard_num"
     val resultSet = conn.createStatement.executeQuery(sql)
 
     val clusterInfo = ArrayBuffer[(String, Int, Int, String, Int)]()

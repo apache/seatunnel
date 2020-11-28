@@ -12,7 +12,7 @@ import ru.yandex.clickhouse.{ClickHouseConnectionImpl, ClickHousePreparedStateme
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Random, Success, Try}
 
-case class ClickhouseUtilParam(clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)], database: String, user: String, password: String, initSql: String, tableSchema: Map[String, String], fields: List[String], shardingKey: String, batchSize: Int, retry: Int, retryCodes: List[Integer])
+case class ClickhouseUtilParam(clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)], database: String, user: String, password: String, initSql: String, tableSchema: Map[String, String], fields: List[String], shardingKey: String, shardingStrategy: String, batchSize: Int, retry: Int, retryCodes: List[Integer])
 
 
 class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with Logging {
@@ -34,7 +34,7 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
    *
    * @param rows
    */
-  def add(rows: Iterator[Row]): Unit = {
+  def insertData(rows: Iterator[Row]): Unit = {
     // each partition only create one connection with the node that needs to be inserted
     var connection: ClickHouseConnectionImpl = null
     var preparedStatement: ClickHousePreparedStatement = null
@@ -46,19 +46,7 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
             // for stand alone case or random sharding, randomly select a node
             index = Random.nextInt(utilParam.clusterInfo.length)
           } else {
-            // for distributed table case. Use shard key to select insert node
-            // shardingKey is a numeric type, use Long
-            val shardingNumeric: AnyVal = row.getAs(utilParam.shardingKey)
-            var shardingValue: Long = 0L
-            shardingNumeric match {
-              case v: Int =>
-                shardingValue = v.asInstanceOf[Long]
-              case v: Long =>
-                shardingValue = v
-              case _ =>
-                throw new Exception("sharding key is not an Numeric!")
-            }
-            index = (shardingValue % utilParam.clusterInfo.size).intValue()
+            index = getDistributedTableIndex(row)
           }
           val connectionInfo: (String, Int, Int, String, Int) = utilParam.clusterInfo(index)
           connection = getConnection(connectionInfo)
@@ -75,6 +63,46 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     if (connection != null) {
       connection.close()
     }
+  }
+
+  private def getDistributedTableIndex(row: Row): Int = {
+    // for distributed table case. Use shard key to select insert node
+    // shardingKey is a numeric type, use Long
+    val shardingNumeric: AnyVal = row.getAs(utilParam.shardingKey)
+    var shardingValue: Long = 0L
+    shardingNumeric match {
+      case v: Int =>
+        shardingValue = v.asInstanceOf[Long]
+      case v: Long =>
+        shardingValue = v
+      case _ =>
+        throw new Exception("sharding key is not an Numeric!")
+    }
+    var index: Int = 0
+    if (utilParam.shardingStrategy != null) {
+      utilParam.shardingStrategy match {
+        case "intHash32" =>
+          index = intHash32Shard(1)
+        case "intHash64" =>
+          index = intHash64Shard(1)
+        case _ =>
+          // if has other strategy, add implement
+          index = Random.nextInt(utilParam.clusterInfo.length)
+      }
+    } else {
+      index = (shardingValue % utilParam.clusterInfo.size).intValue()
+    }
+    index
+  }
+
+  // todo need implement this method, return the index
+  private def intHash32Shard(shardingValue: Long): Int = {
+    1
+  }
+
+
+  private def intHash64Shard(shardingValue: Long): Int = {
+    1
   }
 
   private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
