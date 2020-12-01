@@ -12,7 +12,7 @@ import ru.yandex.clickhouse.{ClickHouseConnectionImpl, ClickHousePreparedStateme
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Random, Success, Try}
 
-case class ClickhouseUtilParam(clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)], database: String, user: String, password: String, initSql: String, tableSchema: Map[String, String], fields: List[String], shardingKey: String, shardingStrategy: String, batchSize: Int, retry: Int, retryCodes: List[Integer])
+case class ClickhouseUtilParam(clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)], database: String, user: String, password: String, initSql: String, tableSchema: Map[String, String], fields: List[String], shardingKey: String, batchSize: Int, retry: Int, retryCodes: List[Integer])
 
 
 class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with Logging {
@@ -78,20 +78,7 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
       case _ =>
         throw new Exception("sharding key is not an Numeric!")
     }
-    var index: Int = 0
-    if (utilParam.shardingStrategy != null) {
-      utilParam.shardingStrategy match {
-        case "intHash32" =>
-          index = intHash32Shard(1)
-        case "intHash64" =>
-          index = intHash64Shard(1)
-        case _ =>
-          // if has other strategy, add implement
-          index = Random.nextInt(utilParam.clusterInfo.length)
-      }
-    } else {
-      index = (shardingValue % utilParam.clusterInfo.size).intValue()
-    }
+    val index: Int = (shardingValue % utilParam.clusterInfo.size).intValue()
     index
   }
 

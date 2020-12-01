@@ -36,10 +36,8 @@ class Clickhouse extends BaseOutput {
   private val Distributed = "Distributed"
   private val rand = "rand()"
   private val intHash = "intHash"
-  private val preBrackets = "("
   private val brackets = ")"
   private var shardingKey: String = _
-  private var shardingStrategy: String = _
 
   var retryCodes: java.util.List[Integer] = _
   var config: Config = ConfigFactory.empty()
@@ -176,7 +174,8 @@ class Clickhouse extends BaseOutput {
       if (configSettings.contains(intHash)) {
         // if use intHash as the sharding key, setting would like this
         // Distributed('cluster_name','database_name','remote_table_name',intHash64(shardingKey)[,policy_name])
-        endIndex = configSettings.indexOf(brackets, endIndex)
+        val errorInfo = "Currently does not support intHash as a sharding strategy!"
+        throw new RuntimeException(errorInfo)
       }
       val distributedSettings: String = configSettings.substring(0, endIndex).replace("'", "")
       val settings: Array[String] = distributedSettings.split(",")
@@ -199,14 +198,7 @@ class Clickhouse extends BaseOutput {
       if (shardingKeySetting.equals(rand)) {
         shardingKey = rand
       } else {
-        if (shardingKeySetting.contains(intHash)) {
-          val startIndex: Int = shardingKeySetting.indexOf(preBrackets)
-          val endIndex: Int = shardingKeySetting.lastIndexOf(brackets)
-          shardingStrategy = shardingKeySetting.substring(0, startIndex)
-          shardingKey = shardingKeySetting.substring(startIndex + 1, endIndex)
-        } else {
-          shardingKey = shardingKeySetting
-        }
+        shardingKey = shardingKeySetting
       }
     }
     statement.close()
@@ -230,7 +222,7 @@ class Clickhouse extends BaseOutput {
     } else {
       finalDf = df
     }
-    val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, shardingStrategy, bulkSize, retry, retryCodes.toList)
+    val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, bulkSize, retry, retryCodes.toList)
     finalDf.foreachPartition(partitionData => {
       val clickhouseUtil = new ClickhouseUtil(param)
       clickhouseUtil.insertData(partitionData)
