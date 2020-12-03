@@ -21,7 +21,7 @@
         <dependency>
             <groupId>org.apache.phoenix</groupId>
             <artifactId>phoenix-spark</artifactId>
-            <version>4.14.0-HBase-1.2</version>
+            <version>5.0.0-HBase-2.0</version>
         </dependency>
 
         <dependency>
