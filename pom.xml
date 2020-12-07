@@ -49,6 +49,7 @@
         <module>plugin-spark-source-jdbc</module>
         <module>plugin-spark-source-fake</module>
         <module>plugin-spark-source-elasticsearch</module>
+        <module>plugin-spark-source-hive</module>
         <module>plugin-spark-transform-sql</module>
         <module>plugin-spark-sink-console</module>
         <module>plugin-spark-sink-clickhouse</module>
