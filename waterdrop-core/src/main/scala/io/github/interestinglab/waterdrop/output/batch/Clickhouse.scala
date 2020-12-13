@@ -3,29 +3,21 @@ package io.github.interestinglab.waterdrop.output.batch
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
-import java.math.BigDecimal
 import java.sql.ResultSet
 
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseOutput
 import io.github.interestinglab.waterdrop.config.ConfigRuntimeException
 import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.output.utils.{ClickhouseUtil, ClickhouseUtilParam}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 import ru.yandex.clickhouse.settings.ClickHouseProperties
-import ru.yandex.clickhouse.{
-  BalancedClickhouseDataSource,
-  ClickHouseConnectionImpl,
-  ClickHousePreparedStatement,
-  ClickhouseJdbcUrlParser
-}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHouseStatement, ClickhouseJdbcUrlParser}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.WrappedArray
 import scala.util.matching.Regex
-import scala.util.{Failure, Success, Try}
 
 class Clickhouse extends BaseOutput {
 
@@ -33,12 +25,19 @@ class Clickhouse extends BaseOutput {
   var jdbcLink: String = _
   var initSQL: String = _
   var table: String = _
+  var localTable: String = _
   var fields: java.util.List[String] = _
 
   var cluster: String = _
 
-  //contians cluster basic info
-  var clusterInfo: ArrayBuffer[(String, Int, Int, String)] = _
+  //contains cluster basic info
+  var clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)] = _
+  // for distributed table, parse out the shardKey
+  private val Distributed = "Distributed"
+  private val rand = "rand()"
+  private val intHash = "intHash"
+  private val brackets = ")"
+  private var shardingKey: String = _
 
   var retryCodes: java.util.List[Integer] = _
   var config: Config = ConfigFactory.empty()
@@ -134,17 +133,74 @@ class Clickhouse extends BaseOutput {
       this.cluster = config.getString("cluster")
 
       this.clusterInfo = getClickHouseClusterInfo(conn, cluster)
-      if (this.clusterInfo.size == 0) {
+      if (this.clusterInfo.isEmpty) {
         val errorInfo = s"cloud not find cluster config in system.clusters, config cluster = $cluster"
         logError(errorInfo)
         throw new RuntimeException(errorInfo)
       }
       logInfo(s"get [$cluster] config from system.clusters, the replica info is [$clusterInfo].")
+      verifyTableEngine(table, conn)
+    } else {
+      val tuples: ArrayBuffer[(String, Int, Int, String, Int)] = ArrayBuffer[(String, Int, Int, String, Int)]()
+      tuples += Tuple5("", 1, 1, config.getString("host"), getJDBCPort(jdbcLink))
+      this.clusterInfo = tuples
     }
 
     config = config.withFallback(defaultConfig)
     retryCodes = config.getIntList("retry_codes")
     super.prepare(spark)
+  }
+
+  /**
+   * now use table DDL get the sharding key or other setting, because now it not has other solution
+   * if feature has better way to get it this method should be replace
+   *
+   * @param tableName
+   * @param conn
+   */
+  private def verifyTableEngine(tableName: String, conn: ClickHouseConnectionImpl): Unit = {
+    val showCreateTable = s"show create table $tableName}"
+    val statement: ClickHouseStatement = conn.createStatement()
+    val tableDDLRS: ResultSet = statement.executeQuery(showCreateTable)
+    var tableDDLString: String = ""
+    while (tableDDLRS.next()) {
+      tableDDLString = tableDDLRS.getString(1)
+    }
+    // if table use distributed engine, get the sharding key.
+    if (tableDDLString.contains(Distributed)) {
+      val subIndex: Int = tableDDLString.indexOf(Distributed) + Distributed.length + 1
+      val configSettings: String = tableDDLString.substring(subIndex)
+      var endIndex: Int = configSettings.indexOf(brackets)
+      if (configSettings.contains(intHash)) {
+        // if use intHash as the sharding key, setting would like this
+        // Distributed('cluster_name','database_name','remote_table_name',intHash64(shardingKey)[,policy_name])
+        val errorInfo = "Currently does not support intHash as a sharding strategy!"
+        throw new RuntimeException(errorInfo)
+      }
+      val distributedSettings: String = configSettings.substring(0, endIndex).replace("'", "")
+      val settings: Array[String] = distributedSettings.split(",")
+      // if remote table's cluster is different with distributed table, rebuild cluster info
+      if (settings(0).trim != cluster) {
+        this.clusterInfo = getClickHouseClusterInfo(conn, settings(0))
+      }
+      // if remote table's database is different with distributed table's database, rebuild jdbc url
+      if (settings(1).trim != config.getString("database")) {
+        this.jdbcLink.replace(config.getString("database"), settings(1))
+      }
+      localTable = settings(2).trim
+      // not setting sharding key, means only can insert to one node, same as stand-alone mode, if remote_table on multiple node, will get error
+      if (settings.length == 3) {
+        shardingKey = null
+      }
+      // Distributed(cluster_name, database_name, remote_table_name[,policy_name]) or Distributed(cluster_name, database_name, remote_table_name,rand()[,policy_name])
+      val shardingKeySetting: String = settings(3).trim
+      if (shardingKeySetting.equals(rand)) {
+        shardingKey = rand
+      } else {
+        shardingKey = shardingKeySetting
+      }
+    }
+    statement.close()
   }
 
   override def process(df: Dataset[Row]): Unit = {
@@ -159,42 +215,18 @@ class Clickhouse extends BaseOutput {
     this.initSQL = initPrepareSQL()
     logInfo(this.initSQL)
 
-    df.foreachPartition { iter =>
-      var jdbcUrl = this.jdbcLink
-      if (this.clusterInfo != null && this.clusterInfo.size > 0) {
-        //using random policy to select shard when insert data
-        val randomShard = (Math.random() * this.clusterInfo.size).asInstanceOf[Int]
-        val shardInfo = this.clusterInfo.get(randomShard)
-
-        val host = shardInfo._4
-        val port = getJDBCPort(this.jdbcLink)
-        val database = config.getString("database")
-
-        jdbcUrl = s"jdbc:clickhouse://$host:$port/$database"
-        logInfo(s"cluster mode, select shard index [$randomShard] to insert data, the jdbc url is [$jdbcUrl].")
-      } else {
-        logInfo(s"single mode, the jdbc url is [$jdbcUrl].")
-      }
-
-      val executorBalanced = new BalancedClickhouseDataSource(jdbcUrl, this.properties)
-      val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
-      val statement = executorConn.createClickHousePreparedStatement(this.initSQL, ResultSet.TYPE_FORWARD_ONLY)
-      var length = 0
-      while (iter.hasNext) {
-        val row = iter.next()
-        length += 1
-
-        renderStatement(fields, row, dfFields, statement)
-        statement.addBatch()
-
-        if (length >= bulkSize) {
-          execute(statement, retry)
-          length = 0
-        }
-      }
-
-      execute(statement, retry)
+    var finalDf: Dataset[Row] = null
+    if (shardingKey != null && shardingKey != rand) {
+      finalDf = df.repartition(df(shardingKey))
+    } else {
+      finalDf = df
     }
+    val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, bulkSize, retry, retryCodes.toList)
+    finalDf.foreachPartition(partitionData => {
+      val clickhouseUtil = new ClickhouseUtil(param)
+      clickhouseUtil.insertData(partitionData)
+    })
+
   }
 
   private def getJDBCPort(jdbcUrl: String): Int = {
@@ -202,36 +234,6 @@ class Clickhouse extends BaseOutput {
     clickHouseProperties.getPort
   }
 
-  private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
-    val res = Try(statement.executeBatch())
-    res match {
-      case Success(_) => {
-        logInfo("Insert into ClickHouse succeed")
-        statement.close()
-      }
-      case Failure(e: ClickHouseException) => {
-        val errorCode = e.getErrorCode
-        if (retryCodes.contains(errorCode)) {
-          logError("Insert into ClickHouse failed. Reason: ", e)
-          if (retry > 0) {
-            execute(statement, retry - 1)
-          } else {
-            logError("Insert into ClickHouse failed and retry failed, drop this bulk.")
-            statement.close()
-          }
-        } else {
-          throw e
-        }
-      }
-      case Failure(e: ClickHouseUnknownException) => {
-        statement.close()
-        throw e
-      }
-      case Failure(e: Exception) => {
-        throw e
-      }
-    }
-  }
 
   private def getClickHouseSchema(conn: ClickHouseConnectionImpl, table: String): Map[String, String] = {
     val sql = s"desc $table"
@@ -243,14 +245,12 @@ class Clickhouse extends BaseOutput {
     schema
   }
 
-  private def getClickHouseClusterInfo(
-    conn: ClickHouseConnectionImpl,
-    cluster: String): ArrayBuffer[(String, Int, Int, String)] = {
+  private def getClickHouseClusterInfo(conn: ClickHouseConnectionImpl, cluster: String): ArrayBuffer[(String, Int, Int, String, Int)] = {
     val sql =
-      s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1"
+      s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1 order by shard_num"
     val resultSet = conn.createStatement.executeQuery(sql)
 
-    val clusterInfo = ArrayBuffer[(String, Int, Int, String)]()
+    val clusterInfo = ArrayBuffer[(String, Int, Int, String, Int)]()
     while (resultSet.next()) {
       val shardWeight = resultSet.getInt("shard_weight")
       for (_ <- 1 to shardWeight) {
@@ -258,8 +258,8 @@ class Clickhouse extends BaseOutput {
         val custerName = resultSet.getString("cluster")
         val shardNum = resultSet.getInt("shard_num")
         val hostAddress = resultSet.getString("host_address")
-
-        val shardInfo = Tuple4(custerName, shardNum, shardWeight, hostAddress)
+        val port: Int = getJDBCPort(jdbcLink)
+        val shardInfo: (String, Int, Int, String, Int) = Tuple5(custerName, shardNum, shardWeight, hostAddress, port)
         clusterInfo += shardInfo
       }
     }
@@ -268,9 +268,15 @@ class Clickhouse extends BaseOutput {
 
   private def initPrepareSQL(): String = {
     val prepare = List.fill(fields.size)("?")
+    var finalTable = ""
+    if (shardingKey != null) {
+      finalTable = this.localTable
+    } else {
+      finalTable = this.table
+    }
     val sql = String.format(
       "insert into %s (%s) values (%s)",
-      this.table,
+      finalTable,
       this.fields.map(a => s"`$a`").mkString(","),
       prepare.mkString(","))
 
@@ -305,106 +311,6 @@ class Clickhouse extends BaseOutput {
     }
   }
 
-  private def renderDefaultStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
-    fieldType match {
-      case "DateTime" | "Date" | "String" =>
-        statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
-      case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
-        statement.setInt(index + 1, 0)
-      case "UInt64" | "Int64" =>
-        statement.setLong(index + 1, 0)
-      case "Float32" => statement.setFloat(index + 1, 0)
-      case "Float64" => statement.setDouble(index + 1, 0)
-      case Clickhouse.lowCardinalityPattern(lowCardinalityType) =>
-        renderDefaultStatement(index, lowCardinalityType, statement)
-      case Clickhouse.arrayPattern(_) => statement.setArray(index + 1, List())
-      case Clickhouse.nullablePattern(nullFieldType) => renderNullStatement(index, nullFieldType, statement)
-      case _ => statement.setString(index + 1, "")
-    }
-  }
-
-  private def renderNullStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
-    fieldType match {
-      case "String" =>
-        statement.setNull(index + 1, java.sql.Types.VARCHAR)
-      case "DateTime" => statement.setNull(index + 1, java.sql.Types.DATE)
-      case "Date" => statement.setNull(index + 1, java.sql.Types.TIME)
-      case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
-        statement.setNull(index + 1, java.sql.Types.INTEGER)
-      case "UInt64" | "Int64" =>
-        statement.setNull(index + 1, java.sql.Types.BIGINT)
-      case "Float32" => statement.setNull(index + 1, java.sql.Types.FLOAT)
-      case "Float64" => statement.setNull(index + 1, java.sql.Types.DOUBLE)
-      case "Array" => statement.setNull(index + 1, java.sql.Types.ARRAY)
-      case Clickhouse.decimalPattern(_) => statement.setNull(index + 1, java.sql.Types.DECIMAL)
-    }
-  }
-
-  private def renderBaseTypeStatement(
-    index: Int,
-    fieldIndex: Int,
-    fieldType: String,
-    item: Row,
-    statement: ClickHousePreparedStatement): Unit = {
-    fieldType match {
-      case "DateTime" | "Date" | "String" =>
-        statement.setString(index + 1, item.getAs[String](fieldIndex))
-      case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
-        statement.setInt(index + 1, item.getAs[Int](fieldIndex))
-      case "UInt32" | "UInt64" | "Int64" =>
-        statement.setLong(index + 1, item.getAs[Long](fieldIndex))
-      case "Float32" => statement.setFloat(index + 1, item.getAs[Float](fieldIndex))
-      case "Float64" => statement.setDouble(index + 1, item.getAs[Double](fieldIndex))
-      case Clickhouse.arrayPattern(_) =>
-        statement.setArray(index + 1, item.getAs[WrappedArray[AnyRef]](fieldIndex))
-      case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
-      case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
-    }
-  }
-
-  private def renderStatementEntry(
-    index: Int,
-    fieldIndex: Int,
-    fieldType: String,
-    item: Row,
-    statement: ClickHousePreparedStatement): Unit = {
-    fieldType match {
-      case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
-        renderBaseTypeStatement(index, fieldIndex, fieldType, item, statement)
-      case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
-        renderBaseTypeStatement(index, fieldIndex, fieldType, item, statement)
-      case Clickhouse.nullablePattern(dataType) =>
-        renderStatementEntry(index, fieldIndex, dataType, item, statement)
-      case Clickhouse.lowCardinalityPattern(dataType) =>
-        renderBaseTypeStatement(index, fieldIndex, dataType, item, statement)
-      case Clickhouse.decimalPattern(_) =>
-        renderBaseTypeStatement(index, fieldIndex, "Decimal", item, statement)
-      case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
-    }
-  }
-
-  private def renderStatement(
-    fields: util.List[String],
-    item: Row,
-    dsFields: Array[String],
-    statement: ClickHousePreparedStatement): Unit = {
-    for (i <- 0 until fields.size()) {
-      val field = fields.get(i)
-      val fieldType = tableSchema(field)
-      if (dsFields.indexOf(field) == -1) {
-        // specified field does not existed in row.
-        renderDefaultStatement(i, fieldType, statement)
-      } else {
-        val fieldIndex = item.fieldIndex(field)
-        if (item.isNullAt(fieldIndex)) {
-          // specified field is Null in Row.
-          renderDefaultStatement(i, fieldType, statement)
-        } else {
-          renderStatementEntry(i, fieldIndex, fieldType, item, statement)
-        }
-      }
-    }
-  }
 }
 
 object Clickhouse {
