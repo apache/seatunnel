@@ -16,7 +16,7 @@ import scala.collection.JavaConverters._
 
 class Grok extends BaseFilter {
 
-  val grok = GrokLib.EMPTY
+  val grok = new GrokLib()
 
   var conf: Config = ConfigFactory.empty()
 
