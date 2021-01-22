@@ -12,7 +12,12 @@ import io.github.interestinglab.waterdrop.config.TypesafeConfigUtils
 import io.github.interestinglab.waterdrop.output.utils.{ClickhouseUtil, ClickhouseUtilParam}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.settings.ClickHouseProperties
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHouseStatement, ClickhouseJdbcUrlParser}
+import ru.yandex.clickhouse.{
+  BalancedClickhouseDataSource,
+  ClickHouseConnectionImpl,
+  ClickHouseStatement,
+  ClickhouseJdbcUrlParser
+}
 
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
@@ -192,7 +197,8 @@ class Clickhouse extends BaseOutput {
       if (settings.length == 3) {
         shardingKey = null
       }
-      // Distributed(cluster_name, database_name, remote_table_name[,policy_name]) or Distributed(cluster_name, database_name, remote_table_name,rand()[,policy_name])
+      // Distributed(cluster_name, database_name, remote_table_name[,policy_name]) or
+      // Distributed(cluster_name, database_name, remote_table_name,rand()[,policy_name])
       val shardingKeySetting: String = settings(3).trim
       if (shardingKeySetting.equals(rand)) {
         shardingKey = rand
@@ -221,7 +227,19 @@ class Clickhouse extends BaseOutput {
     } else {
       finalDf = df
     }
-    val param: ClickhouseUtilParam = ClickhouseUtilParam(clusterInfo, config.getString("database"), config.getString("username"), config.getString("password"), initSQL, tableSchema, fields.toList, shardingKey, bulkSize, retry, retryCodes.toList)
+    val param: ClickhouseUtilParam = ClickhouseUtilParam(
+      clusterInfo,
+      config.getString("database"),
+      config.getString("username"),
+      config.getString("password"),
+      initSQL,
+      tableSchema,
+      fields.toList,
+      shardingKey,
+      bulkSize,
+      retry,
+      retryCodes.toList
+    )
     finalDf.foreachPartition(partitionData => {
       val clickhouseUtil = new ClickhouseUtil(param)
       clickhouseUtil.insertData(partitionData)
@@ -234,7 +252,6 @@ class Clickhouse extends BaseOutput {
     clickHouseProperties.getPort
   }
 
-
   private def getClickHouseSchema(conn: ClickHouseConnectionImpl, table: String): Map[String, String] = {
     val sql = s"desc $table"
     val resultSet = conn.createStatement.executeQuery(sql)
@@ -245,7 +262,9 @@ class Clickhouse extends BaseOutput {
     schema
   }
 
-  private def getClickHouseClusterInfo(conn: ClickHouseConnectionImpl, cluster: String): ArrayBuffer[(String, Int, Int, String, Int)] = {
+  private def getClickHouseClusterInfo(
+    conn: ClickHouseConnectionImpl,
+    cluster: String): ArrayBuffer[(String, Int, Int, String, Int)] = {
     val sql =
       s"SELECT cluster, shard_num, shard_weight, host_address FROM system.clusters WHERE cluster = '$cluster' AND replica_num = 1 order by shard_num"
     val resultSet = conn.createStatement.executeQuery(sql)

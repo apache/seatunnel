@@ -12,8 +12,18 @@ import ru.yandex.clickhouse.{ClickHouseConnectionImpl, ClickHousePreparedStateme
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Random, Success, Try}
 
-case class ClickhouseUtilParam(clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)], database: String, user: String, password: String, initSql: String, tableSchema: Map[String, String], fields: List[String], shardingKey: String, batchSize: Int, retry: Int, retryCodes: List[Integer])
-
+case class ClickhouseUtilParam(
+  clusterInfo: ArrayBuffer[(String, Int, Int, String, Int)],
+  database: String,
+  user: String,
+  password: String,
+  initSql: String,
+  tableSchema: Map[String, String],
+  fields: List[String],
+  shardingKey: String,
+  batchSize: Int,
+  retry: Int,
+  retryCodes: List[Integer])
 
 class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with Logging {
 
@@ -24,7 +34,9 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     val port: Int = connectionInfo._5
     val connectionHost = s"jdbc:clickhouse://$host:$port/${utilParam.database}"
     logInfo(s"will connection to ${connectionHost}, user is ${utilParam.user}")
-    DriverManager.getConnection(connectionHost, utilParam.user, utilParam.password).asInstanceOf[ClickHouseConnectionImpl]
+    DriverManager
+      .getConnection(connectionHost, utilParam.user, utilParam.password)
+      .asInstanceOf[ClickHouseConnectionImpl]
   }
 
   /**
@@ -38,25 +50,28 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     // each partition only create one connection with the node that needs to be inserted
     var connection: ClickHouseConnectionImpl = null
     var preparedStatement: ClickHousePreparedStatement = null
-    rows.grouped(utilParam.batchSize).foreach(batchData => {
-      batchData.foreach(row => {
-        if (preparedStatement == null) {
-          var index: Int = 0
-          if (utilParam.shardingKey == null || utilParam.shardingKey == rand) {
-            // for stand alone case or random sharding, randomly select a node
-            index = Random.nextInt(utilParam.clusterInfo.length)
-          } else {
-            index = getDistributedTableIndex(row)
+    rows
+      .grouped(utilParam.batchSize)
+      .foreach(batchData => {
+        batchData.foreach(row => {
+          if (preparedStatement == null) {
+            var index: Int = 0
+            if (utilParam.shardingKey == null || utilParam.shardingKey == rand) {
+              // for stand alone case or random sharding, randomly select a node
+              index = Random.nextInt(utilParam.clusterInfo.length)
+            } else {
+              index = getDistributedTableIndex(row)
+            }
+            val connectionInfo: (String, Int, Int, String, Int) = utilParam.clusterInfo(index)
+            connection = getConnection(connectionInfo)
+            preparedStatement =
+              connection.createClickHousePreparedStatement(utilParam.initSql, ResultSet.TYPE_FORWARD_ONLY)
           }
-          val connectionInfo: (String, Int, Int, String, Int) = utilParam.clusterInfo(index)
-          connection = getConnection(connectionInfo)
-          preparedStatement = connection.createClickHousePreparedStatement(utilParam.initSql, ResultSet.TYPE_FORWARD_ONLY)
-        }
-        renderStatement(utilParam.fields, row, row.schema.fieldNames, preparedStatement)
-        preparedStatement.addBatch()
+          renderStatement(utilParam.fields, row, row.schema.fieldNames, preparedStatement)
+          preparedStatement.addBatch()
+        })
+        execute(preparedStatement, utilParam.retry)
       })
-      execute(preparedStatement, utilParam.retry)
-    })
     if (preparedStatement != null) {
       preparedStatement.close()
     }
@@ -86,7 +101,6 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
   private def intHash32Shard(shardingValue: Long): Int = {
     1
   }
-
 
   private def intHash64Shard(shardingValue: Long): Int = {
     1
@@ -122,7 +136,11 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     }
   }
 
-  private def renderStatement(fields: List[String], item: Row, dsFields: scala.Array[String], statement: ClickHousePreparedStatement): Unit = {
+  private def renderStatement(
+    fields: List[String],
+    item: Row,
+    dsFields: scala.Array[String],
+    statement: ClickHousePreparedStatement): Unit = {
     for (i <- fields.indices) {
       val field = fields(i)
       val fieldType = utilParam.tableSchema(field)
@@ -141,7 +159,12 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     }
   }
 
-  private def renderBaseTypeStatement(index: Int, fieldIndex: Int, fieldType: String, item: Row, statement: ClickHousePreparedStatement): Unit = {
+  private def renderBaseTypeStatement(
+    index: Int,
+    fieldIndex: Int,
+    fieldType: String,
+    item: Row,
+    statement: ClickHousePreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
@@ -158,7 +181,12 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     }
   }
 
-  private def renderStatementEntry(index: Int, fieldIndex: Int, fieldType: String, item: Row, statement: ClickHousePreparedStatement): Unit = {
+  private def renderStatementEntry(
+    index: Int,
+    fieldIndex: Int,
+    fieldType: String,
+    item: Row,
+    statement: ClickHousePreparedStatement): Unit = {
     fieldType match {
       case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
         renderBaseTypeStatement(index, fieldIndex, fieldType, item, statement)
@@ -173,7 +201,6 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
       case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
     }
   }
-
 
   private def renderDefaultStatement(index: Int, fieldType: String, statement: ClickHousePreparedStatement): Unit = {
     fieldType match {
@@ -209,6 +236,5 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
       case Clickhouse.decimalPattern(_) => statement.setNull(index + 1, java.sql.Types.DECIMAL)
     }
   }
-
 
 }
