@@ -48,7 +48,10 @@ object Common {
     this.mode match {
       case Some("client") => {
 
-        val path = Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath
+        var path = Common.getClass.getProtectionDomain.getCodeSource.getLocation.toURI.getPath
+        if (System.getProperties().getProperty("os.name").toUpperCase().indexOf("WINDOWS") != -1) {
+          path = path.substring(1)
+        }
         Paths.get(path).getParent.getParent
       }
 
