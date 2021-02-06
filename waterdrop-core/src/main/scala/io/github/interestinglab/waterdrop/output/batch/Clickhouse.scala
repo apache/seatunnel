@@ -32,6 +32,7 @@ class Clickhouse extends BaseOutput {
   var table: String = _
   var localTable: String = _
   var fields: java.util.List[String] = _
+  var writeDirectly: Boolean = false
 
   var cluster: String = _
 
@@ -103,6 +104,9 @@ class Clickhouse extends BaseOutput {
     if (hasPassword) {
       properties.put("user", config.getString("username"))
       properties.put("password", config.getString("password"))
+    }
+    if (config.hasPath("writeDirectly")) {
+      writeDirectly = config.getBoolean("writeDirectly")
     }
 
     (true, "")
@@ -220,31 +224,66 @@ class Clickhouse extends BaseOutput {
 
     this.initSQL = initPrepareSQL()
     logInfo(this.initSQL)
+    if (writeDirectly) {
+      df.foreachPartition { iter =>
+        var jdbcUrl = this.jdbcLink
+        if (this.clusterInfo != null && this.clusterInfo.size > 0) {
+          //using random policy to select shard when insert data
+          val randomShard = (Math.random() * this.clusterInfo.size).asInstanceOf[Int]
+          val shardInfo = this.clusterInfo.get(randomShard)
 
-    var finalDf: Dataset[Row] = null
-    if (shardingKey != null && shardingKey != rand) {
-      finalDf = df.repartition(df(shardingKey))
+          val host = shardInfo._4
+          val port = getJDBCPort(this.jdbcLink)
+          val database = config.getString("database")
+
+          jdbcUrl = s"jdbc:clickhouse://$host:$port/$database"
+          logInfo(s"cluster mode, select shard index [$randomShard] to insert data, the jdbc url is [$jdbcUrl].")
+        } else {
+          logInfo(s"single mode, the jdbc url is [$jdbcUrl].")
+        }
+
+        val executorBalanced = new BalancedClickhouseDataSource(jdbcUrl, this.properties)
+        val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
+        val statement = executorConn.createClickHousePreparedStatement(this.initSQL, ResultSet.TYPE_FORWARD_ONLY)
+        var length = 0
+        while (iter.hasNext) {
+          val row = iter.next()
+          length += 1
+          ClickhouseUtil.renderStatement(fields.toList, row, dfFields, statement, tableSchema)
+          statement.addBatch()
+
+          if (length >= bulkSize) {
+            ClickhouseUtil.execute(statement, retry, retryCodes.toList)
+            length = 0
+          }
+        }
+        ClickhouseUtil.execute(statement, retry, retryCodes.toList)
+      }
     } else {
-      finalDf = df
+      var finalDf: Dataset[Row] = null
+      if (shardingKey != null && shardingKey != rand) {
+        finalDf = df.repartition(df(shardingKey))
+      } else {
+        finalDf = df
+      }
+      val param: ClickhouseUtilParam = ClickhouseUtilParam(
+        clusterInfo,
+        config.getString("database"),
+        config.getString("username"),
+        config.getString("password"),
+        initSQL,
+        tableSchema,
+        fields.toList,
+        shardingKey,
+        bulkSize,
+        retry,
+        retryCodes.toList
+      )
+      finalDf.foreachPartition(partitionData => {
+        val clickhouseUtil = new ClickhouseUtil(param)
+        clickhouseUtil.insertData(partitionData)
+      })
     }
-    val param: ClickhouseUtilParam = ClickhouseUtilParam(
-      clusterInfo,
-      config.getString("database"),
-      config.getString("username"),
-      config.getString("password"),
-      initSQL,
-      tableSchema,
-      fields.toList,
-      shardingKey,
-      bulkSize,
-      retry,
-      retryCodes.toList
-    )
-    finalDf.foreachPartition(partitionData => {
-      val clickhouseUtil = new ClickhouseUtil(param)
-      clickhouseUtil.insertData(partitionData)
-    })
-
   }
 
   private def getJDBCPort(jdbcUrl: String): Int = {

@@ -67,10 +67,11 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
             preparedStatement =
               connection.createClickHousePreparedStatement(utilParam.initSql, ResultSet.TYPE_FORWARD_ONLY)
           }
-          renderStatement(utilParam.fields, row, row.schema.fieldNames, preparedStatement)
+          ClickhouseUtil
+            .renderStatement(utilParam.fields, row, row.schema.fieldNames, preparedStatement, utilParam.tableSchema)
           preparedStatement.addBatch()
         })
-        execute(preparedStatement, utilParam.retry)
+        ClickhouseUtil.execute(preparedStatement, utilParam.retry, utilParam.retryCodes)
       })
     if (preparedStatement != null) {
       preparedStatement.close()
@@ -97,16 +98,11 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     index
   }
 
-  // todo need implement this method, return the index
-  private def intHash32Shard(shardingValue: Long): Int = {
-    1
-  }
+}
 
-  private def intHash64Shard(shardingValue: Long): Int = {
-    1
-  }
+object ClickhouseUtil extends Logging {
 
-  private def execute(statement: ClickHousePreparedStatement, retry: Int): Unit = {
+  def execute(statement: ClickHousePreparedStatement, retry: Int, retryCodes: List[Integer]): Unit = {
     val res = Try(statement.executeBatch())
     res match {
       case Success(_) => {
@@ -114,10 +110,10 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
       }
       case Failure(e: ClickHouseException) => {
         val errorCode = e.getErrorCode
-        if (utilParam.retryCodes.contains(errorCode)) {
+        if (retryCodes.contains(errorCode)) {
           logError("Insert into ClickHouse failed. Reason: ", e)
           if (retry > 0) {
-            execute(statement, retry - 1)
+            execute(statement, retry - 1, retryCodes)
           } else {
             logError("Insert into ClickHouse failed and retry failed, drop this bulk.")
             statement.close()
@@ -136,14 +132,15 @@ class ClickhouseUtil(utilParam: ClickhouseUtilParam) extends Serializable with L
     }
   }
 
-  private def renderStatement(
+  def renderStatement(
     fields: List[String],
     item: Row,
     dsFields: scala.Array[String],
-    statement: ClickHousePreparedStatement): Unit = {
+    statement: ClickHousePreparedStatement,
+    tableSchema: Map[String, String]): Unit = {
     for (i <- fields.indices) {
       val field = fields(i)
-      val fieldType = utilParam.tableSchema(field)
+      val fieldType = tableSchema(field)
       if (dsFields.indexOf(field) == -1) {
         // specified field does not existed in row.
         renderDefaultStatement(i, fieldType, statement)
