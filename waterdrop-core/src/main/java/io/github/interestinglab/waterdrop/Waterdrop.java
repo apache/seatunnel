@@ -58,8 +58,10 @@ public class Waterdrop {
                     entryPoint(configFilePath, engine);
                 } catch (ConfigRuntimeException e) {
                     showConfigError(e);
+                    throw e;
                 }catch (Exception e){
                     showFatalError(e);
+                    throw e;
                 }
             }
         }
