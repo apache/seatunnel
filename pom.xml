@@ -296,7 +296,7 @@
             </plugins>
         </pluginManagement>
 
-        <finalName>${project.artifactId}-${version}-${scala.version}</finalName>
+        <finalName>${project.artifactId}-${project.version}-${scala.version}</finalName>
 
         <plugins>
             <plugin>
