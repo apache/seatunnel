@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.interestinglab.waterdrop</groupId>
-    <artifactId>waterdop</artifactId>
+    <artifactId>waterdrop</artifactId>
     <packaging>pom</packaging>
     <version>2.0.4</version>
 
