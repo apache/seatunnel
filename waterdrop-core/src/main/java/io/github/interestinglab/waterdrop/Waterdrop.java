@@ -18,7 +18,6 @@ import io.github.interestinglab.waterdrop.utils.Engine;
 import io.github.interestinglab.waterdrop.utils.PluginType;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -28,6 +27,7 @@ import scopt.OptionParser;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -76,7 +76,7 @@ public class Waterdrop {
             case SPARK:
                 final Option<String> mode = Common.getDeployMode();
                 if (mode.isDefined() && "cluster".equals(mode.get())) {
-                    path = new Path(cmdArgs.configFile()).getName();
+                    path = Paths.get(cmdArgs.configFile()).getFileName().toString();
                 } else {
                     path = cmdArgs.configFile();
                 }
