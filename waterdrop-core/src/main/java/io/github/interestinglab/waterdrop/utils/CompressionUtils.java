@@ -5,7 +5,8 @@ import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.utils.IOUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.LinkedList;
@@ -14,7 +15,7 @@ import java.util.zip.GZIPInputStream;
 
 public class CompressionUtils {
 
-    private static final Logger logger = Logger.getLogger(CompressionUtils.class);
+    private static final Logger logger = LoggerFactory.getLogger(CompressionUtils.class);
 
     /** Untar an input file into an output file.
 
