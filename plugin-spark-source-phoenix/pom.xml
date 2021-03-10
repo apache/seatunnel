@@ -15,7 +15,7 @@
         <dependency>
             <groupId>io.github.interestinglab.waterdrop</groupId>
             <artifactId>plugin-spark-phoenix-core</artifactId>
-            <version>2.0.4</version>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
