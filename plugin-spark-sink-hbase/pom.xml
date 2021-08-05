@@ -15,7 +15,7 @@
     <dependency>
       <groupId>io.github.interestinglab.waterdrop</groupId>
       <artifactId>waterdrop-spark-api</artifactId>
-      <version>2.0.4</version>
+      <version>${project.version}</version>
     </dependency>
 
     <dependency>
