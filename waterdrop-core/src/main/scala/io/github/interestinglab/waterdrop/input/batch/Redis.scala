@@ -35,15 +35,19 @@ class Redis extends BaseStaticInput {
     val hasTableName = config.hasPath("result_table_name") || config.hasPath("table_name")
     val hasRedisHost = config.hasPath("host")
     val hasKeys = config.hasPath("key_pattern")
+    val hasRedisPassword=config.hasPath("auth")
 
     config match {
       case _ if !hasTableName =>
         (false, "please specify [result_table_name] as non-empty string")
       case _ if !hasRedisHost =>
         (false, "please specify [host] as non-empty string")
+      case _ if !hasRedisPassword =>
+        (false, "please specify [auth] as non-empty string")
       case _ if !hasKeys =>
         (false, "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
       case _ => (true, "")
+
     }
   }
 
@@ -65,7 +69,7 @@ class Redis extends BaseStaticInput {
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
     val regTable = if(config.hasPath("result_table_name")) config.getString("result_table_name") else config.getString("table_name")
-
+    val auth=config.getString("auto")
     val host = config.getString("host")
     val port = if(config.hasPath("port")) config.getInt("port") else defaultPort
     val keyPattern = config.getString("key_pattern")
@@ -73,9 +77,8 @@ class Redis extends BaseStaticInput {
     val dbNum = if(config.hasPath("db_num")) config.getInt("db_num") else defaultDb
 
     // 通过keys从redis中获取数据回来并组合成dataset
-    val redisConfig = new RedisConfig(new RedisEndpoint(host = host, port = port, dbNum = dbNum))
-    val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(redisConfig = redisConfig)
-
+    val redisConfig = new RedisConfig(new RedisEndpoint(host = host, port = port, auth=auth,dbNum = dbNum))
+    val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(
     import spark.implicits._
     val ds = stringRDD.toDF("raw_key", "raw_message")
     ds.createOrReplaceTempView(s"$regTable")
