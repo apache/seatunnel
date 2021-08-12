@@ -15,6 +15,7 @@ import com.redislabs.provider.redis._
  * partition = 3
  * db_num = 0
  * result_table_name = "table_name"
+ * auth="xxx"
  * */
 class Redis extends BaseStaticInput {
   var config: Config = ConfigFactory.empty()
