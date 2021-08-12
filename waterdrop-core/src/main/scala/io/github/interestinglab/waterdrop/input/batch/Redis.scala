@@ -78,7 +78,7 @@ class Redis extends BaseStaticInput {
 
     // 通过keys从redis中获取数据回来并组合成dataset
     val redisConfig = new RedisConfig(new RedisEndpoint(host = host, port = port, auth=auth,dbNum = dbNum))
-    val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(
+    val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(redisConfig = redisConfig)
     import spark.implicits._
     val ds = stringRDD.toDF("raw_key", "raw_message")
     ds.createOrReplaceTempView(s"$regTable")
