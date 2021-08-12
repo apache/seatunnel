@@ -70,7 +70,7 @@ class Redis extends BaseStaticInput {
   override def getDataset(spark: SparkSession): Dataset[Row] = {
 
     val regTable = if(config.hasPath("result_table_name")) config.getString("result_table_name") else config.getString("table_name")
-    val auth=config.getString("auto")
+    val auth=config.getString("auth")
     val host = config.getString("host")
     val port = if(config.hasPath("port")) config.getInt("port") else defaultPort
     val keyPattern = config.getString("key_pattern")
