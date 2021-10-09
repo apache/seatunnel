@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-**1. Waterdrop Version(Waterdrop版本)**
+**1. Earth-fleet Version(Earth-fleet版本)**
 
 **2. 你希望增加什么功能？请尽可能详细描述**
 

@@ -1,15 +1,15 @@
 ---
 name: 根据问题反馈模版创建ISSUE
-about: Describe your problems about Waterdrop
+about: Describe your problems about Earth-fleet
 title: ''
 labels: ''
 assignees: ''
 
 ---
 
-**Waterdrop Version(Waterdrop版本)**
+**Earth-fleet Version(Earth-fleet版本)**
 
-A clear version of Waterdrop. 
+A clear version of Earth-fleet. 
 
 **Flink or Spark Version(Flink 或者 Spark 版本)**
 
@@ -19,7 +19,7 @@ A clear version of Flink or Spark.
 
 A clear version of Java or Scala.
 
-**Waterdrop Config(Waterdrop配置文件)**
+**Earth-fleet Config(Earth-fleet配置文件)**
 
 Please delete sensitive information(请注意删除敏感信息)
 
@@ -32,7 +32,7 @@ output {}
 
 **Running Command(启动命令)**
 
-请在这里添加完整的waterdrop启动命令及其参数。
+请在这里添加完整的earth-fleet启动命令及其参数。
 
 **Error Exception**
 Add exception about the problem here.(您可以将程序报错信息粘贴在此处)
