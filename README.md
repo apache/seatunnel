@@ -1,5 +1,11 @@
 # Earth-fleet [![Build Status](https://travis-ci.org/InterestingLab/earth-fleet.svg?branch=master)](https://travis-ci.org/InterestingLab/earth-fleet)
 
+---
+
+更名通知：Earth-fleet原名为Waterdrop，于2021年10月12日更名为Earth-fleet。
+
+---
+
 [![Join the chat at https://gitter.im/interestinglab_earth-fleet/Lobby](https://badges.gitter.im/interestinglab_earth-fleet/Lobby.svg)](https://gitter.im/interestinglab_earth-fleet/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Earth-fleet 是一个`非常易用`，`高性能`、支持`实时流式`和`离线批处理`的`海量数据`处理产品，架构于`Apache Spark` 和 `Apache Flink`之上。
