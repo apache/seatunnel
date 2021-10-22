@@ -4,7 +4,7 @@ This project is a fork of https://github.com/lightbend/config, its mainly purpos
 
 * Change path token separator from `"."` to `"->""`.
 
-* Added `parseObjectForWaterdrop()` to parse config objects in `input`, `filter`, `output` for waterdrop.
+* Added `parseObjectForseatunnel()` to parse config objects in `input`, `filter`, `output` for seatunnel.
 
 * Change package name to avoid implementation conflict when using this code with the official typesafe config used by Apache Flink.
 
