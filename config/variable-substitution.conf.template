@@ -1,14 +1,14 @@
 ######
-###### This config file is a demonstration of using variables substitution in earth-fleet config
+###### This config file is a demonstration of using variables substitution in seatunnel config
 ######
 
 spark {
   # You can set spark configuration here
-  # Earth-fleet defined streaming batch duration in seconds
+  # seatunnel defined streaming batch duration in seconds
   spark.streaming.batchDuration = 5
 
   # see available properties defined by spark: https://spark.apache.org/docs/latest/configuration.html#available-properties
-  spark.app.name = "Earth-fleet"
+  spark.app.name = "seatunnel"
   spark.executor.instances = 2
   spark.executor.cores = 1
   spark.executor.memory = "1g"
@@ -32,8 +32,8 @@ input {
   }
 
 
-  # If you would like to get more information about how to configure earth-fleet and see full list of input plugins,
-  # please go to https://interestinglab.github.io/earth-fleet/#/zh-cn/configuration/base
+  # If you would like to get more information about how to configure seatunnel and see full list of input plugins,
+  # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/configuration/base
 }
 
 filter {
@@ -61,13 +61,13 @@ filter {
     sql = "select * from user_view where dt = '"${vars->dt}"'"
   }
 
-  # If you would like to get more information about how to configure earth-fleet and see full list of filter plugins,
-  # please go to https://interestinglab.github.io/earth-fleet/#/zh-cn/configuration/base
+  # If you would like to get more information about how to configure seatunnel and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/configuration/base
 }
 
 output {
   stdout {}
 
-  # If you would like to get more information about how to configure earth-fleet and see full list of output plugins,
-  # please go to https://interestinglab.github.io/earth-fleet/#/zh-cn/configuration/base
+  # If you would like to get more information about how to configure seatunnel and see full list of output plugins,
+  # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/configuration/base
 }
