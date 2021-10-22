@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-**1. Earth-fleet Version(Earth-fleet版本)**
+**1. seatunnel Version(seatunnel版本)**
 
 **2. 你希望增加什么功能？请尽可能详细描述**
 

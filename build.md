@@ -47,7 +47,7 @@ set JAVA_TOOL_OPTIONS='-Dfile.encoding=UTF8'
 sbt "-DprovidedDeps=true"  universal:packageBin
 
 # When packaging finished, you can find distribution here:
-target/universal/waterdrop-<version>.zip
+target/universal/seatunnel-<version>.zip
 ```
 
 If you want to check what files/directories will be included distribution package
@@ -67,7 +67,7 @@ check sbt native packager [universal plugin](http://www.scala-sbt.org/sbt-native
 
 File -> Project Structure -> Modules, in `Sources` Tab, 
 
-select module `waterdrop-core`, then
+select module `seatunnel-core`, then
 mark directory `target/scala-2.11/src_managed/main/antlr4/` as `Sources Root`(blue icon)
 
 > If you don't have `target/scala-2.11/src_managed/main/antlr4/` directory, you can create this directory,
