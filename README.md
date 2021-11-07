@@ -55,7 +55,7 @@ seatunnel 尽所能为您解决海量数据同步中可能遇到的问题：
                          Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
 ```
 
-多个Filter构建了数据处理的Pipeline，满足各种各样的数据处理需求，如果您熟悉SQL，也可以直接通过SQL构建数据处理的Pipeline，简单高效。目前seatunnel支持的[Filter列表](https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
+多个 Filter 构建了数据处理的 Pipeline，满足各种各样的数据处理需求，如果您熟悉 SQL，也可以直接通过 SQL 构建数据处理的 Pipeline，简单高效。目前 seatunnel 支持的[Filter列表](https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/configuration/filter-plugin), 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
 ## seatunnel 支持的插件
 
@@ -80,7 +80,7 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 * Spark on Yarn
 * Spark Standalone
 
-如果您的数据量较小或者只是做功能验证，也可以仅使用`local`模式启动，无需集群环境，seatunnel 支持单机运行。
+如果您的数据量较小或者只是做功能验证，也可以仅使用 `local` 模式启动，无需集群环境，seatunnel 支持单机运行。
 注: seatunnel 2.0 支持 Spark 和 Flink 上运行
 
 ## 下载
