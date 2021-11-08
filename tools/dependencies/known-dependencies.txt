@@ -352,13 +352,9 @@ hadoop-mapreduce-client-common-2.7.7.jar
 hadoop-mapreduce-client-shuffle-2.7.7.jar
 hadoop-yarn-client-2.7.7.jar
 hadoop-yarn-server-common-2.7.7.jar
-waterdrop-config-2.0.4.jar
-waterdrop-common-2.0.4.jar
-waterdrop-apis-2.0.4.jar
 spark-streaming-kafka-0-10_2.11-2.4.0.jar
 spark-tags_2.11-2.4.0.jar
 slf4j-api-1.7.16.jar
-waterdrop-spark-api-2.0.4.jar
 hbase-client-2.0.0.jar
 hbase-shaded-protobuf-2.1.0.jar
 hbase-protocol-shaded-2.0.0.jar
@@ -432,7 +428,6 @@ flink-connector-kafka-base_2.11-1.9.0.jar
 flink-jdbc_2.11-1.9.0.jar
 flink-shaded-hadoop-2-2.7.5-7.0.jar
 slf4j-log4j12-1.7.15.jar
-waterdrop-flink-api-2.0.4.jar
 flink-connector-elasticsearch6_2.11-1.9.0.jar
 flink-connector-elasticsearch-base_2.11-1.9.0.jar
 hppc-0.7.1.jar
