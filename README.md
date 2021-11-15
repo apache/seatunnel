@@ -95,9 +95,6 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 
 ## 生产应用案例
 
-* [字节跳动](https://bytedance.com/zh)，广告数据平台
-  字节跳动使用 seatunnel 实现了多源数据的关联分析(如 Hive 和 ES 的数据源关联查询分析)，大大简化了不同数据源之间的分析对比工作，并且节省了大量的 Spark 程序的学习和开发时间。
-
 * [微博](https://weibo.com), 增值业务部数据平台
   微博某业务有数百个实时流式计算任务使用内部定制版 seatunnel，以及其子项目[Guardian](https://github.com/InterestingLab/guardian)做 seatunnel On Yarn 的任务监控。
 
@@ -134,4 +131,4 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 
 Garyelephant : garygaowork@gmail.com
 RickyHuo : huochen1994@163.com
-中国用户可以联系微信: garyelephant 邀请加入微信用户 4 群
+中国用户可以联系微信: garyelephant 邀请加入微信用户技术交流群
