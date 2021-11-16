@@ -22,6 +22,7 @@ import java.util.Collection;
 
 abstract class AbstractConfigNode implements ConfigNode {
     abstract Collection<Token> tokens();
+    @Override
     final public String render() {
         StringBuilder origText = new StringBuilder();
         Iterable<Token> tokens = tokens();
