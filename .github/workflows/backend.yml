@@ -19,8 +19,9 @@ name: Backend
 
 on:
   push:
+  pull_request:
     branches:
-      - wd_v2_baseline
+      - wd-v2-baseline
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -32,14 +33,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up JDK 8
-      uses: actions/setup-java@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v2
         with:
-          java-version: '8'
+          java-version:  8
+          distribution: 'adopt'
+      - uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven
       - name: Build and Package
         run: |
-          ./mvnw -B clean install \
-                 -Prelease \
+          ./mvnw -B package  \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
                  -Dhttp.keepAlive=false \
