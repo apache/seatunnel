@@ -21,8 +21,8 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>waterdrop</artifactId>
-        <groupId>io.github.interestinglab.waterdrop</groupId>
+        <artifactId>seatunnel</artifactId>
+        <groupId>io.github.interestinglab.seatunnel</groupId>
         <version>2.0.4</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -31,8 +31,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.github.interestinglab.waterdrop</groupId>
-            <artifactId>waterdrop-flink-api</artifactId>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>seatunnel-flink-api</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>

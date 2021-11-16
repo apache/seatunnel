@@ -34,8 +34,8 @@ source {
     }
 
 
-  # If you would like to get more information about how to configure waterdrop and see full list of input plugins,
-  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+  # If you would like to get more information about how to configure seatunnel and see full list of input plugins,
+  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
 }
 
 transform {
@@ -43,14 +43,14 @@ transform {
       sql = "select name,age from fake"
     }
 
-  # If you would like to get more information about how to configure waterdrop and see full list of filter plugins,
-  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+  # If you would like to get more information about how to configure seatunnel and see full list of filter plugins,
+  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
 }
 
 sink {
   ConsoleSink {}
 
 
-  # If you would like to get more information about how to configure waterdrop and see full list of output plugins,
-  # please go to https://interestinglab.github.io/waterdrop/#/zh-cn/configuration/base
+  # If you would like to get more information about how to configure seatunnel and see full list of output plugins,
+  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
 }
