@@ -13,8 +13,15 @@ public class ExposeSparkConf {
 
         StringBuilder stringBuilder = new StringBuilder();
         for (Map.Entry<String, ConfigValue> entry : appConfig.getConfig("spark").entrySet()) {
-            String conf = String.format(" --conf \"%s=%s\" ", entry.getKey(), entry.getValue().unwrapped());
-            stringBuilder.append(conf);
+            String key = entry.getKey();
+            if (key.equals("spark.yarn.keytab") || key.equals("spark.yarn.principal")) {
+                String argKey = key.substring(key.lastIndexOf(".") + 1); // keytab, principal
+                String conf = String.format(" --%s %s", argKey, entry.getValue().unwrapped());
+                stringBuilder.append(conf);
+            } else {
+                String conf = String.format(" --conf \"%s=%s\" ", key, entry.getValue().unwrapped());
+                stringBuilder.append(conf);
+            }
         }
 
         System.out.print(stringBuilder.toString());
