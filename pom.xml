@@ -180,6 +180,13 @@
                 <version>${flink.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>${mysql.version}</version>
+                <scope>test</scope>
+            </dependency>
 
         </dependencies>
     </dependencyManagement>
