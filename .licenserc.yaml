@@ -18,7 +18,7 @@
 header:
   license:
     spdx-id: Apache-2.0
-    copyright-owner: Interesting Lab
+    copyright-owner: Apache Software Foundation
 
   paths-ignore:
     - seatunnel-dist
