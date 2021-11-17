@@ -35,5 +35,6 @@ header:
     - '**/.gitignore'
     - '**/LICENSE'
     - '**/NOTICE'
+    - '**/META-INF/service/*.*'
 
   comment: on-failure
