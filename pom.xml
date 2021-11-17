@@ -22,17 +22,17 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.interestinglab.waterdrop</groupId>
-    <artifactId>waterdrop</artifactId>
+    <groupId>io.github.interestinglab.seatunnel</groupId>
+    <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
     <version>2.0.4</version>
 
-    <name>Waterdrop</name>
+    <name>SeaTunnel</name>
     <description>
         Production ready big data processing product based on Apache Spark and Apache Flink.
     </description>
 
-    <url>https://github.com/InterestingLab/waterdrop</url>
+    <url>https://github.com/InterestingLab/seatunnel</url>
 
     <licenses>
         <license>
@@ -51,18 +51,18 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git@github.com:InterestingLab/waterdrop.git</connection>
-        <developerConnection>scm:git:git@github.com:InterestingLab/waterdrop.git</developerConnection>
-        <url>https://github.com/InterestingLab/waterdrop</url>
+        <connection>scm:git:git@github.com:InterestingLab/seatunnel.git</connection>
+        <developerConnection>scm:git:git@github.com:InterestingLab/seatunnel.git</developerConnection>
+        <url>https://github.com/InterestingLab/seatunnel</url>
         <tag>HEAD</tag>
     </scm>
 
     <modules>
-        <module>waterdrop-apis</module>
-        <module>waterdrop-core</module>
-        <module>waterdrop-common</module>
-        <module>waterdrop-flink-api</module>
-        <module>waterdrop-spark-api</module>
+        <module>seatunnel-apis</module>
+        <module>seatunnel-core</module>
+        <module>seatunnel-common</module>
+        <module>seatunnel-flink-api</module>
+        <module>seatunnel-spark-api</module>
         <module>plugin-spark-source-kafka</module>
         <module>plugin-spark-source-jdbc</module>
         <module>plugin-spark-source-fake</module>
@@ -89,7 +89,7 @@
         <module>plugin-spark-sink-file</module>
         <module>plugin-flink-transform-split</module>
         <module>plugin-spark-transform-json</module>
-        <module>waterdrop-dist</module>
+        <module>seatunnel-dist</module>
         <module>plugin-spark-transform-split</module>
         <module>plugin-spark-source-socket</module>
         <module>plugin-spark-source-phoenix</module>
@@ -97,7 +97,7 @@
         <module>plugin-spark-sink-phoenix</module>
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
-        <module>waterdrop-config</module>
+        <module>seatunnel-config</module>
     </modules>
 
     <properties>
