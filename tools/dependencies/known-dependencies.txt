@@ -341,7 +341,6 @@ lz4-java-1.5.0.jar
 metrics-core-3.1.5.jar
 metrics-core-3.2.1.jar
 minlog-1.3.0.jar
-mysql-connector-java-5.1.46.jar //fixme should delete it
 netty-3.10.5.Final.jar
 netty-3.9.9.Final.jar
 netty-all-4.0.23.Final.jar
