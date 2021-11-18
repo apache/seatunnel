@@ -66,6 +66,7 @@
         <module>plugin-spark-source-kafka</module>
         <module>plugin-spark-source-jdbc</module>
         <module>plugin-spark-source-fake</module>
+        <module>plugin-spark-source-file</module>
         <module>plugin-spark-source-elasticsearch</module>
         <module>plugin-spark-source-hive</module>
         <module>plugin-spark-transform-sql</module>
