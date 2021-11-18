@@ -30,26 +30,28 @@ body:
     attributes:
       label: Search before asking
       description: >
-        Please make sure to search in the [issues](https://github.com/InterestingLab/seatunnel/issues?q=is%3Aissue+label%3A%22Feature%22) first
+        Please make sure to search in the [feature](https://github.com/InterestingLab/seatunnel/issues?q=is%3Aissue+label%3A%22Feature%22) first
         to see whether the same feature was requested already.
       options:
         - label: >
-            I had searched in the [issues](https://github.com/InterestingLab/seatunnel/issues?q=is%3Aissue+label%3A%22Feature%22) and found no
+            I had searched in the [feature](https://github.com/InterestingLab/seatunnel/issues?q=is%3Aissue+label%3A%22Feature%22) and found no
             similar feature requirement.
           required: true
 
   - type: textarea
     attributes:
       label: Description
-      description: A short description of your feature
-
-  - type: textarea
-    attributes:
-      label: Use case
-      description: What do you want to happen?
+      description: Please describe the function you want in as much detail as possible.
       placeholder: >
         Rather than telling us how you might implement this feature, try to take a
         step back and describe what you are trying to achieve.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Usage Scenario
+      description: Please describe usage scenario of this feature.
 
   - type: textarea
     attributes:
@@ -78,4 +80,4 @@ body:
 
   - type: markdown
     attributes:
-      value: "Thanks for completing our form!"
+      value: "Thanks for completing our form, and we will reply you as soon as possible."

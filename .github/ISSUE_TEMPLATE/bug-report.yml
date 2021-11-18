@@ -51,39 +51,69 @@ body:
 
   - type: textarea
     attributes:
-      label: What you expected to happen
-      description: What do you think went wrong?
+      label: SeaTunnel Version
+      description: Provide SeaTunnel version.
       placeholder: >
-        Please explain why you think the behaviour is erroneous. It is extremely helpful if you copy and paste
-        the fragment of logs showing the exact error messages or wrong behaviour and screenshots for
-        UI problems. You can include files by dragging and dropping them here.
-
-        **NOTE**: please copy and paste texts instead of taking screenshots of them for easy future search.
+        Please provide the version of SeaTunnel.
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: How to reproduce
-      description: >
-        What should we do to reproduce the problem?
+      label: SeaTunnel Config
+      description: Provide SeaTunnel Config, please delete sensitive information to prevent information leakage
       placeholder: >
-        Please make sure you provide a reproducible step-by-step case of how to reproduce the problem
-        as minimally and precisely as possible. Keep in mind we do not have access to your deployment.
-        Remember that non-reproducible issues will be closed! Opening a discussion is recommended as a
-        first step.
+        Please provide the SeaTunnel Config here.
+      render: conf
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: Anything else
-      description: Anything else we need to know?
+      label: Running Command
+      description: Provide the command you begin and run SeaTunnel job.
       placeholder: >
-        How often does this problem occur? (Once? Every time? Only when certain conditions are met?)
-        Any relevant logs to include? Put them here inside fenced
-        ``` ``` blocks or inside a collapsable details tag if it's too long:
-        <details><summary>x.log</summary> lots of stuff </details>
+        Please provide the running command here.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Error Exception
+      description: Provide the error exception when you run your command.
+      placeholder: >
+        Please provide the error exception here.
+      render: log
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Flink or Spark Version
+      description: Provide Flink or Spark Version.
+      placeholder: >
+        Please provide the version of Flink or Spark.
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Java or Scala Version
+      description: Provide Java or Scala Version.
+      placeholder: >
+        Please provide the version of Java or Scala.
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Screenshots
+      description: Provide the screenshots if necessary.
+      placeholder: >
+        Please copy-paste the screenshots here.
+    validations:
+      required: false
 
   - type: checkboxes
     attributes:
@@ -108,4 +138,4 @@ body:
 
   - type: markdown
     attributes:
-      value: "Thanks for completing our form!"
+      value: "Thanks for completing our form, and we will reply you as soon as possible."
