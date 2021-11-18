@@ -64,7 +64,7 @@ body:
       description: Provide SeaTunnel Config, please delete sensitive information to prevent information leakage
       placeholder: >
         Please provide the SeaTunnel Config here.
-      render: Scala
+      render: conf
     validations:
       required: true
 
