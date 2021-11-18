@@ -1,4 +1,4 @@
-name         := "Waterdrop"
+name         := "seatunnel"
 version      := "1.5.5"
 organization := "io.github.interestinglab.waterdrop"
 
