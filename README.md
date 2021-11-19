@@ -1,11 +1,13 @@
-# seatunnel [![Build Status](https://travis-ci.org/InterestingLab/seatunnel.svg?branch=master)](https://travis-ci.org/InterestingLab/seatunnel)
+# seatunnel
+
+[![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=wd-v2-baseline)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
+[![Join the chat at https://gitter.im/interestinglab_seatunnel/Lobby](https://badges.gitter.im/interestinglab_seatunnel/Lobby.svg)](https://gitter.im/interestinglab_seatunnel/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ---
 
 SeaTunnel was formerly named Waterdrop , and renamed SeaTunnel since October 12, 2021.
 
 ---
-
-[![Join the chat at https://gitter.im/interestinglab_seatunnel/Lobby](https://badges.gitter.im/interestinglab_seatunnel/Lobby.svg)](https://gitter.im/interestinglab_seatunnel/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 SeaTunnel is a very easy-to-use ultra-high-performance distributed data integration platform that supports real-time synchronization of massive data. It can synchronize tens of billions of data stably and efficiently every day, and has been used in the production of nearly 100 companies.
 
