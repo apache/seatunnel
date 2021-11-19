@@ -3,7 +3,10 @@ package io.github.interestinglab.waterdrop.config;
 
 import org.apache.commons.lang.StringUtils;
 
+import java.net.URI;
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.net.URISyntaxException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -68,8 +71,10 @@ public class ExposeSparkConf {
 
     private static String runningJarPath() {
         try {
-            return new File(ExposeSparkConf.class.getProtectionDomain().getCodeSource().getLocation()
-              .toURI()).getParent();
+            URI jarUri = ExposeSparkConf.class.getProtectionDomain().getCodeSource().getLocation()
+                .toURI();
+            Path jarPath = Paths.get(jarUri);
+            return jarPath.getParent().getParent().toString();
         } catch (URISyntaxException e) {
             throw new RuntimeException("failed to get work dir of seatunnel");
         }
