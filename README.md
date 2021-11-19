@@ -1,4 +1,9 @@
 # seatunnel [![Build Status](https://travis-ci.org/InterestingLab/seatunnel.svg?branch=master)](https://travis-ci.org/InterestingLab/seatunnel)
+---
+
+SeaTunnel was formerly named Waterdrop , and renamed SeaTunnel since October 12, 2021.
+
+---
 
 [![Join the chat at https://gitter.im/interestinglab_seatunnel/Lobby](https://badges.gitter.im/interestinglab_seatunnel/Lobby.svg)](https://gitter.im/interestinglab_seatunnel/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
