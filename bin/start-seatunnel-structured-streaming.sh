@@ -98,9 +98,9 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
     echo ""
 fi
 
-assemblyJarName=$(find ${LIB_DIR} -name Waterdrop-*.jar)
+assemblyJarName=$(find ${LIB_DIR} -name seatunnel-*.jar)
 
-source ${CONF_DIR}/waterdrop-env.sh
+source ${CONF_DIR}/seatunnel-env.sh
 
 string_trim() {
     echo $1 | awk '{$1=$1;print}'

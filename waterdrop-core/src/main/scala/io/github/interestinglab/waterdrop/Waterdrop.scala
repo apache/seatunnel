@@ -67,7 +67,7 @@ object Waterdrop extends Logging {
   }
 
   private[waterdrop] def showWaterdropAsciiLogo(): Unit = {
-    AsciiArt.printAsciiArt("Waterdrop")
+    AsciiArt.printAsciiArt("seatunnel")
   }
 
   private[waterdrop] def showConfigError(throwable: Throwable): Unit = {
