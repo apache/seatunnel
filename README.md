@@ -79,7 +79,7 @@ Download address for run-directly software package :https://github.com/Interesti
 
 Quick start: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/quick-start
 
-Detailed documentation on SeaTunnel:https://interestinglab.github.ioseatunnel-docs/#/
+Detailed documentation on SeaTunnel:https://interestinglab.github.io/seatunnel-docs/#/
 
 ## Application practice cases
 
