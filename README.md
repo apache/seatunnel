@@ -62,7 +62,7 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, self-developed Output
 
 ## Environmental dependency
 
-1.java runtime environment, java >= 8
+1. java runtime environment, java >= 8
 
 2. If you want to run SeaTunnel in a cluster environment, any of the following Spark cluster environments is usable:
 
@@ -77,15 +77,15 @@ Download address for run-directly software package :https://github.com/Interesti
 
 ## Quick start
 
-Quick start: https://interestinglab.github.io/SeaTunnel-docs/#/zh-cn/v1/quick-start
+Quick start: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/quick-start
 
-Detailed documentation on SeaTunnel:https://interestinglab.github.io/SeaTunnel-docs/#/
+Detailed documentation on SeaTunnel:https://interestinglab.github.ioseatunnel-docs/#/
 
 ## Application practice cases
 
 - Weibo, Value-added Business Department Data Platform
 
-- Weibo business uses an internal customized version of SeaTunnel and its sub-project Guardian for SeaTunnel On Yarn task monitoring for hundreds of real-time streaming computing tasks.
+Weibo business uses an internal customized version of SeaTunnel and its sub-project Guardian for SeaTunnel On Yarn task monitoring for hundreds of real-time streaming computing tasks.
 
 - Sina, Big Data Operation Analysis Platform 
 
@@ -99,7 +99,7 @@ Sogou Qiqian System takes SeaTunnel as an ETL tool to help establish a real-time
 
 Qutoutiao Data Center uses SeaTunnel to support mysql to hive offline ETL tasks, real-time hive to clickhouse backfill technical support, and well covers most offline and real-time tasks needs.
 
--Yixia Technology, Yizhibo Data Platform
+- Yixia Technology, Yizhibo Data Platform
 
 - Yonghui Superstores Founders' Alliance-Yonghui Yunchuang Technology, Member E-commerce Data Analysis Platform 
 
@@ -124,6 +124,6 @@ Thanks to all developers https://github.com/InterestingLab/SeaTunnel/graphs/cont
 
 Garyelephant: garygaowork@gmail.com 
 RickyHuo: huochen1994@163.com 
-Chinese users can contact WeChat garyelephant, and to be invited to the WeChat user group for technical communication.
+Chinese users can contact WeChat ID `garyelephant`, and to be invited to the WeChat user group for technical communication.
 
 
