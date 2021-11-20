@@ -124,6 +124,6 @@ Thanks to all developers https://github.com/InterestingLab/SeaTunnel/graphs/cont
 
 Garyelephant: garygaowork@gmail.com 
 RickyHuo: huochen1994@163.com 
-Chinese users can contact WeChat number `garyelephant`, and to be invited to the WeChat user group for technical communication.
+Chinese users can contact WeChat ID `garyelephant`, and to be invited to the WeChat user group for technical communication.
 
 
