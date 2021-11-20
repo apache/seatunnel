@@ -44,11 +44,7 @@ seatunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 ## seatunnel 的工作流程
 
-
-
-<p align="center">
-    <img src="https://raw.githubusercontent.com/InterestingLab/seatunnel-docs/master/zh-cn/images/wd-workflow.png" height="460" width="280" >
-</p>
+ ![seatunnel-workflow_zh-CN.png](https://user-images.githubusercontent.com/29206593/142733822-541b052e-7995-48ac-9cf4-e12ab6c06285.png)
 
 
 ```
