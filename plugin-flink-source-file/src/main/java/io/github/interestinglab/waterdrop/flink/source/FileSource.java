@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 
-public class FileSource implements FlinkBatchSource<Row> {
+public class FileSource implements FlinkBatchSource {
 
     private Config config;
 

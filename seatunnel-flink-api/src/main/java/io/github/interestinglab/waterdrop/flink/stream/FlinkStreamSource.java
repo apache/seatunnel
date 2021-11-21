@@ -19,10 +19,11 @@ package io.github.interestinglab.waterdrop.flink.stream;
 import io.github.interestinglab.waterdrop.flink.BaseFlinkSource;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.types.Row;
 
-public interface FlinkStreamSource<T> extends BaseFlinkSource {
+public interface FlinkStreamSource extends BaseFlinkSource<DataStream<Row>> {
 
-    DataStream<T> getData(FlinkEnvironment env);
+    DataStream<Row> getData(FlinkEnvironment env);
 
 
 }

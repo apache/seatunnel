@@ -37,7 +37,7 @@ import org.apache.flink.types.Row;
 import java.util.HashMap;
 import java.util.Properties;
 
-public class KafkaTableStream implements FlinkStreamSource<Row> {
+public class KafkaTableStream implements FlinkStreamSource {
 
     private Config config;
 

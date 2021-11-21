@@ -19,7 +19,7 @@ package io.github.interestinglab.waterdrop.spark
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseSource
 
-trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
+trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment, Data] {
 
   protected var config: Config = ConfigFactory.empty()
 

@@ -19,8 +19,9 @@ package io.github.interestinglab.waterdrop.flink.batch;
 import io.github.interestinglab.waterdrop.flink.BaseFlinkSource;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.types.Row;
 
-public interface FlinkBatchSource<T> extends BaseFlinkSource {
+public interface FlinkBatchSource extends BaseFlinkSource<DataSet<Row>> {
 
-    DataSet<T> getData(FlinkEnvironment env);
+    DataSet<Row> getData(FlinkEnvironment env);
 }

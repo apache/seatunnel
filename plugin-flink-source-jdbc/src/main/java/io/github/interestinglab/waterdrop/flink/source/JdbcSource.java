@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.*;
 import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
 
-public class JdbcSource implements FlinkBatchSource<Row> {
+public class JdbcSource implements FlinkBatchSource {
 
     private Config config;
     private String tableName;
