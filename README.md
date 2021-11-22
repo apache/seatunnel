@@ -1,9 +1,10 @@
 # seatunnel
 
 [![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=wd-v2-baseline)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
-[![Join the chat at https://gitter.im/interestinglab_seatunnel/Lobby](https://badges.gitter.im/interestinglab_seatunnel/Lobby.svg)](https://gitter.im/interestinglab_seatunnel/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ---
+[![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
+[![CN doc](https://img.shields.io/badge/文档-中文版-blue.svg)](README_zh_CN.md)
 
 SeaTunnel was formerly named Waterdrop , and renamed SeaTunnel since October 12, 2021.
 
