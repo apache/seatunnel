@@ -57,4 +57,4 @@ jobs:
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
       - name: Run Unit tests
-        run: ./mvnw clean verify -B -Dmaven.test.skip=false
+        run: ./mvnw clean verify -B -Dmaven.test.skip=false -Dgpg.skip=true
