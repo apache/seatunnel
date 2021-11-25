@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.parser.ConfigNode;
@@ -22,6 +23,7 @@ import java.util.Collection;
 
 abstract class AbstractConfigNode implements ConfigNode {
     abstract Collection<Token> tokens();
+
     @Override
     final public String render() {
         StringBuilder origText = new StringBuilder();
@@ -34,7 +36,7 @@ abstract class AbstractConfigNode implements ConfigNode {
 
     @Override
     final public boolean equals(Object other) {
-        return other instanceof AbstractConfigNode && render().equals(((AbstractConfigNode)other).render());
+        return other instanceof AbstractConfigNode && render().equals(((AbstractConfigNode) other).render());
     }
 
     @Override

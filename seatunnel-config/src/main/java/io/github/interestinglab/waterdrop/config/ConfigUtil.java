@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config;
 
 import io.github.interestinglab.waterdrop.config.impl.ConfigImplUtil;
@@ -22,7 +23,7 @@ import java.util.List;
 
 /**
  * Contains static utility methods.
- * 
+ *
  */
 public final class ConfigUtil {
     private ConfigUtil() {
@@ -48,7 +49,7 @@ public final class ConfigUtil {
      * <p>
      * See the overview documentation for {@link Config} for more detail on path
      * expressions vs. keys.
-     * 
+     *
      * @param elements
      *            the keys in the path
      * @return a path expression
@@ -67,7 +68,7 @@ public final class ConfigUtil {
      * <p>
      * See the overview documentation for {@link Config} for more detail on path
      * expressions vs. keys.
-     * 
+     *
      * @param elements
      *            the keys in the path
      * @return a path expression
@@ -86,7 +87,7 @@ public final class ConfigUtil {
      * <p>
      * See the overview documentation for {@link Config} for more detail on path
      * expressions vs. keys.
-     * 
+     *
      * @param path
      *            a path expression
      * @return the individual keys in the path

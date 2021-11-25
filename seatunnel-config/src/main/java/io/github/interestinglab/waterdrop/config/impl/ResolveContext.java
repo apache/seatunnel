@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -60,12 +61,12 @@ final class ResolveContext {
         // LinkedHashSet keeps the traversal order which is at least useful
         // in error messages if nothing else
         this(new ResolveMemos(), options, restrictToChild, new ArrayList<AbstractConfigValue>(), newCycleMarkers());
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(depth(), "ResolveContext restrict to child " + restrictToChild);
     }
 
     ResolveContext addCycleMarker(AbstractConfigValue value) {
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(depth(), "++ Cycle marker " + value + "@" + System.identityHashCode(value));
         if (cycleMarkers.contains(value))
             throw new ConfigException.BugOrBroken("Added cycle marker twice " + value);
@@ -76,7 +77,7 @@ final class ResolveContext {
     }
 
     ResolveContext removeCycleMarker(AbstractConfigValue value) {
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(depth(), "-- Cycle marker " + value + "@" + System.identityHashCode(value));
 
         Set<AbstractConfigValue> copy = newCycleMarkers();
@@ -129,7 +130,7 @@ final class ResolveContext {
     }
 
     private ResolveContext pushTrace(AbstractConfigValue value) {
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(depth(), "pushing trace " + value);
         List<AbstractConfigValue> copy = new ArrayList<AbstractConfigValue>(resolveStack);
         copy.add(value);
@@ -139,7 +140,7 @@ final class ResolveContext {
     ResolveContext popTrace() {
         List<AbstractConfigValue> copy = new ArrayList<AbstractConfigValue>(resolveStack);
         AbstractConfigValue old = copy.remove(resolveStack.size() - 1);
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(depth() - 1, "popped trace " + old);
         return new ResolveContext(memos, options, restrictToChild, copy, cycleMarkers);
     }
@@ -152,7 +153,7 @@ final class ResolveContext {
 
     ResolveResult<? extends AbstractConfigValue> resolve(AbstractConfigValue original, ResolveSource source)
             throws NotPossibleToResolve {
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl
                     .trace(depth(), "resolving " + original + " restrictToChild=" + restrictToChild + " in " + source);
         return pushTrace(original).realResolve(original, source).popTrace();
@@ -176,17 +177,17 @@ final class ResolveContext {
         }
 
         if (cached != null) {
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(depth(), "using cached resolution " + cached + " for " + original
                         + " restrictToChild " + restrictToChild());
             return ResolveResult.make(this, cached);
         } else {
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(depth(),
                         "not found in cache, resolving " + original + "@" + System.identityHashCode(original));
 
             if (cycleMarkers.contains(original)) {
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(depth(),
                             "Cycle detected, can't resolve; " + original + "@" + System.identityHashCode(original));
                 throw new NotPossibleToResolve(this);
@@ -195,7 +196,7 @@ final class ResolveContext {
             ResolveResult<? extends AbstractConfigValue> result = original.resolveSubstitutions(this, source);
             AbstractConfigValue resolved = result.value;
 
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(depth(), "resolved to " + resolved + "@" + System.identityHashCode(resolved)
                         + " from " + original + "@" + System.identityHashCode(resolved));
 
@@ -206,7 +207,7 @@ final class ResolveContext {
                 // only the restrictToChildOrNull, then it can be cached
                 // under fullKey since the child we were restricted to
                 // turned out to be the only unresolved thing.
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(depth(), "caching " + fullKey + " result " + resolved);
 
                 withMemo = withMemo.memoize(fullKey, resolved);
@@ -215,16 +216,12 @@ final class ResolveContext {
                 // partial resolve restricted to a certain child, or we are
                 // allowing incomplete resolution, or it's a bug.
                 if (isRestrictedToChild()) {
-                    if (restrictedKey == null) {
-                        throw new ConfigException.BugOrBroken(
-                                "restrictedKey should not be null here");
-                    }
-                    if (ConfigImpl.traceSubstitutionsEnabled())
+                    if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                         ConfigImpl.trace(depth(), "caching " + restrictedKey + " result " + resolved);
 
                     withMemo = withMemo.memoize(restrictedKey, resolved);
                 } else if (options().getAllowUnresolved()) {
-                    if (ConfigImpl.traceSubstitutionsEnabled())
+                    if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                         ConfigImpl.trace(depth(), "caching " + fullKey + " result " + resolved);
 
                     withMemo = withMemo.memoize(fullKey, resolved);

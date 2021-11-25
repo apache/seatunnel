@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -25,6 +26,7 @@ import java.util.Collection;
 final class ConfigNodePath extends AbstractConfigNode {
     final private Path path;
     final ArrayList<Token> tokens;
+
     ConfigNodePath(Path path, Collection<Token> tokens) {
         this.path = path;
         this.tokens = new ArrayList<Token>(tokens);
@@ -44,7 +46,7 @@ final class ConfigNodePath extends AbstractConfigNode {
         ArrayList<Token> tokensCopy = new ArrayList<Token>(tokens);
         for (int i = 0; i < tokensCopy.size(); i++) {
             if (Tokens.isUnquotedText(tokensCopy.get(i)) &&
-                    tokensCopy.get(i).tokenText().equals(ConfigParseOptions.pathTokenSeparator))
+                    tokensCopy.get(i).tokenText().equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR))
                 periodCount++;
 
             if (periodCount == toRemove) {
@@ -58,7 +60,7 @@ final class ConfigNodePath extends AbstractConfigNode {
         ArrayList<Token> tokensCopy = new ArrayList<Token>(tokens);
         for (int i = 0; i < tokensCopy.size(); i++) {
             if (Tokens.isUnquotedText(tokensCopy.get(i)) &&
-                    tokensCopy.get(i).tokenText().equals(ConfigParseOptions.pathTokenSeparator))
+                    tokensCopy.get(i).tokenText().equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR))
                 return new ConfigNodePath(path.subPath(0, 1), tokensCopy.subList(0, i));
         }
         return this;

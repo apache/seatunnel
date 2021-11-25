@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -42,7 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
 public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private Config config;
@@ -66,7 +66,6 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
             return new CheckResult(false, "please specify [hosts] as a non-empty string list");
         }
     }
-
 
     @Override
     public void prepare(FlinkEnvironment env) {
@@ -114,7 +113,6 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
                     }
                 }
         );
-
 
         // configuration for the bulk requests; this instructs the sink to emit after every element, otherwise they would be buffered
         esSinkBuilder.setBulkFlushMaxActions(1);

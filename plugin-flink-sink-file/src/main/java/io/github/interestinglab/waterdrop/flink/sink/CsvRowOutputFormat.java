@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import org.apache.flink.api.common.io.FileOutputFormat;
@@ -32,7 +33,6 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
     public static final String DEFAULT_LINE_DELIMITER = CsvInputFormat.DEFAULT_LINE_DELIMITER;
 
     public static final String DEFAULT_FIELD_DELIMITER = CsvInputFormat.DEFAULT_FIELD_DELIMITER;
-
 
     private transient Writer wrt;
 
@@ -130,7 +130,6 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
     public void setQuoteStrings(boolean quoteStrings) {
         this.quoteStrings = quoteStrings;
     }
-
 
     @Override
     public void open(int taskNumber, int numTasks) throws IOException {

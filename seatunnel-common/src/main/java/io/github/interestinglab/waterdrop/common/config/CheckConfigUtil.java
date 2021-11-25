@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.common.config;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -26,6 +27,6 @@ public class CheckConfigUtil {
                 return new CheckResult(false, "please specify [" + param + "] as non-empty");
             }
         }
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 }

@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package beanconfig;
 
-
 public class NumbersConfig {
-
 
     private int intVal;
     private Integer intObj;
@@ -26,7 +25,6 @@ public class NumbersConfig {
     private Long longObj;
     private double doubleVal;
     private Double doubleObj;
-
 
     public int getIntVal() {
         return intVal;

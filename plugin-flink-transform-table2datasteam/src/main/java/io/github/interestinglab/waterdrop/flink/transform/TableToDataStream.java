@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.transform;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -60,7 +61,6 @@ public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkB
     public Config getConfig() {
         return config;
     }
-
 
     @Override
     public CheckResult checkConfig() {

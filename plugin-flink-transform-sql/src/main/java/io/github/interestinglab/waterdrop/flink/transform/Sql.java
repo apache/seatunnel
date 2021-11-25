@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.transform;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -62,10 +63,9 @@ public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<
         return config;
     }
 
-
     @Override
     public CheckResult checkConfig() {
-       return CheckConfigUtil.check(config,SQL);
+        return CheckConfigUtil.check(config, SQL);
     }
 
     @Override

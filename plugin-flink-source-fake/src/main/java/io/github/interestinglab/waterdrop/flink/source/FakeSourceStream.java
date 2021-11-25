@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -38,7 +39,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     public DataStream<Row> getData(FlinkEnvironment env) {
         return env.getStreamExecutionEnvironment()
                 .addSource(this)
-                .returns(new RowTypeInfo(STRING_TYPE_INFO,LONG_TYPE_INFO));
+                .returns(new RowTypeInfo(STRING_TYPE_INFO, LONG_TYPE_INFO));
     }
 
     @Override
@@ -53,12 +54,12 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 
     @Override
-    public void prepare(FlinkEnvironment env) {}
-
+    public void prepare(FlinkEnvironment env) {
+    }
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
 

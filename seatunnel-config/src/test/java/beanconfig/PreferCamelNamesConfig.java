@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package beanconfig;
 
-
 public class PreferCamelNamesConfig {
-
 
     private String fooBar;
     private String bazBar;
@@ -26,12 +25,15 @@ public class PreferCamelNamesConfig {
     public String getFooBar() {
         return fooBar;
     }
+
     public void setFooBar(String v) {
         this.fooBar = v;
     }
+
     public String getBazBar() {
         return bazBar;
     }
+
     public void setBazBar(String v) {
         this.bazBar = v;
     }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config;
 
 /**
@@ -45,14 +46,14 @@ public interface ConfigIncluder {
      * Parses another item to be included. The returned object typically would
      * not have substitutions resolved. You can throw a ConfigException here to
      * abort parsing, or return an empty object, but may not return null.
-     * 
+     *
      * This method is used for a "heuristic" include statement that does not
      * specify file, URL, or classpath resource. If the include statement does
      * specify, then the same class implementing {@link ConfigIncluder} must
      * also implement {@link ConfigIncluderClasspath},
      * {@link ConfigIncluderFile}, or {@link ConfigIncluderURL} as needed, or a
      * default includer will be used.
-     * 
+     *
      * @param context
      *            some info about the include context
      * @param what

@@ -14,9 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
-import io.github.interestinglab.waterdrop.config.*;
+import io.github.interestinglab.waterdrop.config.ConfigException;
+import io.github.interestinglab.waterdrop.config.ConfigParseOptions;
+import io.github.interestinglab.waterdrop.config.ConfigOrigin;
+import io.github.interestinglab.waterdrop.config.ConfigSyntax;
+import io.github.interestinglab.waterdrop.config.ConfigValueType;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -163,8 +168,7 @@ final class ConfigDocumentParser {
                     values.add(new ConfigNodeSingleToken(t));
                     t = nextToken();
                     continue;
-                }
-                else if (Tokens.isValue(t) || Tokens.isUnquotedText(t)
+                } else if (Tokens.isValue(t) || Tokens.isUnquotedText(t)
                         || Tokens.isSubstitution(t) || t == Tokens.OPEN_CURLY
                         || t == Tokens.OPEN_SQUARE) {
                     // there may be newlines _within_ the objects and arrays
@@ -190,7 +194,7 @@ final class ConfigDocumentParser {
                 AbstractConfigNodeValue value = null;
                 for (AbstractConfigNode node : values) {
                     if (node instanceof AbstractConfigNodeValue)
-                        value = (AbstractConfigNodeValue)node;
+                        value = (AbstractConfigNodeValue) node;
                     else if (value == null)
                         nodes.add(node);
                     else
@@ -264,7 +268,7 @@ final class ConfigDocumentParser {
                 v = new ConfigNodeSimpleValue(t);
             } else if (t == Tokens.OPEN_CURLY) {
                 v = parseObject(true);
-            } else if (t== Tokens.OPEN_SQUARE) {
+            } else if (t == Tokens.OPEN_SQUARE) {
                 v = parseArray();
             } else {
                 throw parseError(addQuoteSuggestion(t.toString(),
@@ -281,7 +285,7 @@ final class ConfigDocumentParser {
             if (flavor == ConfigSyntax.JSON) {
                 if (Tokens.isValueWithType(token, ConfigValueType.STRING)) {
                     return PathParser.parsePathNodeExpression(Collections.singletonList(token).iterator(),
-                                                              baseOrigin.withLineNumber(lineNumber));
+                            baseOrigin.withLineNumber(lineNumber));
                 } else {
                     throw parseError("Expecting close brace } or a field name here, got "
                             + token);
@@ -295,12 +299,12 @@ final class ConfigDocumentParser {
                 }
 
                 if (expression.isEmpty()) {
-                    throw parseError(ExpectingClosingParenthesisError + t);
+                    throw parseError(expectingClosingParenthesisError + t);
                 }
 
                 putBack(t); // put back the token we ended with
                 return PathParser.parsePathNodeExpression(expression.iterator(),
-                                                          baseOrigin.withLineNumber(lineNumber));
+                        baseOrigin.withLineNumber(lineNumber));
             }
         }
 
@@ -331,7 +335,7 @@ final class ConfigDocumentParser {
             }
         }
 
-        private final String ExpectingClosingParenthesisError = "expecting a close parentheses ')' here, not: ";
+        private final String expectingClosingParenthesisError = "expecting a close parentheses ')' here, not: ";
 
         private ConfigNodeInclude parseInclude(ArrayList<AbstractConfigNode> children) {
 
@@ -342,9 +346,9 @@ final class ConfigDocumentParser {
                 String kindText = Tokens.getUnquotedText(t);
 
                 if (kindText.startsWith("required(")) {
-                    String r = kindText.replaceFirst("required\\(","");
-                    if (r.length()>0) {
-                        putBack(Tokens.newUnquotedText(t.origin(),r));
+                    String r = kindText.replaceFirst("required\\(", "");
+                    if (r.length() > 0) {
+                        putBack(Tokens.newUnquotedText(t.origin(), r));
                     }
 
                     children.add(new ConfigNodeSingleToken(t));
@@ -357,7 +361,7 @@ final class ConfigDocumentParser {
                     if (Tokens.isUnquotedText(t) && Tokens.getUnquotedText(t).equals(")")) {
                         // OK, close paren
                     } else {
-                        throw parseError(ExpectingClosingParenthesisError + t);
+                        throw parseError(expectingClosingParenthesisError + t);
                     }
 
                     return res;
@@ -365,8 +369,7 @@ final class ConfigDocumentParser {
                     putBack(t);
                     return parseIncludeResource(children, false);
                 }
-            }
-            else {
+            } else {
                 putBack(t);
                 return parseIncludeResource(children, false);
             }
@@ -395,9 +398,9 @@ final class ConfigDocumentParser {
                     throw parseError("expecting include parameter to be quoted filename, file(), classpath(), or url(). No spaces are allowed before the open paren. Not expecting: "
                             + t);
                 }
-                String r = kindText.replaceFirst("[^(]*\\(","");
-                if (r.length()>0) {
-                    putBack(Tokens.newUnquotedText(t.origin(),r));
+                String r = kindText.replaceFirst("[^(]*\\(", "");
+                if (r.length() > 0) {
+                    putBack(Tokens.newUnquotedText(t.origin(), r));
                 }
 
                 children.add(new ConfigNodeSingleToken(t));
@@ -415,12 +418,12 @@ final class ConfigDocumentParser {
 
                 if (Tokens.isUnquotedText(t) && Tokens.getUnquotedText(t).startsWith(")")) {
                     String rest = Tokens.getUnquotedText(t).substring(1);
-                    if (rest.length()>0) {
-                        putBack(Tokens.newUnquotedText(t.origin(),rest));
+                    if (rest.length() > 0) {
+                        putBack(Tokens.newUnquotedText(t.origin(), rest));
                     }
                     // OK, close paren
                 } else {
-                    throw parseError(ExpectingClosingParenthesisError + t);
+                    throw parseError(expectingClosingParenthesisError + t);
                 }
 
                 return new ConfigNodeInclude(children, kind, isRequired);
@@ -439,7 +442,7 @@ final class ConfigDocumentParser {
             boolean lastInsideEquals = false;
             ArrayList<AbstractConfigNode> objectNodes = new ArrayList<AbstractConfigNode>();
             ArrayList<AbstractConfigNode> keyValueNodes;
-            HashMap<String, Boolean> keys  = new HashMap<String, Boolean>();
+            HashMap<String, Boolean> keys = new HashMap<String, Boolean>();
             if (hadOpenCurly)
                 objectNodes.add(new ConfigNodeSingleToken(Tokens.OPEN_CURLY));
 
@@ -679,7 +682,7 @@ final class ConfigDocumentParser {
             if (t == Tokens.END) {
                 if (missingCurly) {
                     // If there were no braces, the entire document should be treated as a single object
-                    return new ConfigNodeRoot(Collections.singletonList((AbstractConfigNode)new ConfigNodeObject(children)), baseOrigin);
+                    return new ConfigNodeRoot(Collections.singletonList((AbstractConfigNode) new ConfigNodeObject(children)), baseOrigin);
                 } else {
                     return new ConfigNodeRoot(children, baseOrigin);
                 }
@@ -713,7 +716,7 @@ final class ConfigDocumentParser {
                     return node;
                 } else {
                     throw parseError("Parsing JSON and the value set in withValueText was either a concatenation or " +
-                                        "had trailing whitespace, newlines, or comments");
+                            "had trailing whitespace, newlines, or comments");
                 }
             } else {
                 putBack(t);

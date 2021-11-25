@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigSyntax;
@@ -72,7 +73,7 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
             Path key = node.path().value();
 
             // Delete all multi-element paths that start with the desired path, since technically they are duplicates
-            if ((valueCopy == null && key.equals(desiredPath))|| (key.startsWith(desiredPath) && !key.equals(desiredPath))) {
+            if ((valueCopy == null && key.equals(desiredPath)) || (key.startsWith(desiredPath) && !key.equals(desiredPath))) {
                 childrenCopy.remove(i);
                 // Remove any whitespace or commas after the deleted setting
                 for (int j = i; j < childrenCopy.size(); j++) {
@@ -150,8 +151,8 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
             } else {
                 if (children.get(i) instanceof ConfigNodeSingleToken &&
                         Tokens.isIgnoredWhitespace(((ConfigNodeSingleToken) children.get(i)).token()) &&
-                        i + 1 < children.size() && (children.get(i+1) instanceof ConfigNodeField ||
-                        children.get(i+1) instanceof ConfigNodeInclude)) {
+                        i + 1 < children.size() && (children.get(i + 1) instanceof ConfigNodeField ||
+                        children.get(i + 1) instanceof ConfigNodeInclude)) {
                     // Return the indentation of the first setting on its own line
                     indentation.add(children.get(i));
                     return indentation;
@@ -192,7 +193,7 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
             indentedValue = value;
         }
         boolean sameLine = !(indentation.size() > 0 && indentation.get(0) instanceof ConfigNodeSingleToken &&
-                                Tokens.isNewline(((ConfigNodeSingleToken) indentation.get(0)).token()));
+                Tokens.isNewline(((ConfigNodeSingleToken) indentation.get(0)).token()));
 
         // If the path is of length greater than one, see if the value needs to be added further down
         if (path.length() > 1) {
@@ -243,10 +244,10 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                 // If we are in JSON or are adding a setting on the same line, we need to add a comma to the
                 // last setting
                 if ((flavor == ConfigSyntax.JSON || sameLine) && childrenCopy.get(i) instanceof ConfigNodeField) {
-                    if (i+1 >= childrenCopy.size() ||
-                            !(childrenCopy.get(i+1) instanceof ConfigNodeSingleToken
-                                    && ((ConfigNodeSingleToken) childrenCopy.get(i+1)).token() == Tokens.COMMA))
-                    childrenCopy.add(i+1, new ConfigNodeSingleToken(Tokens.COMMA));
+                    if (i + 1 >= childrenCopy.size() ||
+                            !(childrenCopy.get(i + 1) instanceof ConfigNodeSingleToken
+                                    && ((ConfigNodeSingleToken) childrenCopy.get(i + 1)).token() == Tokens.COMMA))
+                        childrenCopy.add(i + 1, new ConfigNodeSingleToken(Tokens.COMMA));
                     break;
                 }
 
@@ -260,29 +261,27 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                         childrenCopy.add(i - 1, new ConfigNodeField(newNodes));
                         i--;
                     } else if (previous instanceof ConfigNodeSingleToken &&
-                                Tokens.isIgnoredWhitespace(((ConfigNodeSingleToken) previous).token())) {
+                            Tokens.isIgnoredWhitespace(((ConfigNodeSingleToken) previous).token())) {
                         AbstractConfigNode beforePrevious = childrenCopy.get(i - 2);
                         if (sameLine) {
                             childrenCopy.add(i - 1, new ConfigNodeField(newNodes));
                             i--;
-                        }
-                        else if (beforePrevious instanceof ConfigNodeSingleToken &&
-                                    Tokens.isNewline(((ConfigNodeSingleToken) beforePrevious).token())) {
+                        } else if (beforePrevious instanceof ConfigNodeSingleToken &&
+                                Tokens.isNewline(((ConfigNodeSingleToken) beforePrevious).token())) {
                             childrenCopy.add(i - 2, new ConfigNodeField(newNodes));
                             i -= 2;
                         } else {
                             childrenCopy.add(i, new ConfigNodeField(newNodes));
                         }
 
-                    }
-                    else
+                    } else
                         childrenCopy.add(i, new ConfigNodeField(newNodes));
                 }
             }
         }
         if (!startsWithBrace) {
             if (!childrenCopy.isEmpty() && childrenCopy.get(childrenCopy.size() - 1) instanceof ConfigNodeSingleToken &&
-                 Tokens.isNewline(((ConfigNodeSingleToken) childrenCopy.get(childrenCopy.size() - 1)).token()))
+                    Tokens.isNewline(((ConfigNodeSingleToken) childrenCopy.get(childrenCopy.size() - 1)).token()))
                 childrenCopy.add(childrenCopy.size() - 1, new ConfigNodeField(newNodes));
             else
                 childrenCopy.add(new ConfigNodeField(newNodes));

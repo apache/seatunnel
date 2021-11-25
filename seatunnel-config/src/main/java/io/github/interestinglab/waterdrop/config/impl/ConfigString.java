@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigOrigin;
@@ -34,15 +35,16 @@ abstract class ConfigString extends AbstractConfigValue implements Serializable 
         this.value = value;
     }
 
-
     final static class Quoted extends ConfigString {
         Quoted(ConfigOrigin origin, String value) {
             super(origin, value);
         }
+
         @Override
         protected Quoted newCopy(ConfigOrigin origin) {
             return new Quoted(origin, value);
         }
+
         // serialization all goes through SerializedConfigValue
         private Object writeReplace() throws ObjectStreamException {
             return new SerializedConfigValue(this);
@@ -62,10 +64,12 @@ abstract class ConfigString extends AbstractConfigValue implements Serializable 
         Unquoted(ConfigOrigin origin, String value) {
             super(origin, value);
         }
+
         @Override
         protected Unquoted newCopy(ConfigOrigin origin) {
             return new Unquoted(origin, value);
         }
+
         // serialization all goes through SerializedConfigValue
         private Object writeReplace() throws ObjectStreamException {
             return new SerializedConfigValue(this);
@@ -73,7 +77,7 @@ abstract class ConfigString extends AbstractConfigValue implements Serializable 
     }
 
     boolean wasQuoted() {
-        return (this instanceof Quoted);
+        return this instanceof Quoted;
     }
 
     @Override

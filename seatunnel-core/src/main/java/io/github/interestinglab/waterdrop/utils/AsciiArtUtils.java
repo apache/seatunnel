@@ -14,17 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.utils;
 
-import java.awt.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Font;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
 public class AsciiArtUtils {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsciiArtUtils.class);
 
     /**
      * Print ASCII art of string
-     * @param str
-     * */
+     *
+     * @param str str
+     */
     public static void printAsciiArt(String str) {
 
         final int width = 144;
@@ -45,7 +54,7 @@ public class AsciiArtUtils {
             if (sb.toString().trim().isEmpty()) {
                 continue;
             }
-            System.out.println(sb);
+            LOGGER.info(String.valueOf(sb));
         }
     }
 }

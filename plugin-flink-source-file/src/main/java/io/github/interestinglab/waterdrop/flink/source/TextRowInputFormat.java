@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import org.apache.flink.api.common.io.DelimitedInputFormat;
@@ -41,7 +42,6 @@ public class TextRowInputFormat extends DelimitedInputFormat<Row> implements Res
         super(filePath, null);
     }
 
-
     public String getCharsetName() {
         return charsetName;
     }
@@ -54,7 +54,6 @@ public class TextRowInputFormat extends DelimitedInputFormat<Row> implements Res
         this.charsetName = charsetName;
     }
 
-
     @Override
     public void configure(Configuration parameters) {
         super.configure(parameters);
@@ -64,30 +63,27 @@ public class TextRowInputFormat extends DelimitedInputFormat<Row> implements Res
         }
     }
 
-
     @Override
     public Row readRecord(Row reusable, byte[] bytes, int offset, int numBytes) throws IOException {
         if (this.getDelimiter() != null && this.getDelimiter().length == 1
                 && this.getDelimiter()[0] == NEW_LINE && offset + numBytes >= 1
-                && bytes[offset + numBytes - 1] == CARRIAGE_RETURN){
+                && bytes[offset + numBytes - 1] == CARRIAGE_RETURN) {
             numBytes -= 1;
         }
         String str = new String(bytes, offset, numBytes, this.charsetName);
-        reusable.setField(0,str);
+        reusable.setField(0, str);
         return reusable;
     }
-
 
     @Override
     public String toString() {
         return "TextRowInputFormat (" + Arrays.toString(getFilePaths()) + ") - " + this.charsetName;
     }
 
-
     @Override
     public TypeInformation<Row> getProducedType() {
         TypeInformation[] info = {Types.STRING()};
         String[] name = {"message"};
-        return new RowTypeInfo(info,name);
+        return new RowTypeInfo(info, name);
     }
 }

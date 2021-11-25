@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package beanconfig;
 
 import java.util.List;
 
-public class ValidationBeanConfig extends TestBeanConfig{
+public class ValidationBeanConfig extends TestBeanConfig {
 
     private String propNotListedInConfig;
     private int shouldBeInt;

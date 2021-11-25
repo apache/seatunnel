@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.util;
 
 import com.alibaba.fastjson.JSONArray;
@@ -26,7 +27,12 @@ import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
-import org.apache.flink.table.descriptors.*;
+import org.apache.flink.table.descriptors.Csv;
+import org.apache.flink.table.descriptors.DescriptorProperties;
+import org.apache.flink.table.descriptors.FormatDescriptor;
+import org.apache.flink.table.descriptors.Json;
+import org.apache.flink.table.descriptors.Avro;
+import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.table.utils.TypeStringUtils;
 import org.apache.flink.types.Row;
 
@@ -38,7 +44,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public class SchemaUtil {
-
 
     public static void setSchema(Schema schema, Object info, String format) {
 
@@ -78,7 +83,7 @@ public class SchemaUtil {
                 putMethod.setAccessible(true);
                 for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
                     String key = entry.getKey();
-                    if (key.startsWith("format.") && ! StringUtils.equals(key, "format.type")) {
+                    if (key.startsWith("format.") && !StringUtils.equals(key, "format.type")) {
                         String value = config.getString(key);
                         putMethod.invoke(desc, key, value);
                     }
@@ -116,9 +121,9 @@ public class SchemaUtil {
             } else if (value instanceof JSONArray) {
                 Object obj = ((JSONArray) value).get(0);
                 if (obj instanceof JSONObject) {
-                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class,getTypeInformation((JSONObject) obj)));
-                }else {
-                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Object[].class,TypeInformation.of(Object.class)));
+                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation((JSONObject) obj)));
+                } else {
+                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Object[].class, TypeInformation.of(Object.class)));
                 }
             }
         }
@@ -147,8 +152,8 @@ public class SchemaUtil {
     /**
      * todo
      *
-     * @param schema
-     * @param json
+     * @param schema schema
+     * @param json json
      */
     private static void getOrcSchema(Schema schema, JSONObject json) {
 
@@ -158,19 +163,18 @@ public class SchemaUtil {
     /**
      * todo
      *
-     * @param schema
-     * @param json
+     * @param schema schema
+     * @param json json
      */
     private static void getParquetSchema(Schema schema, JSONObject json) {
 
     }
 
-
     private static void getAvroSchema(Schema schema, JSONObject json) {
         RowTypeInfo typeInfo = (RowTypeInfo) AvroSchemaConverter.<Row>convertToTypeInfo(json.toString());
         String[] fieldNames = typeInfo.getFieldNames();
-        for(String name : fieldNames){
-            schema.field(name,typeInfo.getTypeAt(name));
+        for (String name : fieldNames) {
+            schema.field(name, typeInfo.getTypeAt(name));
         }
     }
 

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONArray;
@@ -29,8 +30,7 @@ import org.apache.flink.types.Row;
 
 import java.io.IOException;
 
-public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements  ResultTypeQueryable<Row> {
-
+public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements ResultTypeQueryable<Row> {
 
     private RowTypeInfo rowTypeInfo;
 
@@ -56,9 +56,9 @@ public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements  Re
         String str = new String(bytes, offset, numBytes, this.charsetName);
         JSONObject json = JSONObject.parseObject(str);
         Row reuseRow;
-        if (reuse == null){
+        if (reuse == null) {
             reuseRow = new Row(rowTypeInfo.getArity());
-        }else {
+        } else {
             reuseRow = reuse;
         }
         setJsonRow(reuseRow, json, rowTypeInfo);

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -91,35 +92,34 @@ public class ConfigImpl {
         }
     }
 
-    private static class LoaderCacheHolder {
-        static final LoaderCache cache = new LoaderCache();
+    private static class LOADER_CACHE_HOLDER {
+        static final LoaderCache CACHE = new LoaderCache();
     }
 
     public static Config computeCachedConfig(ClassLoader loader, String key,
                                              Callable<Config> updater) {
         LoaderCache cache;
         try {
-            cache = LoaderCacheHolder.cache;
+            cache = LOADER_CACHE_HOLDER.CACHE;
         } catch (ExceptionInInitializerError e) {
             throw ConfigImplUtil.extractInitializerError(e);
         }
         return cache.getOrElseUpdate(loader, key, updater);
     }
 
-
     static class FileNameSource implements SimpleIncluder.NameSource {
         @Override
         public ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions) {
             return Parseable.newFile(new File(name), parseOptions);
         }
-    };
+    }
 
     static class ClasspathNameSource implements SimpleIncluder.NameSource {
         @Override
         public ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions) {
             return Parseable.newResources(name, parseOptions);
         }
-    };
+    }
 
     static class ClasspathNameSourceWithClass implements SimpleIncluder.NameSource {
         final private Class<?> klass;
@@ -132,7 +132,7 @@ public class ConfigImpl {
         public ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions) {
             return Parseable.newResources(klass, name, parseOptions);
         }
-    };
+    }
 
     public static ConfigObject parseResourcesAnySyntax(Class<?> klass, String resourceBasename,
                                                        ConfigParseOptions baseOptions) {
@@ -166,39 +166,39 @@ public class ConfigImpl {
     }
 
     // default origin for values created with fromAnyRef and no origin specified
-    final private static ConfigOrigin defaultValueOrigin = SimpleConfigOrigin
+    final private static ConfigOrigin DEFAULT_VALUE_ORIGIN = SimpleConfigOrigin
             .newSimple("hardcoded value");
-    final private static ConfigBoolean defaultTrueValue = new ConfigBoolean(
-            defaultValueOrigin, true);
-    final private static ConfigBoolean defaultFalseValue = new ConfigBoolean(
-            defaultValueOrigin, false);
-    final private static ConfigNull defaultNullValue = new ConfigNull(
-            defaultValueOrigin);
-    final private static SimpleConfigList defaultEmptyList = new SimpleConfigList(
-            defaultValueOrigin, Collections.<AbstractConfigValue> emptyList());
-    final private static SimpleConfigObject defaultEmptyObject = SimpleConfigObject
-            .empty(defaultValueOrigin);
+    final private static ConfigBoolean DEFAULT_TRUE_VALUE = new ConfigBoolean(
+            DEFAULT_VALUE_ORIGIN, true);
+    final private static ConfigBoolean DEFAULT_FALSE_VALUE = new ConfigBoolean(
+            DEFAULT_VALUE_ORIGIN, false);
+    final private static ConfigNull DEFAULT_NULL_VALUE = new ConfigNull(
+            DEFAULT_VALUE_ORIGIN);
+    final private static SimpleConfigList DEFAULT_EMPTY_LIST = new SimpleConfigList(
+            DEFAULT_VALUE_ORIGIN, Collections.<AbstractConfigValue>emptyList());
+    final private static SimpleConfigObject DEFAULT_EMPTY_OBJECT = SimpleConfigObject
+            .empty(DEFAULT_VALUE_ORIGIN);
 
     private static SimpleConfigList emptyList(ConfigOrigin origin) {
-        if (origin == null || origin == defaultValueOrigin)
-            return defaultEmptyList;
+        if (origin == null || origin == DEFAULT_VALUE_ORIGIN)
+            return DEFAULT_EMPTY_LIST;
         else
             return new SimpleConfigList(origin,
-                    Collections.<AbstractConfigValue> emptyList());
+                    Collections.<AbstractConfigValue>emptyList());
     }
 
     private static AbstractConfigObject emptyObject(ConfigOrigin origin) {
         // we want null origin to go to SimpleConfigObject.empty() to get the
         // origin "empty config" rather than "hardcoded value"
-        if (origin == defaultValueOrigin)
-            return defaultEmptyObject;
+        if (origin == DEFAULT_VALUE_ORIGIN)
+            return DEFAULT_EMPTY_OBJECT;
         else
             return SimpleConfigObject.empty(origin);
     }
 
     private static ConfigOrigin valueOrigin(String originDescription) {
         if (originDescription == null)
-            return defaultValueOrigin;
+            return DEFAULT_VALUE_ORIGIN;
         else
             return SimpleConfigOrigin.newSimple(originDescription);
     }
@@ -209,7 +209,7 @@ public class ConfigImpl {
     }
 
     public static ConfigObject fromPathMap(
-      Map<String, ? extends Object> pathMap, String originDescription) {
+            Map<String, ? extends Object> pathMap, String originDescription) {
         ConfigOrigin origin = valueOrigin(originDescription);
         return (ConfigObject) fromAnyRef(pathMap, origin,
                 FromMapMode.KEYS_ARE_PATHS);
@@ -222,19 +222,19 @@ public class ConfigImpl {
                     "origin not supposed to be null");
 
         if (object == null) {
-            if (origin != defaultValueOrigin)
+            if (origin != DEFAULT_VALUE_ORIGIN)
                 return new ConfigNull(origin);
             else
-                return defaultNullValue;
-        } else if(object instanceof AbstractConfigValue) {
+                return DEFAULT_NULL_VALUE;
+        } else if (object instanceof AbstractConfigValue) {
             return (AbstractConfigValue) object;
         } else if (object instanceof Boolean) {
-            if (origin != defaultValueOrigin) {
+            if (origin != DEFAULT_VALUE_ORIGIN) {
                 return new ConfigBoolean(origin, (Boolean) object);
             } else if ((Boolean) object) {
-                return defaultTrueValue;
+                return DEFAULT_TRUE_VALUE;
             } else {
-                return defaultFalseValue;
+                return DEFAULT_FALSE_VALUE;
             }
         } else if (object instanceof String) {
             return new ConfigString.Quoted(origin, (String) object);
@@ -298,13 +298,13 @@ public class ConfigImpl {
         }
     }
 
-    private static class DefaultIncluderHolder {
-        static final ConfigIncluder defaultIncluder = new SimpleIncluder(null);
+    private static class DEFAULT_INCLUDER_HOLDER {
+        static final ConfigIncluder DEFAULT_INCLUDER = new SimpleIncluder(null);
     }
 
-    static ConfigIncluder defaultIncluder() {
+    static ConfigIncluder DEFAULT_INCLUDER() {
         try {
-            return DefaultIncluderHolder.defaultIncluder;
+            return DEFAULT_INCLUDER_HOLDER.DEFAULT_INCLUDER;
         } catch (ExceptionInInitializerError e) {
             throw ConfigImplUtil.extractInitializerError(e);
         }
@@ -327,12 +327,12 @@ public class ConfigImpl {
 
     private static class SystemPropertiesHolder {
         // this isn't final due to the reloadSystemPropertiesConfig() hack below
-        static volatile AbstractConfigObject systemProperties = loadSystemProperties();
+        static volatile AbstractConfigObject SYSTEM_PROPERTIES = loadSystemProperties();
     }
 
     static AbstractConfigObject systemPropertiesAsConfigObject() {
         try {
-            return SystemPropertiesHolder.systemProperties;
+            return SystemPropertiesHolder.SYSTEM_PROPERTIES;
         } catch (ExceptionInInitializerError e) {
             throw ConfigImplUtil.extractInitializerError(e);
         }
@@ -345,7 +345,7 @@ public class ConfigImpl {
     public static void reloadSystemPropertiesConfig() {
         // ConfigFactory.invalidateCaches() relies on this having the side
         // effect that it drops all caches
-        SystemPropertiesHolder.systemProperties = loadSystemProperties();
+        SystemPropertiesHolder.SYSTEM_PROPERTIES = loadSystemProperties();
     }
 
     private static AbstractConfigObject loadEnvVariables() {
@@ -353,12 +353,12 @@ public class ConfigImpl {
     }
 
     private static class EnvVariablesHolder {
-        static volatile AbstractConfigObject envVariables = loadEnvVariables();
+        static volatile AbstractConfigObject ENV_VARIABLES = loadEnvVariables();
     }
 
     static AbstractConfigObject envVariablesAsConfigObject() {
         try {
-            return EnvVariablesHolder.envVariables;
+            return EnvVariablesHolder.ENV_VARIABLES;
         } catch (ExceptionInInitializerError e) {
             throw ConfigImplUtil.extractInitializerError(e);
         }
@@ -371,7 +371,7 @@ public class ConfigImpl {
     public static void reloadEnvVariablesConfig() {
         // ConfigFactory.invalidateCaches() relies on this having the side
         // effect that it drops all caches
-        EnvVariablesHolder.envVariables = loadEnvVariables();
+        EnvVariablesHolder.ENV_VARIABLES = loadEnvVariables();
     }
 
     public static Config defaultReference(final ClassLoader loader) {
@@ -416,31 +416,31 @@ public class ConfigImpl {
             }
         }
 
-        private static final Map<String, Boolean> diagnostics = loadDiagnostics();
+        private static final Map<String, Boolean> DIAGNOSTICS = loadDiagnostics();
 
-        private static final boolean traceLoadsEnabled = diagnostics.get(LOADS);
-        private static final boolean traceSubstitutionsEnabled = diagnostics.get(SUBSTITUTIONS);
+        private static final boolean TRACE_LOADS_ENABLE = DIAGNOSTICS.get(LOADS);
+        private static final boolean TRACE_SUB_SITUATIONS_ENABLE = DIAGNOSTICS.get(SUBSTITUTIONS);
 
-        static boolean traceLoadsEnabled() {
-            return traceLoadsEnabled;
+        static boolean TRACE_LOADS_ENABLE() {
+            return TRACE_LOADS_ENABLE;
         }
 
-        static boolean traceSubstitutionsEnabled() {
-            return traceSubstitutionsEnabled;
+        static boolean TRACE_SUB_SITUATIONS_ENABLE() {
+            return TRACE_SUB_SITUATIONS_ENABLE;
         }
     }
 
-    public static boolean traceLoadsEnabled() {
+    public static boolean TRACE_LOADS_ENABLE() {
         try {
-            return DebugHolder.traceLoadsEnabled();
+            return DebugHolder.TRACE_LOADS_ENABLE();
         } catch (ExceptionInInitializerError e) {
             throw ConfigImplUtil.extractInitializerError(e);
         }
     }
 
-    public static boolean traceSubstitutionsEnabled() {
+    public static boolean TRACE_SUB_SITUATIONS_ENABLE() {
         try {
-            return DebugHolder.traceSubstitutionsEnabled();
+            return DebugHolder.TRACE_SUB_SITUATIONS_ENABLE();
         } catch (ExceptionInInitializerError e) {
             throw ConfigImplUtil.extractInitializerError(e);
         }
@@ -463,7 +463,7 @@ public class ConfigImpl {
     // detail about what happened. call this if you have a better "what" than
     // further down on the stack.
     static ConfigException.NotResolved improveNotResolved(Path what,
-            ConfigException.NotResolved original) {
+                                                          ConfigException.NotResolved original) {
         String newMessage = what.render()
                 + " has not been resolved, you need to call Config#resolve(),"
                 + " see API docs for Config#resolve()";
@@ -475,7 +475,7 @@ public class ConfigImpl {
 
     public static ConfigOrigin newSimpleOrigin(String description) {
         if (description == null) {
-            return defaultValueOrigin;
+            return DEFAULT_VALUE_ORIGIN;
         } else {
             return SimpleConfigOrigin.newSimple(description);
         }

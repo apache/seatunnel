@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -71,7 +72,7 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
      * resolved along the nodes needed to get the key or
      * ConfigException.NotResolved will be thrown.
      *
-     * @param key
+     * @param key key
      * @return the unmodified raw value or null
      */
     protected final AbstractConfigValue peekAssumingResolved(String key, Path originalPath) {

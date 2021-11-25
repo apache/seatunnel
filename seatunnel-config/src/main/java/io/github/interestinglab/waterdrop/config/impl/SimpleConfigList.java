@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -44,7 +45,7 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
     }
 
     SimpleConfigList(ConfigOrigin origin, List<AbstractConfigValue> value,
-            ResolveStatus status) {
+                     ResolveStatus status) {
         super(origin);
         this.value = value;
         this.resolved = status == ResolveStatus.RESOLVED;
@@ -141,6 +142,7 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
     private static class ResolveModifier implements Modifier {
         ResolveContext context;
         final ResolveSource source;
+
         ResolveModifier(ResolveContext context, ResolveSource source) {
             this.context = context;
             this.source = source;
@@ -148,11 +150,11 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
 
         @Override
         public AbstractConfigValue modifyChildMayThrow(String key, AbstractConfigValue v)
-                    throws NotPossibleToResolve {
+                throws NotPossibleToResolve {
             ResolveResult<? extends AbstractConfigValue> result = context.resolve(v, source);
             context = result.context;
             return result.value;
-            }
+        }
     }
 
     @Override

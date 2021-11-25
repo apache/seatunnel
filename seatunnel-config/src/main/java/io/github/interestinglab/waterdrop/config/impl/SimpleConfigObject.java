@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -60,7 +61,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     SimpleConfigObject(ConfigOrigin origin,
-            Map<String, AbstractConfigValue> value) {
+                       Map<String, AbstractConfigValue> value) {
         this(origin, value, ResolveStatus.fromValues(value.values()), false /* ignoresFallbacks */);
     }
 
@@ -108,7 +109,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         SimpleConfigObject o = withOnlyPathOrNull(path);
         if (o == null) {
             return new SimpleConfigObject(origin(),
-                    Collections.<String, AbstractConfigValue> emptyMap(), ResolveStatus.RESOLVED,
+                    Collections.<String, AbstractConfigValue>emptyMap(), ResolveStatus.RESOLVED,
                     ignoresFallbacks);
         } else {
             return o;
@@ -188,7 +189,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     private SimpleConfigObject newCopy(ResolveStatus newStatus, ConfigOrigin newOrigin,
-            boolean newIgnoresFallbacks) {
+                                       boolean newIgnoresFallbacks) {
         return new SimpleConfigObject(newOrigin, value, newStatus, newIgnoresFallbacks);
     }
 
@@ -599,7 +600,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         if (other instanceof ConfigObject) {
             // optimization to avoid unwrapped() for two ConfigObject,
             // which is what AbstractConfigValue does.
-            return canEqual(other) && mapEquals(this, ((ConfigObject) other));
+            return canEqual(other) && mapEquals(this, (ConfigObject) other);
         } else {
             return false;
         }
@@ -656,11 +657,11 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     final private static String EMPTY_NAME = "empty config";
-    final private static SimpleConfigObject emptyInstance = empty(SimpleConfigOrigin
+    final private static SimpleConfigObject EMPTY_INSTANCE = empty(SimpleConfigOrigin
             .newSimple(EMPTY_NAME));
 
     final static SimpleConfigObject empty() {
-        return emptyInstance;
+        return EMPTY_INSTANCE;
     }
 
     final static SimpleConfigObject empty(ConfigOrigin origin) {
@@ -668,13 +669,13 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             return empty();
         else
             return new SimpleConfigObject(origin,
-                    Collections.<String, AbstractConfigValue> emptyMap());
+                    Collections.<String, AbstractConfigValue>emptyMap());
     }
 
     final static SimpleConfigObject emptyMissing(ConfigOrigin baseOrigin) {
         return new SimpleConfigObject(SimpleConfigOrigin.newSimple(
                 baseOrigin.description() + " (not found)"),
-                Collections.<String, AbstractConfigValue> emptyMap());
+                Collections.<String, AbstractConfigValue>emptyMap());
     }
 
     // serialization all goes through SerializedConfigValue

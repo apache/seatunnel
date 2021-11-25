@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.batch;
 
 import io.github.interestinglab.waterdrop.flink.BaseFlinkTransform;
 import io.github.interestinglab.waterdrop.flink.FlinkEnvironment;
 import org.apache.flink.api.java.DataSet;
 
-public interface FlinkBatchTransform<IN,OUT> extends BaseFlinkTransform {
+public interface FlinkBatchTransform<IN, OUT> extends BaseFlinkTransform {
 
     DataSet<OUT> processBatch(FlinkEnvironment env, DataSet<IN> data);
 

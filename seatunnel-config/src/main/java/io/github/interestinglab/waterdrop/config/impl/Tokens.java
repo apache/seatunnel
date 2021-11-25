@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -145,7 +146,9 @@ final class Tokens {
         }
 
         @Override
-        public String toString() { return "'" + value + "' (WHITESPACE)"; }
+        public String toString() {
+            return "'" + value + "' (WHITESPACE)";
+        }
 
         @Override
         protected boolean canEqual(Object other) {
@@ -155,7 +158,7 @@ final class Tokens {
         @Override
         public boolean equals(Object other) {
             return super.equals(other)
-                && ((IgnoredWhitespace) other).value.equals(value);
+                    && ((IgnoredWhitespace) other).value.equals(value);
         }
 
         @Override
@@ -319,7 +322,7 @@ final class Tokens {
 
         @Override
         public String tokenText() {
-            return "${" + (this.optional? "?" : "") + Tokenizer.render(this.value.iterator()) + "}";
+            return "${" + (this.optional ? "?" : "") + Tokenizer.render(this.value.iterator()) + "}";
         }
 
         @Override
@@ -500,6 +503,7 @@ final class Tokens {
     static Token newValue(AbstractConfigValue value) {
         return new Value(value);
     }
+
     static Token newValue(AbstractConfigValue value, String origText) {
         return new Value(value, origText);
     }
@@ -514,7 +518,7 @@ final class Tokens {
     }
 
     static Token newDouble(ConfigOrigin origin, double value,
-            String origText) {
+                           String origText) {
         return newValue(ConfigNumber.newNumber(origin, value,
                 origText), origText);
     }

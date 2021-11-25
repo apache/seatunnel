@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.utils;
 
 public enum PluginType {
-    SOURCE("source"),TRANSFORM("transform"),SINK("sink");
+    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
 
     private String type;
+
     private PluginType(String type) {
         this.type = type;
     }
