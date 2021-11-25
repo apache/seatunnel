@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -30,11 +31,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
  * Trying very hard to avoid a parent reference in config values; when you have
  * a tree like this, the availability of parent() tends to result in a lot of
  * improperly-factored and non-modular code. Please don't add parent().
- *
  */
 abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
 
@@ -57,7 +56,7 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
      * supposed to be thrown by the target of a cyclic reference and it's
      * supposed to be caught by the ConfigReference looking up that reference,
      * so it should be impossible for an outermost resolve() to throw this.
-     *
+     * <p>
      * Contrast with ConfigException.NotResolved which just means nobody called
      * resolve().
      */
@@ -79,10 +78,8 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     /**
      * Called only by ResolveContext.resolve().
      *
-     * @param context
-     *            state of the current resolve
-     * @param source
-     *            where to look up values
+     * @param context state of the current resolve
+     * @param source  where to look up values
      * @return a new value if there were changes, or this if no changes
      */
     ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source)
@@ -134,9 +131,9 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
      * be ${foo.bar.a.b.c} because we resolve substitutions globally only after
      * parsing everything.
      *
-     * @param prefix
+     * @param prefix prefix
      * @return value relativized to the given path or the same value if nothing
-     *         to do
+     * to do
      */
     AbstractConfigValue relativized(Path prefix) {
         return this;
@@ -156,7 +153,7 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
                 return modifyChild(keyOrNull, v);
             } catch (RuntimeException e) {
                 throw e;
-            } catch(Exception e) {
+            } catch (Exception e) {
                 throw new ConfigException.BugOrBroken("Unexpected exception", e);
             }
         }
@@ -198,12 +195,12 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     }
 
     protected AbstractConfigValue constructDelayedMerge(ConfigOrigin origin,
-            List<AbstractConfigValue> stack) {
+                                                        List<AbstractConfigValue> stack) {
         return new ConfigDelayedMerge(origin, stack);
     }
 
     protected final AbstractConfigValue mergedWithTheUnmergeable(
-      Collection<AbstractConfigValue> stack, Unmergeable fallback) {
+            Collection<AbstractConfigValue> stack, Unmergeable fallback) {
         requireNotIgnoringFallbacks();
 
         // if we turn out to be an object, and the fallback also does,
@@ -306,9 +303,9 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
         if (other instanceof ConfigValue) {
             return canEqual(other)
                     && (this.valueType() ==
-                            ((ConfigValue) other).valueType())
+                    ((ConfigValue) other).valueType())
                     && ConfigImplUtil.equalsHandlingNull(this.unwrapped(),
-                            ((ConfigValue) other).unwrapped());
+                    ((ConfigValue) other).unwrapped());
         } else {
             return false;
         }

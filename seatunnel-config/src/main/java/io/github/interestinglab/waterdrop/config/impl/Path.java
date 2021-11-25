@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -75,7 +76,6 @@ final class Path {
     }
 
     /**
-     *
      * @return path minus the first element or null if no more elements
      */
     Path remainder() {
@@ -83,7 +83,6 @@ final class Path {
     }
 
     /**
-     *
      * @return path minus the last element or null if we have just one element
      */
     Path parent() {
@@ -100,7 +99,6 @@ final class Path {
     }
 
     /**
-     *
      * @return last element in the path
      */
     String last() {
@@ -159,7 +157,7 @@ final class Path {
         Path myRemainder = this;
         Path otherRemainder = other;
         if (otherRemainder.length() <= myRemainder.length()) {
-            while(otherRemainder != null) {
+            while (otherRemainder != null) {
                 if (!otherRemainder.first().equals(myRemainder.first()))
                     return false;
                 myRemainder = myRemainder.remainder();
@@ -176,7 +174,7 @@ final class Path {
             Path that = (Path) other;
             return this.first.equals(that.first)
                     && ConfigImplUtil.equalsHandlingNull(this.remainder,
-                            that.remainder);
+                    that.remainder);
         } else {
             return false;
         }
@@ -213,7 +211,7 @@ final class Path {
         else
             sb.append(first);
         if (remainder != null) {
-            sb.append(ConfigParseOptions.pathTokenSeparator);
+            sb.append(ConfigParseOptions.PATH_TOKEN_SEPARATOR);
             remainder.appendToStringBuilder(sb);
         }
     }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config;
 
 /**
@@ -22,7 +23,7 @@ package io.github.interestinglab.waterdrop.config;
  * aka ".conf", or <a href=
  * "http://download.oracle.com/javase/7/docs/api/java/util/Properties.html#load%28java.io.Reader%29"
  * >Java properties</a>).
- * 
+ *
  */
 public enum ConfigSyntax {
     /**

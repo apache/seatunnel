@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -110,7 +111,7 @@ final class Tokenizer {
             // so creates a whitespace token if the previous
             // token also was.
             private Token nextIsASimpleValue(ConfigOrigin baseOrigin,
-                    int lineNumber) {
+                                             int lineNumber) {
                 Token t = createWhitespaceTokenFromSaver(baseOrigin, lineNumber);
                 if (!lastTokenWasSimpleValue) {
                     lastTokenWasSimpleValue = true;
@@ -124,11 +125,11 @@ final class Tokenizer {
                     Token t;
                     if (lastTokenWasSimpleValue) {
                         t = Tokens.newUnquotedText(
-                            lineOrigin(baseOrigin, lineNumber),
-                            whitespace.toString());
+                                lineOrigin(baseOrigin, lineNumber),
+                                whitespace.toString());
                     } else {
                         t = Tokens.newIgnoredWhitespace(lineOrigin(baseOrigin, lineNumber),
-                                                        whitespace.toString());
+                                whitespace.toString());
                     }
                     whitespace.setLength(0); // reset
                     return t;
@@ -204,11 +205,7 @@ final class Tokenizer {
                         int maybeSecondSlash = nextCharRaw();
                         // we want to predictably NOT consume any chars
                         putBack(maybeSecondSlash);
-                        if (maybeSecondSlash == '/') {
-                            return true;
-                        } else {
-                            return false;
-                        }
+                        return maybeSecondSlash == '/';
                     } else {
                         return false;
                     }
@@ -220,7 +217,7 @@ final class Tokenizer {
 
         // get next char, skipping non-newline whitespace
         private int nextCharAfterWhitespace(WhitespaceSaver saver) {
-            for (;;) {
+            for (; ; ) {
                 int c = nextCharRaw();
 
                 if (c == -1) {
@@ -258,8 +255,8 @@ final class Tokenizer {
         }
 
         private static ProblemException problem(ConfigOrigin origin, String what,
-                String message,
-                Throwable cause) {
+                                                String message,
+                                                Throwable cause) {
             return problem(origin, what, message, false, cause);
         }
 
@@ -277,7 +274,7 @@ final class Tokenizer {
         }
 
         private static ConfigOrigin lineOrigin(ConfigOrigin baseOrigin,
-                int lineNumber) {
+                                               int lineNumber) {
             return ((SimpleConfigOrigin) baseOrigin).withLineNumber(lineNumber);
         }
 
@@ -293,7 +290,7 @@ final class Tokenizer {
             }
 
             StringBuilder sb = new StringBuilder();
-            for (;;) {
+            for (; ; ) {
                 int c = nextCharRaw();
                 if (c == -1 || c == '\n') {
                     putBack(c);
@@ -308,11 +305,11 @@ final class Tokenizer {
         }
 
         // chars JSON allows a number to start with
-        static final String firstNumberChars = "0123456789-";
+        static final String FIRST_NUMBER_CHARS = "0123456789-";
         // chars JSON allows to be part of a number
-        static final String numberChars = "0123456789eE+-.";
+        static final String NAME_CHARS = "0123456789eE+-.";
         // chars that stop an unquoted string
-        static final String notInUnquotedText = "$\"{}[]:=,+#`^?!@*&\\";
+        static final String NOT_IN_UNIQUOTED_TEXT = "$\"{}[]:=,+#`^?!@*&\\";
 
         // The rules here are intended to maximize convenience while
         // avoiding confusion with real valid JSON. Basically anything
@@ -325,7 +322,7 @@ final class Tokenizer {
             while (true) {
                 if (c == -1) {
                     break;
-                } else if (notInUnquotedText.indexOf(c) >= 0) {
+                } else if (NOT_IN_UNIQUOTED_TEXT.indexOf(c) >= 0) {
                     break;
                 } else if (isWhitespace(c)) {
                     break;
@@ -365,7 +362,7 @@ final class Tokenizer {
             sb.appendCodePoint(firstChar);
             boolean containedDecimalOrE = false;
             int c = nextCharRaw();
-            while (c != -1 && numberChars.indexOf(c) >= 0) {
+            while (c != -1 && NAME_CHARS.indexOf(c) >= 0) {
                 if (c == '.' || c == 'e' || c == 'E')
                     containedDecimalOrE = true;
                 sb.appendCodePoint(c);
@@ -386,9 +383,9 @@ final class Tokenizer {
             } catch (NumberFormatException e) {
                 // not a number after all, see if it's an unquoted string.
                 for (char u : s.toCharArray()) {
-                    if (notInUnquotedText.indexOf(u) >= 0)
+                    if (NOT_IN_UNIQUOTED_TEXT.indexOf(u) >= 0)
                         throw problem(asString(u), "Reserved character '" + asString(u)
-                                      + "' is not allowed outside quotes", true /* suggestQuotes */);
+                                + "' is not allowed outside quotes", true /* suggestQuotes */);
                 }
                 // no evil chars so we just decide this was a string and
                 // not a number.
@@ -407,55 +404,55 @@ final class Tokenizer {
             sbOrig.appendCodePoint(escaped);
 
             switch (escaped) {
-            case '"':
-                sb.append('"');
-                break;
-            case '\\':
-                sb.append('\\');
-                break;
-            case '/':
-                sb.append('/');
-                break;
-            case 'b':
-                sb.append('\b');
-                break;
-            case 'f':
-                sb.append('\f');
-                break;
-            case 'n':
-                sb.append('\n');
-                break;
-            case 'r':
-                sb.append('\r');
-                break;
-            case 't':
-                sb.append('\t');
-                break;
-            case 'u': {
-                // kind of absurdly slow, but screw it for now
-                char[] a = new char[4];
-                for (int i = 0; i < 4; ++i) {
-                    int c = nextCharRaw();
-                    if (c == -1)
-                        throw problem("End of input but expecting 4 hex digits for \\uXXXX escape");
-                    a[i] = (char) c;
+                case '"':
+                    sb.append('"');
+                    break;
+                case '\\':
+                    sb.append('\\');
+                    break;
+                case '/':
+                    sb.append('/');
+                    break;
+                case 'b':
+                    sb.append('\b');
+                    break;
+                case 'f':
+                    sb.append('\f');
+                    break;
+                case 'n':
+                    sb.append('\n');
+                    break;
+                case 'r':
+                    sb.append('\r');
+                    break;
+                case 't':
+                    sb.append('\t');
+                    break;
+                case 'u': {
+                    // kind of absurdly slow, but screw it for now
+                    char[] a = new char[4];
+                    for (int i = 0; i < 4; ++i) {
+                        int c = nextCharRaw();
+                        if (c == -1)
+                            throw problem("End of input but expecting 4 hex digits for \\uXXXX escape");
+                        a[i] = (char) c;
+                    }
+                    String digits = new String(a);
+                    sbOrig.append(a);
+                    try {
+                        sb.appendCodePoint(Integer.parseInt(digits, 16));
+                    } catch (NumberFormatException e) {
+                        throw problem(digits, String.format(
+                                "Malformed hex digits after \\u escape in string: '%s'", digits), e);
+                    }
                 }
-                String digits = new String(a);
-                sbOrig.append(a);
-                try {
-                    sb.appendCodePoint(Integer.parseInt(digits, 16));
-                } catch (NumberFormatException e) {
-                    throw problem(digits, String.format(
-                            "Malformed hex digits after \\u escape in string: '%s'", digits), e);
-                }
-            }
                 break;
-            default:
-                throw problem(
-                        asString(escaped),
-                        String.format(
-                                "backslash followed by '%s', this is not a valid escape sequence (quoted strings use JSON escaping, so use double-backslash \\\\ for literal backslash)",
-                                asString(escaped)));
+                default:
+                    throw problem(
+                            asString(escaped),
+                            String.format(
+                                    "backslash followed by '%s', this is not a valid escape sequence (quoted strings use JSON escaping, so use double-backslash \\\\ for literal backslash)",
+                                    asString(escaped)));
             }
         }
 
@@ -463,7 +460,7 @@ final class Tokenizer {
             // we are after the opening triple quote and need to consume the
             // close triple
             int consecutiveQuotes = 0;
-            for (;;) {
+            for (; ; ) {
                 int c = nextCharRaw();
 
                 if (c == '"') {
@@ -604,45 +601,45 @@ final class Tokenizer {
                     t = pullComment(c);
                 } else {
                     switch (c) {
-                    case '"':
-                        t = pullQuotedString();
-                        break;
-                    case '$':
-                        t = pullSubstitution();
-                        break;
-                    case ':':
-                        t = Tokens.COLON;
-                        break;
-                    case ',':
-                        t = Tokens.COMMA;
-                        break;
-                    case '=':
-                        t = Tokens.EQUALS;
-                        break;
-                    case '{':
-                        t = Tokens.OPEN_CURLY;
-                        break;
-                    case '}':
-                        t = Tokens.CLOSE_CURLY;
-                        break;
-                    case '[':
-                        t = Tokens.OPEN_SQUARE;
-                        break;
-                    case ']':
-                        t = Tokens.CLOSE_SQUARE;
-                        break;
-                    case '+':
-                        t = pullPlusEquals();
-                        break;
-                    default:
-                        t = null;
-                        break;
+                        case '"':
+                            t = pullQuotedString();
+                            break;
+                        case '$':
+                            t = pullSubstitution();
+                            break;
+                        case ':':
+                            t = Tokens.COLON;
+                            break;
+                        case ',':
+                            t = Tokens.COMMA;
+                            break;
+                        case '=':
+                            t = Tokens.EQUALS;
+                            break;
+                        case '{':
+                            t = Tokens.OPEN_CURLY;
+                            break;
+                        case '}':
+                            t = Tokens.CLOSE_CURLY;
+                            break;
+                        case '[':
+                            t = Tokens.OPEN_SQUARE;
+                            break;
+                        case ']':
+                            t = Tokens.CLOSE_SQUARE;
+                            break;
+                        case '+':
+                            t = pullPlusEquals();
+                            break;
+                        default:
+                            t = null;
+                            break;
                     }
 
                     if (t == null) {
-                        if (firstNumberChars.indexOf(c) >= 0) {
+                        if (FIRST_NUMBER_CHARS.indexOf(c) >= 0) {
                             t = pullNumber(c);
-                        } else if (notInUnquotedText.indexOf(c) >= 0) {
+                        } else if (NOT_IN_UNIQUOTED_TEXT.indexOf(c) >= 0) {
                             throw problem(asString(c), "Reserved character '" + asString(c)
                                     + "' is not allowed outside quotes", true /* suggestQuotes */);
                         } else {
@@ -661,12 +658,8 @@ final class Tokenizer {
         }
 
         private static boolean isSimpleValue(Token t) {
-            if (Tokens.isSubstitution(t) || Tokens.isUnquotedText(t)
-                    || Tokens.isValue(t)) {
-                return true;
-            } else {
-                return false;
-            }
+            return Tokens.isSubstitution(t) || Tokens.isUnquotedText(t)
+                    || Tokens.isValue(t);
         }
 
         private void queueNextToken() throws ProblemException {

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -38,7 +39,6 @@ public class SocketStream implements FlinkStreamSource<Row> {
     private String host = "localhost";
 
     private int port = 9999;
-
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
@@ -69,10 +69,10 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     @Override
     public void prepare(FlinkEnvironment prepareEnv) {
-        if (config.hasPath(HOST)){
+        if (config.hasPath(HOST)) {
             host = config.getString(HOST);
         }
-        if (config.hasPath(PORT)){
+        if (config.hasPath(PORT)) {
             port = config.getInt(PORT);
         }
     }

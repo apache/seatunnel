@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink;
 
 import io.github.interestinglab.waterdrop.apis.BaseSink;

@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package beanconfig;
 
+package beanconfig;
 
 import io.github.interestinglab.waterdrop.config.Optional;
 
@@ -72,7 +72,6 @@ public class ObjectsConfig {
     public int hashCode() {
         return getValueObject() != null ? getValueObject().hashCode() : 0;
     }
-
 
     @Override
     public String toString() {

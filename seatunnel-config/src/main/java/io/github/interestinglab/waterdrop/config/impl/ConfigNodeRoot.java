@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -39,7 +40,7 @@ final class ConfigNodeRoot extends ConfigNodeComplexValue {
     protected ConfigNodeComplexValue value() {
         for (AbstractConfigNode node : children) {
             if (node instanceof ConfigNodeComplexValue) {
-                return (ConfigNodeComplexValue)node;
+                return (ConfigNodeComplexValue) node;
             }
         }
         throw new ConfigException.BugOrBroken("ConfigNodeRoot did not contain a value");
@@ -54,7 +55,7 @@ final class ConfigNodeRoot extends ConfigNodeComplexValue {
                     throw new ConfigException.WrongType(origin, "The ConfigDocument had an array at the root level, and values cannot be modified inside an array.");
                 } else if (node instanceof ConfigNodeObject) {
                     if (value == null) {
-                        childrenCopy.set(i, ((ConfigNodeObject)node).removeValueOnPath(desiredPath, flavor));
+                        childrenCopy.set(i, ((ConfigNodeObject) node).removeValueOnPath(desiredPath, flavor));
                     } else {
                         childrenCopy.set(i, ((ConfigNodeObject) node).setValueOnPath(desiredPath, value, flavor));
                     }

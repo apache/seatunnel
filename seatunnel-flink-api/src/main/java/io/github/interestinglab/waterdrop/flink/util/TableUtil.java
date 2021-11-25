@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.util;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -43,19 +44,19 @@ public class TableUtil {
         }
     }
 
-    public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table){
-        return tableEnvironment.toDataSet(table,table.getSchema().toRowType());
+    public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table) {
+        return tableEnvironment.toDataSet(table, table.getSchema().toRowType());
     }
 
-    public static void  dataStreamToTable(StreamTableEnvironment tableEnvironment,String tableName,DataStream<Row> dataStream){
-        tableEnvironment.registerDataStream(tableName,dataStream);
+    public static void dataStreamToTable(StreamTableEnvironment tableEnvironment, String tableName, DataStream<Row> dataStream) {
+        tableEnvironment.registerDataStream(tableName, dataStream);
     }
 
-    public static void dataSetToTable(BatchTableEnvironment tableEnvironment,String tableName,DataSet<Row> dataSet){
-        tableEnvironment.registerDataSet(tableName,dataSet);
+    public static void dataSetToTable(BatchTableEnvironment tableEnvironment, String tableName, DataSet<Row> dataSet) {
+        tableEnvironment.registerDataSet(tableName, dataSet);
     }
 
-    public static boolean tableExists(TableEnvironment tableEnvironment, String name){
+    public static boolean tableExists(TableEnvironment tableEnvironment, String name) {
         String currentCatalog = tableEnvironment.getCurrentCatalog();
         Catalog catalog = tableEnvironment.getCatalog(currentCatalog).get();
         ObjectPath objectPath = new ObjectPath(tableEnvironment.getCurrentDatabase(), name);

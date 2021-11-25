@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.config;
 
+package io.github.interestinglab.waterdrop.config;
 
 /**
  * An opaque handle to something that can be parsed, obtained from

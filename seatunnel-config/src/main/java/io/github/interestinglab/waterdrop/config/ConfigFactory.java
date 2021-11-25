@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config;
 
 import io.github.interestinglab.waterdrop.config.impl.ConfigImpl;
@@ -92,14 +93,14 @@ public final class ConfigFactory {
     /**
      * Like {@link #load(String)} but uses the supplied class loader instead of
      * the current thread's context class loader.
-     * 
+     *
      * <p>
      * To load a standalone resource (without the default reference and default
      * overrides), use {@link #parseResourcesAnySyntax(ClassLoader, String)}
      * rather than this method. To load only the reference config use
      * {@link #defaultReference(ClassLoader)} and to load only the overrides use
      * {@link #defaultOverrides(ClassLoader)}.
-     * 
+     *
      * @param loader class loader to look for resources in
      * @param resourceBasename basename (no .conf/.json/.properties suffix)
      * @return configuration for an application relative to given class loader
@@ -342,27 +343,27 @@ public final class ConfigFactory {
      * by merging all resources "reference.conf" found on the classpath and
      * overriding the result with system properties. The returned reference
      * configuration will already have substitutions resolved.
-     * 
+     *
      * <p>
      * Libraries and frameworks should ship with a "reference.conf" in their
      * jar.
-     * 
+     *
      * <p>
      * The reference config must be looked up in the class loader that contains
      * the libraries that you want to use with this config, so the
      * "reference.conf" for each library can be found. Use
      * {@link #defaultReference(ClassLoader)} if the context class loader is not
      * suitable.
-     * 
+     *
      * <p>
      * The {@link #load()} methods merge this configuration for you
      * automatically.
-     * 
+     *
      * <p>
      * Future versions may look for reference configuration in more places. It
      * is not guaranteed that this method <em>only</em> looks at
      * "reference.conf".
-     * 
+     *
      * @return the default reference config for context class loader
      */
     public static Config defaultReference() {

@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package beanconfig;
 
 public class DifferentFieldNameFromAccessorsConfig {
 
     private String customStringField;
     private Long number;
-
 
     public String getStringField() {
         return customStringField;

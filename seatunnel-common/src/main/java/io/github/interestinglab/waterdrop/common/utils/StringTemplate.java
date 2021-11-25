@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.common.utils;
 
 import org.apache.commons.lang3.text.StrSubstitutor;

@@ -27,35 +27,30 @@ import java.net.URL;
 
 public class CompleteTests {
 
-  public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
 
-    System.out.println("Hello World");
+        CompleteTests completeTests = new CompleteTests();
 
-    System.setProperty("dt", "20190318");
-    System.setProperty("city2", "shanghai");
+        Config config = ConfigFactory.parseFile(completeTests.getFileFromResources("interestinglab/variables.conf"));
 
-    CompleteTests completeTests = new CompleteTests();
+        config = config.resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
-    Config config = ConfigFactory.parseFile(completeTests.getFileFromResources("interestinglab/variables.conf"));
-
-    config = config.resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-      .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
-
-    ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults().setComments(false).setOriginComments(false);
-    System.out.println(config.root().render(renderOptions));
-  }
-
-  // get file from classpath, resources folder
-  private File getFileFromResources(String fileName) {
-
-    ClassLoader classLoader = getClass().getClassLoader();
-
-    URL resource = classLoader.getResource(fileName);
-    if (resource == null) {
-      throw new IllegalArgumentException("file is not found!");
-    } else {
-      return new File(resource.getFile());
+        ConfigRenderOptions renderOptions = ConfigRenderOptions.defaults().setComments(false).setOriginComments(false);
+        //config.root().render(renderOptions));
     }
 
-  }
+    // get file from classpath, resources folder
+    private File getFileFromResources(String fileName) {
+
+        ClassLoader classLoader = getClass().getClassLoader();
+
+        URL resource = classLoader.getResource(fileName);
+        if (resource == null) {
+            throw new IllegalArgumentException("file is not found!");
+        } else {
+            return new File(resource.getFile());
+        }
+
+    }
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop;
 
 import io.github.interestinglab.waterdrop.apis.BaseSink;
@@ -51,14 +52,14 @@ import java.util.Objects;
 import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
 
 public class Waterdrop {
-    private static final Logger logger = LoggerFactory.getLogger(Waterdrop.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Waterdrop.class);
 
     public static void main(String[] args) {
         OptionParser<CommandLineArgs> sparkParser = CommandLineUtils.sparkParser();
         run(sparkParser, SPARK, args);
     }
 
-    public static void run(OptionParser<CommandLineArgs> parser,Engine engine,String[] args){
+    public static void run(OptionParser<CommandLineArgs> parser, Engine engine, String[] args) {
         Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();
         Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client", "application.conf", false));
         if (option.isDefined()) {
@@ -68,14 +69,14 @@ public class Waterdrop {
             boolean testConfig = commandLineArgs.testConfig();
             if (testConfig) {
                 new ConfigBuilder(configFilePath).checkConfig();
-                System.out.println("config OK !");
+                LOGGER.info("config OK !");
             } else {
                 try {
                     entryPoint(configFilePath, engine);
                 } catch (ConfigRuntimeException e) {
                     showConfigError(e);
                     throw e;
-                }catch (Exception e){
+                } catch (Exception e) {
                     showFatalError(e);
                     throw e;
                 }
@@ -129,8 +130,8 @@ public class Waterdrop {
                 }
                 if (!checkResult.isSuccess()) {
                     configValid = false;
-                    System.out.println(String.format("Plugin[%s] contains invalid config, error: %s\n"
-                            , plugin.getClass().getName(), checkResult.getMsg()));
+                    LOGGER.error("Plugin[{}] contains invalid config, error: {} \n"
+                            , plugin.getClass().getName(), checkResult.getMsg());
                 }
                 if (!configValid) {
                     System.exit(-1); // invalid configuration
@@ -144,11 +145,11 @@ public class Waterdrop {
         final Option<String> mode = Common.getDeployMode();
         if (mode.isDefined() && "cluster".equals(mode.get())) {
 
-            logger.info("preparing cluster mode work dir files...");
+            LOGGER.info("preparing cluster mode work dir files...");
             File workDir = new File(".");
 
             for (File file : Objects.requireNonNull(workDir.listFiles())) {
-                logger.warn("\t list file: " + file.getAbsolutePath());
+                LOGGER.warn("\t list file: " + file.getAbsolutePath());
             }
             // decompress plugin dir
             File compressedFile = new File("plugins.tar.gz");
@@ -157,13 +158,13 @@ public class Waterdrop {
                 File tempFile = CompressionUtils.unGzip(compressedFile, workDir);
                 try {
                     CompressionUtils.unTar(tempFile, workDir);
-                    logger.info("succeeded to decompress plugins.tar.gz");
+                    LOGGER.info("succeeded to decompress plugins.tar.gz");
                 } catch (ArchiveException e) {
-                    logger.error("failed to decompress plugins.tar.gz", e);
+                    LOGGER.error("failed to decompress plugins.tar.gz", e);
                     System.exit(-1);
                 }
             } catch (IOException e) {
-                logger.error("failed to decompress plugins.tar.gz", e);
+                LOGGER.error("failed to decompress plugins.tar.gz", e);
                 System.exit(-1);
             }
         }
@@ -181,25 +182,26 @@ public class Waterdrop {
     }
 
     private static void showConfigError(Throwable throwable) {
-        System.out.println(
+        LOGGER.error(
                 "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
-        System.out.println("Config Error:\n");
-        System.out.println("Reason: " + errorMsg + "\n");
-        System.out.println(
+        LOGGER.error("Config Error:\n");
+        LOGGER.error("Reason: {} \n", errorMsg);
+        LOGGER.error(
                 "\n===============================================================================\n\n\n");
     }
 
     private static void showFatalError(Throwable throwable) {
-        System.out.println(
+        LOGGER.error(
                 "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
-        System.out.println("Fatal Error, \n");
-        System.out.println(
-                "Please contact garygaowork@gmail.com or issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
-        System.out.println("Reason: " + errorMsg + "\n");
-        System.out.println("Exception StackTrace: " + ExceptionUtils.getStackTrace(throwable));
-        System.out.println(
+        LOGGER.error("Fatal Error, \n");
+        // FIX
+        LOGGER.error(
+                "Please submit issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
+        LOGGER.error("Reason:{} \n", errorMsg);
+        LOGGER.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
+        LOGGER.error(
                 "\n===============================================================================\n\n\n");
     }
 }

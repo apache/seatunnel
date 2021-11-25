@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -55,7 +56,6 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     private String jobName = "waterdrop";
 
-
     @Override
     public void setConfig(Config config) {
         this.config = config;
@@ -81,7 +81,7 @@ public class FlinkEnvironment implements RuntimeEnv {
             createBatchTableEnvironment();
             createExecutionEnvironment();
         }
-        if (config.hasPath("job.name")){
+        if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
     }
@@ -105,10 +105,10 @@ public class FlinkEnvironment implements RuntimeEnv {
     private void createStreamTableEnvironment() {
         tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment());
         TableConfig config = tableEnvironment.getConfig();
-        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)){
+        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
             long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
             long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
-            config.setIdleStateRetentionTime(Time.seconds(min),Time.seconds(max));
+            config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
         }
     }
 
@@ -118,7 +118,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
         setCheckpoint();
 
-        EnvironmentUtil.setRestartStrategy(config,environment.getConfig());
+        EnvironmentUtil.setRestartStrategy(config, environment.getConfig());
 
         if (config.hasPath(ConfigKeyName.BUFFER_TIMEOUT_MILLIS)) {
             long timeout = config.getLong(ConfigKeyName.BUFFER_TIMEOUT_MILLIS);
@@ -177,7 +177,6 @@ public class FlinkEnvironment implements RuntimeEnv {
         }
     }
 
-
     private void setCheckpoint() {
         if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
             CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
@@ -207,13 +206,13 @@ public class FlinkEnvironment implements RuntimeEnv {
             if (config.hasPath(ConfigKeyName.CHECKPOINT_DATA_URI)) {
                 String uri = config.getString(ConfigKeyName.CHECKPOINT_DATA_URI);
                 StateBackend fsStateBackend = new FsStateBackend(uri);
-                if (config.hasPath(ConfigKeyName.STATE_BACKEND)){
+                if (config.hasPath(ConfigKeyName.STATE_BACKEND)) {
                     String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
-                    if ("rocksdb".equals(stateBackend.toLowerCase())){
+                    if ("rocksdb".equals(stateBackend.toLowerCase())) {
                         StateBackend rocksDBStateBackend = new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
                         environment.setStateBackend(rocksDBStateBackend);
                     }
-                }else {
+                } else {
                     environment.setStateBackend(fsStateBackend);
                 }
             }
@@ -244,7 +243,5 @@ public class FlinkEnvironment implements RuntimeEnv {
             }
         }
     }
-
-
 
 }

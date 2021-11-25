@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigIncludeContext;
@@ -44,7 +45,7 @@ class SimpleIncludeContext implements ConfigIncludeContext {
 
     @Override
     public ConfigParseable relativeTo(String filename) {
-        if (ConfigImpl.traceLoadsEnabled())
+        if (ConfigImpl.TRACE_LOADS_ENABLE())
             ConfigImpl.trace("Looking for '" + filename + "' relative to " + parseable);
         if (parseable != null)
             return parseable.relativeTo(filename);

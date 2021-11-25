@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -33,7 +34,6 @@ import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.types.Row;
-
 
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
@@ -57,7 +57,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config,"driver","url","username","query");
+        return CheckConfigUtil.check(config, "driver", "url", "username", "query");
     }
 
     @Override
@@ -74,22 +74,21 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
         }
     }
 
-
     @Override
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
-        createSink(env.getStreamTableEnvironment(),table);
+        createSink(env.getStreamTableEnvironment(), table);
         return null;
     }
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         final Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
-        createSink(env.getBatchTableEnvironment(),table);
+        createSink(env.getBatchTableEnvironment(), table);
         return null;
     }
 
-    private void createSink(TableEnvironment tableEnvironment,Table table) {
+    private void createSink(TableEnvironment tableEnvironment, Table table) {
         TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
         String[] fieldNames = table.getSchema().getFieldNames();
         TableSink sink = JDBCAppendTableSink.builder()
@@ -101,9 +100,9 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
                 .setQuery(query)
                 .setParameterTypes(fieldTypes)
                 .build()
-                .configure(fieldNames,fieldTypes);
+                .configure(fieldNames, fieldTypes);
         String uniqueTableName = SchemaUtil.getUniqueTableName();
-        tableEnvironment.registerTableSink(uniqueTableName,sink);
+        tableEnvironment.registerTableSink(uniqueTableName, sink);
         table.insertInto(uniqueTableName);
     }
 }
