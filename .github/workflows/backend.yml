@@ -21,7 +21,7 @@ on:
   push:
   pull_request:
     branches:
-      - wd-v2-baseline
+      - dev
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
