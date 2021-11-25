@@ -58,7 +58,7 @@ final class ResolveSource {
     static private ResultWithPath findInObject(AbstractConfigObject obj, ResolveContext context, Path path)
             throws NotPossibleToResolve {
         // resolve ONLY portions of the object which are along our path
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace("*** finding '" + path + "' in " + obj);
         Path restriction = context.restrictToChild();
         ResolveResult<? extends AbstractConfigValue> partiallyResolved = context.restrict(path).resolve(obj,
@@ -85,7 +85,7 @@ final class ResolveSource {
     static private ValueWithPath findInObject(AbstractConfigObject obj, Path path, Node<Container> parents) {
         String key = path.first();
         Path next = path.remainder();
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace("*** looking up '" + key + "' in " + obj);
         AbstractConfigValue v = obj.attemptPeekWithPartialResolve(key);
         Node<Container> newParents = parents == null ? new Node<Container>(obj) : parents.prepend(obj);
@@ -104,10 +104,10 @@ final class ResolveSource {
     ResultWithPath lookupSubst(ResolveContext context, SubstitutionExpression subst,
             int prefixLength)
             throws NotPossibleToResolve {
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(context.depth(), "searching for " + subst);
 
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(context.depth(), subst + " - looking up relative to file it occurred in");
         // First we look up the full path, which means relative to the
         // included file if we were not a root file
@@ -120,20 +120,20 @@ final class ResolveSource {
             Path unprefixed = subst.path().subPath(prefixLength);
 
             if (prefixLength > 0) {
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(result.result.context.depth(), unprefixed
                             + " - looking up relative to parent file");
                 result = findInObject(root, result.result.context, unprefixed);
             }
 
             if (result.result.value == null && result.result.context.options().getUseSystemEnvironment()) {
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(result.result.context.depth(), unprefixed + " - looking up in system environment");
                 result = findInObject(ConfigImpl.envVariablesAsConfigObject(), context, unprefixed);
             }
         }
 
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace(result.result.context.depth(), "resolved to " + result);
 
         return result;
@@ -143,14 +143,14 @@ final class ResolveSource {
         if (parent == null)
             throw new ConfigException.BugOrBroken("can't push null parent");
 
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace("pushing parent " + parent + " ==root " + (parent == root) + " onto " + this);
 
         if (pathFromRoot == null) {
             if (parent == root) {
                 return new ResolveSource(root, new Node<Container>(parent));
             } else {
-                if (ConfigImpl.traceSubstitutionsEnabled()) {
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
                     // this hasDescendant check is super-expensive so it's a
                     // trace message rather than an assertion
                     if (root.hasDescendant((AbstractConfigValue) parent))
@@ -163,7 +163,7 @@ final class ResolveSource {
             }
         } else {
             Container parentParent = pathFromRoot.head();
-            if (ConfigImpl.traceSubstitutionsEnabled()) {
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
                 // this hasDescendant check is super-expensive so it's a
                 // trace message rather than an assertion
                 if (parentParent != null && !parentParent.hasDescendant((AbstractConfigValue) parent))
@@ -217,14 +217,14 @@ final class ResolveSource {
     }
 
     ResolveSource replaceCurrentParent(Container old, Container replacement) {
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace("replaceCurrentParent old " + old + "@" + System.identityHashCode(old) + " replacement "
                 + replacement + "@" + System.identityHashCode(old) + " in " + this);
         if (old == replacement) {
             return this;
         } else if (pathFromRoot != null) {
             Node<Container> newPath = replace(pathFromRoot, old, (AbstractConfigValue) replacement);
-            if (ConfigImpl.traceSubstitutionsEnabled()) {
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
                 ConfigImpl.trace("replaced " + old + " with " + replacement + " in " + this);
                 ConfigImpl.trace("path was: " + pathFromRoot + " is now " + newPath);
             }
@@ -246,7 +246,7 @@ final class ResolveSource {
 
     // replacement may be null to delete
     ResolveSource replaceWithinCurrentParent(AbstractConfigValue old, AbstractConfigValue replacement) {
-        if (ConfigImpl.traceSubstitutionsEnabled())
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
             ConfigImpl.trace("replaceWithinCurrentParent old " + old + "@" + System.identityHashCode(old)
                     + " replacement " + replacement + "@" + System.identityHashCode(old) + " in " + this);
         if (old == replacement) {

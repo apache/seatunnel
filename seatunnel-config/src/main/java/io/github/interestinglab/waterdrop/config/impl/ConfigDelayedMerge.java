@@ -77,7 +77,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
     static ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ReplaceableMergeStack replaceable,
             List<AbstractConfigValue> stack,
             ResolveContext context, ResolveSource source) throws NotPossibleToResolve {
-        if (ConfigImpl.traceSubstitutionsEnabled()) {
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
             ConfigImpl.trace(context.depth(), "delayed merge stack has " + stack.size() + " items:");
             int count = 0;
             for (AbstractConfigValue v : stack) {
@@ -107,7 +107,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                 // ConfigDelayedMerge
                 AbstractConfigValue remainder = replaceable.makeReplacement(context, count + 1);
 
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(newContext.depth(), "remainder portion: " + remainder);
 
                 // If, while resolving 'end' we come back to the same
@@ -116,31 +116,31 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                 // ConfigDelayedMerge with a value that is only
                 // the remainder of the stack below this one.
 
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(newContext.depth(), "building sourceForEnd");
 
                 // we resetParents() here because we'll be resolving "end"
                 // against a root which does NOT contain "end"
                 sourceForEnd = source.replaceWithinCurrentParent((AbstractConfigValue) replaceable, remainder);
 
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(newContext.depth(), "  sourceForEnd before reset parents but after replace: "
                             + sourceForEnd);
 
                 sourceForEnd = sourceForEnd.resetParents();
             } else {
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(newContext.depth(),
                             "will resolve end against the original source with parent pushed");
 
                 sourceForEnd = source.pushParent(replaceable);
             }
 
-            if (ConfigImpl.traceSubstitutionsEnabled()) {
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
                 ConfigImpl.trace(newContext.depth(), "sourceForEnd      =" + sourceForEnd);
             }
 
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(newContext.depth(), "Resolving highest-priority item in delayed merge " + end
                         + " against " + sourceForEnd + " endWasRemoved=" + (source != sourceForEnd));
             ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(end, sourceForEnd);
@@ -151,7 +151,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                 if (merged == null) {
                     merged = resolvedEnd;
                 } else {
-                    if (ConfigImpl.traceSubstitutionsEnabled())
+                    if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                         ConfigImpl.trace(newContext.depth() + 1, "merging " + merged + " with fallback " + resolvedEnd);
                     merged = merged.withFallback(resolvedEnd);
                 }
@@ -159,7 +159,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
 
             count += 1;
 
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(newContext.depth(), "stack merged, yielding: " + merged);
         }
 
@@ -176,7 +176,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
         List<AbstractConfigValue> subStack = stack.subList(skipping, stack.size());
 
         if (subStack.isEmpty()) {
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(context.depth(), "Nothing else in the merge stack, replacing with null");
             return null;
         } else {

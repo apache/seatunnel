@@ -197,7 +197,7 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
     @Override
     ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source)
             throws NotPossibleToResolve {
-        if (ConfigImpl.traceSubstitutionsEnabled()) {
+        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
             int indent = context.depth() + 2;
             ConfigImpl.trace(indent - 1, "concatenation has " + pieces.size() + " pieces:");
             int count = 0;
@@ -222,7 +222,7 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
                     .resolve(p, sourceWithParent);
             AbstractConfigValue r = result.value;
             newContext = result.context.restrict(restriction);
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(context.depth(), "resolved concat piece to " + r);
             if (r == null) {
                 // it was optional... omit
