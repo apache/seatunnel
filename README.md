@@ -1,6 +1,6 @@
 # seatunnel
 
-[![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=wd-v2-baseline)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
+[![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
 
 ---
 [![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
