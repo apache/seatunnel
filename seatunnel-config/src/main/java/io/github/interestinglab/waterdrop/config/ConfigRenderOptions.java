@@ -75,10 +75,11 @@ public final class ConfigRenderOptions {
      * @return options with requested setting for comments
      */
     public ConfigRenderOptions setComments(boolean value) {
-        if (value == comments)
+        if (value == comments) {
             return this;
-        else
+        } else {
             return new ConfigRenderOptions(originComments, value, formatted, json);
+        }
     }
 
     /**
@@ -108,10 +109,11 @@ public final class ConfigRenderOptions {
      * @return options with origin comments toggled
      */
     public ConfigRenderOptions setOriginComments(boolean value) {
-        if (value == originComments)
+        if (value == originComments) {
             return this;
-        else
+        } else {
             return new ConfigRenderOptions(value, comments, formatted, json);
+        }
     }
 
     /**
@@ -133,10 +135,11 @@ public final class ConfigRenderOptions {
      * @return options with requested setting for formatting
      */
     public ConfigRenderOptions setFormatted(boolean value) {
-        if (value == formatted)
+        if (value == formatted) {
             return this;
-        else
+        } else {
             return new ConfigRenderOptions(originComments, comments, value, json);
+        }
     }
 
     /**
@@ -161,10 +164,11 @@ public final class ConfigRenderOptions {
      * @return options with requested setting for JSON
      */
     public ConfigRenderOptions setJson(boolean value) {
-        if (value == json)
+        if (value == json) {
             return this;
-        else
+        } else {
             return new ConfigRenderOptions(originComments, comments, formatted, value);
+        }
     }
 
     /**
@@ -180,16 +184,21 @@ public final class ConfigRenderOptions {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("ConfigRenderOptions(");
-        if (originComments)
+        if (originComments) {
             sb.append("originComments,");
-        if (comments)
+        }
+        if (comments) {
             sb.append("comments,");
-        if (formatted)
+        }
+        if (formatted) {
             sb.append("formatted,");
-        if (json)
+        }
+        if (json) {
             sb.append("json,");
-        if (sb.charAt(sb.length() - 1) == ',')
+        }
+        if (sb.charAt(sb.length() - 1) == ',') {
             sb.setLength(sb.length() - 1);
+        }
         sb.append(")");
         return sb.toString();
     }

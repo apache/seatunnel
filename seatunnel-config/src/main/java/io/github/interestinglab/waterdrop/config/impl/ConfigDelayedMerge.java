@@ -39,19 +39,21 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
         ReplaceableMergeStack {
 
     // earlier items in the stack win
-    final private List<AbstractConfigValue> stack;
+    private final List<AbstractConfigValue> stack;
 
     ConfigDelayedMerge(ConfigOrigin origin, List<AbstractConfigValue> stack) {
         super(origin);
         this.stack = stack;
-        if (stack.isEmpty())
+        if (stack.isEmpty()) {
             throw new ConfigException.BugOrBroken(
                     "creating empty delayed merge value");
+        }
 
         for (AbstractConfigValue v : stack) {
-            if (v instanceof ConfigDelayedMerge || v instanceof ConfigDelayedMergeObject)
+            if (v instanceof ConfigDelayedMerge || v instanceof ConfigDelayedMergeObject) {
                 throw new ConfigException.BugOrBroken(
                         "placed nested DelayedMerge in a ConfigDelayedMerge, should have consolidated stack");
+            }
         }
     }
 
@@ -77,7 +79,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
     static ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ReplaceableMergeStack replaceable,
             List<AbstractConfigValue> stack,
             ResolveContext context, ResolveSource source) throws NotPossibleToResolve {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(context.depth(), "delayed merge stack has " + stack.size() + " items:");
             int count = 0;
             for (AbstractConfigValue v : stack) {
@@ -100,15 +102,16 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
 
             ResolveSource sourceForEnd;
 
-            if (end instanceof ReplaceableMergeStack)
+            if (end instanceof ReplaceableMergeStack) {
                 throw new ConfigException.BugOrBroken("A delayed merge should not contain another one: " + replaceable);
-            else if (end instanceof Unmergeable) {
+            } else if (end instanceof Unmergeable) {
                 // the remainder could be any kind of value, including another
                 // ConfigDelayedMerge
                 AbstractConfigValue remainder = replaceable.makeReplacement(context, count + 1);
 
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+                if (ConfigImpl.traceSubSituationsEnable()) {
                     ConfigImpl.trace(newContext.depth(), "remainder portion: " + remainder);
+                }
 
                 // If, while resolving 'end' we come back to the same
                 // merge stack, we only want to look _below_ 'end'
@@ -116,33 +119,35 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                 // ConfigDelayedMerge with a value that is only
                 // the remainder of the stack below this one.
 
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+                if (ConfigImpl.traceSubSituationsEnable()) {
                     ConfigImpl.trace(newContext.depth(), "building sourceForEnd");
+                }
 
                 // we resetParents() here because we'll be resolving "end"
                 // against a root which does NOT contain "end"
                 sourceForEnd = source.replaceWithinCurrentParent((AbstractConfigValue) replaceable, remainder);
 
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                    ConfigImpl.trace(newContext.depth(), "  sourceForEnd before reset parents but after replace: "
-                            + sourceForEnd);
+                if (ConfigImpl.traceSubSituationsEnable()) {
+                    ConfigImpl.trace(newContext.depth(), "  sourceForEnd before reset parents but after replace: " + sourceForEnd);
+                }
 
                 sourceForEnd = sourceForEnd.resetParents();
             } else {
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+                if (ConfigImpl.traceSubSituationsEnable()) {
                     ConfigImpl.trace(newContext.depth(),
                             "will resolve end against the original source with parent pushed");
+                }
 
                 sourceForEnd = source.pushParent(replaceable);
             }
 
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
+            if (ConfigImpl.traceSubSituationsEnable()) {
                 ConfigImpl.trace(newContext.depth(), "sourceForEnd      =" + sourceForEnd);
             }
 
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                ConfigImpl.trace(newContext.depth(), "Resolving highest-priority item in delayed merge " + end
-                        + " against " + sourceForEnd + " endWasRemoved=" + (source != sourceForEnd));
+            if (ConfigImpl.traceSubSituationsEnable()) {
+                ConfigImpl.trace(newContext.depth(), "Resolving highest-priority item in delayed merge " + end + " against " + sourceForEnd + " endWasRemoved=" + (source != sourceForEnd));
+            }
             ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(end, sourceForEnd);
             AbstractConfigValue resolvedEnd = result.value;
             newContext = result.context;
@@ -151,16 +156,18 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                 if (merged == null) {
                     merged = resolvedEnd;
                 } else {
-                    if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+                    if (ConfigImpl.traceSubSituationsEnable()) {
                         ConfigImpl.trace(newContext.depth() + 1, "merging " + merged + " with fallback " + resolvedEnd);
+                    }
                     merged = merged.withFallback(resolvedEnd);
                 }
             }
 
             count += 1;
 
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+            if (ConfigImpl.traceSubSituationsEnable()) {
                 ConfigImpl.trace(newContext.depth(), "stack merged, yielding: " + merged);
+            }
         }
 
         return ResolveResult.make(newContext, merged);
@@ -176,17 +183,19 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
         List<AbstractConfigValue> subStack = stack.subList(skipping, stack.size());
 
         if (subStack.isEmpty()) {
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+            if (ConfigImpl.traceSubSituationsEnable()) {
                 ConfigImpl.trace(context.depth(), "Nothing else in the merge stack, replacing with null");
+            }
             return null;
         } else {
             // generate a new merge stack from only the remaining items
             AbstractConfigValue merged = null;
             for (AbstractConfigValue v : subStack) {
-                if (merged == null)
+                if (merged == null) {
                     merged = v;
-                else
+                } else {
                     merged = merged.withFallback(v);
+                }
             }
             return merged;
         }
@@ -200,10 +209,11 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
     @Override
     public AbstractConfigValue replaceChild(AbstractConfigValue child, AbstractConfigValue replacement) {
         List<AbstractConfigValue> newStack = replaceChildInList(stack, child, replacement);
-        if (newStack == null)
+        if (newStack == null) {
             return null;
-        else
+        } else {
             return new ConfigDelayedMerge(origin(), newStack);
+        }
     }
 
     @Override
@@ -237,12 +247,12 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
     }
 
     @Override
-    protected final ConfigDelayedMerge mergedWithTheUnmergeable(Unmergeable fallback) {
+    protected ConfigDelayedMerge mergedWithTheUnmergeable(Unmergeable fallback) {
         return (ConfigDelayedMerge) mergedWithTheUnmergeable(stack, fallback);
     }
 
     @Override
-    protected final ConfigDelayedMerge mergedWithObject(AbstractConfigObject fallback) {
+    protected ConfigDelayedMerge mergedWithObject(AbstractConfigObject fallback) {
         return (ConfigDelayedMerge) mergedWithObject(stack, fallback);
     }
 
@@ -265,8 +275,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
     public boolean equals(Object other) {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigDelayedMerge) {
-            return canEqual(other)
-                    && (this.stack == ((ConfigDelayedMerge) other).stack || this.stack
+            return canEqual(other) && (this.stack == ((ConfigDelayedMerge) other).stack || this.stack
                             .equals(((ConfigDelayedMerge) other).stack));
         } else {
             return false;
@@ -312,8 +321,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
             if (commentMerge) {
                 indent(sb, indent, options);
                 if (atKey != null) {
-                    sb.append("#     unmerged value " + i + " for key "
-                            + ConfigImplUtil.renderJsonString(atKey) + " from ");
+                    sb.append("#     unmerged value " + i + " for key " + ConfigImplUtil.renderJsonString(atKey) + " from ");
                 } else {
                     sb.append("#     unmerged value " + i + " from ");
                 }
@@ -332,15 +340,17 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
 
             if (atKey != null) {
                 sb.append(ConfigImplUtil.renderJsonString(atKey));
-                if (options.getFormatted())
+                if (options.getFormatted()) {
                     sb.append(" : ");
-                else
+                } else {
                     sb.append(":");
+                }
             }
             v.render(sb, indent, atRoot, options);
             sb.append(",");
-            if (options.getFormatted())
+            if (options.getFormatted()) {
                 sb.append('\n');
+            }
         }
         // chop comma or newline
         sb.setLength(sb.length() - 1);

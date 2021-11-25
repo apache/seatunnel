@@ -25,7 +25,7 @@ abstract class AbstractConfigNode implements ConfigNode {
     abstract Collection<Token> tokens();
 
     @Override
-    final public String render() {
+    public final String render() {
         StringBuilder origText = new StringBuilder();
         Iterable<Token> tokens = tokens();
         for (Token t : tokens) {
@@ -35,12 +35,12 @@ abstract class AbstractConfigNode implements ConfigNode {
     }
 
     @Override
-    final public boolean equals(Object other) {
+    public final boolean equals(Object other) {
         return other instanceof AbstractConfigNode && render().equals(((AbstractConfigNode) other).render());
     }
 
     @Override
-    final public int hashCode() {
+    public final int hashCode() {
         return render().hashCode();
     }
 }

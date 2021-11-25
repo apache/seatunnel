@@ -27,7 +27,7 @@ final class ConfigInt extends ConfigNumber implements Serializable {
 
     private static final long serialVersionUID = 2L;
 
-    final private int value;
+    private final int value;
 
     ConfigInt(ConfigOrigin origin, int value, String originalText) {
         super(origin, originalText);
@@ -47,10 +47,11 @@ final class ConfigInt extends ConfigNumber implements Serializable {
     @Override
     String transformToString() {
         String s = super.transformToString();
-        if (s == null)
+        if (s == null) {
             return Integer.toString(value);
-        else
+        } else {
             return s;
+        }
     }
 
     @Override

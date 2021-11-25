@@ -154,8 +154,8 @@ class SimpleIncluder implements FullIncluder {
         ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions);
     }
 
-    static private class RelativeNameSource implements NameSource {
-        final private ConfigIncludeContext context;
+    private static class RelativeNameSource implements NameSource {
+        private final ConfigIncludeContext context;
 
         RelativeNameSource(ConfigIncludeContext context) {
             this.context = context;
@@ -227,12 +227,10 @@ class SimpleIncluder implements FullIncluder {
             }
 
             if (!options.getAllowMissing() && !gotSomething) {
-                if (ConfigImpl.TRACE_LOADS_ENABLE()) {
+                if (ConfigImpl.traceLoadsEnable()) {
                     // the individual exceptions should have been logged already
                     // with tracing enabled
-                    ConfigImpl.trace("Did not find '" + name
-                            + "' with any extension (.conf, .json, .properties); "
-                            + "exceptions should have been logged above.");
+                    ConfigImpl.trace("Did not find '" + name + "' with any extension (.conf, .json, .properties); " + "exceptions should have been logged above.");
                 }
 
                 if (fails.isEmpty()) {
@@ -250,10 +248,8 @@ class SimpleIncluder implements FullIncluder {
                             fails.get(0));
                 }
             } else if (!gotSomething) {
-                if (ConfigImpl.TRACE_LOADS_ENABLE()) {
-                    ConfigImpl.trace("Did not find '" + name
-                            + "' with any extension (.conf, .json, .properties); but '" + name
-                            + "' is allowed to be missing. Exceptions from load attempts should have been logged above.");
+                if (ConfigImpl.traceLoadsEnable()) {
+                    ConfigImpl.trace("Did not find '" + name + "' with any extension (.conf, .json, .properties); but '" + name + "' is allowed to be missing. Exceptions from load attempts should have been logged above.");
                 }
             }
         }
@@ -264,7 +260,7 @@ class SimpleIncluder implements FullIncluder {
     // the Proxy is a proxy for an application-provided includer that uses our
     // default implementations when the application-provided includer doesn't
     // have an implementation.
-    static private class Proxy implements FullIncluder {
+    private static class Proxy implements FullIncluder {
         final ConfigIncluder delegate;
 
         Proxy(ConfigIncluder delegate) {
@@ -284,33 +280,37 @@ class SimpleIncluder implements FullIncluder {
 
         @Override
         public ConfigObject includeResources(ConfigIncludeContext context, String what) {
-            if (delegate instanceof ConfigIncluderClasspath)
+            if (delegate instanceof ConfigIncluderClasspath) {
                 return ((ConfigIncluderClasspath) delegate).includeResources(context, what);
-            else
+            } else {
                 return includeResourceWithoutFallback(context, what);
+            }
         }
 
         @Override
         public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
-            if (delegate instanceof ConfigIncluderURL)
+            if (delegate instanceof ConfigIncluderURL) {
                 return ((ConfigIncluderURL) delegate).includeURL(context, what);
-            else
+            } else {
                 return includeURLWithoutFallback(context, what);
+            }
         }
 
         @Override
         public ConfigObject includeFile(ConfigIncludeContext context, File what) {
-            if (delegate instanceof ConfigIncluderFile)
+            if (delegate instanceof ConfigIncluderFile) {
                 return ((ConfigIncluderFile) delegate).includeFile(context, what);
-            else
+            } else {
                 return includeFileWithoutFallback(context, what);
+            }
         }
     }
 
     static FullIncluder makeFull(ConfigIncluder includer) {
-        if (includer instanceof FullIncluder)
+        if (includer instanceof FullIncluder) {
             return (FullIncluder) includer;
-        else
+        } else {
             return new Proxy(includer);
+        }
     }
 }

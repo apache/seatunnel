@@ -35,31 +35,35 @@ import java.util.Set;
 final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unmergeable,
         ReplaceableMergeStack {
 
-    final private List<AbstractConfigValue> stack;
+    private final List<AbstractConfigValue> stack;
 
     ConfigDelayedMergeObject(ConfigOrigin origin, List<AbstractConfigValue> stack) {
         super(origin);
         this.stack = stack;
 
-        if (stack.isEmpty())
+        if (stack.isEmpty()) {
             throw new ConfigException.BugOrBroken(
                     "creating empty delayed merge object");
-        if (!(stack.get(0) instanceof AbstractConfigObject))
+        }
+        if (!(stack.get(0) instanceof AbstractConfigObject)) {
             throw new ConfigException.BugOrBroken(
                     "created a delayed merge object not guaranteed to be an object");
+        }
 
         for (AbstractConfigValue v : stack) {
-            if (v instanceof ConfigDelayedMerge || v instanceof ConfigDelayedMergeObject)
+            if (v instanceof ConfigDelayedMerge || v instanceof ConfigDelayedMergeObject) {
                 throw new ConfigException.BugOrBroken(
                         "placed nested DelayedMerge in a ConfigDelayedMergeObject, should have consolidated stack");
+            }
         }
     }
 
     @Override
     protected ConfigDelayedMergeObject newCopy(ResolveStatus status, ConfigOrigin origin) {
-        if (status != resolveStatus())
+        if (status != resolveStatus()) {
             throw new ConfigException.BugOrBroken(
                     "attempt to create resolved ConfigDelayedMergeObject");
+        }
         return new ConfigDelayedMergeObject(origin, stack);
     }
 
@@ -84,10 +88,11 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
     @Override
     public AbstractConfigValue replaceChild(AbstractConfigValue child, AbstractConfigValue replacement) {
         List<AbstractConfigValue> newStack = replaceChildInList(stack, child, replacement);
-        if (newStack == null)
+        if (newStack == null) {
             return null;
-        else
+        } else {
             return new ConfigDelayedMergeObject(origin(), newStack);
+        }
     }
 
     @Override
@@ -110,19 +115,19 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
     }
 
     @Override
-    protected final ConfigDelayedMergeObject mergedWithTheUnmergeable(Unmergeable fallback) {
+    protected ConfigDelayedMergeObject mergedWithTheUnmergeable(Unmergeable fallback) {
         requireNotIgnoringFallbacks();
 
         return (ConfigDelayedMergeObject) mergedWithTheUnmergeable(stack, fallback);
     }
 
     @Override
-    protected final ConfigDelayedMergeObject mergedWithObject(AbstractConfigObject fallback) {
+    protected ConfigDelayedMergeObject mergedWithObject(AbstractConfigObject fallback) {
         return mergedWithNonObject(fallback);
     }
 
     @Override
-    protected final ConfigDelayedMergeObject mergedWithNonObject(AbstractConfigValue fallback) {
+    protected ConfigDelayedMergeObject mergedWithNonObject(AbstractConfigValue fallback) {
         requireNotIgnoringFallbacks();
 
         return (ConfigDelayedMergeObject) mergedWithNonObject(stack, fallback);
@@ -182,8 +187,7 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
     public boolean equals(Object other) {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigDelayedMergeObject) {
-            return canEqual(other)
-                    && (this.stack == ((ConfigDelayedMergeObject) other).stack || this.stack
+            return canEqual(other) && (this.stack == ((ConfigDelayedMergeObject) other).stack || this.stack
                             .equals(((ConfigDelayedMergeObject) other).stack));
         } else {
             return false;
@@ -301,19 +305,15 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                     continue;
                 }
             } else if (layer instanceof Unmergeable) {
-                throw new ConfigException.NotResolved("Key '" + key + "' is not available at '"
-                        + origin().description() + "' because value at '"
-                        + layer.origin().description()
-                        + "' has not been resolved and may turn out to contain or hide '" + key
-                        + "'."
-                        + " Be sure to Config#resolve() before using a config object.");
+                throw new ConfigException.NotResolved("Key '" + key + "' is not available at '" + origin().description() + "' because value at '" + layer.origin().description() + "' has not been resolved and may turn out to contain or hide '" + key + "'." + " Be sure to Config#resolve() before using a config object.");
             } else if (layer.resolveStatus() == ResolveStatus.UNRESOLVED) {
                 // if the layer is not an object, and not a substitution or
                 // merge,
                 // then it's something that's unresolved because it _contains_
                 // an unresolved object... i.e. it's an array
-                if (!(layer instanceof ConfigList))
+                if (!(layer instanceof ConfigList)) {
                     throw new ConfigException.BugOrBroken("Expecting a list here, not " + layer);
+                }
                 // all later objects will be hidden so we can say we won't find
                 // the key
                 return null;

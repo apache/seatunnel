@@ -47,9 +47,7 @@ public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements Res
 
     @Override
     public Row readRecord(Row reuse, byte[] bytes, int offset, int numBytes) throws IOException {
-        if (this.getDelimiter() != null && this.getDelimiter().length == 1
-                && this.getDelimiter()[0] == NEW_LINE && offset + numBytes >= 1
-                && bytes[offset + numBytes - 1] == CARRIAGE_RETURN) {
+        if (this.getDelimiter() != null && this.getDelimiter().length == 1 && this.getDelimiter()[0] == NEW_LINE && offset + numBytes >= 1 && bytes[offset + numBytes - 1] == CARRIAGE_RETURN) {
             numBytes -= 1;
         }
 

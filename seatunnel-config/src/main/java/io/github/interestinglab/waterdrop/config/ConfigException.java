@@ -30,7 +30,7 @@ import java.lang.reflect.Field;
 public abstract class ConfigException extends RuntimeException implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    final private transient ConfigOrigin origin;
+    private final transient ConfigOrigin origin;
 
     protected ConfigException(ConfigOrigin origin, String message,
             Throwable cause) {
@@ -155,8 +155,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
 
         private static String makeMessage(String path, String expected) {
             if (expected != null) {
-                return "Configuration key '" + path
-                        + "' is set to null but expected " + expected;
+                return "Configuration key '" + path + "' is set to null but expected " + expected;
             } else {
                 return "Configuration key '" + path + "' is null";
             }
@@ -210,8 +209,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
         public BadPath(ConfigOrigin origin, String path, String message,
                        Throwable cause) {
             super(origin,
-                    path != null ? ("Invalid path '" + path + "': " + message)
-                            : message, cause);
+                    path != null ? ("Invalid path '" + path + "': " + message) : message, cause);
         }
 
         public BadPath(ConfigOrigin origin, String path, String message) {
@@ -219,8 +217,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
         }
 
         public BadPath(String path, String message, Throwable cause) {
-            super(path != null ? ("Invalid path '" + path + "': " + message)
-                    : message, cause);
+            super(path != null ? ("Invalid path '" + path + "': " + message) : message, cause);
         }
 
         public BadPath(String path, String message) {
@@ -326,9 +323,9 @@ public abstract class ConfigException extends RuntimeException implements Serial
      */
     public static class ValidationProblem {
 
-        final private String path;
-        final private ConfigOrigin origin;
-        final private String problem;
+        private final String path;
+        private final ConfigOrigin origin;
+        private final String problem;
 
         public ValidationProblem(String path, ConfigOrigin origin, String problem) {
             this.path = path;
@@ -376,7 +373,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
     public static class ValidationFailed extends ConfigException {
         private static final long serialVersionUID = 1L;
 
-        final private Iterable<ValidationProblem> problems;
+        private final Iterable<ValidationProblem> problems;
 
         public ValidationFailed(Iterable<ValidationProblem> problems) {
             super(makeMessage(problems), null);
@@ -397,9 +394,10 @@ public abstract class ConfigException extends RuntimeException implements Serial
                 sb.append(p.problem());
                 sb.append(", ");
             }
-            if (sb.length() == 0)
-                throw new ConfigException.BugOrBroken(
+            if (sb.length() == 0) {
+                throw new BugOrBroken(
                         "ValidationFailed must have a non-empty list of problems");
+            }
             sb.setLength(sb.length() - 2); // chop comma and space
 
             return sb.toString();

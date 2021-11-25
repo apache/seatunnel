@@ -28,8 +28,9 @@ public final class ConfigMemorySize {
     private final long bytes;
 
     private ConfigMemorySize(long bytes) {
-        if (bytes < 0)
+        if (bytes < 0) {
             throw new IllegalArgumentException("Attempt to construct ConfigMemorySize with negative number: " + bytes);
+        }
         this.bytes = bytes;
     }
 

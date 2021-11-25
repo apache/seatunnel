@@ -28,7 +28,7 @@ import java.util.Map;
 final class ResolveMemos {
     // note that we can resolve things to undefined (represented as Java null,
     // rather than ConfigNull) so this map can have null values.
-    final private Map<MemoKey, AbstractConfigValue> memos;
+    private final Map<MemoKey, AbstractConfigValue> memos;
 
     private ResolveMemos(Map<MemoKey, AbstractConfigValue> memos) {
         this.memos = memos;

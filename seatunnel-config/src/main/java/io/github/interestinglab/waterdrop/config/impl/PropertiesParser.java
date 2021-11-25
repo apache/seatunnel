@@ -42,18 +42,20 @@ final class PropertiesParser {
 
     static String lastElement(String path) {
         int i = path.lastIndexOf('.');
-        if (i < 0)
+        if (i < 0) {
             return path;
-        else
+        } else {
             return path.substring(i + 1);
+        }
     }
 
     static String exceptLastElement(String path) {
         int i = path.lastIndexOf('.');
-        if (i < 0)
+        if (i < 0) {
             return null;
-        else
+        } else {
             return path.substring(0, i);
+        }
     }
 
     static Path pathFromPropertyKey(String key) {
@@ -140,10 +142,7 @@ final class PropertiesParser {
             for (Path path : valuePaths) {
                 if (scopePaths.contains(path)) {
                     throw new ConfigException.BugOrBroken(
-                            "In the map, path '"
-                                    + path.render()
-                                    + "' occurs as both the parent object of a value and as a value. "
-                                    + "Because Map has no defined ordering, this is a broken situation.");
+                            "In the map, path '" + path.render() + "' occurs as both the parent object of a value and as a value. " + "Because Map has no defined ordering, this is a broken situation.");
                 }
             }
         }
@@ -179,8 +178,9 @@ final class PropertiesParser {
                 value = ConfigImpl.fromAnyRef(pathMap.get(path), origin,
                         FromMapMode.KEYS_ARE_PATHS);
             }
-            if (value != null)
+            if (value != null) {
                 parent.put(last, value);
+            }
         }
 
         /*

@@ -58,7 +58,7 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
     private static final long serialVersionUID = 1L;
 
     // this is how we try to be extensible
-    static enum SerializedField {
+    enum SerializedField {
         // represents a field code we didn't recognize
         UNKNOWN,
 
@@ -86,14 +86,15 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
         ORIGIN_NULL_RESOURCE;
 
         static SerializedField forInt(int b) {
-            if (b < values().length)
+            if (b < values().length) {
                 return values()[b];
-            else
+            } else {
                 return UNKNOWN;
+            }
         }
     }
 
-    private static enum SerializedValueType {
+    private enum SerializedValueType {
         // the ordinals here are in the wire format, caution
         NULL(ConfigValueType.NULL),
         BOOLEAN(ConfigValueType.BOOLEAN),
@@ -111,33 +112,34 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
         }
 
         static SerializedValueType forInt(int b) {
-            if (b < values().length)
+            if (b < values().length) {
                 return values()[b];
-            else
+            } else {
                 return null;
+            }
         }
 
         static SerializedValueType forValue(ConfigValue value) {
             ConfigValueType t = value.valueType();
             if (t == ConfigValueType.NUMBER) {
-                if (value instanceof ConfigInt)
+                if (value instanceof ConfigInt) {
                     return INT;
-                else if (value instanceof ConfigLong)
+                } else if (value instanceof ConfigLong) {
                     return LONG;
-                else if (value instanceof ConfigDouble)
+                } else if (value instanceof ConfigDouble) {
                     return DOUBLE;
+                }
             } else {
                 for (SerializedValueType st : values()) {
-                    if (st.configType == t)
+                    if (st.configType == t) {
                         return st;
+                    }
                 }
             }
 
             throw new ConfigException.BugOrBroken("don't know how to serialize " + value);
         }
     }
-
-    ;
 
     private ConfigValue value;
     private boolean wasConfig;
@@ -161,10 +163,11 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
     // when Java deserializer reads this object, return the contained
     // object instead.
     private Object readResolve() throws ObjectStreamException {
-        if (wasConfig)
+        if (wasConfig) {
             return ((ConfigObject) value).toConfig();
-        else
+        } else {
             return value;
+        }
     }
 
     private static class FieldOut {
@@ -226,10 +229,11 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
                             SimpleConfigOrigin baseOrigin) throws IOException {
         Map<SerializedField, Object> m;
         // to serialize a null origin, we write out no fields at all
-        if (origin != null)
+        if (origin != null) {
             m = origin.toFieldsDelta(baseOrigin);
-        else
+        } else {
             m = Collections.emptyMap();
+        }
         for (Map.Entry<SerializedField, Object> e : m.entrySet()) {
             FieldOut field = new FieldOut(e.getKey());
             Object v = e.getValue();
@@ -298,9 +302,11 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
                     // skip unknown field
                     skipField(in);
                     break;
+                default:
             }
-            if (v != null)
+            if (v != null) {
                 m.put(field, v);
+            }
         }
     }
 
@@ -344,6 +350,7 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
                     writeValue(out, e.getValue(), (SimpleConfigOrigin) obj.origin());
                 }
                 break;
+            default:
         }
     }
 
@@ -351,8 +358,9 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
             throws IOException {
         int stb = in.readUnsignedByte();
         SerializedValueType st = SerializedValueType.forInt(stb);
-        if (st == null)
+        if (st == null) {
             throw new IOException("Unknown serialized value type: " + stb);
+        }
         switch (st) {
             case BOOLEAN:
                 return new ConfigBoolean(origin, in.readBoolean());
@@ -389,6 +397,7 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
                     map.put(key, v);
                 }
                 return new SimpleConfigObject(origin, map);
+            default:
         }
         throw new IOException("Unhandled serialized value type: " + st);
     }
@@ -414,12 +423,14 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
         while (true) {
             SerializedField code = readCode(in);
             if (code == SerializedField.END_MARKER) {
-                if (value == null)
+                if (value == null) {
                     throw new IOException("No value data found in serialization of value");
+                }
                 return value;
             } else if (code == SerializedField.VALUE_DATA) {
-                if (origin == null)
+                if (origin == null) {
                     throw new IOException("Origin must be stored before value data");
+                }
                 in.readInt(); // discard length
                 value = readValueData(in, origin);
             } else if (code == SerializedField.VALUE_ORIGIN) {
@@ -445,8 +456,9 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
 
     private static SerializedField readCode(DataInput in) throws IOException {
         int c = in.readUnsignedByte();
-        if (c == SerializedField.UNKNOWN.ordinal())
+        if (c == SerializedField.UNKNOWN.ordinal()) {
             throw new IOException("field code " + c + " is not supposed to be on the wire");
+        }
         return SerializedField.forInt(c);
     }
 
@@ -463,9 +475,10 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
-        if (((AbstractConfigValue) value).resolveStatus() != ResolveStatus.RESOLVED)
+        if (((AbstractConfigValue) value).resolveStatus() != ResolveStatus.RESOLVED) {
             throw new NotSerializableException(
                     "tried to serialize a value with unresolved substitutions, need to Config#resolve() first, see API docs");
+        }
         FieldOut field = new FieldOut(SerializedField.ROOT_VALUE);
         writeValue(field.data, value, null /* baseOrigin */);
         writeField(out, field);
@@ -501,8 +514,7 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
     }
 
     private static ConfigException shouldNotBeUsed() {
-        return new ConfigException.BugOrBroken(SerializedConfigValue.class.getName()
-                + " should not exist outside of serialization");
+        return new ConfigException.BugOrBroken(SerializedConfigValue.class.getName() + " should not exist outside of serialization");
     }
 
     @Override
@@ -533,9 +545,7 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
         // safe-to-call implementation to avoid breaking the
         // contract of java.lang.Object
         if (other instanceof SerializedConfigValue) {
-            return canEqual(other)
-                    && (this.wasConfig == ((SerializedConfigValue) other).wasConfig)
-                    && (this.value.equals(((SerializedConfigValue) other).value));
+            return canEqual(other) && (this.wasConfig == ((SerializedConfigValue) other).wasConfig) && (this.value.equals(((SerializedConfigValue) other).value));
         } else {
             return false;
         }

@@ -34,16 +34,18 @@ import java.util.List;
  * Internal implementation detail, not ABI stable, do not touch.
  * For use only by the {@link io.github.interestinglab.waterdrop.config} package.
  */
-final public class ConfigImplUtil {
+public final class ConfigImplUtil {
     static boolean equalsHandlingNull(Object a, Object b) {
-        if (a == null && b != null)
+        if (a == null && b != null) {
             return false;
-        else if (a != null && b == null)
+        } else if (a != null && b == null) {
             return false;
-        else if (a == b) // catches null == null plus optimizes identity case
+        } else if (a == b) {
+            // catches null == null plus optimizes identity case
             return true;
-        else
+        } else {
             return a.equals(b);
+        }
     }
 
     static boolean isC0Control(int codepoint) {
@@ -78,10 +80,11 @@ final public class ConfigImplUtil {
                     sb.append("\\t");
                     break;
                 default:
-                    if (isC0Control(c))
+                    if (isC0Control(c)) {
                         sb.append(String.format("\\u%04x", (int) c));
-                    else
+                    } else {
                         sb.append(c);
+                    }
             }
         }
         sb.append('"');
@@ -91,24 +94,27 @@ final public class ConfigImplUtil {
     static String renderStringUnquotedIfPossible(String s) {
         // this can quote unnecessarily as long as it never fails to quote when
         // necessary
-        if (s.length() == 0)
+        if (s.length() == 0) {
             return renderJsonString(s);
+        }
 
         // if it starts with a hyphen or number, we have to quote
         // to ensure we end up with a string and not a number
         int first = s.codePointAt(0);
-        if (Character.isDigit(first) || first == '-')
+        if (Character.isDigit(first) || first == '-') {
             return renderJsonString(s);
+        }
 
-        if (s.startsWith("include") || s.startsWith("true") || s.startsWith("false")
-                || s.startsWith("null") || s.contains("//"))
+        if (s.startsWith("include") || s.startsWith("true") || s.startsWith("false") || s.startsWith("null") || s.contains("//")) {
             return renderJsonString(s);
+        }
 
         // only unquote if it's pure alphanumeric
         for (int i = 0; i < s.length(); ++i) {
             char c = s.charAt(i);
-            if (!(Character.isLetter(c) || Character.isDigit(c) || c == '-'))
+            if (!(Character.isLetter(c) || Character.isDigit(c) || c == '-')) {
                 return renderJsonString(s);
+            }
         }
 
         return s;
@@ -140,8 +146,9 @@ final public class ConfigImplUtil {
         // String.trim() actually is broken, since there are plenty of
         // non-ASCII whitespace characters.
         final int length = s.length();
-        if (length == 0)
+        if (length == 0) {
             return s;
+        }
 
         int start = 0;
         while (start < length) {
@@ -150,10 +157,11 @@ final public class ConfigImplUtil {
                 start += 1;
             } else {
                 int cp = s.codePointAt(start);
-                if (isWhitespace(cp))
+                if (isWhitespace(cp)) {
                     start += Character.charCount(cp);
-                else
+                } else {
                     break;
+                }
             }
         }
 
@@ -172,10 +180,11 @@ final public class ConfigImplUtil {
                     cp = s.codePointAt(end - 1);
                     delta = 1;
                 }
-                if (isWhitespace(cp))
+                if (isWhitespace(cp)) {
                     end -= delta;
-                else
+                } else {
                     break;
+                }
             }
         }
         return s.substring(start, end);

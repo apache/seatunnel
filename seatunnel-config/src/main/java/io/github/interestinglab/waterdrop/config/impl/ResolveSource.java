@@ -55,11 +55,12 @@ final class ResolveSource {
     // child being peeked, but NOT the child itself. Caller has to resolve
     // the child itself if needed. ValueWithPath.value can be null but
     // the ValueWithPath instance itself should not be.
-    static private ResultWithPath findInObject(AbstractConfigObject obj, ResolveContext context, Path path)
+    private static ResultWithPath findInObject(AbstractConfigObject obj, ResolveContext context, Path path)
             throws NotPossibleToResolve {
         // resolve ONLY portions of the object which are along our path
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace("*** finding '" + path + "' in " + obj);
+        }
         Path restriction = context.restrictToChild();
         ResolveResult<? extends AbstractConfigValue> partiallyResolved = context.restrict(path).resolve(obj,
                 new ResolveSource(obj));
@@ -72,7 +73,7 @@ final class ResolveSource {
         }
     }
 
-    static private ValueWithPath findInObject(AbstractConfigObject obj, Path path) {
+    private static ValueWithPath findInObject(AbstractConfigObject obj, Path path) {
         try {
             // we'll fail if anything along the path can't
             // be looked at without resolving.
@@ -82,11 +83,12 @@ final class ResolveSource {
         }
     }
 
-    static private ValueWithPath findInObject(AbstractConfigObject obj, Path path, Node<Container> parents) {
+    private static ValueWithPath findInObject(AbstractConfigObject obj, Path path, Node<Container> parents) {
         String key = path.first();
         Path next = path.remainder();
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace("*** looking up '" + key + "' in " + obj);
+        }
         AbstractConfigValue v = obj.attemptPeekWithPartialResolve(key);
         Node<Container> newParents = parents == null ? new Node<Container>(obj) : parents.prepend(obj);
 
@@ -102,13 +104,15 @@ final class ResolveSource {
     }
 
     ResultWithPath lookupSubst(ResolveContext context, SubstitutionExpression subst,
-            int prefixLength)
+                               int prefixLength)
             throws NotPossibleToResolve {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(context.depth(), "searching for " + subst);
+        }
 
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(context.depth(), subst + " - looking up relative to file it occurred in");
+        }
         // First we look up the full path, which means relative to the
         // included file if we were not a root file
         ResultWithPath result = findInObject(root, context, subst.path());
@@ -120,42 +124,46 @@ final class ResolveSource {
             Path unprefixed = subst.path().subPath(prefixLength);
 
             if (prefixLength > 0) {
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                    ConfigImpl.trace(result.result.context.depth(), unprefixed
-                            + " - looking up relative to parent file");
+                if (ConfigImpl.traceSubSituationsEnable()) {
+                    ConfigImpl.trace(result.result.context.depth(), unprefixed + " - looking up relative to parent file");
+                }
                 result = findInObject(root, result.result.context, unprefixed);
             }
 
             if (result.result.value == null && result.result.context.options().getUseSystemEnvironment()) {
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+                if (ConfigImpl.traceSubSituationsEnable()) {
                     ConfigImpl.trace(result.result.context.depth(), unprefixed + " - looking up in system environment");
+                }
                 result = findInObject(ConfigImpl.envVariablesAsConfigObject(), context, unprefixed);
             }
         }
 
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(result.result.context.depth(), "resolved to " + result);
+        }
 
         return result;
     }
 
     ResolveSource pushParent(Container parent) {
-        if (parent == null)
+        if (parent == null) {
             throw new ConfigException.BugOrBroken("can't push null parent");
+        }
 
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace("pushing parent " + parent + " ==root " + (parent == root) + " onto " + this);
+        }
 
         if (pathFromRoot == null) {
             if (parent == root) {
                 return new ResolveSource(root, new Node<Container>(parent));
             } else {
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
+                if (ConfigImpl.traceSubSituationsEnable()) {
                     // this hasDescendant check is super-expensive so it's a
                     // trace message rather than an assertion
-                    if (root.hasDescendant((AbstractConfigValue) parent))
-                        ConfigImpl.trace("***** BUG ***** tried to push parent " + parent
-                                + " without having a path to it in " + this);
+                    if (root.hasDescendant((AbstractConfigValue) parent)) {
+                        ConfigImpl.trace("***** BUG ***** tried to push parent " + parent + " without having a path to it in " + this);
+                    }
                 }
                 // ignore parents if we aren't proceeding from the
                 // root
@@ -163,12 +171,12 @@ final class ResolveSource {
             }
         } else {
             Container parentParent = pathFromRoot.head();
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
+            if (ConfigImpl.traceSubSituationsEnable()) {
                 // this hasDescendant check is super-expensive so it's a
                 // trace message rather than an assertion
-                if (parentParent != null && !parentParent.hasDescendant((AbstractConfigValue) parent))
-                    ConfigImpl.trace("***** BUG ***** trying to push non-child of " + parentParent + ", non-child was "
-                            + parent);
+                if (parentParent != null && !parentParent.hasDescendant((AbstractConfigValue) parent)) {
+                    ConfigImpl.trace("***** BUG ***** trying to push non-child of " + parentParent + ", non-child was " + parent);
+                }
             }
 
             return new ResolveSource(root, pathFromRoot.prepend(parent));
@@ -176,18 +184,19 @@ final class ResolveSource {
     }
 
     ResolveSource resetParents() {
-        if (pathFromRoot == null)
+        if (pathFromRoot == null) {
             return this;
-        else
+        } else {
             return new ResolveSource(root);
+        }
     }
 
     // returns null if the replacement results in deleting all the nodes.
     private static Node<Container> replace(Node<Container> list, Container old, AbstractConfigValue replacement) {
         Container child = list.head();
-        if (child != old)
-            throw new ConfigException.BugOrBroken("Can only replace() the top node we're resolving; had " + child
-                    + " on top and tried to replace " + old + " overall list was " + list);
+        if (child != old) {
+            throw new ConfigException.BugOrBroken("Can only replace() the top node we're resolving; had " + child + " on top and tried to replace " + old + " overall list was " + list);
+        }
         Container parent = list.tail() == null ? null : list.tail().head();
         if (replacement == null || !(replacement instanceof Container)) {
             if (parent == null) {
@@ -208,32 +217,34 @@ final class ResolveSource {
             } else {
                 AbstractConfigValue newParent = parent.replaceChild((AbstractConfigValue) old, replacement);
                 Node<Container> newTail = replace(list.tail(), parent, newParent);
-                if (newTail != null)
+                if (newTail != null) {
                     return newTail.prepend((Container) replacement);
-                else
+                } else {
                     return new Node<Container>((Container) replacement);
+                }
             }
         }
     }
 
     ResolveSource replaceCurrentParent(Container old, Container replacement) {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-            ConfigImpl.trace("replaceCurrentParent old " + old + "@" + System.identityHashCode(old) + " replacement "
-                + replacement + "@" + System.identityHashCode(old) + " in " + this);
+        if (ConfigImpl.traceSubSituationsEnable()) {
+            ConfigImpl.trace("replaceCurrentParent old " + old + "@" + System.identityHashCode(old) + " replacement " + replacement + "@" + System.identityHashCode(old) + " in " + this);
+        }
         if (old == replacement) {
             return this;
         } else if (pathFromRoot != null) {
             Node<Container> newPath = replace(pathFromRoot, old, (AbstractConfigValue) replacement);
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
+            if (ConfigImpl.traceSubSituationsEnable()) {
                 ConfigImpl.trace("replaced " + old + " with " + replacement + " in " + this);
                 ConfigImpl.trace("path was: " + pathFromRoot + " is now " + newPath);
             }
             // if we end up nuking the root object itself, we replace it with an
             // empty root
-            if (newPath != null)
+            if (newPath != null) {
                 return new ResolveSource((AbstractConfigObject) newPath.last(), newPath);
-            else
+            } else {
                 return new ResolveSource(SimpleConfigObject.empty());
+            }
         } else {
             if (old == root) {
                 return new ResolveSource(rootMustBeObj(replacement));
@@ -246,9 +257,9 @@ final class ResolveSource {
 
     // replacement may be null to delete
     ResolveSource replaceWithinCurrentParent(AbstractConfigValue old, AbstractConfigValue replacement) {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-            ConfigImpl.trace("replaceWithinCurrentParent old " + old + "@" + System.identityHashCode(old)
-                    + " replacement " + replacement + "@" + System.identityHashCode(old) + " in " + this);
+        if (ConfigImpl.traceSubSituationsEnable()) {
+            ConfigImpl.trace("replaceWithinCurrentParent old " + old + "@" + System.identityHashCode(old) + " replacement " + replacement + "@" + System.identityHashCode(old) + " in " + this);
+        }
         if (old == replacement) {
             return this;
         } else if (pathFromRoot != null) {
@@ -259,9 +270,9 @@ final class ResolveSource {
             if (old == root && replacement instanceof Container) {
                 return new ResolveSource(rootMustBeObj((Container) replacement));
             } else {
-//                throw new ConfigException.BugOrBroken("replace in parent not possible " + old + " with " + replacement
-//                        + " in " + this);
-                 return this;
+                //                throw new ConfigException.BugOrBroken("replace in parent not possible " + old + " with " + replacement
+                //                        + " in " + this);
+                return this;
             }
         }
     }
@@ -299,8 +310,9 @@ final class ResolveSource {
 
         T last() {
             Node<T> i = this;
-            while (i.next != null)
+            while (i.next != null) {
                 i = i.next;
+            }
             return i.value;
         }
 
@@ -325,8 +337,9 @@ final class ResolveSource {
             Node<T> toAppendValue = this.reverse();
             while (toAppendValue != null) {
                 sb.append(toAppendValue.value.toString());
-                if (toAppendValue.next != null)
+                if (toAppendValue.next != null) {
                     sb.append(" <= ");
+                }
                 toAppendValue = toAppendValue.next;
             }
             sb.append("]");

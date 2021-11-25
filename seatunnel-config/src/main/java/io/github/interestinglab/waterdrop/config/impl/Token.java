@@ -21,10 +21,10 @@ import io.github.interestinglab.waterdrop.config.ConfigException;
 import io.github.interestinglab.waterdrop.config.ConfigOrigin;
 
 class Token {
-    final private TokenType tokenType;
-    final private String debugString;
-    final private ConfigOrigin origin;
-    final private String tokenText;
+    private final TokenType tokenType;
+    private final String debugString;
+    private final ConfigOrigin origin;
+    private final String tokenText;
 
     Token(TokenType tokenType, ConfigOrigin origin) {
         this(tokenType, origin, null);
@@ -50,32 +50,37 @@ class Token {
         return tokenType;
     }
 
-    public String tokenText() { return tokenText; }
+    public String tokenText() {
+        return tokenText;
+    }
 
     // this is final because we don't always use the origin() accessor,
     // and we don't because it throws if origin is null
     final ConfigOrigin origin() {
         // code is only supposed to call origin() on token types that are
         // expected to have an origin.
-        if (origin == null)
+        if (origin == null) {
             throw new ConfigException.BugOrBroken(
                     "tried to get origin from token that doesn't have one: " + this);
+        }
         return origin;
     }
 
     final int lineNumber() {
-        if (origin != null)
+        if (origin != null) {
             return origin.lineNumber();
-        else
+        } else {
             return -1;
+        }
     }
 
     @Override
     public String toString() {
-        if (debugString != null)
+        if (debugString != null) {
             return debugString;
-        else
+        } else {
             return tokenType.name();
+        }
     }
 
     protected boolean canEqual(Object other) {
@@ -86,8 +91,7 @@ class Token {
     public boolean equals(Object other) {
         if (other instanceof Token) {
             // origin is deliberately left out
-            return canEqual(other)
-                    && this.tokenType == ((Token) other).tokenType;
+            return canEqual(other) && this.tokenType == ((Token) other).tokenType;
         } else {
             return false;
         }

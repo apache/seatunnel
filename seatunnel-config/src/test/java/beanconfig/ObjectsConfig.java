@@ -26,19 +26,19 @@ public class ObjectsConfig {
         private String mandatoryValue;
 
         public String getMandatoryValue() {
-          return mandatoryValue;
+            return mandatoryValue;
         }
 
         public void setMandatoryValue(String mandatoryValue) {
-          this.mandatoryValue = mandatoryValue;
+            this.mandatoryValue = mandatoryValue;
         }
 
         public String getOptionalValue() {
-          return optionalValue;
+            return optionalValue;
         }
 
         public void setOptionalValue(String optionalValue) {
-          this.optionalValue = optionalValue;
+            this.optionalValue = optionalValue;
         }
     }
 

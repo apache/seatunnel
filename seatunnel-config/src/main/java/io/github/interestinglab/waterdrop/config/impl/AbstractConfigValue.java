@@ -37,7 +37,7 @@ import java.util.Map;
  */
 abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
 
-    final private SimpleConfigOrigin origin;
+    private final SimpleConfigOrigin origin;
 
     AbstractConfigValue(ConfigOrigin origin) {
         this.origin = (SimpleConfigOrigin) origin;
@@ -63,7 +63,7 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     static class NotPossibleToResolve extends Exception {
         private static final long serialVersionUID = 1L;
 
-        final private String traceString;
+        private final String traceString;
 
         NotPossibleToResolve(ResolveContext context) {
             super("was not possible to resolve");
@@ -94,31 +94,37 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     protected static List<AbstractConfigValue> replaceChildInList(List<AbstractConfigValue> list,
                                                                   AbstractConfigValue child, AbstractConfigValue replacement) {
         int i = 0;
-        while (i < list.size() && list.get(i) != child)
+        while (i < list.size() && list.get(i) != child) {
             ++i;
-        if (i == list.size())
+        }
+        if (i == list.size()) {
             throw new ConfigException.BugOrBroken("tried to replace " + child + " which is not in " + list);
+        }
         List<AbstractConfigValue> newStack = new ArrayList<AbstractConfigValue>(list);
-        if (replacement != null)
+        if (replacement != null) {
             newStack.set(i, replacement);
-        else
+        } else {
             newStack.remove(i);
+        }
 
-        if (newStack.isEmpty())
+        if (newStack.isEmpty()) {
             return null;
-        else
+        } else {
             return newStack;
+        }
     }
 
     protected static boolean hasDescendantInList(List<AbstractConfigValue> list, AbstractConfigValue descendant) {
         for (AbstractConfigValue v : list) {
-            if (v == descendant)
+            if (v == descendant) {
                 return true;
+            }
         }
         // now the expensive traversal
         for (AbstractConfigValue v : list) {
-            if (v instanceof Container && ((Container) v).hasDescendant(descendant))
+            if (v instanceof Container && ((Container) v).hasDescendant(descendant)) {
                 return true;
+            }
         }
         return false;
     }
@@ -178,20 +184,21 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     }
 
     protected AbstractConfigValue withFallbacksIgnored() {
-        if (ignoresFallbacks())
+        if (ignoresFallbacks()) {
             return this;
-        else
+        } else {
             throw new ConfigException.BugOrBroken(
                     "value class doesn't implement forced fallback-ignoring " + this);
+        }
     }
 
     // the withFallback() implementation is supposed to avoid calling
     // mergedWith* if we're ignoring fallbacks.
     protected final void requireNotIgnoringFallbacks() {
-        if (ignoresFallbacks())
+        if (ignoresFallbacks()) {
             throw new ConfigException.BugOrBroken(
-                    "method should not have been called with ignoresFallbacks=true "
-                            + getClass().getSimpleName());
+                    "method should not have been called with ignoresFallbacks=true " + getClass().getSimpleName());
+        }
     }
 
     protected AbstractConfigValue constructDelayedMerge(ConfigOrigin origin,
@@ -227,8 +234,9 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
                                                          AbstractConfigObject fallback) {
         requireNotIgnoringFallbacks();
 
-        if (this instanceof AbstractConfigObject)
+        if (this instanceof AbstractConfigObject) {
             throw new ConfigException.BugOrBroken("Objects must reimplement mergedWithObject");
+        }
 
         return mergedWithNonObject(stack, fallback);
     }
@@ -269,10 +277,11 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
 
     @Override
     public AbstractConfigValue withOrigin(ConfigOrigin origin) {
-        if (this.origin == origin)
+        if (this.origin == origin) {
             return this;
-        else
+        } else {
             return newCopy(origin);
+        }
     }
 
     // this is only overridden to change the return type
@@ -301,10 +310,8 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     public boolean equals(Object other) {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigValue) {
-            return canEqual(other)
-                    && (this.valueType() ==
-                    ((ConfigValue) other).valueType())
-                    && ConfigImplUtil.equalsHandlingNull(this.unwrapped(),
+            return canEqual(other) && (this.valueType() ==
+                    ((ConfigValue) other).valueType()) && ConfigImplUtil.equalsHandlingNull(this.unwrapped(),
                     ((ConfigValue) other).unwrapped());
         } else {
             return false;
@@ -315,10 +322,11 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     public int hashCode() {
         // note that "origin" is deliberately NOT part of equality
         Object o = this.unwrapped();
-        if (o == null)
+        if (o == null) {
             return 0;
-        else
+        } else {
             return o.hashCode();
+        }
     }
 
     @Override
@@ -341,23 +349,26 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     protected void render(StringBuilder sb, int indent, boolean atRoot, String atKey, ConfigRenderOptions options) {
         if (atKey != null) {
             String renderedKey;
-            if (options.getJson())
+            if (options.getJson()) {
                 renderedKey = ConfigImplUtil.renderJsonString(atKey);
-            else
+            } else {
                 renderedKey = ConfigImplUtil.renderStringUnquotedIfPossible(atKey);
+            }
 
             sb.append(renderedKey);
 
             if (options.getJson()) {
-                if (options.getFormatted())
+                if (options.getFormatted()) {
                     sb.append(" : ");
-                else
+                } else {
                     sb.append(":");
+                }
             } else {
                 // in non-JSON we can omit the colon or equals before an object
                 if (this instanceof ConfigObject) {
-                    if (options.getFormatted())
+                    if (options.getFormatted()) {
                         sb.append(' ');
+                    }
                 } else {
                     sb.append("=");
                 }

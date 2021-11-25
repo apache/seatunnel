@@ -21,9 +21,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 final class ConfigNodeInclude extends AbstractConfigNode {
-    final private ArrayList<AbstractConfigNode> children;
-    final private ConfigIncludeKind kind;
-    final private boolean isRequired;
+    private final ArrayList<AbstractConfigNode> children;
+    private final ConfigIncludeKind kind;
+    private final boolean isRequired;
 
     ConfigNodeInclude(Collection<AbstractConfigNode> children, ConfigIncludeKind kind, boolean isRequired) {
         this.children = new ArrayList<AbstractConfigNode>(children);
@@ -31,7 +31,7 @@ final class ConfigNodeInclude extends AbstractConfigNode {
         this.isRequired = isRequired;
     }
 
-    final public Collection<AbstractConfigNode> children() {
+    public Collection<AbstractConfigNode> children() {
         return children;
     }
 

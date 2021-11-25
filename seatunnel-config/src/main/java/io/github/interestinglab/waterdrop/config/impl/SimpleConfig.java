@@ -56,7 +56,7 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    final private AbstractConfigObject object;
+    private final AbstractConfigObject object;
 
     SimpleConfig(AbstractConfigObject object) {
         this.object = object;
@@ -91,10 +91,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
     public SimpleConfig resolveWith(Config source, ConfigResolveOptions options) {
         AbstractConfigValue resolved = ResolveContext.resolve(object, ((SimpleConfig) source).object, options);
 
-        if (resolved == object)
+        if (resolved == object) {
             return this;
-        else
+        } else {
             return new SimpleConfig((AbstractConfigObject) resolved);
+        }
     }
 
     private ConfigValue hasPathPeek(String pathExpression) {
@@ -131,8 +132,9 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             String elem = entry.getKey();
             ConfigValue v = entry.getValue();
             Path path = Path.newKey(elem);
-            if (parent != null)
+            if (parent != null) {
                 path = path.prepend(parent);
+            }
             if (v instanceof AbstractConfigObject) {
                 findPaths(entries, path, (AbstractConfigObject) v);
             } else if (v instanceof ConfigNull) {
@@ -150,36 +152,40 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         return entries;
     }
 
-    static private AbstractConfigValue throwIfNull(AbstractConfigValue v, ConfigValueType expected, Path originalPath) {
-        if (v.valueType() == ConfigValueType.NULL)
+    private static AbstractConfigValue throwIfNull(AbstractConfigValue v, ConfigValueType expected, Path originalPath) {
+        if (v.valueType() == ConfigValueType.NULL) {
             throw new ConfigException.Null(v.origin(), originalPath.render(),
                     expected != null ? expected.name() : null);
-        else
+        } else {
             return v;
+        }
     }
 
-    static private AbstractConfigValue findKey(AbstractConfigObject self, String key,
+    private static AbstractConfigValue findKey(AbstractConfigObject self, String key,
                                                ConfigValueType expected, Path originalPath) {
         return throwIfNull(findKeyOrNull(self, key, expected, originalPath), expected, originalPath);
     }
 
-    static private AbstractConfigValue findKeyOrNull(AbstractConfigObject self, String key,
+    private static AbstractConfigValue findKeyOrNull(AbstractConfigObject self, String key,
                                                      ConfigValueType expected, Path originalPath) {
         AbstractConfigValue v = self.peekAssumingResolved(key, originalPath);
-        if (v == null)
+        if (v == null) {
             throw new ConfigException.Missing(originalPath.render());
+        }
 
-        if (expected != null)
+        if (expected != null) {
             v = DefaultTransformer.transform(v, expected);
+        }
 
-        if (expected != null && (v.valueType() != expected && v.valueType() != ConfigValueType.NULL))
+        if (expected != null && (v.valueType() != expected && v.valueType() != ConfigValueType.NULL)) {
             throw new ConfigException.WrongType(v.origin(), originalPath.render(), expected.name(),
                     v.valueType().name());
-        else
+        } else {
             return v;
+        }
     }
 
-    static private AbstractConfigValue findOrNull(AbstractConfigObject self, Path path,
+    private static AbstractConfigValue findOrNull(AbstractConfigObject self, Path path,
                                                   ConfigValueType expected, Path originalPath) {
         try {
             String key = path.first();
@@ -365,10 +371,10 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             if (expected != null) {
                 v = DefaultTransformer.transform(v, expected);
             }
-            if (v.valueType() != expected)
+            if (v.valueType() != expected) {
                 throw new ConfigException.WrongType(v.origin(), path,
-                        "list of " + expected.name(), "list of "
-                        + v.valueType().name());
+                        "list of " + expected.name(), "list of " + v.valueType().name());
+            }
             l.add((T) v.unwrapped());
         }
         return l;
@@ -459,10 +465,10 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             if (expected != null) {
                 v = DefaultTransformer.transform(v, expected);
             }
-            if (v.valueType() != expected)
+            if (v.valueType() != expected) {
                 throw new ConfigException.WrongType(v.origin(), path,
-                        "list of " + expected.name(), "list of "
-                        + v.valueType().name());
+                        "list of " + expected.name(), "list of " + v.valueType().name());
+            }
             l.add((T) v);
         }
         return l;
@@ -608,8 +614,9 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         int i = s.length() - 1;
         while (i >= 0) {
             char c = s.charAt(i);
-            if (!Character.isLetter(c))
+            if (!Character.isLetter(c)) {
                 break;
+            }
             i -= 1;
         }
         return s.substring(i + 1);
@@ -632,19 +639,19 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         String s = ConfigImplUtil.unicodeTrim(input);
         String originalUnitString = getUnits(s);
         String unitString = originalUnitString;
-        String numberString = ConfigImplUtil.unicodeTrim(s.substring(0, s.length()
-                - unitString.length()));
+        String numberString = ConfigImplUtil.unicodeTrim(s.substring(0, s.length() - unitString.length()));
         ChronoUnit units;
 
         // this would be caught later anyway, but the error message
         // is more helpful if we check it here.
-        if (numberString.length() == 0)
+        if (numberString.length() == 0) {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "No number in period value '" + input
-                    + "'");
+                    pathForException, "No number in period value '" + input + "'");
+        }
 
-        if (unitString.length() > 2 && !unitString.endsWith("s"))
+        if (unitString.length() > 2 && !unitString.endsWith("s")) {
             unitString = unitString + "s";
+        }
 
         // note that this is deliberately case-sensitive
         if (unitString.equals("") || unitString.equals("d") || unitString.equals("days")) {
@@ -661,17 +668,14 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
         } else {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "Could not parse time unit '"
-                    + originalUnitString
-                    + "' (try d, w, mo, y)");
+                    pathForException, "Could not parse time unit '" + originalUnitString + "' (try d, w, mo, y)");
         }
 
         try {
             return periodOf(Integer.parseInt(numberString), units);
         } catch (NumberFormatException e) {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "Could not parse duration number '"
-                    + numberString + "'");
+                    pathForException, "Could not parse duration number '" + numberString + "'");
         }
     }
 
@@ -711,23 +715,22 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         String s = ConfigImplUtil.unicodeTrim(input);
         String originalUnitString = getUnits(s);
         String unitString = originalUnitString;
-        String numberString = ConfigImplUtil.unicodeTrim(s.substring(0, s.length()
-                - unitString.length()));
+        String numberString = ConfigImplUtil.unicodeTrim(s.substring(0, s.length() - unitString.length()));
         TimeUnit units = null;
 
         // this would be caught later anyway, but the error message
         // is more helpful if we check it here.
-        if (numberString.length() == 0)
+        if (numberString.length() == 0) {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "No number in duration value '" + input
-                    + "'");
+                    pathForException, "No number in duration value '" + input + "'");
+        }
 
-        if (unitString.length() > 2 && !unitString.endsWith("s"))
+        if (unitString.length() > 2 && !unitString.endsWith("s")) {
             unitString = unitString + "s";
+        }
 
         // note that this is deliberately case-sensitive
-        if (unitString.equals("") || unitString.equals("ms") || unitString.equals("millis")
-                || unitString.equals("milliseconds")) {
+        if (unitString.equals("") || unitString.equals("ms") || unitString.equals("millis") || unitString.equals("milliseconds")) {
             units = TimeUnit.MILLISECONDS;
         } else if (unitString.equals("us") || unitString.equals("micros") || unitString.equals("microseconds")) {
             units = TimeUnit.MICROSECONDS;
@@ -743,9 +746,7 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             units = TimeUnit.MINUTES;
         } else {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "Could not parse time unit '"
-                    + originalUnitString
-                    + "' (try ns, us, ms, s, m, h, d)");
+                    pathForException, "Could not parse time unit '" + originalUnitString + "' (try ns, us, ms, s, m, h, d)");
         }
 
         try {
@@ -760,12 +761,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             }
         } catch (NumberFormatException e) {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "Could not parse duration number '"
-                    + numberString + "'");
+                    pathForException, "Could not parse duration number '" + numberString + "'");
         }
     }
 
-    private static enum MemoryUnit {
+    private enum MemoryUnit {
         BYTES("", 1024, 0),
 
         KILOBYTES("kilo", 1000, 1),
@@ -857,17 +857,16 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
         // this would be caught later anyway, but the error message
         // is more helpful if we check it here.
-        if (numberString.length() == 0)
+        if (numberString.length() == 0) {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "No number in size-in-bytes value '"
-                    + input + "'");
+                    pathForException, "No number in size-in-bytes value '" + input + "'");
+        }
 
         MemoryUnit units = MemoryUnit.parseUnit(unitString);
 
         if (units == null) {
             throw new ConfigException.BadValue(originForException, pathForException,
-                    "Could not parse size-in-bytes unit '" + unitString
-                            + "' (try k, K, kB, KiB, kilobytes, kibibytes)");
+                    "Could not parse size-in-bytes unit '" + unitString + "' (try k, K, kB, KiB, kilobytes, kibibytes)");
         }
 
         try {
@@ -880,11 +879,12 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
                 BigDecimal resultDecimal = (new BigDecimal(units.bytes)).multiply(new BigDecimal(numberString));
                 result = resultDecimal.toBigInteger();
             }
-            if (result.bitLength() < 64)
+            if (result.bitLength() < 64) {
                 return result.longValue();
-            else
+            } else {
                 throw new ConfigException.BadValue(originForException, pathForException,
                         "size-in-bytes value is out of range for a 64-bit long: '" + input + "'");
+            }
         } catch (NumberFormatException e) {
             throw new ConfigException.BadValue(originForException, pathForException,
                     "Could not parse size-in-bytes number '" + numberString + "'");
@@ -907,10 +907,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
     private static String getDesc(ConfigValue refValue) {
         if (refValue instanceof AbstractConfigObject) {
             AbstractConfigObject obj = (AbstractConfigObject) refValue;
-            if (!obj.isEmpty())
+            if (!obj.isEmpty()) {
                 return "object with keys " + obj.keySet();
-            else
+            } else {
                 return getDesc(refValue.valueType());
+            }
         } else {
             return getDesc(refValue.valueType());
         }
@@ -918,8 +919,7 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
     private static void addMissing(List<ConfigException.ValidationProblem> accumulator,
                                    String refDesc, Path path, ConfigOrigin origin) {
-        addProblem(accumulator, path, origin, "No setting at '" + path.render() + "', expecting: "
-                + refDesc);
+        addProblem(accumulator, path, origin, "No setting at '" + path.render() + "', expecting: " + refDesc);
     }
 
     private static void addMissing(List<ConfigException.ValidationProblem> accumulator,
@@ -935,9 +935,7 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
     private static void addWrongType(List<ConfigException.ValidationProblem> accumulator,
                                      String refDesc, AbstractConfigValue actual, Path path) {
-        addProblem(accumulator, path, actual.origin(), "Wrong value type at '" + path.render()
-                + "', expecting: " + refDesc + " but got: "
-                + getDesc(actual));
+        addProblem(accumulator, path, actual.origin(), "Wrong value type at '" + path.render() + "', expecting: " + refDesc + " but got: " + getDesc(actual));
     }
 
     private static void addWrongType(List<ConfigException.ValidationProblem> accumulator,
@@ -994,10 +992,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             String key = entry.getKey();
 
             Path childPath;
-            if (path != null)
+            if (path != null) {
                 childPath = Path.newKey(key).prepend(path);
-            else
+            } else {
                 childPath = Path.newKey(key);
+            }
 
             AbstractConfigValue v = value.get(key);
             if (v == null) {
@@ -1017,9 +1016,7 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             for (ConfigValue elem : listValue) {
                 AbstractConfigValue e = (AbstractConfigValue) elem;
                 if (!haveCompatibleTypes(refElement, e)) {
-                    addProblem(accumulator, path, e.origin(), "List at '" + path.render()
-                            + "' contains wrong value type, expecting list of "
-                            + getDesc(refElement) + " but got element of type " + getDesc(e));
+                    addProblem(accumulator, path, e.origin(), "List at '" + path.render() + "' contains wrong value type, expecting list of " + getDesc(refElement) + " but got element of type " + getDesc(e));
                     // don't add a problem for every last array element
                     break;
                 }
@@ -1035,8 +1032,9 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
                 // attempt conversion of indexed object to list
                 AbstractConfigValue listValue = DefaultTransformer.transform(value,
                         ConfigValueType.LIST);
-                if (!(listValue instanceof SimpleConfigList))
+                if (!(listValue instanceof SimpleConfigList)) {
                     addWrongType(accumulator, referenceType, value, path);
+                }
             }
         } else {
             addWrongType(accumulator, referenceType, value, path);
@@ -1061,10 +1059,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
                 SimpleConfigList listRef = (SimpleConfigList) reference;
                 AbstractConfigValue listValue = DefaultTransformer.transform(value,
                         ConfigValueType.LIST);
-                if (listValue instanceof SimpleConfigList)
+                if (listValue instanceof SimpleConfigList) {
                     checkListCompatibility(path, listRef, (SimpleConfigList) listValue, accumulator);
-                else
+                } else {
                     addWrongType(accumulator, reference, value, path);
+                }
             }
         } else {
             addWrongType(accumulator, reference, value, path);
@@ -1081,15 +1080,17 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         SimpleConfig ref = (SimpleConfig) reference;
 
         // unresolved reference config is a bug in the caller of checkValid
-        if (ref.root().resolveStatus() != ResolveStatus.RESOLVED)
+        if (ref.root().resolveStatus() != ResolveStatus.RESOLVED) {
             throw new ConfigException.BugOrBroken(
                     "do not call checkValid() with an unresolved reference config, call Config#resolve(), see Config#resolve() API docs");
+        }
 
         // unresolved config under validation is a bug in something,
         // NotResolved is a more specific subclass of BugOrBroken
-        if (root().resolveStatus() != ResolveStatus.RESOLVED)
+        if (root().resolveStatus() != ResolveStatus.RESOLVED) {
             throw new ConfigException.NotResolved(
                     "need to Config#resolve() each config before using it, see the API docs for Config#resolve()");
+        }
 
         // Now we know that both reference and this config are resolved
 

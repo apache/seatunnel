@@ -24,8 +24,8 @@ final class MemoKey {
         this.restrictToChildOrNull = restrictToChildOrNull;
     }
 
-    final private AbstractConfigValue value;
-    final private Path restrictToChildOrNull;
+    private final AbstractConfigValue value;
+    private final Path restrictToChildOrNull;
 
     @Override
     public final int hashCode() {
@@ -41,21 +41,22 @@ final class MemoKey {
     public final boolean equals(Object other) {
         if (other instanceof MemoKey) {
             MemoKey o = (MemoKey) other;
-            if (o.value != this.value)
+            if (o.value != this.value) {
                 return false;
-            else if (o.restrictToChildOrNull == this.restrictToChildOrNull)
+            } else if (o.restrictToChildOrNull == this.restrictToChildOrNull) {
                 return true;
-            else if (o.restrictToChildOrNull == null || this.restrictToChildOrNull == null)
+            } else if (o.restrictToChildOrNull == null || this.restrictToChildOrNull == null) {
                 return false;
-            else
+            } else {
                 return o.restrictToChildOrNull.equals(this.restrictToChildOrNull);
+            }
         } else {
             return false;
         }
     }
 
     @Override
-    public final String toString() {
+    public String toString() {
         return "MemoKey(" + value + "@" + System.identityHashCode(value) + "," + restrictToChildOrNull + ")";
     }
 }

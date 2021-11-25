@@ -47,9 +47,9 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     private InputFormat inputFormat;
 
-    private final static String PATH = "path";
-    private final static String SOURCE_FORMAT = "format.type";
-    private final static String SCHEMA = "schema";
+    private static final String PATH = "path";
+    private static final String SOURCE_FORMAT = "format.type";
+    private static final String SCHEMA = "schema";
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {

@@ -31,7 +31,7 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
     // a sentence) we always have it exactly as the person typed it into the
     // config file. It's purely cosmetic; equals/hashCode don't consider this
     // for example.
-    final protected String originalText;
+    protected final String originalText;
 
     protected ConfigNumber(ConfigOrigin origin, String originalText) {
         super(origin);
@@ -101,10 +101,11 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
 
     static ConfigNumber newNumber(ConfigOrigin origin, long number,
             String originalText) {
-        if (number <= Integer.MAX_VALUE && number >= Integer.MIN_VALUE)
+        if (number <= Integer.MAX_VALUE && number >= Integer.MIN_VALUE) {
             return new ConfigInt(origin, (int) number, originalText);
-        else
+        } else {
             return new ConfigLong(origin, number, originalText);
+        }
     }
 
     static ConfigNumber newNumber(ConfigOrigin origin, double number,

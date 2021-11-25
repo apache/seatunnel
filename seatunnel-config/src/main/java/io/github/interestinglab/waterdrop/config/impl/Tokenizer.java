@@ -34,7 +34,7 @@ final class Tokenizer {
     private static class ProblemException extends Exception {
         private static final long serialVersionUID = 1L;
 
-        final private Token problem;
+        private final Token problem;
 
         ProblemException(Token problem) {
             this.problem = problem;
@@ -46,16 +46,17 @@ final class Tokenizer {
     }
 
     private static String asString(int codepoint) {
-        if (codepoint == '\n')
+        if (codepoint == '\n') {
             return "newline";
-        else if (codepoint == '\t')
+        } else if (codepoint == '\t') {
             return "tab";
-        else if (codepoint == -1)
+        } else if (codepoint == -1) {
             return "end of file";
-        else if (ConfigImplUtil.isC0Control(codepoint))
+        } else if (ConfigImplUtil.isC0Control(codepoint)) {
             return String.format("control character 0x%x", codepoint);
-        else
+        } else {
             return String.format("%c", codepoint);
+        }
     }
 
     /**
@@ -138,14 +139,14 @@ final class Tokenizer {
             }
         }
 
-        final private SimpleConfigOrigin origin;
-        final private Reader input;
-        final private LinkedList<Integer> buffer;
+        private final SimpleConfigOrigin origin;
+        private final Reader input;
+        private final LinkedList<Integer> buffer;
         private int lineNumber;
         private ConfigOrigin lineOrigin;
-        final private Queue<Token> tokens;
-        final private WhitespaceSaver whitespaceSaver;
-        final private boolean allowComments;
+        private final Queue<Token> tokens;
+        private final WhitespaceSaver whitespaceSaver;
+        private final boolean allowComments;
 
         TokenIterator(ConfigOrigin origin, Reader input, boolean allowComments) {
             this.origin = (SimpleConfigOrigin) origin;
@@ -159,7 +160,6 @@ final class Tokenizer {
             whitespaceSaver = new WhitespaceSaver();
         }
 
-
         // this should ONLY be called from nextCharSkippingComments
         // or when inside a quoted string, or when parsing a sequence
         // like ${ or +=, everything else should use
@@ -169,8 +169,7 @@ final class Tokenizer {
                 try {
                     return input.read();
                 } catch (IOException e) {
-                    throw new ConfigException.IO(origin, "read error: "
-                            + e.getMessage(), e);
+                    throw new ConfigException.IO(origin, "read error: " + e.getMessage(), e);
                 }
             } else {
                 int c = buffer.pop();
@@ -262,9 +261,10 @@ final class Tokenizer {
 
         private static ProblemException problem(ConfigOrigin origin, String what, String message,
                                                 boolean suggestQuotes, Throwable cause) {
-            if (what == null || message == null)
+            if (what == null || message == null) {
                 throw new ConfigException.BugOrBroken(
                         "internal error, creating bad ProblemException");
+            }
             return new ProblemException(Tokens.newProblem(origin, what, message, suggestQuotes,
                     cause));
         }
@@ -284,8 +284,9 @@ final class Tokenizer {
             boolean doubleSlash = false;
             if (firstChar == '/') {
                 int discard = nextCharRaw();
-                if (discard != '/')
+                if (discard != '/') {
                     throw new ConfigException.BugOrBroken("called pullComment but // not seen");
+                }
                 doubleSlash = true;
             }
 
@@ -294,10 +295,11 @@ final class Tokenizer {
                 int c = nextCharRaw();
                 if (c == -1 || c == '\n') {
                     putBack(c);
-                    if (doubleSlash)
+                    if (doubleSlash) {
                         return Tokens.newCommentDoubleSlash(lineOrigin, sb.toString());
-                    else
+                    } else {
                         return Tokens.newCommentHash(lineOrigin, sb.toString());
+                    }
                 } else {
                     sb.appendCodePoint(c);
                 }
@@ -337,14 +339,16 @@ final class Tokenizer {
                 // start of the unquoted token.
                 if (sb.length() == 4) {
                     String s = sb.toString();
-                    if (s.equals("true"))
+                    if (s.equals("true")) {
                         return Tokens.newBoolean(origin, true);
-                    else if (s.equals("null"))
+                    } else if (s.equals("null")) {
                         return Tokens.newNull(origin);
+                    }
                 } else if (sb.length() == 5) {
                     String s = sb.toString();
-                    if (s.equals("false"))
+                    if (s.equals("false")) {
                         return Tokens.newBoolean(origin, false);
+                    }
                 }
 
                 c = nextCharRaw();
@@ -363,8 +367,9 @@ final class Tokenizer {
             boolean containedDecimalOrE = false;
             int c = nextCharRaw();
             while (c != -1 && NAME_CHARS.indexOf(c) >= 0) {
-                if (c == '.' || c == 'e' || c == 'E')
+                if (c == '.' || c == 'e' || c == 'E') {
                     containedDecimalOrE = true;
+                }
                 sb.appendCodePoint(c);
                 c = nextCharRaw();
             }
@@ -383,9 +388,9 @@ final class Tokenizer {
             } catch (NumberFormatException e) {
                 // not a number after all, see if it's an unquoted string.
                 for (char u : s.toCharArray()) {
-                    if (NOT_IN_UNIQUOTED_TEXT.indexOf(u) >= 0)
-                        throw problem(asString(u), "Reserved character '" + asString(u)
-                                + "' is not allowed outside quotes", true /* suggestQuotes */);
+                    if (NOT_IN_UNIQUOTED_TEXT.indexOf(u) >= 0) {
+                        throw problem(asString(u), "Reserved character '" + asString(u) + "' is not allowed outside quotes", true /* suggestQuotes */);
+                    }
                 }
                 // no evil chars so we just decide this was a string and
                 // not a number.
@@ -395,8 +400,9 @@ final class Tokenizer {
 
         private void pullEscapeSequence(StringBuilder sb, StringBuilder sbOrig) throws ProblemException {
             int escaped = nextCharRaw();
-            if (escaped == -1)
+            if (escaped == -1) {
                 throw problem("End of input but backslash in string had nothing after it");
+            }
 
             // This is needed so we return the unescaped escape characters back out when rendering
             // the token
@@ -433,8 +439,9 @@ final class Tokenizer {
                     char[] a = new char[4];
                     for (int i = 0; i < 4; ++i) {
                         int c = nextCharRaw();
-                        if (c == -1)
+                        if (c == -1) {
                             throw problem("End of input but expecting 4 hex digits for \\uXXXX escape");
+                        }
                         a[i] = (char) c;
                     }
                     String digits = new String(a);
@@ -473,9 +480,9 @@ final class Tokenizer {
                     break;
                 } else {
                     consecutiveQuotes = 0;
-                    if (c == -1)
+                    if (c == -1) {
                         throw problem("End of input but triple-quoted string was still open");
-                    else if (c == '\n') {
+                    } else if (c == '\n') {
                         // keep the line number accurate
                         lineNumber += 1;
                         lineOrigin = origin.withLineNumber(lineNumber);
@@ -500,8 +507,9 @@ final class Tokenizer {
 
             while (true) {
                 int c = nextCharRaw();
-                if (c == -1)
+                if (c == -1) {
                     throw problem("End of input but string quote was still open");
+                }
 
                 if (c == '\\') {
                     pullEscapeSequence(sb, sbOrig);
@@ -509,8 +517,7 @@ final class Tokenizer {
                     sbOrig.appendCodePoint(c);
                     break;
                 } else if (ConfigImplUtil.isC0Control(c)) {
-                    throw problem(asString(c), "JSON does not allow unescaped " + asString(c)
-                            + " in quoted strings, use a backslash escape");
+                    throw problem(asString(c), "JSON does not allow unescaped " + asString(c) + " in quoted strings, use a backslash escape");
                 } else {
                     sb.appendCodePoint(c);
                     sbOrig.appendCodePoint(c);
@@ -535,8 +542,7 @@ final class Tokenizer {
             // the initial '+' has already been consumed
             int c = nextCharRaw();
             if (c != '=') {
-                throw problem(asString(c), "'+' not followed by =, '" + asString(c)
-                        + "' not allowed after '+'", true /* suggestQuotes */);
+                throw problem(asString(c), "'+' not followed by =, '" + asString(c) + "' not allowed after '+'", true /* suggestQuotes */);
             }
             return Tokens.PLUS_EQUALS;
         }
@@ -546,8 +552,7 @@ final class Tokenizer {
             ConfigOrigin origin = lineOrigin;
             int c = nextCharRaw();
             if (c != '{') {
-                throw problem(asString(c), "'$' not followed by {, '" + asString(c)
-                        + "' not allowed after '$'", true /* suggestQuotes */);
+                throw problem(asString(c), "'$' not followed by {, '" + asString(c) + "' not allowed after '$'", true /* suggestQuotes */);
             }
 
             boolean optional = false;
@@ -576,8 +581,9 @@ final class Tokenizer {
                             "Substitution ${ was not closed with a }");
                 } else {
                     Token whitespace = saver.check(t, origin, lineNumber);
-                    if (whitespace != null)
+                    if (whitespace != null) {
                         expression.add(whitespace);
+                    }
                     expression.add(t);
                 }
             } while (true);
@@ -640,8 +646,7 @@ final class Tokenizer {
                         if (FIRST_NUMBER_CHARS.indexOf(c) >= 0) {
                             t = pullNumber(c);
                         } else if (NOT_IN_UNIQUOTED_TEXT.indexOf(c) >= 0) {
-                            throw problem(asString(c), "Reserved character '" + asString(c)
-                                    + "' is not allowed outside quotes", true /* suggestQuotes */);
+                            throw problem(asString(c), "Reserved character '" + asString(c) + "' is not allowed outside quotes", true /* suggestQuotes */);
                         } else {
                             putBack(c);
                             t = pullUnquotedText();
@@ -649,24 +654,25 @@ final class Tokenizer {
                     }
                 }
 
-                if (t == null)
+                if (t == null) {
                     throw new ConfigException.BugOrBroken(
                             "bug: failed to generate next token");
+                }
 
                 return t;
             }
         }
 
         private static boolean isSimpleValue(Token t) {
-            return Tokens.isSubstitution(t) || Tokens.isUnquotedText(t)
-                    || Tokens.isValue(t);
+            return Tokens.isSubstitution(t) || Tokens.isUnquotedText(t) || Tokens.isValue(t);
         }
 
         private void queueNextToken() throws ProblemException {
             Token t = pullNextToken(whitespaceSaver);
             Token whitespace = whitespaceSaver.check(t, origin, lineNumber);
-            if (whitespace != null)
+            if (whitespace != null) {
                 tokens.add(whitespace);
+            }
 
             tokens.add(t);
         }
@@ -685,9 +691,10 @@ final class Tokenizer {
                 } catch (ProblemException e) {
                     tokens.add(e.problem());
                 }
-                if (tokens.isEmpty())
+                if (tokens.isEmpty()) {
                     throw new ConfigException.BugOrBroken(
                             "bug: tokens queue should not be empty here");
+                }
             }
             return t;
         }

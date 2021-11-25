@@ -44,9 +44,9 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     private static final Logger LOG = LoggerFactory.getLogger(FileSink.class);
 
-    private final static String PATH = "path";
-    private final static String FORMAT = "format";
-    private final static String WRITE_MODE = "write_mode";
+    private static final String PATH = "path";
+    private static final String FORMAT = "format";
+    private static final String WRITE_MODE = "write_mode";
 
     private Config config;
 

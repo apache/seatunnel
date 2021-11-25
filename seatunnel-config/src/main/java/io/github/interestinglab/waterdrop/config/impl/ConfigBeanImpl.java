@@ -59,9 +59,10 @@ public class ConfigBeanImpl {
      * @return the bean instance
      */
     public static <T> T createInternal(Config config, Class<T> clazz) {
-        if (((SimpleConfig) config).root().resolveStatus() != ResolveStatus.RESOLVED)
+        if (((SimpleConfig) config).root().resolveStatus() != ResolveStatus.RESOLVED) {
             throw new ConfigException.NotResolved(
                     "need to Config#resolve() a config before using it to initialize a bean, see the API docs for Config#resolve()");
+        }
 
         Map<String, AbstractConfigValue> configProps = new HashMap<String, AbstractConfigValue>();
         Map<String, String> originalNames = new HashMap<String, String>();
@@ -105,8 +106,9 @@ public class ConfigBeanImpl {
                 ConfigValueType expectedType = getValueTypeOrNull(parameterClass);
                 if (expectedType != null) {
                     String name = originalNames.get(beanProp.getName());
-                    if (name == null)
+                    if (name == null) {
                         name = beanProp.getName();
+                    }
                     Path path = Path.newKey(name);
                     AbstractConfigValue configValue = configProps.get(beanProp.getName());
                     if (configValue != null) {
