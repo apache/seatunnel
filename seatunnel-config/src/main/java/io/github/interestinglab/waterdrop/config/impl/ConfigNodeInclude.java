@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ final class ConfigNodeInclude extends AbstractConfigNode {
     protected String name() {
         for (AbstractConfigNode n : children) {
             if (n instanceof ConfigNodeSimpleValue) {
-                return (String)Tokens.getValue(((ConfigNodeSimpleValue) n).token()).unwrapped();
+                return (String) Tokens.getValue(((ConfigNodeSimpleValue) n).token()).unwrapped();
             }
         }
         return null;

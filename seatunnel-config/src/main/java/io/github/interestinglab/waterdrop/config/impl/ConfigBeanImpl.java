@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -51,13 +52,14 @@ public class ConfigBeanImpl {
     /**
      * This is public ONLY for use by the "config" package, DO NOT USE this ABI
      * may change.
-     * @param <T> type of the bean
+     *
+     * @param <T>    type of the bean
      * @param config config to use
-     * @param clazz class of the bean
+     * @param clazz  class of the bean
      * @return the bean instance
      */
     public static <T> T createInternal(Config config, Class<T> clazz) {
-        if (((SimpleConfig)config).root().resolveStatus() != ResolveStatus.RESOLVED)
+        if (((SimpleConfig) config).root().resolveStatus() != ResolveStatus.RESOLVED)
             throw new ConfigException.NotResolved(
                     "need to Config#resolve() a config before using it to initialize a bean, see the API docs for Config#resolve()");
 
@@ -182,7 +184,7 @@ public class ConfigBeanImpl {
             return getSetValue(beanClass, parameterType, parameterClass, config, configPropName);
         } else if (parameterClass == Map.class) {
             // we could do better here, but right now we don't.
-            Type[] typeArgs = ((ParameterizedType)parameterType).getActualTypeArguments();
+            Type[] typeArgs = ((ParameterizedType) parameterType).getActualTypeArguments();
             if (typeArgs[0] != String.class || typeArgs[1] != Object.class) {
                 throw new ConfigException.BadBean("Bean property '" + configPropName + "' of class " + beanClass.getName() + " has unsupported Map<" + typeArgs[0] + "," + typeArgs[1] + ">, only Map<String,Object> is supported right now");
             }
@@ -211,7 +213,7 @@ public class ConfigBeanImpl {
     }
 
     private static Object getListValue(Class<?> beanClass, Type parameterType, Class<?> parameterClass, Config config, String configPropName) {
-        Type elementType = ((ParameterizedType)parameterType).getActualTypeArguments()[0];
+        Type elementType = ((ParameterizedType) parameterType).getActualTypeArguments()[0];
 
         if (elementType == Boolean.class) {
             return config.getBooleanList(configPropName);

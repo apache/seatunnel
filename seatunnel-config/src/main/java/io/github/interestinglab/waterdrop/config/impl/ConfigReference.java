@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -90,14 +91,14 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
             newContext = resultWithPath.result.context;
 
             if (resultWithPath.result.value != null) {
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(newContext.depth(), "recursively resolving " + resultWithPath
                             + " which was the resolution of " + expr + " against " + source);
 
-                ResolveSource recursiveResolveSource = (new ResolveSource(
-                        (AbstractConfigObject) resultWithPath.pathFromRoot.last(), resultWithPath.pathFromRoot));
+                ResolveSource recursiveResolveSource = new ResolveSource(
+                        (AbstractConfigObject) resultWithPath.pathFromRoot.last(), resultWithPath.pathFromRoot);
 
-                if (ConfigImpl.traceSubstitutionsEnabled())
+                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                     ConfigImpl.trace(newContext.depth(), "will recursively resolve against " + recursiveResolveSource);
 
                 ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(resultWithPath.result.value,
@@ -109,7 +110,7 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
                 v = (AbstractConfigValue) fallback;
             }
         } catch (NotPossibleToResolve e) {
-            if (ConfigImpl.traceSubstitutionsEnabled())
+            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
                 ConfigImpl.trace(newContext.depth(),
                         "not possible to resolve " + expr + ", cycle involved: " + e.traceString());
             if (expr.optional())

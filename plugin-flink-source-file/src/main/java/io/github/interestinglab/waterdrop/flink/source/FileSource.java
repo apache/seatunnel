@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
@@ -40,7 +41,6 @@ import org.apache.parquet.schema.MessageType;
 import java.util.List;
 import java.util.Map;
 
-
 public class FileSource implements FlinkBatchSource<Row> {
 
     private Config config;
@@ -56,7 +56,6 @@ public class FileSource implements FlinkBatchSource<Row> {
         return env.getBatchEnvironment().createInput(inputFormat);
     }
 
-
     @Override
     public void setConfig(Config config) {
         this.config = config;
@@ -69,7 +68,7 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config,PATH,SOURCE_FORMAT,SCHEMA);
+        return CheckConfigUtil.check(config, PATH, SOURCE_FORMAT, SCHEMA);
     }
 
     @Override

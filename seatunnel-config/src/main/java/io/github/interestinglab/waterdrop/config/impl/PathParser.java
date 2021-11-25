@@ -14,10 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
-import io.github.interestinglab.waterdrop.config.*;
-import io.github.interestinglab.waterdrop.config.parser.*;
+import io.github.interestinglab.waterdrop.config.ConfigException;
+import io.github.interestinglab.waterdrop.config.ConfigParseOptions;
+import io.github.interestinglab.waterdrop.config.ConfigOrigin;
+import io.github.interestinglab.waterdrop.config.ConfigSyntax;
+import io.github.interestinglab.waterdrop.config.ConfigValueType;
 
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -25,7 +29,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 
 final class PathParser {
     static class Element {
@@ -44,7 +47,7 @@ final class PathParser {
         }
     }
 
-    static ConfigOrigin apiOrigin = SimpleConfigOrigin.newSimple("path parameter");
+    static ConfigOrigin API_ORIGIN = SimpleConfigOrigin.newSimple("path parameter");
 
     static ConfigNodePath parsePathNode(String path) {
         return parsePathNode(path, ConfigSyntax.CONF);
@@ -54,10 +57,10 @@ final class PathParser {
         StringReader reader = new StringReader(path);
 
         try {
-            Iterator<Token> tokens = Tokenizer.tokenize(apiOrigin, reader,
+            Iterator<Token> tokens = Tokenizer.tokenize(API_ORIGIN, reader,
                     flavor);
             tokens.next(); // drop START
-            return parsePathNodeExpression(tokens, apiOrigin, path, flavor);
+            return parsePathNodeExpression(tokens, API_ORIGIN, path, flavor);
         } finally {
             reader.close();
         }
@@ -71,10 +74,10 @@ final class PathParser {
         StringReader reader = new StringReader(path);
 
         try {
-            Iterator<Token> tokens = Tokenizer.tokenize(apiOrigin, reader,
+            Iterator<Token> tokens = Tokenizer.tokenize(API_ORIGIN, reader,
                     ConfigSyntax.CONF);
             tokens.next(); // drop START
-            return parsePathExpression(tokens, apiOrigin, path);
+            return parsePathExpression(tokens, API_ORIGIN, path);
         } finally {
             reader.close();
         }
@@ -198,20 +201,20 @@ final class PathParser {
     private static Collection<Token> splitTokenOnPeriod(Token t, ConfigSyntax flavor) {
 
         String tokenText = t.tokenText();
-        if (tokenText.equals(ConfigParseOptions.pathTokenSeparator)) {
+        if (tokenText.equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
             return Collections.singletonList(t);
         }
-        String[] splitToken = tokenText.split(ConfigParseOptions.pathTokenSeparator);
+        String[] splitToken = tokenText.split(ConfigParseOptions.PATH_TOKEN_SEPARATOR);
         ArrayList<Token> splitTokens = new ArrayList<Token>();
         for (String s : splitToken) {
             if (flavor == ConfigSyntax.CONF)
                 splitTokens.add(Tokens.newUnquotedText(t.origin(), s));
             else
                 splitTokens.add(Tokens.newString(t.origin(), s, "\"" + s + "\""));
-            splitTokens.add(Tokens.newUnquotedText(t.origin(), ConfigParseOptions.pathTokenSeparator));
+            splitTokens.add(Tokens.newUnquotedText(t.origin(), ConfigParseOptions.PATH_TOKEN_SEPARATOR));
         }
 
-        if (! tokenText.substring(tokenText.length() - ConfigParseOptions.pathTokenSeparator.length(), tokenText.length()).equals(ConfigParseOptions.pathTokenSeparator)) {
+        if (!tokenText.substring(tokenText.length() - ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), tokenText.length()).equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
             splitTokens.remove(splitTokens.size() - 1);
         }
 
@@ -221,7 +224,7 @@ final class PathParser {
     private static void addPathText(List<Element> buf, boolean wasQuoted,
                                     String newText) {
 
-        int i = wasQuoted ? -1 : newText.indexOf(ConfigParseOptions.pathTokenSeparator);
+        int i = wasQuoted ? -1 : newText.indexOf(ConfigParseOptions.PATH_TOKEN_SEPARATOR);
         Element current = buf.get(buf.size() - 1);
         if (i < 0) {
             // add to current path element
@@ -236,7 +239,7 @@ final class PathParser {
             // then start a new element
             buf.add(new Element("", false));
             // recurse to consume remainder of newText
-            addPathText(buf, false, newText.substring(i + ConfigParseOptions.pathTokenSeparator.length()));
+            addPathText(buf, false, newText.substring(i + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length()));
         }
     }
 
@@ -280,7 +283,7 @@ final class PathParser {
     private static Path fastPathBuild(Path tail, String s, int end) {
 
         // lastIndexOf takes last index it should look at, end - 1 not end
-        int splitAt = s.lastIndexOf(ConfigParseOptions.pathTokenSeparator,end - 1);
+        int splitAt = s.lastIndexOf(ConfigParseOptions.PATH_TOKEN_SEPARATOR, end - 1);
         ArrayList<Token> tokens = new ArrayList<Token>();
         tokens.add(Tokens.newUnquotedText(null, s));
         // this works even if splitAt is -1; then we start the substring at 0
@@ -289,7 +292,7 @@ final class PathParser {
             Path withOneMoreElement = new Path(s.substring(0, end), tail);
             return withOneMoreElement;
         } else {
-            Path withOneMoreElement = new Path(s.substring(splitAt + ConfigParseOptions.pathTokenSeparator.length(), end), tail);
+            Path withOneMoreElement = new Path(s.substring(splitAt + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), end), tail);
             return fastPathBuild(withOneMoreElement, s, splitAt);
         }
     }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config;
 
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException;
@@ -28,7 +29,8 @@ import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution;
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
 import io.github.interestinglab.waterdrop.utils.Engine;
 import io.github.interestinglab.waterdrop.utils.PluginType;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -36,6 +38,8 @@ import java.util.List;
 import java.util.ServiceLoader;
 
 public class ConfigBuilder {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
     private String configFile;
@@ -67,7 +71,7 @@ public class ConfigBuilder {
             throw new ConfigRuntimeException("Please specify config file");
         }
 
-        System.out.println("[INFO] Loading config file: " + configFile);
+        LOGGER.info("Loading config file: {}", configFile);
 
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
@@ -78,10 +82,9 @@ public class ConfigBuilder {
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
-        System.out.println("[INFO] parsed config file: " + config.root().render(options));
+        LOGGER.info("parsed config file: {}", config.root().render(options));
         return config;
     }
-
 
     public Config getEnvConfigs() {
         return envConfig;
@@ -160,7 +163,7 @@ public class ConfigBuilder {
         configList.forEach(plugin -> {
             try {
                 final String className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), type);
-                T t =  (T) Class.forName(className).newInstance();
+                T t = (T) Class.forName(className).newInstance();
                 t.setConfig(plugin);
                 basePluginList.add(t);
             } catch (Exception e) {
@@ -190,7 +193,6 @@ public class ConfigBuilder {
         return env;
     }
 
-
     public Execution createExecution() {
         Execution execution = null;
         switch (engine) {
@@ -215,6 +217,5 @@ public class ConfigBuilder {
         }
         return execution;
     }
-
 
 }

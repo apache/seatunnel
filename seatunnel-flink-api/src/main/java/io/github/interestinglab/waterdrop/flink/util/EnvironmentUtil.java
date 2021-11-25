@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.util;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -60,7 +61,7 @@ public class EnvironmentUtil {
         }
     }
 
-    public static CheckResult checkRestartStrategy(Config config){
+    public static CheckResult checkRestartStrategy(Config config) {
         if (config.hasPath(ConfigKeyName.RESTART_STRATEGY)) {
             String restartStrategy = config.getString(ConfigKeyName.RESTART_STRATEGY);
             switch (restartStrategy.toLowerCase()) {
@@ -83,6 +84,6 @@ public class EnvironmentUtil {
                     return new CheckResult(true, "");
             }
         }
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 }

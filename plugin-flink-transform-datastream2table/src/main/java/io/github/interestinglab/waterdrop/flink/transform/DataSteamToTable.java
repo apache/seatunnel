@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.transform;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -27,20 +28,20 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-public class DataSteamToTable implements FlinkStreamTransform<Row,Row>, FlinkBatchTransform<Row,Row> {
+public class DataSteamToTable implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
     private Config config;
 
     @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
-        tableEnvironment.registerDataStream(config.getString(RESULT_TABLE_NAME),dataStream);
+        tableEnvironment.registerDataStream(config.getString(RESULT_TABLE_NAME), dataStream);
         return dataStream;
     }
 
     @Override
     public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
-        env.getBatchTableEnvironment().registerDataSet(config.getString(RESULT_TABLE_NAME),data);
+        env.getBatchTableEnvironment().registerDataSet(config.getString(RESULT_TABLE_NAME), data);
         return data;
     }
 
@@ -56,7 +57,7 @@ public class DataSteamToTable implements FlinkStreamTransform<Row,Row>, FlinkBat
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config,RESULT_TABLE_NAME);
+        return CheckConfigUtil.check(config, RESULT_TABLE_NAME);
     }
 
     @Override

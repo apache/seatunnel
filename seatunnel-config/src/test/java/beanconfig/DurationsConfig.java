@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package beanconfig;
 
 import java.time.Duration;
@@ -22,7 +23,6 @@ public class DurationsConfig {
     Duration second;
     Duration secondAsNumber;
     Duration halfSecond;
-
 
     public Duration getSecond() {
         return second;

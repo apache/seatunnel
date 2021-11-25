@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -132,7 +133,7 @@ class SimpleIncluder implements FullIncluder {
     }
 
     static ConfigObject includeResourceWithoutFallback(final ConfigIncludeContext context,
-            String resource) {
+                                                       String resource) {
         return ConfigFactory.parseResourcesAnySyntax(resource, context.parseOptions()).root();
     }
 
@@ -171,7 +172,7 @@ class SimpleIncluder implements FullIncluder {
                 return p;
             }
         }
-    };
+    }
 
     // this function is a little tricky because there are three places we're
     // trying to use it; for 'include "basename"' in a .conf file, for
@@ -226,7 +227,7 @@ class SimpleIncluder implements FullIncluder {
             }
 
             if (!options.getAllowMissing() && !gotSomething) {
-                if (ConfigImpl.traceLoadsEnabled()) {
+                if (ConfigImpl.TRACE_LOADS_ENABLE()) {
                     // the individual exceptions should have been logged already
                     // with tracing enabled
                     ConfigImpl.trace("Did not find '" + name
@@ -249,10 +250,10 @@ class SimpleIncluder implements FullIncluder {
                             fails.get(0));
                 }
             } else if (!gotSomething) {
-                if (ConfigImpl.traceLoadsEnabled()) {
+                if (ConfigImpl.TRACE_LOADS_ENABLE()) {
                     ConfigImpl.trace("Did not find '" + name
                             + "' with any extension (.conf, .json, .properties); but '" + name
-                                    + "' is allowed to be missing. Exceptions from load attempts should have been logged above.");
+                            + "' is allowed to be missing. Exceptions from load attempts should have been logged above.");
                 }
             }
         }

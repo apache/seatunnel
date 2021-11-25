@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.batch;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -90,7 +91,6 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             }
         }
     }
-
 
     private DataSet fromSourceTable(Plugin plugin) {
         Config config = plugin.getConfig();

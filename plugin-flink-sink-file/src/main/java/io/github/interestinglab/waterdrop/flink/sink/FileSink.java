@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -85,7 +86,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
                 break;
 
         }
-        if (config.hasPath(WRITE_MODE)){
+        if (config.hasPath(WRITE_MODE)) {
             String mode = config.getString(WRITE_MODE);
             outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
         }
@@ -104,7 +105,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config,PATH,FORMAT);
+        return CheckConfigUtil.check(config, PATH, FORMAT);
     }
 
     @Override

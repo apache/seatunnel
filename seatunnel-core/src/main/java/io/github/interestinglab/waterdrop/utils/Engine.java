@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.utils;
 
 public enum Engine {
-    SPARK("spark"),FLINK("flink"),NULL("");
+    SPARK("spark"), FLINK("flink"), NULL("");
 
     private String engine;
+
     Engine(String engine) {
         this.engine = engine;
     }

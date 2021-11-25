@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -31,7 +32,7 @@ import org.apache.flink.types.Row;
 
 import java.io.IOException;
 
-public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink<Row, Row>, FlinkStreamSink<Row,Row> {
+public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink<Row, Row>, FlinkStreamSink<Row, Row> {
 
     private Config config;
 
@@ -57,7 +58,7 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 
     @Override
@@ -76,7 +77,6 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
 
     @Override
     public void writeRecord(Row record) throws IOException {
-        System.out.println(record);
     }
 
     @Override

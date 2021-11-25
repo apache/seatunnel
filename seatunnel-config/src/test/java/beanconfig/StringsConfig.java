@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package beanconfig;
 
+package beanconfig;
 
 public class StringsConfig {
     String abcd;
@@ -42,7 +42,7 @@ public class StringsConfig {
         if (o instanceof StringsConfig) {
             StringsConfig sc = (StringsConfig) o;
             return sc.abcd.equals(abcd) &&
-                sc.yes.equals(yes);
+                    sc.yes.equals(yes);
         } else {
             return false;
         }

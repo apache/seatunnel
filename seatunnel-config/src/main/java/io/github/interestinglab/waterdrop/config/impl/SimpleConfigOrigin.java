@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -425,7 +426,7 @@ final class SimpleConfigOrigin implements ConfigOrigin {
         if (baseOrigin != null)
             baseFields = baseOrigin.toFields();
         else
-            baseFields = Collections.<SerializedConfigValue.SerializedField, Object> emptyMap();
+            baseFields = Collections.<SerializedConfigValue.SerializedField, Object>emptyMap();
         return fieldsDelta(baseFields, toFields());
     }
 
@@ -445,37 +446,37 @@ final class SimpleConfigOrigin implements ConfigOrigin {
             } else if (!m.containsKey(f)) {
                 // if field has been removed, we have to add a deletion entry
                 switch (f) {
-                case ORIGIN_DESCRIPTION:
-                    throw new ConfigException.BugOrBroken("origin missing description field? " + child);
-                case ORIGIN_LINE_NUMBER:
-                    m.put(SerializedConfigValue.SerializedField.ORIGIN_LINE_NUMBER, -1);
-                    break;
-                case ORIGIN_END_LINE_NUMBER:
-                    m.put(SerializedConfigValue.SerializedField.ORIGIN_END_LINE_NUMBER, -1);
-                    break;
-                case ORIGIN_TYPE:
-                    throw new ConfigException.BugOrBroken("should always be an ORIGIN_TYPE field");
-                case ORIGIN_URL:
-                    m.put(SerializedConfigValue.SerializedField.ORIGIN_NULL_URL, "");
-                    break;
-                case ORIGIN_RESOURCE:
-                    m.put(SerializedConfigValue.SerializedField.ORIGIN_NULL_RESOURCE, "");
-                    break;
-                case ORIGIN_COMMENTS:
-                    m.put(SerializedConfigValue.SerializedField.ORIGIN_NULL_COMMENTS, "");
-                    break;
-                case ORIGIN_NULL_URL: // FALL THRU
-                case ORIGIN_NULL_RESOURCE: // FALL THRU
-                case ORIGIN_NULL_COMMENTS:
-                    throw new ConfigException.BugOrBroken("computing delta, base object should not contain " + f + " "
-                            + base);
-                case END_MARKER:
-                case ROOT_VALUE:
-                case ROOT_WAS_CONFIG:
-                case UNKNOWN:
-                case VALUE_DATA:
-                case VALUE_ORIGIN:
-                    throw new ConfigException.BugOrBroken("should not appear here: " + f);
+                    case ORIGIN_DESCRIPTION:
+                        throw new ConfigException.BugOrBroken("origin missing description field? " + child);
+                    case ORIGIN_LINE_NUMBER:
+                        m.put(SerializedConfigValue.SerializedField.ORIGIN_LINE_NUMBER, -1);
+                        break;
+                    case ORIGIN_END_LINE_NUMBER:
+                        m.put(SerializedConfigValue.SerializedField.ORIGIN_END_LINE_NUMBER, -1);
+                        break;
+                    case ORIGIN_TYPE:
+                        throw new ConfigException.BugOrBroken("should always be an ORIGIN_TYPE field");
+                    case ORIGIN_URL:
+                        m.put(SerializedConfigValue.SerializedField.ORIGIN_NULL_URL, "");
+                        break;
+                    case ORIGIN_RESOURCE:
+                        m.put(SerializedConfigValue.SerializedField.ORIGIN_NULL_RESOURCE, "");
+                        break;
+                    case ORIGIN_COMMENTS:
+                        m.put(SerializedConfigValue.SerializedField.ORIGIN_NULL_COMMENTS, "");
+                        break;
+                    case ORIGIN_NULL_URL: // FALL THRU
+                    case ORIGIN_NULL_RESOURCE: // FALL THRU
+                    case ORIGIN_NULL_COMMENTS:
+                        throw new ConfigException.BugOrBroken("computing delta, base object should not contain " + f + " "
+                                + base);
+                    case END_MARKER:
+                    case ROOT_VALUE:
+                    case ROOT_WAS_CONFIG:
+                    case UNKNOWN:
+                    case VALUE_DATA:
+                    case VALUE_ORIGIN:
+                        throw new ConfigException.BugOrBroken("should not appear here: " + f);
                 }
             } else {
                 // field is in base and child, but differs, so leave it
@@ -524,50 +525,50 @@ final class SimpleConfigOrigin implements ConfigOrigin {
                 // base has the key and delta does not.
                 // we inherit from base unless a "NULL" key blocks.
                 switch (f) {
-                case ORIGIN_DESCRIPTION:
-                    m.put(f, base.get(f));
-                    break;
-                case ORIGIN_URL:
-                    if (delta.containsKey(SerializedConfigValue.SerializedField.ORIGIN_NULL_URL)) {
-                        m.remove(SerializedConfigValue.SerializedField.ORIGIN_NULL_URL);
-                    } else {
+                    case ORIGIN_DESCRIPTION:
                         m.put(f, base.get(f));
-                    }
-                    break;
-                case ORIGIN_RESOURCE:
-                    if (delta.containsKey(SerializedConfigValue.SerializedField.ORIGIN_NULL_RESOURCE)) {
-                        m.remove(SerializedConfigValue.SerializedField.ORIGIN_NULL_RESOURCE);
-                    } else {
+                        break;
+                    case ORIGIN_URL:
+                        if (delta.containsKey(SerializedConfigValue.SerializedField.ORIGIN_NULL_URL)) {
+                            m.remove(SerializedConfigValue.SerializedField.ORIGIN_NULL_URL);
+                        } else {
+                            m.put(f, base.get(f));
+                        }
+                        break;
+                    case ORIGIN_RESOURCE:
+                        if (delta.containsKey(SerializedConfigValue.SerializedField.ORIGIN_NULL_RESOURCE)) {
+                            m.remove(SerializedConfigValue.SerializedField.ORIGIN_NULL_RESOURCE);
+                        } else {
+                            m.put(f, base.get(f));
+                        }
+                        break;
+                    case ORIGIN_COMMENTS:
+                        if (delta.containsKey(SerializedConfigValue.SerializedField.ORIGIN_NULL_COMMENTS)) {
+                            m.remove(SerializedConfigValue.SerializedField.ORIGIN_NULL_COMMENTS);
+                        } else {
+                            m.put(f, base.get(f));
+                        }
+                        break;
+                    case ORIGIN_NULL_URL: // FALL THRU
+                    case ORIGIN_NULL_RESOURCE: // FALL THRU
+                    case ORIGIN_NULL_COMMENTS: // FALL THRU
+                        // base objects shouldn't contain these, should just
+                        // lack the field. these are only in deltas.
+                        throw new ConfigException.BugOrBroken("applying fields, base object should not contain " + f + " "
+                                + base);
+                    case ORIGIN_END_LINE_NUMBER: // FALL THRU
+                    case ORIGIN_LINE_NUMBER: // FALL THRU
+                    case ORIGIN_TYPE:
                         m.put(f, base.get(f));
-                    }
-                    break;
-                case ORIGIN_COMMENTS:
-                    if (delta.containsKey(SerializedConfigValue.SerializedField.ORIGIN_NULL_COMMENTS)) {
-                        m.remove(SerializedConfigValue.SerializedField.ORIGIN_NULL_COMMENTS);
-                    } else {
-                        m.put(f, base.get(f));
-                    }
-                    break;
-                case ORIGIN_NULL_URL: // FALL THRU
-                case ORIGIN_NULL_RESOURCE: // FALL THRU
-                case ORIGIN_NULL_COMMENTS: // FALL THRU
-                    // base objects shouldn't contain these, should just
-                    // lack the field. these are only in deltas.
-                    throw new ConfigException.BugOrBroken("applying fields, base object should not contain " + f + " "
-                            + base);
-                case ORIGIN_END_LINE_NUMBER: // FALL THRU
-                case ORIGIN_LINE_NUMBER: // FALL THRU
-                case ORIGIN_TYPE:
-                    m.put(f, base.get(f));
-                    break;
+                        break;
 
-                case END_MARKER:
-                case ROOT_VALUE:
-                case ROOT_WAS_CONFIG:
-                case UNKNOWN:
-                case VALUE_DATA:
-                case VALUE_ORIGIN:
-                    throw new ConfigException.BugOrBroken("should not appear here: " + f);
+                    case END_MARKER:
+                    case ROOT_VALUE:
+                    case ROOT_WAS_CONFIG:
+                    case UNKNOWN:
+                    case VALUE_DATA:
+                    case VALUE_ORIGIN:
+                        throw new ConfigException.BugOrBroken("should not appear here: " + f);
                 }
             }
         }
@@ -580,7 +581,7 @@ final class SimpleConfigOrigin implements ConfigOrigin {
         if (baseOrigin != null)
             baseFields = baseOrigin.toFields();
         else
-            baseFields = Collections.<SerializedConfigValue.SerializedField, Object> emptyMap();
+            baseFields = Collections.<SerializedConfigValue.SerializedField, Object>emptyMap();
         Map<SerializedConfigValue.SerializedField, Object> fields = applyFieldsDelta(baseFields, delta);
         return fromFields(fields);
     }

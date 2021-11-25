@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -32,7 +33,7 @@ import java.util.List;
  * spec). It only has to exist if at least one value is an unresolved
  * substitution, otherwise we could go ahead and collapse the list into a single
  * value.
- *
+ * <p>
  * Right now this is always a list of strings and ${} references, but in the
  * future should support a list of ConfigList. We may also support
  * concatenations of objects, but ConfigDelayedMerge should be used for that
@@ -98,7 +99,7 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
     }
 
     private static boolean isIgnoredWhitespace(AbstractConfigValue value) {
-        return (value instanceof ConfigString) && !((ConfigString)value).wasQuoted();
+        return (value instanceof ConfigString) && !((ConfigString) value).wasQuoted();
     }
 
     /**
@@ -123,9 +124,9 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
         if (left instanceof ConfigObject && right instanceof ConfigObject) {
             joined = right.withFallback(left);
         } else if (left instanceof SimpleConfigList && right instanceof SimpleConfigList) {
-            joined = ((SimpleConfigList)left).concatenate((SimpleConfigList)right);
+            joined = ((SimpleConfigList) left).concatenate((SimpleConfigList) right);
         } else if ((left instanceof SimpleConfigList || left instanceof ConfigObject) &&
-                   isIgnoredWhitespace(right)) {
+                isIgnoredWhitespace(right)) {
             joined = left;
             // it should be impossible that left is whitespace and right is a list or object
         } else if (left instanceof ConfigConcatenation || right instanceof ConfigConcatenation) {

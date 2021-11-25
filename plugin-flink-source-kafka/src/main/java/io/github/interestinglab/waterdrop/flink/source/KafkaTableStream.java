@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
@@ -31,7 +32,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
-import org.apache.flink.table.descriptors.*;
+import org.apache.flink.table.descriptors.FormatDescriptor;
+import org.apache.flink.table.descriptors.Kafka;
+import org.apache.flink.table.descriptors.Rowtime;
+import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
 
 import java.util.HashMap;
@@ -149,7 +153,6 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         return kafka;
     }
 
-
     private FormatDescriptor setFormat() {
         try {
             return SchemaUtil.setFormat(format, config);
@@ -157,7 +160,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
             // TODO: logging
             e.printStackTrace();
         }
-        throw new RuntimeException("format配置错误");
+        throw new RuntimeException("format config error");
     }
 
 }

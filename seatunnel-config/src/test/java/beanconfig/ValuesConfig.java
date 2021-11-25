@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package beanconfig;
 
 import java.util.Map;
@@ -31,7 +32,7 @@ public class ValuesConfig {
     ConfigObject configObj;
     ConfigValue configValue;
     ConfigList list;
-    Map<String,Object> unwrappedMap;
+    Map<String, Object> unwrappedMap;
 
     public Object getObj() {
         return obj;

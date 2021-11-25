@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config;
 
 import java.net.URL;
 import java.util.List;
-
 
 /**
  * Represents the origin (such as filename and line number) of a
@@ -87,7 +87,7 @@ public interface ConfigOrigin {
      * change, but at the moment comments that are immediately before an array
      * element or object field, with no blank line after the comment, "go with"
      * that element or field.
-     * 
+     *
      * @return any comments that seemed to "go with" this origin, empty list if
      *         none
      */

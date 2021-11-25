@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config.impl;
 
 import io.github.interestinglab.waterdrop.config.ConfigException;
@@ -52,7 +53,7 @@ final class ConfigNodeField extends AbstractConfigNode {
     public AbstractConfigNodeValue value() {
         for (int i = 0; i < children.size(); i++) {
             if (children.get(i) instanceof AbstractConfigNodeValue) {
-                return (AbstractConfigNodeValue)children.get(i);
+                return (AbstractConfigNodeValue) children.get(i);
             }
         }
         throw new ConfigException.BugOrBroken("Field node doesn't have a value");
@@ -61,7 +62,7 @@ final class ConfigNodeField extends AbstractConfigNode {
     public ConfigNodePath path() {
         for (int i = 0; i < children.size(); i++) {
             if (children.get(i) instanceof ConfigNodePath) {
-                return (ConfigNodePath)children.get(i);
+                return (ConfigNodePath) children.get(i);
             }
         }
         throw new ConfigException.BugOrBroken("Field node doesn't have a path");

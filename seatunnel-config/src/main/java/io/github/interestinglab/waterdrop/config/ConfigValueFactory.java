@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.config;
 
 import io.github.interestinglab.waterdrop.config.impl.ConfigImpl;
@@ -41,21 +42,21 @@ public final class ConfigValueFactory {
      * {@link ConfigList}. If the <code>Iterable</code> is not an ordered
      * collection, results could be strange, since <code>ConfigList</code> is
      * ordered.
-     * 
+     *
      * <p>
      * In a <code>Map</code> passed to <code>fromAnyRef()</code>, the map's keys
      * are plain keys, not path expressions. So if your <code>Map</code> has a
      * key "foo.bar" then you will get one object with a key called "foo.bar",
      * rather than an object with a key "foo" containing another object with a
      * key "bar".
-     * 
+     *
      * <p>
      * The originDescription will be used to set the origin() field on the
      * ConfigValue. It should normally be the name of the file the values came
      * from, or something short describing the value such as "default settings".
      * The originDescription is prefixed to error messages so users can tell
      * where problematic values are coming from.
-     * 
+     *
      * <p>
      * Supplying the result of ConfigValue.unwrapped() to this function is
      * guaranteed to work and should give you back a ConfigValue that matches
@@ -74,7 +75,7 @@ public final class ConfigValueFactory {
      * ConfigValue, but supplying such a value is a bug in your program, so you
      * should never handle the exception. Just fix your program (or report a bug
      * against this library).
-     * 
+     *
      * @param object
      *            object to convert to ConfigValue
      * @param originDescription
