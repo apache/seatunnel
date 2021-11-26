@@ -48,7 +48,7 @@ jobs:
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven
-      - name: check style
+      - name: Check Style
         run: |
           ./mvnw -B checkstyle:check
       - name: Build and Package
