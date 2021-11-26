@@ -39,9 +39,8 @@ class SimpleIncludeContext implements ConfigIncludeContext {
     SimpleIncludeContext withParseable(Parseable parseable) {
         if (parseable == this.parseable) {
             return this;
-        } else {
-            return new SimpleIncludeContext(parseable);
         }
+        return new SimpleIncludeContext(parseable);
     }
 
     @Override
@@ -51,9 +50,8 @@ class SimpleIncludeContext implements ConfigIncludeContext {
         }
         if (parseable != null) {
             return parseable.relativeTo(filename);
-        } else {
-            return null;
         }
+        return null;
     }
 
     @Override

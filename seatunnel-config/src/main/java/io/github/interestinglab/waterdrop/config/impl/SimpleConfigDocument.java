@@ -69,6 +69,7 @@ final class SimpleConfigDocument implements ConfigDocument {
         return configNodeTree.hasValue(path);
     }
 
+    @Override
     public String render() {
         return configNodeTree.render();
     }

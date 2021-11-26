@@ -90,9 +90,8 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
         List<AbstractConfigValue> newStack = replaceChildInList(stack, child, replacement);
         if (newStack == null) {
             return null;
-        } else {
-            return new ConfigDelayedMergeObject(origin(), newStack);
         }
+        return new ConfigDelayedMergeObject(origin(), newStack);
     }
 
     @Override
@@ -188,10 +187,9 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigDelayedMergeObject) {
             return canEqual(other) && (this.stack == ((ConfigDelayedMergeObject) other).stack || this.stack
-                            .equals(((ConfigDelayedMergeObject) other).stack));
-        } else {
-            return false;
+                    .equals(((ConfigDelayedMergeObject) other).stack));
         }
+        return false;
     }
 
     @Override

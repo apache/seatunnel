@@ -49,9 +49,8 @@ final class ConfigDouble extends ConfigNumber implements Serializable {
         String s = super.transformToString();
         if (s == null) {
             return Double.toString(value);
-        } else {
-            return s;
         }
+        return s;
     }
 
     @Override

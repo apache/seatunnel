@@ -327,9 +327,8 @@ final class ConfigDocumentParser {
         private boolean isKeyValueSeparatorToken(Token t) {
             if (flavor == ConfigSyntax.JSON) {
                 return t == Tokens.COLON;
-            } else {
-                return t == Tokens.COLON || t == Tokens.EQUALS || t == Tokens.PLUS_EQUALS;
             }
+            return t == Tokens.COLON || t == Tokens.EQUALS || t == Tokens.PLUS_EQUALS;
         }
 
         private final String expectingClosingParenthesisError = "expecting a close parentheses ')' here, not: ";

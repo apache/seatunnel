@@ -194,17 +194,15 @@ public class ConfigImpl {
         // origin "empty config" rather than "hardcoded value"
         if (origin == DEFAULT_VALUE_ORIGIN) {
             return DEFAULT_EMPTY_OBJECT;
-        } else {
-            return SimpleConfigObject.empty(origin);
         }
+        return SimpleConfigObject.empty(origin);
     }
 
     private static ConfigOrigin valueOrigin(String originDescription) {
         if (originDescription == null) {
             return DEFAULT_VALUE_ORIGIN;
-        } else {
-            return SimpleConfigOrigin.newSimple(originDescription);
         }
+        return SimpleConfigOrigin.newSimple(originDescription);
     }
 
     public static ConfigValue fromAnyRef(Object object, String originDescription) {
@@ -473,17 +471,15 @@ public class ConfigImpl {
         String newMessage = what.render() + " has not been resolved, you need to call Config#resolve()," + " see API docs for Config#resolve()";
         if (newMessage.equals(original.getMessage())) {
             return original;
-        } else {
-            return new ConfigException.NotResolved(newMessage, original);
         }
+        return new ConfigException.NotResolved(newMessage, original);
     }
 
     public static ConfigOrigin newSimpleOrigin(String description) {
         if (description == null) {
             return DEFAULT_VALUE_ORIGIN;
-        } else {
-            return SimpleConfigOrigin.newSimple(description);
         }
+        return SimpleConfigOrigin.newSimple(description);
     }
 
     public static ConfigOrigin newFileOrigin(String filename) {

@@ -190,10 +190,9 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
             return null;
         } else if (consolidated.size() == 1) {
             return consolidated.get(0);
-        } else {
-            ConfigOrigin mergedOrigin = SimpleConfigOrigin.mergeOrigins(consolidated);
-            return new ConfigConcatenation(mergedOrigin, consolidated);
         }
+        ConfigOrigin mergedOrigin = SimpleConfigOrigin.mergeOrigins(consolidated);
+        return new ConfigConcatenation(mergedOrigin, consolidated);
     }
 
     @Override
@@ -260,9 +259,8 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
         List<AbstractConfigValue> newPieces = replaceChildInList(pieces, child, replacement);
         if (newPieces == null) {
             return null;
-        } else {
-            return new ConfigConcatenation(origin(), newPieces);
         }
+        return new ConfigConcatenation(origin(), newPieces);
     }
 
     @Override
@@ -294,9 +292,8 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigConcatenation) {
             return canEqual(other) && this.pieces.equals(((ConfigConcatenation) other).pieces);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

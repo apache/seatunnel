@@ -69,18 +69,16 @@ class Token {
     final int lineNumber() {
         if (origin != null) {
             return origin.lineNumber();
-        } else {
-            return -1;
         }
+        return -1;
     }
 
     @Override
     public String toString() {
         if (debugString != null) {
             return debugString;
-        } else {
-            return tokenType.name();
         }
+        return tokenType.name();
     }
 
     protected boolean canEqual(Object other) {
@@ -92,9 +90,8 @@ class Token {
         if (other instanceof Token) {
             // origin is deliberately left out
             return canEqual(other) && this.tokenType == ((Token) other).tokenType;
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

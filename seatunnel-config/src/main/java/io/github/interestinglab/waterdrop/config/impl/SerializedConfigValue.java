@@ -88,9 +88,8 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
         static SerializedField forInt(int b) {
             if (b < values().length) {
                 return values()[b];
-            } else {
-                return UNKNOWN;
             }
+            return UNKNOWN;
         }
     }
 
@@ -114,9 +113,8 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
         static SerializedValueType forInt(int b) {
             if (b < values().length) {
                 return values()[b];
-            } else {
-                return null;
             }
+            return null;
         }
 
         static SerializedValueType forValue(ConfigValue value) {
@@ -165,9 +163,8 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
     private Object readResolve() throws ObjectStreamException {
         if (wasConfig) {
             return ((ConfigObject) value).toConfig();
-        } else {
-            return value;
         }
+        return value;
     }
 
     private static class FieldOut {
@@ -546,9 +543,8 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
         // contract of java.lang.Object
         if (other instanceof SerializedConfigValue) {
             return canEqual(other) && (this.wasConfig == ((SerializedConfigValue) other).wasConfig) && (this.value.equals(((SerializedConfigValue) other).value));
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

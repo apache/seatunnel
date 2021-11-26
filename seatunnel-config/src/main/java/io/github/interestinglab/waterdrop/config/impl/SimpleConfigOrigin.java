@@ -96,10 +96,9 @@ final class SimpleConfigOrigin implements ConfigOrigin {
     public SimpleConfigOrigin withLineNumber(int lineNumber) {
         if (lineNumber == this.lineNumber && lineNumber == this.endLineNumber) {
             return this;
-        } else {
-            return new SimpleConfigOrigin(this.description, lineNumber, lineNumber, this.originType, this.urlOrNull,
-                    this.resourceOrNull, this.commentsOrNull);
         }
+        return new SimpleConfigOrigin(this.description, lineNumber, lineNumber, this.originType, this.urlOrNull,
+                this.resourceOrNull, this.commentsOrNull);
     }
 
     SimpleConfigOrigin addURL(URL url) {
@@ -111,10 +110,9 @@ final class SimpleConfigOrigin implements ConfigOrigin {
     public SimpleConfigOrigin withComments(List<String> comments) {
         if (ConfigImplUtil.equalsHandlingNull(comments, this.commentsOrNull)) {
             return this;
-        } else {
-            return new SimpleConfigOrigin(this.description, this.lineNumber, this.endLineNumber, this.originType,
-                    this.urlOrNull, this.resourceOrNull, comments);
         }
+        return new SimpleConfigOrigin(this.description, this.lineNumber, this.endLineNumber, this.originType,
+                this.urlOrNull, this.resourceOrNull, comments);
     }
 
     SimpleConfigOrigin prependComments(List<String> comments) {
@@ -135,12 +133,11 @@ final class SimpleConfigOrigin implements ConfigOrigin {
             return this;
         } else if (this.commentsOrNull == null) {
             return withComments(comments);
-        } else {
-            List<String> merged = new ArrayList<String>(comments.size() + this.commentsOrNull.size());
-            merged.addAll(this.commentsOrNull);
-            merged.addAll(comments);
-            return withComments(merged);
         }
+        List<String> merged = new ArrayList<String>(comments.size() + this.commentsOrNull.size());
+        merged.addAll(this.commentsOrNull);
+        merged.addAll(comments);
+        return withComments(merged);
     }
 
     @Override
@@ -149,9 +146,8 @@ final class SimpleConfigOrigin implements ConfigOrigin {
             return description;
         } else if (endLineNumber == lineNumber) {
             return description + ": " + lineNumber;
-        } else {
-            return description + ": " + lineNumber + "-" + endLineNumber;
         }
+        return description + ": " + lineNumber + "-" + endLineNumber;
     }
 
     @Override
@@ -160,9 +156,8 @@ final class SimpleConfigOrigin implements ConfigOrigin {
             SimpleConfigOrigin otherOrigin = (SimpleConfigOrigin) other;
 
             return this.description.equals(otherOrigin.description) && this.lineNumber == otherOrigin.lineNumber && this.endLineNumber == otherOrigin.endLineNumber && this.originType == otherOrigin.originType && ConfigImplUtil.equalsHandlingNull(this.urlOrNull, otherOrigin.urlOrNull) && ConfigImplUtil.equalsHandlingNull(this.resourceOrNull, otherOrigin.resourceOrNull);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

@@ -180,9 +180,8 @@ final class Path {
             Path that = (Path) other;
             return this.first.equals(that.first) && ConfigImplUtil.equalsHandlingNull(this.remainder,
                     that.remainder);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

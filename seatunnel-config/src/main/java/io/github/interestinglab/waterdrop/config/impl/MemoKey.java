@@ -28,17 +28,16 @@ final class MemoKey {
     private final Path restrictToChildOrNull;
 
     @Override
-    public final int hashCode() {
+    public int hashCode() {
         int h = System.identityHashCode(value);
         if (restrictToChildOrNull != null) {
             return h + 41 * (41 + restrictToChildOrNull.hashCode());
-        } else {
-            return h;
         }
+        return h;
     }
 
     @Override
-    public final boolean equals(Object other) {
+    public boolean equals(Object other) {
         if (other instanceof MemoKey) {
             MemoKey o = (MemoKey) other;
             if (o.value != this.value) {
@@ -50,9 +49,8 @@ final class MemoKey {
             } else {
                 return o.restrictToChildOrNull.equals(this.restrictToChildOrNull);
             }
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

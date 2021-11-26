@@ -108,9 +108,8 @@ final class ConfigParser {
             // pathStack has top of stack at front
             if (pathStack.isEmpty()) {
                 throw new ConfigException.BugOrBroken("Bug in parser; tried to get current path when at root");
-            } else {
-                return new Path(pathStack.descendingIterator());
             }
+            return new Path(pathStack.descendingIterator());
         }
 
         private AbstractConfigValue parseValue(AbstractConfigNodeValue n, List<String> comments) {

@@ -158,9 +158,8 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigReference) {
             return canEqual(other) && this.expr.equals(((ConfigReference) other).expr);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

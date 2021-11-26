@@ -81,11 +81,10 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         List<AbstractConfigValue> newList = replaceChildInList(value, child, replacement);
         if (newList == null) {
             return null;
-        } else {
-            // we use the constructor flavor that will recompute the resolve
-            // status
-            return new SimpleConfigList(origin(), newList);
         }
+        // we use the constructor flavor that will recompute the resolve
+        // status
+        return new SimpleConfigList(origin(), newList);
     }
 
     @Override
@@ -206,9 +205,8 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         if (other instanceof SimpleConfigList) {
             // optimization to avoid unwrapped() for two ConfigList
             return canEqual(other) && (value == ((SimpleConfigList) other).value || value.equals(((SimpleConfigList) other).value));
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

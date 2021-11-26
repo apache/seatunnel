@@ -59,9 +59,8 @@ class SimpleIncluder implements FullIncluder {
         // its result.
         if (fallback != null) {
             return obj.withFallback(fallback.include(context, name));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     // the heuristic includer in static form
@@ -92,9 +91,8 @@ class SimpleIncluder implements FullIncluder {
         // its result.
         if (fallback != null && fallback instanceof ConfigIncluderURL) {
             return obj.withFallback(((ConfigIncluderURL) fallback).includeURL(context, url));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     static ConfigObject includeURLWithoutFallback(final ConfigIncludeContext context, URL url) {
@@ -109,9 +107,8 @@ class SimpleIncluder implements FullIncluder {
         // its result.
         if (fallback != null && fallback instanceof ConfigIncluderFile) {
             return obj.withFallback(((ConfigIncluderFile) fallback).includeFile(context, file));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     static ConfigObject includeFileWithoutFallback(final ConfigIncludeContext context, File file) {
@@ -127,9 +124,8 @@ class SimpleIncluder implements FullIncluder {
         if (fallback != null && fallback instanceof ConfigIncluderClasspath) {
             return obj.withFallback(((ConfigIncluderClasspath) fallback).includeResources(context,
                     resource));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     static ConfigObject includeResourceWithoutFallback(final ConfigIncludeContext context,
@@ -145,9 +141,8 @@ class SimpleIncluder implements FullIncluder {
             return this;
         } else if (this.fallback != null) {
             return new SimpleIncluder(this.fallback.withFallback(fallback));
-        } else {
-            return new SimpleIncluder(fallback);
         }
+        return new SimpleIncluder(fallback);
     }
 
     interface NameSource {
@@ -168,9 +163,8 @@ class SimpleIncluder implements FullIncluder {
                 // avoid returning null
                 return Parseable
                         .newNotFound(name, "include was not found: '" + name + "'", options);
-            } else {
-                return p;
             }
+            return p;
         }
     }
 
@@ -282,35 +276,31 @@ class SimpleIncluder implements FullIncluder {
         public ConfigObject includeResources(ConfigIncludeContext context, String what) {
             if (delegate instanceof ConfigIncluderClasspath) {
                 return ((ConfigIncluderClasspath) delegate).includeResources(context, what);
-            } else {
-                return includeResourceWithoutFallback(context, what);
             }
+            return includeResourceWithoutFallback(context, what);
         }
 
         @Override
         public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
             if (delegate instanceof ConfigIncluderURL) {
                 return ((ConfigIncluderURL) delegate).includeURL(context, what);
-            } else {
-                return includeURLWithoutFallback(context, what);
             }
+            return includeURLWithoutFallback(context, what);
         }
 
         @Override
         public ConfigObject includeFile(ConfigIncludeContext context, File what) {
             if (delegate instanceof ConfigIncluderFile) {
                 return ((ConfigIncluderFile) delegate).includeFile(context, what);
-            } else {
-                return includeFileWithoutFallback(context, what);
             }
+            return includeFileWithoutFallback(context, what);
         }
     }
 
     static FullIncluder makeFull(ConfigIncluder includer) {
         if (includer instanceof FullIncluder) {
             return (FullIncluder) includer;
-        } else {
-            return new Proxy(includer);
         }
+        return new Proxy(includer);
     }
 }

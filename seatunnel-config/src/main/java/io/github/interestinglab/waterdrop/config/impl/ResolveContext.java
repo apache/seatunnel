@@ -111,9 +111,8 @@ final class ResolveContext {
     ResolveContext restrict(Path restrictTo) {
         if (restrictTo == restrictToChild) {
             return this;
-        } else {
-            return new ResolveContext(memos, options, restrictTo, resolveStack, cycleMarkers);
         }
+        return new ResolveContext(memos, options, restrictTo, resolveStack, cycleMarkers);
     }
 
     ResolveContext unrestricted() {

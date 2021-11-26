@@ -46,9 +46,8 @@ final class ResolveSource {
     private AbstractConfigObject rootMustBeObj(Container value) {
         if (value instanceof AbstractConfigObject) {
             return (AbstractConfigObject) value;
-        } else {
-            return SimpleConfigObject.empty();
         }
+        return SimpleConfigObject.empty();
     }
 
     // as a side effect, findInObject() will have to resolve all parents of the
@@ -186,9 +185,8 @@ final class ResolveSource {
     ResolveSource resetParents() {
         if (pathFromRoot == null) {
             return this;
-        } else {
-            return new ResolveSource(root);
         }
+        return new ResolveSource(root);
     }
 
     // returns null if the replacement results in deleting all the nodes.

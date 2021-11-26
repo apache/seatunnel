@@ -44,18 +44,16 @@ final class PropertiesParser {
         int i = path.lastIndexOf('.');
         if (i < 0) {
             return path;
-        } else {
-            return path.substring(i + 1);
         }
+        return path.substring(i + 1);
     }
 
     static String exceptLastElement(String path) {
         int i = path.lastIndexOf('.');
         if (i < 0) {
             return null;
-        } else {
-            return path.substring(0, i);
         }
+        return path.substring(0, i);
     }
 
     static Path pathFromPropertyKey(String key) {

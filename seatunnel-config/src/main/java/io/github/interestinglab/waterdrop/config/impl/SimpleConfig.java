@@ -93,9 +93,8 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
         if (resolved == object) {
             return this;
-        } else {
-            return new SimpleConfig((AbstractConfigObject) resolved);
         }
+        return new SimpleConfig((AbstractConfigObject) resolved);
     }
 
     private ConfigValue hasPathPeek(String pathExpression) {

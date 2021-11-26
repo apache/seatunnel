@@ -46,9 +46,8 @@ final class Tokens {
         public String toString() {
             if (value().resolveStatus() == ResolveStatus.RESOLVED) {
                 return "'" + value().unwrapped() + "' (" + value.valueType().name() + ")";
-            } else {
-                return "'<unresolved value>' (" + value.valueType().name() + ")";
             }
+            return "'<unresolved value>' (" + value.valueType().name() + ")";
         }
 
         @Override

@@ -211,9 +211,8 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
         List<AbstractConfigValue> newStack = replaceChildInList(stack, child, replacement);
         if (newStack == null) {
             return null;
-        } else {
-            return new ConfigDelayedMerge(origin(), newStack);
         }
+        return new ConfigDelayedMerge(origin(), newStack);
     }
 
     @Override
@@ -276,10 +275,9 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigDelayedMerge) {
             return canEqual(other) && (this.stack == ((ConfigDelayedMerge) other).stack || this.stack
-                            .equals(((ConfigDelayedMerge) other).stack));
-        } else {
-            return false;
+                    .equals(((ConfigDelayedMerge) other).stack));
         }
+        return false;
     }
 
     @Override

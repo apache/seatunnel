@@ -113,9 +113,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             return new SimpleConfigObject(origin(),
                     Collections.<String, AbstractConfigValue>emptyMap(), ResolveStatus.RESOLVED,
                     ignoresFallbacks);
-        } else {
-            return o;
         }
+        return o;
     }
 
     @Override
@@ -206,9 +205,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     protected SimpleConfigObject withFallbacksIgnored() {
         if (ignoresFallbacks) {
             return this;
-        } else {
-            return newCopy(resolveStatus(), origin(), true /* ignoresFallbacks */);
         }
+        return newCopy(resolveStatus(), origin(), true /* ignoresFallbacks */);
     }
 
     @Override
@@ -693,10 +691,9 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     static SimpleConfigObject empty(ConfigOrigin origin) {
         if (origin == null) {
             return empty();
-        } else {
-            return new SimpleConfigObject(origin,
-                    Collections.<String, AbstractConfigValue>emptyMap());
         }
+        return new SimpleConfigObject(origin,
+                Collections.<String, AbstractConfigValue>emptyMap());
     }
 
     static SimpleConfigObject emptyMissing(ConfigOrigin baseOrigin) {

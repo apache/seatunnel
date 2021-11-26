@@ -49,9 +49,8 @@ final class ConfigLong extends ConfigNumber implements Serializable {
         String s = super.transformToString();
         if (s == null) {
             return Long.toString(value);
-        } else {
-            return s;
         }
+        return s;
     }
 
     @Override

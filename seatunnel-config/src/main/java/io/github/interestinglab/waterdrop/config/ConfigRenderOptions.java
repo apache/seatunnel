@@ -77,9 +77,8 @@ public final class ConfigRenderOptions {
     public ConfigRenderOptions setComments(boolean value) {
         if (value == comments) {
             return this;
-        } else {
-            return new ConfigRenderOptions(originComments, value, formatted, json);
         }
+        return new ConfigRenderOptions(originComments, value, formatted, json);
     }
 
     /**
@@ -111,9 +110,8 @@ public final class ConfigRenderOptions {
     public ConfigRenderOptions setOriginComments(boolean value) {
         if (value == originComments) {
             return this;
-        } else {
-            return new ConfigRenderOptions(value, comments, formatted, json);
         }
+        return new ConfigRenderOptions(value, comments, formatted, json);
     }
 
     /**
@@ -137,9 +135,8 @@ public final class ConfigRenderOptions {
     public ConfigRenderOptions setFormatted(boolean value) {
         if (value == formatted) {
             return this;
-        } else {
-            return new ConfigRenderOptions(originComments, comments, value, json);
         }
+        return new ConfigRenderOptions(originComments, comments, value, json);
     }
 
     /**
@@ -166,9 +163,8 @@ public final class ConfigRenderOptions {
     public ConfigRenderOptions setJson(boolean value) {
         if (value == json) {
             return this;
-        } else {
-            return new ConfigRenderOptions(originComments, comments, formatted, value);
         }
+        return new ConfigRenderOptions(originComments, comments, formatted, value);
     }
 
     /**

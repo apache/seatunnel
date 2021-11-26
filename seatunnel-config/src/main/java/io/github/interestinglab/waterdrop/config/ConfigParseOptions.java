@@ -76,10 +76,9 @@ public final class ConfigParseOptions {
     public ConfigParseOptions setSyntax(ConfigSyntax syntax) {
         if (this.syntax == syntax) {
             return this;
-        } else {
-            return new ConfigParseOptions(syntax, this.originDescription, this.allowMissing,
-                    this.includer, this.classLoader);
         }
+        return new ConfigParseOptions(syntax, this.originDescription, this.allowMissing,
+                this.includer, this.classLoader);
     }
 
     /**
@@ -107,10 +106,9 @@ public final class ConfigParseOptions {
             return this;
         } else if (this.originDescription != null && originDescription != null && this.originDescription.equals(originDescription)) {
             return this;
-        } else {
-            return new ConfigParseOptions(this.syntax, originDescription, this.allowMissing,
-                    this.includer, this.classLoader);
         }
+        return new ConfigParseOptions(this.syntax, originDescription, this.allowMissing,
+                this.includer, this.classLoader);
     }
 
     /**
@@ -128,9 +126,8 @@ public final class ConfigParseOptions {
     ConfigParseOptions withFallbackOriginDescription(String originDescription) {
         if (this.originDescription == null) {
             return setOriginDescription(originDescription);
-        } else {
-            return this;
         }
+        return this;
     }
 
     /**
@@ -145,10 +142,9 @@ public final class ConfigParseOptions {
     public ConfigParseOptions setAllowMissing(boolean allowMissing) {
         if (this.allowMissing == allowMissing) {
             return this;
-        } else {
-            return new ConfigParseOptions(this.syntax, this.originDescription, allowMissing,
-                    this.includer, this.classLoader);
         }
+        return new ConfigParseOptions(this.syntax, this.originDescription, allowMissing,
+                this.includer, this.classLoader);
     }
 
     /**
@@ -170,10 +166,9 @@ public final class ConfigParseOptions {
     public ConfigParseOptions setIncluder(ConfigIncluder includer) {
         if (this.includer == includer) {
             return this;
-        } else {
-            return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
-                    includer, this.classLoader);
         }
+        return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
+                includer, this.classLoader);
     }
 
     /**
@@ -193,9 +188,8 @@ public final class ConfigParseOptions {
             return this;
         } else if (this.includer != null) {
             return setIncluder(includer.withFallback(this.includer));
-        } else {
-            return setIncluder(includer);
         }
+        return setIncluder(includer);
     }
 
     /**
@@ -214,9 +208,8 @@ public final class ConfigParseOptions {
             return this;
         } else if (this.includer != null) {
             return setIncluder(this.includer.withFallback(includer));
-        } else {
-            return setIncluder(includer);
         }
+        return setIncluder(includer);
     }
 
     /**
@@ -239,10 +232,9 @@ public final class ConfigParseOptions {
     public ConfigParseOptions setClassLoader(ClassLoader loader) {
         if (this.classLoader == loader) {
             return this;
-        } else {
-            return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
-                    this.includer, loader);
         }
+        return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
+                this.includer, loader);
     }
 
     /**
@@ -255,8 +247,7 @@ public final class ConfigParseOptions {
     public ClassLoader getClassLoader() {
         if (this.classLoader == null) {
             return Thread.currentThread().getContextClassLoader();
-        } else {
-            return this.classLoader;
         }
+        return this.classLoader;
     }
 }

@@ -38,9 +38,8 @@ final class SubstitutionExpression {
     SubstitutionExpression changePath(Path newPath) {
         if (newPath == path) {
             return this;
-        } else {
-            return new SubstitutionExpression(newPath, optional);
         }
+        return new SubstitutionExpression(newPath, optional);
     }
 
     @Override
@@ -53,9 +52,8 @@ final class SubstitutionExpression {
         if (other instanceof SubstitutionExpression) {
             SubstitutionExpression otherExp = (SubstitutionExpression) other;
             return otherExp.path.equals(this.path) && otherExp.optional == this.optional;
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
