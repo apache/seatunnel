@@ -155,17 +155,15 @@ public final class ConfigFactory {
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
         if (loader == null) {
             throw new ConfigException.BugOrBroken("Context class loader is not set for the current thread; " + "if Thread.currentThread().getContextClassLoader() returns null, you must pass a ClassLoader " + "explicitly to ConfigFactory." + methodName);
-        } else {
-            return loader;
         }
+        return loader;
     }
 
     private static ConfigParseOptions ensureClassLoader(ConfigParseOptions options, String methodName) {
         if (options.getClassLoader() == null) {
             return options.setClassLoader(checkedContextClassLoader(methodName));
-        } else {
-            return options;
         }
+        return options;
     }
 
     /**
