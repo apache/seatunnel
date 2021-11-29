@@ -53,7 +53,6 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-hadoop-2</artifactId>
-            <version>2.7.5-7.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>xml-apis</groupId>
@@ -64,7 +63,6 @@
         <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-avro</artifactId>
-            <version>1.10.0</version>
         </dependency>
     </dependencies>
 

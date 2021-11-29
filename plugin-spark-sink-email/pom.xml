@@ -38,12 +38,10 @@
         <dependency>
             <groupId>com.norbitltd</groupId>
             <artifactId>spoiwo_2.11</artifactId>
-            <version>1.8.0</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe.play</groupId>
             <artifactId>play-mailer_2.11</artifactId>
-            <version>7.0.2</version>
         </dependency>
 
         <dependency>

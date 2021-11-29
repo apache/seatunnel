@@ -121,6 +121,28 @@
         <maven-surefire-plugin.version>2.22.1</maven-surefire-plugin.version>
         <maven-checkstyle-plugin.version>3.1.0</maven-checkstyle-plugin.version>
         <checkstyle.fails.on.error>true</checkstyle.fails.on.error>
+        <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
+        <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
+        <maven-gpg-plugin.version>1.6</maven-gpg-plugin.version>
+        <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
+        <scala-maven-plugin.version>3.3.1</scala-maven-plugin.version>
+        <maven-compiler-plugin.version>2.0.2</maven-compiler-plugin.version>
+        <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
+        <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
+        <scopt.version>3.7.1</scopt.version>
+        <spoiwo.version>1.8.0</spoiwo.version>
+        <play-mailer.version>7.0.2</play-mailer.version>
+        <phoenix-spark.version>5.0.0-HBase-2.0</phoenix-spark.version>
+        <zkclient.version>0.3</zkclient.version>
+        <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
+        <parquet-avro.version>1.10.0</parquet-avro.version>
+        <transport.version>6.3.1</transport.version>
+        <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
+        <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
+        <hbase-spark.version>1.0.0</hbase-spark.version>
+        <commons-lang3.version>3.4</commons-lang3.version>
+        <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
     </properties>
 
 
@@ -192,6 +214,151 @@
                 <scope>test</scope>
             </dependency>
 
+            <dependency>
+                <groupId>com.github.scopt</groupId>
+                <artifactId>scopt_2.11</artifactId>
+                <version>${scopt.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.norbitltd</groupId>
+                <artifactId>spoiwo_2.11</artifactId>
+                <version>${spoiwo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.typesafe.play</groupId>
+                <artifactId>play-mailer_2.11</artifactId>
+                <version>${play-mailer.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.phoenix</groupId>
+                <artifactId>phoenix-spark</artifactId>
+                <version>${phoenix-spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.101tec</groupId>
+                <artifactId>zkclient</artifactId>
+                <version>${zkclient.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-shaded-hadoop-2</artifactId>
+                <version>${flink-shaded-hadoop-2.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>xml-apis</groupId>
+                        <artifactId>xml-apis</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-avro</artifactId>
+                <version>${parquet-avro.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.elasticsearch.client</groupId>
+                <artifactId>transport</artifactId>
+                <version>${transport.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch-spark-20_${scala.binary.version}</artifactId>
+                <version>${elasticsearch-spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-jdbc_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-connector-kafka_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>ru.yandex.clickhouse</groupId>
+                <artifactId>clickhouse-jdbc</artifactId>
+                <version>${clickhouse-jdbc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hbase.connectors.spark</groupId>
+                <artifactId>hbase-spark</artifactId>
+                <version>${hbase-spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
+                <version>${spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-csv</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-orc_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-parquet_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-json</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-avro</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -214,7 +381,7 @@
                 <plugin>
                     <groupId>org.sonatype.plugins</groupId>
                     <artifactId>nexus-staging-maven-plugin</artifactId>
-                    <version>1.6.8</version>
+                    <version>${nexus-staging-maven-plugin.version}</version>
                     <extensions>true</extensions>
                     <configuration>
                         <serverId>ossrh</serverId>
@@ -226,7 +393,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
-                    <version>3.0.1</version>
+                    <version>${maven-source-plugin.version}</version>
                     <executions>
                         <execution>
                             <id>attach-sources</id>
@@ -240,7 +407,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>2.9.1</version>
+                    <version>${maven-javadoc-plugin.version}</version>
                     <configuration>
                         <source>${maven.compiler.source}</source>
                         <failOnError>false</failOnError>
@@ -261,7 +428,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-gpg-plugin</artifactId>
-                    <version>1.6</version>
+                    <version>${maven-gpg-plugin.version}</version>
                     <executions>
                         <execution>
                             <id>sign-artifacts</id>
@@ -276,7 +443,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-deploy-plugin</artifactId>
-                    <version>2.8.2</version>
+                    <version>${maven-deploy-plugin.version}</version>
                     <configuration>
                         <skip>${maven.deploy.skip}</skip>
                     </configuration>
@@ -294,7 +461,7 @@
                 <plugin>
                     <groupId>net.alchim31.maven</groupId>
                     <artifactId>scala-maven-plugin</artifactId>
-                    <version>3.3.1</version>
+                    <version>${scala-maven-plugin.version}</version>
                     <executions>
                         <execution>
                             <id>scala-compile-first</id>
@@ -327,6 +494,26 @@
 
                     </executions>
                 </plugin>
+
+                <plugin>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>${maven-assembly-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>single</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <attach>false</attach>
+                        <descriptors>
+                            <descriptor>assembly.xml</descriptor>
+                        </descriptors>
+                    </configuration>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
@@ -336,7 +523,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.0.2</version>
+                <version>${maven-compiler-plugin.version}</version>
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
@@ -345,7 +532,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>2.4.3</version>
+                <version>${maven-shade-plugin.version}</version>
                 <configuration>
                     <filters>
                         <filter>
@@ -377,7 +564,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.8</version>
+                <version>${maven-pmd-plugin.version}</version>
                 <configuration>
                     <rulesets>
                         <ruleset>rulesets/java/ali-concurrent.xml</ruleset>
