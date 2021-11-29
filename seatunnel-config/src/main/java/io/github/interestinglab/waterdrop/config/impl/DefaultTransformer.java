@@ -37,27 +37,27 @@ final class DefaultTransformer {
             switch (requested) {
                 case NUMBER:
                     try {
-                        Long v = Long.parseLong(s);
+                        long v = Long.parseLong(s);
                         return new ConfigLong(value.origin(), v, s);
                     } catch (NumberFormatException e) {
                         // try Double
                     }
                     try {
-                        Double v = Double.parseDouble(s);
+                        double v = Double.parseDouble(s);
                         return new ConfigDouble(value.origin(), v, s);
                     } catch (NumberFormatException e) {
                         // oh well.
                     }
                     break;
                 case NULL:
-                    if (s.equals("null")) {
+                    if ("null".equals(s)) {
                         return new ConfigNull(value.origin());
                     }
                     break;
                 case BOOLEAN:
-                    if (s.equals("true") || s.equals("yes") || s.equals("on")) {
+                    if ("true".equals(s) || "yes".equals(s) || "on".equals(s)) {
                         return new ConfigBoolean(value.origin(), true);
-                    } else if (s.equals("false") || s.equals("no") || s.equals("off")) {
+                    } else if ("false".equals(s) || "no".equals(s) || "off".equals(s)) {
                         return new ConfigBoolean(value.origin(), false);
                     }
                     break;

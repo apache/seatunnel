@@ -120,12 +120,11 @@ final class SimpleConfigOrigin implements ConfigOrigin {
             return this;
         } else if (this.commentsOrNull == null) {
             return withComments(comments);
-        } else {
-            List<String> merged = new ArrayList<String>(comments.size() + this.commentsOrNull.size());
-            merged.addAll(comments);
-            merged.addAll(this.commentsOrNull);
-            return withComments(merged);
         }
+        List<String> merged = new ArrayList<String>(comments.size() + this.commentsOrNull.size());
+        merged.addAll(comments);
+        merged.addAll(this.commentsOrNull);
+        return withComments(merged);
     }
 
     SimpleConfigOrigin appendComments(List<String> comments) {
@@ -191,26 +190,23 @@ final class SimpleConfigOrigin implements ConfigOrigin {
             } catch (MalformedURLException e) {
                 return null;
             }
-            if (url.getProtocol().equals("file")) {
+            if ("file".equals(url.getProtocol())) {
                 return url.getFile();
-            } else {
-                return null;
             }
-        } else {
             return null;
         }
+        return null;
     }
 
     @Override
     public URL url() {
         if (urlOrNull == null) {
             return null;
-        } else {
-            try {
-                return new URL(urlOrNull);
-            } catch (MalformedURLException e) {
-                return null;
-            }
+        }
+        try {
+            return new URL(urlOrNull);
+        } catch (MalformedURLException e) {
+            return null;
         }
     }
 
@@ -228,9 +224,8 @@ final class SimpleConfigOrigin implements ConfigOrigin {
     public List<String> comments() {
         if (commentsOrNull != null) {
             return Collections.unmodifiableList(commentsOrNull);
-        } else {
-            return Collections.emptyList();
         }
+        return Collections.emptyList();
     }
 
     static final String MERGE_OF_PREFIX = "merge of ";
@@ -359,9 +354,8 @@ final class SimpleConfigOrigin implements ConfigOrigin {
     private static SimpleConfigOrigin mergeThree(SimpleConfigOrigin a, SimpleConfigOrigin b, SimpleConfigOrigin c) {
         if (similarity(a, b) >= similarity(b, c)) {
             return mergeTwo(mergeTwo(a, b), c);
-        } else {
-            return mergeTwo(a, mergeTwo(b, c));
         }
+        return mergeTwo(a, mergeTwo(b, c));
     }
 
     static ConfigOrigin mergeOrigins(ConfigOrigin a, ConfigOrigin b) {
@@ -384,27 +378,26 @@ final class SimpleConfigOrigin implements ConfigOrigin {
         } else if (stack.size() == 2) {
             Iterator<? extends ConfigOrigin> i = stack.iterator();
             return mergeTwo((SimpleConfigOrigin) i.next(), (SimpleConfigOrigin) i.next());
-        } else {
-            List<SimpleConfigOrigin> remaining = new ArrayList<SimpleConfigOrigin>();
-            for (ConfigOrigin o : stack) {
-                remaining.add((SimpleConfigOrigin) o);
-            }
-            while (remaining.size() > 2) {
-                SimpleConfigOrigin c = remaining.get(remaining.size() - 1);
-                remaining.remove(remaining.size() - 1);
-                SimpleConfigOrigin b = remaining.get(remaining.size() - 1);
-                remaining.remove(remaining.size() - 1);
-                SimpleConfigOrigin a = remaining.get(remaining.size() - 1);
-                remaining.remove(remaining.size() - 1);
-
-                SimpleConfigOrigin merged = mergeThree(a, b, c);
-
-                remaining.add(merged);
-            }
-
-            // should be down to either 1 or 2
-            return mergeOrigins(remaining);
         }
+        List<SimpleConfigOrigin> remaining = new ArrayList<SimpleConfigOrigin>();
+        for (ConfigOrigin o : stack) {
+            remaining.add((SimpleConfigOrigin) o);
+        }
+        while (remaining.size() > 2) {
+            SimpleConfigOrigin c = remaining.get(remaining.size() - 1);
+            remaining.remove(remaining.size() - 1);
+            SimpleConfigOrigin b = remaining.get(remaining.size() - 1);
+            remaining.remove(remaining.size() - 1);
+            SimpleConfigOrigin a = remaining.get(remaining.size() - 1);
+            remaining.remove(remaining.size() - 1);
+
+            SimpleConfigOrigin merged = mergeThree(a, b, c);
+
+            remaining.add(merged);
+        }
+
+        // should be down to either 1 or 2
+        return mergeOrigins(remaining);
     }
 
     Map<SerializedConfigValue.SerializedField, Object> toFields() {
@@ -492,9 +485,8 @@ final class SimpleConfigOrigin implements ConfigOrigin {
                         throw new ConfigException.BugOrBroken("should not appear here: " + f);
                     default:
                 }
-            } else {
-                // field is in base and child, but differs, so leave it
             }
+            // field is in base and child, but differs, so leave it
         }
 
         return m;

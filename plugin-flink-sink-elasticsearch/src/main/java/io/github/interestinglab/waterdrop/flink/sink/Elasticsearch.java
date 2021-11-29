@@ -62,9 +62,8 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
     public CheckResult checkConfig() {
         if (config.hasPath("hosts")) {
             return new CheckResult(true, "");
-        } else {
-            return new CheckResult(false, "please specify [hosts] as a non-empty string list");
         }
+        return new CheckResult(false, "please specify [hosts] as a non-empty string list");
     }
 
     @Override

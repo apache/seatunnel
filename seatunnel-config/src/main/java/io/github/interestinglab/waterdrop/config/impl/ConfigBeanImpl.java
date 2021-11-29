@@ -205,9 +205,8 @@ public class ConfigBeanImpl {
             return enumValue;
         } else if (hasAtLeastOneBeanProperty(parameterClass)) {
             return createInternal(config.getConfig(configPropName), parameterClass);
-        } else {
-            throw new ConfigException.BadBean("Bean property " + configPropName + " of class " + beanClass.getName() + " has unsupported type " + parameterType);
         }
+        throw new ConfigException.BadBean("Bean property " + configPropName + " of class " + beanClass.getName() + " has unsupported type " + parameterType);
     }
 
     private static Object getSetValue(Class<?> beanClass, Type parameterType, Class<?> parameterClass, Config config, String configPropName) {
@@ -250,9 +249,8 @@ public class ConfigBeanImpl {
                 beanList.add(createInternal(listMember, (Class<?>) elementType));
             }
             return beanList;
-        } else {
-            throw new ConfigException.BadBean("Bean property '" + configPropName + "' of class " + beanClass.getName() + " has unsupported list element type " + elementType);
         }
+        throw new ConfigException.BadBean("Bean property '" + configPropName + "' of class " + beanClass.getName() + " has unsupported list element type " + elementType);
     }
 
     // null if we can't easily say; this is heuristic/best-effort
@@ -281,9 +279,8 @@ public class ConfigBeanImpl {
             return ConfigValueType.OBJECT;
         } else if (parameterClass == ConfigList.class) {
             return ConfigValueType.LIST;
-        } else {
-            return null;
         }
+        return null;
     }
 
     private static boolean hasAtLeastOneBeanProperty(Class<?> clazz) {

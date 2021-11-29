@@ -127,11 +127,10 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
                 } else if (value instanceof ConfigDouble) {
                     return DOUBLE;
                 }
-            } else {
-                for (SerializedValueType st : values()) {
-                    if (st.configType == t) {
-                        return st;
-                    }
+            }
+            for (SerializedValueType st : values()) {
+                if (st.configType == t) {
+                    return st;
                 }
             }
 

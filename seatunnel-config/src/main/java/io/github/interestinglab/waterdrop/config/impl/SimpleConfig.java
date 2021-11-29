@@ -155,9 +155,8 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         if (v.valueType() == ConfigValueType.NULL) {
             throw new ConfigException.Null(v.origin(), originalPath.render(),
                     expected != null ? expected.name() : null);
-        } else {
-            return v;
         }
+        return v;
     }
 
     private static AbstractConfigValue findKey(AbstractConfigObject self, String key,
@@ -179,9 +178,8 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         if (expected != null && (v.valueType() != expected && v.valueType() != ConfigValueType.NULL)) {
             throw new ConfigException.WrongType(v.origin(), originalPath.render(), expected.name(),
                     v.valueType().name());
-        } else {
-            return v;
         }
+        return v;
     }
 
     private static AbstractConfigValue findOrNull(AbstractConfigObject self, Path path,
@@ -191,12 +189,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             Path next = path.remainder();
             if (next == null) {
                 return findKeyOrNull(self, key, expected, originalPath);
-            } else {
-                AbstractConfigObject o = (AbstractConfigObject) findKey(self, key,
-                        ConfigValueType.OBJECT,
-                        originalPath.subPath(0, originalPath.length() - next.length()));
-                return findOrNull(o, next, expected, originalPath);
             }
+            AbstractConfigObject o = (AbstractConfigObject) findKey(self, key,
+                    ConfigValueType.OBJECT,
+                    originalPath.subPath(0, originalPath.length() - next.length()));
+            return findOrNull(o, next, expected, originalPath);
         } catch (ConfigException.NotResolved e) {
             throw ConfigImpl.improveNotResolved(path, e);
         }
@@ -588,12 +585,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
     }
 
     @Override
-    public final boolean equals(Object other) {
+    public boolean equals(Object other) {
         if (other instanceof SimpleConfig) {
             return object.equals(((SimpleConfig) other).object);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
@@ -653,16 +649,16 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         }
 
         // note that this is deliberately case-sensitive
-        if (unitString.equals("") || unitString.equals("d") || unitString.equals("days")) {
+        if ("".equals(unitString) || "d".equals(unitString) || "days".equals(unitString)) {
             units = ChronoUnit.DAYS;
 
-        } else if (unitString.equals("w") || unitString.equals("weeks")) {
+        } else if ("w".equals(unitString) || "weeks".equals(unitString)) {
             units = ChronoUnit.WEEKS;
 
-        } else if (unitString.equals("m") || unitString.equals("mo") || unitString.equals("months")) {
+        } else if ("m".equals(unitString) || "mo".equals(unitString) || "months".equals(unitString)) {
             units = ChronoUnit.MONTHS;
 
-        } else if (unitString.equals("y") || unitString.equals("years")) {
+        } else if ("y".equals(unitString) || "years".equals(unitString)) {
             units = ChronoUnit.YEARS;
 
         } else {
@@ -729,19 +725,19 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         }
 
         // note that this is deliberately case-sensitive
-        if (unitString.equals("") || unitString.equals("ms") || unitString.equals("millis") || unitString.equals("milliseconds")) {
+        if ("".equals(unitString) || "ms".equals(unitString) || "millis".equals(unitString) || "milliseconds".equals(unitString)) {
             units = TimeUnit.MILLISECONDS;
-        } else if (unitString.equals("us") || unitString.equals("micros") || unitString.equals("microseconds")) {
+        } else if ("us".equals(unitString) || "micros".equals(unitString) || "microseconds".equals(unitString)) {
             units = TimeUnit.MICROSECONDS;
-        } else if (unitString.equals("ns") || unitString.equals("nanos") || unitString.equals("nanoseconds")) {
+        } else if ("ns".equals(unitString) || "nanos".equals(unitString) || "nanoseconds".equals(unitString)) {
             units = TimeUnit.NANOSECONDS;
-        } else if (unitString.equals("d") || unitString.equals("days")) {
+        } else if ("d".equals(unitString) || "days".equals(unitString)) {
             units = TimeUnit.DAYS;
-        } else if (unitString.equals("h") || unitString.equals("hours")) {
+        } else if ("h".equals(unitString) || "hours".equals(unitString)) {
             units = TimeUnit.HOURS;
-        } else if (unitString.equals("s") || unitString.equals("seconds")) {
+        } else if ("s".equals(unitString) || "seconds".equals(unitString)) {
             units = TimeUnit.SECONDS;
-        } else if (unitString.equals("m") || unitString.equals("minutes")) {
+        } else if ("m".equals(unitString) || "minutes".equals(unitString)) {
             units = TimeUnit.MINUTES;
         } else {
             throw new ConfigException.BadValue(originForException,
@@ -754,10 +750,9 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             // otherwise as a double.
             if (numberString.matches("[+-]?[0-9]+")) {
                 return units.toNanos(Long.parseLong(numberString));
-            } else {
-                long nanosInUnit = units.toNanos(1);
-                return (long) (Double.parseDouble(numberString) * nanosInUnit);
             }
+            long nanosInUnit = units.toNanos(1);
+            return (long) (Double.parseDouble(numberString) * nanosInUnit);
         } catch (NumberFormatException e) {
             throw new ConfigException.BadValue(originForException,
                     pathForException, "Could not parse duration number '" + numberString + "'");
@@ -908,12 +903,10 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             AbstractConfigObject obj = (AbstractConfigObject) refValue;
             if (!obj.isEmpty()) {
                 return "object with keys " + obj.keySet();
-            } else {
-                return getDesc(refValue.valueType());
             }
-        } else {
             return getDesc(refValue.valueType());
         }
+        return getDesc(refValue.valueType());
     }
 
     private static void addMissing(List<ConfigException.ValidationProblem> accumulator,
@@ -956,9 +949,8 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         if (couldBeNull((AbstractConfigValue) reference)) {
             // we allow any setting to be null
             return true;
-        } else {
-            return haveCompatibleTypes(reference.valueType(), value);
         }
+        return haveCompatibleTypes(reference.valueType(), value);
     }
 
     private static boolean haveCompatibleTypes(ConfigValueType referenceType, AbstractConfigValue value) {
@@ -978,9 +970,8 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         } else if (value instanceof ConfigString) {
             // assume a string could be gotten as any non-collection type
             return true;
-        } else {
-            return referenceType == value.valueType();
         }
+        return referenceType == value.valueType();
     }
 
     // path is null if we're at the root

@@ -156,9 +156,8 @@ public abstract class ConfigException extends RuntimeException implements Serial
         private static String makeMessage(String path, String expected) {
             if (expected != null) {
                 return "Configuration key '" + path + "' is set to null but expected " + expected;
-            } else {
-                return "Configuration key '" + path + "' is null";
             }
+            return "Configuration key '" + path + "' is null";
         }
 
         public Null(ConfigOrigin origin, String path, String expected,

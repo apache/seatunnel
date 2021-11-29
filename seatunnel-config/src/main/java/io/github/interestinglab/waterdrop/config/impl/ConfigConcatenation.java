@@ -160,28 +160,27 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
     static List<AbstractConfigValue> consolidate(List<AbstractConfigValue> pieces) {
         if (pieces.size() < 2) {
             return pieces;
-        } else {
-            List<AbstractConfigValue> flattened = new ArrayList<AbstractConfigValue>(pieces.size());
-            for (AbstractConfigValue v : pieces) {
-                if (v instanceof ConfigConcatenation) {
-                    flattened.addAll(((ConfigConcatenation) v).pieces);
-                } else {
-                    flattened.add(v);
-                }
-            }
-
-            ArrayList<AbstractConfigValue> consolidated = new ArrayList<AbstractConfigValue>(
-                    flattened.size());
-            for (AbstractConfigValue v : flattened) {
-                if (consolidated.isEmpty()) {
-                    consolidated.add(v);
-                } else {
-                    join(consolidated, v);
-                }
-            }
-
-            return consolidated;
         }
+        List<AbstractConfigValue> flattened = new ArrayList<AbstractConfigValue>(pieces.size());
+        for (AbstractConfigValue v : pieces) {
+            if (v instanceof ConfigConcatenation) {
+                flattened.addAll(((ConfigConcatenation) v).pieces);
+            } else {
+                flattened.add(v);
+            }
+        }
+
+        ArrayList<AbstractConfigValue> consolidated = new ArrayList<AbstractConfigValue>(
+                flattened.size());
+        for (AbstractConfigValue v : flattened) {
+            if (consolidated.isEmpty()) {
+                consolidated.add(v);
+            } else {
+                join(consolidated, v);
+            }
+        }
+
+        return consolidated;
     }
 
     static AbstractConfigValue concatenate(List<AbstractConfigValue> pieces) {
@@ -244,9 +243,8 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
             return ResolveResult.make(newContext, null);
         } else if (joined.size() == 1) {
             return ResolveResult.make(newContext, joined.get(0));
-        } else {
-            throw new ConfigException.BugOrBroken("Bug in the library; resolved list was joined to too many values: " + joined);
         }
+        throw new ConfigException.BugOrBroken("Bug in the library; resolved list was joined to too many values: " + joined);
     }
 
     @Override

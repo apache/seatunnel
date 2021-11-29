@@ -281,14 +281,13 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                         // we know we won't need to merge anything in to this
                         // value
                         return v;
-                    } else {
-                        // we can't return this value because we know there are
-                        // unmergeable values later in the stack that may
-                        // contain values that need to be merged with this
-                        // value. we'll throw the exception when we get to those
-                        // unmergeable values, so continue here.
-                        continue;
                     }
+                    // we can't return this value because we know there are
+                    // unmergeable values later in the stack that may
+                    // contain values that need to be merged with this
+                    // value. we'll throw the exception when we get to those
+                    // unmergeable values, so continue here.
+                    continue;
                 } else if (layer instanceof Unmergeable) {
                     // an unmergeable object (which would be another
                     // ConfigDelayedMergeObject) can't know that a key is
@@ -296,12 +295,11 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                     // value or throw NotPossibleToResolve
                     throw new ConfigException.BugOrBroken(
                             "should not be reached: unmergeable object returned null value");
-                } else {
-                    // a non-unmergeable AbstractConfigObject that returned null
-                    // for the key in question is not relevant, we can keep
-                    // looking for a value.
-                    continue;
                 }
+                // a non-unmergeable AbstractConfigObject that returned null
+                // for the key in question is not relevant, we can keep
+                // looking for a value.
+                continue;
             } else if (layer instanceof Unmergeable) {
                 throw new ConfigException.NotResolved("Key '" + key + "' is not available at '" + origin().description() + "' because value at '" + layer.origin().description() + "' has not been resolved and may turn out to contain or hide '" + key + "'." + " Be sure to Config#resolve() before using a config object.");
             } else if (layer.resolveStatus() == ResolveStatus.UNRESOLVED) {
@@ -315,18 +313,17 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                 // all later objects will be hidden so we can say we won't find
                 // the key
                 return null;
-            } else {
-                // non-object, but resolved, like an integer or something.
-                // has no children so the one we're after won't be in it.
-                // we would only have this in the stack in case something
-                // else "looks back" to it due to a cycle.
-                // anyway at this point we know we can't find the key anymore.
-                if (!layer.ignoresFallbacks()) {
-                    throw new ConfigException.BugOrBroken(
-                            "resolved non-object should ignore fallbacks");
-                }
-                return null;
             }
+            // non-object, but resolved, like an integer or something.
+            // has no children so the one we're after won't be in it.
+            // we would only have this in the stack in case something
+            // else "looks back" to it due to a cycle.
+            // anyway at this point we know we can't find the key anymore.
+            if (!layer.ignoresFallbacks()) {
+                throw new ConfigException.BugOrBroken(
+                        "resolved non-object should ignore fallbacks");
+            }
+            return null;
         }
         // If we get here, then we never found anything unresolved which means
         // the ConfigDelayedMergeObject should not have existed. some

@@ -187,18 +187,17 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                 ConfigImpl.trace(context.depth(), "Nothing else in the merge stack, replacing with null");
             }
             return null;
-        } else {
-            // generate a new merge stack from only the remaining items
-            AbstractConfigValue merged = null;
-            for (AbstractConfigValue v : subStack) {
-                if (merged == null) {
-                    merged = v;
-                } else {
-                    merged = merged.withFallback(v);
-                }
-            }
-            return merged;
         }
+        // generate a new merge stack from only the remaining items
+        AbstractConfigValue merged = null;
+        for (AbstractConfigValue v : subStack) {
+            if (merged == null) {
+                merged = v;
+            } else {
+                merged = merged.withFallback(v);
+            }
+        }
+        return merged;
     }
 
     @Override
@@ -319,9 +318,9 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
             if (commentMerge) {
                 indent(sb, indent, options);
                 if (atKey != null) {
-                    sb.append("#     unmerged value " + i + " for key " + ConfigImplUtil.renderJsonString(atKey) + " from ");
+                    sb.append("#     unmerged value ").append(i).append(" for key ").append(ConfigImplUtil.renderJsonString(atKey)).append(" from ");
                 } else {
-                    sb.append("#     unmerged value " + i + " from ");
+                    sb.append("#     unmerged value ").append(i).append(" from ");
                 }
                 i += 1;
                 sb.append(v.origin().description());

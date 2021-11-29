@@ -353,10 +353,9 @@ final class Tokens {
     static AbstractConfigValue getValue(Token token) {
         if (token instanceof Value) {
             return ((Value) token).value();
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "tried to get value of non-value token " + token);
         }
+        throw new ConfigException.BugOrBroken(
+                "tried to get value of non-value token " + token);
     }
 
     static boolean isValueWithType(Token t, ConfigValueType valueType) {
@@ -374,33 +373,29 @@ final class Tokens {
     static String getProblemWhat(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).what();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem what from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem what from " + token);
     }
 
     static String getProblemMessage(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).message();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem message from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem message from " + token);
     }
 
     static boolean getProblemSuggestQuotes(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).suggestQuotes();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem suggestQuotes from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem suggestQuotes from " + token);
     }
 
     static Throwable getProblemCause(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).cause();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem cause from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem cause from " + token);
     }
 
     static boolean isComment(Token token) {
@@ -410,9 +405,8 @@ final class Tokens {
     static String getCommentText(Token token) {
         if (token instanceof Comment) {
             return ((Comment) token).text();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get comment text from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get comment text from " + token);
     }
 
     static boolean isUnquotedText(Token token) {
@@ -422,10 +416,9 @@ final class Tokens {
     static String getUnquotedText(Token token) {
         if (token instanceof UnquotedText) {
             return ((UnquotedText) token).value();
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "tried to get unquoted text from " + token);
         }
+        throw new ConfigException.BugOrBroken(
+                "tried to get unquoted text from " + token);
     }
 
     static boolean isIgnoredWhitespace(Token token) {
@@ -439,18 +432,16 @@ final class Tokens {
     static List<Token> getSubstitutionPathExpression(Token token) {
         if (token instanceof Substitution) {
             return ((Substitution) token).value();
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "tried to get substitution from " + token);
         }
+        throw new ConfigException.BugOrBroken(
+                "tried to get substitution from " + token);
     }
 
     static boolean getSubstitutionOptional(Token token) {
         if (token instanceof Substitution) {
             return ((Substitution) token).optional();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get substitution optionality from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get substitution optionality from " + token);
     }
 
     static final Token START = Token.newWithoutOrigin(TokenType.START, "start of file", "");

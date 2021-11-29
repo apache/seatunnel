@@ -46,9 +46,8 @@ final class MemoKey {
                 return true;
             } else if (o.restrictToChildOrNull == null || this.restrictToChildOrNull == null) {
                 return false;
-            } else {
-                return o.restrictToChildOrNull.equals(this.restrictToChildOrNull);
             }
+            return o.restrictToChildOrNull.equals(this.restrictToChildOrNull);
         }
         return false;
     }

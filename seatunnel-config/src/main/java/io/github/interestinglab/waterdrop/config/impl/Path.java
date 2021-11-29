@@ -203,9 +203,8 @@ final class Path {
 
             if (Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == '.') {
                 continue;
-            } else {
-                return true;
             }
+            return true;
         }
         return false;
     }

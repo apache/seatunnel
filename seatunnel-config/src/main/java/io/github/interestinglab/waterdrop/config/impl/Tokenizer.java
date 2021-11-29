@@ -54,9 +54,8 @@ final class Tokenizer {
             return "end of file";
         } else if (ConfigImplUtil.isC0Control(codepoint)) {
             return String.format("control character 0x%x", codepoint);
-        } else {
-            return String.format("%c", codepoint);
         }
+        return String.format("%c", codepoint);
     }
 
     /**
@@ -95,9 +94,8 @@ final class Tokenizer {
             Token check(Token t, ConfigOrigin baseOrigin, int lineNumber) {
                 if (isSimpleValue(t)) {
                     return nextIsASimpleValue(baseOrigin, lineNumber);
-                } else {
-                    return nextIsNotASimpleValue(baseOrigin, lineNumber);
                 }
+                return nextIsNotASimpleValue(baseOrigin, lineNumber);
             }
 
             // called if the next token is not a simple value;
@@ -171,10 +169,8 @@ final class Tokenizer {
                 } catch (IOException e) {
                     throw new ConfigException.IO(origin, "read error: " + e.getMessage(), e);
                 }
-            } else {
-                int c = buffer.pop();
-                return c;
             }
+            return buffer.pop();
         }
 
         private void putBack(int c) {
@@ -196,22 +192,19 @@ final class Tokenizer {
         private boolean startOfComment(int c) {
             if (c == -1) {
                 return false;
-            } else {
-                if (allowComments) {
-                    if (c == '#') {
-                        return true;
-                    } else if (c == '/') {
-                        int maybeSecondSlash = nextCharRaw();
-                        // we want to predictably NOT consume any chars
-                        putBack(maybeSecondSlash);
-                        return maybeSecondSlash == '/';
-                    } else {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
             }
+            if (allowComments) {
+                if (c == '#') {
+                    return true;
+                } else if (c == '/') {
+                    int maybeSecondSlash = nextCharRaw();
+                    // we want to predictably NOT consume any chars
+                    putBack(maybeSecondSlash);
+                    return maybeSecondSlash == '/';
+                }
+                return false;
+            }
+            return false;
         }
 
         // get next char, skipping non-newline whitespace
@@ -221,14 +214,12 @@ final class Tokenizer {
 
                 if (c == -1) {
                     return -1;
-                } else {
-                    if (isWhitespaceNotNewline(c)) {
-                        saver.add(c);
-                        continue;
-                    } else {
-                        return c;
-                    }
                 }
+                if (isWhitespaceNotNewline(c)) {
+                    saver.add(c);
+                    continue;
+                }
+                return c;
             }
         }
 
@@ -297,9 +288,8 @@ final class Tokenizer {
                     putBack(c);
                     if (doubleSlash) {
                         return Tokens.newCommentDoubleSlash(lineOrigin, sb.toString());
-                    } else {
-                        return Tokens.newCommentHash(lineOrigin, sb.toString());
                     }
+                    return Tokens.newCommentHash(lineOrigin, sb.toString());
                 } else {
                     sb.appendCodePoint(c);
                 }
@@ -339,14 +329,14 @@ final class Tokenizer {
                 // start of the unquoted token.
                 if (sb.length() == 4) {
                     String s = sb.toString();
-                    if (s.equals("true")) {
+                    if ("true".equals(s)) {
                         return Tokens.newBoolean(origin, true);
-                    } else if (s.equals("null")) {
+                    } else if ("null".equals(s)) {
                         return Tokens.newNull(origin);
                     }
                 } else if (sb.length() == 5) {
                     String s = sb.toString();
-                    if (s.equals("false")) {
+                    if ("false".equals(s)) {
                         return Tokens.newBoolean(origin, false);
                     }
                 }
@@ -381,10 +371,9 @@ final class Tokenizer {
                 if (containedDecimalOrE) {
                     // force floating point representation
                     return Tokens.newDouble(lineOrigin, Double.parseDouble(s), s);
-                } else {
-                    // this should throw if the integer is too large for Long
-                    return Tokens.newLong(lineOrigin, Long.parseLong(s), s);
                 }
+                // this should throw if the integer is too large for Long
+                return Tokens.newLong(lineOrigin, Long.parseLong(s), s);
             } catch (NumberFormatException e) {
                 // not a number after all, see if it's an unquoted string.
                 for (char u : s.toCharArray()) {
@@ -601,66 +590,65 @@ final class Tokenizer {
                 lineNumber += 1;
                 lineOrigin = origin.withLineNumber(lineNumber);
                 return line;
+            }
+            Token t;
+            if (startOfComment(c)) {
+                t = pullComment(c);
             } else {
-                Token t;
-                if (startOfComment(c)) {
-                    t = pullComment(c);
-                } else {
-                    switch (c) {
-                        case '"':
-                            t = pullQuotedString();
-                            break;
-                        case '$':
-                            t = pullSubstitution();
-                            break;
-                        case ':':
-                            t = Tokens.COLON;
-                            break;
-                        case ',':
-                            t = Tokens.COMMA;
-                            break;
-                        case '=':
-                            t = Tokens.EQUALS;
-                            break;
-                        case '{':
-                            t = Tokens.OPEN_CURLY;
-                            break;
-                        case '}':
-                            t = Tokens.CLOSE_CURLY;
-                            break;
-                        case '[':
-                            t = Tokens.OPEN_SQUARE;
-                            break;
-                        case ']':
-                            t = Tokens.CLOSE_SQUARE;
-                            break;
-                        case '+':
-                            t = pullPlusEquals();
-                            break;
-                        default:
-                            t = null;
-                            break;
-                    }
-
-                    if (t == null) {
-                        if (FIRST_NUMBER_CHARS.indexOf(c) >= 0) {
-                            t = pullNumber(c);
-                        } else if (NOT_IN_UNIQUOTED_TEXT.indexOf(c) >= 0) {
-                            throw problem(asString(c), "Reserved character '" + asString(c) + "' is not allowed outside quotes", true /* suggestQuotes */);
-                        } else {
-                            putBack(c);
-                            t = pullUnquotedText();
-                        }
-                    }
+                switch (c) {
+                    case '"':
+                        t = pullQuotedString();
+                        break;
+                    case '$':
+                        t = pullSubstitution();
+                        break;
+                    case ':':
+                        t = Tokens.COLON;
+                        break;
+                    case ',':
+                        t = Tokens.COMMA;
+                        break;
+                    case '=':
+                        t = Tokens.EQUALS;
+                        break;
+                    case '{':
+                        t = Tokens.OPEN_CURLY;
+                        break;
+                    case '}':
+                        t = Tokens.CLOSE_CURLY;
+                        break;
+                    case '[':
+                        t = Tokens.OPEN_SQUARE;
+                        break;
+                    case ']':
+                        t = Tokens.CLOSE_SQUARE;
+                        break;
+                    case '+':
+                        t = pullPlusEquals();
+                        break;
+                    default:
+                        t = null;
+                        break;
                 }
 
                 if (t == null) {
-                    throw new ConfigException.BugOrBroken(
-                            "bug: failed to generate next token");
+                    if (FIRST_NUMBER_CHARS.indexOf(c) >= 0) {
+                        t = pullNumber(c);
+                    } else if (NOT_IN_UNIQUOTED_TEXT.indexOf(c) >= 0) {
+                        throw problem(asString(c), "Reserved character '" + asString(c) + "' is not allowed outside quotes", true /* suggestQuotes */);
+                    } else {
+                        putBack(c);
+                        t = pullUnquotedText();
+                    }
                 }
-
-                return t;
             }
+
+            if (t == null) {
+                throw new ConfigException.BugOrBroken(
+                        "bug: failed to generate next token");
+            }
+
+            return t;
         }
 
         private static boolean isSimpleValue(Token t) {

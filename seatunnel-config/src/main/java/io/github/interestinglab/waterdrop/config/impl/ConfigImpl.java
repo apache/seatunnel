@@ -183,10 +183,9 @@ public class ConfigImpl {
     private static SimpleConfigList emptyList(ConfigOrigin origin) {
         if (origin == null || origin == DEFAULT_VALUE_ORIGIN) {
             return DEFAULT_EMPTY_LIST;
-        } else {
-            return new SimpleConfigList(origin,
-                    Collections.<AbstractConfigValue>emptyList());
         }
+        return new SimpleConfigList(origin,
+                Collections.<AbstractConfigValue>emptyList());
     }
 
     private static AbstractConfigObject emptyObject(ConfigOrigin origin) {
@@ -227,9 +226,8 @@ public class ConfigImpl {
         if (object == null) {
             if (origin != DEFAULT_VALUE_ORIGIN) {
                 return new ConfigNull(origin);
-            } else {
-                return DEFAULT_NULL_VALUE;
             }
+            return DEFAULT_NULL_VALUE;
         } else if (object instanceof AbstractConfigValue) {
             return (AbstractConfigValue) object;
         } else if (object instanceof Boolean) {
@@ -237,9 +235,8 @@ public class ConfigImpl {
                 return new ConfigBoolean(origin, (Boolean) object);
             } else if ((Boolean) object) {
                 return DEFAULT_TRUE_VALUE;
-            } else {
-                return DEFAULT_FALSE_VALUE;
             }
+            return DEFAULT_FALSE_VALUE;
         } else if (object instanceof String) {
             return new ConfigString.Quoted(origin, (String) object);
         } else if (object instanceof Number) {
@@ -254,10 +251,9 @@ public class ConfigImpl {
                 return new ConfigInt(origin, (Integer) object, null);
             } else if (object instanceof Long) {
                 return new ConfigLong(origin, (Long) object, null);
-            } else {
-                return ConfigNumber.newNumber(origin,
-                        ((Number) object).doubleValue(), null);
             }
+            return ConfigNumber.newNumber(origin,
+                    ((Number) object).doubleValue(), null);
         } else if (object instanceof Duration) {
             return new ConfigLong(origin, ((Duration) object).toMillis(), null);
         } else if (object instanceof Map) {
@@ -279,9 +275,8 @@ public class ConfigImpl {
                 }
 
                 return new SimpleConfigObject(origin, values);
-            } else {
-                return PropertiesParser.fromPathMap(origin, (Map<?, ?>) object);
             }
+            return PropertiesParser.fromPathMap(origin, (Map<?, ?>) object);
         } else if (object instanceof Iterable) {
             Iterator<?> i = ((Iterable<?>) object).iterator();
             if (!i.hasNext()) {
@@ -297,10 +292,9 @@ public class ConfigImpl {
             return new SimpleConfigList(origin, values);
         } else if (object instanceof ConfigMemorySize) {
             return new ConfigLong(origin, ((ConfigMemorySize) object).toBytes(), null);
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "bug in method caller: not valid to create ConfigValue from: " + object);
         }
+        throw new ConfigException.BugOrBroken(
+                "bug in method caller: not valid to create ConfigValue from: " + object);
     }
 
     private static class DefaultIncluderHolder {
@@ -405,19 +399,18 @@ public class ConfigImpl {
             String s = System.getProperty("config.trace");
             if (s == null) {
                 return result;
-            } else {
-                String[] keys = s.split(",");
-                for (String k : keys) {
-                    if (k.equals(LOADS)) {
-                        result.put(LOADS, true);
-                    } else if (k.equals(SUBSTITUTIONS)) {
-                        result.put(SUBSTITUTIONS, true);
-                    } else {
-                        System.err.println("config.trace property contains unknown trace topic '" + k + "'");
-                    }
-                }
-                return result;
             }
+            String[] keys = s.split(",");
+            for (String k : keys) {
+                if (k.equals(LOADS)) {
+                    result.put(LOADS, true);
+                } else if (k.equals(SUBSTITUTIONS)) {
+                    result.put(SUBSTITUTIONS, true);
+                } else {
+                    System.err.println("config.trace property contains unknown trace topic '" + k + "'");
+                }
+            }
+            return result;
         }
 
         private static final Map<String, Boolean> DIAGNOSTICS = loadDiagnostics();

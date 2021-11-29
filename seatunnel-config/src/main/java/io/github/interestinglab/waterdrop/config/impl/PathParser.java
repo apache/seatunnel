@@ -191,9 +191,8 @@ final class PathParser {
                         origin,
                         originalText,
                         "path has a leading, trailing, or two adjacent period '.' (use quoted \"\" empty string if you want an empty element)");
-            } else {
-                pb.appendKey(e.sb.toString());
             }
+            pb.appendKey(e.sb.toString());
         }
 
         return pb.result();
@@ -277,9 +276,8 @@ final class PathParser {
                     return true;
                 }
                 continue;
-            } else {
-                return true;
             }
+            return true;
         }
 
         if (lastWasDot) {
@@ -300,10 +298,9 @@ final class PathParser {
         if (splitAt < 0) {
             Path withOneMoreElement = new Path(s.substring(0, end), tail);
             return withOneMoreElement;
-        } else {
-            Path withOneMoreElement = new Path(s.substring(splitAt + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), end), tail);
-            return fastPathBuild(withOneMoreElement, s, splitAt);
         }
+        Path withOneMoreElement = new Path(s.substring(splitAt + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), end), tail);
+        return fastPathBuild(withOneMoreElement, s, splitAt);
     }
 
     // do something much faster than the full parser if

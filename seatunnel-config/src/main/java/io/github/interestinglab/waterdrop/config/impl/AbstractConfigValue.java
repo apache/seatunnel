@@ -109,9 +109,8 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
 
         if (newStack.isEmpty()) {
             return null;
-        } else {
-            return newStack;
         }
+        return newStack;
     }
 
     protected static boolean hasDescendantInList(List<AbstractConfigValue> list, AbstractConfigValue descendant) {
@@ -186,10 +185,9 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     protected AbstractConfigValue withFallbacksIgnored() {
         if (ignoresFallbacks()) {
             return this;
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "value class doesn't implement forced fallback-ignoring " + this);
         }
+        throw new ConfigException.BugOrBroken(
+                "value class doesn't implement forced fallback-ignoring " + this);
     }
 
     // the withFallback() implementation is supposed to avoid calling
@@ -250,11 +248,10 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
             // prohibits merging any objects that we fall back to later.
             // so we have to switch to ignoresFallbacks mode.
             return withFallbacksIgnored();
-        } else {
-            // if unresolved, we may have to look back to fallbacks as part of
-            // the resolution process, so always delay
-            return delayMerge(stack, fallback);
         }
+        // if unresolved, we may have to look back to fallbacks as part of
+        // the resolution process, so always delay
+        return delayMerge(stack, fallback);
     }
 
     protected AbstractConfigValue mergedWithTheUnmergeable(Unmergeable fallback) {
@@ -279,9 +276,8 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     public AbstractConfigValue withOrigin(ConfigOrigin origin) {
         if (this.origin == origin) {
             return this;
-        } else {
-            return newCopy(origin);
         }
+        return newCopy(origin);
     }
 
     // this is only overridden to change the return type
@@ -289,17 +285,14 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     public AbstractConfigValue withFallback(ConfigMergeable mergeable) {
         if (ignoresFallbacks()) {
             return this;
-        } else {
-            ConfigValue other = ((MergeableValue) mergeable).toFallbackValue();
-
-            if (other instanceof Unmergeable) {
-                return mergedWithTheUnmergeable((Unmergeable) other);
-            } else if (other instanceof AbstractConfigObject) {
-                return mergedWithObject((AbstractConfigObject) other);
-            } else {
-                return mergedWithNonObject((AbstractConfigValue) other);
-            }
         }
+        ConfigValue other = ((MergeableValue) mergeable).toFallbackValue();
+        if (other instanceof Unmergeable) {
+            return mergedWithTheUnmergeable((Unmergeable) other);
+        } else if (other instanceof AbstractConfigObject) {
+            return mergedWithObject((AbstractConfigObject) other);
+        }
+        return mergedWithNonObject((AbstractConfigValue) other);
     }
 
     protected boolean canEqual(Object other) {
@@ -313,9 +306,8 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
             return canEqual(other) && (this.valueType() ==
                     ((ConfigValue) other).valueType()) && ConfigImplUtil.equalsHandlingNull(this.unwrapped(),
                     ((ConfigValue) other).unwrapped());
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
@@ -324,9 +316,8 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
         Object o = this.unwrapped();
         if (o == null) {
             return 0;
-        } else {
-            return o.hashCode();
         }
+        return o.hashCode();
     }
 
     @Override

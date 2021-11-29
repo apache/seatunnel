@@ -131,12 +131,10 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         if (changed != null) {
             if (newResolveStatus != null) {
                 return new SimpleConfigList(origin(), changed, newResolveStatus);
-            } else {
-                return new SimpleConfigList(origin(), changed);
             }
-        } else {
-            return this;
+            return new SimpleConfigList(origin(), changed);
         }
+        return this;
     }
 
     private static class ResolveModifier implements Modifier {
@@ -168,18 +166,17 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
             // if a list restricts to a child path, then it has no child paths,
             // so nothing to do.
             return ResolveResult.make(context, this);
-        } else {
-            try {
-                ResolveModifier modifier = new ResolveModifier(context, source.pushParent(this));
-                SimpleConfigList value = modifyMayThrow(modifier, context.options().getAllowUnresolved() ? null : ResolveStatus.RESOLVED);
-                return ResolveResult.make(modifier.context, value);
-            } catch (NotPossibleToResolve e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new ConfigException.BugOrBroken("unexpected checked exception", e);
-            }
+        }
+        try {
+            ResolveModifier modifier = new ResolveModifier(context, source.pushParent(this));
+            SimpleConfigList value = modifyMayThrow(modifier, context.options().getAllowUnresolved() ? null : ResolveStatus.RESOLVED);
+            return ResolveResult.make(modifier.context, value);
+        } catch (NotPossibleToResolve e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ConfigException.BugOrBroken("unexpected checked exception", e);
         }
     }
 

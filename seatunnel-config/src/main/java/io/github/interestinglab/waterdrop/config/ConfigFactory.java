@@ -1071,8 +1071,7 @@ public final class ConfigFactory {
             } catch (Throwable e) {
                 throw new ConfigException.BugOrBroken("Failed to load strategy: " + className, e);
             }
-        } else {
-            return new DefaultConfigLoadingStrategy();
         }
+        return new DefaultConfigLoadingStrategy();
     }
 }

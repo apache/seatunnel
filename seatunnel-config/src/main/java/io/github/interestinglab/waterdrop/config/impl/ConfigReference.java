@@ -124,12 +124,10 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
         if (v == null && !expr.optional()) {
             if (newContext.options().getAllowUnresolved()) {
                 return ResolveResult.make(newContext.removeCycleMarker(this), this);
-            } else {
-                throw new ConfigException.UnresolvedSubstitution(origin(), expr.toString());
             }
-        } else {
-            return ResolveResult.make(newContext.removeCycleMarker(this), v);
+            throw new ConfigException.UnresolvedSubstitution(origin(), expr.toString());
         }
+        return ResolveResult.make(newContext.removeCycleMarker(this), v);
     }
 
     @Override

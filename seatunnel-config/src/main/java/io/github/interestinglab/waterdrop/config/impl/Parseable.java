@@ -158,10 +158,9 @@ public abstract class Parseable implements ConfigParseable {
     static AbstractConfigObject forceParsedToObject(ConfigValue value) {
         if (value instanceof AbstractConfigObject) {
             return (AbstractConfigObject) value;
-        } else {
-            throw new ConfigException.WrongType(value.origin(), "", "object at file root", value
-                    .valueType().name());
         }
+        throw new ConfigException.WrongType(value.origin(), "", "object at file root", value
+                .valueType().name());
     }
 
     @Override
@@ -207,11 +206,10 @@ public abstract class Parseable implements ConfigParseable {
         } catch (IOException e) {
             if (finalOptions.getAllowMissing()) {
                 return SimpleConfigObject.emptyMissing(origin);
-            } else {
-                trace("exception loading " + origin.description() + ": " + e.getClass().getName() + ": " + e.getMessage());
-                throw new ConfigException.IO(origin,
-                        e.getClass().getName() + ": " + e.getMessage(), e);
             }
+            trace("exception loading " + origin.description() + ": " + e.getClass().getName() + ": " + e.getMessage());
+            throw new ConfigException.IO(origin,
+                    e.getClass().getName() + ": " + e.getMessage(), e);
         }
     }
 
@@ -241,11 +239,10 @@ public abstract class Parseable implements ConfigParseable {
                 ArrayList<AbstractConfigNode> children = new ArrayList<AbstractConfigNode>();
                 children.add(new ConfigNodeObject(new ArrayList<AbstractConfigNode>()));
                 return new SimpleConfigDocument(new ConfigNodeRoot(children, origin), finalOptions);
-            } else {
-                trace("exception loading " + origin.description() + ": " + e.getClass().getName() + ": " + e.getMessage());
-                throw new ConfigException.IO(origin,
-                        e.getClass().getName() + ": " + e.getMessage(), e);
             }
+            trace("exception loading " + origin.description() + ": " + e.getClass().getName() + ": " + e.getMessage());
+            throw new ConfigException.IO(origin,
+                    e.getClass().getName() + ": " + e.getMessage(), e);
         }
     }
 
@@ -280,11 +277,10 @@ public abstract class Parseable implements ConfigParseable {
                                               ConfigParseOptions finalOptions) throws IOException {
         if (finalOptions.getSyntax() == ConfigSyntax.PROPERTIES) {
             return PropertiesParser.parse(reader, origin);
-        } else {
-            Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, finalOptions.getSyntax());
-            ConfigNodeRoot document = ConfigDocumentParser.parse(tokens, origin, finalOptions);
-            return ConfigParser.parse(document, origin, finalOptions, includeContext());
         }
+        Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, finalOptions.getSyntax());
+        ConfigNodeRoot document = ConfigDocumentParser.parse(tokens, origin, finalOptions);
+        return ConfigParser.parse(document, origin, finalOptions, includeContext());
     }
 
     // this is parseDocument without post-processing the IOException or handling
@@ -356,9 +352,8 @@ public abstract class Parseable implements ConfigParseable {
             return ConfigSyntax.CONF;
         } else if (name.endsWith(".properties")) {
             return ConfigSyntax.PROPERTIES;
-        } else {
-            return null;
         }
+        return null;
     }
 
     private static Reader readerFromStream(InputStream input) {
@@ -424,9 +419,8 @@ public abstract class Parseable implements ConfigParseable {
 
         if (parent == null) {
             return null;
-        } else {
-            return new File(parent, filename);
         }
+        return new File(parent, filename);
     }
 
     // this is a parseable that doesn't exist and just throws when you try to
@@ -620,15 +614,13 @@ public abstract class Parseable implements ConfigParseable {
                     return ConfigSyntax.PROPERTIES;
                 } else if (contentType.equals(HOCON_CONTENT_TYPE)) {
                     return ConfigSyntax.CONF;
-                } else {
-                    if (ConfigImpl.traceLoadsEnable()) {
-                        trace("'" + contentType + "' isn't a known content type");
-                    }
-                    return null;
                 }
-            } else {
+                if (ConfigImpl.traceLoadsEnable()) {
+                    trace("'" + contentType + "' isn't a known content type");
+                }
                 return null;
             }
+            return null;
         }
 
         @Override
@@ -656,9 +648,8 @@ public abstract class Parseable implements ConfigParseable {
         // to a file if it's a file: URL
         if (input.getProtocol().equals("file")) {
             return newFile(ConfigImplUtil.urlToFile(input), options);
-        } else {
-            return new ParseableURL(input, options);
         }
+        return new ParseableURL(input, options);
     }
 
     private static final class ParseableFile extends Parseable {
@@ -698,10 +689,9 @@ public abstract class Parseable implements ConfigParseable {
             if (sibling.exists()) {
                 trace(sibling + " exists, so loading it as a file");
                 return newFile(sibling, options().setOriginDescription(null));
-            } else {
-                trace(sibling + " does not exist, so trying it as a classpath resource");
-                return super.relativeTo(filename);
             }
+            trace(sibling + " does not exist, so trying it as a classpath resource");
+            return super.relativeTo(filename);
         }
 
         @Override
@@ -805,9 +795,8 @@ public abstract class Parseable implements ConfigParseable {
             int i = resource.lastIndexOf('/');
             if (i < 0) {
                 return null;
-            } else {
-                return resource.substring(0, i);
             }
+            return resource.substring(0, i);
         }
 
         @Override
@@ -816,20 +805,18 @@ public abstract class Parseable implements ConfigParseable {
                 // if it starts with "/" then don't make it relative to
                 // the including resource
                 return newResources(sibling.substring(1), options().setOriginDescription(null));
-            } else {
-                // here we want to build a new resource name and let
-                // the class loader have it, rather than getting the
-                // url with getResource() and relativizing to that url.
-                // This is needed in case the class loader is going to
-                // search a classpath.
-                String parent = parent(resource);
-                if (parent == null) {
-                    return newResources(sibling, options().setOriginDescription(null));
-                } else {
-                    return newResources(parent + "/" + sibling, options()
-                            .setOriginDescription(null));
-                }
             }
+            // here we want to build a new resource name and let
+            // the class loader have it, rather than getting the
+            // url with getResource() and relativizing to that url.
+            // This is needed in case the class loader is going to
+            // search a classpath.
+            String parent = parent(resource);
+            if (parent == null) {
+                return newResources(sibling, options().setOriginDescription(null));
+            }
+            return newResources(parent + "/" + sibling, options()
+                    .setOriginDescription(null));
         }
 
         @Override
@@ -858,19 +845,17 @@ public abstract class Parseable implements ConfigParseable {
         if (resource.startsWith("/")) {
             // "absolute" resource, chop the slash
             return resource.substring(1);
-        } else {
-            String className = klass.getName();
-            int i = className.lastIndexOf('.');
-            if (i < 0) {
-                // no package
-                return resource;
-            } else {
-                // need to be relative to the package
-                String packageName = className.substring(0, i);
-                String packagePath = packageName.replace('.', '/');
-                return packagePath + "/" + resource;
-            }
         }
+        String className = klass.getName();
+        int i = className.lastIndexOf('.');
+        if (i < 0) {
+            // no package
+            return resource;
+        }
+        // need to be relative to the package
+        String packageName = className.substring(0, i);
+        String packagePath = packageName.replace('.', '/');
+        return packagePath + "/" + resource;
     }
 
     public static Parseable newResources(String resource, ConfigParseOptions options) {

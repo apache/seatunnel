@@ -115,13 +115,11 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
 
             if (next == null) {
                 return v;
-            } else {
-                if (v instanceof AbstractConfigObject) {
-                    return peekPath((AbstractConfigObject) v, next);
-                } else {
-                    return null;
-                }
             }
+            if (v instanceof AbstractConfigObject) {
+                return peekPath((AbstractConfigObject) v, next);
+            }
+            return null;
         } catch (ConfigException.NotResolved e) {
             throw ConfigImpl.improveNotResolved(path, e);
         }

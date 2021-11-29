@@ -65,9 +65,8 @@ public final class ConfigMemorySize {
     public boolean equals(Object other) {
         if (other instanceof ConfigMemorySize) {
             return ((ConfigMemorySize) other).bytes == this.bytes;
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

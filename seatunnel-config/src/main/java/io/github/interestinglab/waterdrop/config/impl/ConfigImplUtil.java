@@ -43,9 +43,8 @@ public final class ConfigImplUtil {
         } else if (a == b) {
             // catches null == null plus optimizes identity case
             return true;
-        } else {
-            return a.equals(b);
         }
+        return a.equals(b);
     }
 
     static boolean isC0Control(int codepoint) {
@@ -194,9 +193,8 @@ public final class ConfigImplUtil {
         Throwable cause = e.getCause();
         if (cause != null && cause instanceof ConfigException) {
             return (ConfigException) cause;
-        } else {
-            throw e;
         }
+        throw e;
     }
 
     static File urlToFile(URL url) {

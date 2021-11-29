@@ -67,9 +67,8 @@ final class ResolveSource {
         if (partiallyResolved.value instanceof AbstractConfigObject) {
             ValueWithPath pair = findInObject((AbstractConfigObject) partiallyResolved.value, path);
             return new ResultWithPath(ResolveResult.make(newContext, pair.value), pair.pathFromRoot);
-        } else {
-            throw new ConfigException.BugOrBroken("resolved object to non-object " + obj + " to " + partiallyResolved);
         }
+        throw new ConfigException.BugOrBroken("resolved object to non-object " + obj + " to " + partiallyResolved);
     }
 
     private static ValueWithPath findInObject(AbstractConfigObject obj, Path path) {
@@ -93,13 +92,11 @@ final class ResolveSource {
 
         if (next == null) {
             return new ValueWithPath(v, newParents);
-        } else {
-            if (v instanceof AbstractConfigObject) {
-                return findInObject((AbstractConfigObject) v, next, newParents);
-            } else {
-                return new ValueWithPath(null, newParents);
-            }
         }
+        if (v instanceof AbstractConfigObject) {
+            return findInObject((AbstractConfigObject) v, next, newParents);
+        }
+        return new ValueWithPath(null, newParents);
     }
 
     ResultWithPath lookupSubst(ResolveContext context, SubstitutionExpression subst,
@@ -156,30 +153,28 @@ final class ResolveSource {
         if (pathFromRoot == null) {
             if (parent == root) {
                 return new ResolveSource(root, new Node<Container>(parent));
-            } else {
-                if (ConfigImpl.traceSubSituationsEnable()) {
-                    // this hasDescendant check is super-expensive so it's a
-                    // trace message rather than an assertion
-                    if (root.hasDescendant((AbstractConfigValue) parent)) {
-                        ConfigImpl.trace("***** BUG ***** tried to push parent " + parent + " without having a path to it in " + this);
-                    }
-                }
-                // ignore parents if we aren't proceeding from the
-                // root
-                return this;
             }
-        } else {
-            Container parentParent = pathFromRoot.head();
             if (ConfigImpl.traceSubSituationsEnable()) {
                 // this hasDescendant check is super-expensive so it's a
                 // trace message rather than an assertion
-                if (parentParent != null && !parentParent.hasDescendant((AbstractConfigValue) parent)) {
-                    ConfigImpl.trace("***** BUG ***** trying to push non-child of " + parentParent + ", non-child was " + parent);
+                if (root.hasDescendant((AbstractConfigValue) parent)) {
+                    ConfigImpl.trace("***** BUG ***** tried to push parent " + parent + " without having a path to it in " + this);
                 }
             }
-
-            return new ResolveSource(root, pathFromRoot.prepend(parent));
+            // ignore parents if we aren't proceeding from the
+            // root
+            return this;
         }
+        Container parentParent = pathFromRoot.head();
+        if (ConfigImpl.traceSubSituationsEnable()) {
+            // this hasDescendant check is super-expensive so it's a
+            // trace message rather than an assertion
+            if (parentParent != null && !parentParent.hasDescendant((AbstractConfigValue) parent)) {
+                ConfigImpl.trace("***** BUG ***** trying to push non-child of " + parentParent + ", non-child was " + parent);
+            }
+        }
+
+        return new ResolveSource(root, pathFromRoot.prepend(parent));
     }
 
     ResolveSource resetParents() {
@@ -199,29 +194,25 @@ final class ResolveSource {
         if (replacement == null || !(replacement instanceof Container)) {
             if (parent == null) {
                 return null;
-            } else {
-                /*
-                 * we are deleting the child from the stack of containers
-                 * because it's either going away or not a container
-                 */
-                AbstractConfigValue newParent = parent.replaceChild((AbstractConfigValue) old, null);
+            }
+            /*
+             * we are deleting the child from the stack of containers
+             * because it's either going away or not a container
+             */
+            AbstractConfigValue newParent = parent.replaceChild((AbstractConfigValue) old, null);
 
-                return replace(list.tail(), parent, newParent);
-            }
-        } else {
-            /* we replaced the container with another container */
-            if (parent == null) {
-                return new Node<Container>((Container) replacement);
-            } else {
-                AbstractConfigValue newParent = parent.replaceChild((AbstractConfigValue) old, replacement);
-                Node<Container> newTail = replace(list.tail(), parent, newParent);
-                if (newTail != null) {
-                    return newTail.prepend((Container) replacement);
-                } else {
-                    return new Node<Container>((Container) replacement);
-                }
-            }
+            return replace(list.tail(), parent, newParent);
         }
+        /* we replaced the container with another container */
+        if (parent == null) {
+            return new Node<Container>((Container) replacement);
+        }
+        AbstractConfigValue newParent = parent.replaceChild((AbstractConfigValue) old, replacement);
+        Node<Container> newTail = replace(list.tail(), parent, newParent);
+        if (newTail != null) {
+            return newTail.prepend((Container) replacement);
+        }
+        return new Node<Container>((Container) replacement);
     }
 
     ResolveSource replaceCurrentParent(Container old, Container replacement) {
@@ -240,17 +231,13 @@ final class ResolveSource {
             // empty root
             if (newPath != null) {
                 return new ResolveSource((AbstractConfigObject) newPath.last(), newPath);
-            } else {
-                return new ResolveSource(SimpleConfigObject.empty());
             }
-        } else {
-            if (old == root) {
-                return new ResolveSource(rootMustBeObj(replacement));
-            } else {
-                throw new ConfigException.BugOrBroken("attempt to replace root " + root + " with " + replacement);
-                // return this;
-            }
+            return new ResolveSource(SimpleConfigObject.empty());
         }
+        if (old == root) {
+            return new ResolveSource(rootMustBeObj(replacement));
+        }
+        throw new ConfigException.BugOrBroken("attempt to replace root " + root + " with " + replacement);
     }
 
     // replacement may be null to delete
@@ -264,15 +251,13 @@ final class ResolveSource {
             Container parent = pathFromRoot.head();
             AbstractConfigValue newParent = parent.replaceChild(old, replacement);
             return replaceCurrentParent(parent, (newParent instanceof Container) ? (Container) newParent : null);
-        } else {
-            if (old == root && replacement instanceof Container) {
-                return new ResolveSource(rootMustBeObj((Container) replacement));
-            } else {
-                //                throw new ConfigException.BugOrBroken("replace in parent not possible " + old + " with " + replacement
-                //                        + " in " + this);
-                return this;
-            }
         }
+        if (old == root && replacement instanceof Container) {
+            return new ResolveSource(rootMustBeObj((Container) replacement));
+        }
+        //                throw new ConfigException.BugOrBroken("replace in parent not possible " + old + " with " + replacement
+        //                        + " in " + this);
+        return this;
     }
 
     @Override
@@ -317,15 +302,14 @@ final class ResolveSource {
         Node<T> reverse() {
             if (next == null) {
                 return this;
-            } else {
-                Node<T> reversed = new Node<T>(value);
-                Node<T> i = next;
-                while (i != null) {
-                    reversed = reversed.prepend(i.value);
-                    i = i.next;
-                }
-                return reversed;
             }
+            Node<T> reversed = new Node<T>(value);
+            Node<T> i = next;
+            while (i != null) {
+                reversed = reversed.prepend(i.value);
+                i = i.next;
+            }
+            return reversed;
         }
 
         @Override

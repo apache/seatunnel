@@ -77,10 +77,9 @@ class SimpleIncluder implements FullIncluder {
 
         if (url != null) {
             return includeURLWithoutFallback(context, url);
-        } else {
-            NameSource source = new RelativeNameSource(context);
-            return fromBasename(source, name, context.parseOptions());
         }
+        NameSource source = new RelativeNameSource(context);
+        return fromBasename(source, name, context.parseOptions());
     }
 
     @Override

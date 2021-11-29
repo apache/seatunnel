@@ -100,10 +100,9 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
         if (v == null) {
             return null;
-        } else {
-            return new SimpleConfigObject(origin(), Collections.singletonMap(key, v),
-                    v.resolveStatus(), ignoresFallbacks);
         }
+        return new SimpleConfigObject(origin(), Collections.singletonMap(key, v),
+                v.resolveStatus(), ignoresFallbacks);
     }
 
     @Override
@@ -133,17 +132,16 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         } else if (next != null || v == null) {
             // can't descend, nothing to remove
             return this;
-        } else {
-            Map<String, AbstractConfigValue> smaller = new LinkedHashMap<String, AbstractConfigValue>(
-                    value.size() - 1);
-            for (Map.Entry<String, AbstractConfigValue> old : value.entrySet()) {
-                if (!old.getKey().equals(key)) {
-                    smaller.put(old.getKey(), old.getValue());
-                }
-            }
-            return new SimpleConfigObject(origin(), smaller, ResolveStatus.fromValues(smaller
-                    .values()), ignoresFallbacks);
         }
+        Map<String, AbstractConfigValue> smaller = new LinkedHashMap<String, AbstractConfigValue>(
+                value.size() - 1);
+        for (Map.Entry<String, AbstractConfigValue> old : value.entrySet()) {
+            if (!old.getKey().equals(key)) {
+                smaller.put(old.getKey(), old.getValue());
+            }
+        }
+        return new SimpleConfigObject(origin(), smaller, ResolveStatus.fromValues(smaller
+                .values()), ignoresFallbacks);
     }
 
     @Override
@@ -172,18 +170,16 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
         if (next == null) {
             return withValue(key, v);
-        } else {
-            AbstractConfigValue child = value.get(key);
-            if (child != null && child instanceof AbstractConfigObject) {
-                // if we have an object, add to it
-                return withValue(key, ((AbstractConfigObject) child).withValue(next, v));
-            } else {
-                // as soon as we have a non-object, replace it entirely
-                SimpleConfig subtree = ((AbstractConfigValue) v).atPath(
-                        SimpleConfigOrigin.newSimple("withValue(" + next.render() + ")"), next);
-                return withValue(key, subtree.root());
-            }
         }
+        AbstractConfigValue child = value.get(key);
+        if (child != null && child instanceof AbstractConfigObject) {
+            // if we have an object, add to it
+            return withValue(key, ((AbstractConfigObject) child).withValue(next, v));
+        }
+        // as soon as we have a non-object, replace it entirely
+        SimpleConfig subtree = ((AbstractConfigValue) v).atPath(
+                SimpleConfigOrigin.newSimple("withValue(" + next.render() + ")"), next);
+        return withValue(key, subtree.root());
     }
 
     @Override
@@ -311,9 +307,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                     newIgnoresFallbacks);
         } else if (newResolveStatus != resolveStatus() || newIgnoresFallbacks != ignoresFallbacks()) {
             return newCopy(newResolveStatus, origin(), newIgnoresFallbacks);
-        } else {
-            return this;
         }
+        return this;
     }
 
     private SimpleConfigObject modify(NoExceptionsModifier modifier) {
@@ -342,32 +337,29 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         }
         if (changes == null) {
             return this;
-        } else {
-            Map<String, AbstractConfigValue> modified = new LinkedHashMap<String, AbstractConfigValue>();
-            boolean sawUnresolved = false;
-            for (String k : keySet()) {
-                if (changes.containsKey(k)) {
-                    AbstractConfigValue newValue = changes.get(k);
-                    if (newValue != null) {
-                        modified.put(k, newValue);
-                        if (newValue.resolveStatus() == ResolveStatus.UNRESOLVED) {
-                            sawUnresolved = true;
-                        }
-                    } else {
-                        // remove this child; don't put it in the new map.
-                    }
-                } else {
-                    AbstractConfigValue newValue = value.get(k);
+        }
+        Map<String, AbstractConfigValue> modified = new LinkedHashMap<String, AbstractConfigValue>();
+        boolean sawUnresolved = false;
+        for (String k : keySet()) {
+            if (changes.containsKey(k)) {
+                AbstractConfigValue newValue = changes.get(k);
+                if (newValue != null) {
                     modified.put(k, newValue);
                     if (newValue.resolveStatus() == ResolveStatus.UNRESOLVED) {
                         sawUnresolved = true;
                     }
                 }
+                // remove this child; don't put it in the new map.
             }
-            return new SimpleConfigObject(origin(), modified,
-                    sawUnresolved ? ResolveStatus.UNRESOLVED : ResolveStatus.RESOLVED,
-                    ignoresFallbacks());
+            AbstractConfigValue newValue = value.get(k);
+            modified.put(k, newValue);
+            if (newValue.resolveStatus() == ResolveStatus.UNRESOLVED) {
+                sawUnresolved = true;
+            }
         }
+        return new SimpleConfigObject(origin(), modified,
+                sawUnresolved ? ResolveStatus.UNRESOLVED : ResolveStatus.RESOLVED,
+                ignoresFallbacks());
     }
 
     private static final class ResolveModifier implements Modifier {
@@ -392,20 +384,17 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                                 source);
                         context = result.context.unrestricted().restrict(originalRestrict);
                         return result.value;
-                    } else {
-                        // we don't want to resolve the leaf child.
-                        return v;
                     }
-                } else {
-                    // not in the restrictToChild path
+                    // we don't want to resolve the leaf child.
                     return v;
                 }
-            } else {
-                // no restrictToChild, resolve everything
-                ResolveResult<? extends AbstractConfigValue> result = context.unrestricted().resolve(v, source);
-                context = result.context.unrestricted().restrict(originalRestrict);
-                return result.value;
+                // not in the restrictToChild path
+                return v;
             }
+            // no restrictToChild, resolve everything
+            ResolveResult<? extends AbstractConfigValue> result = context.unrestricted().resolve(v, source);
+            context = result.context.unrestricted().restrict(originalRestrict);
+            return result.value;
         }
 
     }
@@ -462,9 +451,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
                 if (Character.isDigit(c)) {
                     continue;
-                } else {
-                    return false;
                 }
+                return false;
             }
             return true;
         }
@@ -483,9 +471,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                 return -1;
             } else if (bDigits) {
                 return 1;
-            } else {
-                return a.compareTo(b);
             }
+            return a.compareTo(b);
         }
     }
 
@@ -625,9 +612,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             // optimization to avoid unwrapped() for two ConfigObject,
             // which is what AbstractConfigValue does.
             return canEqual(other) && mapEquals(this, (ConfigObject) other);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
