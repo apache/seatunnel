@@ -177,7 +177,8 @@ final class PathParser {
                     throw new ConfigException.BadPath(
                             origin,
                             originalText,
-                            "Token not allowed in path expression: " + t + " (you can double-quote this token if you really want it here)");
+                            "Token not allowed in path expression: "
+                                    + t + " (you can double-quote this token if you really want it here)");
                 }
 
                 addPathText(buf, false, text);

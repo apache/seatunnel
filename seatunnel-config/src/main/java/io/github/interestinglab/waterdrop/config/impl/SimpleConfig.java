@@ -725,23 +725,35 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
         }
 
         // note that this is deliberately case-sensitive
-        if ("".equals(unitString) || "ms".equals(unitString) || "millis".equals(unitString) || "milliseconds".equals(unitString)) {
+        if ("".equals(unitString)
+                || "ms".equals(unitString)
+                || "millis".equals(unitString)
+                || "milliseconds".equals(unitString)) {
             units = TimeUnit.MILLISECONDS;
-        } else if ("us".equals(unitString) || "micros".equals(unitString) || "microseconds".equals(unitString)) {
+        } else if ("us".equals(unitString)
+                || "micros".equals(unitString)
+                || "microseconds".equals(unitString)) {
             units = TimeUnit.MICROSECONDS;
-        } else if ("ns".equals(unitString) || "nanos".equals(unitString) || "nanoseconds".equals(unitString)) {
+        } else if ("ns".equals(unitString)
+                || "nanos".equals(unitString)
+                || "nanoseconds".equals(unitString)) {
             units = TimeUnit.NANOSECONDS;
-        } else if ("d".equals(unitString) || "days".equals(unitString)) {
+        } else if ("d".equals(unitString)
+                || "days".equals(unitString)) {
             units = TimeUnit.DAYS;
-        } else if ("h".equals(unitString) || "hours".equals(unitString)) {
+        } else if ("h".equals(unitString)
+                || "hours".equals(unitString)) {
             units = TimeUnit.HOURS;
-        } else if ("s".equals(unitString) || "seconds".equals(unitString)) {
+        } else if ("s".equals(unitString)
+                || "seconds".equals(unitString)) {
             units = TimeUnit.SECONDS;
-        } else if ("m".equals(unitString) || "minutes".equals(unitString)) {
+        } else if ("m".equals(unitString)
+                || "minutes".equals(unitString)) {
             units = TimeUnit.MINUTES;
         } else {
             throw new ConfigException.BadValue(originForException,
-                    pathForException, "Could not parse time unit '" + originalUnitString + "' (try ns, us, ms, s, m, h, d)");
+                    pathForException, "Could not parse time unit '"
+                    + originalUnitString + "' (try ns, us, ms, s, m, h, d)");
         }
 
         try {
@@ -860,7 +872,8 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
         if (units == null) {
             throw new ConfigException.BadValue(originForException, pathForException,
-                    "Could not parse size-in-bytes unit '" + unitString + "' (try k, K, kB, KiB, kilobytes, kibibytes)");
+                    "Could not parse size-in-bytes unit '"
+                            + unitString + "' (try k, K, kB, KiB, kilobytes, kibibytes)");
         }
 
         try {
@@ -927,7 +940,11 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
 
     private static void addWrongType(List<ConfigException.ValidationProblem> accumulator,
                                      String refDesc, AbstractConfigValue actual, Path path) {
-        addProblem(accumulator, path, actual.origin(), "Wrong value type at '" + path.render() + "', expecting: " + refDesc + " but got: " + getDesc(actual));
+        addProblem(accumulator, path, actual.origin(), "Wrong value type at '"
+                + path.render()
+                + "', expecting: "
+                + refDesc + " but got: "
+                + getDesc(actual));
     }
 
     private static void addWrongType(List<ConfigException.ValidationProblem> accumulator,
@@ -1006,7 +1023,12 @@ final class SimpleConfig implements Config, MergeableValue, Serializable {
             for (ConfigValue elem : listValue) {
                 AbstractConfigValue e = (AbstractConfigValue) elem;
                 if (!haveCompatibleTypes(refElement, e)) {
-                    addProblem(accumulator, path, e.origin(), "List at '" + path.render() + "' contains wrong value type, expecting list of " + getDesc(refElement) + " but got element of type " + getDesc(e));
+                    addProblem(accumulator, path, e.origin(), "List at '"
+                            + path.render()
+                            + "' contains wrong value type, expecting list of "
+                            + getDesc(refElement)
+                            + " but got element of type "
+                            + getDesc(e));
                     // don't add a problem for every last array element
                     break;
                 }

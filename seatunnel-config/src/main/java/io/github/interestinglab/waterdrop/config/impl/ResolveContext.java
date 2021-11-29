@@ -163,7 +163,9 @@ final class ResolveContext {
             throws NotPossibleToResolve {
         if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl
-                    .trace(depth(), "resolving " + original + " restrictToChild=" + restrictToChild + " in " + source);
+                    .trace(depth(), "resolving "
+                            + original + " restrictToChild="
+                            + restrictToChild + " in " + source);
         }
         return pushTrace(original).realResolve(original, source).popTrace();
     }
@@ -187,7 +189,10 @@ final class ResolveContext {
 
         if (cached != null) {
             if (ConfigImpl.traceSubSituationsEnable()) {
-                ConfigImpl.trace(depth(), "using cached resolution " + cached + " for " + original + " restrictToChild " + restrictToChild());
+                ConfigImpl.trace(depth(), "using cached resolution "
+                        + cached + " for "
+                        + original + " restrictToChild "
+                        + restrictToChild());
             }
             return ResolveResult.make(this, cached);
         }
@@ -208,7 +213,11 @@ final class ResolveContext {
         AbstractConfigValue resolved = result.value;
 
         if (ConfigImpl.traceSubSituationsEnable()) {
-            ConfigImpl.trace(depth(), "resolved to " + resolved + "@" + System.identityHashCode(resolved) + " from " + original + "@" + System.identityHashCode(resolved));
+            ConfigImpl.trace(depth(), "resolved to "
+                    + resolved + "@"
+                    + System.identityHashCode(resolved)
+                    + " from " + original
+                    + "@" + System.identityHashCode(resolved));
         }
 
         ResolveContext withMemo = result.context;

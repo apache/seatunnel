@@ -167,7 +167,11 @@ final class ConfigDocumentParser {
                     values.add(new ConfigNodeSingleToken(t));
                     t = nextToken();
                     continue;
-                } else if (Tokens.isValue(t) || Tokens.isUnquotedText(t) || Tokens.isSubstitution(t) || t == Tokens.OPEN_CURLY || t == Tokens.OPEN_SQUARE) {
+                } else if (Tokens.isValue(t)
+                        || Tokens.isUnquotedText(t)
+                        || Tokens.isSubstitution(t)
+                        || t == Tokens.OPEN_CURLY
+                        || t == Tokens.OPEN_SQUARE) {
                     // there may be newlines _within_ the objects and arrays
                     v = parseValue(t);
                     valueCount++;
@@ -235,15 +239,22 @@ final class ConfigDocumentParser {
             if (badToken.equals(Tokens.END.toString())) {
                 // EOF requires special handling for the error to make sense.
                 if (previousFieldName != null) {
-                    part = message + " (if you intended '" + previousFieldName + "' to be part of a value, instead of a key, " + "try adding double quotes around the whole value";
+                    part = message + " (if you intended '" + previousFieldName
+                            + "' to be part of a value, instead of a key, "
+                            + "try adding double quotes around the whole value";
                 } else {
                     return message;
                 }
             } else {
                 if (previousFieldName != null) {
-                    part = message + " (if you intended " + badToken + " to be part of the value for '" + previousFieldName + "', " + "try enclosing the value in double quotes";
+                    part = message + " (if you intended " + badToken
+                            + " to be part of the value for '"
+                            + previousFieldName + "', "
+                            + "try enclosing the value in double quotes";
                 } else {
-                    part = message + " (if you intended " + badToken + " to be part of a key or string value, " + "try enclosing the key or value in double quotes";
+                    part = message + " (if you intended " + badToken
+                            + " to be part of a key or string value, "
+                            + "try enclosing the key or value in double quotes";
                 }
             }
 
@@ -300,7 +311,7 @@ final class ConfigDocumentParser {
         }
 
         private static boolean isIncludeKeyword(Token t) {
-            return Tokens.isUnquotedText(t) && Tokens.getUnquotedText(t).equals("include");
+            return Tokens.isUnquotedText(t) && "include".equals(Tokens.getUnquotedText(t));
         }
 
         private static boolean isUnquotedWhitespace(Token t) {
@@ -562,11 +573,17 @@ final class ConfigDocumentParser {
                 if (t == Tokens.CLOSE_SQUARE) {
                     children.add(new ConfigNodeSingleToken(t));
                     return new ConfigNodeArray(children);
-                } else if (Tokens.isValue(t) || t == Tokens.OPEN_CURLY || t == Tokens.OPEN_SQUARE || Tokens.isUnquotedText(t) || Tokens.isSubstitution(t)) {
+                } else if (Tokens.isValue(t)
+                        || t == Tokens.OPEN_CURLY
+                        || t == Tokens.OPEN_SQUARE
+                        || Tokens.isUnquotedText(t)
+                        || Tokens.isSubstitution(t)) {
                     nextValue = parseValue(t);
                     children.add(nextValue);
                 } else {
-                    throw parseError("List should have ] or a first element after the open [, instead had token: " + t + " (if you want " + t + " to be part of a string value, then double-quote it)");
+                    throw parseError("List should have ] or a first element after the open [, instead had token: "
+                            + t + " (if you want " + t
+                            + " to be part of a string value, then double-quote it)");
                 }
             }
 
@@ -581,7 +598,9 @@ final class ConfigDocumentParser {
                         children.add(new ConfigNodeSingleToken(t));
                         return new ConfigNodeArray(children);
                     }
-                    throw parseError("List should have ended with ] or had a comma, instead had token: " + t + " (if you want " + t + " to be part of a string value, then double-quote it)");
+                    throw parseError("List should have ended with ] or had a comma, instead had token: "
+                            + t + " (if you want " + t
+                            + " to be part of a string value, then double-quote it)");
                 }
 
                 // now just after a comma
@@ -590,14 +609,20 @@ final class ConfigDocumentParser {
                     children.add(nextValue);
                 } else {
                     t = nextTokenCollectingWhitespace(children);
-                    if (Tokens.isValue(t) || t == Tokens.OPEN_CURLY || t == Tokens.OPEN_SQUARE || Tokens.isUnquotedText(t) || Tokens.isSubstitution(t)) {
+                    if (Tokens.isValue(t)
+                            || t == Tokens.OPEN_CURLY
+                            || t == Tokens.OPEN_SQUARE
+                            || Tokens.isUnquotedText(t)
+                            || Tokens.isSubstitution(t)) {
                         nextValue = parseValue(t);
                         children.add(nextValue);
                     } else if (flavor != ConfigSyntax.JSON && t == Tokens.CLOSE_SQUARE) {
                         // we allow one trailing comma
                         putBack(t);
                     } else {
-                        throw parseError("List should have had new element after a comma, instead had token: " + t + " (if you want the comma or " + t + " to be part of a string value, then double-quote it)");
+                        throw parseError("List should have had new element after a comma, instead had token: "
+                                + t + " (if you want the comma or " + t
+                                + " to be part of a string value, then double-quote it)");
                     }
                 }
             }
@@ -662,7 +687,10 @@ final class ConfigDocumentParser {
             }
 
             t = nextToken();
-            if (Tokens.isIgnoredWhitespace(t) || Tokens.isNewline(t) || isUnquotedWhitespace(t) || Tokens.isComment(t)) {
+            if (Tokens.isIgnoredWhitespace(t)
+                    || Tokens.isNewline(t)
+                    || isUnquotedWhitespace(t)
+                    || Tokens.isComment(t)) {
                 throw parseError("The value from withValueText cannot have leading or trailing newlines, whitespace, or comments");
             }
             if (t == Tokens.END) {

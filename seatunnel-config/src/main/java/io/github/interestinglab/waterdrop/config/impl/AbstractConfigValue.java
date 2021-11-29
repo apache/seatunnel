@@ -303,8 +303,10 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     public boolean equals(Object other) {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigValue) {
-            return canEqual(other) && (this.valueType() ==
-                    ((ConfigValue) other).valueType()) && ConfigImplUtil.equalsHandlingNull(this.unwrapped(),
+            return canEqual(other)
+                    && (this.valueType() ==
+                    ((ConfigValue) other).valueType())
+                    && ConfigImplUtil.equalsHandlingNull(this.unwrapped(),
                     ((ConfigValue) other).unwrapped());
         }
         return false;

@@ -91,7 +91,10 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
 
             if (resultWithPath.result.value != null) {
                 if (ConfigImpl.traceSubSituationsEnable()) {
-                    ConfigImpl.trace(newContext.depth(), "recursively resolving " + resultWithPath + " which was the resolution of " + expr + " against " + source);
+                    ConfigImpl.trace(newContext.depth(), "recursively resolving "
+                            + resultWithPath
+                            + " which was the resolution of "
+                            + expr + " against " + source);
                 }
 
                 ResolveSource recursiveResolveSource = new ResolveSource(
@@ -112,12 +115,16 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
         } catch (NotPossibleToResolve e) {
             if (ConfigImpl.traceSubSituationsEnable()) {
                 ConfigImpl.trace(newContext.depth(),
-                        "not possible to resolve " + expr + ", cycle involved: " + e.traceString());
+                        "not possible to resolve "
+                                + expr + ", cycle involved: "
+                                + e.traceString());
             }
             if (expr.optional()) {
                 v = null;
             } else {
-                throw new ConfigException.UnresolvedSubstitution(origin(), expr + " was part of a cycle of substitutions involving " + e.traceString(), e);
+                throw new ConfigException.UnresolvedSubstitution(origin(), expr
+                        + " was part of a cycle of substitutions involving "
+                        + e.traceString(), e);
             }
         }
 

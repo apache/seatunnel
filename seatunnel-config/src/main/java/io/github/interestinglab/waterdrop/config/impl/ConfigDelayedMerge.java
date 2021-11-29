@@ -146,7 +146,9 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
             }
 
             if (ConfigImpl.traceSubSituationsEnable()) {
-                ConfigImpl.trace(newContext.depth(), "Resolving highest-priority item in delayed merge " + end + " against " + sourceForEnd + " endWasRemoved=" + (source != sourceForEnd));
+                ConfigImpl.trace(newContext.depth(), "Resolving highest-priority item in delayed merge "
+                        + end + " against " + sourceForEnd
+                        + " endWasRemoved=" + (source != sourceForEnd));
             }
             ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(end, sourceForEnd);
             AbstractConfigValue resolvedEnd = result.value;
@@ -157,7 +159,8 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                     merged = resolvedEnd;
                 } else {
                     if (ConfigImpl.traceSubSituationsEnable()) {
-                        ConfigImpl.trace(newContext.depth() + 1, "merging " + merged + " with fallback " + resolvedEnd);
+                        ConfigImpl.trace(newContext.depth() + 1, "merging "
+                                + merged + " with fallback " + resolvedEnd);
                     }
                     merged = merged.withFallback(resolvedEnd);
                 }
@@ -273,7 +276,8 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
     public boolean equals(Object other) {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigDelayedMerge) {
-            return canEqual(other) && (this.stack == ((ConfigDelayedMerge) other).stack || this.stack
+            return canEqual(other)
+                    && (this.stack == ((ConfigDelayedMerge) other).stack || this.stack
                     .equals(((ConfigDelayedMerge) other).stack));
         }
         return false;
@@ -300,7 +304,9 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
                        ConfigRenderOptions options) {
         boolean commentMerge = options.getComments();
         if (commentMerge) {
-            sb.append("# unresolved merge of " + stack.size() + " values follows (\n");
+            sb.append("# unresolved merge of ");
+            sb.append(stack.size());
+            sb.append(" values follows (\n");
             if (atKey == null) {
                 indent(sb, indent, options);
                 sb.append("# this unresolved merge will not be parseable because it's at the root of the object\n");
@@ -318,9 +324,15 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
             if (commentMerge) {
                 indent(sb, indent, options);
                 if (atKey != null) {
-                    sb.append("#     unmerged value ").append(i).append(" for key ").append(ConfigImplUtil.renderJsonString(atKey)).append(" from ");
+                    sb.append("#     unmerged value ");
+                    sb.append(i);
+                    sb.append(" for key ");
+                    sb.append(ConfigImplUtil.renderJsonString(atKey));
+                    sb.append(" from ");
                 } else {
-                    sb.append("#     unmerged value ").append(i).append(" from ");
+                    sb.append("#     unmerged value ");
+                    sb.append(i);
+                    sb.append(" from ");
                 }
                 i += 1;
                 sb.append(v.origin().description());

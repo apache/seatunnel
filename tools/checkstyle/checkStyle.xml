@@ -501,7 +501,7 @@
             <!-- Checks that assignment operators are at the end of the line. -->
             <property name="option" value="eol"/>
             <property name="tokens"
-                      value="ASSIGN, BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LE, LITERAL_INSTANCEOF, LOR, LT, MINUS, MOD, NOT_EQUAL, QUESTION, SL, SR, STAR, METHOD_REF"/>
+                      value="ASSIGN, BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LE, LITERAL_INSTANCEOF, LT, MINUS, MOD, NOT_EQUAL, QUESTION, SL, SR, STAR, METHOD_REF"/>
         </module>
 
         <module name="AnnotationLocation">

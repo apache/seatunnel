@@ -154,7 +154,12 @@ final class SimpleConfigOrigin implements ConfigOrigin {
         if (other instanceof SimpleConfigOrigin) {
             SimpleConfigOrigin otherOrigin = (SimpleConfigOrigin) other;
 
-            return this.description.equals(otherOrigin.description) && this.lineNumber == otherOrigin.lineNumber && this.endLineNumber == otherOrigin.endLineNumber && this.originType == otherOrigin.originType && ConfigImplUtil.equalsHandlingNull(this.urlOrNull, otherOrigin.urlOrNull) && ConfigImplUtil.equalsHandlingNull(this.resourceOrNull, otherOrigin.resourceOrNull);
+            return this.description.equals(otherOrigin.description)
+                    && this.lineNumber == otherOrigin.lineNumber
+                    && this.endLineNumber == otherOrigin.endLineNumber
+                    && this.originType == otherOrigin.originType
+                    && ConfigImplUtil.equalsHandlingNull(this.urlOrNull, otherOrigin.urlOrNull)
+                    && ConfigImplUtil.equalsHandlingNull(this.resourceOrNull, otherOrigin.resourceOrNull);
         }
         return false;
     }

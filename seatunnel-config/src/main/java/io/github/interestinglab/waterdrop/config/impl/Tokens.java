@@ -220,7 +220,11 @@ final class Tokens {
 
         @Override
         public boolean equals(Object other) {
-            return super.equals(other) && ((Problem) other).what.equals(what) && ((Problem) other).message.equals(message) && ((Problem) other).suggestQuotes == suggestQuotes && ConfigImplUtil.equalsHandlingNull(((Problem) other).cause, cause);
+            return super.equals(other)
+                    && ((Problem) other).what.equals(what)
+                    && ((Problem) other).message.equals(message)
+                    && ((Problem) other).suggestQuotes == suggestQuotes
+                    && ConfigImplUtil.equalsHandlingNull(((Problem) other).cause, cause);
         }
 
         @Override

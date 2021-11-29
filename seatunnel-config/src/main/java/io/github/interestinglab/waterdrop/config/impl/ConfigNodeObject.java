@@ -73,7 +73,10 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
             Path key = node.path().value();
 
             // Delete all multi-element paths that start with the desired path, since technically they are duplicates
-            if ((valueCopy == null && key.equals(desiredPath)) || (key.startsWith(desiredPath) && !key.equals(desiredPath))) {
+            if ((valueCopy == null
+                    && key.equals(desiredPath))
+                    || (key.startsWith(desiredPath)
+                    && !key.equals(desiredPath))) {
                 childrenCopy.remove(i);
                 // Remove any whitespace or commas after the deleted setting
                 for (int j = i; j < childrenCopy.size(); j++) {
@@ -248,7 +251,8 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                 // last setting
                 if ((flavor == ConfigSyntax.JSON || sameLine) && childrenCopy.get(i) instanceof ConfigNodeField) {
                     if (i + 1 >= childrenCopy.size() ||
-                            !(childrenCopy.get(i + 1) instanceof ConfigNodeSingleToken && ((ConfigNodeSingleToken) childrenCopy.get(i + 1)).token() == Tokens.COMMA)) {
+                            !(childrenCopy.get(i + 1) instanceof ConfigNodeSingleToken
+                                    && ((ConfigNodeSingleToken) childrenCopy.get(i + 1)).token() == Tokens.COMMA)) {
                         childrenCopy.add(i + 1, new ConfigNodeSingleToken(Tokens.COMMA));
                     }
                     break;

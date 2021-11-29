@@ -186,7 +186,8 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
     public boolean equals(Object other) {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigDelayedMergeObject) {
-            return canEqual(other) && (this.stack == ((ConfigDelayedMergeObject) other).stack || this.stack
+            return canEqual(other)
+                    && (this.stack == ((ConfigDelayedMergeObject) other).stack || this.stack
                     .equals(((ConfigDelayedMergeObject) other).stack));
         }
         return false;
@@ -301,7 +302,12 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                 // looking for a value.
                 continue;
             } else if (layer instanceof Unmergeable) {
-                throw new ConfigException.NotResolved("Key '" + key + "' is not available at '" + origin().description() + "' because value at '" + layer.origin().description() + "' has not been resolved and may turn out to contain or hide '" + key + "'." + " Be sure to Config#resolve() before using a config object.");
+                throw new ConfigException.NotResolved("Key '" + key + "' is not available at '"
+                        + origin().description() + "' because value at '"
+                        + layer.origin().description()
+                        + "' has not been resolved and may turn out to contain or hide '" + key
+                        + "'."
+                        + " Be sure to Config#resolve() before using a config object.");
             } else if (layer.resolveStatus() == ResolveStatus.UNRESOLVED) {
                 // if the layer is not an object, and not a substitution or
                 // merge,

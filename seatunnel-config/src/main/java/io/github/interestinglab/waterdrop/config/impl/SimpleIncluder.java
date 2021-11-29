@@ -223,7 +223,9 @@ class SimpleIncluder implements FullIncluder {
                 if (ConfigImpl.traceLoadsEnable()) {
                     // the individual exceptions should have been logged already
                     // with tracing enabled
-                    ConfigImpl.trace("Did not find '" + name + "' with any extension (.conf, .json, .properties); " + "exceptions should have been logged above.");
+                    ConfigImpl.trace("Did not find '"
+                            + name + "' with any extension (.conf, .json, .properties); "
+                            + "exceptions should have been logged above.");
                 }
 
                 if (fails.isEmpty()) {
@@ -242,7 +244,9 @@ class SimpleIncluder implements FullIncluder {
                 }
             } else if (!gotSomething) {
                 if (ConfigImpl.traceLoadsEnable()) {
-                    ConfigImpl.trace("Did not find '" + name + "' with any extension (.conf, .json, .properties); but '" + name + "' is allowed to be missing. Exceptions from load attempts should have been logged above.");
+                    ConfigImpl.trace("Did not find '" + name
+                            + "' with any extension (.conf, .json, .properties); but '" + name
+                            + "' is allowed to be missing. Exceptions from load attempts should have been logged above.");
                 }
             }
         }

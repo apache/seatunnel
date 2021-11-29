@@ -461,7 +461,9 @@ public class ConfigImpl {
     // further down on the stack.
     static ConfigException.NotResolved improveNotResolved(Path what,
                                                           ConfigException.NotResolved original) {
-        String newMessage = what.render() + " has not been resolved, you need to call Config#resolve()," + " see API docs for Config#resolve()";
+        String newMessage = what.render()
+                + " has not been resolved, you need to call Config#resolve(),"
+                + " see API docs for Config#resolve()";
         if (newMessage.equals(original.getMessage())) {
             return original;
         }

@@ -378,7 +378,9 @@ final class Tokenizer {
                 // not a number after all, see if it's an unquoted string.
                 for (char u : s.toCharArray()) {
                     if (NOT_IN_UNIQUOTED_TEXT.indexOf(u) >= 0) {
-                        throw problem(asString(u), "Reserved character '" + asString(u) + "' is not allowed outside quotes", true /* suggestQuotes */);
+                        throw problem(asString(u), "Reserved character '"
+                                + asString(u)
+                                + "' is not allowed outside quotes", true /* suggestQuotes */);
                     }
                 }
                 // no evil chars so we just decide this was a string and
@@ -506,7 +508,8 @@ final class Tokenizer {
                     sbOrig.appendCodePoint(c);
                     break;
                 } else if (ConfigImplUtil.isC0Control(c)) {
-                    throw problem(asString(c), "JSON does not allow unescaped " + asString(c) + " in quoted strings, use a backslash escape");
+                    throw problem(asString(c), "JSON does not allow unescaped "
+                            + asString(c) + " in quoted strings, use a backslash escape");
                 } else {
                     sb.appendCodePoint(c);
                     sbOrig.appendCodePoint(c);
@@ -531,7 +534,8 @@ final class Tokenizer {
             // the initial '+' has already been consumed
             int c = nextCharRaw();
             if (c != '=') {
-                throw problem(asString(c), "'+' not followed by =, '" + asString(c) + "' not allowed after '+'", true /* suggestQuotes */);
+                throw problem(asString(c), "'+' not followed by =, '"
+                        + asString(c) + "' not allowed after '+'", true /* suggestQuotes */);
             }
             return Tokens.PLUS_EQUALS;
         }
@@ -541,7 +545,8 @@ final class Tokenizer {
             ConfigOrigin origin = lineOrigin;
             int c = nextCharRaw();
             if (c != '{') {
-                throw problem(asString(c), "'$' not followed by {, '" + asString(c) + "' not allowed after '$'", true /* suggestQuotes */);
+                throw problem(asString(c), "'$' not followed by {, '"
+                        + asString(c) + "' not allowed after '$'", true /* suggestQuotes */);
             }
 
             boolean optional = false;
@@ -635,7 +640,8 @@ final class Tokenizer {
                     if (FIRST_NUMBER_CHARS.indexOf(c) >= 0) {
                         t = pullNumber(c);
                     } else if (NOT_IN_UNIQUOTED_TEXT.indexOf(c) >= 0) {
-                        throw problem(asString(c), "Reserved character '" + asString(c) + "' is not allowed outside quotes", true /* suggestQuotes */);
+                        throw problem(asString(c), "Reserved character '"
+                                + asString(c) + "' is not allowed outside quotes", true /* suggestQuotes */);
                     } else {
                         putBack(c);
                         t = pullUnquotedText();

@@ -104,7 +104,11 @@ public final class ConfigImplUtil {
             return renderJsonString(s);
         }
 
-        if (s.startsWith("include") || s.startsWith("true") || s.startsWith("false") || s.startsWith("null") || s.contains("//")) {
+        if (s.startsWith("include")
+                || s.startsWith("true")
+                || s.startsWith("false")
+                || s.startsWith("null")
+                || s.contains("//")) {
             return renderJsonString(s);
         }
 

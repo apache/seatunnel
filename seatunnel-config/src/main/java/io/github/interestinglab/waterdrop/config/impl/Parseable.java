@@ -168,7 +168,10 @@ public abstract class Parseable implements ConfigParseable {
 
         LinkedList<Parseable> stack = PARSE_STACK.get();
         if (stack.size() >= MAX_INCLUDE_DEPTH) {
-            throw new ConfigException.Parse(initialOrigin, "include statements nested more than " + MAX_INCLUDE_DEPTH + " times, you probably have a cycle in your includes. Trace: " + stack);
+            throw new ConfigException.Parse(initialOrigin, "include statements nested more than "
+                    + MAX_INCLUDE_DEPTH
+                    + " times, you probably have a cycle in your includes. Trace: "
+                    + stack);
         }
 
         stack.addFirst(this);
@@ -207,7 +210,10 @@ public abstract class Parseable implements ConfigParseable {
             if (finalOptions.getAllowMissing()) {
                 return SimpleConfigObject.emptyMissing(origin);
             }
-            trace("exception loading " + origin.description() + ": " + e.getClass().getName() + ": " + e.getMessage());
+            trace("exception loading "
+                    + origin.description()
+                    + ": " + e.getClass().getName()
+                    + ": " + e.getMessage());
             throw new ConfigException.IO(origin,
                     e.getClass().getName() + ": " + e.getMessage(), e);
         }
@@ -240,7 +246,10 @@ public abstract class Parseable implements ConfigParseable {
                 children.add(new ConfigNodeObject(new ArrayList<AbstractConfigNode>()));
                 return new SimpleConfigDocument(new ConfigNodeRoot(children, origin), finalOptions);
             }
-            trace("exception loading " + origin.description() + ": " + e.getClass().getName() + ": " + e.getMessage());
+            trace("exception loading "
+                    + origin.description()
+                    + ": " + e.getClass().getName()
+                    + ": " + e.getMessage());
             throw new ConfigException.IO(origin,
                     e.getClass().getName() + ": " + e.getMessage(), e);
         }
@@ -258,7 +267,10 @@ public abstract class Parseable implements ConfigParseable {
         ConfigParseOptions optionsWithContentType;
         if (contentType != null) {
             if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
-                trace("Overriding syntax " + finalOptions.getSyntax() + " with Content-Type which specified " + contentType);
+                trace("Overriding syntax "
+                        + finalOptions.getSyntax()
+                        + " with Content-Type which specified "
+                        + contentType);
             }
 
             optionsWithContentType = finalOptions.setSyntax(contentType);
@@ -295,7 +307,10 @@ public abstract class Parseable implements ConfigParseable {
         ConfigParseOptions optionsWithContentType;
         if (contentType != null) {
             if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
-                trace("Overriding syntax " + finalOptions.getSyntax() + " with Content-Type which specified " + contentType);
+                trace("Overriding syntax "
+                        + finalOptions.getSyntax()
+                        + " with Content-Type which specified "
+                        + contentType);
             }
 
             optionsWithContentType = finalOptions.setSyntax(contentType);
@@ -760,7 +775,9 @@ public abstract class Parseable implements ConfigParseable {
             Enumeration<URL> e = loader.getResources(resource);
             if (!e.hasMoreElements()) {
                 if (ConfigImpl.traceLoadsEnable()) {
-                    trace("Loading config from class loader " + loader + " but there were no resources called " + resource);
+                    trace("Loading config from class loader "
+                            + loader + " but there were no resources called "
+                            + resource);
                 }
                 throw new IOException("resource not found on classpath: " + resource);
             }
@@ -769,7 +786,10 @@ public abstract class Parseable implements ConfigParseable {
                 URL url = e.nextElement();
 
                 if (ConfigImpl.traceLoadsEnable()) {
-                    trace("Loading config from resource '" + resource + "' URL " + url.toExternalForm() + " from class loader " + loader);
+                    trace("Loading config from resource '"
+                            + resource + "' URL "
+                            + url.toExternalForm()
+                            + " from class loader " + loader);
                 }
 
                 Parseable element = newResourceURL(url, finalOptions, resource, this);

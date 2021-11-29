@@ -140,7 +140,10 @@ final class PropertiesParser {
             for (Path path : valuePaths) {
                 if (scopePaths.contains(path)) {
                     throw new ConfigException.BugOrBroken(
-                            "In the map, path '" + path.render() + "' occurs as both the parent object of a value and as a value. " + "Because Map has no defined ordering, this is a broken situation.");
+                            "In the map, path '"
+                                    + path.render()
+                                    + "' occurs as both the parent object of a value and as a value. "
+                                    + "Because Map has no defined ordering, this is a broken situation.");
                 }
             }
         }

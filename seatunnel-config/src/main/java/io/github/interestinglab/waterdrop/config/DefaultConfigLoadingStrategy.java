@@ -55,7 +55,10 @@ public class DefaultConfigLoadingStrategy implements ConfigLoadingStrategy {
         if (specified == 0) {
             return ConfigFactory.parseResourcesAnySyntax("application", parseOptions);
         } else if (specified > 1) {
-            throw new ConfigException.Generic("You set more than one of config.file='" + file + "', config.url='" + url + "', config.resource='" + resource + "'; don't know which one to use!");
+            throw new ConfigException.Generic("You set more than one of config.file='"
+                    + file + "', config.url='"
+                    + url + "', config.resource='"
+                    + resource + "'; don't know which one to use!");
         }
         // the override file/url/resource MUST be present or it's an error
         ConfigParseOptions overrideOptions = parseOptions.setAllowMissing(false);
@@ -72,7 +75,8 @@ public class DefaultConfigLoadingStrategy implements ConfigLoadingStrategy {
         try {
             return ConfigFactory.parseURL(new URL(url), overrideOptions);
         } catch (MalformedURLException e) {
-            throw new ConfigException.Generic("Bad URL in config.url system property: '" + url + "': " + e.getMessage(), e);
+            throw new ConfigException.Generic("Bad URL in config.url system property: '"
+                    + url + "': " + e.getMessage(), e);
         }
     }
 }
