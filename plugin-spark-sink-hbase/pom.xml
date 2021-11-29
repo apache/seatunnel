@@ -59,6 +59,12 @@
     <dependency>
       <groupId>org.apache.hbase.connectors.spark</groupId>
       <artifactId>hbase-spark</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.janino</groupId>
+          <artifactId>janino</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 
