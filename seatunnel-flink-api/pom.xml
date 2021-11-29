@@ -55,7 +55,7 @@
             <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
         </dependency>
 
-        <!-- 这是Flink最常用的几个依赖，先加在这里，后续如果需要再做合理安排 -->
+<!-- TODO: These are commonly used dependencies for Apache Flink, we temp put them here and will put somewhere later -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-csv</artifactId>
