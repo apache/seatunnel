@@ -33,7 +33,6 @@
         <dependency>
             <groupId>com.github.scopt</groupId>
             <artifactId>scopt_2.11</artifactId>
-            <version>3.7.1</version>
         </dependency>
 
         <dependency>
