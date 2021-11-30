@@ -37,7 +37,7 @@ import java.util.Map;
  */
 abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
 
-    final private SimpleConfigOrigin origin;
+    private final SimpleConfigOrigin origin;
 
     AbstractConfigValue(ConfigOrigin origin) {
         this.origin = (SimpleConfigOrigin) origin;
@@ -63,7 +63,7 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     static class NotPossibleToResolve extends Exception {
         private static final long serialVersionUID = 1L;
 
-        final private String traceString;
+        private final String traceString;
 
         NotPossibleToResolve(ResolveContext context) {
             super("was not possible to resolve");
@@ -94,31 +94,36 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     protected static List<AbstractConfigValue> replaceChildInList(List<AbstractConfigValue> list,
                                                                   AbstractConfigValue child, AbstractConfigValue replacement) {
         int i = 0;
-        while (i < list.size() && list.get(i) != child)
+        while (i < list.size() && list.get(i) != child) {
             ++i;
-        if (i == list.size())
+        }
+        if (i == list.size()) {
             throw new ConfigException.BugOrBroken("tried to replace " + child + " which is not in " + list);
+        }
         List<AbstractConfigValue> newStack = new ArrayList<AbstractConfigValue>(list);
-        if (replacement != null)
+        if (replacement != null) {
             newStack.set(i, replacement);
-        else
+        } else {
             newStack.remove(i);
+        }
 
-        if (newStack.isEmpty())
+        if (newStack.isEmpty()) {
             return null;
-        else
-            return newStack;
+        }
+        return newStack;
     }
 
     protected static boolean hasDescendantInList(List<AbstractConfigValue> list, AbstractConfigValue descendant) {
         for (AbstractConfigValue v : list) {
-            if (v == descendant)
+            if (v == descendant) {
                 return true;
+            }
         }
         // now the expensive traversal
         for (AbstractConfigValue v : list) {
-            if (v instanceof Container && ((Container) v).hasDescendant(descendant))
+            if (v instanceof Container && ((Container) v).hasDescendant(descendant)) {
                 return true;
+            }
         }
         return false;
     }
@@ -178,20 +183,20 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     }
 
     protected AbstractConfigValue withFallbacksIgnored() {
-        if (ignoresFallbacks())
+        if (ignoresFallbacks()) {
             return this;
-        else
-            throw new ConfigException.BugOrBroken(
-                    "value class doesn't implement forced fallback-ignoring " + this);
+        }
+        throw new ConfigException.BugOrBroken(
+                "value class doesn't implement forced fallback-ignoring " + this);
     }
 
     // the withFallback() implementation is supposed to avoid calling
     // mergedWith* if we're ignoring fallbacks.
     protected final void requireNotIgnoringFallbacks() {
-        if (ignoresFallbacks())
+        if (ignoresFallbacks()) {
             throw new ConfigException.BugOrBroken(
-                    "method should not have been called with ignoresFallbacks=true "
-                            + getClass().getSimpleName());
+                    "method should not have been called with ignoresFallbacks=true " + getClass().getSimpleName());
+        }
     }
 
     protected AbstractConfigValue constructDelayedMerge(ConfigOrigin origin,
@@ -227,8 +232,9 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
                                                          AbstractConfigObject fallback) {
         requireNotIgnoringFallbacks();
 
-        if (this instanceof AbstractConfigObject)
+        if (this instanceof AbstractConfigObject) {
             throw new ConfigException.BugOrBroken("Objects must reimplement mergedWithObject");
+        }
 
         return mergedWithNonObject(stack, fallback);
     }
@@ -242,11 +248,10 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
             // prohibits merging any objects that we fall back to later.
             // so we have to switch to ignoresFallbacks mode.
             return withFallbacksIgnored();
-        } else {
-            // if unresolved, we may have to look back to fallbacks as part of
-            // the resolution process, so always delay
-            return delayMerge(stack, fallback);
         }
+        // if unresolved, we may have to look back to fallbacks as part of
+        // the resolution process, so always delay
+        return delayMerge(stack, fallback);
     }
 
     protected AbstractConfigValue mergedWithTheUnmergeable(Unmergeable fallback) {
@@ -269,10 +274,10 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
 
     @Override
     public AbstractConfigValue withOrigin(ConfigOrigin origin) {
-        if (this.origin == origin)
+        if (this.origin == origin) {
             return this;
-        else
-            return newCopy(origin);
+        }
+        return newCopy(origin);
     }
 
     // this is only overridden to change the return type
@@ -280,17 +285,14 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     public AbstractConfigValue withFallback(ConfigMergeable mergeable) {
         if (ignoresFallbacks()) {
             return this;
-        } else {
-            ConfigValue other = ((MergeableValue) mergeable).toFallbackValue();
-
-            if (other instanceof Unmergeable) {
-                return mergedWithTheUnmergeable((Unmergeable) other);
-            } else if (other instanceof AbstractConfigObject) {
-                return mergedWithObject((AbstractConfigObject) other);
-            } else {
-                return mergedWithNonObject((AbstractConfigValue) other);
-            }
         }
+        ConfigValue other = ((MergeableValue) mergeable).toFallbackValue();
+        if (other instanceof Unmergeable) {
+            return mergedWithTheUnmergeable((Unmergeable) other);
+        } else if (other instanceof AbstractConfigObject) {
+            return mergedWithObject((AbstractConfigObject) other);
+        }
+        return mergedWithNonObject((AbstractConfigValue) other);
     }
 
     protected boolean canEqual(Object other) {
@@ -306,19 +308,18 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
                     ((ConfigValue) other).valueType())
                     && ConfigImplUtil.equalsHandlingNull(this.unwrapped(),
                     ((ConfigValue) other).unwrapped());
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
     public int hashCode() {
         // note that "origin" is deliberately NOT part of equality
         Object o = this.unwrapped();
-        if (o == null)
+        if (o == null) {
             return 0;
-        else
-            return o.hashCode();
+        }
+        return o.hashCode();
     }
 
     @Override
@@ -341,23 +342,26 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
     protected void render(StringBuilder sb, int indent, boolean atRoot, String atKey, ConfigRenderOptions options) {
         if (atKey != null) {
             String renderedKey;
-            if (options.getJson())
+            if (options.getJson()) {
                 renderedKey = ConfigImplUtil.renderJsonString(atKey);
-            else
+            } else {
                 renderedKey = ConfigImplUtil.renderStringUnquotedIfPossible(atKey);
+            }
 
             sb.append(renderedKey);
 
             if (options.getJson()) {
-                if (options.getFormatted())
+                if (options.getFormatted()) {
                     sb.append(" : ");
-                else
+                } else {
                     sb.append(":");
+                }
             } else {
                 // in non-JSON we can omit the colon or equals before an object
                 if (this instanceof ConfigObject) {
-                    if (options.getFormatted())
+                    if (options.getFormatted()) {
                         sb.append(' ');
+                    }
                 } else {
                     sb.append("=");
                 }

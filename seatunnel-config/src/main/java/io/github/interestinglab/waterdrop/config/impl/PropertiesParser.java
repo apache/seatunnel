@@ -42,18 +42,18 @@ final class PropertiesParser {
 
     static String lastElement(String path) {
         int i = path.lastIndexOf('.');
-        if (i < 0)
+        if (i < 0) {
             return path;
-        else
-            return path.substring(i + 1);
+        }
+        return path.substring(i + 1);
     }
 
     static String exceptLastElement(String path) {
         int i = path.lastIndexOf('.');
-        if (i < 0)
+        if (i < 0) {
             return null;
-        else
-            return path.substring(0, i);
+        }
+        return path.substring(0, i);
     }
 
     static Path pathFromPropertyKey(String key) {
@@ -179,8 +179,9 @@ final class PropertiesParser {
                 value = ConfigImpl.fromAnyRef(pathMap.get(path), origin,
                         FromMapMode.KEYS_ARE_PATHS);
             }
-            if (value != null)
+            if (value != null) {
                 parent.put(last, value);
+            }
         }
 
         /*

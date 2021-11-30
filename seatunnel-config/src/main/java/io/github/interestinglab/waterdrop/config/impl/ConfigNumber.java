@@ -31,7 +31,7 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
     // a sentence) we always have it exactly as the person typed it into the
     // config file. It's purely cosmetic; equals/hashCode don't consider this
     // for example.
-    final protected String originalText;
+    protected final String originalText;
 
     protected ConfigNumber(ConfigOrigin origin, String originalText) {
         super(origin);
@@ -76,12 +76,10 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
             ConfigNumber n = (ConfigNumber) other;
             if (isWhole()) {
                 return n.isWhole() && this.longValue() == n.longValue();
-            } else {
-                return (!n.isWhole()) && this.doubleValue() == n.doubleValue();
             }
-        } else {
-            return false;
+            return (!n.isWhole()) && this.doubleValue() == n.doubleValue();
         }
+        return false;
     }
 
     @Override
@@ -101,10 +99,10 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
 
     static ConfigNumber newNumber(ConfigOrigin origin, long number,
             String originalText) {
-        if (number <= Integer.MAX_VALUE && number >= Integer.MIN_VALUE)
+        if (number <= Integer.MAX_VALUE && number >= Integer.MIN_VALUE) {
             return new ConfigInt(origin, (int) number, originalText);
-        else
-            return new ConfigLong(origin, number, originalText);
+        }
+        return new ConfigLong(origin, number, originalText);
     }
 
     static ConfigNumber newNumber(ConfigOrigin origin, double number,
@@ -112,9 +110,8 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
         long asLong = (long) number;
         if (asLong == number) {
             return newNumber(origin, asLong, originalText);
-        } else {
-            return new ConfigDouble(origin, number, originalText);
         }
+        return new ConfigDouble(origin, number, originalText);
     }
 
     // serialization all goes through SerializedConfigValue

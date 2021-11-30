@@ -44,14 +44,14 @@ final class ConfigParser {
         return context.parse();
     }
 
-    static private final class ParseContext {
+    private static final class ParseContext {
         private int lineNumber;
-        final private ConfigNodeRoot document;
-        final private FullIncluder includer;
-        final private ConfigIncludeContext includeContext;
-        final private ConfigSyntax flavor;
-        final private ConfigOrigin baseOrigin;
-        final private LinkedList<Path> pathStack;
+        private final ConfigNodeRoot document;
+        private final FullIncluder includer;
+        private final ConfigIncludeContext includeContext;
+        private final ConfigSyntax flavor;
+        private final ConfigOrigin baseOrigin;
+        private final LinkedList<Path> pathStack;
 
         // the number of lists we are inside; this is used to detect the "cannot
         // generate a reference to a list element" problem, and once we fix that
@@ -75,8 +75,9 @@ final class ConfigParser {
         // value.
         private AbstractConfigValue parseConcatenation(ConfigNodeConcatenation n) {
             // this trick is not done in JSON
-            if (flavor == ConfigSyntax.JSON)
+            if (flavor == ConfigSyntax.JSON) {
                 throw new ConfigException.BugOrBroken("Found a concatenation node in JSON");
+            }
 
             List<AbstractConfigValue> values = new ArrayList<AbstractConfigValue>();
 
@@ -105,10 +106,10 @@ final class ConfigParser {
 
         private Path fullCurrentPath() {
             // pathStack has top of stack at front
-            if (pathStack.isEmpty())
+            if (pathStack.isEmpty()) {
                 throw new ConfigException.BugOrBroken("Bug in parser; tried to get current path when at root");
-            else
-                return new Path(pathStack.descendingIterator());
+            }
+            return new Path(pathStack.descendingIterator());
         }
 
         private AbstractConfigValue parseValue(AbstractConfigNodeValue n, List<String> comments) {
@@ -123,12 +124,12 @@ final class ConfigParser {
                 Path path = pathStack.peekFirst();
 
                 if (path != null
-                        && (path.first().equals("input")
-                        || path.first().equals("filter")
-                        || path.first().equals("output")
-                        || path.first().equals("source")
-                        || path.first().equals("transform")
-                        || path.first().equals("sink"))) {
+                        && ("input".equals(path.first())
+                        || "filter".equals(path.first())
+                        || "output".equals(path.first())
+                        || "source".equals(path.first())
+                        || "transform".equals(path.first())
+                        || "sink".equals(path.first()))) {
                     v = parseObjectForWaterdrop((ConfigNodeObject) n);
                 } else {
                     v = parseObject((ConfigNodeObject) n);
@@ -147,8 +148,9 @@ final class ConfigParser {
                 comments.clear();
             }
 
-            if (arrayCount != startingArrayCount)
+            if (arrayCount != startingArrayCount) {
                 throw new ConfigException.BugOrBroken("Bug in config parser: unbalanced array count");
+            }
 
             return v;
         }
@@ -226,10 +228,11 @@ final class ConfigParser {
             // we really should make this work, but for now throwing an
             // exception is better than producing an incorrect result.
             // See https://github.com/lightbend/config/issues/160
-            if (arrayCount > 0 && obj.resolveStatus() != ResolveStatus.RESOLVED)
+            if (arrayCount > 0 && obj.resolveStatus() != ResolveStatus.RESOLVED) {
                 throw parseError("Due to current limitations of the config parser, when an include statement is nested inside a list value, "
                         + "${} substitutions inside the included file cannot be resolved correctly. Either move the include outside of the list value or "
                         + "remove the ${} statements from the included file.");
+            }
 
             if (!pathStack.isEmpty()) {
                 Path prefix = fullCurrentPath();
@@ -261,7 +264,8 @@ final class ConfigParser {
                 if (node instanceof ConfigNodeComment) {
                     lastWasNewline = false;
                     comments.add(((ConfigNodeComment) node).commentText());
-                } else if (node instanceof ConfigNodeSingleToken && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
+                } else if (node instanceof ConfigNodeSingleToken
+                        && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
                     lineNumber++;
                     if (lastWasNewline) {
                         // Drop all comments if there was a blank line and start a new comment block
@@ -283,10 +287,11 @@ final class ConfigParser {
                         // an exception is better than producing an incorrect
                         // result. See
                         // https://github.com/lightbend/config/issues/160
-                        if (arrayCount > 0)
+                        if (arrayCount > 0) {
                             throw parseError("Due to current limitations of the config parser, += does not work nested inside a list. "
                                     + "+= expands to a ${} substitution and the path in ${} cannot currently refer to list elements. "
                                     + "You might be able to move the += outside of the list and then refer to it from inside the list with ${}.");
+                        }
 
                         // because we will put it in an array after the fact so
                         // we want this to be incremented during the parseValue
@@ -385,7 +390,8 @@ final class ConfigParser {
                 if (node instanceof ConfigNodeComment) {
                     lastWasNewline = false;
                     comments.add(((ConfigNodeComment) node).commentText());
-                } else if (node instanceof ConfigNodeSingleToken && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
+                } else if (node instanceof ConfigNodeSingleToken
+                        && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
                     lineNumber++;
                     if (lastWasNewline) {
                         // Drop all comments if there was a blank line and start a new comment block
@@ -407,10 +413,11 @@ final class ConfigParser {
                         // an exception is better than producing an incorrect
                         // result. See
                         // https://github.com/lightbend/config/issues/160
-                        if (arrayCount > 0)
+                        if (arrayCount > 0) {
                             throw parseError("Due to current limitations of the config parser, += does not work nested inside a list. "
                                     + "+= expands to a ${} substitution and the path in ${} cannot currently refer to list elements. "
                                     + "You might be able to move the += outside of the list and then refer to it from inside the list with ${}.");
+                        }
 
                         // because we will put it in an array after the fact so
                         // we want this to be incremented during the parseValue
@@ -479,8 +486,7 @@ final class ConfigParser {
 
                             if (flavor == ConfigSyntax.JSON) {
                                 throw parseError("JSON does not allow duplicate fields: '"
-                                        + key
-                                        + "' was already seen at "
+                                        + key + "' was already seen at "
                                         + existing.origin().description());
                             } else {
                                 newValue = newValue.withFallback(existing);
@@ -522,7 +528,8 @@ final class ConfigParser {
                 if (node instanceof ConfigNodeComment) {
                     comments.add(((ConfigNodeComment) node).commentText());
                     lastWasNewLine = false;
-                } else if (node instanceof ConfigNodeSingleToken && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
+                } else if (node instanceof ConfigNodeSingleToken
+                        && Tokens.isNewline(((ConfigNodeSingleToken) node).token())) {
                     lineNumber++;
                     if (lastWasNewLine && v == null) {
                         comments.clear();

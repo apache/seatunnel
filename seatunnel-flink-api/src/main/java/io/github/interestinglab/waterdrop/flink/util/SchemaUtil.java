@@ -21,17 +21,17 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.github.interestinglab.waterdrop.config.Config;
 import io.github.interestinglab.waterdrop.config.ConfigValue;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
 import org.apache.flink.formats.avro.typeutils.AvroSchemaConverter;
+import org.apache.flink.table.descriptors.Avro;
 import org.apache.flink.table.descriptors.Csv;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FormatDescriptor;
 import org.apache.flink.table.descriptors.Json;
-import org.apache.flink.table.descriptors.Avro;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.table.utils.TypeStringUtils;
 import org.apache.flink.types.Row;
@@ -62,8 +62,8 @@ public class SchemaUtil {
                 break;
             case "parquet":
                 getParquetSchema(schema, (JSONObject) info);
-            default:
                 break;
+            default:
         }
     }
 
@@ -153,7 +153,7 @@ public class SchemaUtil {
      * todo
      *
      * @param schema schema
-     * @param json json
+     * @param json   json
      */
     private static void getOrcSchema(Schema schema, JSONObject json) {
 
@@ -164,7 +164,7 @@ public class SchemaUtil {
      * todo
      *
      * @param schema schema
-     * @param json json
+     * @param json   json
      */
     private static void getParquetSchema(Schema schema, JSONObject json) {
 

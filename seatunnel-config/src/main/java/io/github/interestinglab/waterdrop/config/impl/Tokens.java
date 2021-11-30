@@ -25,9 +25,9 @@ import java.util.List;
 
 /* FIXME the way the subclasses of Token are private with static isFoo and accessors is kind of ridiculous. */
 final class Tokens {
-    static private class Value extends Token {
+    private static class Value extends Token {
 
-        final private AbstractConfigValue value;
+        private final AbstractConfigValue value;
 
         Value(AbstractConfigValue value) {
             this(value, null);
@@ -44,10 +44,10 @@ final class Tokens {
 
         @Override
         public String toString() {
-            if (value().resolveStatus() == ResolveStatus.RESOLVED)
+            if (value().resolveStatus() == ResolveStatus.RESOLVED) {
                 return "'" + value().unwrapped() + "' (" + value.valueType().name() + ")";
-            else
-                return "'<unresolved value>' (" + value.valueType().name() + ")";
+            }
+            return "'<unresolved value>' (" + value.valueType().name() + ")";
         }
 
         @Override
@@ -66,7 +66,7 @@ final class Tokens {
         }
     }
 
-    static private class Line extends Token {
+    private static class Line extends Token {
         Line(ConfigOrigin origin) {
             super(TokenType.NEWLINE, origin);
         }
@@ -98,8 +98,8 @@ final class Tokens {
     }
 
     // This is not a Value, because it requires special processing
-    static private class UnquotedText extends Token {
-        final private String value;
+    private static class UnquotedText extends Token {
+        private final String value;
 
         UnquotedText(ConfigOrigin origin, String s) {
             super(TokenType.UNQUOTED_TEXT, origin);
@@ -122,8 +122,7 @@ final class Tokens {
 
         @Override
         public boolean equals(Object other) {
-            return super.equals(other)
-                    && ((UnquotedText) other).value.equals(value);
+            return super.equals(other) && ((UnquotedText) other).value.equals(value);
         }
 
         @Override
@@ -137,8 +136,8 @@ final class Tokens {
         }
     }
 
-    static private class IgnoredWhitespace extends Token {
-        final private String value;
+    private static class IgnoredWhitespace extends Token {
+        private final String value;
 
         IgnoredWhitespace(ConfigOrigin origin, String s) {
             super(TokenType.IGNORED_WHITESPACE, origin);
@@ -157,8 +156,7 @@ final class Tokens {
 
         @Override
         public boolean equals(Object other) {
-            return super.equals(other)
-                    && ((IgnoredWhitespace) other).value.equals(value);
+            return super.equals(other) && ((IgnoredWhitespace) other).value.equals(value);
         }
 
         @Override
@@ -172,11 +170,11 @@ final class Tokens {
         }
     }
 
-    static private class Problem extends Token {
-        final private String what;
-        final private String message;
-        final private boolean suggestQuotes;
-        final private Throwable cause;
+    private static class Problem extends Token {
+        private final String what;
+        private final String message;
+        private final boolean suggestQuotes;
+        private final Throwable cause;
 
         Problem(ConfigOrigin origin, String what, String message, boolean suggestQuotes,
                 Throwable cause) {
@@ -222,7 +220,8 @@ final class Tokens {
 
         @Override
         public boolean equals(Object other) {
-            return super.equals(other) && ((Problem) other).what.equals(what)
+            return super.equals(other)
+                    && ((Problem) other).what.equals(what)
                     && ((Problem) other).message.equals(message)
                     && ((Problem) other).suggestQuotes == suggestQuotes
                     && ConfigImplUtil.equalsHandlingNull(((Problem) other).cause, cause);
@@ -234,21 +233,22 @@ final class Tokens {
             h = 41 * (h + what.hashCode());
             h = 41 * (h + message.hashCode());
             h = 41 * (h + Boolean.valueOf(suggestQuotes).hashCode());
-            if (cause != null)
+            if (cause != null) {
                 h = 41 * (h + cause.hashCode());
+            }
             return h;
         }
     }
 
-    static private abstract class Comment extends Token {
-        final private String text;
+    private abstract static class Comment extends Token {
+        private final String text;
 
         Comment(ConfigOrigin origin, String text) {
             super(TokenType.COMMENT, origin);
             this.text = text;
         }
 
-        final static class DoubleSlashComment extends Comment {
+        static final class DoubleSlashComment extends Comment {
             DoubleSlashComment(ConfigOrigin origin, String text) {
                 super(origin, text);
             }
@@ -259,7 +259,7 @@ final class Tokens {
             }
         }
 
-        final static class HashComment extends Comment {
+        static final class HashComment extends Comment {
             HashComment(ConfigOrigin origin, String text) {
                 super(origin, text);
             }
@@ -302,9 +302,9 @@ final class Tokens {
     }
 
     // This is not a Value, because it requires special processing
-    static private class Substitution extends Token {
-        final private boolean optional;
-        final private List<Token> value;
+    private static class Substitution extends Token {
+        private final boolean optional;
+        private final List<Token> value;
 
         Substitution(ConfigOrigin origin, boolean optional, List<Token> expression) {
             super(TokenType.SUBSTITUTION, origin);
@@ -341,8 +341,7 @@ final class Tokens {
 
         @Override
         public boolean equals(Object other) {
-            return super.equals(other)
-                    && ((Substitution) other).value.equals(value);
+            return super.equals(other) && ((Substitution) other).value.equals(value);
         }
 
         @Override
@@ -358,10 +357,9 @@ final class Tokens {
     static AbstractConfigValue getValue(Token token) {
         if (token instanceof Value) {
             return ((Value) token).value();
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "tried to get value of non-value token " + token);
         }
+        throw new ConfigException.BugOrBroken(
+                "tried to get value of non-value token " + token);
     }
 
     static boolean isValueWithType(Token t, ConfigValueType valueType) {
@@ -379,34 +377,29 @@ final class Tokens {
     static String getProblemWhat(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).what();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem what from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem what from " + token);
     }
 
     static String getProblemMessage(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).message();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem message from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem message from " + token);
     }
 
     static boolean getProblemSuggestQuotes(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).suggestQuotes();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem suggestQuotes from "
-                    + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem suggestQuotes from " + token);
     }
 
     static Throwable getProblemCause(Token token) {
         if (token instanceof Problem) {
             return ((Problem) token).cause();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get problem cause from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get problem cause from " + token);
     }
 
     static boolean isComment(Token token) {
@@ -416,9 +409,8 @@ final class Tokens {
     static String getCommentText(Token token) {
         if (token instanceof Comment) {
             return ((Comment) token).text();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get comment text from " + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get comment text from " + token);
     }
 
     static boolean isUnquotedText(Token token) {
@@ -428,10 +420,9 @@ final class Tokens {
     static String getUnquotedText(Token token) {
         if (token instanceof UnquotedText) {
             return ((UnquotedText) token).value();
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "tried to get unquoted text from " + token);
         }
+        throw new ConfigException.BugOrBroken(
+                "tried to get unquoted text from " + token);
     }
 
     static boolean isIgnoredWhitespace(Token token) {
@@ -445,31 +436,28 @@ final class Tokens {
     static List<Token> getSubstitutionPathExpression(Token token) {
         if (token instanceof Substitution) {
             return ((Substitution) token).value();
-        } else {
-            throw new ConfigException.BugOrBroken(
-                    "tried to get substitution from " + token);
         }
+        throw new ConfigException.BugOrBroken(
+                "tried to get substitution from " + token);
     }
 
     static boolean getSubstitutionOptional(Token token) {
         if (token instanceof Substitution) {
             return ((Substitution) token).optional();
-        } else {
-            throw new ConfigException.BugOrBroken("tried to get substitution optionality from "
-                    + token);
         }
+        throw new ConfigException.BugOrBroken("tried to get substitution optionality from " + token);
     }
 
-    final static Token START = Token.newWithoutOrigin(TokenType.START, "start of file", "");
-    final static Token END = Token.newWithoutOrigin(TokenType.END, "end of file", "");
-    final static Token COMMA = Token.newWithoutOrigin(TokenType.COMMA, "','", ",");
-    final static Token EQUALS = Token.newWithoutOrigin(TokenType.EQUALS, "'='", "=");
-    final static Token COLON = Token.newWithoutOrigin(TokenType.COLON, "':'", ":");
-    final static Token OPEN_CURLY = Token.newWithoutOrigin(TokenType.OPEN_CURLY, "'{'", "{");
-    final static Token CLOSE_CURLY = Token.newWithoutOrigin(TokenType.CLOSE_CURLY, "'}'", "}");
-    final static Token OPEN_SQUARE = Token.newWithoutOrigin(TokenType.OPEN_SQUARE, "'['", "[");
-    final static Token CLOSE_SQUARE = Token.newWithoutOrigin(TokenType.CLOSE_SQUARE, "']'", "]");
-    final static Token PLUS_EQUALS = Token.newWithoutOrigin(TokenType.PLUS_EQUALS, "'+='", "+=");
+    static final Token START = Token.newWithoutOrigin(TokenType.START, "start of file", "");
+    static final Token END = Token.newWithoutOrigin(TokenType.END, "end of file", "");
+    static final Token COMMA = Token.newWithoutOrigin(TokenType.COMMA, "','", ",");
+    static final Token EQUALS = Token.newWithoutOrigin(TokenType.EQUALS, "'='", "=");
+    static final Token COLON = Token.newWithoutOrigin(TokenType.COLON, "':'", ":");
+    static final Token OPEN_CURLY = Token.newWithoutOrigin(TokenType.OPEN_CURLY, "'{'", "{");
+    static final Token CLOSE_CURLY = Token.newWithoutOrigin(TokenType.CLOSE_CURLY, "'}'", "}");
+    static final Token OPEN_SQUARE = Token.newWithoutOrigin(TokenType.OPEN_SQUARE, "'['", "[");
+    static final Token CLOSE_SQUARE = Token.newWithoutOrigin(TokenType.CLOSE_SQUARE, "']'", "]");
+    static final Token PLUS_EQUALS = Token.newWithoutOrigin(TokenType.PLUS_EQUALS, "'+='", "+=");
 
     static Token newLine(ConfigOrigin origin) {
         return new Line(origin);

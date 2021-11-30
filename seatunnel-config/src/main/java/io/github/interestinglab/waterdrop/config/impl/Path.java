@@ -25,8 +25,8 @@ import java.util.List;
 
 final class Path {
 
-    final private String first;
-    final private Path remainder;
+    private final String first;
+    private final Path remainder;
 
     Path(String first, Path remainder) {
         this.first = first;
@@ -34,8 +34,9 @@ final class Path {
     }
 
     Path(String... elements) {
-        if (elements.length == 0)
+        if (elements.length == 0) {
             throw new ConfigException.BugOrBroken("empty path");
+        }
         this.first = elements[0];
         if (elements.length > 1) {
             PathBuilder pb = new PathBuilder();
@@ -55,8 +56,9 @@ final class Path {
 
     // append all the paths in the iterator together into one path
     Path(Iterator<Path> i) {
-        if (!i.hasNext())
+        if (!i.hasNext()) {
             throw new ConfigException.BugOrBroken("empty path");
+        }
 
         Path firstPath = i.next();
         this.first = firstPath.first;
@@ -86,8 +88,9 @@ final class Path {
      * @return path minus the last element or null if we have just one element
      */
     Path parent() {
-        if (remainder == null)
+        if (remainder == null) {
             return null;
+        }
 
         PathBuilder pb = new PathBuilder();
         Path p = this;
@@ -137,8 +140,9 @@ final class Path {
     }
 
     Path subPath(int firstIndex, int lastIndex) {
-        if (lastIndex < firstIndex)
+        if (lastIndex < firstIndex) {
             throw new ConfigException.BugOrBroken("bad call to subPath");
+        }
 
         Path from = subPath(firstIndex);
         PathBuilder pb = new PathBuilder();
@@ -147,8 +151,9 @@ final class Path {
             count -= 1;
             pb.appendKey(from.first());
             from = from.remainder();
-            if (from == null)
+            if (from == null) {
                 throw new ConfigException.BugOrBroken("subPath lastIndex out of range " + lastIndex);
+            }
         }
         return pb.result();
     }
@@ -158,8 +163,9 @@ final class Path {
         Path otherRemainder = other;
         if (otherRemainder.length() <= myRemainder.length()) {
             while (otherRemainder != null) {
-                if (!otherRemainder.first().equals(myRemainder.first()))
+                if (!otherRemainder.first().equals(myRemainder.first())) {
                     return false;
+                }
                 myRemainder = myRemainder.remainder();
                 otherRemainder = otherRemainder.remainder();
             }
@@ -172,18 +178,15 @@ final class Path {
     public boolean equals(Object other) {
         if (other instanceof Path) {
             Path that = (Path) other;
-            return this.first.equals(that.first)
-                    && ConfigImplUtil.equalsHandlingNull(this.remainder,
+            return this.first.equals(that.first) && ConfigImplUtil.equalsHandlingNull(this.remainder,
                     that.remainder);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
     public int hashCode() {
-        return 41 * (41 + first.hashCode())
-                + (remainder == null ? 0 : remainder.hashCode());
+        return 41 * (41 + first.hashCode()) + (remainder == null ? 0 : remainder.hashCode());
     }
 
     // this doesn't have a very precise meaning, just to reduce
@@ -191,25 +194,27 @@ final class Path {
     static boolean hasFunkyChars(String s) {
         int length = s.length();
 
-        if (length == 0)
+        if (length == 0) {
             return false;
+        }
 
         for (int i = 0; i < length; ++i) {
             char c = s.charAt(i);
 
-            if (Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == '.')
+            if (Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == '.') {
                 continue;
-            else
-                return true;
+            }
+            return true;
         }
         return false;
     }
 
     private void appendToStringBuilder(StringBuilder sb) {
-        if (hasFunkyChars(first) || first.isEmpty())
+        if (hasFunkyChars(first) || first.isEmpty()) {
             sb.append(ConfigImplUtil.renderJsonString(first));
-        else
+        } else {
             sb.append(first);
+        }
         if (remainder != null) {
             sb.append(ConfigParseOptions.PATH_TOKEN_SEPARATOR);
             remainder.appendToStringBuilder(sb);

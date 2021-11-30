@@ -19,8 +19,8 @@ package io.github.interestinglab.waterdrop.config.impl;
 
 final class SubstitutionExpression {
 
-    final private Path path;
-    final private boolean optional;
+    private final Path path;
+    private final boolean optional;
 
     SubstitutionExpression(Path path, boolean optional) {
         this.path = path;
@@ -36,10 +36,10 @@ final class SubstitutionExpression {
     }
 
     SubstitutionExpression changePath(Path newPath) {
-        if (newPath == path)
+        if (newPath == path) {
             return this;
-        else
-            return new SubstitutionExpression(newPath, optional);
+        }
+        return new SubstitutionExpression(newPath, optional);
     }
 
     @Override
@@ -52,9 +52,8 @@ final class SubstitutionExpression {
         if (other instanceof SubstitutionExpression) {
             SubstitutionExpression otherExp = (SubstitutionExpression) other;
             return otherExp.path.equals(this.path) && otherExp.optional == this.optional;
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

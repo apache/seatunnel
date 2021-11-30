@@ -24,7 +24,7 @@ import java.util.Collection;
 import java.util.List;
 
 final class ConfigNodeField extends AbstractConfigNode {
-    final private ArrayList<AbstractConfigNode> children;
+    private final ArrayList<AbstractConfigNode> children;
 
     public ConfigNodeField(Collection<AbstractConfigNode> children) {
         this.children = new ArrayList<AbstractConfigNode>(children);

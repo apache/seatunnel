@@ -59,9 +59,10 @@ public class ConfigBeanImpl {
      * @return the bean instance
      */
     public static <T> T createInternal(Config config, Class<T> clazz) {
-        if (((SimpleConfig) config).root().resolveStatus() != ResolveStatus.RESOLVED)
+        if (((SimpleConfig) config).root().resolveStatus() != ResolveStatus.RESOLVED) {
             throw new ConfigException.NotResolved(
                     "need to Config#resolve() a config before using it to initialize a bean, see the API docs for Config#resolve()");
+        }
 
         Map<String, AbstractConfigValue> configProps = new HashMap<String, AbstractConfigValue>();
         Map<String, String> originalNames = new HashMap<String, String>();
@@ -105,8 +106,9 @@ public class ConfigBeanImpl {
                 ConfigValueType expectedType = getValueTypeOrNull(parameterClass);
                 if (expectedType != null) {
                     String name = originalNames.get(beanProp.getName());
-                    if (name == null)
+                    if (name == null) {
                         name = beanProp.getName();
+                    }
                     Path path = Path.newKey(name);
                     AbstractConfigValue configValue = configProps.get(beanProp.getName());
                     if (configValue != null) {
@@ -144,11 +146,14 @@ public class ConfigBeanImpl {
             }
             return bean;
         } catch (InstantiationException e) {
-            throw new ConfigException.BadBean(clazz.getName() + " needs a public no-args constructor to be used as a bean", e);
+            throw new ConfigException.BadBean(clazz.getName()
+                    + " needs a public no-args constructor to be used as a bean", e);
         } catch (IllegalAccessException e) {
-            throw new ConfigException.BadBean(clazz.getName() + " getters and setters are not accessible, they must be for use as a bean", e);
+            throw new ConfigException.BadBean(clazz.getName()
+                    + " getters and setters are not accessible, they must be for use as a bean", e);
         } catch (InvocationTargetException e) {
-            throw new ConfigException.BadBean("Calling bean method on " + clazz.getName() + " caused an exception", e);
+            throw new ConfigException.BadBean("Calling bean method on "
+                    + clazz.getName() + " caused an exception", e);
         }
     }
 
@@ -186,7 +191,12 @@ public class ConfigBeanImpl {
             // we could do better here, but right now we don't.
             Type[] typeArgs = ((ParameterizedType) parameterType).getActualTypeArguments();
             if (typeArgs[0] != String.class || typeArgs[1] != Object.class) {
-                throw new ConfigException.BadBean("Bean property '" + configPropName + "' of class " + beanClass.getName() + " has unsupported Map<" + typeArgs[0] + "," + typeArgs[1] + ">, only Map<String,Object> is supported right now");
+                throw new ConfigException.BadBean("Bean property '"
+                        + configPropName + "' of class "
+                        + beanClass.getName()
+                        + " has unsupported Map<"
+                        + typeArgs[0] + "," + typeArgs[1]
+                        + ">, only Map<String,Object> is supported right now");
             }
             return config.getObject(configPropName).unwrapped();
         } else if (parameterClass == Config.class) {
@@ -203,9 +213,12 @@ public class ConfigBeanImpl {
             return enumValue;
         } else if (hasAtLeastOneBeanProperty(parameterClass)) {
             return createInternal(config.getConfig(configPropName), parameterClass);
-        } else {
-            throw new ConfigException.BadBean("Bean property " + configPropName + " of class " + beanClass.getName() + " has unsupported type " + parameterType);
         }
+        throw new ConfigException.BadBean("Bean property "
+                + configPropName + " of class "
+                + beanClass.getName()
+                + " has unsupported type "
+                + parameterType);
     }
 
     private static Object getSetValue(Class<?> beanClass, Type parameterType, Class<?> parameterClass, Config config, String configPropName) {
@@ -248,9 +261,12 @@ public class ConfigBeanImpl {
                 beanList.add(createInternal(listMember, (Class<?>) elementType));
             }
             return beanList;
-        } else {
-            throw new ConfigException.BadBean("Bean property '" + configPropName + "' of class " + beanClass.getName() + " has unsupported list element type " + elementType);
         }
+        throw new ConfigException.BadBean("Bean property '"
+                + configPropName + "' of class "
+                + beanClass.getName()
+                + " has unsupported list element type "
+                + elementType);
     }
 
     // null if we can't easily say; this is heuristic/best-effort
@@ -279,9 +295,8 @@ public class ConfigBeanImpl {
             return ConfigValueType.OBJECT;
         } else if (parameterClass == ConfigList.class) {
             return ConfigValueType.LIST;
-        } else {
-            return null;
         }
+        return null;
     }
 
     private static boolean hasAtLeastOneBeanProperty(Class<?> clazz) {

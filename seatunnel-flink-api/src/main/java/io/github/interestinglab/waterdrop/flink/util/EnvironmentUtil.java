@@ -66,18 +66,13 @@ public class EnvironmentUtil {
             String restartStrategy = config.getString(ConfigKeyName.RESTART_STRATEGY);
             switch (restartStrategy.toLowerCase()) {
                 case "fixed-delay":
-                    if (!(config.hasPath(ConfigKeyName.RESTART_ATTEMPTS)
-                            && config.hasPath(ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS))) {
-                        return new CheckResult(false, String.format("fixed-delay restart strategy must set [%s],[%s]"
-                                , ConfigKeyName.RESTART_ATTEMPTS, ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS));
+                    if (!(config.hasPath(ConfigKeyName.RESTART_ATTEMPTS) && config.hasPath(ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS))) {
+                        return new CheckResult(false, String.format("fixed-delay restart strategy must set [%s],[%s]", ConfigKeyName.RESTART_ATTEMPTS, ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS));
                     }
                     break;
                 case "failure-rate":
-                    if (!(config.hasPath(ConfigKeyName.RESTART_FAILURE_INTERVAL)
-                            && config.hasPath(ConfigKeyName.RESTART_FAILURE_RATE)
-                            && config.hasPath(ConfigKeyName.RESTART_DELAY_INTERVAL))) {
-                        return new CheckResult(false, String.format("failure-rate restart strategy must set [%s],[%s],[%s]"
-                                , ConfigKeyName.RESTART_FAILURE_INTERVAL, ConfigKeyName.RESTART_FAILURE_RATE, ConfigKeyName.RESTART_DELAY_INTERVAL));
+                    if (!(config.hasPath(ConfigKeyName.RESTART_FAILURE_INTERVAL) && config.hasPath(ConfigKeyName.RESTART_FAILURE_RATE) && config.hasPath(ConfigKeyName.RESTART_DELAY_INTERVAL))) {
+                        return new CheckResult(false, String.format("failure-rate restart strategy must set [%s],[%s],[%s]", ConfigKeyName.RESTART_FAILURE_INTERVAL, ConfigKeyName.RESTART_FAILURE_RATE, ConfigKeyName.RESTART_DELAY_INTERVAL));
                     }
                     break;
                 default:

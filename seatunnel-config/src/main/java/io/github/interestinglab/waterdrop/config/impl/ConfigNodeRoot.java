@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 final class ConfigNodeRoot extends ConfigNodeComplexValue {
-    final private ConfigOrigin origin;
+    private final ConfigOrigin origin;
 
     ConfigNodeRoot(Collection<AbstractConfigNode> children, ConfigOrigin origin) {
         super(children);

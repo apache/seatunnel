@@ -138,9 +138,8 @@ public class ConfigBuilder {
                 }
             }
             return qualifierWithPackage;
-        } else {
-            return name;
         }
+        return name;
     }
 
 

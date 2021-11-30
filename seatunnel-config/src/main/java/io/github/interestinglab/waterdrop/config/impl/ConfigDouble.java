@@ -27,7 +27,7 @@ final class ConfigDouble extends ConfigNumber implements Serializable {
 
     private static final long serialVersionUID = 2L;
 
-    final private double value;
+    private final double value;
 
     ConfigDouble(ConfigOrigin origin, double value, String originalText) {
         super(origin, originalText);
@@ -47,10 +47,10 @@ final class ConfigDouble extends ConfigNumber implements Serializable {
     @Override
     String transformToString() {
         String s = super.transformToString();
-        if (s == null)
+        if (s == null) {
             return Double.toString(value);
-        else
-            return s;
+        }
+        return s;
     }
 
     @Override

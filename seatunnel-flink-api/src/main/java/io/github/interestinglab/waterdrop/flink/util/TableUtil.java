@@ -35,13 +35,12 @@ public class TableUtil {
         TypeInformation<Row> typeInfo = table.getSchema().toRowType();
         if (isAppend) {
             return tableEnvironment.toAppendStream(table, typeInfo);
-        } else {
-            return tableEnvironment
-                    .toRetractStream(table, typeInfo)
-                    .filter(row -> row.f0)
-                    .map(row -> row.f1)
-                    .returns(typeInfo);
         }
+        return tableEnvironment
+                .toRetractStream(table, typeInfo)
+                .filter(row -> row.f0)
+                .map(row -> row.f1)
+                .returns(typeInfo);
     }
 
     public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table) {

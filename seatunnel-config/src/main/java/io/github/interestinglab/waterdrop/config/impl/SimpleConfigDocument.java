@@ -37,8 +37,9 @@ final class SimpleConfigDocument implements ConfigDocument {
 
     @Override
     public ConfigDocument withValueText(String path, String newValue) {
-        if (newValue == null)
+        if (newValue == null) {
             throw new ConfigException.BugOrBroken("null value for " + path + " passed to withValueText");
+        }
         SimpleConfigOrigin origin = SimpleConfigOrigin.newSimple("single value parsing");
         StringReader reader = new StringReader(newValue);
         Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, parseOptions.getSyntax());
@@ -50,8 +51,9 @@ final class SimpleConfigDocument implements ConfigDocument {
 
     @Override
     public ConfigDocument withValue(String path, ConfigValue newValue) {
-        if (newValue == null)
+        if (newValue == null) {
             throw new ConfigException.BugOrBroken("null value for " + path + " passed to withValue");
+        }
         ConfigRenderOptions options = ConfigRenderOptions.defaults();
         options = options.setOriginComments(false);
         return withValueText(path, newValue.render(options).trim());
@@ -67,6 +69,7 @@ final class SimpleConfigDocument implements ConfigDocument {
         return configNodeTree.hasValue(path);
     }
 
+    @Override
     public String render() {
         return configNodeTree.render();
     }

@@ -40,7 +40,7 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
     private Config config;
 
-    private final static String PREFIX = "es.";
+    private static final String PREFIX = "es.";
 
     private final ElasticsearchSinkFunction<T> elasticsearchSinkFunction;
 

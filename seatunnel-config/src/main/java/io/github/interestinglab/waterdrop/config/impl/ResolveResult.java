@@ -36,8 +36,9 @@ final class ResolveResult<V extends AbstractConfigValue> {
     // better option? we don't have variance
     @SuppressWarnings("unchecked")
     ResolveResult<AbstractConfigObject> asObjectResult() {
-        if (!(value instanceof AbstractConfigObject))
+        if (!(value instanceof AbstractConfigObject)) {
             throw new ConfigException.BugOrBroken("Expecting a resolve result to be an object, but it was " + value);
+        }
         Object o = this;
         return (ResolveResult<AbstractConfigObject>) o;
     }

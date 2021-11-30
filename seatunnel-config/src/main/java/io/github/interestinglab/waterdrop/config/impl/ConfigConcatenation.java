@@ -41,33 +41,35 @@ import java.util.List;
  */
 final class ConfigConcatenation extends AbstractConfigValue implements Unmergeable, Container {
 
-    final private List<AbstractConfigValue> pieces;
+    private final List<AbstractConfigValue> pieces;
 
     ConfigConcatenation(ConfigOrigin origin, List<AbstractConfigValue> pieces) {
         super(origin);
         this.pieces = pieces;
 
-        if (pieces.size() < 2)
-            throw new ConfigException.BugOrBroken("Created concatenation with less than 2 items: "
-                    + this);
+        if (pieces.size() < 2) {
+            throw new ConfigException.BugOrBroken("Created concatenation with less than 2 items: " + this);
+        }
 
         boolean hadUnmergeable = false;
         for (AbstractConfigValue p : pieces) {
-            if (p instanceof ConfigConcatenation)
+            if (p instanceof ConfigConcatenation) {
                 throw new ConfigException.BugOrBroken(
                         "ConfigConcatenation should never be nested: " + this);
-            if (p instanceof Unmergeable)
+            }
+            if (p instanceof Unmergeable) {
                 hadUnmergeable = true;
+            }
         }
-        if (!hadUnmergeable)
+        if (!hadUnmergeable) {
             throw new ConfigException.BugOrBroken(
                     "Created concatenation without an unmergeable in it: " + this);
+        }
     }
 
     private ConfigException.NotResolved notResolved() {
         return new ConfigException.NotResolved(
-                "need to Config#resolve(), see the API docs for Config#resolve(); substitution not resolved: "
-                        + this);
+                "need to Config#resolve(), see the API docs for Config#resolve(); substitution not resolved: " + this);
     }
 
     @Override
@@ -139,8 +141,7 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
             String s2 = right.transformToString();
             if (s1 == null || s2 == null) {
                 throw new ConfigException.WrongType(left.origin(),
-                        "Cannot concatenate object or list with a non-object-or-list, " + left
-                                + " and " + right + " are not compatible");
+                        "Cannot concatenate object or list with a non-object-or-list, " + left + " and " + right + " are not compatible");
             } else {
                 ConfigOrigin joinedOrigin = SimpleConfigOrigin.mergeOrigins(left.origin(),
                         right.origin());
@@ -159,27 +160,27 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
     static List<AbstractConfigValue> consolidate(List<AbstractConfigValue> pieces) {
         if (pieces.size() < 2) {
             return pieces;
-        } else {
-            List<AbstractConfigValue> flattened = new ArrayList<AbstractConfigValue>(pieces.size());
-            for (AbstractConfigValue v : pieces) {
-                if (v instanceof ConfigConcatenation) {
-                    flattened.addAll(((ConfigConcatenation) v).pieces);
-                } else {
-                    flattened.add(v);
-                }
-            }
-
-            ArrayList<AbstractConfigValue> consolidated = new ArrayList<AbstractConfigValue>(
-                    flattened.size());
-            for (AbstractConfigValue v : flattened) {
-                if (consolidated.isEmpty())
-                    consolidated.add(v);
-                else
-                    join(consolidated, v);
-            }
-
-            return consolidated;
         }
+        List<AbstractConfigValue> flattened = new ArrayList<AbstractConfigValue>(pieces.size());
+        for (AbstractConfigValue v : pieces) {
+            if (v instanceof ConfigConcatenation) {
+                flattened.addAll(((ConfigConcatenation) v).pieces);
+            } else {
+                flattened.add(v);
+            }
+        }
+
+        ArrayList<AbstractConfigValue> consolidated = new ArrayList<AbstractConfigValue>(
+                flattened.size());
+        for (AbstractConfigValue v : flattened) {
+            if (consolidated.isEmpty()) {
+                consolidated.add(v);
+            } else {
+                join(consolidated, v);
+            }
+        }
+
+        return consolidated;
     }
 
     static AbstractConfigValue concatenate(List<AbstractConfigValue> pieces) {
@@ -188,16 +189,15 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
             return null;
         } else if (consolidated.size() == 1) {
             return consolidated.get(0);
-        } else {
-            ConfigOrigin mergedOrigin = SimpleConfigOrigin.mergeOrigins(consolidated);
-            return new ConfigConcatenation(mergedOrigin, consolidated);
         }
+        ConfigOrigin mergedOrigin = SimpleConfigOrigin.mergeOrigins(consolidated);
+        return new ConfigConcatenation(mergedOrigin, consolidated);
     }
 
     @Override
     ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source)
             throws NotPossibleToResolve {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE()) {
+        if (ConfigImpl.traceSubSituationsEnable()) {
             int indent = context.depth() + 2;
             ConfigImpl.trace(indent - 1, "concatenation has " + pieces.size() + " pieces:");
             int count = 0;
@@ -222,8 +222,9 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
                     .resolve(p, sourceWithParent);
             AbstractConfigValue r = result.value;
             newContext = result.context.restrict(restriction);
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+            if (ConfigImpl.traceSubSituationsEnable()) {
                 ConfigImpl.trace(context.depth(), "resolved concat piece to " + r);
+            }
             if (r == null) {
                 // it was optional... omit
             } else {
@@ -235,16 +236,15 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
         List<AbstractConfigValue> joined = consolidate(resolved);
         // if unresolved is allowed we can just become another
         // ConfigConcatenation
-        if (joined.size() > 1 && context.options().getAllowUnresolved())
+        if (joined.size() > 1 && context.options().getAllowUnresolved()) {
             return ResolveResult.make(newContext, new ConfigConcatenation(this.origin(), joined));
-        else if (joined.isEmpty())
+        } else if (joined.isEmpty()) {
             // we had just a list of optional references using ${?}
             return ResolveResult.make(newContext, null);
-        else if (joined.size() == 1)
+        } else if (joined.size() == 1) {
             return ResolveResult.make(newContext, joined.get(0));
-        else
-            throw new ConfigException.BugOrBroken("Bug in the library; resolved list was joined to too many values: "
-                    + joined);
+        }
+        throw new ConfigException.BugOrBroken("Bug in the library; resolved list was joined to too many values: " + joined);
     }
 
     @Override
@@ -255,10 +255,10 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
     @Override
     public ConfigConcatenation replaceChild(AbstractConfigValue child, AbstractConfigValue replacement) {
         List<AbstractConfigValue> newPieces = replaceChildInList(pieces, child, replacement);
-        if (newPieces == null)
+        if (newPieces == null) {
             return null;
-        else
-            return new ConfigConcatenation(origin(), newPieces);
+        }
+        return new ConfigConcatenation(origin(), newPieces);
     }
 
     @Override
@@ -290,9 +290,8 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigConcatenation) {
             return canEqual(other) && this.pieces.equals(((ConfigConcatenation) other).pieces);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

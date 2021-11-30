@@ -73,7 +73,10 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
             Path key = node.path().value();
 
             // Delete all multi-element paths that start with the desired path, since technically they are duplicates
-            if ((valueCopy == null && key.equals(desiredPath)) || (key.startsWith(desiredPath) && !key.equals(desiredPath))) {
+            if ((valueCopy == null
+                    && key.equals(desiredPath))
+                    || (key.startsWith(desiredPath)
+                    && !key.equals(desiredPath))) {
                 childrenCopy.remove(i);
                 // Remove any whitespace or commas after the deleted setting
                 for (int j = i; j < childrenCopy.size(); j++) {
@@ -95,10 +98,11 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                 AbstractConfigNode before = i - 1 > 0 ? childrenCopy.get(i - 1) : null;
                 if (value instanceof ConfigNodeComplexValue &&
                         before instanceof ConfigNodeSingleToken &&
-                        Tokens.isIgnoredWhitespace(((ConfigNodeSingleToken) before).token()))
+                        Tokens.isIgnoredWhitespace(((ConfigNodeSingleToken) before).token())) {
                     indentedValue = ((ConfigNodeComplexValue) value).indentText(before);
-                else
+                } else {
                     indentedValue = value;
+                }
                 childrenCopy.set(i, node.replaceValue(indentedValue));
                 valueCopy = null;
             } else if (desiredPath.startsWith(key)) {
@@ -106,8 +110,9 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                 if (node.value() instanceof ConfigNodeObject) {
                     Path remainingPath = desiredPath.subPath(key.length());
                     childrenCopy.set(i, node.replaceValue(((ConfigNodeObject) node.value()).changeValueOnPath(remainingPath, valueCopy, flavor)));
-                    if (valueCopy != null && !node.equals(super.children.get(i)))
+                    if (valueCopy != null && !node.equals(super.children.get(i))) {
                         valueCopy = null;
+                    }
                 }
             } else {
                 seenNonMatching = true;
@@ -168,8 +173,9 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                 AbstractConfigNode beforeLast = children.get(children.size() - 2);
                 String indent = "";
                 if (beforeLast instanceof ConfigNodeSingleToken &&
-                        Tokens.isIgnoredWhitespace(((ConfigNodeSingleToken) beforeLast).token()))
+                        Tokens.isIgnoredWhitespace(((ConfigNodeSingleToken) beforeLast).token())) {
                     indent = ((ConfigNodeSingleToken) beforeLast).token().tokenText();
+                }
                 indent += "  ";
                 indentation.add(new ConfigNodeSingleToken(Tokens.newIgnoredWhitespace(null, indent)));
                 return indentation;
@@ -246,8 +252,9 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                 if ((flavor == ConfigSyntax.JSON || sameLine) && childrenCopy.get(i) instanceof ConfigNodeField) {
                     if (i + 1 >= childrenCopy.size() ||
                             !(childrenCopy.get(i + 1) instanceof ConfigNodeSingleToken
-                                    && ((ConfigNodeSingleToken) childrenCopy.get(i + 1)).token() == Tokens.COMMA))
+                                    && ((ConfigNodeSingleToken) childrenCopy.get(i + 1)).token() == Tokens.COMMA)) {
                         childrenCopy.add(i + 1, new ConfigNodeSingleToken(Tokens.COMMA));
+                    }
                     break;
                 }
 
@@ -274,17 +281,19 @@ final class ConfigNodeObject extends ConfigNodeComplexValue {
                             childrenCopy.add(i, new ConfigNodeField(newNodes));
                         }
 
-                    } else
+                    } else {
                         childrenCopy.add(i, new ConfigNodeField(newNodes));
+                    }
                 }
             }
         }
         if (!startsWithBrace) {
             if (!childrenCopy.isEmpty() && childrenCopy.get(childrenCopy.size() - 1) instanceof ConfigNodeSingleToken &&
-                    Tokens.isNewline(((ConfigNodeSingleToken) childrenCopy.get(childrenCopy.size() - 1)).token()))
+                    Tokens.isNewline(((ConfigNodeSingleToken) childrenCopy.get(childrenCopy.size() - 1)).token())) {
                 childrenCopy.add(childrenCopy.size() - 1, new ConfigNodeField(newNodes));
-            else
+            } else {
                 childrenCopy.add(new ConfigNodeField(newNodes));
+            }
         }
         return new ConfigNodeObject(childrenCopy);
     }

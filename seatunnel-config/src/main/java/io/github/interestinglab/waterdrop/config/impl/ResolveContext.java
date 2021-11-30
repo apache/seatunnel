@@ -28,21 +28,21 @@ import java.util.List;
 import java.util.Set;
 
 final class ResolveContext {
-    final private ResolveMemos memos;
+    private final ResolveMemos memos;
 
-    final private ConfigResolveOptions options;
+    private final ConfigResolveOptions options;
     // the current path restriction, used to ensure lazy
     // resolution and avoid gratuitous cycles. without this,
     // any sibling of an object we're traversing could
     // cause a cycle "by side effect"
     // CAN BE NULL for a full resolve.
-    final private Path restrictToChild;
+    private final Path restrictToChild;
 
     // This is used for tracing and debugging and nice error messages;
     // contains every node as we call resolve on it.
-    final private List<AbstractConfigValue> resolveStack;
+    private final List<AbstractConfigValue> resolveStack;
 
-    final private Set<AbstractConfigValue> cycleMarkers;
+    private final Set<AbstractConfigValue> cycleMarkers;
 
     ResolveContext(ResolveMemos memos, ConfigResolveOptions options, Path restrictToChild,
                    List<AbstractConfigValue> resolveStack, Set<AbstractConfigValue> cycleMarkers) {
@@ -61,15 +61,18 @@ final class ResolveContext {
         // LinkedHashSet keeps the traversal order which is at least useful
         // in error messages if nothing else
         this(new ResolveMemos(), options, restrictToChild, new ArrayList<AbstractConfigValue>(), newCycleMarkers());
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(depth(), "ResolveContext restrict to child " + restrictToChild);
+        }
     }
 
     ResolveContext addCycleMarker(AbstractConfigValue value) {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(depth(), "++ Cycle marker " + value + "@" + System.identityHashCode(value));
-        if (cycleMarkers.contains(value))
+        }
+        if (cycleMarkers.contains(value)) {
             throw new ConfigException.BugOrBroken("Added cycle marker twice " + value);
+        }
         Set<AbstractConfigValue> copy = newCycleMarkers();
         copy.addAll(cycleMarkers);
         copy.add(value);
@@ -77,8 +80,9 @@ final class ResolveContext {
     }
 
     ResolveContext removeCycleMarker(AbstractConfigValue value) {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(depth(), "-- Cycle marker " + value + "@" + System.identityHashCode(value));
+        }
 
         Set<AbstractConfigValue> copy = newCycleMarkers();
         copy.addAll(cycleMarkers);
@@ -105,10 +109,10 @@ final class ResolveContext {
 
     // restrictTo may be null to unrestrict
     ResolveContext restrict(Path restrictTo) {
-        if (restrictTo == restrictToChild)
+        if (restrictTo == restrictToChild) {
             return this;
-        else
-            return new ResolveContext(memos, options, restrictTo, resolveStack, cycleMarkers);
+        }
+        return new ResolveContext(memos, options, restrictTo, resolveStack, cycleMarkers);
     }
 
     ResolveContext unrestricted() {
@@ -124,14 +128,16 @@ final class ResolveContext {
                 sb.append(separator);
             }
         }
-        if (sb.length() > 0)
+        if (sb.length() > 0) {
             sb.setLength(sb.length() - separator.length());
+        }
         return sb.toString();
     }
 
     private ResolveContext pushTrace(AbstractConfigValue value) {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(depth(), "pushing trace " + value);
+        }
         List<AbstractConfigValue> copy = new ArrayList<AbstractConfigValue>(resolveStack);
         copy.add(value);
         return new ResolveContext(memos, options, restrictToChild, copy, cycleMarkers);
@@ -140,22 +146,27 @@ final class ResolveContext {
     ResolveContext popTrace() {
         List<AbstractConfigValue> copy = new ArrayList<AbstractConfigValue>(resolveStack);
         AbstractConfigValue old = copy.remove(resolveStack.size() - 1);
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(depth() - 1, "popped trace " + old);
+        }
         return new ResolveContext(memos, options, restrictToChild, copy, cycleMarkers);
     }
 
     int depth() {
-        if (resolveStack.size() > 30)
+        if (resolveStack.size() > 30) {
             throw new ConfigException.BugOrBroken("resolve getting too deep");
+        }
         return resolveStack.size();
     }
 
     ResolveResult<? extends AbstractConfigValue> resolve(AbstractConfigValue original, ResolveSource source)
             throws NotPossibleToResolve {
-        if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+        if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl
-                    .trace(depth(), "resolving " + original + " restrictToChild=" + restrictToChild + " in " + source);
+                    .trace(depth(), "resolving "
+                            + original + " restrictToChild="
+                            + restrictToChild + " in " + source);
+        }
         return pushTrace(original).realResolve(original, source).popTrace();
     }
 
@@ -177,62 +188,73 @@ final class ResolveContext {
         }
 
         if (cached != null) {
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                ConfigImpl.trace(depth(), "using cached resolution " + cached + " for " + original
-                        + " restrictToChild " + restrictToChild());
+            if (ConfigImpl.traceSubSituationsEnable()) {
+                ConfigImpl.trace(depth(), "using cached resolution "
+                        + cached + " for "
+                        + original + " restrictToChild "
+                        + restrictToChild());
+            }
             return ResolveResult.make(this, cached);
-        } else {
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                ConfigImpl.trace(depth(),
-                        "not found in cache, resolving " + original + "@" + System.identityHashCode(original));
+        }
+        if (ConfigImpl.traceSubSituationsEnable()) {
+            ConfigImpl.trace(depth(),
+                    "not found in cache, resolving " + original + "@" + System.identityHashCode(original));
+        }
 
-            if (cycleMarkers.contains(original)) {
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                    ConfigImpl.trace(depth(),
-                            "Cycle detected, can't resolve; " + original + "@" + System.identityHashCode(original));
-                throw new NotPossibleToResolve(this);
+        if (cycleMarkers.contains(original)) {
+            if (ConfigImpl.traceSubSituationsEnable()) {
+                ConfigImpl.trace(depth(),
+                        "Cycle detected, can't resolve; " + original + "@" + System.identityHashCode(original));
+            }
+            throw new NotPossibleToResolve(this);
+        }
+
+        ResolveResult<? extends AbstractConfigValue> result = original.resolveSubstitutions(this, source);
+        AbstractConfigValue resolved = result.value;
+
+        if (ConfigImpl.traceSubSituationsEnable()) {
+            ConfigImpl.trace(depth(), "resolved to "
+                    + resolved + "@"
+                    + System.identityHashCode(resolved)
+                    + " from " + original
+                    + "@" + System.identityHashCode(resolved));
+        }
+
+        ResolveContext withMemo = result.context;
+
+        if (resolved == null || resolved.resolveStatus() == ResolveStatus.RESOLVED) {
+            // if the resolved object is fully resolved by resolving
+            // only the restrictToChildOrNull, then it can be cached
+            // under fullKey since the child we were restricted to
+            // turned out to be the only unresolved thing.
+            if (ConfigImpl.traceSubSituationsEnable()) {
+                ConfigImpl.trace(depth(), "caching " + fullKey + " result " + resolved);
             }
 
-            ResolveResult<? extends AbstractConfigValue> result = original.resolveSubstitutions(this, source);
-            AbstractConfigValue resolved = result.value;
+            withMemo = withMemo.memoize(fullKey, resolved);
+        } else {
+            // if we have an unresolved object then either we did a
+            // partial resolve restricted to a certain child, or we are
+            // allowing incomplete resolution, or it's a bug.
+            if (isRestrictedToChild()) {
+                if (ConfigImpl.traceSubSituationsEnable()) {
+                    ConfigImpl.trace(depth(), "caching " + restrictedKey + " result " + resolved);
+                }
 
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                ConfigImpl.trace(depth(), "resolved to " + resolved + "@" + System.identityHashCode(resolved)
-                        + " from " + original + "@" + System.identityHashCode(resolved));
-
-            ResolveContext withMemo = result.context;
-
-            if (resolved == null || resolved.resolveStatus() == ResolveStatus.RESOLVED) {
-                // if the resolved object is fully resolved by resolving
-                // only the restrictToChildOrNull, then it can be cached
-                // under fullKey since the child we were restricted to
-                // turned out to be the only unresolved thing.
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+                withMemo = withMemo.memoize(restrictedKey, resolved);
+            } else if (options().getAllowUnresolved()) {
+                if (ConfigImpl.traceSubSituationsEnable()) {
                     ConfigImpl.trace(depth(), "caching " + fullKey + " result " + resolved);
+                }
 
                 withMemo = withMemo.memoize(fullKey, resolved);
             } else {
-                // if we have an unresolved object then either we did a
-                // partial resolve restricted to a certain child, or we are
-                // allowing incomplete resolution, or it's a bug.
-                if (isRestrictedToChild()) {
-                    if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                        ConfigImpl.trace(depth(), "caching " + restrictedKey + " result " + resolved);
-
-                    withMemo = withMemo.memoize(restrictedKey, resolved);
-                } else if (options().getAllowUnresolved()) {
-                    if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                        ConfigImpl.trace(depth(), "caching " + fullKey + " result " + resolved);
-
-                    withMemo = withMemo.memoize(fullKey, resolved);
-                } else {
-                    throw new ConfigException.BugOrBroken(
-                            "resolveSubstitutions() did not give us a resolved object");
-                }
+                throw new ConfigException.BugOrBroken(
+                        "resolveSubstitutions() did not give us a resolved object");
             }
-
-            return ResolveResult.make(withMemo, resolved);
         }
+
+        return ResolveResult.make(withMemo, resolved);
     }
 
     static AbstractConfigValue resolve(AbstractConfigValue value, AbstractConfigObject root,
