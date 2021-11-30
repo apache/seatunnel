@@ -37,20 +37,21 @@ class SimpleIncludeContext implements ConfigIncludeContext {
     }
 
     SimpleIncludeContext withParseable(Parseable parseable) {
-        if (parseable == this.parseable)
+        if (parseable == this.parseable) {
             return this;
-        else
-            return new SimpleIncludeContext(parseable);
+        }
+        return new SimpleIncludeContext(parseable);
     }
 
     @Override
     public ConfigParseable relativeTo(String filename) {
-        if (ConfigImpl.TRACE_LOADS_ENABLE())
+        if (ConfigImpl.traceLoadsEnable()) {
             ConfigImpl.trace("Looking for '" + filename + "' relative to " + parseable);
-        if (parseable != null)
+        }
+        if (parseable != null) {
             return parseable.relativeTo(filename);
-        else
-            return null;
+        }
+        return null;
     }
 
     @Override

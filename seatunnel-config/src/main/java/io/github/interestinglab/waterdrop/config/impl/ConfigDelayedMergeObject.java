@@ -35,31 +35,35 @@ import java.util.Set;
 final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unmergeable,
         ReplaceableMergeStack {
 
-    final private List<AbstractConfigValue> stack;
+    private final List<AbstractConfigValue> stack;
 
     ConfigDelayedMergeObject(ConfigOrigin origin, List<AbstractConfigValue> stack) {
         super(origin);
         this.stack = stack;
 
-        if (stack.isEmpty())
+        if (stack.isEmpty()) {
             throw new ConfigException.BugOrBroken(
                     "creating empty delayed merge object");
-        if (!(stack.get(0) instanceof AbstractConfigObject))
+        }
+        if (!(stack.get(0) instanceof AbstractConfigObject)) {
             throw new ConfigException.BugOrBroken(
                     "created a delayed merge object not guaranteed to be an object");
+        }
 
         for (AbstractConfigValue v : stack) {
-            if (v instanceof ConfigDelayedMerge || v instanceof ConfigDelayedMergeObject)
+            if (v instanceof ConfigDelayedMerge || v instanceof ConfigDelayedMergeObject) {
                 throw new ConfigException.BugOrBroken(
                         "placed nested DelayedMerge in a ConfigDelayedMergeObject, should have consolidated stack");
+            }
         }
     }
 
     @Override
     protected ConfigDelayedMergeObject newCopy(ResolveStatus status, ConfigOrigin origin) {
-        if (status != resolveStatus())
+        if (status != resolveStatus()) {
             throw new ConfigException.BugOrBroken(
                     "attempt to create resolved ConfigDelayedMergeObject");
+        }
         return new ConfigDelayedMergeObject(origin, stack);
     }
 
@@ -84,10 +88,10 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
     @Override
     public AbstractConfigValue replaceChild(AbstractConfigValue child, AbstractConfigValue replacement) {
         List<AbstractConfigValue> newStack = replaceChildInList(stack, child, replacement);
-        if (newStack == null)
+        if (newStack == null) {
             return null;
-        else
-            return new ConfigDelayedMergeObject(origin(), newStack);
+        }
+        return new ConfigDelayedMergeObject(origin(), newStack);
     }
 
     @Override
@@ -110,19 +114,19 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
     }
 
     @Override
-    protected final ConfigDelayedMergeObject mergedWithTheUnmergeable(Unmergeable fallback) {
+    protected ConfigDelayedMergeObject mergedWithTheUnmergeable(Unmergeable fallback) {
         requireNotIgnoringFallbacks();
 
         return (ConfigDelayedMergeObject) mergedWithTheUnmergeable(stack, fallback);
     }
 
     @Override
-    protected final ConfigDelayedMergeObject mergedWithObject(AbstractConfigObject fallback) {
+    protected ConfigDelayedMergeObject mergedWithObject(AbstractConfigObject fallback) {
         return mergedWithNonObject(fallback);
     }
 
     @Override
-    protected final ConfigDelayedMergeObject mergedWithNonObject(AbstractConfigValue fallback) {
+    protected ConfigDelayedMergeObject mergedWithNonObject(AbstractConfigValue fallback) {
         requireNotIgnoringFallbacks();
 
         return (ConfigDelayedMergeObject) mergedWithNonObject(stack, fallback);
@@ -184,10 +188,9 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
         if (other instanceof ConfigDelayedMergeObject) {
             return canEqual(other)
                     && (this.stack == ((ConfigDelayedMergeObject) other).stack || this.stack
-                            .equals(((ConfigDelayedMergeObject) other).stack));
-        } else {
-            return false;
+                    .equals(((ConfigDelayedMergeObject) other).stack));
         }
+        return false;
     }
 
     @Override
@@ -279,14 +282,13 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                         // we know we won't need to merge anything in to this
                         // value
                         return v;
-                    } else {
-                        // we can't return this value because we know there are
-                        // unmergeable values later in the stack that may
-                        // contain values that need to be merged with this
-                        // value. we'll throw the exception when we get to those
-                        // unmergeable values, so continue here.
-                        continue;
                     }
+                    // we can't return this value because we know there are
+                    // unmergeable values later in the stack that may
+                    // contain values that need to be merged with this
+                    // value. we'll throw the exception when we get to those
+                    // unmergeable values, so continue here.
+                    continue;
                 } else if (layer instanceof Unmergeable) {
                     // an unmergeable object (which would be another
                     // ConfigDelayedMergeObject) can't know that a key is
@@ -294,12 +296,11 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                     // value or throw NotPossibleToResolve
                     throw new ConfigException.BugOrBroken(
                             "should not be reached: unmergeable object returned null value");
-                } else {
-                    // a non-unmergeable AbstractConfigObject that returned null
-                    // for the key in question is not relevant, we can keep
-                    // looking for a value.
-                    continue;
                 }
+                // a non-unmergeable AbstractConfigObject that returned null
+                // for the key in question is not relevant, we can keep
+                // looking for a value.
+                continue;
             } else if (layer instanceof Unmergeable) {
                 throw new ConfigException.NotResolved("Key '" + key + "' is not available at '"
                         + origin().description() + "' because value at '"
@@ -312,23 +313,23 @@ final class ConfigDelayedMergeObject extends AbstractConfigObject implements Unm
                 // merge,
                 // then it's something that's unresolved because it _contains_
                 // an unresolved object... i.e. it's an array
-                if (!(layer instanceof ConfigList))
+                if (!(layer instanceof ConfigList)) {
                     throw new ConfigException.BugOrBroken("Expecting a list here, not " + layer);
+                }
                 // all later objects will be hidden so we can say we won't find
                 // the key
                 return null;
-            } else {
-                // non-object, but resolved, like an integer or something.
-                // has no children so the one we're after won't be in it.
-                // we would only have this in the stack in case something
-                // else "looks back" to it due to a cycle.
-                // anyway at this point we know we can't find the key anymore.
-                if (!layer.ignoresFallbacks()) {
-                    throw new ConfigException.BugOrBroken(
-                            "resolved non-object should ignore fallbacks");
-                }
-                return null;
             }
+            // non-object, but resolved, like an integer or something.
+            // has no children so the one we're after won't be in it.
+            // we would only have this in the stack in case something
+            // else "looks back" to it due to a cycle.
+            // anyway at this point we know we can't find the key anymore.
+            if (!layer.ignoresFallbacks()) {
+                throw new ConfigException.BugOrBroken(
+                        "resolved non-object should ignore fallbacks");
+            }
+            return null;
         }
         // If we get here, then we never found anything unresolved which means
         // the ConfigDelayedMergeObject should not have existed. some

@@ -141,10 +141,9 @@ public final class ConfigResolveOptions {
             throw new ConfigException.BugOrBroken("null resolver passed to appendResolver");
         } else if (value == this.resolver) {
             return this;
-        } else {
-            return new ConfigResolveOptions(useSystemEnvironment, allowUnresolved,
-                    this.resolver.withFallback(value));
         }
+        return new ConfigResolveOptions(useSystemEnvironment, allowUnresolved,
+                this.resolver.withFallback(value));
     }
 
     /**

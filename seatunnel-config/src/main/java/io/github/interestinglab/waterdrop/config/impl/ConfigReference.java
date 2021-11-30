@@ -33,9 +33,9 @@ import java.util.Collections;
  */
 final class ConfigReference extends AbstractConfigValue implements Unmergeable {
 
-    final private SubstitutionExpression expr;
+    private final SubstitutionExpression expr;
     // the length of any prefixes added with relativized()
-    final private int prefixLength;
+    private final int prefixLength;
 
     ConfigReference(ConfigOrigin origin, SubstitutionExpression expr) {
         this(origin, expr, 0);
@@ -49,8 +49,7 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
 
     private ConfigException.NotResolved notResolved() {
         return new ConfigException.NotResolved(
-                "need to Config#resolve(), see the API docs for Config#resolve(); substitution not resolved: "
-                        + this);
+                "need to Config#resolve(), see the API docs for Config#resolve(); substitution not resolved: " + this);
     }
 
     @Override
@@ -91,15 +90,19 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
             newContext = resultWithPath.result.context;
 
             if (resultWithPath.result.value != null) {
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
-                    ConfigImpl.trace(newContext.depth(), "recursively resolving " + resultWithPath
-                            + " which was the resolution of " + expr + " against " + source);
+                if (ConfigImpl.traceSubSituationsEnable()) {
+                    ConfigImpl.trace(newContext.depth(), "recursively resolving "
+                            + resultWithPath
+                            + " which was the resolution of "
+                            + expr + " against " + source);
+                }
 
                 ResolveSource recursiveResolveSource = new ResolveSource(
                         (AbstractConfigObject) resultWithPath.pathFromRoot.last(), resultWithPath.pathFromRoot);
 
-                if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+                if (ConfigImpl.traceSubSituationsEnable()) {
                     ConfigImpl.trace(newContext.depth(), "will recursively resolve against " + recursiveResolveSource);
+                }
 
                 ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(resultWithPath.result.value,
                         recursiveResolveSource);
@@ -110,24 +113,28 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
                 v = (AbstractConfigValue) fallback;
             }
         } catch (NotPossibleToResolve e) {
-            if (ConfigImpl.TRACE_SUB_SITUATIONS_ENABLE())
+            if (ConfigImpl.traceSubSituationsEnable()) {
                 ConfigImpl.trace(newContext.depth(),
-                        "not possible to resolve " + expr + ", cycle involved: " + e.traceString());
-            if (expr.optional())
+                        "not possible to resolve "
+                                + expr + ", cycle involved: "
+                                + e.traceString());
+            }
+            if (expr.optional()) {
                 v = null;
-            else
+            } else {
                 throw new ConfigException.UnresolvedSubstitution(origin(), expr
-                        + " was part of a cycle of substitutions involving " + e.traceString(), e);
+                        + " was part of a cycle of substitutions involving "
+                        + e.traceString(), e);
+            }
         }
 
         if (v == null && !expr.optional()) {
-            if (newContext.options().getAllowUnresolved())
+            if (newContext.options().getAllowUnresolved()) {
                 return ResolveResult.make(newContext.removeCycleMarker(this), this);
-            else
-                throw new ConfigException.UnresolvedSubstitution(origin(), expr.toString());
-        } else {
-            return ResolveResult.make(newContext.removeCycleMarker(this), v);
+            }
+            throw new ConfigException.UnresolvedSubstitution(origin(), expr.toString());
         }
+        return ResolveResult.make(newContext.removeCycleMarker(this), v);
     }
 
     @Override
@@ -156,9 +163,8 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof ConfigReference) {
             return canEqual(other) && this.expr.equals(((ConfigReference) other).expr);
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override

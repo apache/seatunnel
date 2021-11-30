@@ -153,19 +153,20 @@ public final class ConfigFactory {
 
     private static ClassLoader checkedContextClassLoader(String methodName) {
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        if (loader == null)
+        if (loader == null) {
             throw new ConfigException.BugOrBroken("Context class loader is not set for the current thread; "
                     + "if Thread.currentThread().getContextClassLoader() returns null, you must pass a ClassLoader "
-                    + "explicitly to ConfigFactory." + methodName);
-        else
-            return loader;
+                    + "explicitly to ConfigFactory."
+                    + methodName);
+        }
+        return loader;
     }
 
     private static ConfigParseOptions ensureClassLoader(ConfigParseOptions options, String methodName) {
-        if (options.getClassLoader() == null)
+        if (options.getClassLoader() == null) {
             return options.setClassLoader(checkedContextClassLoader(methodName));
-        else
-            return options;
+        }
+        return options;
     }
 
     /**
@@ -1073,8 +1074,7 @@ public final class ConfigFactory {
             } catch (Throwable e) {
                 throw new ConfigException.BugOrBroken("Failed to load strategy: " + className, e);
             }
-        } else {
-            return new DefaultConfigLoadingStrategy();
         }
+        return new DefaultConfigLoadingStrategy();
     }
 }

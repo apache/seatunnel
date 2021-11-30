@@ -21,13 +21,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 abstract class ConfigNodeComplexValue extends AbstractConfigNodeValue {
-    final protected ArrayList<AbstractConfigNode> children;
+    protected final ArrayList<AbstractConfigNode> children;
 
     ConfigNodeComplexValue(Collection<AbstractConfigNode> children) {
         this.children = new ArrayList<AbstractConfigNode>(children);
     }
 
-    final public Collection<AbstractConfigNode> children() {
+    public final Collection<AbstractConfigNode> children() {
         return children;
     }
 

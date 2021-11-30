@@ -27,7 +27,7 @@ final class ConfigBoolean extends AbstractConfigValue implements Serializable {
 
     private static final long serialVersionUID = 2L;
 
-    final private boolean value;
+    private final boolean value;
 
     ConfigBoolean(ConfigOrigin origin, boolean value) {
         super(origin);

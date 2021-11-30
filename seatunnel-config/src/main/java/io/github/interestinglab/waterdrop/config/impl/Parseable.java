@@ -17,14 +17,14 @@
 
 package io.github.interestinglab.waterdrop.config.impl;
 
-import io.github.interestinglab.waterdrop.config.ConfigSyntax;
-import io.github.interestinglab.waterdrop.config.ConfigObject;
 import io.github.interestinglab.waterdrop.config.ConfigException;
-import io.github.interestinglab.waterdrop.config.ConfigValue;
 import io.github.interestinglab.waterdrop.config.ConfigIncludeContext;
+import io.github.interestinglab.waterdrop.config.ConfigObject;
 import io.github.interestinglab.waterdrop.config.ConfigOrigin;
 import io.github.interestinglab.waterdrop.config.ConfigParseOptions;
 import io.github.interestinglab.waterdrop.config.ConfigParseable;
+import io.github.interestinglab.waterdrop.config.ConfigSyntax;
+import io.github.interestinglab.waterdrop.config.ConfigValue;
 import io.github.interestinglab.waterdrop.config.parser.ConfigDocument;
 
 import java.io.BufferedReader;
@@ -93,7 +93,7 @@ public abstract class Parseable implements ConfigParseable {
         ConfigParseOptions modified = baseOptions.setSyntax(syntax);
 
         // make sure the app-provided includer falls back to default
-        modified = modified.appendIncluder(ConfigImpl.DEFAULT_INCLUDER());
+        modified = modified.appendIncluder(ConfigImpl.defaultIncluder());
         // make sure the app-provided includer is complete
         modified = modified.setIncluder(SimpleIncluder.makeFull(modified.getIncluder()));
 
@@ -105,10 +105,11 @@ public abstract class Parseable implements ConfigParseable {
 
         this.includeContext = new SimpleIncludeContext(this);
 
-        if (initialOptions.getOriginDescription() != null)
+        if (initialOptions.getOriginDescription() != null) {
             initialOrigin = SimpleConfigOrigin.newSimple(initialOptions.getOriginDescription());
-        else
+        } else {
             initialOrigin = createOrigin();
+        }
     }
 
     // the general idea is that any work should be in here, not in the
@@ -125,7 +126,7 @@ public abstract class Parseable implements ConfigParseable {
     }
 
     protected static void trace(String message) {
-        if (ConfigImpl.TRACE_LOADS_ENABLE()) {
+        if (ConfigImpl.traceLoadsEnable()) {
             ConfigImpl.trace(message);
         }
     }
@@ -144,8 +145,9 @@ public abstract class Parseable implements ConfigParseable {
         // if it starts with "/" then remove the "/", for consistency
         // with ParseableResources.relativeTo
         String resource = filename;
-        if (filename.startsWith("/"))
+        if (filename.startsWith("/")) {
             resource = filename.substring(1);
+        }
         return newResources(resource, options().setOriginDescription(null));
     }
 
@@ -156,10 +158,9 @@ public abstract class Parseable implements ConfigParseable {
     static AbstractConfigObject forceParsedToObject(ConfigValue value) {
         if (value instanceof AbstractConfigObject) {
             return (AbstractConfigObject) value;
-        } else {
-            throw new ConfigException.WrongType(value.origin(), "", "object at file root", value
-                    .valueType().name());
         }
+        throw new ConfigException.WrongType(value.origin(), "", "object at file root", value
+                .valueType().name());
     }
 
     @Override
@@ -169,7 +170,8 @@ public abstract class Parseable implements ConfigParseable {
         if (stack.size() >= MAX_INCLUDE_DEPTH) {
             throw new ConfigException.Parse(initialOrigin, "include statements nested more than "
                     + MAX_INCLUDE_DEPTH
-                    + " times, you probably have a cycle in your includes. Trace: " + stack);
+                    + " times, you probably have a cycle in your includes. Trace: "
+                    + stack);
         }
 
         stack.addFirst(this);
@@ -192,26 +194,28 @@ public abstract class Parseable implements ConfigParseable {
 
         // passed-in options can override origin
         ConfigOrigin origin;
-        if (options.getOriginDescription() != null)
+        if (options.getOriginDescription() != null) {
             origin = SimpleConfigOrigin.newSimple(options.getOriginDescription());
-        else
+        } else {
             origin = initialOrigin;
+        }
         return parseValue(origin, options);
     }
 
-    final private AbstractConfigValue parseValue(ConfigOrigin origin,
-            ConfigParseOptions finalOptions) {
+    private final AbstractConfigValue parseValue(ConfigOrigin origin,
+                                                 ConfigParseOptions finalOptions) {
         try {
             return rawParseValue(origin, finalOptions);
         } catch (IOException e) {
             if (finalOptions.getAllowMissing()) {
                 return SimpleConfigObject.emptyMissing(origin);
-            } else {
-                trace("exception loading " + origin.description() + ": " + e.getClass().getName()
-                        + ": " + e.getMessage());
-                throw new ConfigException.IO(origin,
-                        e.getClass().getName() + ": " + e.getMessage(), e);
             }
+            trace("exception loading "
+                    + origin.description()
+                    + ": " + e.getClass().getName()
+                    + ": " + e.getMessage());
+            throw new ConfigException.IO(origin,
+                    e.getClass().getName() + ": " + e.getMessage(), e);
         }
     }
 
@@ -224,14 +228,15 @@ public abstract class Parseable implements ConfigParseable {
 
         // passed-in options can override origin
         ConfigOrigin origin;
-        if (options.getOriginDescription() != null)
+        if (options.getOriginDescription() != null) {
             origin = SimpleConfigOrigin.newSimple(options.getOriginDescription());
-        else
+        } else {
             origin = initialOrigin;
+        }
         return parseDocument(origin, options);
     }
 
-    final private ConfigDocument parseDocument(ConfigOrigin origin,
+    private final ConfigDocument parseDocument(ConfigOrigin origin,
                                                ConfigParseOptions finalOptions) {
         try {
             return rawParseDocument(origin, finalOptions);
@@ -240,12 +245,13 @@ public abstract class Parseable implements ConfigParseable {
                 ArrayList<AbstractConfigNode> children = new ArrayList<AbstractConfigNode>();
                 children.add(new ConfigNodeObject(new ArrayList<AbstractConfigNode>()));
                 return new SimpleConfigDocument(new ConfigNodeRoot(children, origin), finalOptions);
-            } else {
-                trace("exception loading " + origin.description() + ": " + e.getClass().getName()
-                        + ": " + e.getMessage());
-                throw new ConfigException.IO(origin,
-                        e.getClass().getName() + ": " + e.getMessage(), e);
             }
+            trace("exception loading "
+                    + origin.description()
+                    + ": " + e.getClass().getName()
+                    + ": " + e.getMessage());
+            throw new ConfigException.IO(origin,
+                    e.getClass().getName() + ": " + e.getMessage(), e);
         }
     }
 
@@ -260,9 +266,12 @@ public abstract class Parseable implements ConfigParseable {
 
         ConfigParseOptions optionsWithContentType;
         if (contentType != null) {
-            if (ConfigImpl.TRACE_LOADS_ENABLE() && finalOptions.getSyntax() != null)
-                trace("Overriding syntax " + finalOptions.getSyntax()
-                        + " with Content-Type which specified " + contentType);
+            if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
+                trace("Overriding syntax "
+                        + finalOptions.getSyntax()
+                        + " with Content-Type which specified "
+                        + contentType);
+            }
 
             optionsWithContentType = finalOptions.setSyntax(contentType);
         } else {
@@ -280,11 +289,10 @@ public abstract class Parseable implements ConfigParseable {
                                               ConfigParseOptions finalOptions) throws IOException {
         if (finalOptions.getSyntax() == ConfigSyntax.PROPERTIES) {
             return PropertiesParser.parse(reader, origin);
-        } else {
-            Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, finalOptions.getSyntax());
-            ConfigNodeRoot document = ConfigDocumentParser.parse(tokens, origin, finalOptions);
-            return ConfigParser.parse(document, origin, finalOptions, includeContext());
         }
+        Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, finalOptions.getSyntax());
+        ConfigNodeRoot document = ConfigDocumentParser.parse(tokens, origin, finalOptions);
+        return ConfigParser.parse(document, origin, finalOptions, includeContext());
     }
 
     // this is parseDocument without post-processing the IOException or handling
@@ -298,9 +306,12 @@ public abstract class Parseable implements ConfigParseable {
 
         ConfigParseOptions optionsWithContentType;
         if (contentType != null) {
-            if (ConfigImpl.TRACE_LOADS_ENABLE() && finalOptions.getSyntax() != null)
-                trace("Overriding syntax " + finalOptions.getSyntax()
-                        + " with Content-Type which specified " + contentType);
+            if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
+                trace("Overriding syntax "
+                        + finalOptions.getSyntax()
+                        + " with Content-Type which specified "
+                        + contentType);
+            }
 
             optionsWithContentType = finalOptions.setSyntax(contentType);
         } else {
@@ -316,7 +327,7 @@ public abstract class Parseable implements ConfigParseable {
 
     private ConfigDocument rawParseDocument(Reader reader, ConfigOrigin origin,
                                             ConfigParseOptions finalOptions) throws IOException {
-            Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, finalOptions.getSyntax());
+        Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, finalOptions.getSyntax());
         return new SimpleConfigDocument(ConfigDocumentParser.parse(tokens, origin, finalOptions), finalOptions);
     }
 
@@ -350,14 +361,14 @@ public abstract class Parseable implements ConfigParseable {
     }
 
     private static ConfigSyntax syntaxFromExtension(String name) {
-        if (name.endsWith(".json"))
+        if (name.endsWith(".json")) {
             return ConfigSyntax.JSON;
-        else if (name.endsWith(".conf"))
+        } else if (name.endsWith(".conf")) {
             return ConfigSyntax.CONF;
-        else if (name.endsWith(".properties"))
+        } else if (name.endsWith(".properties")) {
             return ConfigSyntax.PROPERTIES;
-        else
-            return null;
+        }
+        return null;
     }
 
     private static Reader readerFromStream(InputStream input) {
@@ -388,8 +399,9 @@ public abstract class Parseable implements ConfigParseable {
 
     static URL relativeTo(URL url, String filename) {
         // I'm guessing this completely fails on Windows, help wanted
-        if (new File(filename).isAbsolute())
+        if (new File(filename).isAbsolute()) {
             return null;
+        }
 
         try {
             URI siblingURI = url.toURI();
@@ -414,22 +426,23 @@ public abstract class Parseable implements ConfigParseable {
     static File relativeTo(File file, String filename) {
         File child = new File(filename);
 
-        if (child.isAbsolute())
+        if (child.isAbsolute()) {
             return null;
+        }
 
         File parent = file.getParentFile();
 
-        if (parent == null)
+        if (parent == null) {
             return null;
-        else
-            return new File(parent, filename);
+        }
+        return new File(parent, filename);
     }
 
     // this is a parseable that doesn't exist and just throws when you try to
     // parse it
-    private final static class ParseableNotFound extends Parseable {
-        final private String what;
-        final private String message;
+    private static final class ParseableNotFound extends Parseable {
+        private final String what;
+        private final String message;
 
         ParseableNotFound(String what, String message, ConfigParseOptions options) {
             this.what = what;
@@ -453,8 +466,8 @@ public abstract class Parseable implements ConfigParseable {
         return new ParseableNotFound(whatNotFound, message, options);
     }
 
-    private final static class ParseableReader extends Parseable {
-        final private Reader reader;
+    private static final class ParseableReader extends Parseable {
+        private final Reader reader;
 
         ParseableReader(Reader reader, ConfigParseOptions options) {
             this.reader = reader;
@@ -463,8 +476,9 @@ public abstract class Parseable implements ConfigParseable {
 
         @Override
         protected Reader reader() {
-            if (ConfigImpl.TRACE_LOADS_ENABLE())
+            if (ConfigImpl.traceLoadsEnable()) {
                 trace("Loading config from reader " + reader);
+            }
             return reader;
         }
 
@@ -481,8 +495,8 @@ public abstract class Parseable implements ConfigParseable {
         return new ParseableReader(doNotClose(reader), options);
     }
 
-    private final static class ParseableString extends Parseable {
-        final private String input;
+    private static final class ParseableString extends Parseable {
+        private final String input;
 
         ParseableString(String input, ConfigParseOptions options) {
             this.input = input;
@@ -491,8 +505,9 @@ public abstract class Parseable implements ConfigParseable {
 
         @Override
         protected Reader reader() {
-            if (ConfigImpl.TRACE_LOADS_ENABLE())
+            if (ConfigImpl.traceLoadsEnable()) {
                 trace("Loading config from a String " + input);
+            }
             return new StringReader(input);
         }
 
@@ -516,7 +531,7 @@ public abstract class Parseable implements ConfigParseable {
     private static final String HOCON_CONTENT_TYPE = "application/hocon";
 
     private static class ParseableURL extends Parseable {
-        final protected URL input;
+        protected final URL input;
         private String contentType = null;
 
         protected ParseableURL(URL input) {
@@ -535,16 +550,18 @@ public abstract class Parseable implements ConfigParseable {
         }
 
         private static String acceptContentType(ConfigParseOptions options) {
-            if (options.getSyntax() == null)
+            if (options.getSyntax() == null) {
                 return null;
+            }
 
             switch (options.getSyntax()) {
-            case JSON:
-                return JSON_CONTENT_TYPE;
-            case CONF:
-                return HOCON_CONTENT_TYPE;
-            case PROPERTIES:
-                return PROPERTIES_CONTENT_TYPE;
+                case JSON:
+                    return JSON_CONTENT_TYPE;
+                case CONF:
+                    return HOCON_CONTENT_TYPE;
+                case PROPERTIES:
+                    return PROPERTIES_CONTENT_TYPE;
+                default:
             }
 
             // not sure this is reachable but javac thinks it is
@@ -554,8 +571,9 @@ public abstract class Parseable implements ConfigParseable {
         @Override
         protected Reader reader(ConfigParseOptions options) throws IOException {
             try {
-                if (ConfigImpl.TRACE_LOADS_ENABLE())
+                if (ConfigImpl.traceLoadsEnable()) {
                     trace("Loading config from a URL: " + input.toExternalForm());
+                }
                 URLConnection connection = input.openConnection();
 
                 // allow server to serve multiple types from one URL
@@ -569,12 +587,14 @@ public abstract class Parseable implements ConfigParseable {
                 // save content type for later
                 contentType = connection.getContentType();
                 if (contentType != null) {
-                    if (ConfigImpl.TRACE_LOADS_ENABLE())
+                    if (ConfigImpl.traceLoadsEnable()) {
                         trace("URL sets Content-Type: '" + contentType + "'");
+                    }
                     contentType = contentType.trim();
                     int semi = contentType.indexOf(';');
-                    if (semi >= 0)
+                    if (semi >= 0) {
                         contentType = contentType.substring(0, semi);
+                    }
                 }
 
                 InputStream stream = connection.getInputStream();
@@ -603,27 +623,27 @@ public abstract class Parseable implements ConfigParseable {
         @Override
         ConfigSyntax contentType() {
             if (contentType != null) {
-                if (contentType.equals(JSON_CONTENT_TYPE))
+                if (contentType.equals(JSON_CONTENT_TYPE)) {
                     return ConfigSyntax.JSON;
-                else if (contentType.equals(PROPERTIES_CONTENT_TYPE))
+                } else if (contentType.equals(PROPERTIES_CONTENT_TYPE)) {
                     return ConfigSyntax.PROPERTIES;
-                else if (contentType.equals(HOCON_CONTENT_TYPE))
+                } else if (contentType.equals(HOCON_CONTENT_TYPE)) {
                     return ConfigSyntax.CONF;
-                else {
-                    if (ConfigImpl.TRACE_LOADS_ENABLE())
-                        trace("'" + contentType + "' isn't a known content type");
-                    return null;
                 }
-            } else {
+                if (ConfigImpl.traceLoadsEnable()) {
+                    trace("'" + contentType + "' isn't a known content type");
+                }
                 return null;
             }
+            return null;
         }
 
         @Override
         ConfigParseable relativeTo(String filename) {
             URL url = relativeTo(input, filename);
-            if (url == null)
+            if (url == null) {
                 return null;
+            }
             return newURL(url, options().setOriginDescription(null));
         }
 
@@ -643,13 +663,12 @@ public abstract class Parseable implements ConfigParseable {
         // to a file if it's a file: URL
         if (input.getProtocol().equals("file")) {
             return newFile(ConfigImplUtil.urlToFile(input), options);
-        } else {
-            return new ParseableURL(input, options);
         }
+        return new ParseableURL(input, options);
     }
 
-    private final static class ParseableFile extends Parseable {
-        final private File input;
+    private static final class ParseableFile extends Parseable {
+        private final File input;
 
         ParseableFile(File input, ConfigParseOptions options) {
             this.input = input;
@@ -658,8 +677,9 @@ public abstract class Parseable implements ConfigParseable {
 
         @Override
         protected Reader reader() throws IOException {
-            if (ConfigImpl.TRACE_LOADS_ENABLE())
+            if (ConfigImpl.traceLoadsEnable()) {
                 trace("Loading config from a file: " + input);
+            }
             InputStream stream = new FileInputStream(input);
             return readerFromStream(stream);
         }
@@ -678,15 +698,15 @@ public abstract class Parseable implements ConfigParseable {
                 // this may return null
                 sibling = relativeTo(input, filename);
             }
-            if (sibling == null)
+            if (sibling == null) {
                 return null;
+            }
             if (sibling.exists()) {
                 trace(sibling + " exists, so loading it as a file");
                 return newFile(sibling, options().setOriginDescription(null));
-            } else {
-                trace(sibling + " does not exist, so trying it as a classpath resource");
-                return super.relativeTo(filename);
             }
+            trace(sibling + " does not exist, so trying it as a classpath resource");
+            return super.relativeTo(filename);
         }
 
         @Override
@@ -704,7 +724,7 @@ public abstract class Parseable implements ConfigParseable {
         return new ParseableFile(input, options);
     }
 
-    private final static class ParseableResourceURL extends ParseableURL {
+    private static final class ParseableResourceURL extends ParseableURL {
 
         private final Relativizer relativizer;
         private final String resource;
@@ -731,8 +751,8 @@ public abstract class Parseable implements ConfigParseable {
         return new ParseableResourceURL(input, options, resource, relativizer);
     }
 
-    private final static class ParseableResources extends Parseable implements Relativizer {
-        final private String resource;
+    private static final class ParseableResources extends Parseable implements Relativizer {
+        private final String resource;
 
         ParseableResources(String resource, ConfigParseOptions options) {
             this.resource = resource;
@@ -746,25 +766,31 @@ public abstract class Parseable implements ConfigParseable {
 
         @Override
         protected AbstractConfigObject rawParseValue(ConfigOrigin origin,
-                ConfigParseOptions finalOptions) throws IOException {
+                                                     ConfigParseOptions finalOptions) throws IOException {
             ClassLoader loader = finalOptions.getClassLoader();
-            if (loader == null)
+            if (loader == null) {
                 throw new ConfigException.BugOrBroken(
                         "null class loader; pass in a class loader or use Thread.currentThread().setContextClassLoader()");
+            }
             Enumeration<URL> e = loader.getResources(resource);
             if (!e.hasMoreElements()) {
-                if (ConfigImpl.TRACE_LOADS_ENABLE())
-                    trace("Loading config from class loader " + loader
-                            + " but there were no resources called " + resource);
+                if (ConfigImpl.traceLoadsEnable()) {
+                    trace("Loading config from class loader "
+                            + loader + " but there were no resources called "
+                            + resource);
+                }
                 throw new IOException("resource not found on classpath: " + resource);
             }
             AbstractConfigObject merged = SimpleConfigObject.empty(origin);
             while (e.hasMoreElements()) {
                 URL url = e.nextElement();
 
-                if (ConfigImpl.TRACE_LOADS_ENABLE())
-                    trace("Loading config from resource '" + resource + "' URL " + url.toExternalForm() + " from class loader "
-                            + loader);
+                if (ConfigImpl.traceLoadsEnable()) {
+                    trace("Loading config from resource '"
+                            + resource + "' URL "
+                            + url.toExternalForm()
+                            + " from class loader " + loader);
+                }
 
                 Parseable element = newResourceURL(url, finalOptions, resource, this);
 
@@ -789,9 +815,8 @@ public abstract class Parseable implements ConfigParseable {
             int i = resource.lastIndexOf('/');
             if (i < 0) {
                 return null;
-            } else {
-                return resource.substring(0, i);
             }
+            return resource.substring(0, i);
         }
 
         @Override
@@ -800,19 +825,18 @@ public abstract class Parseable implements ConfigParseable {
                 // if it starts with "/" then don't make it relative to
                 // the including resource
                 return newResources(sibling.substring(1), options().setOriginDescription(null));
-            } else {
-                // here we want to build a new resource name and let
-                // the class loader have it, rather than getting the
-                // url with getResource() and relativizing to that url.
-                // This is needed in case the class loader is going to
-                // search a classpath.
-                String parent = parent(resource);
-                if (parent == null)
-                    return newResources(sibling, options().setOriginDescription(null));
-                else
-                    return newResources(parent + "/" + sibling, options()
-                            .setOriginDescription(null));
             }
+            // here we want to build a new resource name and let
+            // the class loader have it, rather than getting the
+            // url with getResource() and relativizing to that url.
+            // This is needed in case the class loader is going to
+            // search a classpath.
+            String parent = parent(resource);
+            if (parent == null) {
+                return newResources(sibling, options().setOriginDescription(null));
+            }
+            return newResources(parent + "/" + sibling, options()
+                    .setOriginDescription(null));
         }
 
         @Override
@@ -841,30 +865,29 @@ public abstract class Parseable implements ConfigParseable {
         if (resource.startsWith("/")) {
             // "absolute" resource, chop the slash
             return resource.substring(1);
-        } else {
-            String className = klass.getName();
-            int i = className.lastIndexOf('.');
-            if (i < 0) {
-                // no package
-                return resource;
-            } else {
-                // need to be relative to the package
-                String packageName = className.substring(0, i);
-                String packagePath = packageName.replace('.', '/');
-                return packagePath + "/" + resource;
-            }
         }
+        String className = klass.getName();
+        int i = className.lastIndexOf('.');
+        if (i < 0) {
+            // no package
+            return resource;
+        }
+        // need to be relative to the package
+        String packageName = className.substring(0, i);
+        String packagePath = packageName.replace('.', '/');
+        return packagePath + "/" + resource;
     }
 
     public static Parseable newResources(String resource, ConfigParseOptions options) {
-        if (options.getClassLoader() == null)
+        if (options.getClassLoader() == null) {
             throw new ConfigException.BugOrBroken(
                     "null class loader; pass in a class loader or use Thread.currentThread().setContextClassLoader()");
+        }
         return new ParseableResources(resource, options);
     }
 
-    private final static class ParseableProperties extends Parseable {
-        final private Properties props;
+    private static final class ParseableProperties extends Parseable {
+        private final Properties props;
 
         ParseableProperties(Properties props, ConfigParseOptions options) {
             this.props = props;
@@ -878,9 +901,10 @@ public abstract class Parseable implements ConfigParseable {
 
         @Override
         protected AbstractConfigObject rawParseValue(ConfigOrigin origin,
-                ConfigParseOptions finalOptions) {
-            if (ConfigImpl.TRACE_LOADS_ENABLE())
+                                                     ConfigParseOptions finalOptions) {
+            if (ConfigImpl.traceLoadsEnable()) {
                 trace("Loading config from properties " + props);
+            }
             return PropertiesParser.fromProperties(origin, props);
         }
 

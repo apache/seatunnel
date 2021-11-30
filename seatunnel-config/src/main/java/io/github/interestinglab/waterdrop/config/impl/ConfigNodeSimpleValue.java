@@ -35,14 +35,16 @@ final class ConfigNodeSimpleValue extends AbstractConfigNodeValue {
         return Collections.singletonList(token);
     }
 
-    protected Token token() { return token; }
+    protected Token token() {
+        return token;
+    }
 
     protected AbstractConfigValue value() {
-        if (Tokens.isValue(token))
+        if (Tokens.isValue(token)) {
             return Tokens.getValue(token);
-        else if (Tokens.isUnquotedText(token))
+        } else if (Tokens.isUnquotedText(token)) {
             return new ConfigString.Unquoted(token.origin(), Tokens.getUnquotedText(token));
-        else if (Tokens.isSubstitution(token)) {
+        } else if (Tokens.isSubstitution(token)) {
             List<Token> expression = Tokens.getSubstitutionPathExpression(token);
             Path path = PathParser.parsePathExpression(expression.iterator(), token.origin());
             boolean optional = Tokens.getSubstitutionOptional(token);

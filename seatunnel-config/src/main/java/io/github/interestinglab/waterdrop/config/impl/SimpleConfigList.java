@@ -36,8 +36,8 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
 
     private static final long serialVersionUID = 2L;
 
-    final private List<AbstractConfigValue> value;
-    final private boolean resolved;
+    private final List<AbstractConfigValue> value;
+    private final boolean resolved;
 
     SimpleConfigList(ConfigOrigin origin, List<AbstractConfigValue> value) {
         this(origin, value, ResolveStatus
@@ -51,9 +51,10 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         this.resolved = status == ResolveStatus.RESOLVED;
 
         // kind of an expensive debug check (makes this constructor pointless)
-        if (status != ResolveStatus.fromValues(value))
+        if (status != ResolveStatus.fromValues(value)) {
             throw new ConfigException.BugOrBroken(
                     "SimpleConfigList created with wrong resolve status: " + this);
+        }
     }
 
     @Override
@@ -80,11 +81,10 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         List<AbstractConfigValue> newList = replaceChildInList(value, child, replacement);
         if (newList == null) {
             return null;
-        } else {
-            // we use the constructor flavor that will recompute the resolve
-            // status
-            return new SimpleConfigList(origin(), newList);
         }
+        // we use the constructor flavor that will recompute the resolve
+        // status
+        return new SimpleConfigList(origin(), newList);
     }
 
     @Override
@@ -131,12 +131,10 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         if (changed != null) {
             if (newResolveStatus != null) {
                 return new SimpleConfigList(origin(), changed, newResolveStatus);
-            } else {
-                return new SimpleConfigList(origin(), changed);
             }
-        } else {
-            return this;
+            return new SimpleConfigList(origin(), changed);
         }
+        return this;
     }
 
     private static class ResolveModifier implements Modifier {
@@ -160,25 +158,25 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
     @Override
     ResolveResult<? extends SimpleConfigList> resolveSubstitutions(ResolveContext context, ResolveSource source)
             throws NotPossibleToResolve {
-        if (resolved)
+        if (resolved) {
             return ResolveResult.make(context, this);
+        }
 
         if (context.isRestrictedToChild()) {
             // if a list restricts to a child path, then it has no child paths,
             // so nothing to do.
             return ResolveResult.make(context, this);
-        } else {
-            try {
-                ResolveModifier modifier = new ResolveModifier(context, source.pushParent(this));
-                SimpleConfigList value = modifyMayThrow(modifier, context.options().getAllowUnresolved() ? null : ResolveStatus.RESOLVED);
-                return ResolveResult.make(modifier.context, value);
-            } catch (NotPossibleToResolve e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new ConfigException.BugOrBroken("unexpected checked exception", e);
-            }
+        }
+        try {
+            ResolveModifier modifier = new ResolveModifier(context, source.pushParent(this));
+            SimpleConfigList value = modifyMayThrow(modifier, context.options().getAllowUnresolved() ? null : ResolveStatus.RESOLVED);
+            return ResolveResult.make(modifier.context, value);
+        } catch (NotPossibleToResolve e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ConfigException.BugOrBroken("unexpected checked exception", e);
         }
     }
 
@@ -203,11 +201,9 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         // note that "origin" is deliberately NOT part of equality
         if (other instanceof SimpleConfigList) {
             // optimization to avoid unwrapped() for two ConfigList
-            return canEqual(other)
-                    && (value == ((SimpleConfigList) other).value || value.equals(((SimpleConfigList) other).value));
-        } else {
-            return false;
+            return canEqual(other) && (value == ((SimpleConfigList) other).value || value.equals(((SimpleConfigList) other).value));
         }
+        return false;
     }
 
     @Override
@@ -222,16 +218,18 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
             sb.append("[]");
         } else {
             sb.append("[");
-            if (options.getFormatted())
+            if (options.getFormatted()) {
                 sb.append('\n');
+            }
             for (AbstractConfigValue v : value) {
                 if (options.getOriginComments()) {
                     String[] lines = v.origin().description().split("\n");
                     for (String l : lines) {
                         indent(sb, indent + 1, options);
                         sb.append('#');
-                        if (!l.isEmpty())
+                        if (!l.isEmpty()) {
                             sb.append(' ');
+                        }
                         sb.append(l);
                         sb.append("\n");
                     }
@@ -248,8 +246,9 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
 
                 v.render(sb, indent + 1, atRoot, options);
                 sb.append(",");
-                if (options.getFormatted())
+                if (options.getFormatted()) {
                     sb.append('\n');
+                }
             }
             sb.setLength(sb.length() - 1); // chop or newline
             if (options.getFormatted()) {
@@ -458,10 +457,9 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
         return new SimpleConfigList(newOrigin, value);
     }
 
-    final SimpleConfigList concatenate(SimpleConfigList other) {
+    SimpleConfigList concatenate(SimpleConfigList other) {
         ConfigOrigin combinedOrigin = SimpleConfigOrigin.mergeOrigins(origin(), other.origin());
-        List<AbstractConfigValue> combined = new ArrayList<AbstractConfigValue>(value.size()
-                + other.value.size());
+        List<AbstractConfigValue> combined = new ArrayList<AbstractConfigValue>(value.size() + other.value.size());
         combined.addAll(value);
         combined.addAll(other.value);
         return new SimpleConfigList(combinedOrigin, combined);

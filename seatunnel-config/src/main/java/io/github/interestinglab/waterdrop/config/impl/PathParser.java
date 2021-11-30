@@ -68,8 +68,9 @@ final class PathParser {
 
     static Path parsePath(String path) {
         Path speculated = speculativeFastParsePath(path);
-        if (speculated != null)
+        if (speculated != null) {
             return speculated;
+        }
 
         StringReader reader = new StringReader(path);
 
@@ -122,12 +123,14 @@ final class PathParser {
         while (expression.hasNext()) {
             Token t = expression.next();
 
-            if (pathTokens != null)
+            if (pathTokens != null) {
                 pathTokens.add(t);
+            }
 
             // Ignore all IgnoredWhitespace tokens
-            if (Tokens.isIgnoredWhitespace(t))
+            if (Tokens.isIgnoredWhitespace(t)) {
                 continue;
+            }
 
             if (Tokens.isValueWithType(t, ConfigValueType.STRING)) {
                 AbstractConfigValue v = Tokens.getValue(t);
@@ -175,8 +178,7 @@ final class PathParser {
                             origin,
                             originalText,
                             "Token not allowed in path expression: "
-                                    + t
-                                    + " (you can double-quote this token if you really want it here)");
+                                    + t + " (you can double-quote this token if you really want it here)");
                 }
 
                 addPathText(buf, false, text);
@@ -190,9 +192,8 @@ final class PathParser {
                         origin,
                         originalText,
                         "path has a leading, trailing, or two adjacent period '.' (use quoted \"\" empty string if you want an empty element)");
-            } else {
-                pb.appendKey(e.sb.toString());
             }
+            pb.appendKey(e.sb.toString());
         }
 
         return pb.result();
@@ -207,10 +208,11 @@ final class PathParser {
         String[] splitToken = tokenText.split(ConfigParseOptions.PATH_TOKEN_SEPARATOR);
         ArrayList<Token> splitTokens = new ArrayList<Token>();
         for (String s : splitToken) {
-            if (flavor == ConfigSyntax.CONF)
+            if (flavor == ConfigSyntax.CONF) {
                 splitTokens.add(Tokens.newUnquotedText(t.origin(), s));
-            else
+            } else {
                 splitTokens.add(Tokens.newString(t.origin(), s, "\"" + s + "\""));
+            }
             splitTokens.add(Tokens.newUnquotedText(t.origin(), ConfigParseOptions.PATH_TOKEN_SEPARATOR));
         }
 
@@ -231,8 +233,9 @@ final class PathParser {
             current.sb.append(newText);
             // any empty quoted string means this element can
             // now be empty.
-            if (wasQuoted && current.sb.length() == 0)
+            if (wasQuoted && current.sb.length() == 0) {
                 current.canBeEmpty = true;
+            }
         } else {
             // "buf" plus up to the period is an element
             current.sb.append(newText.substring(0, i));
@@ -249,12 +252,15 @@ final class PathParser {
         // TODO: maybe we should rewrite this function using ConfigParseOptions.pathTokenSeparator
         boolean lastWasDot = true; // start of path is also a "dot"
         int len = s.length();
-        if (s.isEmpty())
+        if (s.isEmpty()) {
             return true;
-        if (s.charAt(0) == '.')
+        }
+        if (s.charAt(0) == '.') {
             return true;
-        if (s.charAt(len - 1) == '.')
+        }
+        if (s.charAt(len - 1) == '.') {
             return true;
+        }
 
         for (int i = 0; i < len; ++i) {
             char c = s.charAt(i);
@@ -262,20 +268,22 @@ final class PathParser {
                 lastWasDot = false;
                 continue;
             } else if (c == '.') {
-                if (lastWasDot)
+                if (lastWasDot) {
                     return true; // ".." means we need to throw an error
+                }
                 lastWasDot = true;
             } else if (c == '-') {
-                if (lastWasDot)
+                if (lastWasDot) {
                     return true;
+                }
                 continue;
-            } else {
-                return true;
             }
+            return true;
         }
 
-        if (lastWasDot)
+        if (lastWasDot) {
             return true;
+        }
 
         return false;
     }
@@ -291,18 +299,18 @@ final class PathParser {
         if (splitAt < 0) {
             Path withOneMoreElement = new Path(s.substring(0, end), tail);
             return withOneMoreElement;
-        } else {
-            Path withOneMoreElement = new Path(s.substring(splitAt + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), end), tail);
-            return fastPathBuild(withOneMoreElement, s, splitAt);
         }
+        Path withOneMoreElement = new Path(s.substring(splitAt + ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), end), tail);
+        return fastPathBuild(withOneMoreElement, s, splitAt);
     }
 
     // do something much faster than the full parser if
     // we just have something like "foo" or "foo.bar"
     private static Path speculativeFastParsePath(String path) {
         String s = ConfigImplUtil.unicodeTrim(path);
-        if (looksUnsafeForFastParser(s))
+        if (looksUnsafeForFastParser(s)) {
             return null;
+        }
 
         return fastPathBuild(null, s, s.length());
     }

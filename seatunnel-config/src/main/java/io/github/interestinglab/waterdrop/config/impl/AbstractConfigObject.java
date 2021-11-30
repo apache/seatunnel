@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 abstract class AbstractConfigObject extends AbstractConfigValue implements ConfigObject, Container {
-    final private SimpleConfig config;
+    private final SimpleConfig config;
 
     protected AbstractConfigObject(ConfigOrigin origin) {
         super(origin);
@@ -50,15 +50,15 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
     }
 
     @Override
-    abstract public AbstractConfigObject withOnlyKey(String key);
+    public abstract AbstractConfigObject withOnlyKey(String key);
 
     @Override
-    abstract public AbstractConfigObject withoutKey(String key);
+    public abstract AbstractConfigObject withoutKey(String key);
 
     @Override
-    abstract public AbstractConfigObject withValue(String key, ConfigValue value);
+    public abstract AbstractConfigObject withValue(String key, ConfigValue value);
 
-    abstract protected AbstractConfigObject withOnlyPathOrNull(Path path);
+    protected abstract AbstractConfigObject withOnlyPathOrNull(Path path);
 
     abstract AbstractConfigObject withOnlyPath(Path path);
 
@@ -115,13 +115,11 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
 
             if (next == null) {
                 return v;
-            } else {
-                if (v instanceof AbstractConfigObject) {
-                    return peekPath((AbstractConfigObject) v, next);
-                } else {
-                    return null;
-                }
             }
+            if (v instanceof AbstractConfigObject) {
+                return peekPath((AbstractConfigObject) v, next);
+            }
+            return null;
         } catch (ConfigException.NotResolved e) {
             throw ConfigImpl.improveNotResolved(path, e);
         }
@@ -155,15 +153,17 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
 
     static ConfigOrigin mergeOrigins(
             Collection<? extends AbstractConfigValue> stack) {
-        if (stack.isEmpty())
+        if (stack.isEmpty()) {
             throw new ConfigException.BugOrBroken(
                     "can't merge origins on empty list");
+        }
         List<ConfigOrigin> origins = new ArrayList<ConfigOrigin>();
         ConfigOrigin firstOrigin = null;
         int numMerged = 0;
         for (AbstractConfigValue v : stack) {
-            if (firstOrigin == null)
+            if (firstOrigin == null) {
                 firstOrigin = v.origin();
+            }
 
             if (v instanceof AbstractConfigObject
                     && ((AbstractConfigObject) v).resolveStatus() == ResolveStatus.RESOLVED
@@ -204,8 +204,7 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
     protected abstract void render(StringBuilder sb, int indent, boolean atRoot, ConfigRenderOptions options);
 
     private static UnsupportedOperationException weAreImmutable(String method) {
-        return new UnsupportedOperationException("ConfigObject is immutable, you can't call Map."
-                + method);
+        return new UnsupportedOperationException("ConfigObject is immutable, you can't call Map." + method);
     }
 
     @Override

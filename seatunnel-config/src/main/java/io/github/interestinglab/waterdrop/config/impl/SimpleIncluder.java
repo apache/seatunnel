@@ -59,9 +59,8 @@ class SimpleIncluder implements FullIncluder {
         // its result.
         if (fallback != null) {
             return obj.withFallback(fallback.include(context, name));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     // the heuristic includer in static form
@@ -78,10 +77,9 @@ class SimpleIncluder implements FullIncluder {
 
         if (url != null) {
             return includeURLWithoutFallback(context, url);
-        } else {
-            NameSource source = new RelativeNameSource(context);
-            return fromBasename(source, name, context.parseOptions());
         }
+        NameSource source = new RelativeNameSource(context);
+        return fromBasename(source, name, context.parseOptions());
     }
 
     @Override
@@ -92,9 +90,8 @@ class SimpleIncluder implements FullIncluder {
         // its result.
         if (fallback != null && fallback instanceof ConfigIncluderURL) {
             return obj.withFallback(((ConfigIncluderURL) fallback).includeURL(context, url));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     static ConfigObject includeURLWithoutFallback(final ConfigIncludeContext context, URL url) {
@@ -109,9 +106,8 @@ class SimpleIncluder implements FullIncluder {
         // its result.
         if (fallback != null && fallback instanceof ConfigIncluderFile) {
             return obj.withFallback(((ConfigIncluderFile) fallback).includeFile(context, file));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     static ConfigObject includeFileWithoutFallback(final ConfigIncludeContext context, File file) {
@@ -127,9 +123,8 @@ class SimpleIncluder implements FullIncluder {
         if (fallback != null && fallback instanceof ConfigIncluderClasspath) {
             return obj.withFallback(((ConfigIncluderClasspath) fallback).includeResources(context,
                     resource));
-        } else {
-            return obj;
         }
+        return obj;
     }
 
     static ConfigObject includeResourceWithoutFallback(final ConfigIncludeContext context,
@@ -145,17 +140,16 @@ class SimpleIncluder implements FullIncluder {
             return this;
         } else if (this.fallback != null) {
             return new SimpleIncluder(this.fallback.withFallback(fallback));
-        } else {
-            return new SimpleIncluder(fallback);
         }
+        return new SimpleIncluder(fallback);
     }
 
     interface NameSource {
         ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions);
     }
 
-    static private class RelativeNameSource implements NameSource {
-        final private ConfigIncludeContext context;
+    private static class RelativeNameSource implements NameSource {
+        private final ConfigIncludeContext context;
 
         RelativeNameSource(ConfigIncludeContext context) {
             this.context = context;
@@ -168,9 +162,8 @@ class SimpleIncluder implements FullIncluder {
                 // avoid returning null
                 return Parseable
                         .newNotFound(name, "include was not found: '" + name + "'", options);
-            } else {
-                return p;
             }
+            return p;
         }
     }
 
@@ -227,11 +220,11 @@ class SimpleIncluder implements FullIncluder {
             }
 
             if (!options.getAllowMissing() && !gotSomething) {
-                if (ConfigImpl.TRACE_LOADS_ENABLE()) {
+                if (ConfigImpl.traceLoadsEnable()) {
                     // the individual exceptions should have been logged already
                     // with tracing enabled
-                    ConfigImpl.trace("Did not find '" + name
-                            + "' with any extension (.conf, .json, .properties); "
+                    ConfigImpl.trace("Did not find '"
+                            + name + "' with any extension (.conf, .json, .properties); "
                             + "exceptions should have been logged above.");
                 }
 
@@ -250,7 +243,7 @@ class SimpleIncluder implements FullIncluder {
                             fails.get(0));
                 }
             } else if (!gotSomething) {
-                if (ConfigImpl.TRACE_LOADS_ENABLE()) {
+                if (ConfigImpl.traceLoadsEnable()) {
                     ConfigImpl.trace("Did not find '" + name
                             + "' with any extension (.conf, .json, .properties); but '" + name
                             + "' is allowed to be missing. Exceptions from load attempts should have been logged above.");
@@ -264,7 +257,7 @@ class SimpleIncluder implements FullIncluder {
     // the Proxy is a proxy for an application-provided includer that uses our
     // default implementations when the application-provided includer doesn't
     // have an implementation.
-    static private class Proxy implements FullIncluder {
+    private static class Proxy implements FullIncluder {
         final ConfigIncluder delegate;
 
         Proxy(ConfigIncluder delegate) {
@@ -284,33 +277,33 @@ class SimpleIncluder implements FullIncluder {
 
         @Override
         public ConfigObject includeResources(ConfigIncludeContext context, String what) {
-            if (delegate instanceof ConfigIncluderClasspath)
+            if (delegate instanceof ConfigIncluderClasspath) {
                 return ((ConfigIncluderClasspath) delegate).includeResources(context, what);
-            else
-                return includeResourceWithoutFallback(context, what);
+            }
+            return includeResourceWithoutFallback(context, what);
         }
 
         @Override
         public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
-            if (delegate instanceof ConfigIncluderURL)
+            if (delegate instanceof ConfigIncluderURL) {
                 return ((ConfigIncluderURL) delegate).includeURL(context, what);
-            else
-                return includeURLWithoutFallback(context, what);
+            }
+            return includeURLWithoutFallback(context, what);
         }
 
         @Override
         public ConfigObject includeFile(ConfigIncludeContext context, File what) {
-            if (delegate instanceof ConfigIncluderFile)
+            if (delegate instanceof ConfigIncluderFile) {
                 return ((ConfigIncluderFile) delegate).includeFile(context, what);
-            else
-                return includeFileWithoutFallback(context, what);
+            }
+            return includeFileWithoutFallback(context, what);
         }
     }
 
     static FullIncluder makeFull(ConfigIncluder includer) {
-        if (includer instanceof FullIncluder)
+        if (includer instanceof FullIncluder) {
             return (FullIncluder) includer;
-        else
-            return new Proxy(includer);
+        }
+        return new Proxy(includer);
     }
 }

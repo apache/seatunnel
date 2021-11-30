@@ -25,16 +25,17 @@ import java.util.Collection;
 enum ResolveStatus {
     UNRESOLVED, RESOLVED;
 
-    final static ResolveStatus fromValues(
+    static final ResolveStatus fromValues(
             Collection<? extends AbstractConfigValue> values) {
         for (AbstractConfigValue v : values) {
-            if (v.resolveStatus() == ResolveStatus.UNRESOLVED)
+            if (v.resolveStatus() == ResolveStatus.UNRESOLVED) {
                 return ResolveStatus.UNRESOLVED;
+            }
         }
         return ResolveStatus.RESOLVED;
     }
 
-    final static ResolveStatus fromBoolean(boolean resolved) {
+    static final ResolveStatus fromBoolean(boolean resolved) {
         return resolved ? ResolveStatus.RESOLVED : ResolveStatus.UNRESOLVED;
     }
 }

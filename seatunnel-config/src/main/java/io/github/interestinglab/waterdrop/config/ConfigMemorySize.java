@@ -28,8 +28,9 @@ public final class ConfigMemorySize {
     private final long bytes;
 
     private ConfigMemorySize(long bytes) {
-        if (bytes < 0)
+        if (bytes < 0) {
             throw new IllegalArgumentException("Attempt to construct ConfigMemorySize with negative number: " + bytes);
+        }
         this.bytes = bytes;
     }
 
@@ -64,9 +65,8 @@ public final class ConfigMemorySize {
     public boolean equals(Object other) {
         if (other instanceof ConfigMemorySize) {
             return ((ConfigMemorySize) other).bytes == this.bytes;
-        } else {
-            return false;
         }
+        return false;
     }
 
     @Override
