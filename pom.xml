@@ -111,6 +111,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <spark.version>2.4.0</spark.version>
         <flink.version>1.9.0</flink.version>
+        <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
@@ -385,7 +386,16 @@
     <build>
         <pluginManagement>
             <plugins>
-
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>2.4</version>
+                </plugin>
+                <plugin>
+                    <groupId>io.fabric8</groupId>
+                    <artifactId>docker-maven-plugin</artifactId>
+                    <version>0.38.0</version>
+                </plugin>
                 <plugin>
                     <groupId>org.sonatype.plugins</groupId>
                     <artifactId>nexus-staging-maven-plugin</artifactId>
