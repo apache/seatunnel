@@ -1,4 +1,4 @@
-## Compiling and Building Waterdrop Source Code
+## Compiling and Building seatunnel Source Code
 
 
 ### How to Build Binary Release Package
@@ -8,9 +8,9 @@
 mvn clean package
 ```
 
-then, you will see waterdrop release zip file in `waterdrop-dist/target/`, such as `waterdrop-dist-2.0.4-2.11.8-release.zip`
+then, you will see seatunnel release zip file in `seatunnel-dist/target/`, such as `seatunnel-dist-2.0.4-2.11.8-release.zip`
 
-### How to deploy waterdrop artifacts to central maven repo
+### How to deploy seatunnel artifacts to central maven repo
 
 References:
 1. https://central.sonatype.org/pages/producers.html

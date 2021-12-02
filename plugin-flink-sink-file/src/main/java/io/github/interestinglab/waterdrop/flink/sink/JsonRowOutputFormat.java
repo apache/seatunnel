@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.github.interestinglab.waterdrop.flink.sink;
 
 import com.alibaba.fastjson.JSONArray;
@@ -26,12 +43,11 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
 
     private RowTypeInfo rowTypeInfo;
 
-
-    public JsonRowOutputFormat(Path outputPath,RowTypeInfo rowTypeInfo) {
-        this(outputPath, rowTypeInfo,"UTF-8");
+    public JsonRowOutputFormat(Path outputPath, RowTypeInfo rowTypeInfo) {
+        this(outputPath, rowTypeInfo, "UTF-8");
     }
 
-    public JsonRowOutputFormat(Path outputPath,RowTypeInfo rowTypeInfo, String charset) {
+    public JsonRowOutputFormat(Path outputPath, RowTypeInfo rowTypeInfo, String charset) {
         super(outputPath);
         this.rowTypeInfo = rowTypeInfo;
         this.charsetName = charset;
@@ -53,18 +69,15 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
         this.charsetName = charsetName;
     }
 
-
     @Override
     public void open(int taskNumber, int numTasks) throws IOException {
         super.open(taskNumber, numTasks);
 
         try {
             this.charset = Charset.forName(charsetName);
-        }
-        catch (IllegalCharsetNameException e) {
+        } catch (IllegalCharsetNameException e) {
             throw new IOException("The charset " + charsetName + " is not valid.", e);
-        }
-        catch (UnsupportedCharsetException e) {
+        } catch (UnsupportedCharsetException e) {
             throw new IOException("The charset " + charsetName + " is not supported.", e);
         }
     }
@@ -77,34 +90,34 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
         this.stream.write(NEWLINE);
     }
 
-    private JSONObject getJson(Row record,RowTypeInfo rowTypeInfo){
+    private JSONObject getJson(Row record, RowTypeInfo rowTypeInfo) {
         String[] fieldNames = rowTypeInfo.getFieldNames();
         int i = 0;
         JSONObject json = new JSONObject();
-        for (String name : fieldNames){
+        for (String name : fieldNames) {
             Object field = record.getField(i);
             final TypeInformation type = rowTypeInfo.getTypeAt(i);
-            if (type.isBasicType()){
+            if (type.isBasicType()) {
                 json.put(name, field);
-            }else if (type instanceof ObjectArrayTypeInfo){
+            } else if (type instanceof ObjectArrayTypeInfo) {
                 ObjectArrayTypeInfo arrayTypeInfo = (ObjectArrayTypeInfo) type;
                 TypeInformation componentInfo = arrayTypeInfo.getComponentInfo();
                 JSONArray jsonArray = new JSONArray();
-                if (componentInfo instanceof RowTypeInfo){
+                if (componentInfo instanceof RowTypeInfo) {
                     final Row[] rows = (Row[]) field;
-                    for (Row r : rows){
-                        jsonArray.add(getJson(r,(RowTypeInfo)componentInfo));
+                    for (Row r : rows) {
+                        jsonArray.add(getJson(r, (RowTypeInfo) componentInfo));
                     }
-                }else {
+                } else {
                     final Object[] objects = (Object[]) field;
-                    for (Object o : objects){
+                    for (Object o : objects) {
                         jsonArray.add(o);
                     }
                 }
-                json.put(name,jsonArray);
-            }else if (type instanceof RowTypeInfo){
+                json.put(name, jsonArray);
+            } else if (type instanceof RowTypeInfo) {
                 RowTypeInfo typeInfo = (RowTypeInfo) type;
-                json.put(name,getJson((Row)field,typeInfo));
+                json.put(name, getJson((Row) field, typeInfo));
             }
             i++;
         }

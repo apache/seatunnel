@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
@@ -15,7 +32,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
-import org.apache.flink.table.descriptors.*;
+import org.apache.flink.table.descriptors.FormatDescriptor;
+import org.apache.flink.table.descriptors.Kafka;
+import org.apache.flink.table.descriptors.Rowtime;
+import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
 
 import java.util.HashMap;
@@ -133,7 +153,6 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         return kafka;
     }
 
-
     private FormatDescriptor setFormat() {
         try {
             return SchemaUtil.setFormat(format, config);
@@ -141,7 +160,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
             // TODO: logging
             e.printStackTrace();
         }
-        throw new RuntimeException("format配置错误");
+        throw new RuntimeException("format config error");
     }
 
 }
