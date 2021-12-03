@@ -45,13 +45,11 @@
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>seatunnel-spark-api</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-source-kafka</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
@@ -117,31 +115,26 @@
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-console</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-elasticsearch</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-clickhouse</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-file</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-hbase</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
 

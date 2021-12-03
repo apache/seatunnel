@@ -44,19 +44,19 @@
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>seatunnel-flink-api</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
+            
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-source-kafka</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
+            
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-sink-kafka</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
+            
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
@@ -74,55 +74,47 @@
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-transform-table2datasteam</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-transform-datastream2table</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-sink-console</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
+            
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-sink-jdbc</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-source-fake</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-source-socket</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-source-file</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-source-jdbc</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-sink-file</artifactId>
             <version>${project.version}</version>
-            <!--<scope>provided</scope>-->
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
