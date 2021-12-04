@@ -14,20 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.spark
+package io.github.interestinglab.waterdrop.spark.batch;
 
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseSink
-import org.apache.spark.sql.{Dataset, Row}
+import io.github.interestinglab.waterdrop.spark.BaseSparkSink;
+import scala.Unit;
 
-trait BaseSparkSink[OUT] extends BaseSink[SparkEnvironment] {
-
-  protected var config: Config = ConfigFactory.empty()
-
-  override def setConfig(config: Config): Unit = this.config = config
-
-  override def getConfig: Config = config
-
-  def output(data: Dataset[Row], env: SparkEnvironment): OUT;
-
+public abstract class BaseSparkBatchSink extends BaseSparkSink<Unit> {
 }

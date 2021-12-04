@@ -21,6 +21,7 @@ import java.util.{List => JList}
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.env.Execution
+import io.github.interestinglab.waterdrop.plugin.Plugin
 import io.github.interestinglab.waterdrop.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution
 import org.apache.spark.sql.{Dataset, Row}
@@ -42,8 +43,8 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment) extends Execut
     })
     source.start(sparkEnvironment, dataset => {
       val conf = source.getConfig
-      if (conf.hasPath(SparkBatchExecution.resultTableName)) {
-        SparkBatchExecution.registerTempView(conf.getString(SparkBatchExecution.resultTableName), dataset)
+      if (conf.hasPath(Plugin.RESULT_TABLE_NAME)) {
+        SparkBatchExecution.registerTempView(conf.getString(Plugin.RESULT_TABLE_NAME), dataset)
       }
       var ds = dataset
       for (tf <- transforms) {

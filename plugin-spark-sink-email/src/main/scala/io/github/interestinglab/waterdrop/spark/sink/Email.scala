@@ -21,16 +21,16 @@ import java.io.ByteArrayOutputStream
 import com.norbitltd.spoiwo.model.Workbook
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.apache.spark.sql.{Dataset, Row}
 import com.norbitltd.spoiwo.natures.xlsx.Model2XlsxConversions._
 import com.typesafe.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.batch.BaseSparkBatchSink
 import play.api.libs.mailer.{Attachment, AttachmentData, Email, SMTPConfiguration, SMTPMailer}
 
 import scala.collection.JavaConverters._
 
-class Email extends SparkBatchSink {
+class Email extends BaseSparkBatchSink {
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
 

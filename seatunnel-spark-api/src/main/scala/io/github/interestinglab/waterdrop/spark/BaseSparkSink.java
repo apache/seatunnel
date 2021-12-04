@@ -14,19 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.spark
 
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseSource
+package io.github.interestinglab.waterdrop.spark;
 
-trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
+import io.github.interestinglab.waterdrop.apis.BaseSink;
+import io.github.interestinglab.waterdrop.config.Config;
+import io.github.interestinglab.waterdrop.config.ConfigFactory;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
-  protected var config: Config = ConfigFactory.empty()
+public abstract class BaseSparkSink<OUT>  implements BaseSink<SparkEnvironment>{
+    protected Config config = ConfigFactory.empty();
 
-  override def setConfig(config: Config): Unit = this.config = config
 
-  override def getConfig: Config = config
+    @Override
+    public void setConfig(Config config){
+        this.config = config;
+    };
 
-  def getData(env: SparkEnvironment): Data;
+    @Override
+    public Config getConfig(){
+        return config;
+    };
+
+    public abstract OUT output(Dataset<Row> data, SparkEnvironment env);
+
 
 }

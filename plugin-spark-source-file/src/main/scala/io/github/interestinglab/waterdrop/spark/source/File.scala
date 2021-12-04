@@ -18,13 +18,13 @@ package io.github.interestinglab.waterdrop.spark.source
 
 import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
+import io.github.interestinglab.waterdrop.spark.batch.BaseSparkBatchSource
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
-class File extends SparkBatchSource {
+class File extends BaseSparkBatchSource {
 
   override def prepare(env: SparkEnvironment): Unit = {}
 

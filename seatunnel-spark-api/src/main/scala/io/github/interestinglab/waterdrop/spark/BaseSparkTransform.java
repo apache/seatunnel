@@ -14,10 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.spark.batch
 
-import io.github.interestinglab.waterdrop.spark.BaseSparkSink
+package io.github.interestinglab.waterdrop.spark;
 
-trait SparkBatchSink extends BaseSparkSink[Unit]{
+import io.github.interestinglab.waterdrop.apis.BaseTransform;
+import io.github.interestinglab.waterdrop.config.Config;
+import io.github.interestinglab.waterdrop.config.ConfigFactory;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+
+public abstract class BaseSparkTransform implements BaseTransform<SparkEnvironment>{
+    protected Config config = ConfigFactory.empty();
+
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
+    @Override
+    public Config getConfig() {
+        return config;
+    }
+
+    public abstract Dataset<Row> process(Dataset<Row>data, SparkEnvironment env);
+
 
 }

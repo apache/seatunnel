@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.spark.batch
 
-import io.github.interestinglab.waterdrop.spark.BaseSparkSource
-import org.apache.spark.sql.{Dataset, Row}
+package io.github.interestinglab.waterdrop.spark.batch;
 
-trait SparkBatchSource extends BaseSparkSource[Dataset[Row]]{
+import io.github.interestinglab.waterdrop.spark.BaseSparkSource;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
+public abstract class BaseSparkBatchSource extends BaseSparkSource<Dataset<Row>> {
 }

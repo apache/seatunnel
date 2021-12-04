@@ -19,15 +19,15 @@ package io.github.interestinglab.waterdrop.spark.sink
 import io.github.interestinglab.waterdrop.config.ConfigFactory
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 import io.github.interestinglab.waterdrop.common.utils.StringTemplate
+import io.github.interestinglab.waterdrop.spark.batch.BaseSparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
 import org.elasticsearch.spark.sql._
 
 import scala.collection.JavaConversions._
 
 
-class Elasticsearch extends SparkBatchSink {
+class Elasticsearch extends BaseSparkBatchSink {
 
   val esPrefix = "es."
   var esCfg: Map[String, String] = Map()

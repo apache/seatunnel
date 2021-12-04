@@ -18,11 +18,11 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import io.github.interestinglab.waterdrop.spark.batch.BaseSparkBatchSink
 import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode
 import org.apache.spark.sql.{Dataset, Row}
 
-class Mysql extends SparkBatchSink{
+class Mysql extends BaseSparkBatchSink{
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val saveMode = config.getString("save_mode")

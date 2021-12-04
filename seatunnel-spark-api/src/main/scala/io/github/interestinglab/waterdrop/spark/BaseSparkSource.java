@@ -14,20 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.spark
 
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseTransform
-import org.apache.spark.sql.{Dataset, Row}
+package io.github.interestinglab.waterdrop.spark;
 
-trait BaseSparkTransform extends BaseTransform[SparkEnvironment] {
+import io.github.interestinglab.waterdrop.apis.BaseSource;
+import io.github.interestinglab.waterdrop.config.Config;
+import io.github.interestinglab.waterdrop.config.ConfigFactory;
 
-  protected var config: Config = ConfigFactory.empty()
 
-  override def setConfig(config: Config): Unit = this.config = config
+public abstract class BaseSparkSource<Data>  implements BaseSource<SparkEnvironment>{
+    protected Config config = ConfigFactory.empty();
 
-  override def getConfig: Config = config
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
 
-  def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row];
+    @Override
+    public Config getConfig() {
+        return config;
+    }
 
+    public abstract Data getData(SparkEnvironment env);
 }

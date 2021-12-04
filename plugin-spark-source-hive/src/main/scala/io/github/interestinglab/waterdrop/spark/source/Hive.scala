@@ -18,10 +18,10 @@ package io.github.interestinglab.waterdrop.spark.source
 
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
+import io.github.interestinglab.waterdrop.spark.batch.BaseSparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
 
-class Hive extends SparkBatchSource {
+class Hive extends BaseSparkBatchSource {
 
   override def prepare(env: SparkEnvironment): Unit = {}
 
