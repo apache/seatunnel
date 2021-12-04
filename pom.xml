@@ -74,6 +74,7 @@
         <module>plugin-spark-sink-clickhouse</module>
         <module>plugin-spark-sink-elasticsearch</module>
         <module>plugin-spark-sink-hbase</module>
+        <module>plugin-spark-sink-kafka</module>
         <module>plugin-flink-source-kafka</module>
         <module>plugin-flink-transform-sql</module>
         <module>plugin-flink-sink-console</module>
