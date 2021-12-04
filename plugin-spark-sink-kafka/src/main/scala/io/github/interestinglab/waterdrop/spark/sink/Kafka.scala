@@ -18,7 +18,7 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 import java.util.Properties
 
-import io.github.interestinglab.waterdrop.common.config.TypesafeConfigUtils
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
@@ -48,13 +48,13 @@ class Kafka extends SparkBatchSink with Logging {
     this.config
   }
 
-  override def checkConfig(): (Boolean, String) = {
+  override def checkConfig(): CheckResult = {
 
     val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
     config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
-      case true => (true, "")
-      case false => (false, "please specify [topic] and [producer.bootstrap.servers]")
+      case true => new CheckResult(true, "")
+      case false => new CheckResult(false, "please specify [topic] and [producer.bootstrap.servers]")
     }
   }
 
