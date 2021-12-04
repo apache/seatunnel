@@ -70,7 +70,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
     public void prepare(FlinkEnvironment env) {
         Config defaultConfig = ConfigFactory.parseMap(new HashMap<String, String>(2) {
             {
-                put("index", "waterdrop");
+                put("index", "seatunnel");
                 put("index_type", "log");
                 put("index_time_format", "yyyy.MM.dd");
             }

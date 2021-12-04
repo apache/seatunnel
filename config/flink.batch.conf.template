@@ -16,7 +16,7 @@
 #
 
 ######
-###### This config file is a demonstration of batch processing in waterdrop config
+###### This config file is a demonstration of batch processing in SeaTunnel config
 ######
 
 env {
