@@ -146,6 +146,8 @@ if [ ! -z "${variables_substitution}" ]; then
   clientModeDriverJavaOpts="${variables_substitution}"
 fi
 
+driverJavaOpts="${driverJavaOpts} -Dlog4j.configuration=file:${CONF_DIR}/log4j.properties"
+executorJavaOpts="${executorJavaOpts} -Dlog4j.configuration=file:${CONF_DIR}/log4j.properties"
 
 ## compress plugins.tar.gz in cluster mode
 if [ "${DEPLOY_MODE}" == "cluster" ]; then

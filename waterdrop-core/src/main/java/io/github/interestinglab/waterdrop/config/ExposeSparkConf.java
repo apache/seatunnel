@@ -41,46 +41,11 @@ public class ExposeSparkConf {
         }
 
         for (Map.Entry<String, String> c : sparkConfs.entrySet()) {
-            String v = addLogPropertiesIfNeeded(c.getKey(), c.getValue());
-            String conf = String.format(" --conf %s=%s ", c.getKey(), v);
+            String conf = String.format(" --conf %s=%s ", c.getKey(), c.getValue());
             stringBuilder.append(conf);
-        }
-
-        if (!sparkConfs.containsKey(spark_driver_extraJavaOptions)) {
-            stringBuilder.append(" --conf " + spark_driver_extraJavaOptions + "=" + logConfiguration());
-        }
-
-        if (!sparkConfs.containsKey(spark_executor_extraJavaOptions)) {
-            stringBuilder.append(" --conf " + spark_executor_extraJavaOptions + "=" + logConfiguration());
         }
 
         System.out.print(stringBuilder.toString());
     }
 
-    private static String addLogPropertiesIfNeeded(String key, String value) {
-        if (!value.contains("-Dlog4j.configuration")) {
-            if (key.equals(spark_driver_extraJavaOptions)
-                || key.equals(spark_executor_extraJavaOptions) ) {
-
-                return value + " " + logConfiguration();
-            }
-        }
-
-        return value;
-    }
-
-    private static String runningJarPath() {
-        try {
-            URI jarUri = ExposeSparkConf.class.getProtectionDomain().getCodeSource().getLocation()
-                .toURI();
-            Path jarPath = Paths.get(jarUri);
-            return jarPath.getParent().getParent().toString();
-        } catch (URISyntaxException e) {
-            throw new RuntimeException("failed to get work dir of seatunnel");
-        }
-    }
-
-    private static String logConfiguration() {
-        return String.format("-Dlog4j.configuration=file:%s/config/log4j.properties", runningJarPath());
-    }
 }
