@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import com.alibaba.fastjson.JSONArray;
@@ -13,8 +30,7 @@ import org.apache.flink.types.Row;
 
 import java.io.IOException;
 
-public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements  ResultTypeQueryable<Row> {
-
+public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements ResultTypeQueryable<Row> {
 
     private RowTypeInfo rowTypeInfo;
 
@@ -31,8 +47,10 @@ public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements  Re
 
     @Override
     public Row readRecord(Row reuse, byte[] bytes, int offset, int numBytes) throws IOException {
-        if (this.getDelimiter() != null && this.getDelimiter().length == 1
-                && this.getDelimiter()[0] == NEW_LINE && offset + numBytes >= 1
+        if (this.getDelimiter() != null
+                && this.getDelimiter().length == 1
+                && this.getDelimiter()[0] == NEW_LINE
+                && offset + numBytes >= 1
                 && bytes[offset + numBytes - 1] == CARRIAGE_RETURN) {
             numBytes -= 1;
         }
@@ -40,9 +58,9 @@ public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements  Re
         String str = new String(bytes, offset, numBytes, this.charsetName);
         JSONObject json = JSONObject.parseObject(str);
         Row reuseRow;
-        if (reuse == null){
+        if (reuse == null) {
             reuseRow = new Row(rowTypeInfo.getArity());
-        }else {
+        } else {
             reuseRow = reuse;
         }
         setJsonRow(reuseRow, json, rowTypeInfo);
