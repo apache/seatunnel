@@ -21,6 +21,7 @@ public class ExposeSparkConf {
                 .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                 .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
+        String variables = args[1];
         StringBuilder stringBuilder = new StringBuilder();
         Map<String, String> sparkConfs = new LinkedHashMap<String, String>();
         for (Map.Entry<String, ConfigValue> entry : appConfig.getConfig("spark").entrySet()) {
@@ -40,12 +41,59 @@ public class ExposeSparkConf {
             }
         }
 
+
+        if (!sparkConfs.containsKey(spark_driver_extraJavaOptions)) {
+            sparkConfs.put(spark_driver_extraJavaOptions, variables);
+        } else {
+            sparkConfs.put(spark_driver_extraJavaOptions,
+                    sparkConfs.get(spark_driver_extraJavaOptions) + " " + variables);
+        }
+
+        if (!sparkConfs.containsKey(spark_executor_extraJavaOptions)) {
+            sparkConfs.put(spark_executor_extraJavaOptions, variables);
+        } else {
+            sparkConfs.put(spark_executor_extraJavaOptions,
+                    sparkConfs.get(spark_executor_extraJavaOptions + " " + variables));
+        }
+
         for (Map.Entry<String, String> c : sparkConfs.entrySet()) {
-            String conf = String.format(" --conf %s=%s ", c.getKey(), c.getValue());
+            String v = addLogPropertiesIfNeeded(c.getKey(), c.getValue());
+            String conf = String.format(" --conf \"%s=%s\"", c.getKey(), v);
             stringBuilder.append(conf);
         }
 
         System.out.print(stringBuilder.toString());
     }
 
+    /**
+     * if log4j.configuration is not specified, set default file path
+     * @param key
+     * @param value
+     * @return
+     */
+    private static String addLogPropertiesIfNeeded(String key, String value) {
+        if (key.equals(spark_driver_extraJavaOptions)
+                || key.equals(spark_executor_extraJavaOptions)) {
+            if (!value.contains("-Dlog4j.configuration")) {
+                return value + " " + logConfiguration();
+            }
+        }
+
+        return value;
+    }
+
+    private static String runningJarPath() {
+        try {
+            URI jarUri = ExposeSparkConf.class.getProtectionDomain().getCodeSource().getLocation()
+                .toURI();
+            Path jarPath = Paths.get(jarUri);
+            return jarPath.getParent().getParent().toString();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("failed to get work dir of seatunnel");
+        }
+    }
+
+    private static String logConfiguration() {
+        return String.format("-Dlog4j.configuration=file:%s/config/log4j.properties", runningJarPath());
+    }
 }
