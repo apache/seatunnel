@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.github.interestinglab.waterdrop.spark.source
 
+import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import org.apache.kudu.spark.kudu._
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
@@ -23,10 +25,10 @@ import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 class Kudu extends SparkBatchSource {
 
-  override def checkConfig(): (Boolean, String) = {
+  override def checkConfig(): CheckResult = {
     config.hasPath("kudu_master") && config.hasPath("kudu_table") match {
-      case true => (true, "")
-      case false => (false, "please specify [kudu_master] and [kudu_table]")
+      case true => new CheckResult(true, "")
+      case false => new CheckResult(false, "please specify [kudu_master] and [kudu_table]")
     }
   }
 
