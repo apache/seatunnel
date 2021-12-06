@@ -48,9 +48,7 @@ class Redis extends SparkBatchSource {
    *
    * @param env Spark environment
    */
-  override def prepare(env: SparkEnvironment): Unit = {
-    super.prepare(env)
-  }
+  override def prepare(env: SparkEnvironment): Unit = {}
 
   /**
    * Read the data in redis and convert it into dataframe
