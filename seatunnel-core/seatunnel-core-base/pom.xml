@@ -21,41 +21,35 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel</artifactId>
         <groupId>io.github.interestinglab.seatunnel</groupId>
+        <artifactId>seatunnel-core</artifactId>
         <version>2.0.4</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-spark-source-kudu</artifactId>
+    <artifactId>seatunnel-core-base</artifactId>
 
     <dependencies>
+        <dependency>
+            <groupId>com.github.scopt</groupId>
+            <artifactId>scopt_2.11</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>seatunnel-spark-api</artifactId>
             <version>${project.version}</version>
-            <scope>provided</scope>
+            <!--<scope>provided</scope>-->
         </dependency>
 
         <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_2.11</artifactId>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>seatunnel-flink-api</artifactId>
+            <version>${project.version}</version>
+            <!--<scope>provided</scope>-->
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_2.11</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-streaming_2.11</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.kudu</groupId>
-            <artifactId>kudu-spark2_2.11</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
