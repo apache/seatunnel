@@ -16,18 +16,15 @@
  */
 package io.github.interestinglab.waterdrop.spark.source
 
-import com.alibaba.fastjson.JSON
-import com.mongodb.spark.config.ReadConfig
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Dataset, Row}
 import com.alibaba.fastjson.JSON
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
 import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.spark.utils.SparkSturctTypeUtil
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
 

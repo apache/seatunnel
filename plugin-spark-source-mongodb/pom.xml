@@ -17,6 +17,7 @@
             <artifactId>seatunnel-spark-api</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.mongodb.spark</groupId>
             <artifactId>mongo-spark-connector_2.11</artifactId>
@@ -40,8 +41,6 @@
                 <artifactId>maven-deploy-plugin</artifactId>
             </plugin>
 
-            <!-- maven-source-plugin has to be here to add sources for scala code, although -->
-            <!-- see https://stackoverflow.com/a/37174571/1145750 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
