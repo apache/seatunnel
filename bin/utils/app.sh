@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-# Get App Name of Waterdrop
+# Get App Name of SeaTunnel
 function getAppName {
 
     if [ "$#" -ne 1 ]; then
@@ -30,7 +30,7 @@ function getAppName {
     # remove all leading and trailing  whitespace
     app_name_config=$(echo ${app_name_config} | tr -d '[:space:]')
 
-    DEFAULT_APP_NAME="Waterdrop"
+    DEFAULT_APP_NAME="SeaTunnel"
     APP_NAME=${DEFAULT_APP_NAME}
 
     if [[ ${app_name_config} == \#* ]]; then

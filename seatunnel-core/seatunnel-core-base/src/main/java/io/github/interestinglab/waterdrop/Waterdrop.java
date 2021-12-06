@@ -23,7 +23,6 @@ import io.github.interestinglab.waterdrop.apis.BaseTransform;
 import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException;
 import io.github.interestinglab.waterdrop.config.CommandLineArgs;
-import io.github.interestinglab.waterdrop.config.CommandLineUtils;
 import io.github.interestinglab.waterdrop.common.config.Common;
 import io.github.interestinglab.waterdrop.config.ConfigBuilder;
 import io.github.interestinglab.waterdrop.env.Execution;
@@ -53,11 +52,6 @@ import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
 
 public class Waterdrop {
     private static final Logger LOGGER = LoggerFactory.getLogger(Waterdrop.class);
-
-    public static void main(String[] args) {
-        OptionParser<CommandLineArgs> sparkParser = CommandLineUtils.sparkParser();
-        run(sparkParser, SPARK, args);
-    }
 
     public static void run(OptionParser<CommandLineArgs> parser, Engine engine, String[] args) {
         Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();

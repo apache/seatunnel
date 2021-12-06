@@ -16,7 +16,7 @@
 #
 
 ######
-###### This config file is a demonstration of streaming processing in waterdrop config
+###### This config file is a demonstration of streaming processing in SeaTunnel config
 ######
 
 env {
