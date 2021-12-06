@@ -33,6 +33,5 @@ header:
     - '**/LICENSE'
     - '**/NOTICE'
     - '**/META-INF/services/**'
-    - '**/.gitkeep'
 
   comment: on-failure
