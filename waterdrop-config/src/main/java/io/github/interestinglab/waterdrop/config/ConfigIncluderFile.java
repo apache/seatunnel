@@ -17,9 +17,7 @@
  * under the License.
  *
  */
-/**
- *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
- */
+
 package io.github.interestinglab.waterdrop.config;
 
 import java.io.File;
