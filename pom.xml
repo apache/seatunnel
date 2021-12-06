@@ -99,6 +99,7 @@
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
+        <module>plugin-spark-source-mongodb</module>
     </modules>
 
     <properties>
@@ -141,10 +142,10 @@
         <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
+        <mongo-spark.version>2.2.0</mongo-spark.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
     </properties>
-
 
     <dependencyManagement>
         <dependencies>
@@ -236,6 +237,12 @@
                 <groupId>org.apache.phoenix</groupId>
                 <artifactId>phoenix-spark</artifactId>
                 <version>${phoenix-spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mongodb.spark</groupId>
+                <artifactId>mongo-spark-connector_2.11</artifactId>
+                <version>${mongo-spark.version}</version>
             </dependency>
 
             <dependency>
