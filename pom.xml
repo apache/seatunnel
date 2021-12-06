@@ -143,6 +143,7 @@
         <hbase-spark.version>1.0.0</hbase-spark.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
+        <maven.plugin.rat.version>0.13</maven.plugin.rat.version>
     </properties>
 
 
@@ -513,7 +514,50 @@
                         </descriptors>
                     </configuration>
                 </plugin>
-
+                <plugin>
+                    <groupId>org.apache.rat</groupId>
+                    <artifactId>apache-rat-plugin</artifactId>
+                    <version>${maven.plugin.rat.version}</version>
+                    <inherited>true</inherited>
+                    <executions>
+                        <execution>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <excludeSubProjects>false</excludeSubProjects>
+                        <numUnapprovedLicenses>0</numUnapprovedLicenses>
+                        <licenseFamilies>
+                            <licenseFamily implementation="org.apache.rat.license.SimpleLicenseFamily">
+                                <familyName>Apache License 2.0</familyName>
+                            </licenseFamily>
+                        </licenseFamilies>
+                        <excludes>
+                            <exclude>**/.*/**</exclude>
+                            <exclude>**/*.json</exclude>
+                            <exclude>**/*.prefs</exclude>
+                            <exclude>**/*.log</exclude>
+                            <exclude>**/*.md</exclude>
+                            <exclude>**/*.iml</exclude>
+                            <exclude>**/target/**</exclude>
+                            <exclude>**/out/**</exclude>
+                            <exclude>**/metastore_db/**</exclude>
+                            <exclude>**/licenses/LICENSE*</exclude>
+                            <exclude>**/licenses-binary/LICENSE*</exclude>
+                            <exclude>**/dependency-reduced-pom.xml</exclude>
+                            <exclude>**/scalastyle-output.xml</exclude>
+                            <exclude>NOTICE*</exclude>
+                            <exclude>docs/**</exclude>
+                            <exclude>build/apache-maven-*/**</exclude>
+                            <exclude>build/scala-*/**</exclude>
+                            <exclude>**/**/operation_logs/**/**</exclude>
+                            <exclude>**/*.output.schema</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -645,7 +689,10 @@
                     </execution>
                 </executions>
             </plugin>
-
+            <plugin>
+                <groupId>org.apache.rat</groupId>
+                <artifactId>apache-rat-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
 
