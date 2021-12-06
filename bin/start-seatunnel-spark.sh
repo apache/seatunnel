@@ -108,7 +108,7 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
     echo ""
 fi
 
-assemblyJarName=$(find ${LIB_DIR} -name seatunnel-core*.jar)
+assemblyJarName=$(find ${LIB_DIR} -name seatunnel-core-spark*.jar)
 
 source ${CONF_DIR}/seatunnel-env.sh
 
@@ -164,7 +164,7 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
+exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.WaterdropSpark \
     --name $(getAppName ${CONFIG_FILE}) \
     --jars $(echo ${LIB_DIR}/*.jar | tr ' ' ',') \
     --master ${MASTER} \
