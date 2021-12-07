@@ -19,7 +19,7 @@ package io.github.interestinglab.waterdrop.spark.sink
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import io.github.interestinglab.waterdrop.spark.batch.BaseSparkBatchSink
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory}
@@ -36,7 +36,7 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
 
-class Hbase extends SparkBatchSink with Logging {
+class Hbase extends BaseSparkBatchSink with Logging {
 
   @transient var hbaseConf: Configuration = _
   var hbaseContext: HBaseContext = _

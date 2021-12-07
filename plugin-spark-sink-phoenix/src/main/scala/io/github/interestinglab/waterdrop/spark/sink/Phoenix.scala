@@ -18,15 +18,16 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import io.github.interestinglab.waterdrop.spark.batch.BaseSparkBatchSink
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.phoenix.spark.ZkConnectUtil._
+
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-class Phoenix extends SparkBatchSink with Logging {
+class Phoenix extends BaseSparkBatchSink with Logging {
 
   var phoenixCfg: Map[String, String] = _
   val phoenixPrefix = "phoenix"
