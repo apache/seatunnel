@@ -36,6 +36,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 public class ConfigBuilder {
 
@@ -154,23 +155,16 @@ public class ConfigBuilder {
     }
 
     public <T extends Plugin> List<T> createPlugins(PluginType type) {
-
-        List<T> basePluginList = new ArrayList<>();
-
-        List<? extends Config> configList = config.getConfigList(type.getType());
-
-        configList.forEach(plugin -> {
+        return config.getConfigList(type.getType()).stream().map(plugin -> {
             try {
                 final String className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), type);
                 T t = (T) Class.forName(className).newInstance();
                 t.setConfig(plugin);
-                basePluginList.add(t);
+                return t;
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        });
-
-        return basePluginList;
+        }).collect(Collectors.toList());
     }
 
     private RuntimeEnv createEnv() {
