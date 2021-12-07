@@ -26,6 +26,7 @@ import org.apache.spark.sql.{Dataset, Row}
 class Redis extends SparkBatchSource {
   val defaultPort: Int = 6379
   val defaultDb: Int = 0
+  val defaultTimeout: Int = 2000
   val defaultPartition: Int = 3
 
   override def checkConfig(): CheckResult = {
@@ -75,6 +76,11 @@ class Redis extends SparkBatchSource {
       port = config.getInt("port")
     }
 
+    var timeout = defaultTimeout
+    if (config.hasPath("timeout")) {
+      timeout = config.getInt("timeout")
+    }
+
     val keyPattern = config.getString("key_pattern")
 
     var partition = defaultPartition
@@ -88,7 +94,7 @@ class Redis extends SparkBatchSource {
     }
 
     // Get data from redis through keys and combine it into a dataset
-    val redisConfig = new RedisConfig(RedisEndpoint(host = host, port = port, auth = auth, dbNum = dbNum))
+    val redisConfig = new RedisConfig(RedisEndpoint(host = host, port = port, auth = auth, dbNum = dbNum, timeout = timeout))
     val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(redisConfig = redisConfig)
     import spark.implicits._
     val ds = stringRDD.toDF("raw_key", "raw_message")
