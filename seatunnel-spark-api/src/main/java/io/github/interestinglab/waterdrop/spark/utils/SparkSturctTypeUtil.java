@@ -101,5 +101,4 @@ public class SparkSturctTypeUtil {
         }
         return dataType;
     }
-
 }
