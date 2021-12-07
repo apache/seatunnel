@@ -52,7 +52,7 @@ class Elasticsearch extends BaseSparkBatchSink {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "index" -> "waterdrop",
-        "index_type" -> "log",
+        "index_type" -> "_doc",
         "index_time_format" -> "yyyy.MM.dd"
       )
     )
