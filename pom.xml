@@ -145,7 +145,7 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
-        <spark.scope>compile</spark.scope>
+        <spark.scope>provided</spark.scope>
     </properties>
 
     <dependencyManagement>
