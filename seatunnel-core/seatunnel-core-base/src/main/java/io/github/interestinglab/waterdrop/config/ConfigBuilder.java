@@ -33,9 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
-import java.util.stream.Collectors;
 
 public class ConfigBuilder {
 
@@ -142,6 +142,7 @@ public class ConfigBuilder {
         return name;
     }
 
+
     /**
      * check if config is valid.
      **/
@@ -153,16 +154,23 @@ public class ConfigBuilder {
     }
 
     public <T extends Plugin> List<T> createPlugins(PluginType type) {
-        return config.getConfigList(type.getType()).stream().map(plugin -> {
+
+        List<T> basePluginList = new ArrayList<>();
+
+        List<? extends Config> configList = config.getConfigList(type.getType());
+
+        configList.forEach(plugin -> {
             try {
                 final String className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), type);
                 T t = (T) Class.forName(className).newInstance();
                 t.setConfig(plugin);
-                return t;
+                basePluginList.add(t);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }).collect(Collectors.toList());
+        });
+
+        return basePluginList;
     }
 
     private RuntimeEnv createEnv() {
