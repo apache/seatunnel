@@ -33,7 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -142,7 +141,6 @@ public class ConfigBuilder {
         }
         return name;
     }
-
 
     /**
      * check if config is valid.
