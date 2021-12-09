@@ -100,6 +100,7 @@
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
         <module>plugin-spark-sink-redis</module>
+        <module>plugin-spark-source-redis</module>
     </modules>
 
     <properties>
@@ -142,6 +143,7 @@
         <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
+        <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
     </properties>
@@ -306,15 +308,15 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
-                <version>${spark.version}</version>
+                <groupId>com.redislabs</groupId>
+                <artifactId>spark-redis_${scala.binary.version}</artifactId>
+                <version>${spark-redis.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.redislabs</groupId>
-                <artifactId>spark-redis_2.11</artifactId>
-                <version>2.5.0</version>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
+                <version>${spark.version}</version>
             </dependency>
 
             <dependency>
