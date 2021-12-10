@@ -100,6 +100,7 @@
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
         <module>plugin-spark-source-kudu</module>
+        <module>plugin-spark-source-redis</module>
     </modules>
 
     <properties>
@@ -143,6 +144,7 @@
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
         <kudu-spark.version>1.7.0</kudu-spark.version>
+        <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
     </properties>
@@ -310,6 +312,12 @@
                 <groupId>org.apache.kudu</groupId>
                 <artifactId>kudu-spark2_2.11</artifactId>
                 <version>${kudu-spark.version}</version>
+           </dependency>
+          
+           <dependency>
+                <groupId>com.redislabs</groupId>
+                <artifactId>spark-redis_2.11</artifactId>
+                <version>${spark-redis.version}</version>
             </dependency>
 
             <dependency>
