@@ -45,6 +45,7 @@
         </resources>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
                     <execution>
@@ -60,9 +61,54 @@
                         <descriptor>assembly.xml</descriptor>
                     </descriptors>
                 </configuration>
-
             </plugin>
         </plugins>
     </build>
-
+    <profiles>
+        <profile>
+            <id>docker-quick-start</id>
+            <properties>
+                <install.spark>true</install.spark>
+                <install.flink>true</install.flink>
+                <image.name>seatunnel:${project.version}</image.name>
+                <spark.archive.name>spark-${spark.version}-bin-hadoop${hadoop.binary.version}.tgz</spark.archive.name>
+                <spark.archive.mirror>https://archive.apache.org/dist/spark/spark-${spark.version}
+                </spark.archive.mirror>
+                <flink.archive.name>flink-${flink.version}-bin-scala_${scala.binary.version}.tgz</flink.archive.name>
+                <flink.archive.mirror>https://archive.apache.org/dist/flink/flink-${flink.version}
+                </flink.archive.mirror>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.fabric8</groupId>
+                        <artifactId>docker-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <verbose>true</verbose>
+                            <images>
+                                <image>
+                                    <alias>seatunnel</alias>
+                                    <name>${image.name}</name>
+                                    <build>
+                                        <contextDir>${project.basedir}/docker/quick-start</contextDir>
+                                        <assembly>
+                                            <descriptor>${project.basedir}/assembly.xml</descriptor>
+                                        </assembly>
+                                    </build>
+                                </image>
+                            </images>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
