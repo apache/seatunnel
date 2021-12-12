@@ -44,19 +44,19 @@
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>seatunnel-flink-api</artifactId>
             <version>${project.version}</version>
-            
+
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-source-kafka</artifactId>
             <version>${project.version}</version>
-            
+
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-sink-kafka</artifactId>
             <version>${project.version}</version>
-            
+
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
@@ -84,7 +84,7 @@
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-flink-sink-console</artifactId>
             <version>${project.version}</version>
-            
+
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
@@ -122,36 +122,5 @@
             <version>${project.version}</version>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-deploy-plugin</artifactId>
-            </plugin>
-
-            <!-- maven-source-plugin has to be here to add sources for scala code, although -->
-            <!-- see https://stackoverflow.com/a/37174571/1145750 -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>scala-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
 
 </project>
