@@ -46,9 +46,19 @@
             </includes>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-core/target</directory>
+            <directory>../seatunnel-core/seatunnel-core-flink/target</directory>
             <includes>
-                <include>seatunnel-core-*.jar</include>
+                <include>seatunnel-core-flink*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/lib</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-core-spark/target</directory>
+            <includes>
+                <include>seatunnel-core-spark*.jar</include>
             </includes>
             <excludes>
                 <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>

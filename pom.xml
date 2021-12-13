@@ -100,6 +100,7 @@
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
+        <module>plugin-spark-source-redis</module>
     </modules>
 
     <properties>
@@ -111,6 +112,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <spark.version>2.4.0</spark.version>
         <flink.version>1.9.0</flink.version>
+        <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
@@ -142,6 +144,7 @@
         <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
+        <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
     </properties>
@@ -306,6 +309,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.redislabs</groupId>
+                <artifactId>spark-redis_2.11</artifactId>
+                <version>${spark-redis.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.spark</groupId>
                 <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
                 <version>${spark.version}</version>
@@ -378,7 +387,16 @@
     <build>
         <pluginManagement>
             <plugins>
-
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>2.4</version>
+                </plugin>
+                <plugin>
+                    <groupId>io.fabric8</groupId>
+                    <artifactId>docker-maven-plugin</artifactId>
+                    <version>0.38.0</version>
+                </plugin>
                 <plugin>
                     <groupId>org.sonatype.plugins</groupId>
                     <artifactId>nexus-staging-maven-plugin</artifactId>
@@ -608,6 +626,7 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>${maven-checkstyle-plugin.version}</version>
                 <configuration>
