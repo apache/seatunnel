@@ -26,12 +26,16 @@ import io.github.interestinglab.waterdrop.plugin.Plugin;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkBatchExecution.class);
 
     private Config config;
 
@@ -69,7 +73,9 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             }
             sink.outputBatch(flinkEnvironment, dataSet);
         }
+
         try {
+            LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
             flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
             e.printStackTrace();
