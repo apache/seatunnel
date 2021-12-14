@@ -16,10 +16,14 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
+import java.util
+import java.util.Map
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.config.{ConfigFactory, ConfigValue}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import org.apache.commons.lang3.StringUtils
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
@@ -54,8 +58,8 @@ class Hudi extends SparkBatchSink {
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
     val writer = df.write.format("org.apache.hudi")
-    for ((k: String, v: String) <- config.entrySet()) {
-      writer.option(k, v)
+    for (e <- config.entrySet()) {
+      writer.option(e.getKey, e.getValue.toString)
     }
     writer.mode(config.getString("save_mode"))
       .save(config.getString("hoodie.base.path"))
