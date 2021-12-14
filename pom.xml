@@ -28,6 +28,7 @@
     <version>2.0.4</version>
 
     <name>SeaTunnel</name>
+
     <description>
         Production ready big data processing product based on Apache Spark and Apache Flink.
     </description>
@@ -74,6 +75,7 @@
         <module>plugin-spark-sink-clickhouse</module>
         <module>plugin-spark-sink-elasticsearch</module>
         <module>plugin-spark-sink-hbase</module>
+        <module>plugin-spark-sink-kafka</module>
         <module>plugin-flink-source-kafka</module>
         <module>plugin-flink-transform-sql</module>
         <module>plugin-flink-sink-console</module>
@@ -100,6 +102,7 @@
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
         <module>plugin-spark-source-mongodb</module>
+        <module>plugin-spark-source-redis</module>
     </modules>
 
     <properties>
@@ -111,6 +114,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <spark.version>2.4.0</spark.version>
         <flink.version>1.9.0</flink.version>
+        <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
@@ -143,6 +147,7 @@
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
         <mongo-spark.version>2.2.0</mongo-spark.version>
+        <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
@@ -153,25 +158,28 @@
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-streaming_2.11</artifactId>
+                <artifactId>spark-streaming_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>${spark.scope}</scope>
             </dependency>
+
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-core_2.11</artifactId>
+                <artifactId>spark-core_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>${spark.scope}</scope>
             </dependency>
+
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-sql_2.11</artifactId>
+                <artifactId>spark-sql_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>${spark.scope}</scope>
             </dependency>
+
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-hive_2.11</artifactId>
+                <artifactId>spark-hive_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>${spark.scope}</scope>
             </dependency>
@@ -312,8 +320,14 @@
             </dependency>
 
             <dependency>
+                <groupId>com.redislabs</groupId>
+                <artifactId>spark-redis_${scala.binary.version}</artifactId>
+                <version>${spark-redis.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
+                <artifactId>spark-streaming-kafka-0-10_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
             </dependency>
 
@@ -382,9 +396,214 @@
     </distributionManagement>
 
     <build>
+
+        <finalName>${project.artifactId}-${project.version}-${scala.version}</finalName>
+
         <pluginManagement>
             <plugins>
 
+                <!-- java/scala compiler (Start) -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <source>${maven.compiler.source}</source>
+                        <target>${maven.compiler.target}</target>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>net.alchim31.maven</groupId>
+                    <artifactId>scala-maven-plugin</artifactId>
+                    <version>${scala-maven-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>scala-compile-first</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>compile</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>scala-test-compile</id>
+                            <phase>process-test-resources</phase>
+                            <goals>
+                                <goal>testCompile</goal>
+                            </goals>
+                        </execution>
+
+                        <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                                <goal>doc-jar</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>add-source</goal>
+                            </goals>
+                        </execution>
+
+                    </executions>
+                </plugin>
+                <!-- java/scala compiler (End) -->
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>io.fabric8</groupId>
+                    <artifactId>docker-maven-plugin</artifactId>
+                    <version>0.38.0</version>
+                </plugin>
+
+                <!-- shade -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>${maven-shade-plugin.version}</version>
+                    <configuration>
+                        <createDependencyReducedPom>false</createDependencyReducedPom>
+                        <filters>
+                            <filter>
+                                <artifact>*:*</artifact>
+                                <excludes>
+                                    <exclude>META-INF/*.SF</exclude>
+                                    <exclude>META-INF/*.DSA</exclude>
+                                    <exclude>META-INF/*.RSA</exclude>
+                                </excludes>
+                            </filter>
+                        </filters>
+                    </configuration>
+
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>shade</goal>
+                            </goals>
+                            <configuration>
+                                <transformers>
+                                    <transformer
+                                            implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                </transformers>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- assembly -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>${maven-assembly-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>single</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <attach>false</attach>
+                        <descriptors>
+                            <descriptor>assembly.xml</descriptor>
+                        </descriptors>
+                    </configuration>
+                </plugin>
+
+                <!-- checkstyle (Start) -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>${maven-checkstyle-plugin.version}</version>
+                    <configuration>
+                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml
+                        </configLocation>
+                        <encoding>UTF-8</encoding>
+                        <consoleOutput>true</consoleOutput>
+                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        <failOnViolation>${checkstyle.fails.on.error}</failOnViolation>
+                        <sourceDirectories>
+                            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+                            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
+                        </sourceDirectories>
+                        <resourceIncludes>
+                            **/*.properties,
+                            **/*.sh,
+                            **/*.bat,
+                            **/*.yml,
+                            **/*.yaml,
+                            **/*.xml
+                        </resourceIncludes>
+                        <resourceExcludes>
+                            **/.asf.yaml,
+                            **/.github/**
+                        </resourceExcludes>
+                        <excludes>
+                        </excludes>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>validate</id>
+                            <phase>process-sources</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-pmd-plugin</artifactId>
+                    <version>${maven-pmd-plugin.version}</version>
+                    <configuration>
+                        <rulesets>
+                            <ruleset>rulesets/java/ali-concurrent.xml</ruleset>
+                            <ruleset>rulesets/java/ali-exception.xml</ruleset>
+                            <ruleset>rulesets/java/ali-flowcontrol.xml</ruleset>
+                            <ruleset>rulesets/java/ali-naming.xml</ruleset>
+                            <ruleset>rulesets/java/ali-oop.xml</ruleset>
+                            <ruleset>rulesets/java/ali-orm.xml</ruleset>
+                            <ruleset>rulesets/java/ali-other.xml</ruleset>
+                            <ruleset>rulesets/java/ali-set.xml</ruleset>
+                        </rulesets>
+                        <printFailingErrors>true</printFailingErrors>
+                        <skip>${skip.pmd.check}</skip>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>validate</id>
+                            <phase>validate</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.alibaba.p3c</groupId>
+                            <artifactId>p3c-pmd</artifactId>
+                            <version>1.3.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <!-- checkstyle (End) -->
+
+                <!-- maven deploy (Start) -->
                 <plugin>
                     <groupId>org.sonatype.plugins</groupId>
                     <artifactId>nexus-staging-maven-plugin</artifactId>
@@ -464,195 +683,63 @@
                         </execution>
                     </executions>
                 </plugin>
-
-                <plugin>
-                    <groupId>net.alchim31.maven</groupId>
-                    <artifactId>scala-maven-plugin</artifactId>
-                    <version>${scala-maven-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>scala-compile-first</id>
-                            <phase>process-resources</phase>
-                            <goals>
-                                <goal>compile</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>scala-test-compile</id>
-                            <phase>process-test-resources</phase>
-                            <goals>
-                                <goal>testCompile</goal>
-                            </goals>
-                        </execution>
-
-                        <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
-                        <execution>
-                            <id>attach-javadocs</id>
-                            <goals>
-                                <goal>doc-jar</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>attach-sources</id>
-                            <goals>
-                                <goal>add-source</goal>
-                            </goals>
-                        </execution>
-
-                    </executions>
-                </plugin>
-
-                <plugin>
-                    <artifactId>maven-assembly-plugin</artifactId>
-                    <version>${maven-assembly-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>single</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <attach>false</attach>
-                        <descriptors>
-                            <descriptor>assembly.xml</descriptor>
-                        </descriptors>
-                    </configuration>
-                </plugin>
+                <!-- maven deploy (End) -->
 
             </plugins>
         </pluginManagement>
-
-        <finalName>${project.artifactId}-${project.version}-${scala.version}</finalName>
 
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven-compiler-plugin.version}</version>
-                <configuration>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
-                </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>${maven-shade-plugin.version}</version>
-                <configuration>
-                    <filters>
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>META-INF/*.SF</exclude>
-                                <exclude>META-INF/*.DSA</exclude>
-                                <exclude>META-INF/*.RSA</exclude>
-                            </excludes>
-                        </filter>
-                    </filters>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <transformers>
-                                <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                            </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>${maven-pmd-plugin.version}</version>
-                <configuration>
-                    <rulesets>
-                        <ruleset>rulesets/java/ali-concurrent.xml</ruleset>
-                        <ruleset>rulesets/java/ali-exception.xml</ruleset>
-                        <ruleset>rulesets/java/ali-flowcontrol.xml</ruleset>
-                        <ruleset>rulesets/java/ali-naming.xml</ruleset>
-                        <ruleset>rulesets/java/ali-oop.xml</ruleset>
-                        <ruleset>rulesets/java/ali-orm.xml</ruleset>
-                        <ruleset>rulesets/java/ali-other.xml</ruleset>
-                        <ruleset>rulesets/java/ali-set.xml</ruleset>
-                    </rulesets>
-                    <printFailingErrors>true</printFailingErrors>
-                    <skip>${skip.pmd.check}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.alibaba.p3c</groupId>
-                        <artifactId>p3c-pmd</artifactId>
-                        <version>1.3.0</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>${maven-surefire-plugin.version}</version>
-                <configuration>
-                    <systemPropertyVariables>
-                        <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
-                    </systemPropertyVariables>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>${maven-checkstyle-plugin.version}</version>
-                <configuration>
-                    <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml</configLocation>
-                    <encoding>UTF-8</encoding>
-                    <consoleOutput>true</consoleOutput>
-                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                    <failOnViolation>${checkstyle.fails.on.error}</failOnViolation>
-                    <sourceDirectories>
-                        <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-                        <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
-                    </sourceDirectories>
-                    <resourceIncludes>
-                        **/*.properties,
-                        **/*.sh,
-                        **/*.bat,
-                        **/*.yml,
-                        **/*.yaml,
-                        **/*.xml
-                    </resourceIncludes>
-                    <resourceExcludes>
-                        **/.asf.yaml,
-                        **/.github/**
-                    </resourceExcludes>
-                    <excludes>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>process-sources</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
 
+            <!-- maven deploy.
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+            </plugin>
+            -->
         </plugins>
     </build>
 
