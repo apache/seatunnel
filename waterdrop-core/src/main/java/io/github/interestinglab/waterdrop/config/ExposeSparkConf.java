@@ -27,13 +27,13 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.net.URISyntaxException;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
 public class ExposeSparkConf {
 
-    private static final String spark_driver_extraJavaOptions = "spark.driver.extraJavaOptions";
     private static final String spark_executor_extraJavaOptions = "spark.executor.extraJavaOptions";
+    private static final String spark_driver_prefix = "spark.driver.";
 
     public static void main(String[] args) throws Exception {
         Config appConfig = ConfigFactory.parseFile(new File(args[0]))
@@ -42,7 +42,7 @@ public class ExposeSparkConf {
 
         String variables = args[1];
         StringBuilder stringBuilder = new StringBuilder();
-        Map<String, String> sparkConfs = new LinkedHashMap<String, String>();
+        Map<String, String> sparkConfMap = new HashMap<>();
         for (Map.Entry<String, ConfigValue> entry : appConfig.getConfig("spark").entrySet()) {
             String key = entry.getKey();
             String value = entry.getValue().unwrapped().toString();
@@ -51,37 +51,75 @@ public class ExposeSparkConf {
                 String conf = String.format(" --%s %s", argKey, value);
                 stringBuilder.append(conf);
             } else {
-                String v = sparkConfs.getOrDefault(key, null);
+                String v = sparkConfMap.getOrDefault(key, null);
                 if (StringUtils.isBlank(v)) {
-                    sparkConfs.put(key, value);
+                    sparkConfMap.put(key, value);
                 } else {
-                    sparkConfs.put(key, v + " " + value);
+                    sparkConfMap.put(key, v + " " + value);
                 }
             }
         }
 
 
-        if (!sparkConfs.containsKey(spark_driver_extraJavaOptions)) {
-            sparkConfs.put(spark_driver_extraJavaOptions, variables);
+        if (!sparkConfMap.containsKey(spark_executor_extraJavaOptions)) {
+            sparkConfMap.put(spark_executor_extraJavaOptions, variables);
         } else {
-            sparkConfs.put(spark_driver_extraJavaOptions,
-                    sparkConfs.get(spark_driver_extraJavaOptions) + " " + variables);
+            sparkConfMap.put(spark_executor_extraJavaOptions,
+                    sparkConfMap.get(spark_executor_extraJavaOptions + " " + variables));
         }
 
-        if (!sparkConfs.containsKey(spark_executor_extraJavaOptions)) {
-            sparkConfs.put(spark_executor_extraJavaOptions, variables);
-        } else {
-            sparkConfs.put(spark_executor_extraJavaOptions,
-                    sparkConfs.get(spark_executor_extraJavaOptions + " " + variables));
-        }
-
-        for (Map.Entry<String, String> c : sparkConfs.entrySet()) {
+        for (Map.Entry<String, String> c : sparkConfMap.entrySet()) {
             String v = addLogPropertiesIfNeeded(c.getKey(), c.getValue());
             String conf = String.format(" --conf \"%s=%s\"", c.getKey(), v);
             stringBuilder.append(conf);
         }
 
-        System.out.print(stringBuilder.toString());
+        String sparkDriverConf = exposeSparkDriverConf(appConfig, variables);
+
+        System.out.print(sparkDriverConf + " " + stringBuilder.toString());
+    }
+
+
+    /**
+     * In client mode, this config must not be set through the SparkConf directly in your application
+     * eg. using --driver-java-options instead of spark.driver.extraJavaOptions
+     * @param appConfig
+     * @param variables
+     * @return
+     */
+    private static String exposeSparkDriverConf(Config appConfig, String variables) {
+        Config sparkConfig = appConfig.getConfig("spark");
+
+        Map<String, String> sparkDriverMap = new HashMap<>();
+        if (TypesafeConfigUtils.hasSubConfig(sparkConfig, spark_driver_prefix)) {
+
+            Config sparkDriverConfig = TypesafeConfigUtils.extractSubConfig(sparkConfig, spark_driver_prefix, true);
+            for (Map.Entry<String, ConfigValue> entry : sparkDriverConfig.entrySet()) {
+                String key = entry.getKey();
+                SparkDriverSettings settings = SparkDriverSettings.fromProperty(key);
+                if (settings != null) {
+                    sparkDriverMap.put(settings.option, entry.getValue().unwrapped().toString());
+
+                }
+            }
+        }
+
+        if (!sparkDriverMap.containsKey(SparkDriverSettings.DRIVER_JAVA_OPTIONS.option)) {
+            sparkDriverMap.put(SparkDriverSettings.DRIVER_JAVA_OPTIONS.option, variables);
+        } else {
+            sparkDriverMap.put(SparkDriverSettings.DRIVER_JAVA_OPTIONS.option,
+                    sparkDriverMap.get(SparkDriverSettings.DRIVER_JAVA_OPTIONS.option) + " " + variables);
+        }
+
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Map.Entry<String, String> c : sparkDriverMap.entrySet()) {
+            String v = addLogPropertiesIfNeeded(c.getKey(), c.getValue());
+            String conf = String.format(" %s=\"%s\" ", c.getKey(), v);
+            stringBuilder.append(conf);
+        }
+
+        return stringBuilder.toString();
+
     }
 
     /**
@@ -91,7 +129,7 @@ public class ExposeSparkConf {
      * @return
      */
     private static String addLogPropertiesIfNeeded(String key, String value) {
-        if (key.equals(spark_driver_extraJavaOptions)
+        if (key.equals(SparkDriverSettings.DRIVER_JAVA_OPTIONS.option)
                 || key.equals(spark_executor_extraJavaOptions)) {
             if (!value.contains("-Dlog4j.configuration")) {
                 return value + " " + logConfiguration();

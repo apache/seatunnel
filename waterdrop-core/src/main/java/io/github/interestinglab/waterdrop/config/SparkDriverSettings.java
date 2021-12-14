@@ -24,8 +24,11 @@ import java.util.*;
 public enum SparkDriverSettings {
 
     DRIVER_MEMORY("spark.driver.memory", "--driver-memory"),
+
     DRIVER_JAVA_OPTIONS("spark.driver.extraJavaOptions", "--driver-java-options"),
+
     DRIVER_LIBRARY_PATH("spark.driver.extraLibraryPath", "--driver-library-path"),
+
     DRIVER_CLASS_PATH("spark.driver.extraClassPath", "--driver-class-path");
 
 

@@ -137,34 +137,10 @@ function get_spark_conf {
     echo ${spark_conf}
 }
 
-sparkConf=$(get_spark_conf)
+sparkConf=($(get_spark_conf))
 
-echo "[INFO] spark conf: ${sparkConf}"
+echo "[INFO] spark conf: ${sparkConf[@]}"
 
-function get_spark_driver_conf {
-    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkDriverConf ${CONFIG_FILE} ${variables_substitution})
-    if [ "$?" != "0" ]; then
-        echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
-        exit -1
-    fi
-    echo ${spark_conf}
-}
-
-sparkDriverConf=$(get_spark_driver_conf)
-
-# Spark Driver Options
-driverJavaOpts=""
-executorJavaOpts=""
-clientModeDriverJavaOpts=""
-if [ ! -z "${variables_substitution}" ]; then
-  driverJavaOpts="${variables_substitution}"
-  executorJavaOpts="${variables_substitution}"
-  # in local, client mode, driverJavaOpts can not work, we must use --driver-java-options
-  clientModeDriverJavaOpts="${variables_substitution}"
-fi
-
-driverJavaOpts="${driverJavaOpts} -Dlog4j.configuration=file:${CONF_DIR}/log4j.properties"
-executorJavaOpts="${executorJavaOpts} -Dlog4j.configuration=file:${CONF_DIR}/log4j.properties"
 
 ## compress plugins.tar.gz in cluster mode
 if [ "${DEPLOY_MODE}" == "cluster" ]; then
@@ -189,10 +165,8 @@ exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.W
     --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
-    ${sparkDriverConf} \
     --queue "${QUEUE}" \
-    --driver-java-options "${clientModeDriverJavaOpts}" \
-    ${sparkConf} \
+    "${sparkConf[@]}" \
     ${JarDepOpts} \
     ${FilesDepOpts} \
     ${assemblyJarName} ${CMD_ARGUMENTS}
