@@ -100,6 +100,7 @@
         <module>plugin-spark-sink-phoenix</module>
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
+        <module>plugin-spark-sink-hudi</module>
         <module>seatunnel-config</module>
         <module>plugin-spark-source-redis</module>
     </modules>
@@ -113,6 +114,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <spark.version>2.4.0</spark.version>
         <flink.version>1.9.0</flink.version>
+        <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
@@ -371,6 +373,12 @@
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-spark-bundle_${scala.binary.version}</artifactId>
+                <version>${hudi.version}</version>
             </dependency>
 
         </dependencies>
