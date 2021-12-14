@@ -47,6 +47,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
 
@@ -85,8 +86,8 @@ public class Waterdrop {
                 path = cmdArgs.configFile();
                 break;
             case SPARK:
-                final Option<String> mode = Common.getDeployMode();
-                if (mode.isDefined() && "cluster".equals(mode.get())) {
+                final Optional<String> mode = Common.getDeployMode();
+                if (mode.isPresent() && "cluster".equals(mode.get())) {
                     path = Paths.get(cmdArgs.configFile()).getFileName().toString();
                 } else {
                     path = cmdArgs.configFile();
@@ -113,7 +114,6 @@ public class Waterdrop {
     }
 
     private static void baseCheckConfig(List<? extends Plugin>... plugins) {
-        boolean configValid = true;
         for (List<? extends Plugin> pluginList : plugins) {
             for (Plugin plugin : pluginList) {
                 CheckResult checkResult = null;
@@ -123,10 +123,7 @@ public class Waterdrop {
                     checkResult = new CheckResult(false, e.getMessage());
                 }
                 if (!checkResult.isSuccess()) {
-                    configValid = false;
                     LOGGER.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());
-                }
-                if (!configValid) {
                     System.exit(-1); // invalid configuration
                 }
             }
@@ -135,8 +132,8 @@ public class Waterdrop {
     }
 
     private static void deployModeCheck() {
-        final Option<String> mode = Common.getDeployMode();
-        if (mode.isDefined() && "cluster".equals(mode.get())) {
+        final Optional<String> mode = Common.getDeployMode();
+        if (mode.isPresent() && "cluster".equals(mode.get())) {
 
             LOGGER.info("preparing cluster mode work dir files...");
             File workDir = new File(".");
