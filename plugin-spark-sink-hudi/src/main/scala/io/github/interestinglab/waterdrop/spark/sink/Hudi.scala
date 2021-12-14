@@ -16,14 +16,10 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
-import java.util
-import java.util.Map
-
 import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.config.{ConfigFactory, ConfigValue}
+import io.github.interestinglab.waterdrop.config.ConfigFactory
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import org.apache.commons.lang3.StringUtils
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
