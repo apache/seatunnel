@@ -136,6 +136,11 @@
             <artifactId>plugin-spark-sink-hbase</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>plugin-spark-sink-redis</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

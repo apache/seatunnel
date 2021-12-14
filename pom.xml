@@ -99,6 +99,7 @@
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
+        <module>plugin-spark-sink-redis</module>
     </modules>
 
     <properties>
@@ -308,6 +309,12 @@
                 <groupId>org.apache.spark</groupId>
                 <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
                 <version>${spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.redislabs</groupId>
+                <artifactId>spark-redis_2.11</artifactId>
+                <version>2.5.0</version>
             </dependency>
 
             <dependency>
