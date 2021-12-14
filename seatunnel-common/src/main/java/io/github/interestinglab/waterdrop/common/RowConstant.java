@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.common
 
-object RowConstant {
-  val ROOT = "__root__"
-  val TMP = "__tmp__"
-  val JSON = "__json__"
+package io.github.interestinglab.waterdrop.common;
+
+public class RowConstant {
+    public static final String ROOT = "__root__";
+    public static final String TMP = "__tmp__";
+    public static final String JSON = "__json__";
 }
