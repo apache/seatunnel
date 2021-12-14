@@ -1,4 +1,12 @@
 {
+  "ignorePatterns": [
+    {
+      "pattern": "^http://localhost"
+    },
+    {
+      "pattern": "^https://mvnrepository.com"
+    }
+  ],
   "timeout": "10s",
   "retryOn429": true,
   "retryCount": 10,
