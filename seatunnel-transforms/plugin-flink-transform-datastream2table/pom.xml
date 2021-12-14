@@ -22,31 +22,33 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>io.github.interestinglab.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-transforms</artifactId>
         <version>2.0.4</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-spark-transform-json</artifactId>
+    <artifactId>plugin-flink-transform-datastream2table</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>seatunnel-spark-api</artifactId>
+            <artifactId>seatunnel-flink-api</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-java</artifactId>
         </dependency>
-
         <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
         </dependency>
     </dependencies>
-
 
 </project>

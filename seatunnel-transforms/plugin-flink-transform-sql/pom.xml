@@ -22,12 +22,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>io.github.interestinglab.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-transforms</artifactId>
         <version>2.0.4</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-flink-transform-table2datasteam</artifactId>
+    <artifactId>plugin-flink-transform-sql</artifactId>
 
     <dependencies>
         <dependency>
@@ -36,6 +36,7 @@
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-java</artifactId>
@@ -49,6 +50,5 @@
             <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
         </dependency>
     </dependencies>
-
 
 </project>

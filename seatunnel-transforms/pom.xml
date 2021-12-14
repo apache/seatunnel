@@ -27,26 +27,17 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-spark-transform-sql</artifactId>
+    <artifactId>seatunnel-transforms</artifactId>
+    <packaging>pom</packaging>
 
-    <dependencies>
-        <dependency>
-            <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>seatunnel-spark-api</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
-        </dependency>
-    </dependencies>
-
+    <modules>
+        <module>plugin-flink-transform-table2datasteam</module>
+        <module>plugin-flink-transform-datastream2table</module>
+        <module>plugin-spark-transform-sql</module>
+        <module>plugin-flink-transform-sql</module>
+        <module>plugin-flink-transform-split</module>
+        <module>plugin-spark-transform-json</module>
+        <module>plugin-spark-transform-split</module>
+    </modules>
 
 </project>
