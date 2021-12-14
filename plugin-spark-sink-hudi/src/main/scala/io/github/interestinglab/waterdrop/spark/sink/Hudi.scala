@@ -46,7 +46,7 @@ class Hudi extends SparkBatchSink {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "save_mode" -> "append",
+        "save_mode" -> "append"
       )
     )
     config = config.withFallback(defaultConfig)
