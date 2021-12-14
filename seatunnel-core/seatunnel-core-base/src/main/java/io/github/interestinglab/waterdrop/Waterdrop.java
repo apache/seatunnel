@@ -114,7 +114,6 @@ public class Waterdrop {
     }
 
     private static void baseCheckConfig(List<? extends Plugin>... plugins) {
-        boolean configValid = true;
         for (List<? extends Plugin> pluginList : plugins) {
             for (Plugin plugin : pluginList) {
                 CheckResult checkResult = null;
@@ -124,10 +123,7 @@ public class Waterdrop {
                     checkResult = new CheckResult(false, e.getMessage());
                 }
                 if (!checkResult.isSuccess()) {
-                    configValid = false;
                     LOGGER.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());
-                }
-                if (!configValid) {
                     System.exit(-1); // invalid configuration
                 }
             }

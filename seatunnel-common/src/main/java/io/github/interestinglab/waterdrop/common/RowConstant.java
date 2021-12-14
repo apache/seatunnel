@@ -17,8 +17,11 @@
 
 package io.github.interestinglab.waterdrop.common;
 
-public class RowConstant {
+public final class RowConstant {
     public static final String ROOT = "__root__";
     public static final String TMP = "__tmp__";
     public static final String JSON = "__json__";
+
+    private RowConstant() {
+    }
 }

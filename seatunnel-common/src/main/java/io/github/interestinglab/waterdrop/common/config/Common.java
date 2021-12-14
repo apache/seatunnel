@@ -31,7 +31,7 @@ public class Common {
     private static Optional<String> MODE = Optional.empty();
 
     public static boolean isModeAllowed(String mode) {
-        return ALLOWED_MODES.stream().anyMatch(m -> mode.toLowerCase().equals(m));
+        return ALLOWED_MODES.contains(mode.toLowerCase());
     }
 
     /**
@@ -68,7 +68,7 @@ public class Common {
         } else if (MODE.equals(Optional.of("cluster"))) {
             return Paths.get("");
         } else {
-            return null;
+            throw new IllegalStateException("MODE not support : " + MODE.orElse("null"));
         }
     }
 
