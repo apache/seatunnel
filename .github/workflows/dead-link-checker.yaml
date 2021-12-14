@@ -24,8 +24,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  markdown-link-check:
+  CheckDeadLinks:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@master
-      - uses: gaurav-nelson/github-action-markdown-link-check@v1
+      - uses: actions/checkout@v2
+      - run: sudo npm install -g markdown-link-check
+      - run: |
+          for file in $(find . -name "*.md"); do
+            markdown-link-check -c .dlc.json -q "$file"
+          done
