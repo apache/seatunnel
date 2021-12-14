@@ -321,7 +321,7 @@
 
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
+                <artifactId>spark-streaming-kafka-0-10_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
             </dependency>
 
