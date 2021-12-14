@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.github.interestinglab.waterdrop.flink.source;
 
 import io.github.interestinglab.waterdrop.config.Config;
@@ -7,6 +24,7 @@ import io.github.interestinglab.waterdrop.common.config.CheckResult;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
 
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
@@ -22,7 +40,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     public DataStream<Row> getData(FlinkEnvironment env) {
         return env.getStreamExecutionEnvironment()
                 .addSource(this)
-                .returns(new RowTypeInfo(STRING_TYPE_INFO,LONG_TYPE_INFO));
+                .returns(new RowTypeInfo(STRING_TYPE_INFO, LONG_TYPE_INFO));
     }
 
     @Override
@@ -37,12 +55,12 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true,"");
+        return new CheckResult(true, "");
     }
 
     @Override
-    public void prepare(FlinkEnvironment env) {}
-
+    public void prepare(FlinkEnvironment env) {
+    }
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
 
