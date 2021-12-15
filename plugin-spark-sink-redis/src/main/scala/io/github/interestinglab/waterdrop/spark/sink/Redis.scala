@@ -23,14 +23,12 @@ import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.internal.Logging
-
 import scala.collection.JavaConverters.asScalaSetConverter
 import scala.collection.mutable.Map
 
+class Redis extends SparkBatchSink with Logging {
 
-class Redis extends SparkBatchSink with Logging{
-
-  val redisConfig:Map[String,String] = Map()
+  val redisConfig: Map[String, String] = Map()
   val redisPrefix = "redis"
   var redisSaveType: RedisSaveType.Value = _
   val HASH_NAME = "redis_hash_name"
@@ -38,9 +36,6 @@ class Redis extends SparkBatchSink with Logging{
   val ZSET_NAME = "redis_zset_name"
   val LIST_NAME = "redis_list_name"
   val REDIS_SAVE_TYPE = "redis_save_type"
-
-
-
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     implicit val sc = env.getSparkSession.sparkContext
@@ -51,39 +46,36 @@ class Redis extends SparkBatchSink with Logging{
       case RedisSaveType.ZSET => dealWithZSet(data, redisConfig.get(ZSET_NAME).get)
       case RedisSaveType.LIST => dealWithList(data, redisConfig.get(LIST_NAME).get)
     }
-
   }
 
   override def checkConfig(): CheckResult = {
-    config.entrySet().asScala.filter(x => x.getKey.startsWith("redis")).foreach(entry =>{
-      if (entry.getKey.equals("redis_save_type")){
+    config.entrySet().asScala.filter(x => x.getKey.startsWith("redis")).foreach(entry => {
+      if (entry.getKey.equals("redis_save_type")) {
         redisSaveType = RedisSaveType.withName(config.getString("redis_save_type"))
       }
       redisConfig.put(entry.getKey, config.getString(entry.getKey))
     })
 
-
-
-
     def checkParam(checkArr: Array[String]): CheckResult = {
       val notExistConfig: Array[String] = checkArr.filter(checkItem => !config.hasPath(checkItem))
-      if(notExistConfig.isEmpty){
+      if (notExistConfig.isEmpty) {
         new CheckResult(true, "redis config is enough")
-      }else{
+      } else {
         new CheckResult(false, s"redis config is not enough please check config [${notExistConfig.mkString(",")}]")
       }
     }
+
     val result = checkParam(Array("redis_save_type", "redis_host", "redis_port"))
-    if (!result.isSuccess){
+    if (!result.isSuccess) {
       result
-    }else{
+    } else {
       redisSaveType match {
         case RedisSaveType.KV => checkParam(Array())
         case RedisSaveType.HASH => checkParam(Array(HASH_NAME))
         case RedisSaveType.SET => checkParam(Array(SET_NAME))
         case RedisSaveType.ZSET => checkParam(Array(ZSET_NAME))
         case RedisSaveType.LIST => checkParam(Array(LIST_NAME))
-        case _  => new CheckResult(false, "unknown redis config")
+        case _ => new CheckResult(false, "unknown redis config")
       }
     }
   }
@@ -92,31 +84,34 @@ class Redis extends SparkBatchSink with Logging{
 
     val conf = prepareEnv.getSparkSession.conf
     conf.set("spark.redis.host", config.getString("redis_host"))
-    conf.set("spark.redis.port",  config.getString("redis_port"))
-    if (config.hasPath("redis.auth")){
+    conf.set("spark.redis.port", config.getString("redis_port"))
+    if (config.hasPath("redis.auth")) {
       conf.set("spark.redis.auth", "passwd")
     }
   }
 
 
-  def dealWithKV(data: Dataset[Row])(implicit sc:SparkContext): Unit = {
+  def dealWithKV(data: Dataset[Row])(implicit sc: SparkContext): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
     sc.toRedisKV(value)
   }
 
-  def dealWithList(data: Dataset[Row], listName: String)(implicit sc:SparkContext): Unit = {
+  def dealWithList(data: Dataset[Row], listName: String)(implicit sc: SparkContext): Unit = {
     val value = data.rdd.map(x => (x.getString(0)))
     sc.toRedisLIST(value, listName)
   }
-  def dealWithSet(data: Dataset[Row], setName: String)(implicit sc:SparkContext): Unit = {
+
+  def dealWithSet(data: Dataset[Row], setName: String)(implicit sc: SparkContext): Unit = {
     val value = data.rdd.map(x => (x.getString(0)))
     sc.toRedisSET(value, setName)
   }
-  def dealWithZSet(data: Dataset[Row], setName: String)(implicit sc:SparkContext): Unit = {
+
+  def dealWithZSet(data: Dataset[Row], setName: String)(implicit sc: SparkContext): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
     sc.toRedisZSET(value, setName)
   }
-  def dealWithHASH(data: Dataset[Row], hashName: String)(implicit sc:SparkContext): Unit = {
+
+  def dealWithHASH(data: Dataset[Row], hashName: String)(implicit sc: SparkContext): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
     sc.toRedisHASH(value, hashName)
   }
