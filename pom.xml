@@ -99,6 +99,7 @@
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
+        <module>plugin-spark-source-kudu</module>
         <module>plugin-spark-source-mongodb</module>
         <module>plugin-spark-source-redis</module>
     </modules>
@@ -144,6 +145,7 @@
         <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
+        <kudu-spark.version>1.7.0</kudu-spark.version>
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
@@ -318,6 +320,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.kudu</groupId>
+                <artifactId>kudu-spark2_${scala.binary.version}</artifactId>
+                <version>${kudu-spark.version}</version>
+           </dependency>
+          
+           <dependency>
                 <groupId>com.redislabs</groupId>
                 <artifactId>spark-redis_${scala.binary.version}</artifactId>
                 <version>${spark-redis.version}</version>
