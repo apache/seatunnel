@@ -16,13 +16,14 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import scala.collection.JavaConversions._
+
 import org.apache.spark.sql.{Dataset, Row}
 
-import scala.collection.JavaConversions._
+import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 
 class Console extends SparkBatchSink {
 
@@ -54,7 +55,8 @@ class Console extends SparkBatchSink {
   override def checkConfig(): CheckResult = {
     !config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1) match {
       case true => new CheckResult(true, "")
-      case false => new CheckResult(false, "please specify [limit] as Number[-1, " + Int.MaxValue + "]")
+      case false =>
+        new CheckResult(false, "please specify [limit] as Number[-1, " + Int.MaxValue + "]")
     }
   }
 
@@ -63,8 +65,7 @@ class Console extends SparkBatchSink {
       Map(
         "limit" -> 100,
         "serializer" -> "plain" // plain | json
-      )
-    )
+      ))
     config = config.withFallback(defaultConfig)
   }
 }

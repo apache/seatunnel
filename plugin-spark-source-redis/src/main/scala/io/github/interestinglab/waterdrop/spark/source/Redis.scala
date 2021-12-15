@@ -17,11 +17,12 @@
 
 package io.github.interestinglab.waterdrop.spark.source
 
-import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
+import com.redislabs.provider.redis.{toRedisContext, RedisConfig, RedisEndpoint}
+import org.apache.spark.sql.{Dataset, Row}
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
-import org.apache.spark.sql.{Dataset, Row}
 
 class Redis extends SparkBatchSource {
   val defaultPort: Int = 6379
@@ -36,10 +37,15 @@ class Redis extends SparkBatchSource {
     val hasRedisPassword = config.hasPath("auth")
 
     config match {
-      case _ if !hasTableName => new CheckResult(false, "please specify [result_table_name] as non-empty string")
+      case _ if !hasTableName =>
+        new CheckResult(false, "please specify [result_table_name] as non-empty string")
       case _ if !hasRedisHost => new CheckResult(false, "please specify [host] as non-empty string")
-      case _ if !hasRedisPassword => new CheckResult(false, "please specify [auth] as non-empty string")
-      case _ if !hasKeys => new CheckResult(false, "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
+      case _ if !hasRedisPassword =>
+        new CheckResult(false, "please specify [auth] as non-empty string")
+      case _ if !hasKeys =>
+        new CheckResult(
+          false,
+          "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
       case _ => new CheckResult(true, "")
     }
   }
@@ -94,7 +100,12 @@ class Redis extends SparkBatchSource {
     }
 
     // Get data from redis through keys and combine it into a dataset
-    val redisConfig = new RedisConfig(RedisEndpoint(host = host, port = port, auth = auth, dbNum = dbNum, timeout = timeout))
+    val redisConfig = new RedisConfig(RedisEndpoint(
+      host = host,
+      port = port,
+      auth = auth,
+      dbNum = dbNum,
+      timeout = timeout))
     val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(redisConfig = redisConfig)
     import spark.implicits._
     val ds = stringRDD.toDF("raw_key", "raw_message")

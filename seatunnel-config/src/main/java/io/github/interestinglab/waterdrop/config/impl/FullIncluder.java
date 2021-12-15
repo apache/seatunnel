@@ -23,6 +23,6 @@ import io.github.interestinglab.waterdrop.config.ConfigIncluderFile;
 import io.github.interestinglab.waterdrop.config.ConfigIncluderURL;
 
 interface FullIncluder extends ConfigIncluder, ConfigIncluderFile, ConfigIncluderURL,
-            ConfigIncluderClasspath {
+        ConfigIncluderClasspath {
 
 }

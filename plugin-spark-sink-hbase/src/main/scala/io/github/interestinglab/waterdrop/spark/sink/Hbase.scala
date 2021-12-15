@@ -16,25 +16,26 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
+import scala.collection.JavaConversions._
+import scala.util.control.Breaks._
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.hbase.{HBaseConfiguration, TableName, _}
+import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory}
+import org.apache.hadoop.hbase.spark.{ByteArrayWrapper, FamiliesQualifiersValues, HBaseContext}
+import org.apache.hadoop.hbase.spark.datasources.HBaseTableCatalog
+import org.apache.hadoop.hbase.tool.LoadIncrementalHFiles
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.DataTypes
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory}
-import org.apache.hadoop.hbase.spark.datasources.HBaseTableCatalog
-import org.apache.hadoop.hbase.spark.{ByteArrayWrapper, FamiliesQualifiersValues, HBaseContext}
-import org.apache.hadoop.hbase.tool.LoadIncrementalHFiles
-import org.apache.hadoop.hbase.util.Bytes
-import org.apache.hadoop.hbase.{HBaseConfiguration, TableName, _}
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.DataTypes
-import org.apache.spark.sql.{Dataset, Row}
-
-import scala.collection.JavaConversions._
-import scala.util.control.Breaks._
 
 class Hbase extends SparkBatchSink with Logging {
 
@@ -44,26 +45,30 @@ class Hbase extends SparkBatchSink with Logging {
 
   /**
    * Set Config.
-   * */
+   */
   override def setConfig(config: Config): Unit = {
     this.config = config
   }
 
   /**
    * Get Config.
-   * */
+   */
   override def getConfig(): Config = {
     this.config
   }
 
   override def checkConfig(): CheckResult = {
     val requiredOptions = List("hbase.zookeeper.quorum", "catalog", "staging_dir")
-    val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
-      val (optionName, exists) = p
-      !exists
-    }
+    val nonExistsOptions =
+      requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
+        val (optionName, exists) = p
+        !exists
+      }
     if (nonExistsOptions.length != 0) {
-      new CheckResult(false, "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(", ") + " as non-empty string")
+      new CheckResult(
+        false,
+        "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(
+          ", ") + " as non-empty string")
     } else {
       new CheckResult(true, "")
     }
@@ -72,9 +77,7 @@ class Hbase extends SparkBatchSink with Logging {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "save_mode" -> HbaseSaveMode.Append.toString.toLowerCase
-      )
-    )
+        "save_mode" -> HbaseSaveMode.Append.toString.toLowerCase))
 
     config = config.withFallback(defaultConfig)
     hbaseConf = HBaseConfiguration.create(env.getSparkSession.sessionState.newHadoopConf())
@@ -98,7 +101,8 @@ class Hbase extends SparkBatchSink with Logging {
 
     // convert all columns type to string
     for (colName <- colNames) {
-      dfWithStringFields = dfWithStringFields.withColumn(colName, col(colName).cast(DataTypes.StringType))
+      dfWithStringFields =
+        dfWithStringFields.withColumn(colName, col(colName).cast(DataTypes.StringType))
     }
 
     val parameters = Map(HBaseTableCatalog.tableCatalog -> catalog)
@@ -114,11 +118,14 @@ class Hbase extends SparkBatchSink with Logging {
       }
 
       def familyQualifierToByte: Set[(Array[Byte], Array[Byte], String)] = {
-        if (columnFamily == null || colNames == null) throw new Exception("null can't be convert to Bytes")
-        colNames.filter(htc.getField(_).cf != HBaseTableCatalog.rowKey).map(colName => (Bytes.toBytes(htc.getField(colName).cf), Bytes.toBytes(colName), colName)).toSet
+        if (columnFamily == null || colNames == null)
+          throw new Exception("null can't be convert to Bytes")
+        colNames.filter(htc.getField(_).cf != HBaseTableCatalog.rowKey).map(colName =>
+          (Bytes.toBytes(htc.getField(colName).cf), Bytes.toBytes(colName), colName)).toSet
       }
 
-      hbaseContext.bulkLoadThinRows[Row](dfWithStringFields.rdd,
+      hbaseContext.bulkLoadThinRows[Row](
+        dfWithStringFields.rdd,
         tableName,
         r => {
           val rawPK = new StringBuilder
@@ -146,7 +153,10 @@ class Hbase extends SparkBatchSink with Logging {
 
       val load = new LoadIncrementalHFiles(hbaseConf)
       val table = hbaseConn.getTable(tableName)
-      load.doBulkLoad(new Path(stagingDir), hbaseConn.getAdmin, table,
+      load.doBulkLoad(
+        new Path(stagingDir),
+        hbaseConn.getAdmin,
+        table,
         hbaseConn.getRegionLocator(tableName))
 
     } finally {

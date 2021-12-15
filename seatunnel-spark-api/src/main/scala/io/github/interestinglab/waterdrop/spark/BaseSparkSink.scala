@@ -16,9 +16,10 @@
  */
 package io.github.interestinglab.waterdrop.spark
 
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.apis.BaseSink
 import org.apache.spark.sql.{Dataset, Row}
+
+import io.github.interestinglab.waterdrop.apis.BaseSink
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 
 trait BaseSparkSink[OUT] extends BaseSink[SparkEnvironment] {
 
