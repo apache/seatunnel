@@ -49,8 +49,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
-
 public class Waterdrop {
     private static final Logger LOGGER = LoggerFactory.getLogger(Waterdrop.class);
 

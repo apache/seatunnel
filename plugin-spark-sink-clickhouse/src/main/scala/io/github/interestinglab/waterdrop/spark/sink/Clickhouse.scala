@@ -57,7 +57,7 @@ class Clickhouse extends SparkBatchSink {
       fields = dfFields.toList
       initSQL = initPrepareSQL()
     }
-    data.foreachPartition { iter =>
+    data.foreachPartition { iter: Iterator[Row] =>
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
       val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
       val statement = executorConn.prepareStatement(this.initSQL)

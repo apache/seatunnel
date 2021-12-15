@@ -21,7 +21,7 @@ import scala.util.control.Breaks._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.hbase.{HBaseConfiguration, TableName, _}
+import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
 import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory}
 import org.apache.hadoop.hbase.spark.{ByteArrayWrapper, FamiliesQualifiersValues, HBaseContext}
 import org.apache.hadoop.hbase.spark.datasources.HBaseTableCatalog
