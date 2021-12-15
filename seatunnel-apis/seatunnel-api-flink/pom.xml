@@ -22,17 +22,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>io.github.interestinglab.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-apis</artifactId>
         <version>2.0.4</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-flink-api</artifactId>
+    <artifactId>seatunnel-api-flink</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>seatunnel-apis</artifactId>
+            <artifactId>seatunnel-api-base</artifactId>
             <version>${project.version}</version>
         </dependency>
 
