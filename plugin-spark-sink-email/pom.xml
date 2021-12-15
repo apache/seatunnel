@@ -37,21 +37,21 @@
         </dependency>
         <dependency>
             <groupId>com.norbitltd</groupId>
-            <artifactId>spoiwo_2.11</artifactId>
+            <artifactId>spoiwo_${scala.binary.version}</artifactId>
         </dependency>
         <dependency>
             <groupId>com.typesafe.play</groupId>
-            <artifactId>play-mailer_2.11</artifactId>
+            <artifactId>play-mailer_${scala.binary.version}</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_2.11</artifactId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_2.11</artifactId>
+            <artifactId>spark-sql_${scala.binary.version}</artifactId>
         </dependency>
     </dependencies>
 

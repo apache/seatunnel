@@ -223,19 +223,19 @@
 
             <dependency>
                 <groupId>com.github.scopt</groupId>
-                <artifactId>scopt_2.11</artifactId>
+                <artifactId>scopt_${scala.binary.version}</artifactId>
                 <version>${scopt.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.norbitltd</groupId>
-                <artifactId>spoiwo_2.11</artifactId>
+                <artifactId>spoiwo_${scala.binary.version}</artifactId>
                 <version>${spoiwo.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.typesafe.play</groupId>
-                <artifactId>play-mailer_2.11</artifactId>
+                <artifactId>play-mailer_${scala.binary.version}</artifactId>
                 <version>${play-mailer.version}</version>
             </dependency>
 
@@ -313,13 +313,13 @@
 
             <dependency>
                 <groupId>com.redislabs</groupId>
-                <artifactId>spark-redis_2.11</artifactId>
+                <artifactId>spark-redis_${scala.binary.version}</artifactId>
                 <version>${spark-redis.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
+                <artifactId>spark-streaming-kafka-0-10_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
             </dependency>
 
