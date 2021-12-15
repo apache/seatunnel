@@ -103,6 +103,7 @@
         <module>seatunnel-config</module>
         <module>plugin-spark-source-mongodb</module>
         <module>plugin-spark-source-redis</module>
+        <module>plugin-spark-source-hdfs</module>
     </modules>
 
     <properties>
@@ -150,7 +151,7 @@
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
-        <spark.scope>provided</spark.scope>
+        <spark.scope>compile</spark.scope>
     </properties>
 
     <dependencyManagement>
