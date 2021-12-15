@@ -40,7 +40,7 @@
 
         <dependency>
             <groupId>com.redislabs</groupId>
-            <artifactId>spark-redis_2.11</artifactId>
+            <artifactId>spark-redis_${scala.binary.version}</artifactId>
         </dependency>
 
         <dependency>
