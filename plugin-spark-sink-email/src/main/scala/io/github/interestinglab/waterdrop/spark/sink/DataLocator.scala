@@ -19,11 +19,11 @@ package io.github.interestinglab.waterdrop.spark.sink
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-import HasIndex._
-import com.norbitltd.spoiwo.model.{Cell => WriteCell, CellDataFormat, CellRange, CellStyle, HasIndex, Row => WriteRow, Sheet => WriteSheet, Table, TableColumn}
+import com.norbitltd.spoiwo.model.{Cell => WriteCell, CellDataFormat, CellRange, CellStyle, Row => WriteRow, Sheet => WriteSheet, Table, TableColumn}
+import com.norbitltd.spoiwo.model.HasIndex._
 import org.apache.poi.ss.SpreadsheetVersion
-import org.apache.poi.ss.usermodel.{Cell, Row, Sheet, Workbook}
-import org.apache.poi.ss.util.{AreaReference, CellRangeAddress, CellReference}
+import org.apache.poi.ss.usermodel.{Cell, Sheet, Workbook}
+import org.apache.poi.ss.util.{AreaReference, CellReference}
 import org.apache.poi.xssf.usermodel.{XSSFTable, XSSFWorkbook}
 
 import io.github.interestinglab.waterdrop.spark.sink.Utils.MapIncluding
