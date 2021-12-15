@@ -26,12 +26,16 @@ import io.github.interestinglab.waterdrop.plugin.Plugin;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkStreamExecution.class);
 
     private Config config;
 
@@ -71,6 +75,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             sink.outputStream(flinkEnvironment, stream);
         }
         try {
+            LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
             flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
             e.printStackTrace();

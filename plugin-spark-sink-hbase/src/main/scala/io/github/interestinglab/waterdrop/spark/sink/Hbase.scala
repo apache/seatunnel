@@ -105,11 +105,11 @@ class Hbase extends SparkBatchSink with Logging {
     val htc = HBaseTableCatalog(parameters)
     val tableName = TableName.valueOf(htc.namespace + ":" + htc.name)
     val columnFamily = htc.getColumnFamilies
-    val save_mode = config.getString("save_mode").toLowerCase
+    val saveMode = config.getString("save_mode").toLowerCase
     val hbaseConn = ConnectionFactory.createConnection(hbaseConf)
 
     try {
-      if (save_mode == HbaseSaveMode.Overwrite.toString.toLowerCase) {
+      if (saveMode == HbaseSaveMode.Overwrite.toString.toLowerCase) {
         truncateHTable(hbaseConn, tableName)
       }
 
