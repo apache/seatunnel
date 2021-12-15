@@ -144,7 +144,7 @@ sbt dependency:
 
 Link for direct download if you don't use a dependency manager:
 
- - http://central.maven.org/maven2/com/typesafe/config/
+ - https://mvnrepository.com/artifact/com.typesafe/config
 
 ### Release Notes
 
