@@ -63,12 +63,12 @@ class Elasticsearch extends SparkBatchSource {
   override def checkConfig(): CheckResult = {
     config.hasPath("hosts") && config.hasPath("index") && config.getStringList(
       "hosts").size() > 0 match {
-      case true => {
+      case true =>
         // val hosts = config.getStringList("hosts")
         // TODO CHECK hosts
         new CheckResult(true, "")
-      }
-      case false => new CheckResult(false, "please specify [hosts] as a non-empty string list")
+      case false =>
+        new CheckResult(false, "please specify [hosts] as a non-empty string list")
     }
   }
 
