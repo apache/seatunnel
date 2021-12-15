@@ -81,9 +81,14 @@
             <artifactId>plugin-spark-source-phoenix</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
+       <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-source-redis</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>plugin-spark-source-mongodb</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -139,6 +144,11 @@
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-hbase</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>plugin-spark-sink-kafka</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

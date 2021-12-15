@@ -34,7 +34,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
+import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
 public class ConfigBuilder {
@@ -42,13 +45,13 @@ public class ConfigBuilder {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
-    private String configFile;
-    private Engine engine;
+    private final String configFile;
+    private final Engine engine;
     private ConfigPackage configPackage;
-    private Config config;
+    private final Config config;
     private boolean streaming;
     private Config envConfig;
-    private RuntimeEnv env;
+    private final RuntimeEnv env;
 
     public ConfigBuilder(String configFile, Engine engine) {
         this.configFile = configFile;
@@ -101,45 +104,51 @@ public class ConfigBuilder {
     }
 
     /**
-     * Get full qualified class name by reflection api, ignore case.
+     * create plugin class instance, ignore case.
      **/
-    private String buildClassFullQualifier(String name, PluginType classType) throws Exception {
-
-        if (name.split("\\.").length == 1) {
-            String packageName = null;
-            Iterable<? extends Plugin> plugins = null;
-            switch (classType) {
-                case SOURCE:
-                    packageName = configPackage.sourcePackage();
-                    Class baseSource = Class.forName(configPackage.baseSourcePackage());
-                    plugins = ServiceLoader.load(baseSource);
-                    break;
-                case TRANSFORM:
-                    packageName = configPackage.transformPackage();
-                    Class baseTransform = Class.forName(configPackage.baseTransformPackage());
-                    plugins = ServiceLoader.load(baseTransform);
-                    break;
-                case SINK:
-                    packageName = configPackage.sinkPackage();
-                    Class baseSink = Class.forName(configPackage.baseSinkPackage());
-                    plugins = ServiceLoader.load(baseSink);
-                    break;
-                default:
-                    break;
-            }
-
-            String qualifierWithPackage = packageName + "." + name;
-            for (Plugin plugin : plugins) {
-                Class serviceClass = plugin.getClass();
+    private <T extends Plugin<?>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
+        if (name.split("\\.").length != 1) {
+            // canonical class name
+            return (T) Class.forName(name).newInstance();
+        }
+        String packageName;
+        ServiceLoader<T> plugins;
+        switch (pluginType) {
+            case SOURCE:
+                packageName = configPackage.sourcePackage();
+                Class<T> baseSource = (Class<T>) Class.forName(configPackage.baseSourceClass());
+                plugins = ServiceLoader.load(baseSource);
+                break;
+            case TRANSFORM:
+                packageName = configPackage.transformPackage();
+                Class<T> baseTransform = (Class<T>) Class.forName(configPackage.baseTransformClass());
+                plugins = ServiceLoader.load(baseTransform);
+                break;
+            case SINK:
+                packageName = configPackage.sinkPackage();
+                Class<T> baseSink = (Class<T>) Class.forName(configPackage.baseSinkClass());
+                plugins = ServiceLoader.load(baseSink);
+                break;
+            default:
+                throw new IllegalArgumentException("PluginType not support : [" + pluginType + "]");
+        }
+        String canonicalName = packageName + "." + name;
+        for (Iterator<T> it = plugins.iterator(); it.hasNext(); ) {
+            try {
+                T plugin = it.next();
+                Class<?> serviceClass = plugin.getClass();
                 String serviceClassName = serviceClass.getName();
                 String clsNameToLower = serviceClassName.toLowerCase();
-                if (clsNameToLower.equals(qualifierWithPackage.toLowerCase())) {
-                    return serviceClassName;
+                if (clsNameToLower.equals(canonicalName.toLowerCase())) {
+                    return plugin;
                 }
+            } catch (ServiceConfigurationError e) {
+                // Iterator.next() may throw ServiceConfigurationError,
+                // but maybe caused by a not used plugin in this job
+                LOGGER.warn("Error when load plugin: [{}]", canonicalName, e);
             }
-            return qualifierWithPackage;
         }
-        return name;
+        throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
     }
 
 
@@ -153,16 +162,13 @@ public class ConfigBuilder {
         this.createPlugins(PluginType.SINK);
     }
 
-    public <T extends Plugin> List<T> createPlugins(PluginType type) {
-
+    public <T extends Plugin<?>> List<T> createPlugins(PluginType type) {
+        Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
-
         List<? extends Config> configList = config.getConfigList(type.getType());
-
         configList.forEach(plugin -> {
             try {
-                final String className = buildClassFullQualifier(plugin.getString(PLUGIN_NAME_KEY), type);
-                T t = (T) Class.forName(className).newInstance();
+                T t = createPluginInstanceIgnoreCase(plugin.getString(PLUGIN_NAME_KEY), type);
                 t.setConfig(plugin);
                 basePluginList.add(t);
             } catch (Exception e) {

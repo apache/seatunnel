@@ -14,16 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.config
+package io.github.interestinglab.waterdrop.spark.sink
 
-class ConfigPackage(engine: String) {
-  val packagePrefix = "io.github.interestinglab.waterdrop." + engine
-  val upperEngine = engine.substring(0, 1).toUpperCase() + engine.substring(1)
-  val sourcePackage = packagePrefix + ".source"
-  val transformPackage = packagePrefix + ".transform"
-  val sinkPackage = packagePrefix + ".sink"
-  val envPackage = packagePrefix + ".env"
-  val baseSourceClass = packagePrefix + ".Base" + upperEngine + "Source"
-  val baseTransformClass = packagePrefix + ".Base" + upperEngine + "Transform"
-  val baseSinkClass = packagePrefix + ".Base" + upperEngine + "Sink"
+import java.util.Properties
+
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+
+class KafkaProducerUtil(createProducer: () => KafkaProducer[String, String]) extends Serializable {
+
+  lazy val producer = createProducer()
+
+  def send(topic: String, value: String): Unit =
+    producer.send(new ProducerRecord(topic, value))
+}
+
+object KafkaProducerUtil {
+  def apply(config: Properties): KafkaProducerUtil = {
+    val f = () => {
+      val producer = new KafkaProducer[String, String](config)
+
+      sys.addShutdownHook {
+        producer.close()
+      }
+
+      producer
+    }
+    new KafkaProducerUtil(f)
+  }
 }
