@@ -16,8 +16,8 @@
  */
 package io.github.interestinglab.waterdrop.spark
 
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseSource
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 
 trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
 

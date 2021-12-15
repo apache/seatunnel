@@ -20,8 +20,8 @@ import java.sql.{Connection, DriverManager}
 import java.util.{Locale, Properties}
 
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
-import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.execution.datasources.jdbc.DriverRegistry
+import org.apache.spark.sql.types.StructType
 
 /**
  * Options for the JDBC data source.
@@ -72,12 +72,10 @@ class JDBCOptions(
   val tableOrQuery = (parameters.get(JDBC_TABLE_NAME), parameters.get(JDBC_QUERY_STRING)) match {
     case (Some(name), Some(subquery)) =>
       throw new IllegalArgumentException(
-        s"Both '$JDBC_TABLE_NAME' and '$JDBC_QUERY_STRING' can not be specified at the same time."
-      )
+        s"Both '$JDBC_TABLE_NAME' and '$JDBC_QUERY_STRING' can not be specified at the same time.")
     case (None, None) =>
       throw new IllegalArgumentException(
-        s"Option '$JDBC_TABLE_NAME' or '$JDBC_QUERY_STRING' is required."
-      )
+        s"Option '$JDBC_TABLE_NAME' or '$JDBC_QUERY_STRING' is required.")
     case (Some(name), None) =>
       if (name.isEmpty) {
         throw new IllegalArgumentException(s"Option '$JDBC_TABLE_NAME' can not be empty.")
@@ -124,14 +122,16 @@ class JDBCOptions(
   // the upper bound of the partition column
   val upperBound = parameters.get(JDBC_UPPER_BOUND)
   // numPartitions is also used for data source writing
-  require((partitionColumn.isEmpty && lowerBound.isEmpty && upperBound.isEmpty) ||
-    (partitionColumn.isDefined && lowerBound.isDefined && upperBound.isDefined &&
-      numPartitions.isDefined),
+  require(
+    (partitionColumn.isEmpty && lowerBound.isEmpty && upperBound.isEmpty) ||
+      (partitionColumn.isDefined && lowerBound.isDefined && upperBound.isDefined &&
+        numPartitions.isDefined),
     s"When reading JDBC data sources, users need to specify all or none for the following " +
       s"options: '$JDBC_PARTITION_COLUMN', '$JDBC_LOWER_BOUND', '$JDBC_UPPER_BOUND', " +
       s"and '$JDBC_NUM_PARTITIONS'")
 
-  require(!(parameters.get(JDBC_QUERY_STRING).isDefined && partitionColumn.isDefined),
+  require(
+    !(parameters.get(JDBC_QUERY_STRING).isDefined && partitionColumn.isDefined),
     s"""
        |Options '$JDBC_QUERY_STRING' and '$JDBC_PARTITION_COLUMN' can not be specified together.
        |Please define the query using `$JDBC_TABLE_NAME` option instead and make sure to qualify
@@ -141,12 +141,12 @@ class JDBCOptions(
        |        .option("dbtable", "(select c1, c2 from t1) as subq")
        |        .option("partitionColumn", "subq.c1"
        |        .load()
-     """.stripMargin
-  )
+     """.stripMargin)
 
   val fetchSize = {
     val size = parameters.getOrElse(JDBC_BATCH_FETCH_SIZE, "0").toInt
-    require(size >= 0,
+    require(
+      size >= 0,
       s"Invalid value `${size.toString}` for parameter " +
         s"`$JDBC_BATCH_FETCH_SIZE`. The minimum value is 0. When the value is 0, " +
         "the JDBC driver ignores the value and does the estimates.")
@@ -169,7 +169,8 @@ class JDBCOptions(
 
   val batchSize = {
     val size = parameters.getOrElse(JDBC_BATCH_INSERT_SIZE, "1000").toInt
-    require(size >= 1,
+    require(
+      size >= 1,
       s"Invalid value `${size.toString}` for parameter " +
         s"`$JDBC_BATCH_INSERT_SIZE`. The minimum value is 1.")
     size
