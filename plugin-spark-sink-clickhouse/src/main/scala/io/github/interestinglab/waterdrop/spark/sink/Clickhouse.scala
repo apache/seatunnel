@@ -27,7 +27,7 @@ import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.{Dataset, Row}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 
