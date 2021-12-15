@@ -32,7 +32,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>seatunnel-flink-api</artifactId>
+            <artifactId>seatunnel-api-flink</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>

@@ -33,7 +33,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>seatunnel-spark-api</artifactId>
+            <artifactId>seatunnel-api-spark</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
