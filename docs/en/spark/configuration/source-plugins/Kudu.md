@@ -1,4 +1,4 @@
-# Source plugin: Kudu
+# Source plugin: Kudu [Spark]
 
 ## Description
 
@@ -10,7 +10,6 @@ Read data from Kudu.
 | -------------- | ------ | -------- | ------------- |
 | kudu_master            | string | yes      | -             |
 | kudu_table       | string | yes      | -         |
-
 
 ### kudu_master [string]
 
@@ -33,4 +32,3 @@ kudu {
     result_table_name = "kudu_result_table"
 }
 ```
-
