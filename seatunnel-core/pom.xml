@@ -34,6 +34,6 @@
         <module>seatunnel-core-base</module>
         <module>seatunnel-core-flink</module>
         <module>seatunnel-core-spark</module>
+        <module>seatunnel-core-sql</module>
     </modules>
-
 </project>

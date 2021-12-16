@@ -38,12 +38,12 @@
         </dependency>
         <dependency>
             <groupId>com.github.scopt</groupId>
-            <artifactId>scopt_2.11</artifactId>
+            <artifactId>scopt_${scala.binary.version}</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>seatunnel-spark-api</artifactId>
+            <artifactId>seatunnel-api-spark</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -89,6 +89,11 @@
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-source-mongodb</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>plugin-spark-source-kudu</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -149,6 +154,11 @@
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-kafka</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>plugin-spark-sink-hudi</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
