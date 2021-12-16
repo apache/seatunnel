@@ -59,50 +59,13 @@
     </scm>
 
     <modules>
+        <module>seatunnel-config</module>
+        <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
-        <module>seatunnel-common</module>
-        <module>plugin-spark-source-kafka</module>
-        <module>plugin-spark-source-jdbc</module>
-        <module>plugin-spark-source-fake</module>
-        <module>plugin-spark-source-file</module>
-        <module>plugin-spark-source-elasticsearch</module>
-        <module>plugin-spark-source-hive</module>
-        <module>plugin-spark-transform-sql</module>
-        <module>plugin-spark-sink-console</module>
-        <module>plugin-spark-sink-clickhouse</module>
-        <module>plugin-spark-sink-elasticsearch</module>
-        <module>plugin-spark-sink-hbase</module>
-        <module>plugin-spark-sink-kafka</module>
-        <module>plugin-flink-source-kafka</module>
-        <module>plugin-flink-transform-sql</module>
-        <module>plugin-flink-sink-console</module>
-        <module>plugin-flink-transform-table2datasteam</module>
-        <module>plugin-flink-sink-kafka</module>
-        <module>plugin-flink-transform-datastream2table</module>
-        <module>plugin-flink-source-file</module>
-        <module>plugin-flink-sink-jdbc</module>
-        <module>plugin-flink-source-fake</module>
-        <module>plugin-flink-source-socket</module>
-        <module>plugin-flink-source-jdbc</module>
-        <module>plugin-flink-sink-file</module>
-        <module>plugin-flink-sink-elasticsearch</module>
-        <module>plugin-spark-sink-file</module>
-        <module>plugin-flink-transform-split</module>
-        <module>plugin-spark-transform-json</module>
+        <module>seatunnel-transforms</module>
+        <module>seatunnel-connectors</module>
         <module>seatunnel-dist</module>
-        <module>plugin-spark-transform-split</module>
-        <module>plugin-spark-source-socket</module>
-        <module>plugin-spark-source-phoenix</module>
-        <module>plugin-spark-phoenix-core</module>
-        <module>plugin-spark-sink-phoenix</module>
-        <module>plugin-spark-sink-mysql</module>
-        <module>plugin-spark-sink-email</module>
-        <module>plugin-spark-sink-hudi</module>
-        <module>seatunnel-config</module>
-        <module>plugin-spark-source-kudu</module>
-        <module>plugin-spark-source-mongodb</module>
-        <module>plugin-spark-source-redis</module>
     </modules>
 
     <properties>
@@ -325,9 +288,9 @@
                 <groupId>org.apache.kudu</groupId>
                 <artifactId>kudu-spark2_${scala.binary.version}</artifactId>
                 <version>${kudu-spark.version}</version>
-           </dependency>
-          
-           <dependency>
+            </dependency>
+
+            <dependency>
                 <groupId>com.redislabs</groupId>
                 <artifactId>spark-redis_${scala.binary.version}</artifactId>
                 <version>${spark-redis.version}</version>
