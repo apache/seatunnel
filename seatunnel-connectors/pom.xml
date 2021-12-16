@@ -60,6 +60,9 @@
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
         <module>plugin-spark-source-redis</module>
+        <module>plugin-spark-sink-hudi</module>
+        <module>plugin-spark-source-kudu</module>
+        <module>plugin-spark-source-mongodb</module>
     </modules>
 
 </project>
