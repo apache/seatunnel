@@ -5,6 +5,9 @@
     },
     {
       "pattern": "^https://mvnrepository.com"
+    },
+    {
+      "pattern": "^https://www.qutoutiao.net"
     }
   ],
   "timeout": "10s",
