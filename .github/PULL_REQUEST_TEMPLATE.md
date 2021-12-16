@@ -1,19 +1,20 @@
 <!--
-Thank you for contributing to seatunnel! Please make sure that your code changes
+
+Thank you for contributing to SeaTunnel! Please make sure that your code changes
 are covered with tests. And in case of new features or big changes
 remember to adjust the documentation.
 
 Feel free to ping committers for the review!
 
-In case of existing issue, reference it using one of the following:
-closes: #ISSUE_ID
-related: #ISSUE_ID
+## Contribution Checklist
 
-Here is some example about how to write a good git commit message:
-http://chris.beams.io/posts/git-commit/
+  - Make sure that the pull request corresponds to a [GITHUB issue](https://github.com/InterestingLab/seatunnel/issues).
+
+  - Name the pull request in the form "[SeaTunnel #XXXX] [component] Title of the pull request", where *SeaTunnel #XXXX* should be replaced by the actual issue number.
+
+  - Minor fixes should be named following this pattern: `[hotfix] [docs] Fix typo in README.md doc`.
+
 -->
-
----
 
 ## Purpose of this pull request
 
