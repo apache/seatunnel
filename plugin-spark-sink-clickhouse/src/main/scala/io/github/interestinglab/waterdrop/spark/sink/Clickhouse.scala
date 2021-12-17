@@ -53,7 +53,6 @@ class Clickhouse extends SparkBatchSink {
     val bulkSize = config.getInt("bulk_size")
     val retry = config.getInt("retry")
 
-    /*同步前删除当天的分区数据*/
     if(config.hasPath("ck_sql")){
       val ckSQl = config.getString("ck_sql")
       val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
