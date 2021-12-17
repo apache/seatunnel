@@ -2,7 +2,6 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 import java.io.{BufferedReader, InputStreamReader}
 import java.nio.charset.{Charset, StandardCharsets}
-
 import org.apache.commons.net.util.Base64
 import org.apache.http.HttpHeaders
 import org.apache.http.client.config.RequestConfig
@@ -10,8 +9,6 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{CloseableHttpClient, DefaultConnectionKeepAliveStrategy, DefaultRedirectStrategy, HttpClientBuilder}
 import org.apache.log4j.Logger
-import org.joda.time.DateTime
-
 import scala.util.{Failure, Success, Try}
 
 object DorisUtil extends Serializable {
@@ -52,7 +49,6 @@ object DorisUtil extends Serializable {
       if (headers != null && headers.nonEmpty) {
         headers.foreach(entry => {
           httpPut.setHeader(entry._1, entry._2)
-          LOG.info(s"Http Header Param is ${entry._1} -> ${entry._2}")
         })
       }
       val content = new StringEntity(messages, Charset.forName(Config.CHARSET))
@@ -60,10 +56,17 @@ object DorisUtil extends Serializable {
       content.setContentEncoding(Config.CHARSET)
       httpPut.setEntity(content)
       response = httpclient.execute(httpPut)
+      val bufferReader = new BufferedReader(new InputStreamReader(response.getEntity.getContent))
+      val stringBuffer = new StringBuffer()
+      var str = ""
+      while( str != null){
+        stringBuffer.append(str.trim)
+        str = bufferReader.readLine()
+      }
       LOG.info(
         s"""
-          |This Batch Messages Response:
-          |${response.getStatusLine}
+          |Batch Messages Response:
+          |${stringBuffer.toString}
           |""".stripMargin)
     } catch {
       case e: Exception => status = false
