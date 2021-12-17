@@ -117,7 +117,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
 
     @Override
     public void open(int taskNumber, int numTasks) {
-        if (batchIntervalMs != 0 && batchIntervalMs != 1) {
+        if (batchIntervalMs > 0 && batchSize != 1) {
             this.scheduler = new ScheduledThreadPoolExecutor(1, new ExecutorThreadFactory("doris-streamload-outputformat"));
             this.scheduledFuture = this.scheduler.scheduleWithFixedDelay(() -> {
                 synchronized (DorisOutputFormat.this) {

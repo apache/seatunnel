@@ -32,6 +32,7 @@ import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.Preconditions;
 
 import java.util.Properties;
 
@@ -72,6 +73,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
         dbName = config.getString("db_name");
         if (config.hasPath("doris_sink_batch_size")) {
             batchSize = config.getInt("doris_sink_batch_size");
+            Preconditions.checkArgument(batchSize > 0,"doris_sink_batch_size must be greater than 0");
         }
         if (config.hasPath("doris_sink_interval")) {
             batchIntervalMs = config.getInt("doris_sink_interval");
@@ -92,7 +94,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
         String[] fieldNames = table.getSchema().getFieldNames();
 
         DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(fenodes, dbName, tableName, username, password, streamLoadProp);
-        return dataSet.output(new DorisOutputFormat(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
+        return dataSet.output(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
     }
 
     @Override
@@ -102,7 +104,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
         String[] fieldNames = table.getSchema().getFieldNames();
 
         DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(fenodes, dbName, tableName, username, password, streamLoadProp);
-        dataStream.addSink(new DorisSinkFunction<>(new DorisOutputFormat(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries)));
+        dataStream.addSink(new DorisSinkFunction<>(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries)));
         return null;
     }
 }

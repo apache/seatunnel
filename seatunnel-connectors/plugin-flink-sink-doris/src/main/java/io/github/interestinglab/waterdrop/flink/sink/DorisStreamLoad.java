@@ -46,25 +46,15 @@ import java.util.UUID;
 public class DorisStreamLoad implements Serializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
-    private static final List<String> DORIS_SUCCESS_STATUS = new ArrayList<>(Arrays.asList("Success", "Publish Timeout"));
+    private static final List<String> DORIS_SUCCESS_STATUS = Arrays.asList("Success", "Publish Timeout");
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static String LOAD_URL_PATTERN = "http://%s/api/%s/%s/_stream_load?";
+    private static final String LOAD_URL_PATTERN = "http://%s/api/%s/%s/_stream_load?";
 
-    private String hostPort;
-    private String db;
-    private String tbl;
-    private String user;
-    private String passwd;
-    private String loadUrlStr;
-    private String authEncoding;
-    private Properties streamLoadProp;
+    private final String loadUrlStr;
+    private final String authEncoding;
+    private final Properties streamLoadProp;
 
     public DorisStreamLoad(String hostPort, String db, String tbl, String user, String passwd, Properties streamLoadProp) {
-        this.hostPort = hostPort;
-        this.db = db;
-        this.tbl = tbl;
-        this.user = user;
-        this.passwd = passwd;
         this.loadUrlStr = String.format(LOAD_URL_PATTERN, hostPort, db, tbl);
         this.authEncoding = Base64.getEncoder().encodeToString(String.format("%s:%s", user, passwd).getBytes(StandardCharsets.UTF_8));
         this.streamLoadProp = streamLoadProp;
@@ -112,7 +102,7 @@ public class DorisStreamLoad implements Serializable {
 
     private LoadResponse loadBatch(String data) {
         String formatDate = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String label = String.format("flink_connector_%s_%s", formatDate,
+        String label = String.format("flink_sink_%s_%s", formatDate,
                 UUID.randomUUID().toString().replaceAll("-", ""));
 
         HttpURLConnection feConn = null;
@@ -147,12 +137,10 @@ public class DorisStreamLoad implements Serializable {
                 response.append(line);
             }
             return new LoadResponse(status, respMsg, response.toString());
-
         } catch (Exception e) {
-            e.printStackTrace();
             String err = "failed to stream load data with label:" + label;
             LOG.warn(err, e);
-            return new LoadResponse(-1, e.getMessage(), err);
+            throw new RuntimeException("stream load error: " + err);
         } finally {
             if (feConn != null) {
                 feConn.disconnect();
