@@ -58,7 +58,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-hdfs</artifactId>
+            <artifactId>plugin-spark-source-file</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
