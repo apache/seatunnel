@@ -53,6 +53,14 @@ class Clickhouse extends SparkBatchSink {
     val bulkSize = config.getInt("bulk_size")
     val retry = config.getInt("retry")
 
+    if(config.hasPath("ck_sql")){
+      val ckSQL = config.getString("ck_sql")
+      val executorBalanced = new BalancedClickhouseDataSource(this.jdbcLink, this.properties)
+      val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
+      val statement = executorConn.prepareStatement(ckSQL)
+      statement.execute()
+    }
+
     if (!config.hasPath("fields")) {
       fields = dfFields.toList
       initSQL = initPrepareSQL()
