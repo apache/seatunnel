@@ -1,25 +1,24 @@
 package io.github.interestinglab.waterdrop.spark.sink
-
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import org.apache.log4j.Logger
 import org.apache.spark.sql.{Dataset, Row}
-
+import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.ListBuffer
 
 class Doris extends SparkBatchSink with Serializable {
 
   var apiUrl: String = _
-  var user: String = _
-  var password: String = _
-  var propertiesMap: Map[String,String] = _
+  var column_separator: String = "\t"
+  var propertiesMap = new mutable.HashMap[String,String]()
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val bulkSize: Int = config.getInt(Config.BULK_SIZE)
-    val column_separator: String = propertiesMap.getOrElse("column_separator","\t")
-    if (!propertiesMap.contains("columns")) {
-      val fields = data.schema.fieldNames.mkString(",")
-      propertiesMap += ("columns" -> fields)
+    val user: String = config.getString(Config.USER)
+    val password: String = config.getString(Config.PASSWORD)
+    if (propertiesMap.contains(Config.COLUMN_SEPARATOR)) {
+     column_separator =  propertiesMap(Config.COLUMN_SEPARATOR)
     }
     val sparkSession = env.getSparkSession
     import sparkSession.implicits._
@@ -27,7 +26,7 @@ class Doris extends SparkBatchSink with Serializable {
     dataFrame.foreachPartition { partition =>
       var count: Int = 0
       val buffer = new ListBuffer[String]
-      val dorisUtil = new DorisUtil(propertiesMap, apiUrl, user, password)
+      val dorisUtil = new DorisUtil(propertiesMap.toMap, apiUrl, user, password)
       for (message <- partition) {
         count += 1
         buffer += message
@@ -59,27 +58,23 @@ class Doris extends SparkBatchSink with Serializable {
     } else if (config.hasPath(Config.BULK_SIZE) && config.getInt(Config.BULK_SIZE) < 0) {
       new CheckResult(false,Config.CHECK_INT_ERROR)
     } else {
-      this.apiUrl = s"http://${Config.HOST}/api/${Config.DATABASE}/${Config.TABLE_NAME}/_stream_load"
+      val host: String = config.getString(Config.HOST)
+      val dataBase: String = config.getString(Config.DATABASE)
+      val tableName: String = config.getString(Config.TABLE_NAME)
+      this.apiUrl = s"http://$host/api/$dataBase/$tableName/_stream_load"
       new CheckResult(true,Config.CHECK_SUCCESS)
     }
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
-    config match {
-      case _ if config.hasPath(Config.COLUMN_SEPARATOR) =>
-        propertiesMap += (Config.COLUMN_SEPARATOR -> config.getString(Config.COLUMN_SEPARATOR))
-      case _ if config.hasPath(Config.MAX_FILTER_RATIO) =>
-        propertiesMap += (Config.MAX_FILTER_RATIO -> config.getString(Config.MAX_FILTER_RATIO))
-      case _ if config.hasPath(Config.PARTITION) =>
-        propertiesMap += (Config.PARTITION -> config.getString(Config.PARTITION))
-      case _ if config.hasPath(Config.COLUMNS) =>
-        propertiesMap += (Config.COLUMNS -> config.getString(Config.COLUMNS))
-      case _ if config.hasPath(Config.EXEC_MEM_LIMIT) =>
-        propertiesMap += (Config.EXEC_MEM_LIMIT -> config.getString(Config.EXEC_MEM_LIMIT))
-      case _ if config.hasPath(Config.STRICT_MODE) =>
-        propertiesMap += (Config.STRICT_MODE -> config.getString(Config.STRICT_MODE))
-      case _ if config.hasPath(Config.MERGE_TYPE) =>
-        propertiesMap += (Config.MERGE_TYPE -> config.getString(Config.MERGE_TYPE))
+    val httpConfig = JavaConversions.asScalaSet(config.entrySet()).filter(x => x.getKey.startsWith(Config.ARGS_PREFIX))
+    if (httpConfig.nonEmpty) {
+      httpConfig.foreach(tuple => {
+        val split = tuple.getKey.split(".")
+        if (split.size == 2) {
+          propertiesMap += (split(0) -> tuple.getValue.render())
+        }
+      })
     }
   }
 }
