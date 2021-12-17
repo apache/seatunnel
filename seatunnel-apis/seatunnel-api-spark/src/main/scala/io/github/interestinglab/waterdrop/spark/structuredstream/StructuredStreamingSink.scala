@@ -16,11 +16,9 @@
  */
 package io.github.interestinglab.waterdrop.spark.structuredstream
 
-import io.github.interestinglab.waterdrop.spark.BaseSparkSink
-import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.streaming.DataStreamWriter
 
-trait StructuredStreamingSink extends BaseSparkSink[DataStreamWriter[Row]]{
+import io.github.interestinglab.waterdrop.spark.BaseSparkSink
 
-  
-}
+trait StructuredStreamingSink extends BaseSparkSink[DataStreamWriter[Row]] {}

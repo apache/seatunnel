@@ -21,8 +21,8 @@ import io.github.interestinglab.waterdrop.common.config.Common
 object CommandLineUtils {
 
   /**
-    * command line arguments sparkParser.
-    * */
+   * command line arguments sparkParser.
+   */
   val sparkParser = new scopt.OptionParser[CommandLineArgs]("start-seatunnel-spark.sh") {
     head("Waterdrop", "2.0.0")
 

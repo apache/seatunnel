@@ -16,14 +16,16 @@
  */
 package io.github.interestinglab.waterdrop.spark.source
 
+import scala.collection.JavaConverters._
+
+import org.apache.commons.lang3.StringUtils
+import org.apache.phoenix.spark.ZkConnectUtil._
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.{Dataset, Row}
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
-import org.apache.commons.lang3.StringUtils
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.phoenix.spark.ZkConnectUtil._
-import scala.collection.JavaConverters._
 
 class Phoenix extends SparkBatchSource with Logging {
 
@@ -38,13 +40,19 @@ class Phoenix extends SparkBatchSource with Logging {
         if (config.hasPath("columns")) config.getStringList("columns").asScala else Seq()
       },
       zkUrl = Some(phoenixCfg(s"$phoenixPrefix.zk-connect")),
-      predicate = if (phoenixCfg.contains(s"$phoenixPrefix.predicate")) Some(phoenixCfg(s"$phoenixPrefix.predicate")) else None,
-      tenantId = if (phoenixCfg.contains(s"$phoenixPrefix.tenantId")) Some(phoenixCfg(s"$phoenixPrefix.tenantId")) else None
-    )
+      predicate =
+        if (phoenixCfg.contains(s"$phoenixPrefix.predicate"))
+          Some(phoenixCfg(s"$phoenixPrefix.predicate"))
+        else None,
+      tenantId =
+        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId"))
+          Some(phoenixCfg(s"$phoenixPrefix.tenantId"))
+        else None)
   }
 
   override def checkConfig(): CheckResult = {
-    if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(config.getString("zk-connect"))) {
+    if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(
+        config.getString("zk-connect"))) {
       checkZkConnect(config.getString("zk-connect"))
       new CheckResult(true, "")
     } else {

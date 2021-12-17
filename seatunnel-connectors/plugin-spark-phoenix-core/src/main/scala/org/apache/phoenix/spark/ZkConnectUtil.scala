@@ -25,7 +25,9 @@ object ZkConnectUtil {
   def checkZkConnect(zkUrl: String): Unit = {
     var cli: ZkClient = null
     try {
-      cli = new ZkClient(zkUrl, TimeUnit.SECONDS.toMillis(30).toInt,
+      cli = new ZkClient(
+        zkUrl,
+        TimeUnit.SECONDS.toMillis(30).toInt,
         TimeUnit.SECONDS.toMillis(30).toInt)
     } finally cli.close()
   }

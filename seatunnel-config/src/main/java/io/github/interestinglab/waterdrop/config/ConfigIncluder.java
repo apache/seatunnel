@@ -31,7 +31,7 @@ public interface ConfigIncluder {
      * It's up to your includer to chain to it if you want to. You might want to
      * merge any files found by the fallback includer with any objects you load
      * yourself.
-     *
+     * <p>
      * It's important to handle the case where you already have the fallback
      * with a "return this", i.e. this method should not create a new object if
      * the fallback is the same one you already have. The same fallback may be
@@ -46,7 +46,7 @@ public interface ConfigIncluder {
      * Parses another item to be included. The returned object typically would
      * not have substitutions resolved. You can throw a ConfigException here to
      * abort parsing, or return an empty object, but may not return null.
-     *
+     * <p>
      * This method is used for a "heuristic" include statement that does not
      * specify file, URL, or classpath resource. If the include statement does
      * specify, then the same class implementing {@link ConfigIncluder} must
@@ -54,10 +54,8 @@ public interface ConfigIncluder {
      * {@link ConfigIncluderFile}, or {@link ConfigIncluderURL} as needed, or a
      * default includer will be used.
      *
-     * @param context
-     *            some info about the include context
-     * @param what
-     *            the include statement's argument
+     * @param context some info about the include context
+     * @param what    the include statement's argument
      * @return a non-null ConfigObject
      */
     ConfigObject include(ConfigIncludeContext context, String what);

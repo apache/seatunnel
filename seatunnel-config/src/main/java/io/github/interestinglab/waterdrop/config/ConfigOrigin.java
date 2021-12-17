@@ -89,7 +89,7 @@ public interface ConfigOrigin {
      * that element or field.
      *
      * @return any comments that seemed to "go with" this origin, empty list if
-     *         none
+     * none
      */
     public List<String> comments();
 
@@ -103,10 +103,9 @@ public interface ConfigOrigin {
      * Note that when the given comments are equal to the comments on this object,
      * a new instance may not be created and {@code this} is returned directly.
      *
-     * @since 1.3.0
-     *
      * @param comments the comments used on the returned origin
      * @return the ConfigOrigin with the given comments
+     * @since 1.3.0
      */
     public ConfigOrigin withComments(List<String> comments);
 
@@ -122,10 +121,9 @@ public interface ConfigOrigin {
      * object, a new instance may not be created and {@code this} is returned
      * directly.
      *
-     * @since 1.3.0
-     *
      * @param lineNumber the new line number
      * @return the created ConfigOrigin
+     * @since 1.3.0
      */
     public ConfigOrigin withLineNumber(int lineNumber);
 }

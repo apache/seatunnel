@@ -50,7 +50,7 @@ public class SparkSturctTypeUtil {
                         newSchema = newSchema.add(field, DataTypes.createArrayType(st, true));
                     } else {
                         DataType st = getType(o.toString());
-                        newSchema = newSchema.add(field,  DataTypes.createArrayType(st, true));
+                        newSchema = newSchema.add(field, DataTypes.createArrayType(st, true));
                     }
                 }
 

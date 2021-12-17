@@ -24,14 +24,23 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 
 final class SparkSqlContextFunctions2(@transient val sqlContext: SQLContext) extends Serializable {
 
-  def phoenixTableAsDataFrame(table: String, columns: Seq[String],
-                              predicate: Option[String] = None,
-                              zkUrl: Option[String] = None,
-                              tenantId: Option[String] = None): DataFrame = {
+  def phoenixTableAsDataFrame(
+      table: String,
+      columns: Seq[String],
+      predicate: Option[String] = None,
+      zkUrl: Option[String] = None,
+      tenantId: Option[String] = None): DataFrame = {
     val config: Configuration = HBaseConfiguration.create()
     val job: Job = Job.getInstance(config)
     TableMapReduceUtil.initCredentials(job)
-    new PhoenixRDD2(sqlContext.sparkContext, table, columns, predicate, zkUrl, job.getCredentials, tenantId = tenantId).toDataFrame(sqlContext)
+    new PhoenixRDD2(
+      sqlContext.sparkContext,
+      table,
+      columns,
+      predicate,
+      zkUrl,
+      job.getCredentials,
+      tenantId = tenantId).toDataFrame(sqlContext)
   }
 
 }

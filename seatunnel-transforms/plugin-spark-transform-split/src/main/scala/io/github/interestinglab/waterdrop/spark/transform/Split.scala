@@ -16,19 +16,17 @@
  */
 package io.github.interestinglab.waterdrop.spark.transform
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.common.RowConstant
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.{Dataset, Row}
 import scala.collection.JavaConversions._
 
+import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.sql.functions.{col, udf}
 
-
+import io.github.interestinglab.waterdrop.common.RowConstant
+import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.{BaseSparkTransform, SparkEnvironment}
 
 class Split extends BaseSparkTransform {
-
 
   override def process(df: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
     val srcField = config.getString("source_field")
@@ -70,16 +68,14 @@ class Split extends BaseSparkTransform {
       Map(
         "delimiter" -> " ",
         "source_field" -> "raw_message",
-        "target_field" -> RowConstant.ROOT
-      )
-    )
+        "target_field" -> RowConstant.ROOT))
     config = config.withFallback(defaultConfig)
   }
 
   /**
-    * Split string by delimiter, if size of splited parts is less than fillLength,
-    * empty string is filled; if greater than fillLength, parts will be truncated.
-    * */
+   * Split string by delimiter, if size of splited parts is less than fillLength,
+   * empty string is filled; if greater than fillLength, parts will be truncated.
+   */
   private def split(str: String, delimiter: String, fillLength: Int): Seq[String] = {
     val parts = str.split(delimiter).map(_.trim)
     val filled = fillLength compare parts.size match {

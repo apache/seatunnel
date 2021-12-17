@@ -16,13 +16,14 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
+import scala.collection.JavaConversions._
+
+import org.apache.spark.sql.{Dataset, Row}
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.config.ConfigFactory
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import org.apache.spark.sql.{Dataset, Row}
-
-import scala.collection.JavaConversions._
 
 class Hudi extends SparkBatchSink {
 
@@ -32,8 +33,7 @@ class Hudi extends SparkBatchSink {
     requiredOptions.map(opt =>
       if (!config.hasPath(opt)) {
         missingOptions.append(opt).append(",")
-      }
-    )
+      })
     missingOptions.isEmpty match {
       case true =>
         new CheckResult(true, "")
@@ -46,9 +46,7 @@ class Hudi extends SparkBatchSink {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "save_mode" -> "append"
-      )
-    )
+        "save_mode" -> "append"))
     config = config.withFallback(defaultConfig)
   }
 
