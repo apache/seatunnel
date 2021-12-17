@@ -202,6 +202,29 @@ class ConfigBuilder(configFile: String) {
     outputList
   }
 
+  def createActions[T <: Plugin](): List[T] = {
+
+    var pluginInstances = List[T]()
+
+    config
+      .getConfigList("action")
+      .foreach(plugin => {
+
+        val className = buildClassFullQualifier(plugin.getString(ConfigBuilder.PluginNameKey), "action", "")
+
+        val obj = Class
+          .forName(className)
+          .newInstance()
+          .asInstanceOf[T]
+
+        obj.setConfig(plugin)
+
+        pluginInstances = pluginInstances :+ obj
+      })
+
+    pluginInstances
+  }
+
   private def getInputType(name: String, engine: String): String = {
     name match {
       case _ if name.toLowerCase.endsWith("stream") => {
@@ -230,6 +253,7 @@ class ConfigBuilder(configFile: String) {
         case "input" => ConfigBuilder.InputPackage + "." + getInputType(name, engine)
         case "filter" => ConfigBuilder.FilterPackage
         case "output" => ConfigBuilder.OutputPackage + "." + engine
+        case "action" => ConfigBuilder.ActionPackage
       }
 
       val services: Iterable[Plugin] =
@@ -267,6 +291,7 @@ object ConfigBuilder {
   val FilterPackage = PackagePrefix + ".filter"
   val InputPackage = PackagePrefix + ".input"
   val OutputPackage = PackagePrefix + ".output"
+  val ActionPackage = PackagePrefix + ".action"
 
   val PluginNameKey = "plugin_name"
 }
