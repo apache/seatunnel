@@ -121,6 +121,11 @@
             <artifactId>plugin-flink-sink-elasticsearch</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>plugin-flink-sink-doris</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
 </project>
