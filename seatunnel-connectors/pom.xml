@@ -63,6 +63,30 @@
         <module>plugin-spark-sink-hudi</module>
         <module>plugin-spark-source-kudu</module>
         <module>plugin-spark-source-mongodb</module>
+        <module>seatunnel-connector-flink-console</module>
+        <module>seatunnel-connector-spark-file</module>
+        <module>seatunnel-connector-spark-kafka</module>
+        <module>seatunnel-connector-spark-socket</module>
+        <module>seatunnel-connector-spark-redis</module>
+        <module>seatunnel-connector-spark-phoenix</module>
+        <module>seatunnel-connector-spark-mongodb</module>
+        <module>seatunnel-connector-spark-kudu</module>
+        <module>seatunnel-connector-spark-jdbc</module>
+        <module>seatunnel-connector-spark-hive</module>
+        <module>seatunnel-connector-spark-fake</module>
+        <module>seatunnel-connector-spark-elasticsearch</module>
+        <module>seatunnel-connector-spark-hudi</module>
+        <module>seatunnel-connector-spark-hbase</module>
+        <module>seatunnel-connector-spark-console</module>
+        <module>seatunnel-connector-spark-mysql</module>
+        <module>seatunnel-connector-spark-clickhouse</module>
+        <module>seatunnel-connector-spark-email</module>
+        <module>seatunnel-connector-flink-elasticsearch</module>
+        <module>seatunnel-connector-flink-file</module>
+        <module>seatunnel-connector-flink-jdbc</module>
+        <module>seatunnel-connector-flink-kafka</module>
+        <module>seatunnel-connector-flink-fake</module>
+        <module>seatunnel-connector-flink-socket</module>
     </modules>
 
 </project>

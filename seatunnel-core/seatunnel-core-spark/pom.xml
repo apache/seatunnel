@@ -33,6 +33,12 @@
     <dependencies>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>seatunnel-connector-spark-file</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>seatunnel-core-base</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -141,11 +147,11 @@
             <artifactId>plugin-spark-sink-clickhouse</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-file</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>io.github.interestinglab.seatunnel</groupId>-->
+<!--            <artifactId>plugin-spark-sink-file</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-sink-hbase</artifactId>

@@ -115,11 +115,17 @@
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
-        <spark.scope>provided</spark.scope>
+        <spark.scope>compile</spark.scope>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.github.interestinglab.seatunnel</groupId>
+                <artifactId>seatunnel-connector-spark-file</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>
