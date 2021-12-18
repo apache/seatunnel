@@ -110,8 +110,6 @@ fi
 
 assemblyJarName=$(find ${LIB_DIR} -name seatunnel-core-spark*.jar)
 
-source ${CONF_DIR}/seatunnel-env.sh
-
 string_trim() {
     echo $1 | awk '{$1=$1;print}'
 }
