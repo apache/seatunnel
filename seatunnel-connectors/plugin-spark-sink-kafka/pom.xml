@@ -52,5 +52,4 @@
             <artifactId>spark-sql_2.11</artifactId>
         </dependency>
     </dependencies>
-
 </project>
