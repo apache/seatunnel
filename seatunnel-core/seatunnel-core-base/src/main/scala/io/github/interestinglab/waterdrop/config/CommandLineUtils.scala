@@ -24,7 +24,7 @@ object CommandLineUtils {
     * command line arguments sparkParser.
     * */
   val sparkParser = new scopt.OptionParser[CommandLineArgs]("start-seatunnel-spark.sh") {
-    head("Waterdrop", "2.0.0")
+    head("SeaTunnel", "2.0.0")
 
     opt[String]('c', "config")
       .required()
@@ -51,7 +51,7 @@ object CommandLineUtils {
   }
 
   val flinkParser = new scopt.OptionParser[CommandLineArgs]("start-seatunnel-flink.sh") {
-    head("Waterdrop", "2.0.0")
+    head("SeaTunnel", "2.0.0")
 
     opt[String]('c', "config")
       .required()

@@ -26,9 +26,14 @@
         <version>2.0.4</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
+
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>seatunnel-core-flink</artifactId>
+
+    <properties>
+        <docker.repo>seatunnel-flink</docker.repo>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -128,4 +133,82 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <finalName>${project.name}</finalName>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>docker</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>docker-build</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>build</argument>
+                                        <argument>--no-cache</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>SCALA_VERSION=${scala.binary.version}</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>FLINK_VERSION=${flink.version}</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
+                                        <argument>.</argument>
+                                        <argument>--file=src/main/docker/Dockerfile</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>docker-push</id>
+                                <phase>deploy</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>buildx</argument>
+                                        <argument>build</argument>
+                                        <argument>--no-cache</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>SCALA_VERSION=${scala.binary.version}</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>FLINK_VERSION=${flink.version}</argument>
+                                        <argument>--push</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
+                                        <argument>.</argument>
+                                        <argument>--file=src/main/docker/Dockerfile</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
