@@ -44,7 +44,6 @@ import java.util.List;
  * library internals assume a specific concrete implementation. Also, this
  * interface is likely to grow new methods over time, so third-party
  * implementations will break.
- *
  */
 public interface ConfigList extends List<ConfigValue>, ConfigValue {
 

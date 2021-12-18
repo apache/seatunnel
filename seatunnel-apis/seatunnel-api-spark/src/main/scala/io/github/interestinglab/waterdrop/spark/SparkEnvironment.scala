@@ -18,14 +18,15 @@ package io.github.interestinglab.waterdrop.spark
 
 import java.lang
 
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.env.RuntimeEnv
+import scala.collection.JavaConversions._
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
-import scala.collection.JavaConversions._
+import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.env.RuntimeEnv
 
 class SparkEnvironment extends RuntimeEnv {
 

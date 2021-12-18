@@ -22,6 +22,7 @@ import java.util.Locale
 import scala.collection.JavaConverters._
 import scala.util.Try
 import scala.util.control.NonFatal
+
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.executor.InputMetrics
@@ -33,18 +34,19 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.catalyst.util.{CaseInsensitiveMap, DateTimeUtils, GenericArrayData}
+import org.apache.spark.sql.execution.datasources.jdbc.{DriverRegistry, DriverWrapper}
 import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode.JDBCSaveMode
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects, JdbcType}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.SchemaUtils
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.NextIterator
-import org.apache.spark.sql.execution.datasources.jdbc.{DriverRegistry, DriverWrapper}
 
 /**
  * Util functions for JDBC tables.
  */
 object JdbcUtils extends Logging {
+
   /**
    * Returns a factory for creating connections to the given JDBC URL.
    *
@@ -106,11 +108,12 @@ object JdbcUtils extends Logging {
     val statement = conn.createStatement
     try {
       statement.setQueryTimeout(options.queryTimeout)
-      val truncateQuery = if (options.isCascadeTruncate.isDefined) {
-        dialect.getTruncateQuery(options.table, options.isCascadeTruncate)
-      } else {
-        dialect.getTruncateQuery(options.table)
-      }
+      val truncateQuery =
+        if (options.isCascadeTruncate.isDefined) {
+          dialect.getTruncateQuery(options.table, options.isCascadeTruncate)
+        } else {
+          dialect.getTruncateQuery(options.table)
+        }
       statement.executeUpdate(truncateQuery)
     } finally {
       statement.close()
@@ -132,26 +135,30 @@ object JdbcUtils extends Logging {
       dialect: JdbcDialect,
       mode: JDBCSaveMode,
       options: JDBCOptions): String = {
-    val columns = if (tableSchema.isEmpty) {
-      rddSchema.fields.map(x => dialect.quoteIdentifier(x.name)).mkString(",")
-    } else {
-      val columnNameEquality = if (isCaseSensitive) {
-        org.apache.spark.sql.catalyst.analysis.caseSensitiveResolution
+    val columns =
+      if (tableSchema.isEmpty) {
+        rddSchema.fields.map(x => dialect.quoteIdentifier(x.name)).mkString(",")
       } else {
-        org.apache.spark.sql.catalyst.analysis.caseInsensitiveResolution
+        val columnNameEquality =
+          if (isCaseSensitive) {
+            org.apache.spark.sql.catalyst.analysis.caseSensitiveResolution
+          } else {
+            org.apache.spark.sql.catalyst.analysis.caseInsensitiveResolution
+          }
+        // The generated insert statement needs to follow rddSchema's column sequence and
+        // tableSchema's column names. When appending data into some case-sensitive DBMSs like
+        // PostgreSQL/Oracle, we need to respect the existing case-sensitive column names instead of
+        // RDD column names for user convenience.
+        val tableColumnNames = tableSchema.get.fieldNames
+        rddSchema.fields.map { col =>
+          val normalizedName =
+            tableColumnNames.find(f => columnNameEquality(f, col.name)).getOrElse {
+              throw new AnalysisException(
+                s"""Column "${col.name}" not found in schema $tableSchema""")
+            }
+          dialect.quoteIdentifier(normalizedName)
+        }.mkString(",")
       }
-      // The generated insert statement needs to follow rddSchema's column sequence and
-      // tableSchema's column names. When appending data into some case-sensitive DBMSs like
-      // PostgreSQL/Oracle, we need to respect the existing case-sensitive column names instead of
-      // RDD column names for user convenience.
-      val tableColumnNames = tableSchema.get.fieldNames
-      rddSchema.fields.map { col =>
-        val normalizedName = tableColumnNames.find(f => columnNameEquality(f, col.name)).getOrElse {
-          throw new AnalysisException(s"""Column "${col.name}" not found in schema $tableSchema""")
-        }
-        dialect.quoteIdentifier(normalizedName)
-      }.mkString(",")
-    }
     val placeholders = rddSchema.fields.map(_ => "?").mkString(",")
 
     // Waterdrop: Create insert statement when savemode is update.
@@ -166,9 +173,13 @@ object JdbcUtils extends Logging {
         val duplicateSetting = rddSchema
           .fields
           .map { x => dialect.quoteIdentifier(x.name) }
-          .map { name => if (duplicateIncs.contains(name)) s"$name=$name+VALUES($name)" else s"$name=VALUES($name)" }
+          .map { name =>
+            if (duplicateIncs.contains(name)) s"$name=$name+VALUES($name)"
+            else s"$name=VALUES($name)"
+          }
           .mkString(",")
-        val sql = s"INSERT INTO $table ($columns) VALUES ($placeholders) ON DUPLICATE KEY UPDATE $duplicateSetting"
+        val sql =
+          s"INSERT INTO $table ($columns) VALUES ($placeholders) ON DUPLICATE KEY UPDATE $duplicateSetting"
         if (props.getProperty("showSql", "false").equals("true")) {
           println(s"${JDBCSaveMode.Update} => sql => $sql")
         }
@@ -198,7 +209,7 @@ object JdbcUtils extends Logging {
       case TimestampType => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
       case DateType => Option(JdbcType("DATE", java.sql.Types.DATE))
       case t: DecimalType => Option(
-        JdbcType(s"DECIMAL(${t.precision},${t.scale})", java.sql.Types.DECIMAL))
+          JdbcType(s"DECIMAL(${t.precision},${t.scale})", java.sql.Types.DECIMAL))
       case _ => None
     }
   }
@@ -222,52 +233,54 @@ object JdbcUtils extends Logging {
       signed: Boolean): DataType = {
     val answer = sqlType match {
       // scalastyle:off
-      case java.sql.Types.ARRAY         => null
-      case java.sql.Types.BIGINT        => if (signed) { LongType } else { DecimalType(20,0) }
-      case java.sql.Types.BINARY        => BinaryType
-      case java.sql.Types.BIT           => BooleanType // @see JdbcDialect for quirks
-      case java.sql.Types.BLOB          => BinaryType
-      case java.sql.Types.BOOLEAN       => BooleanType
-      case java.sql.Types.CHAR          => StringType
-      case java.sql.Types.CLOB          => StringType
-      case java.sql.Types.DATALINK      => null
-      case java.sql.Types.DATE          => DateType
-      case java.sql.Types.DECIMAL
-        if precision != 0 || scale != 0 => DecimalType.bounded(precision, scale)
-      case java.sql.Types.DECIMAL       => DecimalType.SYSTEM_DEFAULT
-      case java.sql.Types.DISTINCT      => null
-      case java.sql.Types.DOUBLE        => DoubleType
-      case java.sql.Types.FLOAT         => FloatType
-      case java.sql.Types.INTEGER       => if (signed) { IntegerType } else { LongType }
-      case java.sql.Types.JAVA_OBJECT   => null
-      case java.sql.Types.LONGNVARCHAR  => StringType
+      case java.sql.Types.ARRAY => null
+      case java.sql.Types.BIGINT =>
+        if (signed) { LongType }
+        else { DecimalType(20, 0) }
+      case java.sql.Types.BINARY => BinaryType
+      case java.sql.Types.BIT => BooleanType // @see JdbcDialect for quirks
+      case java.sql.Types.BLOB => BinaryType
+      case java.sql.Types.BOOLEAN => BooleanType
+      case java.sql.Types.CHAR => StringType
+      case java.sql.Types.CLOB => StringType
+      case java.sql.Types.DATALINK => null
+      case java.sql.Types.DATE => DateType
+      case java.sql.Types.DECIMAL if precision != 0 || scale != 0 =>
+        DecimalType.bounded(precision, scale)
+      case java.sql.Types.DECIMAL => DecimalType.SYSTEM_DEFAULT
+      case java.sql.Types.DISTINCT => null
+      case java.sql.Types.DOUBLE => DoubleType
+      case java.sql.Types.FLOAT => FloatType
+      case java.sql.Types.INTEGER =>
+        if (signed) { IntegerType }
+        else { LongType }
+      case java.sql.Types.JAVA_OBJECT => null
+      case java.sql.Types.LONGNVARCHAR => StringType
       case java.sql.Types.LONGVARBINARY => BinaryType
-      case java.sql.Types.LONGVARCHAR   => StringType
-      case java.sql.Types.NCHAR         => StringType
-      case java.sql.Types.NCLOB         => StringType
-      case java.sql.Types.NULL          => null
-      case java.sql.Types.NUMERIC
-        if precision != 0 || scale != 0 => DecimalType.bounded(precision, scale)
-      case java.sql.Types.NUMERIC       => DecimalType.SYSTEM_DEFAULT
-      case java.sql.Types.NVARCHAR      => StringType
-      case java.sql.Types.OTHER         => null
-      case java.sql.Types.REAL          => DoubleType
-      case java.sql.Types.REF           => StringType
-      case java.sql.Types.REF_CURSOR    => null
-      case java.sql.Types.ROWID         => LongType
-      case java.sql.Types.SMALLINT      => IntegerType
-      case java.sql.Types.SQLXML        => StringType
-      case java.sql.Types.STRUCT        => StringType
-      case java.sql.Types.TIME          => TimestampType
-      case java.sql.Types.TIME_WITH_TIMEZONE
-                                        => null
-      case java.sql.Types.TIMESTAMP     => TimestampType
-      case java.sql.Types.TIMESTAMP_WITH_TIMEZONE
-                                        => null
-      case java.sql.Types.TINYINT       => IntegerType
-      case java.sql.Types.VARBINARY     => BinaryType
-      case java.sql.Types.VARCHAR       => StringType
-      case _                            =>
+      case java.sql.Types.LONGVARCHAR => StringType
+      case java.sql.Types.NCHAR => StringType
+      case java.sql.Types.NCLOB => StringType
+      case java.sql.Types.NULL => null
+      case java.sql.Types.NUMERIC if precision != 0 || scale != 0 =>
+        DecimalType.bounded(precision, scale)
+      case java.sql.Types.NUMERIC => DecimalType.SYSTEM_DEFAULT
+      case java.sql.Types.NVARCHAR => StringType
+      case java.sql.Types.OTHER => null
+      case java.sql.Types.REAL => DoubleType
+      case java.sql.Types.REF => StringType
+      case java.sql.Types.REF_CURSOR => null
+      case java.sql.Types.ROWID => LongType
+      case java.sql.Types.SMALLINT => IntegerType
+      case java.sql.Types.SQLXML => StringType
+      case java.sql.Types.STRUCT => StringType
+      case java.sql.Types.TIME => TimestampType
+      case java.sql.Types.TIME_WITH_TIMEZONE => null
+      case java.sql.Types.TIMESTAMP => TimestampType
+      case java.sql.Types.TIMESTAMP_WITH_TIMEZONE => null
+      case java.sql.Types.TINYINT => IntegerType
+      case java.sql.Types.VARBINARY => BinaryType
+      case java.sql.Types.VARCHAR => StringType
+      case _ =>
         throw new SQLException("Unrecognized SQL type " + sqlType)
       // scalastyle:on
     }
@@ -325,16 +338,17 @@ object JdbcUtils extends Logging {
           rsmd.isSigned(i + 1)
         } catch {
           // Workaround for HIVE-14684:
-          case e: SQLException if
-          e.getMessage == "Method not supported" &&
-            rsmd.getClass.getName == "org.apache.hive.jdbc.HiveResultSetMetaData" => true
+          case e: SQLException
+              if e.getMessage == "Method not supported" &&
+                rsmd.getClass.getName == "org.apache.hive.jdbc.HiveResultSetMetaData" => true
         }
       }
-      val nullable = if (alwaysNullable) {
-        true
-      } else {
-        rsmd.isNullable(i + 1) != ResultSetMetaData.columnNoNulls
-      }
+      val nullable =
+        if (alwaysNullable) {
+          true
+        } else {
+          rsmd.isNullable(i + 1) != ResultSetMetaData.columnNoNulls
+        }
       val metadata = new MetadataBuilder().putLong("scale", fieldScale)
       val columnType =
         dialect.getCatalystType(dataType, typeName, fieldSize, metadata).getOrElse(
@@ -505,7 +519,8 @@ object JdbcUtils extends Logging {
           (array: Object) =>
             array.asInstanceOf[Array[java.math.BigDecimal]].map { decimal =>
               nullSafeConvert[java.math.BigDecimal](
-                decimal, d => Decimal(d, dt.precision, dt.scale))
+                decimal,
+                d => Decimal(d, dt.precision, dt.scale))
             }
 
         case LongType if metadata.contains("binarylong") =>
@@ -644,12 +659,12 @@ object JdbcUtils extends Logging {
           // has been chosen and transactions are supported
           val defaultIsolation = metadata.getDefaultTransactionIsolation
           finalIsolationLevel = defaultIsolation
-          if (metadata.supportsTransactionIsolationLevel(isolationLevel))  {
+          if (metadata.supportsTransactionIsolationLevel(isolationLevel)) {
             // Finally update to actually requested level if possible
             finalIsolationLevel = isolationLevel
           } else {
             logWarning(s"Requested isolation level $isolationLevel is not supported; " +
-                s"falling back to default isolation level $defaultIsolation")
+              s"falling back to default isolation level $defaultIsolation")
           }
         } else {
           logWarning(s"Requested isolation level $isolationLevel, but transactions are unsupported")
@@ -789,7 +804,9 @@ object JdbcUtils extends Logging {
 
     // checks duplicate columns in the user specified column types.
     SchemaUtils.checkColumnNameDuplication(
-      userSchema.map(_.name), "in the createTableColumnTypes option value", nameEquality)
+      userSchema.map(_.name),
+      "in the createTableColumnTypes option value",
+      nameEquality)
 
     // checks if user specified column names exist in the DataFrame schema
     userSchema.fieldNames.foreach { col =>
@@ -817,7 +834,9 @@ object JdbcUtils extends Logging {
       val userSchema = CatalystSqlParser.parseTableSchema(customSchema)
 
       SchemaUtils.checkColumnNameDuplication(
-        userSchema.map(_.name), "in the customSchema option value", nameEquality)
+        userSchema.map(_.name),
+        "in the customSchema option value",
+        nameEquality)
 
       // This is resolved by names, use the custom filed dataType to replace the default dataType.
       val newSchema = tableSchema.map { col =>
@@ -852,19 +871,34 @@ object JdbcUtils extends Logging {
     val customUpdateStmt = options.customUpdateStmt
     val insertStmt = customUpdateStmt match {
       case Some(customStmt) if StringUtils.isNotBlank(customStmt) => customStmt
-      case _ => getInsertStatement(table, rddSchema, tableSchema, isCaseSensitive, dialect, saveMode, options)
+      case _ => getInsertStatement(
+          table,
+          rddSchema,
+          tableSchema,
+          isCaseSensitive,
+          dialect,
+          saveMode,
+          options)
     }
     val repartitionedDF = options.numPartitions match {
-      case Some(n) if n <= 0 => throw new IllegalArgumentException(
-        s"Invalid value `$n` for parameter `${JDBCOptions.JDBC_NUM_PARTITIONS}` in table writing " +
-          "via JDBC. The minimum value is 1.")
+      case Some(n) if n <= 0 =>
+        throw new IllegalArgumentException(
+          s"Invalid value `$n` for parameter `${JDBCOptions.JDBC_NUM_PARTITIONS}` in table writing " +
+            "via JDBC. The minimum value is 1.")
       case Some(n) if n < df.rdd.getNumPartitions => df.coalesce(n)
       case _ => df
     }
-    repartitionedDF.rdd.foreachPartition(iterator => savePartition(
-      getConnection, table, iterator, rddSchema, insertStmt, batchSize, dialect, isolationLevel,
-      options)
-    )
+    repartitionedDF.rdd.foreachPartition(iterator =>
+      savePartition(
+        getConnection,
+        table,
+        iterator,
+        rddSchema,
+        insertStmt,
+        batchSize,
+        dialect,
+        isolationLevel,
+        options))
   }
 
   /**
@@ -875,7 +909,9 @@ object JdbcUtils extends Logging {
       df: DataFrame,
       options: JdbcOptionsInWrite): Unit = {
     val strSchema = schemaString(
-      df, options.url, options.createTableColumnTypes)
+      df,
+      options.url,
+      options.createTableColumnTypes)
     val table = options.table
     val createTableOptions = options.createTableOptions
     // Create the table if the table does not exist.

@@ -89,7 +89,7 @@
             <artifactId>plugin-spark-source-phoenix</artifactId>
             <version>${project.version}</version>
         </dependency>
-       <dependency>
+        <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
             <artifactId>plugin-spark-source-redis</artifactId>
             <version>${project.version}</version>

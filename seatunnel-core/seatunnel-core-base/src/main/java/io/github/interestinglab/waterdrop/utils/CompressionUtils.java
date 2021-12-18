@@ -49,9 +49,9 @@ public class CompressionUtils {
      * @param inputFile the input .tar file
      * @param outputDir the output directory file.
      * @return The {@link List} of {@link File}s with the untared content.
-     * @throws IOException io exception
+     * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
-     * @throws ArchiveException a rchive exception
+     * @throws ArchiveException      a rchive exception
      */
     public static List<File> unTar(final File inputFile, final File outputDir) throws FileNotFoundException, IOException, ArchiveException {
 
@@ -93,7 +93,7 @@ public class CompressionUtils {
      * @param inputFile the input .gz file
      * @param outputDir the output directory file.
      * @return The {@File} with the ungzipped content.
-     * @throws IOException io exception
+     * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
      */
     public static File unGzip(final File inputFile, final File outputDir) throws FileNotFoundException, IOException {

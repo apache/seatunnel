@@ -18,18 +18,19 @@ package io.github.interestinglab.waterdrop.spark.source
 
 import java.util.Properties
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
+import scala.collection.JavaConversions._
+
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import org.apache.spark.streaming.kafka010._
 
-import scala.collection.JavaConversions._
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
 
 class KafkaStream extends SparkStreamingSource[(String, String)] {
 
@@ -51,14 +52,13 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
       Map(
         consumerPrefix + "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
         consumerPrefix + "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
-        consumerPrefix + "enable.auto.commit" -> false
-      )
-    )
+        consumerPrefix + "enable.auto.commit" -> false))
 
     config = config.withFallback(defaultConfig)
     schema = StructType(
-      Array(StructField("topic", DataTypes.StringType),
-            StructField("raw_message", DataTypes.StringType)))
+      Array(
+        StructField("topic", DataTypes.StringType),
+        StructField("raw_message", DataTypes.StringType)))
 
     topics = config.getString("topics").split(",").toSet
     val consumerConfig =
@@ -76,8 +76,7 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
     }
   }
 
-  override def rdd2dataset(sparkSession: SparkSession,
-                           rdd: RDD[(String, String)]): Dataset[Row] = {
+  override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[(String, String)]): Dataset[Row] = {
     val value = rdd.map(record => Row(record._1, record._2))
     sparkSession.createDataFrame(value, schema)
   }
@@ -111,7 +110,9 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
             new CheckResult(false, "please specify [consumer.group.id] as non-empty string")
         }
       }
-      case false => new CheckResult(false, "please specify [topics] as non-empty string, multiple topics separated by \",\"")
+      case false => new CheckResult(
+          false,
+          "please specify [topics] as non-empty string, multiple topics separated by \",\"")
     }
   }
 

@@ -44,7 +44,7 @@ public interface ConfigDocument {
      * at the final occurrence of the path. If the path does not exist, it will be added. If
      * the document has an array as the root value, an exception will be thrown.
      *
-     * @param path the path at which to set the desired value
+     * @param path     the path at which to set the desired value
      * @param newValue the value to set at the desired path, represented as a string. This
      *                 string will be parsed into a ConfigNode using the same options used to
      *                 parse the entire document, and the text will be inserted
@@ -63,7 +63,7 @@ public interface ConfigDocument {
      * desired path. Works like {@link #withValueText(String, String)},
      * but takes a ConfigValue instead of a string.
      *
-     * @param path the path at which to set the desired value
+     * @param path     the path at which to set the desired value
      * @param newValue the value to set at the desired path, represented as a ConfigValue.
      *                 The rendered text of the ConfigValue will be inserted into the
      *                 ConfigDocument.
@@ -85,6 +85,7 @@ public interface ConfigDocument {
     /**
      * Returns a boolean indicating whether or not a ConfigDocument has a value at the desired path.
      * null counts as a value for purposes of this check.
+     *
      * @param path the path to check
      * @return true if the path exists in the document, otherwise false
      */
@@ -93,6 +94,7 @@ public interface ConfigDocument {
     /**
      * The original text of the input, modified if necessary with
      * any replaced or added values.
+     *
      * @return the modified original text
      */
     String render();

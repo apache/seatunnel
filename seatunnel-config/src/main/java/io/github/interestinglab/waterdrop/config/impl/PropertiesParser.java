@@ -69,7 +69,7 @@ final class PropertiesParser {
     }
 
     static AbstractConfigObject fromProperties(ConfigOrigin origin,
-            Properties props) {
+                                               Properties props) {
         return fromEntrySet(origin, props.entrySet());
     }
 
@@ -95,7 +95,7 @@ final class PropertiesParser {
     }
 
     static AbstractConfigObject fromPathMap(ConfigOrigin origin,
-            Map<?, ?> pathExpressionMap) {
+                                            Map<?, ?> pathExpressionMap) {
         Map<Path, Object> pathMap = new LinkedHashMap<Path, Object>();
         for (Map.Entry<?, ?> entry : pathExpressionMap.entrySet()) {
             Object keyObj = entry.getKey();

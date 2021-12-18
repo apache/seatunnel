@@ -54,6 +54,7 @@ public interface ConfigValue extends ConfigMergeable {
      * {@code List<Object>}, or {@code null}, matching the {@link #valueType()}
      * of this {@code ConfigValue}. If the value is a {@link ConfigObject} or
      * {@link ConfigList}, it is recursively unwrapped.
+     *
      * @return a plain Java value corresponding to this ConfigValue
      */
     Object unwrapped();
@@ -92,8 +93,7 @@ public interface ConfigValue extends ConfigMergeable {
      * JSON. If you enable HOCON-only features such as comments, the rendering
      * will not be valid JSON.
      *
-     * @param options
-     *            the rendering options
+     * @param options the rendering options
      * @return the rendered value
      */
     String render(ConfigRenderOptions options);
@@ -105,10 +105,9 @@ public interface ConfigValue extends ConfigMergeable {
      * Places the value inside a {@link Config} at the given path. See also
      * {@link ConfigValue#atKey(String)}.
      *
-     * @param path
-     *            path to store this value at.
+     * @param path path to store this value at.
      * @return a {@code Config} instance containing this value at the given
-     *         path.
+     * path.
      */
     Config atPath(String path);
 
@@ -116,8 +115,7 @@ public interface ConfigValue extends ConfigMergeable {
      * Places the value inside a {@link Config} at the given key. See also
      * {@link ConfigValue#atPath(String)}.
      *
-     * @param key
-     *            key to store this value at.
+     * @param key key to store this value at.
      * @return a {@code Config} instance containing this value at the given key.
      */
     Config atKey(String key);
@@ -127,10 +125,9 @@ public interface ConfigValue extends ConfigMergeable {
      * origin. This is useful when you are parsing a new format of file or setting
      * comments for a single ConfigValue.
      *
-     * @since 1.3.0
-     *
      * @param origin the origin set on the returned value
      * @return the new ConfigValue with the given origin
+     * @since 1.3.0
      */
     ConfigValue withOrigin(ConfigOrigin origin);
 }

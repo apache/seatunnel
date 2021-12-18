@@ -33,7 +33,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
     private final transient ConfigOrigin origin;
 
     protected ConfigException(ConfigOrigin origin, String message,
-            Throwable cause) {
+                              Throwable cause) {
         super(origin.description() + ": " + message, cause);
         this.origin = origin;
     }
@@ -73,7 +73,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
     }
 
     private void readObject(java.io.ObjectInputStream in) throws IOException,
-      ClassNotFoundException {
+            ClassNotFoundException {
         in.defaultReadObject();
         ConfigOrigin origin = ConfigImplUtil.readOrigin(in);
         // circumvent "final"
@@ -98,7 +98,6 @@ public abstract class ConfigException extends RuntimeException implements Serial
     /**
      * Exception indicating that the type of a value does not match the type you
      * requested.
-     *
      */
     public static class WrongType extends ConfigException {
         private static final long serialVersionUID = 1L;
@@ -174,7 +173,6 @@ public abstract class ConfigException extends RuntimeException implements Serial
      * Exception indicating that a value was messed up, for example you may have
      * asked for a duration and the value can't be sensibly parsed as a
      * duration.
-     *
      */
     public static class BadValue extends ConfigException {
         private static final long serialVersionUID = 1L;
@@ -200,7 +198,6 @@ public abstract class ConfigException extends RuntimeException implements Serial
     /**
      * Exception indicating that a path expression was invalid. Try putting
      * double quotes around path elements that contain "special" characters.
-     *
      */
     public static class BadPath extends ConfigException {
         private static final long serialVersionUID = 1L;
@@ -249,7 +246,6 @@ public abstract class ConfigException extends RuntimeException implements Serial
 
     /**
      * Exception indicating that there was an IO error.
-     *
      */
     public static class IO extends ConfigException {
         private static final long serialVersionUID = 1L;
@@ -265,7 +261,6 @@ public abstract class ConfigException extends RuntimeException implements Serial
 
     /**
      * Exception indicating that there was a parse error.
-     *
      */
     public static class Parse extends ConfigException {
         private static final long serialVersionUID = 1L;
@@ -334,6 +329,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
 
         /**
          * Returns the config setting causing the problem.
+         *
          * @return the path of the problem setting
          */
         public String path() {
@@ -343,6 +339,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
         /**
          * Returns where the problem occurred (origin may include info on the
          * file, line number, etc.).
+         *
          * @return the origin of the problem setting
          */
         public ConfigOrigin origin() {
@@ -351,6 +348,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
 
         /**
          * Returns a description of the problem.
+         *
          * @return description of the problem
          */
         public String problem() {
@@ -405,6 +403,7 @@ public abstract class ConfigException extends RuntimeException implements Serial
 
     /**
      * Some problem with a JavaBean we are trying to initialize.
+     *
      * @since 1.3.0
      */
     public static class BadBean extends BugOrBroken {

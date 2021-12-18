@@ -98,7 +98,7 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
     }
 
     static ConfigNumber newNumber(ConfigOrigin origin, long number,
-            String originalText) {
+                                  String originalText) {
         if (number <= Integer.MAX_VALUE && number >= Integer.MIN_VALUE) {
             return new ConfigInt(origin, (int) number, originalText);
         }
@@ -106,7 +106,7 @@ abstract class ConfigNumber extends AbstractConfigValue implements Serializable 
     }
 
     static ConfigNumber newNumber(ConfigOrigin origin, double number,
-            String originalText) {
+                                  String originalText) {
         long asLong = (long) number;
         if (asLong == number) {
             return newNumber(origin, asLong, originalText);
