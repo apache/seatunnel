@@ -30,12 +30,12 @@ public abstract class BaseSparkSink<OUT>  implements BaseSink<SparkEnvironment>{
     @Override
     public void setConfig(Config config){
         this.config = config;
-    };
+    }
 
     @Override
     public Config getConfig(){
         return config;
-    };
+    }
 
     public abstract OUT output(Dataset<Row> data, SparkEnvironment env);
 
