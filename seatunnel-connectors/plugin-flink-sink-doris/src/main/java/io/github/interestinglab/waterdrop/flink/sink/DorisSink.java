@@ -44,8 +44,8 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
     private String password;
     private String tableName;
     private String dbName;
-    private int batchSize = 5000;
-    private long batchIntervalMs = 10;
+    private int batchSize = 100;
+    private long batchIntervalMs = 1000;
     private int maxRetries = 1;
     private Properties streamLoadProp = new Properties();
 
