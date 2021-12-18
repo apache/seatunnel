@@ -58,7 +58,7 @@ class Doris extends SparkBatchSink with Serializable {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME,Config.BULK_SIZE)
+    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME,Config.BULK_SIZE,Config.USER,Config.PASSWORD)
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
       !exists
