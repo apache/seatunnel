@@ -73,13 +73,15 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
         dbName = config.getString("db_name");
         if (config.hasPath("doris_sink_batch_size")) {
             batchSize = config.getInt("doris_sink_batch_size");
-            Preconditions.checkArgument(batchSize > 0,"doris_sink_batch_size must be greater than 0");
+            Preconditions.checkArgument(batchSize > 0, "doris_sink_batch_size must be greater than 0");
         }
         if (config.hasPath("doris_sink_interval")) {
             batchIntervalMs = config.getInt("doris_sink_interval");
+            Preconditions.checkArgument(batchIntervalMs > 0, "doris_sink_interval must be greater than 0");
         }
         if (config.hasPath("doris_sink_max_retries")) {
             maxRetries = config.getInt("doris_sink_max_retries");
+            Preconditions.checkArgument(maxRetries > 0, "doris_sink_max_retries must be greater than 0");
         }
 
         String producerPrefix = "doris_sink_properties.";
