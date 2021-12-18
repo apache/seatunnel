@@ -38,5 +38,4 @@ public abstract class BaseSparkTransform implements BaseTransform<SparkEnvironme
 
     public abstract Dataset<Row> process(Dataset<Row>data, SparkEnvironment env);
 
-
 }

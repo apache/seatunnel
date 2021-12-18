@@ -35,18 +35,14 @@ public class SparkBatchExecution implements Execution<BaseSparkBatchSource, Base
     private SparkEnvironment environment;
     private Config config = ConfigFactory.empty();
 
-
-
     public SparkBatchExecution(SparkEnvironment environment) {
         this.environment = environment;
     }
 
     @Override
     public void start(List<BaseSparkBatchSource> sources, List<BaseSparkTransform> transforms, List<BaseSparkBatchSink> sinks) {
-        sources.forEach(s -> {
-            BaseSparkSource<Dataset<Row>> ds = s;
-            registerInputTempView(ds, environment);
-        });
+        sources.forEach(s -> registerInputTempView(s, environment));
+
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform tf : transforms) {
@@ -90,9 +86,9 @@ public class SparkBatchExecution implements Execution<BaseSparkBatchSource, Base
 
     public static void registerInputTempView(BaseSparkSource<Dataset<Row>> source, SparkEnvironment environment) {
         Config conf = source.getConfig();
-        final boolean flag = conf.hasPath(SparkBatchExecution.RESULT_TABLE_NAME);
+        final boolean needRegister = conf.hasPath(SparkBatchExecution.RESULT_TABLE_NAME);
 
-        if (flag) {
+        if (needRegister) {
             String tableName = conf.getString(SparkBatchExecution.RESULT_TABLE_NAME);
             registerTempView(tableName, source.getData(environment));
         } else {
@@ -103,9 +99,9 @@ public class SparkBatchExecution implements Execution<BaseSparkBatchSource, Base
 
     public static Dataset<Row> transformProcess(SparkEnvironment environment, BaseSparkTransform transform, Dataset<Row> ds) {
         Config config = transform.getConfig();
-        boolean flag = config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME);
+        boolean hasSourceTable = config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME);
         Dataset<Row> fromDs;
-        if (flag) {
+        if (hasSourceTable) {
             String sourceTableName = config.getString(SparkBatchExecution.SOURCE_TABLE_NAME);
             fromDs = environment.getSparkSession().read().table(sourceTableName);
 
@@ -115,7 +111,6 @@ public class SparkBatchExecution implements Execution<BaseSparkBatchSource, Base
 
         return transform.process(fromDs, environment);
     }
-
 
     public static void registerTransformTempView(BaseSparkTransform plugin, Dataset<Row> ds) {
         Config config = plugin.getConfig();
@@ -127,15 +122,14 @@ public class SparkBatchExecution implements Execution<BaseSparkBatchSource, Base
 
     public static void sinkProcess(SparkEnvironment environment, BaseSparkSink sink, Dataset<Row> ds) {
         Config config = sink.getConfig();
-        boolean flag = config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME);
+        boolean hasSourceTable = config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME);
         Dataset<Row> fromDs;
-        if (flag){
+        if (hasSourceTable){
             String sourceTableName = config.getString(SparkBatchExecution.SOURCE_TABLE_NAME);
             fromDs = environment.getSparkSession().read().table(sourceTableName);
         }else {
             fromDs = ds;
         }
-
 
         sink.output(fromDs, environment);
     }
