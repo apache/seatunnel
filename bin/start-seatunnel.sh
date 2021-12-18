@@ -22,6 +22,7 @@ CMD_ARGUMENTS=$@
 
 PARAMS=""
 variables_substitution="-Ddefault=seatunnel"
+
 while (( "$#" )); do
   case "$1" in
     -m|--master)
@@ -129,7 +130,7 @@ variables_substitution=$(string_trim "${variables_substitution}")
 
 ## get spark conf from config file and specify them in spark-submit --conf
 function get_spark_conf {
-    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE} ${variables_substitution})
+    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE} "${variables_substitution}")
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
         exit -1
@@ -137,9 +138,9 @@ function get_spark_conf {
     echo ${spark_conf}
 }
 
-sparkConf=($(get_spark_conf))
+sparkConf=$(get_spark_conf)
 
-echo "[INFO] spark conf: ${sparkConf[@]}"
+echo "[INFO] spark conf: ${sparkConf}"
 
 
 ## compress plugins.tar.gz in cluster mode
@@ -161,12 +162,14 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
+CMD=(${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.Waterdrop \
     --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
     --queue "${QUEUE}" \
-    "${sparkConf[@]}" \
+    "${sparkConf}" \
     ${JarDepOpts} \
     ${FilesDepOpts} \
-    ${assemblyJarName} ${CMD_ARGUMENTS}
+    ${assemblyJarName} ${CMD_ARGUMENTS})
+
+eval "${CMD[@]}"
