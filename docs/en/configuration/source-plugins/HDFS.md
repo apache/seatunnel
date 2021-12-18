@@ -27,7 +27,7 @@ Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) fo
 
 ```bash
 hdfs {
-    path = "hdfs://master:8020/tmp/test.csv"
+    path = "/master:8020/tmp/test.csv"
     format = "csv"
     result_table_name = "test"
 }
