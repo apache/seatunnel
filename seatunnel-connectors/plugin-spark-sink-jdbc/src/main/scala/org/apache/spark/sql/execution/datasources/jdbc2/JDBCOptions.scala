@@ -16,18 +16,16 @@
  */
 package org.apache.spark.sql.execution.datasources.jdbc2
 
-import java.sql.{Connection, DriverManager}
-import java.util.{Locale, Properties}
-
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.DriverRegistry
-import org.apache.spark.sql.types.StructType
+
+import java.sql.{Connection, DriverManager}
+import java.util.{Locale, Properties}
 
 /**
  * Options for the JDBC data source.
  */
-class JDBCOptions(
-    @transient val parameters: CaseInsensitiveMap[String])
+class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
   extends Serializable {
 
   import JDBCOptions._
@@ -190,8 +188,7 @@ class JDBCOptions(
   val pushDownPredicate = parameters.getOrElse(JDBC_PUSHDOWN_PREDICATE, "true").toBoolean
 }
 
-class JdbcOptionsInWrite(
-    @transient override val parameters: CaseInsensitiveMap[String])
+class JdbcOptionsInWrite(@transient override val parameters: CaseInsensitiveMap[String])
   extends JDBCOptions(parameters) {
 
   import JDBCOptions._
@@ -211,7 +208,7 @@ class JdbcOptionsInWrite(
 
   val table = parameters(JDBC_TABLE_NAME)
 
-  // Waterdrop: custom mysql duplicate key update statement when saveMode is update
+  // SeaTunnel: custom mysql duplicate key update statement when saveMode is update
   val customUpdateStmt = parameters.get(JDBC_CUSTOM_UPDATE_STMT)
 }
 
@@ -243,7 +240,7 @@ object JDBCOptions {
   val JDBC_TXN_ISOLATION_LEVEL = newOption("isolationLevel")
   val JDBC_SESSION_INIT_STATEMENT = newOption("sessionInitStatement")
   val JDBC_PUSHDOWN_PREDICATE = newOption("pushDownPredicate")
-  // Waterdrop: add extra options
+  // SeaTunnel: add extra options
   val JDBC_DUPLICATE_INCS = newOption("duplicateIncs")
   val JDBC_CUSTOM_UPDATE_STMT = newOption("customUpdateStmt")
 }

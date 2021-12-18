@@ -16,19 +16,19 @@
  */
 package org.apache.spark.sql.execution.datasources.jdbc2
 
-import org.apache.spark.sql.{AnalysisException, DataFrame, SaveMode, SQLContext}
 import org.apache.spark.sql.execution.datasources.jdbc2.JdbcUtils._
 import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, DataSourceRegister, RelationProvider}
+import org.apache.spark.sql.{AnalysisException, DataFrame, SQLContext, SaveMode}
 
-// Waterdrop: DefaultSource for mysql to custom saveMode
+// SeaTunnel: DefaultSource for mysql to custom saveMode
 class DefaultSource extends CreatableRelationProvider with RelationProvider
   with DataSourceRegister {
 
   override def shortName(): String = "jdbc2"
 
   override def createRelation(
-      sqlContext: SQLContext,
-      parameters: Map[String, String]): BaseRelation = {
+                               sqlContext: SQLContext,
+                               parameters: Map[String, String]): BaseRelation = {
 
     val jdbcOptions = new JdbcOptionsInWrite(parameters)
 
@@ -41,10 +41,10 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider
   }
 
   override def createRelation(
-      sqlContext: SQLContext,
-      mode: SaveMode,
-      parameters: Map[String, String],
-      df: DataFrame): BaseRelation = {
+                               sqlContext: SQLContext,
+                               mode: SaveMode,
+                               parameters: Map[String, String],
+                               df: DataFrame): BaseRelation = {
 
     val options = new JdbcOptionsInWrite(parameters)
     val isCaseSensitive = sqlContext.conf.caseSensitiveAnalysis
@@ -68,7 +68,7 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider
       if (tableExists) {
         saveMode match {
           case JDBCSaveMode.Overwrite =>
-            if (options.isTruncate && isCascadingTruncateTable(options.url) == Some(false)) {
+            if (options.isTruncate && isCascadingTruncateTable(options.url).contains(false)) {
               // In this case, we should truncate table and then load.
               truncateTable(conn, options)
               val tableSchema = JdbcUtils.getSchemaOption(conn, options)

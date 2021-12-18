@@ -16,37 +16,35 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode
-
 import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.config.ConfigFactory
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode
+import org.apache.spark.sql.{Dataset, Row}
 
-class Mysql extends SparkBatchSink {
+import scala.collection.JavaConversions._
+
+class Jdbc extends SparkBatchSink {
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val saveMode = config.getString("save_mode")
-    val customUpdateStmt =
-      if (config.hasPath("customUpdateStmt")) config.getString("customUpdateStmt") else ""
-    val duplicateIncs =
-      if (config.hasPath("duplicateIncs")) config.getString("duplicateIncs") else ""
     if ("update".equals(saveMode)) {
       data.write.format("org.apache.spark.sql.execution.datasources.jdbc2").options(
         Map(
           "savemode" -> JDBCSaveMode.Update.toString,
-          "driver" -> "com.mysql.jdbc.Driver",
+          "driver" -> config.getString("driver"),
           "url" -> config.getString("url"),
           "user" -> config.getString("user"),
           "password" -> config.getString("password"),
           "dbtable" -> config.getString("dbtable"),
-          "useSSL" -> "false",
-          "duplicateIncs" -> duplicateIncs,
-          "customUpdateStmt" -> customUpdateStmt, // Custom mysql duplicate key update statement when saveMode is update
-          "showSql" -> "true")).save()
+          "useSSL" -> config.getString("useSSL"),
+          "customUpdateStmt" -> config.getString("customUpdateStmt"), // Custom mysql duplicate key update statement when saveMode is update
+          "duplicateIncs" -> config.getString("duplicateIncs"),
+          "showSql" -> config.getString("showSql"))).save()
     } else {
       val prop = new java.util.Properties()
-      prop.setProperty("driver", "com.mysql.jdbc.Driver")
+      prop.setProperty("driver", config.getString("driver"))
       prop.setProperty("user", config.getString("user"))
       prop.setProperty("password", config.getString("password"))
       data.write.mode(saveMode).jdbc(config.getString("url"), config.getString("dbtable"), prop)
@@ -55,7 +53,7 @@ class Mysql extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List("url", "dbtable", "user", "password")
+    val requiredOptions = List("driver", "url", "dbtable", "user", "password")
     val nonExistsOptions =
       requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
         val (optionName, exists) = p
@@ -76,5 +74,16 @@ class Mysql extends SparkBatchSink {
     }
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {}
+  override def prepare(prepareEnv: SparkEnvironment): Unit = {
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "save_mode" -> "error",
+        "useSSL" -> "false",
+        "showSql" -> "true",
+        "customUpdateStmt" -> "",
+        "duplicateIncs" -> ""
+      )
+    )
+    config = config.withFallback(defaultConfig)
+  }
 }
