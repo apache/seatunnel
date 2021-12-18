@@ -16,16 +16,17 @@
  */
 package io.github.interestinglab.waterdrop.spark.source
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
+import scala.collection.JavaConversions._
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.streaming.dstream.DStream
-import scala.collection.JavaConversions._
 
+import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
 
 class SocketStream extends SparkStreamingSource[String] {
 
@@ -33,8 +34,7 @@ class SocketStream extends SparkStreamingSource[String] {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "host" -> "localhost",
-        "port" -> 9999
-      ))
+        "port" -> 9999))
     config = config.withFallback(defaultConfig)
   }
 

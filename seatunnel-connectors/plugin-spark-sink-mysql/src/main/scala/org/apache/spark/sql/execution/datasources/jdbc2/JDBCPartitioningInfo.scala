@@ -30,6 +30,7 @@ import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{DataType, DateType, NumericType, StructType, TimestampType}
 import org.apache.spark.util.Utils
+
 /**
  * Instructions on how to partition the table among workers.
  */
@@ -41,6 +42,7 @@ private[sql] case class JDBCPartitioningInfo(
     numPartitions: Int)
 
 private[sql] object JDBCRelation extends Logging {
+
   /**
    * Given a partitioning schematic (a column of integral type, a number of
    * partitions, and upper and lower bounds on the column's value), generate
@@ -72,21 +74,31 @@ private[sql] object JDBCRelation extends Logging {
       val numPartitions = jdbcOptions.numPartitions
 
       if (partitionColumn.isEmpty) {
-        assert(lowerBound.isEmpty && upperBound.isEmpty, "When 'partitionColumn' is not " +
-          s"specified, '$JDBC_LOWER_BOUND' and '$JDBC_UPPER_BOUND' are expected to be empty")
+        assert(
+          lowerBound.isEmpty && upperBound.isEmpty,
+          "When 'partitionColumn' is not " +
+            s"specified, '$JDBC_LOWER_BOUND' and '$JDBC_UPPER_BOUND' are expected to be empty")
         null
       } else {
-        assert(lowerBound.nonEmpty && upperBound.nonEmpty && numPartitions.nonEmpty,
+        assert(
+          lowerBound.nonEmpty && upperBound.nonEmpty && numPartitions.nonEmpty,
           s"When 'partitionColumn' is specified, '$JDBC_LOWER_BOUND', '$JDBC_UPPER_BOUND', and " +
             s"'$JDBC_NUM_PARTITIONS' are also required")
 
         val (column, columnType) = verifyAndGetNormalizedPartitionColumn(
-          schema, partitionColumn.get, resolver, jdbcOptions)
+          schema,
+          partitionColumn.get,
+          resolver,
+          jdbcOptions)
 
         val lowerBoundValue = toInternalBoundValue(lowerBound.get, columnType)
         val upperBoundValue = toInternalBoundValue(upperBound.get, columnType)
         JDBCPartitioningInfo(
-          column, columnType, lowerBoundValue, upperBoundValue, numPartitions.get)
+          column,
+          columnType,
+          lowerBoundValue,
+          upperBoundValue,
+          numPartitions.get)
       }
     }
 
@@ -97,15 +109,16 @@ private[sql] object JDBCRelation extends Logging {
 
     val lowerBound = partitioning.lowerBound
     val upperBound = partitioning.upperBound
-    require (lowerBound <= upperBound,
+    require(
+      lowerBound <= upperBound,
       "Operation not allowed: the lower bound of partitioning column is larger than the upper " +
-      s"bound. Lower bound: $lowerBound; Upper bound: $upperBound")
+        s"bound. Lower bound: $lowerBound; Upper bound: $upperBound")
 
     val boundValueToString: Long => String =
       toBoundValueInWhereClause(_, partitioning.columnType, timeZoneId)
     val numPartitions =
       if ((upperBound - lowerBound) >= partitioning.numPartitions || /* check for overflow */
-          (upperBound - lowerBound) < 0) {
+        (upperBound - lowerBound) < 0) {
         partitioning.numPartitions
       } else {
         logWarning("The number of partitions is reduced because the specified number of " +
@@ -208,7 +221,9 @@ private[sql] object JDBCRelation extends Logging {
     val tableSchema = JDBCRDD.resolveTable(jdbcOptions)
     jdbcOptions.customSchema match {
       case Some(customSchema) => JdbcUtils.getCustomSchema(
-        tableSchema, customSchema, resolver)
+          tableSchema,
+          customSchema,
+          resolver)
       case None => tableSchema
     }
   }

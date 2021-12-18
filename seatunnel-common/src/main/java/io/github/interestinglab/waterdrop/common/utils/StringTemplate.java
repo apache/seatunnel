@@ -28,10 +28,10 @@ import java.util.UUID;
 public class StringTemplate {
 
     /**
-     * @param str raw string
+     * @param str        raw string
      * @param timeFormat example : "yyyy-MM-dd HH:mm:ss"
      * @return replaced string
-     * */
+     */
     public static String substitute(String str, String timeFormat) {
 
         final SimpleDateFormat sdf = new SimpleDateFormat(timeFormat);

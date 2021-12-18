@@ -16,12 +16,13 @@
  */
 package org.apache.spark.sql.execution.datasources.jdbc2
 
+import org.apache.spark.sql.{AnalysisException, DataFrame, SaveMode, SQLContext}
 import org.apache.spark.sql.execution.datasources.jdbc2.JdbcUtils._
 import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, DataSourceRegister, RelationProvider}
-import org.apache.spark.sql.{AnalysisException, DataFrame, SQLContext, SaveMode}
 
 // Waterdrop: DefaultSource for mysql to custom saveMode
-class DefaultSource extends CreatableRelationProvider with RelationProvider with DataSourceRegister {
+class DefaultSource extends CreatableRelationProvider with RelationProvider
+  with DataSourceRegister {
 
   override def shortName(): String = "jdbc2"
 
@@ -54,9 +55,11 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider with
       case SaveMode.ErrorIfExists => JDBCSaveMode.ErrorIfExists
       case SaveMode.Ignore => JDBCSaveMode.Ignore
     }
-    val parameterLower = parameters.map(kv => (kv._1.toLowerCase,kv._2))
-    if(parameterLower.keySet.contains("savemode")){
-      saveMode = if(parameterLower("savemode").equals(JDBCSaveMode.Update.toString)) JDBCSaveMode.Update else saveMode
+    val parameterLower = parameters.map(kv => (kv._1.toLowerCase, kv._2))
+    if (parameterLower.keySet.contains("savemode")) {
+      saveMode =
+        if (parameterLower("savemode").equals(JDBCSaveMode.Update.toString)) JDBCSaveMode.Update
+        else saveMode
     }
 
     val conn = JdbcUtils.createConnectionFactory(options)()
@@ -90,9 +93,9 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider with
               s"Table or view '${options.table}' already exists. SaveMode: ErrorIfExists.")
 
           case JDBCSaveMode.Ignore =>
-            // With `SaveMode.Ignore` mode, if table already exists, the save operation is expected
-            // to not save the contents of the DataFrame and to not change the existing data.
-            // Therefore, it is okay to do nothing here and then just return the relation below.
+          // With `SaveMode.Ignore` mode, if table already exists, the save operation is expected
+          // to not save the contents of the DataFrame and to not change the existing data.
+          // Therefore, it is okay to do nothing here and then just return the relation below.
         }
       } else {
         createTable(conn, df, options)

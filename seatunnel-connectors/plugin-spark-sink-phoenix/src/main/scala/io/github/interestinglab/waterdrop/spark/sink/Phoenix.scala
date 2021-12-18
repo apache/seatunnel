@@ -16,15 +16,17 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
+import scala.collection.JavaConverters._
+import scala.util.Try
+
+import org.apache.commons.lang3.StringUtils
+import org.apache.phoenix.spark.ZkConnectUtil._
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.{Dataset, Row}
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import org.apache.commons.lang3.StringUtils
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.phoenix.spark.ZkConnectUtil._
-import scala.collection.JavaConverters._
-import scala.util.Try
 
 class Phoenix extends SparkBatchSink with Logging {
 
@@ -37,17 +39,22 @@ class Phoenix extends SparkBatchSink with Logging {
       zkUrl = Some(phoenixCfg(s"$phoenixPrefix.zk-connect")),
       tableName = phoenixCfg(s"$phoenixPrefix.table"),
       tenantId = {
-        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId")) Some(phoenixCfg(s"$phoenixPrefix.tenantId")) else None
+        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId"))
+          Some(phoenixCfg(s"$phoenixPrefix.tenantId"))
+        else None
       },
       skipNormalizingIdentifier = {
         Try {
-          if (config.hasPath("skipNormalizingIdentifier")) config.getBoolean("skipNormalizingIdentifier") else false
+          if (config.hasPath("skipNormalizingIdentifier"))
+            config.getBoolean("skipNormalizingIdentifier")
+          else false
         }.getOrElse(false)
       })
   }
 
   override def checkConfig(): CheckResult = {
-    if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(config.getString("zk-connect"))) {
+    if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(
+        config.getString("zk-connect"))) {
       checkZkConnect(config.getString("zk-connect"))
       new CheckResult(true, "")
     } else {

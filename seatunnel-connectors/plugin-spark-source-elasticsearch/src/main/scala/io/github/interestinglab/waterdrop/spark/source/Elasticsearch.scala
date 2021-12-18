@@ -16,12 +16,13 @@
  */
 package io.github.interestinglab.waterdrop.spark.source
 
-import io.github.interestinglab.waterdrop.common.config.{TypesafeConfigUtils, CheckResult}
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
+import scala.collection.JavaConversions._
 
 import org.apache.spark.sql.{Dataset, Row}
-import scala.collection.JavaConversions._
+
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
 
 class Elasticsearch extends SparkBatchSource {
 
@@ -60,7 +61,8 @@ class Elasticsearch extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    config.hasPath("hosts") && config.hasPath("index") && config.getStringList("hosts").size() > 0 match {
+    config.hasPath("hosts") && config.hasPath("index") && config.getStringList(
+      "hosts").size() > 0 match {
       case true => {
         // val hosts = config.getStringList("hosts")
         // TODO CHECK hosts

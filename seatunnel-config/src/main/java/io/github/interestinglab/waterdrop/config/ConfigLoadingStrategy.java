@@ -20,10 +20,10 @@ package io.github.interestinglab.waterdrop.config;
 /**
  * This method allows you to alter default config loading strategy for all the code which
  * calls {@link ConfigFactory#load}.
- *
+ * <p>
  * Usually you don't have to implement this interface but it may be required
  * when you fixing a improperly implemented library with unavailable source code.
- *
+ * <p>
  * You have to define VM property {@code config.strategy} to replace default strategy with your own.
  */
 public interface ConfigLoadingStrategy {

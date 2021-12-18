@@ -103,9 +103,7 @@ public interface ConfigObject extends ConfigValue, Map<String, ConfigValue> {
      * {@link ConfigValueType#NULL} or any other type, and the passed-in key
      * must be a key in this object (rather than a path expression).
      *
-     * @param key
-     *            key to look up
-     *
+     * @param key key to look up
      * @return the value at the key or null if none
      */
     @Override
@@ -115,8 +113,7 @@ public interface ConfigObject extends ConfigValue, Map<String, ConfigValue> {
      * Clone the object with only the given key (and its children) retained; all
      * sibling keys are removed.
      *
-     * @param key
-     *            key to keep
+     * @param key key to keep
      * @return a copy of the object minus all keys except the one specified
      */
     ConfigObject withOnlyKey(String key);
@@ -124,8 +121,7 @@ public interface ConfigObject extends ConfigValue, Map<String, ConfigValue> {
     /**
      * Clone the object with the given key removed.
      *
-     * @param key
-     *            key to remove
+     * @param key key to remove
      * @return a copy of the object minus the specified key
      */
     ConfigObject withoutKey(String key);
@@ -136,10 +132,8 @@ public interface ConfigObject extends ConfigValue, Map<String, ConfigValue> {
      * immutable). If the key already has a value, that value is replaced. To
      * remove a value, use {@link ConfigObject#withoutKey(String)}.
      *
-     * @param key
-     *            key to add
-     * @param value
-     *            value at the new key
+     * @param key   key to add
+     * @param value value at the new key
      * @return the new instance with the new map entry
      */
     ConfigObject withValue(String key, ConfigValue value);

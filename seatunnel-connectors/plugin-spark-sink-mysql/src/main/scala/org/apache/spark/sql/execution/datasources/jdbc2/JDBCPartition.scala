@@ -222,7 +222,6 @@ private[jdbc2] class JDBCRDD(
 
   /**
    * Runs the SQL query against the JDBC driver.
-   *
    */
   override def compute(thePart: Partition, context: TaskContext): Iterator[InternalRow] = {
     var closed = false
@@ -264,7 +263,7 @@ private[jdbc2] class JDBCRDD(
       closed = true
     }
 
-    context.addTaskCompletionListener[Unit]{ context => close() }
+    context.addTaskCompletionListener[Unit] { context => close() }
 
     val inputMetrics = context.taskMetrics().inputMetrics
     val part = thePart.asInstanceOf[JDBCPartition]
@@ -296,14 +295,14 @@ private[jdbc2] class JDBCRDD(
     val myWhereClause = getWhereClause(part)
 
     val sqlText = s"SELECT $columnList FROM ${options.tableOrQuery} $myWhereClause"
-    stmt = conn.prepareStatement(sqlText,
-        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
+    stmt = conn.prepareStatement(sqlText, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
     stmt.setFetchSize(options.fetchSize)
     stmt.setQueryTimeout(options.queryTimeout)
     rs = stmt.executeQuery()
     val rowsIterator = JdbcUtils.resultSetToSparkInternalRows(rs, schema, inputMetrics)
 
     CompletionIterator[InternalRow, Iterator[InternalRow]](
-      new InterruptibleIterator(context, rowsIterator), close())
+      new InterruptibleIterator(context, rowsIterator),
+      close())
   }
 }

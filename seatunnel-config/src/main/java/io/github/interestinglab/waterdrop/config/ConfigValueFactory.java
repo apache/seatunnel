@@ -76,10 +76,8 @@ public final class ConfigValueFactory {
      * should never handle the exception. Just fix your program (or report a bug
      * against this library).
      *
-     * @param object
-     *            object to convert to ConfigValue
-     * @param originDescription
-     *            name of origin file or brief description of what the value is
+     * @param object            object to convert to ConfigValue
+     * @param originDescription name of origin file or brief description of what the value is
      * @return a new value
      */
     public static ConfigValue fromAnyRef(Object object, String originDescription) {
@@ -105,7 +103,7 @@ public final class ConfigValueFactory {
      * See also {@link ConfigFactory#parseMap(Map, String)} which interprets the
      * keys in the map as path expressions.
      *
-     * @param values map from keys to plain Java values
+     * @param values            map from keys to plain Java values
      * @param originDescription description to use in {@link ConfigOrigin} of created values
      * @return a new {@link ConfigObject} value
      */
@@ -119,7 +117,7 @@ public final class ConfigValueFactory {
      * This is a typesafe wrapper that only works on {@link java.lang.Iterable}
      * and returns {@link ConfigList} rather than {@link ConfigValue}.
      *
-     * @param values list of plain Java values
+     * @param values            list of plain Java values
      * @param originDescription description to use in {@link ConfigOrigin} of created values
      * @return a new {@link ConfigList} value
      */

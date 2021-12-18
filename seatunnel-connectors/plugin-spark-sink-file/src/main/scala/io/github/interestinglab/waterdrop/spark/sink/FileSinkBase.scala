@@ -18,16 +18,16 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 import java.util
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
-import io.github.interestinglab.waterdrop.common.utils.StringTemplate
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import org.apache.spark.sql.{Dataset, Row}
-
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
+import org.apache.spark.sql.{Dataset, Row}
+
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.common.utils.StringTemplate
+import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 
 abstract class FileSinkBase extends SparkBatchSink {
 
@@ -39,7 +39,10 @@ abstract class FileSinkBase extends SparkBatchSink {
         dir.startsWith("/") || uriInAllowedSchema(dir, allowedURISchema) match {
           case true => new CheckResult(true, "")
           case false =>
-            new CheckResult(false, "invalid path URI, please set the following allowed schemas: " + allowedURISchema.mkString(", "))
+            new CheckResult(
+              false,
+              "invalid path URI, please set the following allowed schemas: " + allowedURISchema.mkString(
+                ", "))
         }
       }
       case false => new CheckResult(false, "please specify [path] as non-empty string")
@@ -53,15 +56,14 @@ abstract class FileSinkBase extends SparkBatchSink {
         "save_mode" -> "error", // allowed values: overwrite, append, ignore, error
         "serializer" -> "json", // allowed values: csv, json, parquet, text
         "path_time_format" -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
-      )
-    )
+      ))
     config = config.withFallback(defaultConfig)
   }
 
   /**
-    * check if the schema name in this uri is allowed.
-    * @return true if schema name is allowed
-    * */
+   * check if the schema name in this uri is allowed.
+   * @return true if schema name is allowed
+   */
   protected def uriInAllowedSchema(uri: String, allowedURISchema: List[String]): Boolean = {
 
     val notAllowed = allowedURISchema.forall(schema => {

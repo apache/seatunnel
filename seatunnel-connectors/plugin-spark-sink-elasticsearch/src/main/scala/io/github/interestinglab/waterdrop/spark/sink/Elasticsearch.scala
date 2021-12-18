@@ -16,16 +16,16 @@
  */
 package io.github.interestinglab.waterdrop.spark.sink
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import io.github.interestinglab.waterdrop.common.utils.StringTemplate
+import scala.collection.JavaConversions._
+
 import org.apache.spark.sql.{Dataset, Row}
 import org.elasticsearch.spark.sql._
 
-import scala.collection.JavaConversions._
-
+import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.common.utils.StringTemplate
+import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 
 class Elasticsearch extends SparkBatchSink {
 
@@ -33,7 +33,8 @@ class Elasticsearch extends SparkBatchSink {
   var esCfg: Map[String, String] = Map()
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
-    val index = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
+    val index =
+      StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
     df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
   }
 
@@ -53,9 +54,7 @@ class Elasticsearch extends SparkBatchSink {
       Map(
         "index" -> "waterdrop",
         "index_type" -> "_doc",
-        "index_time_format" -> "yyyy.MM.dd"
-      )
-    )
+        "index_time_format" -> "yyyy.MM.dd"))
     config = config.withFallback(defaultConfig)
 
     config
