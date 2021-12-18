@@ -13,8 +13,8 @@ Write Rows to a Doris Table.
 | table_name | string | yes | - | Flink |
 | username	 | string | yes | - | Flink |
 | password	 | string | yes | - | Flink |
-| doris_sink_batch_size	 | int | no |  5000 | Flink |
-| doris_sink_interval	 | int | no |3000 | Flink |
+| doris_sink_batch_size	 | int | no |  100 | Flink |
+| doris_sink_interval	 | int | no |1000 | Flink |
 | doris_sink_max_retries	 | int | no | 1 | Flink |
 | doris_sink_properties.*	 | - | no | - | Flink |
 
