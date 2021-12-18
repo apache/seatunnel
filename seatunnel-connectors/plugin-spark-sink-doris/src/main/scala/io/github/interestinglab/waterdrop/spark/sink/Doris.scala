@@ -64,7 +64,7 @@ class Doris extends SparkBatchSink with Serializable {
       !exists
     }
     if (nonExistsOptions.nonEmpty) {
-      new CheckResult(false, "please specify " + nonExistsOptions
+      new CheckResult(false, "Please specify " + nonExistsOptions
         .map { option =>
             val (name, exists) = option
             "[" + name + "]"

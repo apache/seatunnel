@@ -33,8 +33,8 @@ object Config extends Serializable {
   val CONTENT_TYPE = "text/plain"
   var TIMEOUT = 30000
 
-  val CHECK_INT_ERROR = "please check bulk_size is larger than 0"
-  val CHECK_USER_ERROR = "please check username and password at the same time"
-  val CHECK_SUCCESS = "all check is success"
+  val CHECK_INT_ERROR = "Please check bulk_size is larger than 0"
+  val CHECK_USER_ERROR = "Please check username and password at the same time"
+  val CHECK_SUCCESS = "All check is success"
 
 }

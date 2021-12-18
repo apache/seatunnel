@@ -48,6 +48,7 @@ object DorisUtil extends Serializable {
                  headers: Map[String, String],
                  user: String,
                  password: String): (Boolean, CloseableHttpClient, CloseableHttpResponse) = {
+
     var response: CloseableHttpResponse = null
     var status = true
     try {
