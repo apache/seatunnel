@@ -26,7 +26,6 @@ import org.apache.spark.sql.Row;
 public abstract class BaseSparkSink<OUT>  implements BaseSink<SparkEnvironment>{
     protected Config config = ConfigFactory.empty();
 
-
     @Override
     public void setConfig(Config config){
         this.config = config;
@@ -38,6 +37,5 @@ public abstract class BaseSparkSink<OUT>  implements BaseSink<SparkEnvironment>{
     }
 
     public abstract OUT output(Dataset<Row> data, SparkEnvironment env);
-
 
 }
