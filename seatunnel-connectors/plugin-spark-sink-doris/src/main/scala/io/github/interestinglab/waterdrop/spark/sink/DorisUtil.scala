@@ -43,9 +43,9 @@ object DorisUtil extends Serializable {
       }).build()
 
   def streamLoad(httpclient: CloseableHttpClient,
+                 headers: Map[String, String],
                  messages: String,
                  api: String,
-                 headers: Map[String, String],
                  user: String,
                  password: String): (Boolean, CloseableHttpClient, CloseableHttpResponse) = {
 
@@ -105,7 +105,7 @@ object DorisUtil extends Serializable {
 class DorisUtil(httpHeader: Map[String, String], apiUrl: String, user: String, password: String) {
   def saveMessages(messages: String): Unit = {
     val httpClient = DorisUtil.createClient
-    val result = Try(DorisUtil.streamLoad(httpClient, messages, apiUrl, httpHeader, user, password))
+    val result = Try(DorisUtil.streamLoad(httpClient, httpHeader,messages, apiUrl, user, password))
     result match {
       case Success(_) =>
         httpClient.close()
