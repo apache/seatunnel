@@ -59,7 +59,7 @@ Stream load 的导入参数。例如:'doris_sink_properties.column_separator' = 
 ```
 DorisSink {
 	 fenodes = "127.0.0.1:8030"
-     db_name = database
+	 db_name = database
 	 table_name = table
 	 username = root
 	 password = password
