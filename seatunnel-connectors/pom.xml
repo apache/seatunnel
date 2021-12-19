@@ -63,6 +63,7 @@
         <module>plugin-spark-sink-hudi</module>
         <module>plugin-spark-source-kudu</module>
         <module>plugin-spark-source-mongodb</module>
+        <module>plugin-spark-sink-doris</module>
     </modules>
 
 </project>
