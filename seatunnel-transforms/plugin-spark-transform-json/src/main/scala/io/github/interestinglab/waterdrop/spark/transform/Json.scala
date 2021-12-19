@@ -16,20 +16,21 @@
  */
 package io.github.interestinglab.waterdrop.spark.transform
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, ConfigRuntimeException, Common}
-import io.github.interestinglab.waterdrop.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import java.io.File
 import java.nio.file.Paths
-
-import io.github.interestinglab.waterdrop.common.RowConstant
-import org.apache.spark.sql.types.{DataType, StructType}
-import org.apache.spark.sql.functions._
 
 import scala.collection.JavaConversions._
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
+
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{DataType, StructType}
+
+import io.github.interestinglab.waterdrop.common.RowConstant
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, Common, ConfigRuntimeException}
+import io.github.interestinglab.waterdrop.config.ConfigFactory
+import io.github.interestinglab.waterdrop.spark.{BaseSparkTransform, SparkEnvironment}
 
 class Json extends BaseSparkTransform {
 
@@ -50,16 +51,18 @@ class Json extends BaseSparkTransform {
         val newDF = srcField match {
           // for backward-compatibility for spark < 2.2.0, we created rdd, not Dataset[String]
           case "raw_message" => {
-            val tmpDF = if (this.useCustomSchema) {
-              spark.read.schema(this.customSchema).json(jsonRDD)
-            } else {
-              spark.read.json(jsonRDD)
-            }
+            val tmpDF =
+              if (this.useCustomSchema) {
+                spark.read.schema(this.customSchema).json(jsonRDD)
+              } else {
+                spark.read.json(jsonRDD)
+              }
 
             tmpDF
           }
           case s: String => {
-            val schema = if (this.useCustomSchema) this.customSchema else spark.read.json(jsonRDD).schema
+            val schema =
+              if (this.useCustomSchema) this.customSchema else spark.read.json(jsonRDD).schema
             var tmpDf = df.withColumn(RowConstant.TMP, from_json(col(s), schema))
             schema.map { field =>
               tmpDf = tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
@@ -96,9 +99,7 @@ class Json extends BaseSparkTransform {
         "schema_dir" -> Paths
           .get(Common.pluginFilesDir("json").toString, "schemas")
           .toString,
-        "schema_file" -> ""
-      )
-    )
+        "schema_file" -> ""))
     config = config.withFallback(defaultConfig)
     val schemaFile = config.getString("schema_file")
     if (schemaFile.trim != "") {

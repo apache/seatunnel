@@ -70,8 +70,8 @@ public class SqlStatementSplitter {
      */
     private static String normalizeLine(List<String> buffer) {
         return buffer.stream()
-            .map(statementLine -> statementLine.replaceAll(BEGINNING_COMMENT_MASK, ""))
-            .collect(Collectors.joining("\n"));
+                .map(statementLine -> statementLine.replaceAll(BEGINNING_COMMENT_MASK, ""))
+                .collect(Collectors.joining("\n"));
     }
 
     private static boolean isEndOfStatement(String line) {

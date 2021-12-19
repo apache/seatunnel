@@ -116,6 +116,14 @@
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
+        <httpclient.version>4.5.2</httpclient.version>
+        <httpcore.version>4.4.4</httpcore.version>
+        <httpcore-nio.version>4.4.4</httpcore-nio.version>
+        <httpasyncclient.version>4.1.4</httpasyncclient.version>
+        <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
+
+        <docker.hub>apache</docker.hub>
+        <docker.tag>${project.version}</docker.tag>
     </properties>
 
     <dependencyManagement>
@@ -355,6 +363,29 @@
                 <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-spark-bundle_${scala.binary.version}</artifactId>
                 <version>${hudi.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpclient.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore</artifactId>
+                <version>${httpcore.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore-nio</artifactId>
+                <version>${httpcore-nio.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpasyncclient</artifactId>
+                <version>${httpasyncclient.version}</version>
             </dependency>
 
         </dependencies>
@@ -661,7 +692,6 @@
                     </executions>
                 </plugin>
                 <!-- maven deploy (End) -->
-
             </plugins>
         </pluginManagement>
 
@@ -695,28 +725,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
             </plugin>
-
-            <!-- maven deploy.
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-deploy-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-            </plugin>
-            -->
         </plugins>
     </build>
 

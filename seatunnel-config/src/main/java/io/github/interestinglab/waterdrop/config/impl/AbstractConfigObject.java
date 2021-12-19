@@ -88,12 +88,10 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
      * transformation or type conversion of any kind; if 'this' is not resolved
      * then try to look up the key anyway if possible.
      *
-     * @param key
-     *            key to look up
+     * @param key key to look up
      * @return the value of the key, or null if known not to exist
-     * @throws ConfigException.NotResolved
-     *             if can't figure out key's value (or existence) without more
-     *             resolving
+     * @throws ConfigException.NotResolved if can't figure out key's value (or existence) without more
+     *                                     resolving
      */
     abstract AbstractConfigValue attemptPeekWithPartialResolve(String key);
 
@@ -139,7 +137,7 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
 
     @Override
     protected AbstractConfigObject constructDelayedMerge(ConfigOrigin origin,
-            List<AbstractConfigValue> stack) {
+                                                         List<AbstractConfigValue> stack) {
         return new ConfigDelayedMergeObject(origin, stack);
     }
 
@@ -191,7 +189,7 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
 
     @Override
     abstract ResolveResult<? extends AbstractConfigObject> resolveSubstitutions(ResolveContext context,
-            ResolveSource source)
+                                                                                ResolveSource source)
             throws NotPossibleToResolve;
 
     @Override

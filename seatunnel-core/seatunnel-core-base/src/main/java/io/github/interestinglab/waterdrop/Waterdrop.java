@@ -49,8 +49,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.github.interestinglab.waterdrop.utils.Engine.SPARK;
-
 public class Waterdrop {
     private static final Logger LOGGER = LoggerFactory.getLogger(Waterdrop.class);
 
@@ -108,7 +106,7 @@ public class Waterdrop {
         Execution execution = configBuilder.createExecution();
         baseCheckConfig(sources, transforms, sinks);
         prepare(configBuilder.getEnv(), sources, transforms, sinks);
-        showWaterdropAsciiLogo();
+        showAsciiLogo();
 
         execution.start(sources, transforms, sinks);
     }
@@ -167,8 +165,8 @@ public class Waterdrop {
 
     }
 
-    private static void showWaterdropAsciiLogo() {
-        AsciiArtUtils.printAsciiArt("Waterdrop");
+    private static void showAsciiLogo() {
+        AsciiArtUtils.printAsciiArt("SeaTunnel");
     }
 
     private static void showConfigError(Throwable throwable) {

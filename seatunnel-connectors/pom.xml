@@ -33,6 +33,7 @@
     <modules>
         <module>connector-clickhouse</module>
         <module>connector-console</module>
+        <module>connector-doris</module>
         <module>connector-elasticsearch</module>
         <module>connector-email</module>
         <module>connector-fake</module>

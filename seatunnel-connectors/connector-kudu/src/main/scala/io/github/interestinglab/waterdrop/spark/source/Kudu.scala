@@ -17,11 +17,12 @@
 
 package io.github.interestinglab.waterdrop.spark.source
 
+import org.apache.kudu.spark.kudu._
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import org.apache.kudu.spark.kudu._
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 class Kudu extends SparkBatchSource {
 
@@ -33,7 +34,9 @@ class Kudu extends SparkBatchSource {
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
-    val mapConf = Map("kudu.master" -> config.getString("kudu_master"), "kudu.table" -> config.getString("kudu_table"))
+    val mapConf = Map(
+      "kudu.master" -> config.getString("kudu_master"),
+      "kudu.table" -> config.getString("kudu_table"))
 
     val ds = env.getSparkSession.read
       .format("org.apache.kudu.spark.kudu")

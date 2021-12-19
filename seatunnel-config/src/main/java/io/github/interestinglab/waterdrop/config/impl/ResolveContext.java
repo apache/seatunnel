@@ -258,7 +258,7 @@ final class ResolveContext {
     }
 
     static AbstractConfigValue resolve(AbstractConfigValue value, AbstractConfigObject root,
-            ConfigResolveOptions options) {
+                                       ConfigResolveOptions options) {
         ResolveSource source = new ResolveSource(root);
         ResolveContext context = new ResolveContext(options, null /* restrictToChild */);
 

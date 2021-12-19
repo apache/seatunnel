@@ -250,10 +250,8 @@ public interface Config extends ConfigMergeable {
      * files combined) rather than resolving each one individually.
      *
      * @return an immutable object with substitutions resolved
-     * @throws ConfigException.UnresolvedSubstitution
-     *             if any substitutions refer to nonexistent paths
-     * @throws ConfigException
-     *             some other config exception if there are other problems
+     * @throws ConfigException.UnresolvedSubstitution if any substitutions refer to nonexistent paths
+     * @throws ConfigException                        some other config exception if there are other problems
      */
     Config resolve();
 
@@ -261,8 +259,7 @@ public interface Config extends ConfigMergeable {
      * Like {@link Config#resolve()} but allows you to specify non-default
      * options.
      *
-     * @param options
-     *            resolve options
+     * @param options resolve options
      * @return the resolved <code>Config</code> (may be only partially resolved if options are set to allow unresolved)
      */
     Config resolve(ConfigResolveOptions options);
@@ -277,7 +274,7 @@ public interface Config extends ConfigMergeable {
      * file.
      *
      * @return true if there are no unresolved substitutions remaining in this
-     *         configuration.
+     * configuration.
      * @since 1.2.0
      */
     boolean isResolved();
@@ -298,14 +295,11 @@ public interface Config extends ConfigMergeable {
      * {@link ConfigResolveOptions#setAllowUnresolved(boolean)} so the partial
      * resolves don't fail).
      *
-     * @param source
-     *            configuration to pull values from
+     * @param source configuration to pull values from
      * @return an immutable object with substitutions resolved
-     * @throws ConfigException.UnresolvedSubstitution
-     *             if any substitutions refer to paths which are not in the
-     *             source
-     * @throws ConfigException
-     *             some other config exception if there are other problems
+     * @throws ConfigException.UnresolvedSubstitution if any substitutions refer to paths which are not in the
+     *                                                source
+     * @throws ConfigException                        some other config exception if there are other problems
      * @since 1.2.0
      */
     Config resolveWith(Config source);
@@ -314,12 +308,10 @@ public interface Config extends ConfigMergeable {
      * Like {@link Config#resolveWith(Config)} but allows you to specify
      * non-default options.
      *
-     * @param source
-     *            source configuration to pull values from
-     * @param options
-     *            resolve options
+     * @param source  source configuration to pull values from
+     * @param options resolve options
      * @return the resolved <code>Config</code> (may be only partially resolved
-     *         if options are set to allow unresolved)
+     * if options are set to allow unresolved)
      * @since 1.2.0
      */
     Config resolveWith(Config source, ConfigResolveOptions options);
@@ -393,18 +385,13 @@ public interface Config extends ConfigMergeable {
      * generic, but common, problems such as missing settings and blatant type
      * incompatibilities.
      *
-     * @param reference
-     *            a reference configuration
-     * @param restrictToPaths
-     *            only validate values underneath these paths that your code
-     *            module owns and understands
-     * @throws ConfigException.ValidationFailed
-     *             if there are any validation issues
-     * @throws ConfigException.NotResolved
-     *             if this config is not resolved
-     * @throws ConfigException.BugOrBroken
-     *             if the reference config is unresolved or caller otherwise
-     *             misuses the API
+     * @param reference       a reference configuration
+     * @param restrictToPaths only validate values underneath these paths that your code
+     *                        module owns and understands
+     * @throws ConfigException.ValidationFailed if there are any validation issues
+     * @throws ConfigException.NotResolved      if this config is not resolved
+     * @throws ConfigException.BugOrBroken      if the reference config is unresolved or caller otherwise
+     *                                          misuses the API
      */
     void checkValid(Config reference, String... restrictToPaths);
 
@@ -425,11 +412,9 @@ public interface Config extends ConfigMergeable {
      * Note that path expressions have a syntax and sometimes require quoting
      * (see {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param path
-     *            the path expression
+     * @param path the path expression
      * @return true if a non-null value is present at the path
-     * @throws ConfigException.BadPath
-     *             if the path expression is invalid
+     * @throws ConfigException.BadPath if the path expression is invalid
      */
     boolean hasPath(String path);
 
@@ -466,11 +451,9 @@ public interface Config extends ConfigMergeable {
      * Note that path expressions have a syntax and sometimes require quoting
      * (see {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param path
-     *            the path expression
+     * @param path the path expression
      * @return true if a value is present at the path, even if the value is null
-     * @throws ConfigException.BadPath
-     *             if the path expression is invalid
+     * @throws ConfigException.BadPath if the path expression is invalid
      */
     boolean hasPathOrNull(String path);
 
@@ -501,8 +484,8 @@ public interface Config extends ConfigMergeable {
      * directly included as entry values.)
      *
      * @return set of paths with non-null values, built up by recursing the
-     *         entire tree of {@link ConfigObject} and creating an entry for
-     *         each leaf value.
+     * entire tree of {@link ConfigObject} and creating an entry for
+     * each leaf value.
      */
     Set<Map.Entry<String, ConfigValue>> entrySet();
 
@@ -522,37 +505,27 @@ public interface Config extends ConfigMergeable {
      * Note that path expressions have a syntax and sometimes require quoting
      * (see {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param path
-     *            the path expression
+     * @param path the path expression
      * @return true if the value exists and is null, false if it
      * exists and is not null
-     * @throws ConfigException.BadPath
-     *             if the path expression is invalid
-     * @throws ConfigException.Missing
-     *             if value is not set at all
+     * @throws ConfigException.BadPath if the path expression is invalid
+     * @throws ConfigException.Missing if value is not set at all
      */
     boolean getIsNull(String path);
 
     /**
-     *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the boolean value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to boolean
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to boolean
      */
     boolean getBoolean(String path);
 
     /**
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the numeric value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a number
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a number
      */
     Number getNumber(String path);
 
@@ -563,14 +536,11 @@ public interface Config extends ConfigMergeable {
      * returned (it works like a "narrowing primitive conversion"
      * in the Java language specification).
      *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the 32-bit integer value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to an int (for example it is out
-     *             of range, or it's a boolean value)
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to an int (for example it is out
+     *                                   of range, or it's a boolean value)
      */
     int getInt(String path);
 
@@ -581,73 +551,53 @@ public interface Config extends ConfigMergeable {
      * returned (it works like a "narrowing primitive conversion"
      * in the Java language specification).
      *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the 64-bit long value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a long
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a long
      */
     long getLong(String path);
 
     /**
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the floating-point value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a double
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a double
      */
     double getDouble(String path);
 
     /**
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the string value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a string
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a string
      */
     String getString(String path);
 
     /**
-     * @param enumClass
-     *            an enum class
-     * @param <T>
-     *            a generic denoting a specific type of enum
-     * @param path
-     *            path expression
+     * @param enumClass an enum class
+     * @param <T>       a generic denoting a specific type of enum
+     * @param path      path expression
      * @return the {@code Enum} value at the requested path
-     *              of the requested enum class
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to an Enum
+     * of the requested enum class
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to an Enum
      */
     public <T extends Enum<T>> T getEnum(Class<T> enumClass, String path);
 
     /**
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the {@link ConfigObject} value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to an object
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to an object
      */
     ConfigObject getObject(String path);
 
     /**
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the nested {@code Config} value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a Config
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a Config
      */
     Config getConfig(String path);
 
@@ -656,11 +606,9 @@ public interface Config extends ConfigMergeable {
      * {@link java.lang.Boolean Boolean}, {@link java.lang.Integer Integer}, and
      * so on - see {@link ConfigValue#unwrapped()}).
      *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the unwrapped value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
+     * @throws ConfigException.Missing if value is absent or null
      */
     Object getAnyRef(String path);
 
@@ -671,11 +619,9 @@ public interface Config extends ConfigMergeable {
      * Config#root()} object (or other object in the tree) if you
      * want an unprocessed value.
      *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
+     * @throws ConfigException.Missing if value is absent or null
      */
     ConfigValue getValue(String path);
 
@@ -687,15 +633,11 @@ public interface Config extends ConfigMergeable {
      * href="https://github.com/lightbend/config/blob/master/HOCON.md">the
      * spec</a>.
      *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the value at the requested path, in bytes
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a size in bytes
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a size in bytes
      */
     Long getBytes(String path);
 
@@ -707,17 +649,12 @@ public interface Config extends ConfigMergeable {
      * href="https://github.com/lightbend/config/blob/master/HOCON.md">the
      * spec</a>.
      *
-     * @since 1.3.0
-     *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the value at the requested path, in bytes
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a size in bytes
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a size in bytes
+     * @since 1.3.0
      */
     ConfigMemorySize getMemorySize(String path);
 
@@ -728,17 +665,12 @@ public interface Config extends ConfigMergeable {
      * href="https://github.com/lightbend/config/blob/master/HOCON.md">the
      * spec</a>.
      *
-     * @deprecated  As of release 1.1, replaced by {@link #getDuration(String, TimeUnit)}
-     *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the duration value at the requested path, in milliseconds
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a number of milliseconds
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a number of milliseconds
+     * @deprecated As of release 1.1, replaced by {@link #getDuration(String, TimeUnit)}
      */
     @Deprecated
     Long getMilliseconds(String path);
@@ -749,17 +681,12 @@ public interface Config extends ConfigMergeable {
      * string, it's parsed understanding unit suffixes, as for
      * {@link #getDuration(String, TimeUnit)}.
      *
-     * @deprecated  As of release 1.1, replaced by {@link #getDuration(String, TimeUnit)}
-     *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the duration value at the requested path, in nanoseconds
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a number of nanoseconds
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a number of nanoseconds
+     * @deprecated As of release 1.1, replaced by {@link #getDuration(String, TimeUnit)}
      */
     @Deprecated
     Long getNanoseconds(String path);
@@ -773,19 +700,13 @@ public interface Config extends ConfigMergeable {
      * href="https://github.com/lightbend/config/blob/master/HOCON.md">the
      * spec</a>.
      *
-     * @since 1.2.0
-     *
-     * @param path
-     *            path expression
-     * @param unit
-     *            convert the return value to this time unit
+     * @param path path expression
+     * @param unit convert the return value to this time unit
      * @return the duration value at the requested path, in the given TimeUnit
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a number of the given TimeUnit
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a number of the given TimeUnit
+     * @since 1.2.0
      */
     long getDuration(String path, TimeUnit unit);
 
@@ -797,17 +718,12 @@ public interface Config extends ConfigMergeable {
      * href="https://github.com/lightbend/config/blob/master/HOCON.md">the
      * spec</a>. This method never returns null.
      *
-     * @since 1.3.0
-     *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the duration value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a number of the given TimeUnit
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a number of the given TimeUnit
+     * @since 1.3.0
      */
     Duration getDuration(String path);
 
@@ -819,17 +735,12 @@ public interface Config extends ConfigMergeable {
      * href="https://github.com/lightbend/config/blob/master/HOCON.md">the
      * spec</a>. This method never returns null.
      *
-     * @since 1.3.0
-     *
-     * @param path
-     *            path expression
+     * @param path path expression
      * @return the period value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a number of the given TimeUnit
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a number of the given TimeUnit
+     * @since 1.3.0
      */
     Period getPeriod(String path);
 
@@ -838,14 +749,12 @@ public interface Config extends ConfigMergeable {
      * This method will first try get get the value as a java.time.Duration, and if unsuccessful,
      * then as a java.time.Period.
      * This means that values like "5m" will be parsed as 5 minutes rather than 5 months
+     *
      * @param path path expression
      * @return the temporal value at the requested path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to Long or String
-     * @throws ConfigException.BadValue
-     *             if value cannot be parsed as a TemporalAmount
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to Long or String
+     * @throws ConfigException.BadValue  if value cannot be parsed as a TemporalAmount
      */
     TemporalAmount getTemporal(String path);
 
@@ -854,13 +763,10 @@ public interface Config extends ConfigMergeable {
      * implements {@code java.util.List<ConfigValue>}. Throws if the path is
      * unset or null.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the {@link ConfigList} at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a ConfigList
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a ConfigList
      */
     ConfigList getList(String path);
 
@@ -869,13 +775,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to boolean.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of booleans
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of booleans
      */
     List<Boolean> getBooleanList(String path);
 
@@ -884,13 +787,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to number.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of numbers
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of numbers
      */
     List<Number> getNumberList(String path);
 
@@ -899,13 +799,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to int.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of ints
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of ints
      */
     List<Integer> getIntList(String path);
 
@@ -914,13 +811,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to long.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of longs
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of longs
      */
     List<Long> getLongList(String path);
 
@@ -929,13 +823,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to double.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of doubles
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of doubles
      */
     List<Double> getDoubleList(String path);
 
@@ -944,13 +835,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to string.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of strings
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of strings
      */
     List<String> getStringList(String path);
 
@@ -959,17 +847,12 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to {@code Enum}.
      *
-     * @param enumClass
-     *            the enum class
-     * @param <T>
-     *            a generic denoting a specific type of enum
-     * @param path
-     *            the path to the list value.
+     * @param enumClass the enum class
+     * @param <T>       a generic denoting a specific type of enum
+     * @param path      the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of {@code Enum}
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of {@code Enum}
      */
     <T extends Enum<T>> List<T> getEnumList(Class<T> enumClass, String path);
 
@@ -978,13 +861,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list or contains values not
      * convertible to <code>ConfigObject</code>.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of objects
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of objects
      */
     List<? extends ConfigObject> getObjectList(String path);
 
@@ -993,13 +873,10 @@ public interface Config extends ConfigMergeable {
      * Throws if the path is unset or null or not a list or
      * contains values not convertible to <code>Config</code>.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of configs
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of configs
      */
     List<? extends Config> getConfigList(String path);
 
@@ -1008,13 +885,10 @@ public interface Config extends ConfigMergeable {
      * path is unset or null or not a list. Each element is
      * "unwrapped" (see {@link ConfigValue#unwrapped()}).
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list
      */
     List<? extends Object> getAnyRefList(String path);
 
@@ -1023,13 +897,10 @@ public interface Config extends ConfigMergeable {
      * bytes.  Throws if the path is unset or null or not a list
      * or contains values not convertible to memory sizes.
      *
-     * @param path
-     *            the path to the list value.
+     * @param path the path to the list value.
      * @return the list at the path
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of memory sizes
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of memory sizes
      */
     List<Long> getBytesList(String path);
 
@@ -1037,29 +908,26 @@ public interface Config extends ConfigMergeable {
      * Gets a list, converting each value in the list to a memory size, using the
      * same rules as {@link #getMemorySize(String)}.
      *
-     * @since 1.3.0
-     * @param path
-     *            a path expression
+     * @param path a path expression
      * @return list of memory sizes
-     * @throws ConfigException.Missing
-     *             if value is absent or null
-     * @throws ConfigException.WrongType
-     *             if value is not convertible to a list of memory sizes
+     * @throws ConfigException.Missing   if value is absent or null
+     * @throws ConfigException.WrongType if value is not convertible to a list of memory sizes
+     * @since 1.3.0
      */
     List<ConfigMemorySize> getMemorySizeList(String path);
 
     /**
-     * @deprecated  As of release 1.1, replaced by {@link #getDurationList(String, TimeUnit)}
      * @param path the path
      * @return list of millisecond values
+     * @deprecated As of release 1.1, replaced by {@link #getDurationList(String, TimeUnit)}
      */
     @Deprecated
     List<Long> getMillisecondsList(String path);
 
     /**
-     * @deprecated  As of release 1.1, replaced by {@link #getDurationList(String, TimeUnit)}
      * @param path the path
      * @return list of nanosecond values
+     * @deprecated As of release 1.1, replaced by {@link #getDurationList(String, TimeUnit)}
      */
     @Deprecated
     List<Long> getNanosecondsList(String path);
@@ -1068,12 +936,10 @@ public interface Config extends ConfigMergeable {
      * Gets a list, converting each value in the list to a duration, using the
      * same rules as {@link #getDuration(String, TimeUnit)}.
      *
-     * @since 1.2.0
-     * @param path
-     *            a path expression
-     * @param unit
-     *            time units of the returned values
+     * @param path a path expression
+     * @param unit time units of the returned values
      * @return list of durations, in the requested units
+     * @since 1.2.0
      */
     List<Long> getDurationList(String path, TimeUnit unit);
 
@@ -1081,10 +947,9 @@ public interface Config extends ConfigMergeable {
      * Gets a list, converting each value in the list to a duration, using the
      * same rules as {@link #getDuration(String)}.
      *
-     * @since 1.3.0
-     * @param path
-     *            a path expression
+     * @param path a path expression
      * @return list of durations
+     * @since 1.3.0
      */
     List<Duration> getDurationList(String path);
 
@@ -1095,8 +960,7 @@ public interface Config extends ConfigMergeable {
      * Note that path expressions have a syntax and sometimes require quoting
      * (see {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param path
-     *            path to keep
+     * @param path path to keep
      * @return a copy of the config minus all paths except the one specified
      */
     Config withOnlyPath(String path);
@@ -1107,8 +971,7 @@ public interface Config extends ConfigMergeable {
      * Note that path expressions have a syntax and sometimes require quoting
      * (see {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param path
-     *            path expression to remove
+     * @param path path expression to remove
      * @return a copy of the config minus the specified path
      */
     Config withoutPath(String path);
@@ -1119,10 +982,9 @@ public interface Config extends ConfigMergeable {
      * Note that path expressions have a syntax and sometimes require quoting
      * (see {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param path
-     *            path expression to store this config at.
+     * @param path path expression to store this config at.
      * @return a {@code Config} instance containing this config at the given
-     *         path.
+     * path.
      */
     Config atPath(String path);
 
@@ -1131,10 +993,9 @@ public interface Config extends ConfigMergeable {
      * atPath(). Note that a key is NOT a path expression (see
      * {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param key
-     *            key to store this config at.
+     * @param key key to store this config at.
      * @return a {@code Config} instance containing this config at the given
-     *         key.
+     * key.
      */
     Config atKey(String key);
 
@@ -1147,10 +1008,8 @@ public interface Config extends ConfigMergeable {
      * Note that path expressions have a syntax and sometimes require quoting
      * (see {@link ConfigUtil#joinPath} and {@link ConfigUtil#splitPath}).
      *
-     * @param path
-     *            path expression for the value's new location
-     * @param value
-     *            value at the new path
+     * @param path  path expression for the value's new location
+     * @param value value at the new path
      * @return the new instance with the new map entry
      */
     Config withValue(String path, ConfigValue value);

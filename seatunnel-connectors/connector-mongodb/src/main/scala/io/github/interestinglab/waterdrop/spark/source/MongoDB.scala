@@ -16,17 +16,18 @@
  */
 package io.github.interestinglab.waterdrop.spark.source
 
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
+import scala.collection.JavaConversions._
+
 import com.alibaba.fastjson.JSON
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
-import io.github.interestinglab.waterdrop.spark.utils.SparkSturctTypeUtil
-import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.sql.types.StructType
 
-import scala.collection.JavaConversions._
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
+import io.github.interestinglab.waterdrop.spark.utils.SparkSturctTypeUtil
 
 class MongoDB extends SparkBatchSource {
 
@@ -59,7 +60,8 @@ class MongoDB extends SparkBatchSource {
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     if (schema.length > 0) {
-      MongoSpark.builder().sparkSession(env.getSparkSession).readConfig(readConfig).build().toDF(schema)
+      MongoSpark.builder().sparkSession(env.getSparkSession).readConfig(readConfig).build().toDF(
+        schema)
     } else {
       MongoSpark.load(env.getSparkSession, readConfig);
     }
@@ -70,8 +72,10 @@ class MongoDB extends SparkBatchSource {
       case true => {
         val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
-          case true => new CheckResult(true,"")
-          case false => new CheckResult(false, "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
+          case true => new CheckResult(true, "")
+          case false => new CheckResult(
+              false,
+              "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
         }
       }
       case false => new CheckResult(false, "please specify [readconfig]")
