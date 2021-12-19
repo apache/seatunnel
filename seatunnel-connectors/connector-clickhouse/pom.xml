@@ -22,32 +22,36 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>io.github.interestinglab.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-connectors</artifactId>
         <version>2.0.4</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connectors</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>connector-clickhouse</artifactId>
 
-    <modules>
-        <module>connector-clickhouse</module>
-        <module>connector-console</module>
-        <module>connector-elasticsearch</module>
-        <module>connector-email</module>
-        <module>connector-fake</module>
-        <module>connector-file</module>
-        <module>connector-hbase</module>
-        <module>connector-hive</module>
-        <module>connector-hudi</module>
-        <module>connector-jdbc</module>
-        <module>connector-kafka</module>
-        <module>connector-kudu</module>
-        <module>connector-mongodb</module>
-        <module>connector-mysql</module>
-        <module>connector-phoenix</module>
-        <module>connector-redis</module>
-        <module>connector-socket</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>io.github.interestinglab.seatunnel</groupId>
+            <artifactId>seatunnel-api-spark</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ru.yandex.clickhouse</groupId>
+            <artifactId>clickhouse-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_${scala.binary.version}</artifactId>
+        </dependency>
+
+    </dependencies>
+
 
 </project>

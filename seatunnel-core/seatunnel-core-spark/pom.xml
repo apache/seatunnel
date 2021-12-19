@@ -48,67 +48,67 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-kafka</artifactId>
+            <artifactId>connector-kafka</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-fake</artifactId>
+            <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-socket</artifactId>
+            <artifactId>connector-socket</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-jdbc</artifactId>
+            <artifactId>connector-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-elasticsearch</artifactId>
+            <artifactId>connector-elasticsearch</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-hive</artifactId>
+            <artifactId>connector-hive</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-phoenix</artifactId>
+            <artifactId>connector-phoenix</artifactId>
             <version>${project.version}</version>
         </dependency>
        <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-redis</artifactId>
+            <artifactId>connector-redis</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-mongodb</artifactId>
+            <artifactId>connector-mongodb</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-source-kudu</artifactId>
+            <artifactId>connector-kudu</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-phoenix</artifactId>
+            <artifactId>connector-phoenix</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-mysql</artifactId>
+            <artifactId>connector-mysql</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-email</artifactId>
+            <artifactId>connector-email</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -128,37 +128,37 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-console</artifactId>
+            <artifactId>connector-console</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-elasticsearch</artifactId>
+            <artifactId>connector-elasticsearch</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-clickhouse</artifactId>
+            <artifactId>connector-clickhouse</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-file</artifactId>
+            <artifactId>connector-file</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-hbase</artifactId>
+            <artifactId>connector-hbase</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-kafka</artifactId>
+            <artifactId>connector-kafka</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-hudi</artifactId>
+            <artifactId>connector-hudi</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

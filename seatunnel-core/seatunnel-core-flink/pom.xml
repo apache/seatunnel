@@ -48,13 +48,13 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-source-kafka</artifactId>
+            <artifactId>connector-kafka</artifactId>
             <version>${project.version}</version>
 
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-kafka</artifactId>
+            <artifactId>connector-kafka</artifactId>
             <version>${project.version}</version>
 
         </dependency>
@@ -82,43 +82,43 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-console</artifactId>
+            <artifactId>connector-console</artifactId>
             <version>${project.version}</version>
 
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-jdbc</artifactId>
+            <artifactId>connector-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-source-fake</artifactId>
+            <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-source-socket</artifactId>
+            <artifactId>connector-socket</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-source-file</artifactId>
+            <artifactId>connector-file</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-source-jdbc</artifactId>
+            <artifactId>connector-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-file</artifactId>
+            <artifactId>connector-file</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-elasticsearch</artifactId>
+            <artifactId>connector-elasticsearch</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
