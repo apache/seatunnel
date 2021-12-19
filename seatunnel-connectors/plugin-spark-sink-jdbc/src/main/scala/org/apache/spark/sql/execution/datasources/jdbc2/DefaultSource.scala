@@ -55,11 +55,8 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider
       case SaveMode.ErrorIfExists => JDBCSaveMode.ErrorIfExists
       case SaveMode.Ignore => JDBCSaveMode.Ignore
     }
-    val parameterLower = parameters.map(kv => (kv._1.toLowerCase, kv._2))
-    if (parameterLower.keySet.contains("savemode")) {
-      saveMode =
-        if (parameterLower("savemode").equals(JDBCSaveMode.Update.toString)) JDBCSaveMode.Update
-        else saveMode
+    if (parameters.contains("saveMode")) {
+      saveMode = if (parameters("saveMode").equals(JDBCSaveMode.Update.toString)) JDBCSaveMode.Update else saveMode
     }
 
     val conn = JdbcUtils.createConnectionFactory(options)()

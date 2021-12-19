@@ -28,17 +28,17 @@ import scala.collection.JavaConversions._
 class Jdbc extends SparkBatchSink {
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-    val saveMode = config.getString("save_mode")
+    val saveMode = config.getString("saveMode")
     if ("update".equals(saveMode)) {
       data.write.format("org.apache.spark.sql.execution.datasources.jdbc2").options(
         Map(
-          "savemode" -> JDBCSaveMode.Update.toString,
+          "saveMode" -> JDBCSaveMode.Update.toString,
           "driver" -> config.getString("driver"),
           "url" -> config.getString("url"),
           "user" -> config.getString("user"),
           "password" -> config.getString("password"),
-          "dbtable" -> config.getString("dbtable"),
-          "useSSL" -> config.getString("useSSL"),
+          "dbtable" -> config.getString("dbTable"),
+          "useSsl" -> config.getString("useSsl"),
           "customUpdateStmt" -> config.getString("customUpdateStmt"), // Custom mysql duplicate key update statement when saveMode is update
           "duplicateIncs" -> config.getString("duplicateIncs"),
           "showSql" -> config.getString("showSql"))).save()
@@ -47,13 +47,13 @@ class Jdbc extends SparkBatchSink {
       prop.setProperty("driver", config.getString("driver"))
       prop.setProperty("user", config.getString("user"))
       prop.setProperty("password", config.getString("password"))
-      data.write.mode(saveMode).jdbc(config.getString("url"), config.getString("dbtable"), prop)
+      data.write.mode(saveMode).jdbc(config.getString("url"), config.getString("dbTable"), prop)
     }
 
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List("driver", "url", "dbtable", "user", "password")
+    val requiredOptions = List("driver", "url", "dbTable", "user", "password")
     val nonExistsOptions =
       requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
         val (optionName, exists) = p
@@ -77,8 +77,8 @@ class Jdbc extends SparkBatchSink {
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "save_mode" -> "error",
-        "useSSL" -> "false",
+        "saveMode" -> "error",
+        "useSsl" -> "false",
         "showSql" -> "true",
         "customUpdateStmt" -> "",
         "duplicateIncs" -> ""
