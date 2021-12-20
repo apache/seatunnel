@@ -42,15 +42,6 @@
         </license>
     </licenses>
 
-    <developers>
-        <developer>
-            <name>Garyelephant, RickyHuo, Kid-xiong</name>
-            <email>garygaowork@gmail.com</email>
-            <organization>InterestingLab</organization>
-            <organizationUrl>https://github.com/InterestingLab</organizationUrl>
-        </developer>
-    </developers>
-
     <scm>
         <connection>scm:git:git@github.com:InterestingLab/seatunnel.git</connection>
         <developerConnection>scm:git:git@github.com:InterestingLab/seatunnel.git</developerConnection>

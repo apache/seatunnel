@@ -45,7 +45,6 @@
         <module>connector-kafka</module>
         <module>connector-kudu</module>
         <module>connector-mongodb</module>
-        <module>connector-mysql</module>
         <module>connector-phoenix</module>
         <module>connector-redis</module>
         <module>connector-socket</module>

@@ -16,30 +16,29 @@
  */
 package org.apache.spark.sql.execution.datasources.jdbc2
 
-import java.sql.{Date, Timestamp}
-
-import scala.collection.mutable.ArrayBuffer
-
 import org.apache.spark.Partition
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{AnalysisException, DataFrame, Row, SaveMode, SparkSession, SQLContext}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{DataType, DateType, NumericType, StructType, TimestampType}
+import org.apache.spark.sql.{AnalysisException, DataFrame, Row, SQLContext, SaveMode, SparkSession}
 import org.apache.spark.util.Utils
+
+import java.sql.{Date, Timestamp}
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Instructions on how to partition the table among workers.
  */
 private[sql] case class JDBCPartitioningInfo(
-    column: String,
-    columnType: DataType,
-    lowerBound: Long,
-    upperBound: Long,
-    numPartitions: Int)
+                                              column: String,
+                                              columnType: DataType,
+                                              lowerBound: Long,
+                                              upperBound: Long,
+                                              numPartitions: Int)
 
 private[sql] object JDBCRelation extends Logging {
 
@@ -54,17 +53,17 @@ private[sql] object JDBCRelation extends Logging {
    * Null value predicate is added to the first partition where clause to include
    * the rows with null value for the partitions column.
    *
-   * @param schema resolved schema of a JDBC table
-   * @param resolver function used to determine if two identifiers are equal
-   * @param timeZoneId timezone ID to be used if a partition column type is date or timestamp
+   * @param schema      resolved schema of a JDBC table
+   * @param resolver    function used to determine if two identifiers are equal
+   * @param timeZoneId  timezone ID to be used if a partition column type is date or timestamp
    * @param jdbcOptions JDBC options that contains url
    * @return an array of partitions with where clause for each partition
    */
   def columnPartition(
-      schema: StructType,
-      resolver: Resolver,
-      timeZoneId: String,
-      jdbcOptions: JDBCOptions): Array[Partition] = {
+                       schema: StructType,
+                       resolver: Resolver,
+                       timeZoneId: String,
+                       jdbcOptions: JDBCOptions): Array[Partition] = {
     val partitioning = {
       import JDBCOptions._
 
@@ -162,10 +161,10 @@ private[sql] object JDBCRelation extends Logging {
 
   // Verify column name and type based on the JDBC resolved schema
   private def verifyAndGetNormalizedPartitionColumn(
-      schema: StructType,
-      columnName: String,
-      resolver: Resolver,
-      jdbcOptions: JDBCOptions): (String, DataType) = {
+                                                     schema: StructType,
+                                                     columnName: String,
+                                                     resolver: Resolver,
+                                                     jdbcOptions: JDBCOptions): (String, DataType) = {
     val dialect = JdbcDialects.get(jdbcOptions.url)
     val column = schema.find { f =>
       resolver(f.name, columnName) || resolver(dialect.quoteIdentifier(f.name), columnName)
@@ -191,9 +190,9 @@ private[sql] object JDBCRelation extends Logging {
   }
 
   private def toBoundValueInWhereClause(
-      value: Long,
-      columnType: DataType,
-      timeZoneId: String): String = {
+                                         value: Long,
+                                         columnType: DataType,
+                                         timeZoneId: String): String = {
     def dateTimeToString(): String = {
       val timeZone = DateTimeUtils.getTimeZone(timeZoneId)
       val dateTimeStr = columnType match {
@@ -202,6 +201,7 @@ private[sql] object JDBCRelation extends Logging {
       }
       s"'$dateTimeStr'"
     }
+
     columnType match {
       case _: NumericType => value.toString
       case DateType | TimestampType => dateTimeToString()
@@ -213,7 +213,7 @@ private[sql] object JDBCRelation extends Logging {
    * If `customSchema` defined in the JDBC options, replaces the schema's dataType with the
    * custom schema's type.
    *
-   * @param resolver function used to determine if two identifiers are equal
+   * @param resolver    function used to determine if two identifiers are equal
    * @param jdbcOptions JDBC options that contains url, table and other information.
    * @return resolved Catalyst schema of a JDBC table
    */
@@ -221,9 +221,9 @@ private[sql] object JDBCRelation extends Logging {
     val tableSchema = JDBCRDD.resolveTable(jdbcOptions)
     jdbcOptions.customSchema match {
       case Some(customSchema) => JdbcUtils.getCustomSchema(
-          tableSchema,
-          customSchema,
-          resolver)
+        tableSchema,
+        customSchema,
+        resolver)
       case None => tableSchema
     }
   }
@@ -232,21 +232,21 @@ private[sql] object JDBCRelation extends Logging {
    * Resolves a Catalyst schema of a JDBC table and returns [[JDBCRelation]] with the schema.
    */
   def apply(
-      parts: Array[Partition],
-      jdbcOptions: JDBCOptions)(
-      sparkSession: SparkSession): JDBCRelation = {
+             parts: Array[Partition],
+             jdbcOptions: JDBCOptions)(
+             sparkSession: SparkSession): JDBCRelation = {
     val schema = JDBCRelation.getSchema(sparkSession.sessionState.conf.resolver, jdbcOptions)
     JDBCRelation(schema, parts, jdbcOptions)(sparkSession)
   }
 }
 
 private[sql] case class JDBCRelation(
-    override val schema: StructType,
-    parts: Array[Partition],
-    jdbcOptions: JDBCOptions)(@transient val sparkSession: SparkSession)
+                                      override val schema: StructType,
+                                      parts: Array[Partition],
+                                      jdbcOptions: JDBCOptions)(@transient val sparkSession: SparkSession)
   extends BaseRelation
-  with PrunedFilteredScan
-  with InsertableRelation {
+    with PrunedFilteredScan
+    with InsertableRelation {
 
   override def sqlContext: SQLContext = sparkSession.sqlContext
 
