@@ -122,7 +122,6 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 感谢[所有开发者](https://github.com/InterestingLab/seatunnel/graphs/contributors)
 
 ## 欢迎联系
-
-Garyelephant : garygaowork@gmail.com
-RickyHuo : huochen1994@163.com
-中国用户可以联系微信: garyelephant 邀请加入微信用户技术交流群
+* 邮件列表 : **dev@seatunnel.apache.org**. 发送任意内容至 `dev-subscribe@seatunnel.apache.org`， 按照回复订阅邮件列表。
+* 发送 `Request to join SeaTunnel slack` 邮件到邮件列表 (`dev@seatunnel.apache.org`), 我们会邀请你加入（在此之前请确认已经注册Slack）.
+* [bilibili B站 视频](https://space.bilibili.com/1542095008)
