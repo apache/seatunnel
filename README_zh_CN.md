@@ -6,8 +6,6 @@
 
 ---
 
-[![Join the chat at https://gitter.im/interestinglab_seatunnel/Lobby](https://badges.gitter.im/interestinglab_seatunnel/Lobby.svg)](https://gitter.im/interestinglab_seatunnel/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 seatunnel 是一个非常易用的支持海量数据实时同步的超高性能分布式数据集成平台，每天可以稳定高效同步数百亿数据，已在近百家公司生产上使用。
 ---
 
@@ -92,15 +90,15 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 ## 生产应用案例
 
 * [微博](https://weibo.com), 增值业务部数据平台
-  微博某业务有数百个实时流式计算任务使用内部定制版 seatunnel，以及其子项目[Guardian](https://github.com/InterestingLab/guardian)做 seatunnel On Yarn 的任务监控。
+  微博某业务有数百个实时流式计算任务使用内部定制版 seatunnel，以及其子项目[Guardian](https://github.com/InterestingLab/guardian) 做 seatunnel On Yarn 的任务监控。
 
 * [新浪](http://www.sina.com.cn/), 大数据运维分析平台
   新浪运维数据分析平台使用 seatunnel 为新浪新闻，CDN 等服务做运维大数据的实时和离线分析，并写入 Clickhouse。
 
-* [搜狗](http://agent.e.sogou.com/)，搜狗奇点系统
+* [搜狗](http://sogou.com/) ，搜狗奇点系统
   搜狗奇点系统使用 seatunnel 作为 ETL 工具, 帮助建立实时数仓体系
 
-* [趣头条](https://www.qutoutiao.net/)，趣头条数据中心
+* [趣头条](https://www.qutoutiao.net/) ，趣头条数据中心
   趣头条数据中心，使用 seatunnel 支撑 mysql to hive 的离线 ETL 任务、实时 hive to clickhouse 的 backfill 技术支撑，很好的 cover 离线、实时大部分任务场景。
 
 * [一下科技](https://www.yixia.com/), 一直播数据平台
@@ -124,7 +122,6 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 感谢[所有开发者](https://github.com/InterestingLab/seatunnel/graphs/contributors)
 
 ## 欢迎联系
-
-Garyelephant : garygaowork@gmail.com
-RickyHuo : huochen1994@163.com
-中国用户可以联系微信: garyelephant 邀请加入微信用户技术交流群
+* 邮件列表 : **dev@seatunnel.apache.org**. 发送任意内容至 `dev-subscribe@seatunnel.apache.org`， 按照回复订阅邮件列表。
+* 发送 `Request to join SeaTunnel slack` 邮件到邮件列表 (`dev@seatunnel.apache.org`), 我们会邀请你加入（在此之前请确认已经注册Slack）.
+* [bilibili B站 视频](https://space.bilibili.com/1542095008)

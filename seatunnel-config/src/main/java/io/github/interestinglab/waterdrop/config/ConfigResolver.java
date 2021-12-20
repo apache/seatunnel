@@ -22,6 +22,7 @@ package io.github.interestinglab.waterdrop.config;
  * {@link ConfigResolveOptions#appendResolver ConfigResolveOptions.appendResolver()}
  * to provide custom behavior when unresolved substitutions are encountered
  * during resolution.
+ *
  * @since 1.3.2
  */
 public interface ConfigResolver {
@@ -41,7 +42,7 @@ public interface ConfigResolver {
     /**
      * Returns a new resolver that falls back to the given resolver if this
      * one doesn't provide a substitution itself.
-     *
+     * <p>
      * It's important to handle the case where you already have the fallback
      * with a "return this", i.e. this method should not create a new object if
      * the fallback is the same one you already have. The same fallback may be

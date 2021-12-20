@@ -1,0 +1,21 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^http://localhost"
+    },
+    {
+      "pattern": "^https://mvnrepository.com"
+    },
+    {
+      "pattern": "^https://www.qutoutiao.net"
+    }
+  ],
+  "timeout": "10s",
+  "retryOn429": true,
+  "retryCount": 10,
+  "fallbackRetryDelay": "1000s",
+  "aliveStatusCodes": [
+    200,
+    401
+  ]
+}

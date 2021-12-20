@@ -23,7 +23,6 @@ import java.util.List;
 
 /**
  * Contains static utility methods.
- *
  */
 public final class ConfigUtil {
     private ConfigUtil() {
@@ -33,8 +32,7 @@ public final class ConfigUtil {
     /**
      * Quotes and escapes a string, as in the JSON specification.
      *
-     * @param s
-     *            a string
+     * @param s a string
      * @return the string quoted and escaped
      */
     public static String quoteString(String s) {
@@ -50,11 +48,9 @@ public final class ConfigUtil {
      * See the overview documentation for {@link Config} for more detail on path
      * expressions vs. keys.
      *
-     * @param elements
-     *            the keys in the path
+     * @param elements the keys in the path
      * @return a path expression
-     * @throws ConfigException
-     *             if there are no elements
+     * @throws ConfigException if there are no elements
      */
     public static String joinPath(String... elements) {
         return ConfigImplUtil.joinPath(elements);
@@ -69,11 +65,9 @@ public final class ConfigUtil {
      * See the overview documentation for {@link Config} for more detail on path
      * expressions vs. keys.
      *
-     * @param elements
-     *            the keys in the path
+     * @param elements the keys in the path
      * @return a path expression
-     * @throws ConfigException
-     *             if the list is empty
+     * @throws ConfigException if the list is empty
      */
     public static String joinPath(List<String> elements) {
         return ConfigImplUtil.joinPath(elements);
@@ -88,11 +82,9 @@ public final class ConfigUtil {
      * See the overview documentation for {@link Config} for more detail on path
      * expressions vs. keys.
      *
-     * @param path
-     *            a path expression
+     * @param path a path expression
      * @return the individual keys in the path
-     * @throws ConfigException
-     *             if the path expression is invalid
+     * @throws ConfigException if the path expression is invalid
      */
     public static List<String> splitPath(String path) {
         return ConfigImplUtil.splitPath(path);

@@ -50,7 +50,7 @@ public interface ConfigMergeable {
      *  foo = { a: 42 }
      *  foo = { b: 43 }
      * </pre>
-     *
+     * <p>
      * Here, the two objects are merged as if you had written:
      *
      * <pre>
@@ -72,15 +72,14 @@ public interface ConfigMergeable {
      * foo = { a: 42 }
      * foo = 10
      * </pre>
-     *
+     * <p>
      * Here, the number 10 "wins" and the value of <code>foo</code> would be
      * simply 10. Again, for details see the spec.
      *
-     * @param other
-     *            an object whose keys should be used as fallbacks, if the keys
-     *            are not present in this one
+     * @param other an object whose keys should be used as fallbacks, if the keys
+     *              are not present in this one
      * @return a new object (or the original one, if the fallback doesn't get
-     *         used)
+     * used)
      */
     ConfigMergeable withFallback(ConfigMergeable other);
 }

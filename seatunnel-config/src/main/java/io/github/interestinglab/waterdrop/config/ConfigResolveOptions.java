@@ -75,9 +75,8 @@ public final class ConfigResolveOptions {
     /**
      * Returns options with use of environment variables set to the given value.
      *
-     * @param value
-     *            true to resolve substitutions falling back to environment
-     *            variables.
+     * @param value true to resolve substitutions falling back to environment
+     *              variables.
      * @return options with requested setting for use of environment variables
      */
     public ConfigResolveOptions setUseSystemEnvironment(boolean value) {
@@ -102,8 +101,7 @@ public final class ConfigResolveOptions {
      * value may fail, but {@link Config#resolve(ConfigResolveOptions)} itself
      * will not throw.
      *
-     * @param value
-     *            true to silently ignore unresolved substitutions.
+     * @param value true to silently ignore unresolved substitutions.
      * @return options with requested setting for whether to allow substitutions
      * @since 1.2.0
      */
@@ -118,20 +116,21 @@ public final class ConfigResolveOptions {
      * config itself and with any other resolvers that have been appended before
      * this one. Multiple resolvers can be added using,
      *
-     *  <pre>
+     * <pre>
      *     ConfigResolveOptions options = ConfigResolveOptions.defaults()
      *         .appendResolver(primary)
      *         .appendResolver(secondary)
      *         .appendResolver(tertiary);
      * </pre>
-     *
+     * <p>
      * With this config unresolved references will first be resolved with the
      * primary resolver, if that fails then the secondary, and finally if that
      * also fails the tertiary.
-     *
+     * <p>
      * If all fallbacks fail to return a substitution "allow unresolved"
      * determines whether resolution fails or continues.
-     *`
+     * `
+     *
      * @param value the resolver to fall back to
      * @return options that use the given resolver as a fallback
      * @since 1.3.2

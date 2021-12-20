@@ -44,7 +44,7 @@ public class AsciiArtUtils {
         Graphics2D graphics = (Graphics2D) g;
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        graphics.drawString("Waterdrop", 6, 24);
+        graphics.drawString(str, 6, 24);
 
         for (int y = 0; y < height; y++) {
             StringBuilder sb = new StringBuilder();

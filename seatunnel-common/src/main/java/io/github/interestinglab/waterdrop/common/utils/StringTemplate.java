@@ -28,16 +28,16 @@ import java.util.UUID;
 public class StringTemplate {
 
     /**
-     * @param str raw string
+     * @param str        raw string
      * @param timeFormat example : "yyyy-MM-dd HH:mm:ss"
      * @return replaced string
-     * */
+     */
     public static String substitute(String str, String timeFormat) {
 
         final SimpleDateFormat sdf = new SimpleDateFormat(timeFormat);
         final String formattedDate = sdf.format(new Date());
 
-        final Map valuesMap = new HashMap(5);
+        final Map<String, String> valuesMap = new HashMap(5);
         valuesMap.put("uuid", UUID.randomUUID().toString());
         valuesMap.put("now", formattedDate);
         valuesMap.put(timeFormat, formattedDate);
