@@ -35,20 +35,6 @@ class Kafka extends SparkBatchSink with Logging {
 
   var kafkaSink: Option[Broadcast[KafkaProducerUtil]] = None
 
-  /**
-   * Set Config.
-   */
-  override def setConfig(config: Config): Unit = {
-    this.config = config
-  }
-
-  /**
-   * Get Config.
-   */
-  override def getConfig(): Config = {
-    this.config
-  }
-
   override def checkConfig(): CheckResult = {
 
     val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
