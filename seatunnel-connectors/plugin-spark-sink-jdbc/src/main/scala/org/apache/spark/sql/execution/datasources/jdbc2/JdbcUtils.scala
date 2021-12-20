@@ -16,18 +16,10 @@
  */
 package org.apache.spark.sql.execution.datasources.jdbc2
 
-import java.sql.{Connection, Driver, DriverManager, JDBCType, PreparedStatement, ResultSet, ResultSetMetaData, SQLException}
-import java.util.Locale
-
-import scala.collection.JavaConverters._
-import scala.util.Try
-import scala.util.control.NonFatal
-
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.TaskContext
 import org.apache.spark.executor.InputMetrics
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{AnalysisException, DataFrame, Row}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.analysis.Resolver
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -39,8 +31,15 @@ import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode.JDBCSaveMod
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects, JdbcType}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.SchemaUtils
+import org.apache.spark.sql.{AnalysisException, DataFrame, Row}
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.NextIterator
+
+import java.sql.{Connection, Driver, DriverManager, JDBCType, PreparedStatement, ResultSet, ResultSetMetaData, SQLException}
+import java.util.Locale
+import scala.collection.JavaConverters._
+import scala.util.Try
+import scala.util.control.NonFatal
 
 /**
  * Util functions for JDBC tables.
@@ -128,13 +127,13 @@ object JdbcUtils extends Logging {
    * Returns an Insert SQL statement for inserting a row into the target table via JDBC conn.
    */
   def getInsertStatement(
-      table: String,
-      rddSchema: StructType,
-      tableSchema: Option[StructType],
-      isCaseSensitive: Boolean,
-      dialect: JdbcDialect,
-      mode: JDBCSaveMode,
-      options: JDBCOptions): String = {
+                          table: String,
+                          rddSchema: StructType,
+                          tableSchema: Option[StructType],
+                          isCaseSensitive: Boolean,
+                          dialect: JdbcDialect,
+                          mode: JDBCSaveMode,
+                          options: JDBCOptions): String = {
     val columns =
       if (tableSchema.isEmpty) {
         rddSchema.fields.map(x => dialect.quoteIdentifier(x.name)).mkString(",")
@@ -161,7 +160,7 @@ object JdbcUtils extends Logging {
       }
     val placeholders = rddSchema.fields.map(_ => "?").mkString(",")
 
-    // Waterdrop: Create insert statement when savemode is update.
+    // SeaTunnel: Create insert statement when savemode is update.
     mode match {
       case JDBCSaveMode.Update =>
         val props = options.asProperties
@@ -209,7 +208,7 @@ object JdbcUtils extends Logging {
       case TimestampType => Option(JdbcType("TIMESTAMP", java.sql.Types.TIMESTAMP))
       case DateType => Option(JdbcType("DATE", java.sql.Types.DATE))
       case t: DecimalType => Option(
-          JdbcType(s"DECIMAL(${t.precision},${t.scale})", java.sql.Types.DECIMAL))
+        JdbcType(s"DECIMAL(${t.precision},${t.scale})", java.sql.Types.DECIMAL))
       case _ => None
     }
   }
@@ -227,16 +226,20 @@ object JdbcUtils extends Logging {
    * @return The Catalyst type corresponding to sqlType.
    */
   private def getCatalystType(
-      sqlType: Int,
-      precision: Int,
-      scale: Int,
-      signed: Boolean): DataType = {
+                               sqlType: Int,
+                               precision: Int,
+                               scale: Int,
+                               signed: Boolean): DataType = {
     val answer = sqlType match {
       // scalastyle:off
       case java.sql.Types.ARRAY => null
       case java.sql.Types.BIGINT =>
-        if (signed) { LongType }
-        else { DecimalType(20, 0) }
+        if (signed) {
+          LongType
+        }
+        else {
+          DecimalType(20, 0)
+        }
       case java.sql.Types.BINARY => BinaryType
       case java.sql.Types.BIT => BooleanType // @see JdbcDialect for quirks
       case java.sql.Types.BLOB => BinaryType
@@ -252,8 +255,12 @@ object JdbcUtils extends Logging {
       case java.sql.Types.DOUBLE => DoubleType
       case java.sql.Types.FLOAT => FloatType
       case java.sql.Types.INTEGER =>
-        if (signed) { IntegerType }
-        else { LongType }
+        if (signed) {
+          IntegerType
+        }
+        else {
+          LongType
+        }
       case java.sql.Types.JAVA_OBJECT => null
       case java.sql.Types.LONGNVARCHAR => StringType
       case java.sql.Types.LONGVARBINARY => BinaryType
@@ -320,9 +327,9 @@ object JdbcUtils extends Logging {
    * @throws SQLException if the schema contains an unsupported type.
    */
   def getSchema(
-      resultSet: ResultSet,
-      dialect: JdbcDialect,
-      alwaysNullable: Boolean = false): StructType = {
+                 resultSet: ResultSet,
+                 dialect: JdbcDialect,
+                 alwaysNullable: Boolean = false): StructType = {
     val rsmd = resultSet.getMetaData
     val ncols = rsmd.getColumnCount
     val fields = new Array[StructField](ncols)
@@ -339,8 +346,8 @@ object JdbcUtils extends Logging {
         } catch {
           // Workaround for HIVE-14684:
           case e: SQLException
-              if e.getMessage == "Method not supported" &&
-                rsmd.getClass.getName == "org.apache.hive.jdbc.HiveResultSetMetaData" => true
+            if e.getMessage == "Method not supported" &&
+              rsmd.getClass.getName == "org.apache.hive.jdbc.HiveResultSetMetaData" => true
         }
       }
       val nullable =
@@ -371,9 +378,9 @@ object JdbcUtils extends Logging {
   }
 
   private[spark] def resultSetToSparkInternalRows(
-      resultSet: ResultSet,
-      schema: StructType,
-      inputMetrics: InputMetrics): Iterator[InternalRow] = {
+                                                   resultSet: ResultSet,
+                                                   schema: StructType,
+                                                   inputMetrics: InputMetrics): Iterator[InternalRow] = {
     new NextIterator[InternalRow] {
       private[this] val rs = resultSet
       private[this] val getters: Array[JDBCValueGetter] = makeGetters(schema)
@@ -556,9 +563,9 @@ object JdbcUtils extends Logging {
   private type JDBCValueSetter = (PreparedStatement, Row, Int) ⇒ Unit
 
   private def makeSetter(
-      conn: Connection,
-      dialect: JdbcDialect,
-      dataType: DataType): JDBCValueSetter = dataType match {
+                          conn: Connection,
+                          dialect: JdbcDialect,
+                          dataType: DataType): JDBCValueSetter = dataType match {
     case IntegerType =>
       (stmt: PreparedStatement, row: Row, pos: Int) =>
         stmt.setInt(pos + 1, row.getInt(pos))
@@ -638,15 +645,15 @@ object JdbcUtils extends Logging {
    * are used.
    */
   def savePartition(
-      getConnection: () => Connection,
-      table: String,
-      iterator: Iterator[Row],
-      rddSchema: StructType,
-      insertStmt: String,
-      batchSize: Int,
-      dialect: JdbcDialect,
-      isolationLevel: Int,
-      options: JDBCOptions): Iterator[Byte] = {
+                     getConnection: () => Connection,
+                     table: String,
+                     iterator: Iterator[Row],
+                     rddSchema: StructType,
+                     insertStmt: String,
+                     batchSize: Int,
+                     dialect: JdbcDialect,
+                     isolationLevel: Int,
+                     options: JDBCOptions): Iterator[Byte] = {
     val conn = getConnection()
     var committed = false
 
@@ -763,9 +770,9 @@ object JdbcUtils extends Logging {
    * Compute the schema string for this RDD.
    */
   def schemaString(
-      df: DataFrame,
-      url: String,
-      createTableColumnTypes: Option[String] = None): String = {
+                    df: DataFrame,
+                    url: String,
+                    createTableColumnTypes: Option[String] = None): String = {
     val sb = new StringBuilder()
     val dialect = JdbcDialects.get(url)
     val userSpecifiedColTypesMap = createTableColumnTypes
@@ -787,8 +794,8 @@ object JdbcUtils extends Logging {
    * use in-place of the default data type.
    */
   private def parseUserSpecifiedCreateTableColumnTypes(
-      df: DataFrame,
-      createTableColumnTypes: String): Map[String, String] = {
+                                                        df: DataFrame,
+                                                        createTableColumnTypes: String): Map[String, String] = {
     def typeName(f: StructField): String = {
       // char/varchar gets translated to string type. Real data type specified by the user
       // is available in the field metadata as HIVE_TYPE_STRING
@@ -827,9 +834,9 @@ object JdbcUtils extends Logging {
    * returns a schema that is replaced by the custom schema's dataType if column name is matched.
    */
   def getCustomSchema(
-      tableSchema: StructType,
-      customSchema: String,
-      nameEquality: Resolver): StructType = {
+                       tableSchema: StructType,
+                       customSchema: String,
+                       nameEquality: Resolver): StructType = {
     if (null != customSchema && customSchema.nonEmpty) {
       val userSchema = CatalystSqlParser.parseTableSchema(customSchema)
 
@@ -855,11 +862,11 @@ object JdbcUtils extends Logging {
    * Saves the RDD to the database in a single transaction.
    */
   def saveTable(
-      df: DataFrame,
-      tableSchema: Option[StructType],
-      isCaseSensitive: Boolean,
-      options: JdbcOptionsInWrite,
-      saveMode: JDBCSaveMode): Unit = {
+                 df: DataFrame,
+                 tableSchema: Option[StructType],
+                 isCaseSensitive: Boolean,
+                 options: JdbcOptionsInWrite,
+                 saveMode: JDBCSaveMode): Unit = {
     val url = options.url
     val table = options.table
     val dialect = JdbcDialects.get(url)
@@ -867,18 +874,18 @@ object JdbcUtils extends Logging {
     val getConnection: () => Connection = createConnectionFactory(options)
     val batchSize = options.batchSize
     val isolationLevel = options.isolationLevel
-    // Waterdrop: If there is a customUpdateStmt parameter, use it, otherwise it will be generated by default
+    // SeaTunnel: If there is a customUpdateStmt parameter, use it, otherwise it will be generated by default
     val customUpdateStmt = options.customUpdateStmt
     val insertStmt = customUpdateStmt match {
       case Some(customStmt) if StringUtils.isNotBlank(customStmt) => customStmt
       case _ => getInsertStatement(
-          table,
-          rddSchema,
-          tableSchema,
-          isCaseSensitive,
-          dialect,
-          saveMode,
-          options)
+        table,
+        rddSchema,
+        tableSchema,
+        isCaseSensitive,
+        dialect,
+        saveMode,
+        options)
     }
     val repartitionedDF = options.numPartitions match {
       case Some(n) if n <= 0 =>
@@ -905,9 +912,9 @@ object JdbcUtils extends Logging {
    * Creates a table with a given schema.
    */
   def createTable(
-      conn: Connection,
-      df: DataFrame,
-      options: JdbcOptionsInWrite): Unit = {
+                   conn: Connection,
+                   df: DataFrame,
+                   options: JdbcOptionsInWrite): Unit = {
     val strSchema = schemaString(
       df,
       options.url,

@@ -16,11 +16,6 @@
  */
 package org.apache.spark.sql.execution.datasources.jdbc2
 
-import java.sql.{Connection, PreparedStatement, ResultSet, SQLException}
-
-import scala.util.control.NonFatal
-
-import org.apache.spark.{InterruptibleIterator, Partition, SparkContext, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -28,6 +23,10 @@ import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.util.CompletionIterator
+import org.apache.spark.{InterruptibleIterator, Partition, SparkContext, TaskContext}
+
+import java.sql.{Connection, PreparedStatement, ResultSet, SQLException}
+import scala.util.control.NonFatal
 
 /**
  * Data corresponding to one partition of a JDBCRDD.
@@ -43,7 +42,6 @@ object JDBCRDD extends Logging {
    * schema.
    *
    * @param options - JDBC options that contains url, table and other information.
-   *
    * @return A StructType giving the table's Catalyst schema.
    * @throws SQLException if the table specification is garbage.
    * @throws SQLException if the table contains an unsupported type.
@@ -74,9 +72,8 @@ object JDBCRDD extends Logging {
   /**
    * Prune all but the specified columns from the specified Catalyst schema.
    *
-   * @param schema - The Catalyst schema of the master table
+   * @param schema  - The Catalyst schema of the master table
    * @param columns - The list of desired columns
-   *
    * @return A Catalyst schema corresponding to columns in the given order.
    */
   private def pruneSchema(schema: StructType, columns: Array[String]): StructType = {
@@ -110,7 +107,7 @@ object JDBCRDD extends Logging {
       case In(attr, value) if value.isEmpty =>
         s"CASE WHEN ${quote(attr)} IS NULL THEN NULL ELSE FALSE END"
       case In(attr, value) => s"${quote(attr)} IN (${dialect.compileValue(value)})"
-      case Not(f) => compileFilter(f, dialect).map(p => s"(NOT ($p))").getOrElse(null)
+      case Not(f) => compileFilter(f, dialect).map(p => s"(NOT ($p))").orNull
       case Or(f1, f2) =>
         // We can't compile Or filter unless both sub-filters are compiled successfully.
         // It applies too for the following And filter.
@@ -135,23 +132,22 @@ object JDBCRDD extends Logging {
   /**
    * Build and return JDBCRDD from the given information.
    *
-   * @param sc - Your SparkContext.
-   * @param schema - The Catalyst schema of the underlying database table.
+   * @param sc              - Your SparkContext.
+   * @param schema          - The Catalyst schema of the underlying database table.
    * @param requiredColumns - The names of the columns to SELECT.
-   * @param filters - The filters to include in all WHERE clauses.
-   * @param parts - An array of JDBCPartitions specifying partition ids and
-   *    per-partition WHERE clauses.
-   * @param options - JDBC options that contains url, table and other information.
-   *
+   * @param filters         - The filters to include in all WHERE clauses.
+   * @param parts           - An array of JDBCPartitions specifying partition ids and
+   *                        per-partition WHERE clauses.
+   * @param options         - JDBC options that contains url, table and other information.
    * @return An RDD representing "SELECT requiredColumns FROM fqTable".
    */
   def scanTable(
-      sc: SparkContext,
-      schema: StructType,
-      requiredColumns: Array[String],
-      filters: Array[Filter],
-      parts: Array[Partition],
-      options: JDBCOptions): RDD[InternalRow] = {
+                 sc: SparkContext,
+                 schema: StructType,
+                 requiredColumns: Array[String],
+                 filters: Array[Filter],
+                 parts: Array[Partition],
+                 options: JDBCOptions): RDD[InternalRow] = {
     val url = options.url
     val dialect = JdbcDialects.get(url)
     val quotedColumns = requiredColumns.map(colName => dialect.quoteIdentifier(colName))
@@ -173,14 +169,14 @@ object JDBCRDD extends Logging {
  * needs to fetch the schema while the workers need to fetch the data.
  */
 private[jdbc2] class JDBCRDD(
-    sc: SparkContext,
-    getConnection: () => Connection,
-    schema: StructType,
-    columns: Array[String],
-    filters: Array[Filter],
-    partitions: Array[Partition],
-    url: String,
-    options: JDBCOptions)
+                              sc: SparkContext,
+                              getConnection: () => Connection,
+                              schema: StructType,
+                              columns: Array[String],
+                              filters: Array[Filter],
+                              partitions: Array[Partition],
+                              url: String,
+                              options: JDBCOptions)
   extends RDD[InternalRow](sc, Nil) {
 
   /**
@@ -209,11 +205,11 @@ private[jdbc2] class JDBCRDD(
    * A WHERE clause representing both `filters`, if any, and the current partition.
    */
   private def getWhereClause(part: JDBCPartition): String = {
-    if (part.whereClause != null && filterWhereClause.length > 0) {
+    if (part.whereClause != null && filterWhereClause.nonEmpty) {
       "WHERE " + s"($filterWhereClause)" + " AND " + s"(${part.whereClause})"
     } else if (part.whereClause != null) {
       "WHERE " + part.whereClause
-    } else if (filterWhereClause.length > 0) {
+    } else if (filterWhereClause.nonEmpty) {
       "WHERE " + filterWhereClause
     } else {
       ""
