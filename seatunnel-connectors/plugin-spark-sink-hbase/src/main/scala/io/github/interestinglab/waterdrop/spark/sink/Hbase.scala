@@ -43,20 +43,6 @@ class Hbase extends SparkBatchSink with Logging {
   var hbaseContext: HBaseContext = _
   var hbasePrefix = "hbase."
 
-  /**
-   * Set Config.
-   */
-  override def setConfig(config: Config): Unit = {
-    this.config = config
-  }
-
-  /**
-   * Get Config.
-   */
-  override def getConfig(): Config = {
-    this.config
-  }
-
   override def checkConfig(): CheckResult = {
     val requiredOptions = List("hbase.zookeeper.quorum", "catalog", "staging_dir")
     val nonExistsOptions =
