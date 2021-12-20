@@ -101,6 +101,7 @@
         <module>plugin-spark-sink-mysql</module>
         <module>plugin-spark-sink-email</module>
         <module>seatunnel-config</module>
+        <module>plugin-spark-source-redis</module>
         <module>plugin-spark-sink-redis</module>
         <module>plugin-spark-source-redis</module>
     </modules>
