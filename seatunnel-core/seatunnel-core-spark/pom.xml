@@ -111,7 +111,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.interestinglab.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-mysql</artifactId>
+            <artifactId>plugin-spark-sink-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

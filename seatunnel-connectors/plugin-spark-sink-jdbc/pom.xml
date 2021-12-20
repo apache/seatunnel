@@ -27,7 +27,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-spark-sink-mysql</artifactId>
+    <artifactId>plugin-spark-sink-jdbc</artifactId>
 
     <dependencies>
         <dependency>
