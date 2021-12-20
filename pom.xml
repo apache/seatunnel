@@ -179,6 +179,21 @@
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-common</artifactId>
+                <version>${flink.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
             <dependency>
                 <groupId>mysql</groupId>
