@@ -12,7 +12,7 @@ components are healthy, open your browser and navigate to http://localhost:8081,
 ## Start netcat as data source
 
 ```shell
-docker run -it --rm --network flink_local --name datasource alpine:3 nc -lk 9999
+docker run -it --rm --network flink_local --name datasource alpine:3 nc -lk -p 9999
 ```
 
 ## Submit SeaTunnel jobs
@@ -23,7 +23,7 @@ docker run -it --rm \
   -v $(pwd)/config/flink-conf.yaml:/flink/conf/flink-conf.yaml \
   --network flink_local \
   -e FLINK_PROPERTIES="jobmanager.rpc.address: jobmanager" \
-  apache/seatunnel-flink --config /app/application.conf
+  apache/seatunnel-flink --config /app/config/application.conf
 ```
 
 You will find the running job in http://localhost:8081.
@@ -35,5 +35,5 @@ Type some data in the `datasource` container of [the step](#start-netcat-as-data
 ## View the task manager logs
 
 ```shell
-docker-compose -f tskmanager
+docker-compose logs -f taskmanager
 ```
