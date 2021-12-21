@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+
 package io.github.interestinglab.waterdrop.spark.sink
 
 import java.io.{BufferedReader, InputStreamReader}
@@ -83,9 +84,9 @@ object DorisUtil extends Serializable {
       }
       LOG.info(
         s"""
-          |Batch Messages Response:
-          |${stringBuffer.toString}
-          |""".stripMargin)
+           |Batch Messages Response:
+           |${stringBuffer.toString}
+           |""".stripMargin)
     } catch {
       case e: Exception => status = false
         (status, httpclient, response)
