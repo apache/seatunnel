@@ -103,14 +103,13 @@ DorisSparkSink {
 }
 
 DorisFlinkSink {
-            host="0.0.0.0:8030"
-            database="test"
-            tableName="user"
-            user="doris"
-            password="doris"
-            bulk_size=10000
-            doris.column_separator="\t"
-            doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
-      
-      }
+      host="0.0.0.0:8030"
+      database="test"
+      tableName="user"
+      user="doris"
+      password="doris"
+      bulk_size=10000
+      doris.column_separator="\t"
+      doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
+}
  ```
