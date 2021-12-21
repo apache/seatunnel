@@ -6,26 +6,26 @@ Use Spark Batch Engine ETL Data to Doris.
 ### Options
 | name | type | required | default value | engine |
 | --- | --- | --- | --- | --- |
-| host | string | yes | - | Spark |
+| fenodes | string | yes | - | Spark |
 | database | string | yes | - | Spark |
-| tableName	 | string | yes | - | Spark |
+| table	 | string | yes | - | Spark |
 | user	 | string | yes | - | Spark |
 | password	 | string | yes | - | Spark |
-| bulk_size	 | int | yes | - | Spark |
+| batch_size	 | int | yes | 100 | Spark |
 | doris.*	 | string | no | - | Spark |
 
-##### host [string]
+##### fenodes [string]
 Doris FE address:8030
 
 ##### database [string]
 Doris target database name
-##### tableName [string]
+##### table [string]
 Doris target table name
 ##### user [string]
 Doris user name
 ##### password [string]
 Doris user's password
-##### bulk_size [string]
+##### batch_size [string]
 Doris number of submissions per batch
 ##### doris. [string]
 Doris stream_load properties,you can use 'doris.' prefix + stream_load properties
@@ -35,13 +35,13 @@ Doris stream_load properties,you can use 'doris.' prefix + stream_load propertie
 ### Examples
 
 ```
-doris {
+Doris {
             host="0.0.0.0:8030"
             database="test"
-            tableName="user"
+            table="user"
             user="doris"
             password="doris"
-            bulk_size=10000
+            batch_size=10000
             doris.column_separator="\t"
             doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
       

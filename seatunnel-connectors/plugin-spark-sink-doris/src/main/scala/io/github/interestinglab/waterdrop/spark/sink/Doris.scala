@@ -27,11 +27,11 @@ import scala.collection.mutable.ListBuffer
 class Doris extends SparkBatchSink with Serializable {
 
   var apiUrl: String = _
+  var batch_size: Int = 100
   var column_separator: String = "\t"
   var propertiesMap = new mutable.HashMap[String,String]()
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-    val bulkSize: Int = config.getInt(Config.BULK_SIZE)
     val user: String = config.getString(Config.USER)
     val password: String = config.getString(Config.PASSWORD)
     if (propertiesMap.contains(Config.COLUMN_SEPARATOR)) {
@@ -39,7 +39,7 @@ class Doris extends SparkBatchSink with Serializable {
     }
     val sparkSession = env.getSparkSession
     import sparkSession.implicits._
-    val dataFrame = data.map(x => x.toString().replaceAll("\\[|\\]", "").replace(",", column_separator))
+    val dataFrame = data.map(x => x.toString().replaceAll("\\[|\\]", "").replaceAll(",", column_separator))
     dataFrame.foreachPartition { partition =>
       var count: Int = 0
       val buffer = new ListBuffer[String]
@@ -47,7 +47,7 @@ class Doris extends SparkBatchSink with Serializable {
       for (message <- partition) {
         count += 1
         buffer += message
-        if (count > bulkSize) {
+        if (count > batch_size) {
           dorisUtil.saveMessages(buffer.mkString("\n"))
           buffer.clear()
           count = 0
@@ -58,7 +58,7 @@ class Doris extends SparkBatchSink with Serializable {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME,Config.BULK_SIZE,Config.USER,Config.PASSWORD)
+    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME,Config.USER,Config.PASSWORD)
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
       !exists
@@ -72,8 +72,6 @@ class Doris extends SparkBatchSink with Serializable {
       )
     } else if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(Config.PASSWORD) && !config.hasPath(Config.USER)) {
       new CheckResult(false, Config.CHECK_USER_ERROR)
-    } else if (config.hasPath(Config.BULK_SIZE) && config.getInt(Config.BULK_SIZE) < 0) {
-      new CheckResult(false,Config.CHECK_INT_ERROR)
     } else {
       val host: String = config.getString(Config.HOST)
       val dataBase: String = config.getString(Config.DATABASE)
@@ -92,6 +90,10 @@ class Doris extends SparkBatchSink with Serializable {
           propertiesMap += (split(0) -> tuple.getValue.render())
         }
       })
+    }
+
+    if (config.hasPath(Config.BULK_SIZE) && config.getInt(Config.BULK_SIZE) > 0) {
+      batch_size = config.getInt(Config.BULK_SIZE)
     }
   }
 }

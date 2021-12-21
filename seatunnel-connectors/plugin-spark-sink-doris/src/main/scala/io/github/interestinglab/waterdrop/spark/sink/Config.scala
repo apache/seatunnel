@@ -19,14 +19,14 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 object Config extends Serializable {
 
-  val HOST = "host"
+  val HOST = "fenodes"
   val DATABASE = "database"
-  val TABLE_NAME = "tableName"
+  val TABLE_NAME = "table"
   val USER = "user"
   val PASSWORD = "password"
-  val BULK_SIZE = "bulk_size"
-  val COLUMN_SEPARATOR = "column_separator"
+  val BULK_SIZE = "batch_size"
   val ARGS_PREFIX = "doris."
+  val COLUMN_SEPARATOR = "column_separator"
 
   val CHARSET = "UTF-8"
   val BINARY_CT = "application/octet-stream"
