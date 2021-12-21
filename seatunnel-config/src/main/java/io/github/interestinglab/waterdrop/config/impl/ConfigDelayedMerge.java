@@ -77,8 +77,8 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
 
     // static method also used by ConfigDelayedMergeObject
     static ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ReplaceableMergeStack replaceable,
-            List<AbstractConfigValue> stack,
-            ResolveContext context, ResolveSource source) throws NotPossibleToResolve {
+                                                                             List<AbstractConfigValue> stack,
+                                                                             ResolveContext context, ResolveSource source) throws NotPossibleToResolve {
         if (ConfigImpl.traceSubSituationsEnable()) {
             ConfigImpl.trace(context.depth(), "delayed merge stack has " + stack.size() + " items:");
             int count = 0;

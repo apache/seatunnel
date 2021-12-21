@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 
-public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
+public class CsvRowOutputFormat extends FileOutputFormat<Row> {
 
     public static final String DEFAULT_LINE_DELIMITER = CsvInputFormat.DEFAULT_LINE_DELIMITER;
 
@@ -64,9 +64,8 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
      * Creates an instance of CsvOutputFormat. Lines are separated by the newline character '\n',
      * fields by the given field delimiter.
      *
-     * @param outputPath The path where the CSV file is written.
-     * @param fieldDelimiter
-     *            The delimiter that is used to separate fields in a tuple.
+     * @param outputPath     The path where the CSV file is written.
+     * @param fieldDelimiter The delimiter that is used to separate fields in a tuple.
      */
     public CsvRowOutputFormat(Path outputPath, String fieldDelimiter) {
         this(outputPath, DEFAULT_LINE_DELIMITER, fieldDelimiter);
@@ -75,11 +74,9 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row>  {
     /**
      * Creates an instance of CsvOutputFormat.
      *
-     * @param outputPath The path where the CSV file is written.
-     * @param recordDelimiter
-     *            The delimiter that is used to separate the tuples.
-     * @param fieldDelimiter
-     *            The delimiter that is used to separate fields in a tuple.
+     * @param outputPath      The path where the CSV file is written.
+     * @param recordDelimiter The delimiter that is used to separate the tuples.
+     * @param fieldDelimiter  The delimiter that is used to separate fields in a tuple.
      */
     public CsvRowOutputFormat(Path outputPath, String recordDelimiter, String fieldDelimiter) {
         super(outputPath);

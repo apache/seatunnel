@@ -16,20 +16,21 @@
  */
 package io.github.interestinglab.waterdrop.spark.source
 
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
 import java.security.SecureRandom
 
+import scala.collection.JavaConversions._
+
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
-import org.apache.spark.streaming.receiver.Receiver
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.dstream.DStream
+import org.apache.spark.streaming.receiver.Receiver
 
-import scala.collection.JavaConversions._
+import io.github.interestinglab.waterdrop.common.config.CheckResult
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
 
 class FakeStream extends SparkStreamingSource[String] {
 
@@ -46,8 +47,7 @@ class FakeStream extends SparkStreamingSource[String] {
     receiverInputDStream
   }
 
-  override def rdd2dataset(sparkSession: SparkSession,
-                           rdd: RDD[String]): Dataset[Row] = {
+  override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[String]): Dataset[Row] = {
     val rowsRDD = rdd.map(element => {
       RowFactory.create(element)
     })
@@ -65,7 +65,8 @@ class FakeStream extends SparkStreamingSource[String] {
   }
 }
 
-private class FakeReceiver(config: Config) extends Receiver[String](StorageLevel.MEMORY_AND_DISK_2) {
+private class FakeReceiver(config: Config)
+  extends Receiver[String](StorageLevel.MEMORY_AND_DISK_2) {
 
   val secRandom = new SecureRandom()
 

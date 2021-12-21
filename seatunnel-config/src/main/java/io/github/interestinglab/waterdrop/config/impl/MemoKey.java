@@ -17,7 +17,9 @@
 
 package io.github.interestinglab.waterdrop.config.impl;
 
-/** The key used to memoize already-traversed nodes when resolving substitutions */
+/**
+ * The key used to memoize already-traversed nodes when resolving substitutions
+ */
 final class MemoKey {
     MemoKey(AbstractConfigValue value, Path restrictToChildOrNull) {
         this.value = value;

@@ -18,23 +18,24 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 import java.io.ByteArrayOutputStream
 
+import scala.collection.JavaConverters._
+
 import com.norbitltd.spoiwo.model.Workbook
+import com.norbitltd.spoiwo.natures.xlsx.Model2XlsxConversions._
+import com.typesafe.config.ConfigFactory
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.apache.spark.sql.{Dataset, Row}
+import play.api.libs.mailer.{Attachment, AttachmentData, Email, SMTPConfiguration, SMTPMailer}
+
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import org.apache.spark.sql.{Dataset, Row}
-import com.norbitltd.spoiwo.natures.xlsx.Model2XlsxConversions._
-import com.typesafe.config.ConfigFactory
-import play.api.libs.mailer.{Attachment, AttachmentData, Email, SMTPConfiguration, SMTPMailer}
-
-import scala.collection.JavaConverters._
 
 class Email extends SparkBatchSink {
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
 
-    //Get xlsx file's byte array
+    // Get xlsx file's byte array
     val headerRow = Some(data.schema.fields.map(_.name).toSeq)
     val limitCount = if (config.hasPath("limit")) config.getInt("limit") else 100000
     val dataRows = data.limit(limitCount)
@@ -50,7 +51,10 @@ class Email extends SparkBatchSink {
     val xlsxBytes = out.toByteArray
 
     // Mail attachment
-    val attachment: Attachment = AttachmentData("result.xlsx", xlsxBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    val attachment: Attachment = AttachmentData(
+      "result.xlsx",
+      xlsxBytes,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     val subject = if (config.hasPath("subject")) config.getString("subject") else "(No subject)"
     // Who sent the mail
@@ -62,9 +66,15 @@ class Email extends SparkBatchSink {
     // Hypertext content, If bodyHtml is set, then bodeText will not take effect.
     val bodyHtml = if (config.hasPath("bodyHtml")) Some(config.getString("bodyHtml")) else None
 
-    val cc = if(config.hasPath("cc")) config.getString("cc").split(",").map(_.trim()).filter(_.length > 0) else Array[String]()
-    val bcc = if(config.hasPath("bcc")) config.getString("bcc").split(",").map(_.trim()).filter(_.length > 0) else Array[String]()
-    val email = Email(subject,
+    val cc =
+      if (config.hasPath("cc")) config.getString("cc").split(",").map(_.trim()).filter(_.length > 0)
+      else Array[String]()
+    val bcc =
+      if (config.hasPath("bcc"))
+        config.getString("bcc").split(",").map(_.trim()).filter(_.length > 0)
+      else Array[String]()
+    val email = Email(
+      subject,
       from,
       to,
       bodyText = bodyText,
@@ -72,8 +82,7 @@ class Email extends SparkBatchSink {
       charset = Option[String]("utf-8"),
       attachments = Array(attachment),
       cc = cc,
-      bcc = bcc
-    )
+      bcc = bcc)
 
     // Mailbox server settings, used to send mail
     val host = config.getString("host")
@@ -86,7 +95,8 @@ class Email extends SparkBatchSink {
 
   override def checkConfig(): CheckResult = {
     val requiredOptions = List("from", "to", "host", "port", "password")
-    val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter(!_._2)
+    val nonExistsOptions =
+      requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter(!_._2)
 
     if (nonExistsOptions.nonEmpty) {
       new CheckResult(
@@ -96,21 +106,34 @@ class Email extends SparkBatchSink {
             val (name, _) = option
             "[" + name + "]"
           }
-          .mkString(", ") + " as non-empty string"
-      )
+          .mkString(", ") + " as non-empty string")
     }
     new CheckResult(true, "")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {}
 
-  def createMailer(host: String, port: Int, user: String, password: String, timeout: Int = 10000, connectionTimeout: Int = 10000): SMTPMailer = {
+  def createMailer(
+      host: String,
+      port: Int,
+      user: String,
+      password: String,
+      timeout: Int = 10000,
+      connectionTimeout: Int = 10000): SMTPMailer = {
     // STMP's service SMTPConfiguration
     val configuration = new SMTPConfiguration(
-      host, port, false, false, false,
-      Option(user), Option(password), false, timeout = Option(timeout),
-      connectionTimeout = Option(connectionTimeout), ConfigFactory.empty(), false
-    )
+      host,
+      port,
+      false,
+      false,
+      false,
+      Option(user),
+      Option(password),
+      false,
+      timeout = Option(timeout),
+      connectionTimeout = Option(connectionTimeout),
+      ConfigFactory.empty(),
+      false)
     val mailer: SMTPMailer = new SMTPMailer(configuration)
     mailer
   }

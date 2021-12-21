@@ -18,15 +18,16 @@ package io.github.interestinglab.waterdrop.spark.sink
 
 import java.util.Properties
 
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
-import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import scala.collection.JavaConversions._
+
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
 
-import scala.collection.JavaConversions._
+import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
+import io.github.interestinglab.waterdrop.spark.SparkEnvironment
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 
 class Kafka extends SparkBatchSink with Logging {
 
@@ -34,27 +35,14 @@ class Kafka extends SparkBatchSink with Logging {
 
   var kafkaSink: Option[Broadcast[KafkaProducerUtil]] = None
 
-  /**
-   * Set Config.
-   * */
-  override def setConfig(config: Config): Unit = {
-    this.config = config
-  }
-
-  /**
-   * Get Config.
-   * */
-  override def getConfig(): Config = {
-    this.config
-  }
-
   override def checkConfig(): CheckResult = {
 
     val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
     config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
       case true => new CheckResult(true, "")
-      case false => new CheckResult(false, "please specify [topic] and [producer.bootstrap.servers]")
+      case false =>
+        new CheckResult(false, "please specify [topic] and [producer.bootstrap.servers]")
     }
   }
 
@@ -63,9 +51,7 @@ class Kafka extends SparkBatchSink with Logging {
       Map(
         "format" -> "json",
         producerPrefix + "key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
-        producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"
-      )
-    )
+        producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"))
 
     config = config.withFallback(defaultConfig)
 

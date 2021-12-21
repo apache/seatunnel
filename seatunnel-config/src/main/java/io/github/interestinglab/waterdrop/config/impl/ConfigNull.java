@@ -30,7 +30,6 @@ import java.io.Serializable;
  * where it was set to null) in case someone asks for the value. Also, null
  * overrides values set "earlier" in the search path, while missing values do
  * not.
- *
  */
 final class ConfigNull extends AbstractConfigValue implements Serializable {
 
