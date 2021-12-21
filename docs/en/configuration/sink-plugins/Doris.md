@@ -36,7 +36,7 @@ Doris stream_load properties,you can use 'doris.' prefix + stream_load propertie
 
 ```
 Doris {
-            host="0.0.0.0:8030"
+            fenodes="0.0.0.0:8030"
             database="test"
             table="user"
             user="doris"
