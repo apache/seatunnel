@@ -84,12 +84,11 @@ public class ConfigBuilder {
         }
         LOGGER.info("Loading config file: {}", configFile);
 
-        Config config = variableMap.size() != 0 ?
-                ConfigFactory.parseString(fileRegexExecution(configFile, variableMap)) :
-                ConfigFactory.parseFile(new File(configFile));
-
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
+        Config config = (variableMap.size() != 0 ?
+                ConfigFactory.parseString(fileRegexExecution(configFile, variableMap)) :
+                ConfigFactory.parseFile(new File(configFile)));
         config = config
                 .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                 .resolveWith(ConfigFactory.systemProperties(),
