@@ -29,13 +29,20 @@ import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution;
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
 import io.github.interestinglab.waterdrop.utils.Engine;
 import io.github.interestinglab.waterdrop.utils.PluginType;
-import org.apache.avro.util.Utf8;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.ServiceConfigurationError;
+import java.util.ServiceLoader;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
 
 import scala.Tuple2;
 import scala.collection.immutable.Map;
