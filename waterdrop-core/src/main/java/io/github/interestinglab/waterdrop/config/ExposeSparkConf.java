@@ -65,7 +65,7 @@ public class ExposeSparkConf {
             sparkConfMap.put(spark_executor_extraJavaOptions, variables);
         } else {
             sparkConfMap.put(spark_executor_extraJavaOptions,
-                    sparkConfMap.get(spark_executor_extraJavaOptions + " " + variables));
+                    sparkConfMap.get(spark_executor_extraJavaOptions) + " " + variables);
         }
 
         for (Map.Entry<String, String> c : sparkConfMap.entrySet()) {
