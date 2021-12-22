@@ -40,21 +40,23 @@ import scala.Option;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 import scopt.OptionParser;
+import scala.collection.immutable.Map;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
 public class Waterdrop {
     private static final Logger LOGGER = LoggerFactory.getLogger(Waterdrop.class);
 
     public static void run(OptionParser<CommandLineArgs> parser, Engine engine, String[] args) {
         Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();
-        Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client", "application.conf", false));
+
+        Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client",
+                "application.conf", false, new scala.collection.immutable.HashMap<>()));
+
         if (option.isDefined()) {
             CommandLineArgs commandLineArgs = option.get();
             Common.setDeployMode(commandLineArgs.deployMode());
@@ -65,7 +67,7 @@ public class Waterdrop {
                 LOGGER.info("config OK !");
             } else {
                 try {
-                    entryPoint(configFilePath, engine);
+                    entryPoint(configFilePath, engine, commandLineArgs.variableMap());
                 } catch (ConfigRuntimeException e) {
                     showConfigError(e);
                     throw e;
@@ -97,9 +99,9 @@ public class Waterdrop {
         return path;
     }
 
-    private static void entryPoint(String configFile, Engine engine) {
+    private static void entryPoint(String configFile, Engine engine, Map<String, String> variableMap) {
 
-        ConfigBuilder configBuilder = new ConfigBuilder(configFile, engine);
+        ConfigBuilder configBuilder = new ConfigBuilder(configFile, engine, variableMap);
         List<BaseSource> sources = configBuilder.createPlugins(PluginType.SOURCE);
         List<BaseTransform> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
         List<BaseSink> sinks = configBuilder.createPlugins(PluginType.SINK);

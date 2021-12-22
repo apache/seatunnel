@@ -29,22 +29,23 @@ import io.github.interestinglab.waterdrop.spark.batch.SparkBatchExecution;
 import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingExecution;
 import io.github.interestinglab.waterdrop.utils.Engine;
 import io.github.interestinglab.waterdrop.utils.PluginType;
+import org.apache.avro.util.Utf8;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+import scala.Tuple2;
+import scala.collection.immutable.Map;
 
 public class ConfigBuilder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
+    private static final String VAR_REGEX = "\\$\\{%s}";
     private final String configFile;
     private final Engine engine;
     private ConfigPackage configPackage;
@@ -52,8 +53,10 @@ public class ConfigBuilder {
     private boolean streaming;
     private Config envConfig;
     private final RuntimeEnv env;
+    private Map<String, String> variableMap;
 
-    public ConfigBuilder(String configFile, Engine engine) {
+    public ConfigBuilder(String configFile, Engine engine, Map<String, String> variableMap) {
+        this.variableMap = variableMap;
         this.configFile = configFile;
         this.engine = engine;
         this.configPackage = new ConfigPackage(engine.getEngine());
@@ -69,17 +72,18 @@ public class ConfigBuilder {
     }
 
     private Config load() {
-
         if (configFile.isEmpty()) {
             throw new ConfigRuntimeException("Please specify config file");
         }
-
         LOGGER.info("Loading config file: {}", configFile);
+
+        Config config = variableMap.size() != 0 ?
+                ConfigFactory.parseString(fileRegexExecution(configFile, variableMap)) :
+                ConfigFactory.parseFile(new File(configFile));
 
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
-        Config config = ConfigFactory
-                .parseFile(new File(configFile))
+        config = config
                 .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
@@ -87,6 +91,32 @@ public class ConfigBuilder {
         ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
         LOGGER.info("parsed config file: {}", config.root().render(options));
         return config;
+    }
+
+    public String fileRegexExecution(String configFile, Map<String, String> variableMap) {
+        StringBuilder resText = new StringBuilder();
+        try {
+            File file = new File(configFile);
+            if (file.isFile() && file.exists()) {
+                String lineText;
+                BufferedReader bufferedReader = new BufferedReader(
+                        new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
+                while ((lineText = bufferedReader.readLine()) != null) {
+                    if (variableMap.size() != 0) {
+                        for (int i = 0; i < variableMap.size(); i++) {
+                            Tuple2<String, String> kv = variableMap.toList().apply(i);
+                            lineText = lineText.replaceAll(
+                                    String.format(VAR_REGEX, kv._1().trim()), kv._2().trim());
+                        }
+                    }
+                    resText.append(lineText).append(System.getProperty("line.separator"));
+                }
+                bufferedReader.close();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return resText.toString();
     }
 
     public Config getEnvConfigs() {

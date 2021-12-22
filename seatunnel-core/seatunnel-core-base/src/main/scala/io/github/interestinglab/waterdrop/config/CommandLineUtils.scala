@@ -43,8 +43,9 @@ object CommandLineUtils {
     opt[String]('m', "master")
       .required()
       .text("spark master")
-    opt[String]('i', "variable")
+    opt[Map[String, String]]('i', "variables")
       .optional()
+      .action((x, c) => c.copy(variableMap = x))
       .text(
         "variable substitution, such as -i city=beijing, or -i date=20190318")
       .maxOccurs(Integer.MAX_VALUE)
