@@ -126,6 +126,11 @@ object Waterdrop extends Logging {
     // find all user defined UDFs and register in application init
     UdfRegister.findAndRegisterUdfs(sparkSession)
 
+    val actions = configBuilder.createActions[BaseAction]()
+    actions.foreach(act => {
+      act.onExecutionStarted(sparkSession, sparkConf, configBuilder.config)
+    })
+
     val staticInputs = configBuilder.createStaticInputs("batch")
     val streamingInputs = configBuilder.createStreamingInputs("batch")
     val filters = configBuilder.createFilters
@@ -137,6 +142,9 @@ object Waterdrop extends Logging {
       streamingProcessing(sparkSession, configBuilder, staticInputs, streamingInputs, filters, outputs)
     } else {
       batchProcessing(sparkSession, configBuilder, staticInputs, filters, outputs)
+      actions.foreach(act => {
+        act.onExecutionFinished(sparkConf, configBuilder.config)
+      })
     }
   }
 
