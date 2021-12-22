@@ -107,12 +107,12 @@
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
+        <flink.scope>provided</flink.scope>
         <httpclient.version>4.5.2</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <httpcore-nio.version>4.4.4</httpcore-nio.version>
         <httpasyncclient.version>4.1.4</httpasyncclient.version>
         <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
-
         <docker.hub>apache</docker.hub>
         <docker.tag>${project.version}</docker.tag>
     </properties>
@@ -158,27 +158,42 @@
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-java</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-streaming-scala_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-common</artifactId>
+                <version>${flink.version}</version>
                 <scope>provided</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
             <dependency>
                 <groupId>mysql</groupId>
