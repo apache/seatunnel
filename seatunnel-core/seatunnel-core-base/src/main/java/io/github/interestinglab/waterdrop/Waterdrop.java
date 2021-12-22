@@ -39,7 +39,6 @@ import org.slf4j.LoggerFactory;
 import scala.Option;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
-import scala.collection.immutable.HashMap;
 import scopt.OptionParser;
 import scala.collection.immutable.Map;
 
@@ -58,7 +57,7 @@ public class Waterdrop {
         Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();
 
         Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client",
-                "application.conf", false, new HashMap<String, String>()));
+                "application.conf", false, new scala.collection.immutable.HashMap()));
 
         if (option.isDefined()) {
             CommandLineArgs commandLineArgs = option.get();

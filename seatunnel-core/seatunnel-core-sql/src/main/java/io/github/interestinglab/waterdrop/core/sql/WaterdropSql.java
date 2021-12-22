@@ -25,7 +25,6 @@ import org.apache.commons.io.FileUtils;
 import scala.Option;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
-import scala.collection.immutable.HashMap;
 import scopt.OptionParser;
 
 import java.io.File;
@@ -43,7 +42,7 @@ public class WaterdropSql {
         OptionParser<CommandLineArgs> parser = CommandLineUtils.flinkParser();
         Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();
         Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs(
-                "client", "application.conf", false, new HashMap<String, String>()));
+                "client", "application.conf", false, new scala.collection.immutable.HashMap()));
         if (option.isDefined()) {
             CommandLineArgs commandLineArgs = option.get();
             String configFilePath = commandLineArgs.configFile();
