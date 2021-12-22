@@ -70,7 +70,7 @@ public class ExposeSparkConf {
 
         for (Map.Entry<String, String> c : sparkConfMap.entrySet()) {
             String v = addLogPropertiesIfNeeded(c.getKey(), c.getValue());
-            String conf = String.format(" --conf \"%s=%s\"", c.getKey(), v);
+            String conf = String.format(" --conf %s=\"%s\"", c.getKey(), v);
             stringBuilder.append(conf);
         }
 
