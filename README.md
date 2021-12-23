@@ -112,18 +112,14 @@ Shuidichou adopts SeaTunnel to do real-time streaming and regular offline batch 
 
 For more use cases, please refer to: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/case_study/
 
-## Contribute ideas and code
-
-Submit issues and advice: https://github.com/InterestingLab/SeaTunnel/issues
-
-Contribute code: https://github.com/InterestingLab/SeaTunnel/pulls
+# Code of conduct
+This project adheres to the Contributor Covenant [code of conduct](https://www.apache.org/foundation/policies/conduct). By participating, you are expected to uphold this code.
+Please follow the [REPORTING GUIDELINES](https://www.apache.org/foundation/policies/conduct#reporting-guidelines) to report unacceptable behavior.
 
 ## Developer
-
 Thanks to all developers https://github.com/InterestingLab/SeaTunnel/graphs/contributors  
-
 
 ## Contact Us
 * Mail list: **dev@seatunnel.apache.org**. Mail to `dev-subscribe@seatunnel.apache.org`, follow the reply to subscribe the mail list.
-* Send `Request to join SeaTunnel slack` mail to the mail list(`dev@seatunnel.apache.org`), we will invite you in.
+* Slack: Send `Request to join SeaTunnel slack` mail to the mail list(`dev@seatunnel.apache.org`), we will invite you in.
 * [bilibili](https://space.bilibili.com/1542095008)
