@@ -71,14 +71,14 @@ class SparkBatchExecution(environment: SparkEnvironment)
 
 object SparkBatchExecution {
 
-  private[waterdrop] val sourceTableName = "source_table_name"
-  private[waterdrop] val resultTableName = "result_table_name"
+  private[seatunnel] val sourceTableName = "source_table_name"
+  private[seatunnel] val resultTableName = "result_table_name"
 
-  private[waterdrop] def registerTempView(tableName: String, ds: Dataset[Row]): Unit = {
+  private[seatunnel] def registerTempView(tableName: String, ds: Dataset[Row]): Unit = {
     ds.createOrReplaceTempView(tableName)
   }
 
-  private[waterdrop] def registerInputTempView(
+  private[seatunnel] def registerInputTempView(
       source: BaseSparkSource[Dataset[Row]],
       environment: SparkEnvironment): Unit = {
     val conf = source.getConfig
@@ -95,7 +95,7 @@ object SparkBatchExecution {
     }
   }
 
-  private[waterdrop] def transformProcess(
+  private[seatunnel] def transformProcess(
       environment: SparkEnvironment,
       transform: BaseSparkTransform,
       ds: Dataset[Row]): Dataset[Row] = {
@@ -111,7 +111,7 @@ object SparkBatchExecution {
     transform.process(fromDs, environment)
   }
 
-  private[waterdrop] def registerTransformTempView(
+  private[seatunnel] def registerTransformTempView(
       plugin: BaseSparkTransform,
       ds: Dataset[Row]): Unit = {
     val config = plugin.getConfig()
@@ -121,7 +121,7 @@ object SparkBatchExecution {
     }
   }
 
-  private[waterdrop] def sinkProcess(
+  private[seatunnel] def sinkProcess(
       environment: SparkEnvironment,
       sink: BaseSparkSink[_],
       ds: Dataset[Row]): Unit = {

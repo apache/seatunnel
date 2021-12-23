@@ -338,12 +338,12 @@ object Clickhouse {
   val decimalPattern: Regex = "(Decimal.*)".r
 
   /**
-   * Waterdrop support this clickhouse data type or not.
+   * Seatunnel support this clickhouse data type or not.
    *
    * @param dataType ClickHouse Data Type
    * @return Boolean
    */
-  private[waterdrop] def supportOrNot(dataType: String): Boolean = {
+  private[seatunnel] def supportOrNot(dataType: String): Boolean = {
     dataType match {
       case "Date" | "DateTime" | "String" =>
         true
@@ -360,7 +360,7 @@ object Clickhouse {
     }
   }
 
-  private[waterdrop] def renderStringDefault(fieldType: String): String = {
+  private[seatunnel] def renderStringDefault(fieldType: String): String = {
     fieldType match {
       case "DateTime" =>
         val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")

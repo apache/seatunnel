@@ -162,7 +162,7 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-exec ${SPARK_HOME}/bin/spark-submit --class org.apache.seatunnel.WaterdropSpark \
+exec ${SPARK_HOME}/bin/spark-submit --class org.apache.seatunnel.SeatunnelSpark \
     --name $(getAppName ${CONFIG_FILE}) \
     --jars $(echo ${LIB_DIR}/*.jar | tr ' ' ',') \
     --master ${MASTER} \

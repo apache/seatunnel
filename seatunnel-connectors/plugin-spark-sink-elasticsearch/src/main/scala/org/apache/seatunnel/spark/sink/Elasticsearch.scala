@@ -50,7 +50,7 @@ class Elasticsearch extends SparkBatchSink {
   override def prepare(environment: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "index" -> "waterdrop",
+        "index" -> "seatunnel",
         "index_type" -> "_doc",
         "index_time_format" -> "yyyy.MM.dd"))
     config = config.withFallback(defaultConfig)
