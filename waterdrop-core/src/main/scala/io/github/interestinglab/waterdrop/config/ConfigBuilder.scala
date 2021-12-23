@@ -25,7 +25,6 @@ import java.util.ServiceLoader
 import scala.language.reflectiveCalls
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory, ConfigRenderOptions, ConfigResolveOptions}
 import io.github.interestinglab.waterdrop.apis._
 
 import scala.util.{Failure, Success, Try}
@@ -204,6 +203,13 @@ class ConfigBuilder(configFile: String) {
 
   def createActions[T <: Plugin](): List[T] = {
 
+    config.hasPath("action") match {
+      case true => createActionsImpl[T]
+      case false => List[T]()
+    }
+  }
+
+  private def createActionsImpl[T <: Plugin](): List[T] = {
     var pluginInstances = List[T]()
 
     config
