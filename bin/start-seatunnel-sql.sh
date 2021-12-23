@@ -63,5 +63,5 @@ export JVM_ARGS=$(string_trim "${variables_substitution}")
 
 exec ${FLINK_HOME}/bin/flink run \
     ${PARAMS} \
-    -c io.github.interestinglab.waterdrop.core.sql.WaterdropSql \
+    -c org.apache.seatunnel.core.sql.WaterdropSql \
     ${assemblyJarName} --config ${CONFIG_FILE}

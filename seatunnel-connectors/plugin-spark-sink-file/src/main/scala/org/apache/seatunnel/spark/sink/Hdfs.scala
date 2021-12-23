@@ -17,7 +17,7 @@
 package org.apache.seatunnel.spark.sink
 
 import org.apache.spark.sql.{Dataset, Row}
-import io.github.interestinglab.waterdrop.common.config.CheckResult
+import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 
 class Hdfs extends FileSinkBase {

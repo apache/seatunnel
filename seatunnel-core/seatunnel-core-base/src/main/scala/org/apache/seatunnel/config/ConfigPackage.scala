@@ -17,7 +17,7 @@
 package org.apache.seatunnel.config
 
 class ConfigPackage(engine: String) {
-  val packagePrefix = "io.github.interestinglab.waterdrop." + engine
+  val packagePrefix = "org.apache.seatunnel." + engine
   val upperEngine = engine.substring(0, 1).toUpperCase() + engine.substring(1)
   val sourcePackage = packagePrefix + ".source"
   val transformPackage = packagePrefix + ".transform"

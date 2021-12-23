@@ -17,8 +17,8 @@
 package org.apache.seatunnel.spark.transform
 
 import org.apache.spark.sql.{Dataset, Row}
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.spark.BaseSparkTransform
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.spark.BaseSparkTransform
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 
 class Sql extends BaseSparkTransform {

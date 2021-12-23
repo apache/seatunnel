@@ -20,7 +20,7 @@ import java.lang
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import io.github.interestinglab.waterdrop.config.ConfigFactory
+import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.RuntimeEnv

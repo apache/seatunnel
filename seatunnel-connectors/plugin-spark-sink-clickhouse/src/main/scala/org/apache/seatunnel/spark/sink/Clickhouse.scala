@@ -28,8 +28,8 @@ import scala.util.matching.Regex
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
-import io.github.interestinglab.waterdrop.config.ConfigFactory
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 

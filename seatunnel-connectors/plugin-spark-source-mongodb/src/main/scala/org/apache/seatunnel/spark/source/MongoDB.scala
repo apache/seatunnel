@@ -22,7 +22,7 @@ import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.sql.types.StructType
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.seatunnel.spark.utils.SparkSturctTypeUtil

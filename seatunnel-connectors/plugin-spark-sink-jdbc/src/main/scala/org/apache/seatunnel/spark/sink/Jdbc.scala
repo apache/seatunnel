@@ -16,8 +16,8 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.config.ConfigFactory
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode

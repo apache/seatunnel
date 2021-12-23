@@ -21,13 +21,13 @@ import org.apache.seatunnel.config.CommandLineArgs;
 import org.apache.seatunnel.config.CommandLineUtils;
 import scopt.OptionParser;
 
-import static org.apache.seatunnel.utils.Engine.FLINK;
+import static org.apache.seatunnel.utils.Engine.SPARK;
 
-public class WaterdropFlink {
+public class SeatunnelSpark {
 
     public static void main(String[] args) {
-        OptionParser<CommandLineArgs> flinkParser = CommandLineUtils.flinkParser();
-        Waterdrop.run(flinkParser, FLINK, args);
+        OptionParser<CommandLineArgs> sparkParser = CommandLineUtils.sparkParser();
+        Seatunnel.run(sparkParser, SPARK, args);
     }
 
 }

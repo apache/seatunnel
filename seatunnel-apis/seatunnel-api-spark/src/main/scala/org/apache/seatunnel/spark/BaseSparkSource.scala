@@ -16,7 +16,7 @@
  */
 package org.apache.seatunnel.spark
 
-import io.github.interestinglab.waterdrop.config.ConfigFactory
+import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.apis.BaseSource
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 

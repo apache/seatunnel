@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
 import org.apache.spark.sql.{Dataset, Row}
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 

@@ -30,8 +30,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.DataTypes
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 

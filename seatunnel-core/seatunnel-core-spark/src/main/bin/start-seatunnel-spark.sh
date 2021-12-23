@@ -118,7 +118,7 @@ variables_substitution=$(string_trim "${variables_substitution}")
 
 ## get spark conf from config file and specify them in spark-submit
 function get_spark_conf {
-    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
+    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} org.apache.seatunnel.config.ExposeSparkConf ${CONFIG_FILE})
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
         exit -1
@@ -162,7 +162,7 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.WaterdropSpark \
+exec ${SPARK_HOME}/bin/spark-submit --class org.apache.seatunnel.WaterdropSpark \
     --name $(getAppName ${CONFIG_FILE}) \
     --jars $(echo ${LIB_DIR}/*.jar | tr ' ' ',') \
     --master ${MASTER} \

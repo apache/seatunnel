@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.spark.sink
 
-import io.github.interestinglab.waterdrop.common.config.CheckResult
+import org.apache.seatunnel.common.config.CheckResult
 import org.apache.log4j.Logger
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink

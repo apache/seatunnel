@@ -18,8 +18,8 @@ package org.apache.seatunnel.spark.stream
 
 import java.util.{List => JList}
 import org.apache.spark.sql.{Dataset, Row}
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.spark.BaseSparkSource
+import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.spark.BaseSparkSource
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution

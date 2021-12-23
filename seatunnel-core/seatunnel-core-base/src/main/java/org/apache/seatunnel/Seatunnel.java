@@ -50,8 +50,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class Waterdrop {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Waterdrop.class);
+public class Seatunnel {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
     public static void run(OptionParser<CommandLineArgs> parser, Engine engine, String[] args) {
         Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();

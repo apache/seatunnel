@@ -20,9 +20,9 @@ import java.util
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.{Dataset, Row}
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, TypesafeConfigUtils}
-import io.github.interestinglab.waterdrop.common.utils.StringTemplate
-import io.github.interestinglab.waterdrop.config.ConfigFactory
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.utils.StringTemplate
+import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 

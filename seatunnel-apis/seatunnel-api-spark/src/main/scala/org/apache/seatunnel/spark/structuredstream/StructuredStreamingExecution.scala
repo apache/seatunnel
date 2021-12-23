@@ -17,8 +17,8 @@
 package org.apache.seatunnel.spark.structuredstream
 
 import java.util.{List => JList}
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.spark.BaseSparkTransform
+import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.spark.BaseSparkTransform
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution

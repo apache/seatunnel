@@ -24,10 +24,10 @@ import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataType, StructType}
-import io.github.interestinglab.waterdrop.common.RowConstant
-import io.github.interestinglab.waterdrop.common.config.{CheckResult, Common, ConfigRuntimeException}
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.spark.BaseSparkTransform
+import org.apache.seatunnel.common.RowConstant
+import org.apache.seatunnel.common.config.{CheckResult, Common, ConfigRuntimeException}
+import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.spark.BaseSparkTransform
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 
 class Json extends BaseSparkTransform {

@@ -24,8 +24,8 @@ import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.receiver.Receiver
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
 

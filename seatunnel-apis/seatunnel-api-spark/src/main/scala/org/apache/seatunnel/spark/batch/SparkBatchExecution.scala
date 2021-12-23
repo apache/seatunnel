@@ -18,9 +18,9 @@ package org.apache.seatunnel.spark.batch
 
 import java.util.{List => JList}
 import org.apache.spark.sql.{Dataset, Row}
-import io.github.interestinglab.waterdrop.common.config.ConfigRuntimeException
-import io.github.interestinglab.waterdrop.config.ConfigFactory
-import io.github.interestinglab.waterdrop.spark.BaseSparkSource
+import org.apache.seatunnel.common.config.ConfigRuntimeException
+import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.spark.BaseSparkSource
 import org.apache.seatunnel.common.config.{CheckResult, ConfigRuntimeException}
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution

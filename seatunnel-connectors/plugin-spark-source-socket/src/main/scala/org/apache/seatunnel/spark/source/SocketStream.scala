@@ -21,8 +21,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.streaming.dstream.DStream
-import io.github.interestinglab.waterdrop.common.config.CheckResult
-import io.github.interestinglab.waterdrop.config.ConfigFactory
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
 

@@ -22,7 +22,7 @@ import org.apache.commons.lang3.StringUtils
 import org.apache.phoenix.spark.ZkConnectUtil._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
-import io.github.interestinglab.waterdrop.common.config.CheckResult
+import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 
