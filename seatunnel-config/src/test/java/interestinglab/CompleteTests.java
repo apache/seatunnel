@@ -17,10 +17,10 @@
 
 package interestinglab;
 
-import io.github.interestinglab.waterdrop.config.Config;
-import io.github.interestinglab.waterdrop.config.ConfigFactory;
-import io.github.interestinglab.waterdrop.config.ConfigRenderOptions;
-import io.github.interestinglab.waterdrop.config.ConfigResolveOptions;
+import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.config.ConfigFactory;
+import org.apache.seatunnel.config.ConfigRenderOptions;
+import org.apache.seatunnel.config.ConfigResolveOptions;
 
 import java.io.File;
 import java.net.URL;

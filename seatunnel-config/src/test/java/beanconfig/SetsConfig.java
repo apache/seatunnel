@@ -17,10 +17,10 @@
 
 package beanconfig;
 
-import io.github.interestinglab.waterdrop.config.Config;
-import io.github.interestinglab.waterdrop.config.ConfigMemorySize;
-import io.github.interestinglab.waterdrop.config.ConfigObject;
-import io.github.interestinglab.waterdrop.config.ConfigValue;
+import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.config.ConfigMemorySize;
+import org.apache.seatunnel.config.ConfigObject;
+import org.apache.seatunnel.config.ConfigValue;
 
 import java.time.Duration;
 import java.util.Set;

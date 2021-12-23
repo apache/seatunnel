@@ -17,7 +17,7 @@
 
 package beanconfig;
 
-import io.github.interestinglab.waterdrop.config.ConfigMemorySize;
+import org.apache.seatunnel.config.ConfigMemorySize;
 
 public class BytesConfig {
 

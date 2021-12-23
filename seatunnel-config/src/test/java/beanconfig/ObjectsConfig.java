@@ -17,7 +17,7 @@
 
 package beanconfig;
 
-import io.github.interestinglab.waterdrop.config.Optional;
+import org.apache.seatunnel.config.Optional;
 
 public class ObjectsConfig {
     public static class ValueObject {
