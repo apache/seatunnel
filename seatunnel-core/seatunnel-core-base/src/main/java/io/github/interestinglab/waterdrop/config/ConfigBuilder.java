@@ -59,8 +59,8 @@ public class ConfigBuilder {
     private final Config config;
     private boolean streaming;
     private Config envConfig;
-    private final RuntimeEnv env;
-    private Map<String, String> variableMap;
+    private RuntimeEnv env;
+    private final Map<String, String> variableMap;
 
     public ConfigBuilder(String configFile, Engine engine, Map<String, String> variableMap) {
         this.variableMap = variableMap;
@@ -71,11 +71,11 @@ public class ConfigBuilder {
         this.env = createEnv();
     }
 
-    public ConfigBuilder(String configFile) {
+    public ConfigBuilder(String configFile, Map<String, String> variableMap) {
+        this.variableMap = variableMap;
         this.configFile = configFile;
         this.engine = Engine.NULL;
         this.config = load();
-        this.env = createEnv();
     }
 
     private Config load() {
@@ -87,7 +87,7 @@ public class ConfigBuilder {
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
         Config config = variableMap.size() != 0 ?
-                ConfigFactory.parseString(replaceVariable(configFile, variableMap)) :
+                ConfigFactory.parseString(replaceVariables(configFile, variableMap)) :
                 ConfigFactory.parseFile(new File(configFile));
         config = config
                 .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
@@ -99,7 +99,7 @@ public class ConfigBuilder {
         return config;
     }
 
-    public String replaceVariable(String configFile, Map<String, String> variableMap) {
+    public String replaceVariables(String configFile, Map<String, String> variableMap) {
         StringBuilder resText = new StringBuilder();
         try {
             File file = new File(configFile);
@@ -131,6 +131,10 @@ public class ConfigBuilder {
 
     public RuntimeEnv getEnv() {
         return env;
+    }
+
+    public Config getConfig() {
+        return config;
     }
 
     private boolean checkIsStreaming() {

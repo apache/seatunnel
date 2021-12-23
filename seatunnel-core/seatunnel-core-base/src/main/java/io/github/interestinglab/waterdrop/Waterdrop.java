@@ -65,7 +65,7 @@ public class Waterdrop {
             String configFilePath = getConfigFilePath(commandLineArgs, engine);
             boolean testConfig = commandLineArgs.testConfig();
             if (testConfig) {
-                new ConfigBuilder(configFilePath).checkConfig();
+                new ConfigBuilder(configFilePath, commandLineArgs.variableMap()).checkConfig();
                 LOGGER.info("config OK !");
             } else {
                 try {
