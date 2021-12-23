@@ -115,10 +115,17 @@
         <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
         <docker.hub>apache</docker.hub>
         <docker.tag>${project.version}</docker.tag>
+        <junit.version>4.12</junit.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+            </dependency>
+
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>
@@ -733,5 +740,19 @@
             </plugin>
         </plugins>
     </build>
+
+    <dependencies>
+        <!--
+          NOTE: only development / test phase dependencies (scope = test / provided)
+          that won't be packaged into final jar can be declared here.
+          For example: annotation processors, test dependencies that are used by most
+          of the submodules.
+        -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
 </project>
