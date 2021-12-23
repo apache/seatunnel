@@ -55,7 +55,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     private boolean isStreaming;
 
-    private String jobName = "waterdrop";
+    private String jobName = "seatunnel";
 
     @Override
     public void setConfig(Config config) {

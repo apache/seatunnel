@@ -187,7 +187,7 @@ public class Waterdrop {
         LOGGER.error("Fatal Error, \n");
         // FIX
         LOGGER.error(
-                "Please submit issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
+                "Please submit issue a bug in https://github.com/apache/seatunnel/issues\n");
         LOGGER.error("Reason:{} \n", errorMsg);
         LOGGER.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         LOGGER.error(
