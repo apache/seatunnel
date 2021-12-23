@@ -87,7 +87,7 @@ public class ConfigBuilder {
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
         Config config = variableMap.size() != 0 ?
-                ConfigFactory.parseString(fileRegexExecution(configFile, variableMap)) :
+                ConfigFactory.parseString(replaceVariable(configFile, variableMap)) :
                 ConfigFactory.parseFile(new File(configFile));
         config = config
                 .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
@@ -99,7 +99,7 @@ public class ConfigBuilder {
         return config;
     }
 
-    public String fileRegexExecution(String configFile, Map<String, String> variableMap) {
+    public String replaceVariable(String configFile, Map<String, String> variableMap) {
         StringBuilder resText = new StringBuilder();
         try {
             File file = new File(configFile);
