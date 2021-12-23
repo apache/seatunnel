@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.spark.batch
 
+import scala.collection.JavaConversions._
+
 import java.util.{List => JList}
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.ConfigRuntimeException

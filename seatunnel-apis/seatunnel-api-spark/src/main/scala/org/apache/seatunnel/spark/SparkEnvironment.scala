@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.spark
 
+import scala.collection.JavaConversions._
+
 import java.lang
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession

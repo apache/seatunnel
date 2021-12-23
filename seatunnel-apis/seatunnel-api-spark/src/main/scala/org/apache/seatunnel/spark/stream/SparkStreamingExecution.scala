@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.spark.stream
 
+import scala.collection.JavaConversions._
+
 import java.util.{List => JList}
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.config.ConfigFactory
