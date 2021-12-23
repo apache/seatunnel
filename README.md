@@ -1,4 +1,5 @@
 # seatunnel
+<img src="https://github.com/apache/incubator-seatunnel-website/blob/main/Logo.png" alt="Sky Walking logo" height="90px" align="right" />
 
 [![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
 
