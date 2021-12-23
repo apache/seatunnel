@@ -1,72 +1,48 @@
-# Sink plugin: Doris
+# Sink plugin: Doirs [Spark]
 
-### Description
-
-Write Data to a Doris Table.
+### Description:
+Use Spark Batch Engine ETL Data to Doris.
 
 ### Options
-
 | name | type | required | default value | engine |
 | --- | --- | --- | --- | --- |
-| fenodes | string | yes | - | Flink & Spark|
-| database | string | yes | - | Flink & Spark |
-| table | string | yes | - | Flink & Spark |
-| user	 | string | yes | - | Flink & Spark |
-| password	 | string | yes | - | Flink & Spark |
-| batch_size	 | int | no |  100 | Flink & Spark |
-| interval	 | int | no |1000 | Flink |
-| max_retries	 | int | no | 1 | Flink|
-| doris.*	 | - | no | - | Flink & Spark |
+| fenodes | string | yes | - | Spark |
+| database | string | yes | - | Spark |
+| table	 | string | yes | - | Spark |
+| user	 | string | yes | - | Spark |
+| password	 | string | yes | - | Spark |
+| batch_size	 | int | yes | 100 | Spark |
+| doris.*	 | string | no | - | Spark |
 
 ##### fenodes [string]
-
-Doris FE http address
+Doris FE address:8030
 
 ##### database [string]
-
-Doris database name
-
+Doris target database name
 ##### table [string]
-
-Doris table name
-
+Doris target table name
 ##### user [string]
-
-Doris username
-
+Doris user name
 ##### password [string]
-
-Doris password
-
-##### batch_size [int]
-
-Maximum number of lines in a single write Doris,default value is 100.
-
-##### interval [int]
-
-The flush interval millisecond, after which the asynchronous thread will write the data in the cache to Doris.Set to 0 to turn off periodic writing.
-
-##### max_retries [int]
-
-Number of retries after writing Doris failed
-
-##### doris.* [string]
-
-The doris stream load parameters.you can use 'doris.' prefix + stream_load properties. eg:doris.column_separator' = ','
-
+Doris user's password
+##### batch_size [string]
+Doris number of submissions per batch
+##### doris. [string]
+Doris stream_load properties,you can use 'doris.' prefix + stream_load properties
 [More Doris stream_load Configurations](https://doris.apache.org/master/zh-CN/administrator-guide/load-data/stream-load-manual.html)
 
 ### Examples
 
 ```
-DorisSink {
-	 fenodes = "127.0.0.1:8030"
-	 database = database
-	 table = table
-	 user = root
-	 password = password
-	 batch_size = 1
-	 doris.column_separator="\t"
-     doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
-}
- ```
+Doris {
+            fenodes="0.0.0.0:8030"
+            database="test"
+            table="user"
+            user="doris"
+            password="doris"
+            batch_size=10000
+            doris.column_separator="\t"
+            doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
+      
+      }
+```
