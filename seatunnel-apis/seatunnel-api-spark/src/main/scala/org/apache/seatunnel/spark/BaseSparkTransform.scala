@@ -17,7 +17,6 @@
 package org.apache.seatunnel.spark
 
 import org.apache.spark.sql.{Dataset, Row}
-import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.apis.BaseTransform
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 
