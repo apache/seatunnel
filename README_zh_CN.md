@@ -111,17 +111,13 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 更多案例参见: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/case_study/
 
 
-## 贡献观点和代码
-
-提交问题和建议：https://github.com/InterestingLab/seatunnel/issues
-
-贡献代码：https://github.com/InterestingLab/seatunnel/pulls
+## 行为准则
+SeaTunnel遵守贡献者公约[code of conduct](https://www.apache.org/foundation/policies/conduct) ， 通过参与，我们期望大家可以一起维护这一准则，请遵循 [REPORTING GUIDELINES](https://www.apache.org/foundation/policies/conduct#reporting-guidelines)来报告不当行为.
 
 ## 开发者
-
 感谢[所有开发者](https://github.com/InterestingLab/seatunnel/graphs/contributors)
 
 ## 欢迎联系
-* 邮件列表 : **dev@seatunnel.apache.org**. 发送任意内容至 `dev-subscribe@seatunnel.apache.org`， 按照回复订阅邮件列表。
-* 发送 `Request to join SeaTunnel slack` 邮件到邮件列表 (`dev@seatunnel.apache.org`), 我们会邀请你加入（在此之前请确认已经注册Slack）.
+* 邮件列表: **dev@seatunnel.apache.org**. 发送任意内容至 `dev-subscribe@seatunnel.apache.org`， 按照回复订阅邮件列表。
+* Slack: 发送 `Request to join SeaTunnel slack` 邮件到邮件列表 (`dev@seatunnel.apache.org`), 我们会邀请你加入（在此之前请确认已经注册Slack）.
 * [bilibili B站 视频](https://space.bilibili.com/1542095008)
