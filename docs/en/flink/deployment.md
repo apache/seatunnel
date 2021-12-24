@@ -12,7 +12,7 @@ The following focuses on how different platforms run:
 bin/start-seatunnel-flink.sh \
 --config config-path
 
-# -p 2 指定flink job的并行度为2,还可以指定更多的参数，使用 flink run -h查看
+# -p 2 specifies that the parallelism of flink job is 2. You can also specify more parameters, use flink run -h to view
 bin/start-seatunnel-flink.sh \
 -p 2 \
 --config config-path
@@ -25,7 +25,7 @@ bin/start-seatunnel-flink.sh \
 -m yarn-cluster \
 --config config-path
 
-# -ynm seatunnel 指定在yarn webUI显示的名称为seatunnel,还可以指定更多的参数，使用 flink run -h查看
+# -ynm seatunnel specifies the name displayed in the yarn webUI as seatunnel, you can also specify more parameters, use flink run -h to view
 bin/start-seatunnel-flink.sh \
 -m yarn-cluster \
 -ynm seatunnel \

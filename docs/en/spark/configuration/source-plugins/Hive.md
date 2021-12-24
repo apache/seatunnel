@@ -19,10 +19,10 @@ For preprocessed `sql` , if preprocessing is not required, you can use `select *
 
 Source plugin common parameters, please refer to [Source Plugin](./source-plugin.md) for details
 
-**注意：使用 hive source 必须做如下配置：**
+**Note: The following configuration must be done to use hive source：**
 
 ```bash
-# seatunnel 配置文件中的spark section中：
+# In the spark section in the seatunnel configuration file：
 
 env {
   ...

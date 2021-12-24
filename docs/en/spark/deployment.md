@@ -16,13 +16,13 @@ The following focuses on how different platforms operate:
 ## Run seatunnel on Spark Standalone cluster
 
 ```bash
-# client 模式
+# client mode
 ./bin/start-seatunnel-spark.sh \
 --master spark://ip:7077 \
 --deploy-mode client \
 --config ./config/application.conf
 
-# cluster 模式
+# cluster mode
 ./bin/start-seatunnel-spark.sh \
 --master spark://ip:7077 \
 --deploy-mode cluster \
@@ -32,13 +32,13 @@ The following focuses on how different platforms operate:
 ## Run seatunnel on Yarn cluster
 
 ```bash
-# client 模式
+# client mode
 ./bin/start-seatunnel-spark.sh \
 --master yarn \
 --deploy-mode client \
 --config ./config/application.conf
 
-# cluster 模式
+# cluster mode
 ./bin/start-seatunnel-spark.sh \
 --master yarn \
 --deploy-mode cluster \
@@ -48,7 +48,7 @@ The following focuses on how different platforms operate:
 ## Run seatunnel on Mesos cluster
 
 ```bash
-# cluster 模式
+# cluster mode
 ./bin/start-seatunnel-spark.sh \
 --master mesos://ip:7077 \
 --deploy-mode cluster \
