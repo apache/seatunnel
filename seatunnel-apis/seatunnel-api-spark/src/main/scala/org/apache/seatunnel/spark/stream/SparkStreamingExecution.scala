@@ -16,17 +16,15 @@
  */
 package org.apache.seatunnel.spark.stream
 
-import scala.collection.JavaConversions._
-
-import java.util.{List => JList}
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.seatunnel.config.ConfigFactory
-import org.apache.seatunnel.spark.BaseSparkSource
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
-import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.seatunnel.spark.batch.SparkBatchExecution
+import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
+import org.apache.spark.sql.{Dataset, Row}
+
+import java.util.{List => JList}
+import scala.collection.JavaConversions._
 
 class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
   extends Execution[BaseSparkSource[_], BaseSparkTransform, BaseSparkSink[_]] {
@@ -34,9 +32,9 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
   private var config = ConfigFactory.empty()
 
   override def start(
-      sources: JList[BaseSparkSource[_]],
-      transforms: JList[BaseSparkTransform],
-      sinks: JList[BaseSparkSink[_]]): Unit = {
+                      sources: JList[BaseSparkSource[_]],
+                      transforms: JList[BaseSparkTransform],
+                      sinks: JList[BaseSparkSink[_]]): Unit = {
 
     val source = sources.get(0).asInstanceOf[SparkStreamingSource[_]]
 
@@ -62,7 +60,7 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
           }
         }
 
-        source.beforeOutput
+        source.beforeOutput()
 
         if (ds.take(1).length > 0) {
           sinks.foreach(sink => {
@@ -70,7 +68,7 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
           })
         }
 
-        source.afterOutput
+        source.afterOutput()
       })
 
     val streamingContext = sparkEnvironment.getStreamingContext

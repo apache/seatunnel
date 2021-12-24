@@ -16,17 +16,14 @@
  */
 package org.apache.seatunnel.spark.batch
 
-import scala.collection.JavaConversions._
-
-import java.util.{List => JList}
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.seatunnel.common.config.ConfigRuntimeException
-import org.apache.seatunnel.config.ConfigFactory
-import org.apache.seatunnel.spark.BaseSparkSource
 import org.apache.seatunnel.common.config.{CheckResult, ConfigRuntimeException}
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
+import org.apache.spark.sql.{Dataset, Row}
+
+import java.util.{List => JList}
+import scala.collection.JavaConversions._
 
 class SparkBatchExecution(environment: SparkEnvironment)
   extends Execution[SparkBatchSource, BaseSparkTransform, SparkBatchSink] {
@@ -42,9 +39,9 @@ class SparkBatchExecution(environment: SparkEnvironment)
   override def prepare(prepareEnv: Void): Unit = {}
 
   override def start(
-      sources: JList[SparkBatchSource],
-      transforms: JList[BaseSparkTransform],
-      sinks: JList[SparkBatchSink]): Unit = {
+                      sources: JList[SparkBatchSource],
+                      transforms: JList[BaseSparkTransform],
+                      sinks: JList[SparkBatchSink]): Unit = {
 
     sources.foreach(s => {
       SparkBatchExecution.registerInputTempView(
@@ -81,8 +78,8 @@ object SparkBatchExecution {
   }
 
   private[seatunnel] def registerInputTempView(
-      source: BaseSparkSource[Dataset[Row]],
-      environment: SparkEnvironment): Unit = {
+                                                source: BaseSparkSource[Dataset[Row]],
+                                                environment: SparkEnvironment): Unit = {
     val conf = source.getConfig
     conf.hasPath(SparkBatchExecution.resultTableName) match {
       case true => {
@@ -98,9 +95,9 @@ object SparkBatchExecution {
   }
 
   private[seatunnel] def transformProcess(
-      environment: SparkEnvironment,
-      transform: BaseSparkTransform,
-      ds: Dataset[Row]): Dataset[Row] = {
+                                           environment: SparkEnvironment,
+                                           transform: BaseSparkTransform,
+                                           ds: Dataset[Row]): Dataset[Row] = {
     val config = transform.getConfig()
     val fromDs = config.hasPath(SparkBatchExecution.sourceTableName) match {
       case true => {
@@ -114,8 +111,8 @@ object SparkBatchExecution {
   }
 
   private[seatunnel] def registerTransformTempView(
-      plugin: BaseSparkTransform,
-      ds: Dataset[Row]): Unit = {
+                                                    plugin: BaseSparkTransform,
+                                                    ds: Dataset[Row]): Unit = {
     val config = plugin.getConfig()
     if (config.hasPath(SparkBatchExecution.resultTableName)) {
       val tableName = config.getString(SparkBatchExecution.resultTableName)
@@ -124,9 +121,9 @@ object SparkBatchExecution {
   }
 
   private[seatunnel] def sinkProcess(
-      environment: SparkEnvironment,
-      sink: BaseSparkSink[_],
-      ds: Dataset[Row]): Unit = {
+                                      environment: SparkEnvironment,
+                                      sink: BaseSparkSink[_],
+                                      ds: Dataset[Row]): Unit = {
     val config = sink.getConfig()
     val fromDs = config.hasPath(SparkBatchExecution.sourceTableName) match {
       case true => {

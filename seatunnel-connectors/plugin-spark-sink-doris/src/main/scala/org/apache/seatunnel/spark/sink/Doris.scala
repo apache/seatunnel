@@ -18,26 +18,25 @@
 package org.apache.seatunnel.spark.sink
 
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.log4j.Logger
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
 
-import scala.collection.{JavaConversions, mutable}
 import scala.collection.mutable.ListBuffer
+import scala.collection.{JavaConversions, mutable}
 
 class Doris extends SparkBatchSink with Serializable {
 
   var apiUrl: String = _
   var batch_size: Int = 100
   var column_separator: String = "\t"
-  var propertiesMap = new mutable.HashMap[String,String]()
+  var propertiesMap = new mutable.HashMap[String, String]()
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val user: String = config.getString(Config.USER)
     val password: String = config.getString(Config.PASSWORD)
     if (propertiesMap.contains(Config.COLUMN_SEPARATOR)) {
-      column_separator =  propertiesMap(Config.COLUMN_SEPARATOR)
+      column_separator = propertiesMap(Config.COLUMN_SEPARATOR)
     }
     val sparkSession = env.getSparkSession
     import sparkSession.implicits._
@@ -60,7 +59,7 @@ class Doris extends SparkBatchSink with Serializable {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME,Config.USER,Config.PASSWORD)
+    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
       !exists
@@ -84,11 +83,11 @@ class Doris extends SparkBatchSink with Serializable {
         httpConfig.foreach(tuple => {
           val split = tuple.getKey.split(".")
           if (split.size == 2) {
-            propertiesMap.put(split(1),tuple.getValue.render())
+            propertiesMap.put(split(1), tuple.getValue.render())
           }
         })
       }
-      new CheckResult(true,Config.CHECK_SUCCESS)
+      new CheckResult(true, Config.CHECK_SUCCESS)
     }
   }
 

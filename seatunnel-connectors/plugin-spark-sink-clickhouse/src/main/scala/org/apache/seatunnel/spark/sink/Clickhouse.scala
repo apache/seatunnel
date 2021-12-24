@@ -16,6 +16,14 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.spark.SparkEnvironment
+import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
+import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
+
 import java.math.BigDecimal
 import java.sql.PreparedStatement
 import java.text.SimpleDateFormat
@@ -23,15 +31,8 @@ import java.util
 import java.util.Properties
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
-import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
-import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
-import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.config.ConfigFactory
-import org.apache.seatunnel.spark.SparkEnvironment
-import org.apache.seatunnel.spark.batch.SparkBatchSink
+import scala.util.{Failure, Success, Try}
 
 class Clickhouse extends SparkBatchSink {
 
@@ -105,7 +106,7 @@ class Clickhouse extends SparkBatchSink {
           }
           .mkString(", ") + " as non-empty string")
     } else if (config.hasPath("username") && !config.hasPath("password") || config.hasPath(
-        "password")
+      "password")
       && !config.hasPath("username")) {
       new CheckResult(false, "please specify username and password at the same time")
     } else {
@@ -150,8 +151,8 @@ class Clickhouse extends SparkBatchSink {
   }
 
   private def getClickHouseSchema(
-      conn: ClickHouseConnectionImpl,
-      table: String): Map[String, String] = {
+                                   conn: ClickHouseConnectionImpl,
+                                   table: String): Map[String, String] = {
     val sql = String.format("desc %s", table)
     val resultSet = conn.createStatement.executeQuery(sql)
     var schema = new HashMap[String, String]()
@@ -201,9 +202,9 @@ class Clickhouse extends SparkBatchSink {
   }
 
   private def renderDefaultStatement(
-      index: Int,
-      fieldType: String,
-      statement: PreparedStatement): Unit = {
+                                      index: Int,
+                                      fieldType: String,
+                                      statement: PreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
@@ -223,9 +224,9 @@ class Clickhouse extends SparkBatchSink {
   }
 
   private def renderNullStatement(
-      index: Int,
-      fieldType: String,
-      statement: PreparedStatement): Unit = {
+                                   index: Int,
+                                   fieldType: String,
+                                   statement: PreparedStatement): Unit = {
     fieldType match {
       case "String" =>
         statement.setNull(index + 1, java.sql.Types.VARCHAR)
@@ -241,11 +242,11 @@ class Clickhouse extends SparkBatchSink {
   }
 
   private def renderBaseTypeStatement(
-      index: Int,
-      fieldIndex: Int,
-      fieldType: String,
-      item: Row,
-      statement: PreparedStatement): Unit = {
+                                       index: Int,
+                                       fieldIndex: Int,
+                                       fieldType: String,
+                                       item: Row,
+                                       statement: PreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
@@ -263,10 +264,10 @@ class Clickhouse extends SparkBatchSink {
   }
 
   private def renderStatement(
-      fields: util.List[String],
-      item: Row,
-      dsFields: Array[String],
-      statement: PreparedStatement): Unit = {
+                               fields: util.List[String],
+                               item: Row,
+                               dsFields: Array[String],
+                               statement: PreparedStatement): Unit = {
     for (i <- 0 until fields.size()) {
       val field = fields.get(i)
       val fieldType = tableSchema(field)
@@ -283,7 +284,7 @@ class Clickhouse extends SparkBatchSink {
             case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
               renderBaseTypeStatement(i, fieldIndex, fieldType, item, statement)
             case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(
-                  _) =>
+            _) =>
               renderBaseTypeStatement(i, fieldIndex, fieldType, item, statement)
             case Clickhouse.nullablePattern(dataType) =>
               renderBaseTypeStatement(i, fieldIndex, dataType, item, statement)

@@ -16,10 +16,9 @@
  */
 package org.apache.seatunnel.spark
 
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.apis.BaseSink
 import org.apache.seatunnel.config.{Config, ConfigFactory}
+import org.apache.spark.sql.{Dataset, Row}
 
 trait BaseSparkSink[OUT] extends BaseSink[SparkEnvironment] {
 

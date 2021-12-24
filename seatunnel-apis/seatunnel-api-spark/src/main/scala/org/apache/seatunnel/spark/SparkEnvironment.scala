@@ -16,16 +16,15 @@
  */
 package org.apache.seatunnel.spark
 
-import scala.collection.JavaConversions._
-
-import java.lang
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.streaming.{Seconds, StreamingContext}
-import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.RuntimeEnv
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.streaming.{Seconds, StreamingContext}
+
+import java.lang
+import scala.collection.JavaConversions._
 
 class SparkEnvironment extends RuntimeEnv {
 

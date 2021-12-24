@@ -16,13 +16,12 @@
  */
 package org.apache.seatunnel.spark.structuredstream
 
-import java.util.{List => JList}
-import org.apache.seatunnel.config.ConfigFactory
-import org.apache.seatunnel.spark.BaseSparkTransform
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
+
+import java.util.{List => JList}
 
 class StructuredStreamingExecution(environment: SparkEnvironment)
   extends Execution[StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink] {
@@ -38,7 +37,7 @@ class StructuredStreamingExecution(environment: SparkEnvironment)
   override def prepare(void: Void): Unit = {}
 
   override def start(
-      sources: JList[StructuredStreamingSource],
-      transforms: JList[BaseSparkTransform],
-      sinks: JList[StructuredStreamingSink]): Unit = {}
+                      sources: JList[StructuredStreamingSource],
+                      transforms: JList[BaseSparkTransform],
+                      sinks: JList[StructuredStreamingSink]): Unit = {}
 }

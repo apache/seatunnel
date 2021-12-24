@@ -16,15 +16,16 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import java.util.Properties
-import scala.collection.JavaConversions._
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.spark.SparkEnvironment
+import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
-import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.config.{Config, ConfigFactory}
-import org.apache.seatunnel.spark.SparkEnvironment
-import org.apache.seatunnel.spark.batch.SparkBatchSink
+
+import java.util.Properties
+import scala.collection.JavaConversions._
 
 class Kafka extends SparkBatchSink with Logging {
 

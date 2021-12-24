@@ -18,10 +18,10 @@
 package org.apache.seatunnel.spark.source
 
 import org.apache.kudu.spark.kudu._
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.sql.{Dataset, Row}
 
 class Kudu extends SparkBatchSource {
 

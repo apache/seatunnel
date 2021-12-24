@@ -16,24 +16,25 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import scala.collection.JavaConversions._
-import scala.util.control.Breaks._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
 import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory}
-import org.apache.hadoop.hbase.spark.{ByteArrayWrapper, FamiliesQualifiersValues, HBaseContext}
 import org.apache.hadoop.hbase.spark.datasources.HBaseTableCatalog
+import org.apache.hadoop.hbase.spark.{ByteArrayWrapper, FamiliesQualifiersValues, HBaseContext}
 import org.apache.hadoop.hbase.tool.LoadIncrementalHFiles
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.DataTypes
+import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.{Config, ConfigFactory}
+import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.DataTypes
+import org.apache.spark.sql.{Dataset, Row}
+
+import scala.collection.JavaConversions._
+import scala.util.control.Breaks._
 
 class Hbase extends SparkBatchSink with Logging {
 
