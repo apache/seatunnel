@@ -16,19 +16,19 @@
  */
 package org.apache.seatunnel.spark.transform
 
+import org.apache.seatunnel.common.RowConstant
+import org.apache.seatunnel.common.config.{CheckResult, Common, ConfigRuntimeException}
+import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{DataType, StructType}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
+
 import java.io.File
 import java.nio.file.Paths
 import scala.collection.JavaConversions._
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DataType, StructType}
-import org.apache.seatunnel.common.RowConstant
-import org.apache.seatunnel.common.config.{CheckResult, Common, ConfigRuntimeException}
-import org.apache.seatunnel.config.ConfigFactory
-import org.apache.seatunnel.spark.BaseSparkTransform
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 
 class Json extends BaseSparkTransform {
 

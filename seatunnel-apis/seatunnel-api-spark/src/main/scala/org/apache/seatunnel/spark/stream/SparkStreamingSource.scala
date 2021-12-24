@@ -16,11 +16,10 @@
  */
 package org.apache.seatunnel.spark.stream
 
+import org.apache.seatunnel.spark.{BaseSparkSource, SparkEnvironment}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.seatunnel.spark.BaseSparkSource
-import org.apache.seatunnel.spark.{BaseSparkSource, SparkEnvironment}
 
 trait SparkStreamingSource[T] extends BaseSparkSource[DStream[T]] {
 
