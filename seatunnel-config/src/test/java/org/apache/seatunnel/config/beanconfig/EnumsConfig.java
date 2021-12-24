@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
 import java.util.List;
 

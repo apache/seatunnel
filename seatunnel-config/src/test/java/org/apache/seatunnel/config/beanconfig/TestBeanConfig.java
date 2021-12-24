@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-import java.util.Map;
+public class TestBeanConfig {
 
-public class UnsupportedMapKeyConfig {
-    private Map<Integer, Object> map;
+    private NumbersConfig numbers;
 
-    public Map<Integer, Object> getMap() {
-        return map;
+    public NumbersConfig getNumbers() {
+        return numbers;
     }
 
-    public void setMap(Map<Integer, Object> map) {
-        this.map = map;
+    public void setNumbers(NumbersConfig numbers) {
+        this.numbers = numbers;
     }
-
 }

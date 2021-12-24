@@ -15,19 +15,37 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-import java.net.URI;
-import java.util.List;
+import org.apache.seatunnel.config.ConfigMemorySize;
 
-public class UnsupportedListElementConfig {
-    private List<URI> uri;
+public class BytesConfig {
 
-    public List<URI> getUri() {
-        return uri;
+    private ConfigMemorySize kilobyte;
+    private ConfigMemorySize kibibyte;
+    private ConfigMemorySize thousandBytes;
+
+    public ConfigMemorySize getKilobyte() {
+        return kilobyte;
     }
 
-    public void setUri(List<URI> uri) {
-        this.uri = uri;
+    public void setKilobyte(ConfigMemorySize kilobyte) {
+        this.kilobyte = kilobyte;
+    }
+
+    public ConfigMemorySize getKibibyte() {
+        return kibibyte;
+    }
+
+    public void setKibibyte(ConfigMemorySize kibibyte) {
+        this.kibibyte = kibibyte;
+    }
+
+    public ConfigMemorySize getThousandBytes() {
+        return thousandBytes;
+    }
+
+    public void setThousandBytes(ConfigMemorySize thousandBytes) {
+        this.thousandBytes = thousandBytes;
     }
 }

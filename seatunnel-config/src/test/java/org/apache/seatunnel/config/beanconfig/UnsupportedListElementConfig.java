@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-import java.util.Map;
+import java.net.URI;
+import java.util.List;
 
-public class UnsupportedMapValueConfig {
-    private Map<String, Integer> map;
+public class UnsupportedListElementConfig {
+    private List<URI> uri;
 
-    public Map<String, Integer> getMap() {
-        return map;
+    public List<URI> getUri() {
+        return uri;
     }
 
-    public void setMap(Map<String, Integer> map) {
-        this.map = map;
+    public void setUri(List<URI> uri) {
+        this.uri = uri;
     }
-
 }

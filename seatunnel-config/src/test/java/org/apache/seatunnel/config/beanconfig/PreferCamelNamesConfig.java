@@ -15,47 +15,26 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-public class StringsConfig {
-    String abcd;
-    String yes;
+public class PreferCamelNamesConfig {
 
-    public String getAbcd() {
-        return abcd;
+    private String fooBar;
+    private String bazBar;
+
+    public String getFooBar() {
+        return fooBar;
     }
 
-    public void setAbcd(String s) {
-        abcd = s;
+    public void setFooBar(String v) {
+        this.fooBar = v;
     }
 
-    public String getYes() {
-        return yes;
+    public String getBazBar() {
+        return bazBar;
     }
 
-    public void setYes(String s) {
-        yes = s;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o instanceof StringsConfig) {
-            StringsConfig sc = (StringsConfig) o;
-            return sc.abcd.equals(abcd) &&
-                    sc.yes.equals(yes);
-        } else {
-            return false;
-        }
-    }
-
-    @Override
-    public int hashCode() {
-        int h = 41 * (41 + abcd.hashCode());
-        return h + yes.hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "StringsConfig(" + abcd + "," + yes + ")";
+    public void setBazBar(String v) {
+        this.bazBar = v;
     }
 }
