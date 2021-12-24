@@ -15,18 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel;
+package org.apache.seatunnel.config.command;
 
-import org.apache.seatunnel.config.command.CommandLineArgs;
-import org.apache.seatunnel.config.command.CommandLineUtils;
+public class CommandLineArgs {
 
-import static org.apache.seatunnel.utils.Engine.SPARK;
+    private String deployMode = "client";
+    private String confiFile;
+    private boolean testConfig;
 
-public class SeatunnelSpark {
-
-    public static void main(String[] args) {
-        CommandLineArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Seatunnel.run(sparkArgs, SPARK, args);
+    public CommandLineArgs(String confiFile, boolean testConfig) {
+        this.confiFile = confiFile;
+        this.testConfig = testConfig;
     }
 
+    public CommandLineArgs(String deployMode, String confiFile, boolean testConfig) {
+        this.deployMode = deployMode;
+        this.confiFile = confiFile;
+        this.testConfig = testConfig;
+    }
+
+    public String getDeployMode() {
+        return deployMode;
+    }
+
+    public String getConfiFile() {
+        return confiFile;
+    }
+
+    public boolean isTestConfig() {
+        return testConfig;
+    }
 }

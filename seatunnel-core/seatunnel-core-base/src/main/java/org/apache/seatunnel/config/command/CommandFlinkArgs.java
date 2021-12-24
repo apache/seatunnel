@@ -14,9 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.config
 
-case class CommandLineArgs(
-    deployMode: String = "client",
-    configFile: String = "application.conf",
-    testConfig: Boolean = false)
+package org.apache.seatunnel.config.command;
+
+import com.beust.jcommander.Parameter;
+
+public class CommandFlinkArgs {
+
+    @Parameter(names = {"-c", "--config"},
+        description = "config file",
+        required = true)
+    private String configFile = "application.conf";
+
+    @Parameter(names = {"-i", "--variable"},
+        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
+    private String variable = null;
+
+    @Parameter(names = {"-t", "--check"},
+        description = "check config")
+    private boolean testConfig = true;
+
+    public String getConfigFile() {
+        return configFile;
+    }
+
+    public boolean isTestConfig() {
+        return testConfig;
+    }
+
+}

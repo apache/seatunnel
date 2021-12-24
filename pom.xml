@@ -89,7 +89,6 @@
         <maven-compiler-plugin.version>2.0.2</maven-compiler-plugin.version>
         <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
         <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
-        <scopt.version>3.7.1</scopt.version>
         <spoiwo.version>1.8.0</spoiwo.version>
         <play-mailer.version>7.0.2</play-mailer.version>
         <phoenix-spark.version>5.0.0-HBase-2.0</phoenix-spark.version>
@@ -114,6 +113,8 @@
         <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
         <docker.hub>apache</docker.hub>
         <docker.tag>${project.version}</docker.tag>
+        <jcommander.version>1.81</jcommander.version>
+        <junit.version>4.13.2</junit.version>
     </properties>
 
     <dependencyManagement>
@@ -199,12 +200,6 @@
                 <artifactId>mysql-connector-java</artifactId>
                 <version>${mysql.version}</version>
                 <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>com.github.scopt</groupId>
-                <artifactId>scopt_${scala.binary.version}</artifactId>
-                <version>${scopt.version}</version>
             </dependency>
 
             <dependency>
@@ -393,6 +388,17 @@
                 <version>${httpasyncclient.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.beust</groupId>
+                <artifactId>jcommander</artifactId>
+                <version>${jcommander.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

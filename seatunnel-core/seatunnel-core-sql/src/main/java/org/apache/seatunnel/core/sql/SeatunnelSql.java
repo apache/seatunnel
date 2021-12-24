@@ -17,40 +17,28 @@
 
 package org.apache.seatunnel.core.sql;
 
-import org.apache.seatunnel.config.CommandLineArgs;
-import org.apache.seatunnel.config.CommandLineUtils;
+import org.apache.commons.io.FileUtils;
+import org.apache.seatunnel.config.command.CommandLineArgs;
+import org.apache.seatunnel.config.command.CommandLineUtils;
 import org.apache.seatunnel.core.sql.job.Executor;
 import org.apache.seatunnel.core.sql.job.JobInfo;
-import org.apache.commons.io.FileUtils;
-
-import scala.Option;
-import scala.collection.JavaConverters;
-import scala.collection.Seq;
-import scopt.OptionParser;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 public class SeatunnelSql {
+
     public static void main(String[] args) throws Exception {
         JobInfo jobInfo = parseJob(args);
         Executor.runJob(jobInfo);
     }
 
     private static JobInfo parseJob(String[] args) throws IOException {
-        OptionParser<CommandLineArgs> parser = CommandLineUtils.flinkParser();
-        Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();
-        Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client", "application.conf", false));
-        if (option.isDefined()) {
-            CommandLineArgs commandLineArgs = option.get();
-            String configFilePath = commandLineArgs.configFile();
-            String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
-            return new JobInfo(jobContent);
-        } else {
-            throw new RuntimeException("Please specify application config file");
-        }
+        CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
+        String configFilePath = flinkArgs.getConfiFile();
+        String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
+        return new JobInfo(jobContent);
     }
 
 }

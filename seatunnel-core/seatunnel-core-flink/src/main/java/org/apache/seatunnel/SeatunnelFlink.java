@@ -17,17 +17,16 @@
 
 package org.apache.seatunnel;
 
-import org.apache.seatunnel.config.CommandLineArgs;
-import org.apache.seatunnel.config.CommandLineUtils;
-import scopt.OptionParser;
+import org.apache.seatunnel.config.command.CommandLineArgs;
+import org.apache.seatunnel.config.command.CommandLineUtils;
 
 import static org.apache.seatunnel.utils.Engine.FLINK;
 
 public class SeatunnelFlink {
 
     public static void main(String[] args) {
-        OptionParser<CommandLineArgs> flinkParser = CommandLineUtils.flinkParser();
-        Seatunnel.run(flinkParser, FLINK, args);
+        CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
+        Seatunnel.run(flinkArgs, FLINK, args);
     }
 
 }
