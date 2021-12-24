@@ -20,6 +20,7 @@ package org.apache.seatunnel.flink.source;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.config.Config;
