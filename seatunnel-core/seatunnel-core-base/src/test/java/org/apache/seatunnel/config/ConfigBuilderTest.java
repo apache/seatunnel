@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package io.github.interestinglab.waterdrop.config;
+package org.apache.seatunnel.config;
 
-import org.apache.seatunnel.config.Config;
-import org.apache.seatunnel.config.ConfigBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 import scala.Tuple2;
