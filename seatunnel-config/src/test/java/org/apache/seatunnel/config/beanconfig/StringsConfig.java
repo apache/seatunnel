@@ -15,36 +15,47 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-import java.time.Duration;
+public class StringsConfig {
+    String abcd;
+    String yes;
 
-public class DurationsConfig {
-    Duration second;
-    Duration secondAsNumber;
-    Duration halfSecond;
-
-    public Duration getSecond() {
-        return second;
+    public String getAbcd() {
+        return abcd;
     }
 
-    public void setSecond(Duration second) {
-        this.second = second;
+    public void setAbcd(String s) {
+        abcd = s;
     }
 
-    public Duration getSecondAsNumber() {
-        return secondAsNumber;
+    public String getYes() {
+        return yes;
     }
 
-    public void setSecondAsNumber(Duration secondAsNumber) {
-        this.secondAsNumber = secondAsNumber;
+    public void setYes(String s) {
+        yes = s;
     }
 
-    public Duration getHalfSecond() {
-        return halfSecond;
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof StringsConfig) {
+            StringsConfig sc = (StringsConfig) o;
+            return sc.abcd.equals(abcd) &&
+                    sc.yes.equals(yes);
+        } else {
+            return false;
+        }
     }
 
-    public void setHalfSecond(Duration halfSecond) {
-        this.halfSecond = halfSecond;
+    @Override
+    public int hashCode() {
+        int h = 41 * (41 + abcd.hashCode());
+        return h + yes.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "StringsConfig(" + abcd + "," + yes + ")";
     }
 }

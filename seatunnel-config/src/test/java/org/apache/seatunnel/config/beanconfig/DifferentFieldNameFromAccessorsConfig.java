@@ -15,37 +15,26 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-import org.apache.seatunnel.config.ConfigMemorySize;
+public class DifferentFieldNameFromAccessorsConfig {
 
-public class BytesConfig {
+    private String customStringField;
+    private Long number;
 
-    private ConfigMemorySize kilobyte;
-    private ConfigMemorySize kibibyte;
-    private ConfigMemorySize thousandBytes;
-
-    public ConfigMemorySize getKilobyte() {
-        return kilobyte;
+    public String getStringField() {
+        return customStringField;
     }
 
-    public void setKilobyte(ConfigMemorySize kilobyte) {
-        this.kilobyte = kilobyte;
+    public void setStringField(String stringField) {
+        this.customStringField = stringField;
     }
 
-    public ConfigMemorySize getKibibyte() {
-        return kibibyte;
+    public Long getNumber() {
+        return number;
     }
 
-    public void setKibibyte(ConfigMemorySize kibibyte) {
-        this.kibibyte = kibibyte;
-    }
-
-    public ConfigMemorySize getThousandBytes() {
-        return thousandBytes;
-    }
-
-    public void setThousandBytes(ConfigMemorySize thousandBytes) {
-        this.thousandBytes = thousandBytes;
+    public void setNumber(Long number) {
+        this.number = number;
     }
 }

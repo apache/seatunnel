@@ -15,17 +15,36 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-public class TestBeanConfig {
+import java.time.Duration;
 
-    private NumbersConfig numbers;
+public class DurationsConfig {
+    Duration second;
+    Duration secondAsNumber;
+    Duration halfSecond;
 
-    public NumbersConfig getNumbers() {
-        return numbers;
+    public Duration getSecond() {
+        return second;
     }
 
-    public void setNumbers(NumbersConfig numbers) {
-        this.numbers = numbers;
+    public void setSecond(Duration second) {
+        this.second = second;
+    }
+
+    public Duration getSecondAsNumber() {
+        return secondAsNumber;
+    }
+
+    public void setSecondAsNumber(Duration secondAsNumber) {
+        this.secondAsNumber = secondAsNumber;
+    }
+
+    public Duration getHalfSecond() {
+        return halfSecond;
+    }
+
+    public void setHalfSecond(Duration halfSecond) {
+        this.halfSecond = halfSecond;
     }
 }

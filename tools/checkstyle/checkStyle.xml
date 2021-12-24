@@ -336,16 +336,9 @@
             <property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$)"/>
             <message key="name.invalidPattern" value="Class type name ''{0}'' must match pattern ''{1}''."/>
         </module>
-
-        <!--todo -->
-        <!--<module name="PackageName">
-            <property name="format" value="^(org|test)\.apache\.seatunnel(\.[a-zA-Z][a-zA-Z0-9]*)+$"/>
-        </module>-->
-
+        
         <module name="PackageName">
-            <!-- Validates identifiers for package names against the supplied expression. -->
-            <!-- Here the default checkstyle rule restricts package name parts to seven characters, this is not in line with common practice at Google. -->
-            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+            <property name="format" value="^(org|test)\.apache\.seatunnel(\.[a-zA-Z][a-zA-Z0-9]*)*$"/>
             <property name="severity" value="error"/>
             <message key="name.invalidPattern" value="Package name ''{0}'' must match pattern ''{1}''."/>
         </module>

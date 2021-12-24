@@ -15,12 +15,7 @@
  * limitations under the License.
  */
 
-package interestinglab;
-
-import org.apache.seatunnel.config.Config;
-import org.apache.seatunnel.config.ConfigFactory;
-import org.apache.seatunnel.config.ConfigRenderOptions;
-import org.apache.seatunnel.config.ConfigResolveOptions;
+package org.apache.seatunnel.config;
 
 import java.io.File;
 import java.net.URL;

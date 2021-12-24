@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-public class DifferentFieldNameFromAccessorsConfig {
+import java.util.Map;
 
-    private String customStringField;
-    private Long number;
+public class UnsupportedMapKeyConfig {
+    private Map<Integer, Object> map;
 
-    public String getStringField() {
-        return customStringField;
+    public Map<Integer, Object> getMap() {
+        return map;
     }
 
-    public void setStringField(String stringField) {
-        this.customStringField = stringField;
+    public void setMap(Map<Integer, Object> map) {
+        this.map = map;
     }
 
-    public Long getNumber() {
-        return number;
-    }
-
-    public void setNumber(Long number) {
-        this.number = number;
-    }
 }
