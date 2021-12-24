@@ -19,10 +19,10 @@ package beanconfig;
 
 import java.util.Map;
 
-import io.github.interestinglab.waterdrop.config.Config;
-import io.github.interestinglab.waterdrop.config.ConfigList;
-import io.github.interestinglab.waterdrop.config.ConfigObject;
-import io.github.interestinglab.waterdrop.config.ConfigValue;
+import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.config.ConfigList;
+import org.apache.seatunnel.config.ConfigObject;
+import org.apache.seatunnel.config.ConfigValue;
 
 // test bean for various "uncooked" values
 public class ValuesConfig {
