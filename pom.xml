@@ -22,7 +22,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.interestinglab.seatunnel</groupId>
+    <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
     <version>2.0.4</version>
@@ -74,7 +74,7 @@
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
-        <waterdrop.version>2.0.0</waterdrop.version>
+        <seatunnel.version>2.0.0</seatunnel.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>

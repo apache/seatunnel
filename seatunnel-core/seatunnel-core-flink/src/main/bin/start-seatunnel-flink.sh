@@ -61,5 +61,5 @@ export JVM_ARGS=$(string_trim "${variables_substitution}")
 
 exec ${FLINK_HOME}/bin/flink run \
     ${PARAMS} \
-    -c io.github.interestinglab.waterdrop.WaterdropFlink \
+    -c org.apache.seatunnel.SeatunnelFlink \
     ${assemblyJarName} --config ${CONFIG_FILE}
