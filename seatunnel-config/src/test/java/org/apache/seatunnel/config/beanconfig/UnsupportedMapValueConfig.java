@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package beanconfig;
+package org.apache.seatunnel.config.beanconfig;
 
-public class PreferCamelNamesConfig {
+import java.util.Map;
 
-    private String fooBar;
-    private String bazBar;
+public class UnsupportedMapValueConfig {
+    private Map<String, Integer> map;
 
-    public String getFooBar() {
-        return fooBar;
+    public Map<String, Integer> getMap() {
+        return map;
     }
 
-    public void setFooBar(String v) {
-        this.fooBar = v;
+    public void setMap(Map<String, Integer> map) {
+        this.map = map;
     }
 
-    public String getBazBar() {
-        return bazBar;
-    }
-
-    public void setBazBar(String v) {
-        this.bazBar = v;
-    }
 }
