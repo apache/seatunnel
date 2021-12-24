@@ -31,11 +31,7 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
 
   private var config = ConfigFactory.empty()
 
-  override def start(
-                      sources: JList[BaseSparkSource[_]],
-                      transforms: JList[BaseSparkTransform],
-                      sinks: JList[BaseSparkSink[_]]): Unit = {
-
+  override def start(sources: JList[BaseSparkSource[_]], transforms: JList[BaseSparkTransform], sinks: JList[BaseSparkSink[_]]): Unit = {
     val source = sources.get(0).asInstanceOf[SparkStreamingSource[_]]
 
     sources.subList(1, sources.size()).foreach(s => {

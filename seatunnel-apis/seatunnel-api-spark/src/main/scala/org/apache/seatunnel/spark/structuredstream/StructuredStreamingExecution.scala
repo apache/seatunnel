@@ -36,8 +36,5 @@ class StructuredStreamingExecution(environment: SparkEnvironment)
 
   override def prepare(void: Void): Unit = {}
 
-  override def start(
-                      sources: JList[StructuredStreamingSource],
-                      transforms: JList[BaseSparkTransform],
-                      sinks: JList[StructuredStreamingSink]): Unit = {}
+  override def start(sources: JList[StructuredStreamingSource], transforms: JList[BaseSparkTransform], sinks: JList[StructuredStreamingSink]): Unit = {}
 }
