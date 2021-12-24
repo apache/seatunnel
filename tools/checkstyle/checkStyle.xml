@@ -338,7 +338,7 @@
         </module>
         
         <module name="PackageName">
-            <property name="format" value="^(org|test)\.apache\.seatunnel(\.[a-zA-Z][a-zA-Z0-9]*)*$"/>
+            <property name="format" value="^org\.apache\.seatunnel(\.[a-zA-Z][a-zA-Z0-9]*)*$"/>
             <property name="severity" value="error"/>
             <message key="name.invalidPattern" value="Package name ''{0}'' must match pattern ''{1}''."/>
         </module>
