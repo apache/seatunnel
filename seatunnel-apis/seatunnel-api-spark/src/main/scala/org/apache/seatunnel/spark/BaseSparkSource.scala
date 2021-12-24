@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.spark
 
-import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.apis.BaseSource
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 

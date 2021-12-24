@@ -15,11 +15,8 @@
  * limitations under the License.
  */
 
-
 package org.apache.seatunnel.spark.sink
 
-import java.io.{BufferedReader, InputStreamReader}
-import java.nio.charset.{Charset, StandardCharsets}
 import org.apache.commons.net.util.Base64
 import org.apache.http.HttpHeaders
 import org.apache.http.client.config.RequestConfig
@@ -27,6 +24,9 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{CloseableHttpClient, DefaultConnectionKeepAliveStrategy, DefaultRedirectStrategy, HttpClientBuilder}
 import org.apache.log4j.Logger
+
+import java.io.{BufferedReader, InputStreamReader}
+import java.nio.charset.{Charset, StandardCharsets}
 import scala.util.{Failure, Success, Try}
 
 object DorisUtil extends Serializable {
@@ -78,7 +78,7 @@ object DorisUtil extends Serializable {
       val bufferReader = new BufferedReader(new InputStreamReader(response.getEntity.getContent))
       val stringBuffer = new StringBuffer()
       var str = ""
-      while( str != null){
+      while (str != null) {
         stringBuffer.append(str.trim)
         str = bufferReader.readLine()
       }
@@ -94,7 +94,6 @@ object DorisUtil extends Serializable {
     (status, httpclient, response)
   }
 
-
   def basicAuthHeader(username: String, password: String): String = {
     val tobeEncode: String = username + ":" + password
     val encoded = Base64.encodeBase64(tobeEncode.getBytes(StandardCharsets.UTF_8))
@@ -106,7 +105,7 @@ object DorisUtil extends Serializable {
 class DorisUtil(httpHeader: Map[String, String], apiUrl: String, user: String, password: String) {
   def saveMessages(messages: String): Unit = {
     val httpClient = DorisUtil.createClient
-    val result = Try(DorisUtil.streamLoad(httpClient, httpHeader,messages, apiUrl, user, password))
+    val result = Try(DorisUtil.streamLoad(httpClient, httpHeader, messages, apiUrl, user, password))
     result match {
       case Success(_) =>
         httpClient.close()
