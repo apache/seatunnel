@@ -22,7 +22,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.interestinglab.seatunnel</groupId>
+    <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
     <version>2.0.4</version>
@@ -41,15 +41,6 @@
             <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
-
-    <developers>
-        <developer>
-            <name>Garyelephant, RickyHuo, Kid-xiong</name>
-            <email>garygaowork@gmail.com</email>
-            <organization>InterestingLab</organization>
-            <organizationUrl>https://github.com/InterestingLab</organizationUrl>
-        </developer>
-    </developers>
 
     <scm>
         <connection>scm:git:git@github.com:InterestingLab/seatunnel.git</connection>
@@ -83,7 +74,7 @@
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
-        <waterdrop.version>2.0.0</waterdrop.version>
+        <seatunnel.version>2.0.0</seatunnel.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
@@ -115,17 +106,19 @@
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
-        <spark.scope>compile</spark.scope>
+        <spark.scope>provided</spark.scope>
+        <flink.scope>provided</flink.scope>
+        <httpclient.version>4.5.2</httpclient.version>
+        <httpcore.version>4.4.4</httpcore.version>
+        <httpcore-nio.version>4.4.4</httpcore-nio.version>
+        <httpasyncclient.version>4.1.4</httpasyncclient.version>
+        <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
+        <docker.hub>apache</docker.hub>
+        <docker.tag>${project.version}</docker.tag>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>io.github.interestinglab.seatunnel</groupId>
-                <artifactId>seatunnel-connector-spark-file</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>
@@ -165,27 +158,42 @@
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-java</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-streaming-scala_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-common</artifactId>
+                <version>${flink.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
             <dependency>
                 <groupId>mysql</groupId>
@@ -220,7 +228,7 @@
 
             <dependency>
                 <groupId>org.mongodb.spark</groupId>
-                <artifactId>mongo-spark-connector_2.11</artifactId>
+                <artifactId>mongo-spark-connector_${scala.binary.version}</artifactId>
                 <version>${mongo-spark.version}</version>
             </dependency>
 
@@ -361,6 +369,29 @@
                 <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-spark-bundle_${scala.binary.version}</artifactId>
                 <version>${hudi.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpclient.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore</artifactId>
+                <version>${httpcore.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore-nio</artifactId>
+                <version>${httpcore-nio.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpasyncclient</artifactId>
+                <version>${httpasyncclient.version}</version>
             </dependency>
 
         </dependencies>
@@ -667,7 +698,6 @@
                     </executions>
                 </plugin>
                 <!-- maven deploy (End) -->
-
             </plugins>
         </pluginManagement>
 
@@ -701,28 +731,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
             </plugin>
-
-            <!-- maven deploy.
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-deploy-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-            </plugin>
-            -->
         </plugins>
     </build>
 
