@@ -103,7 +103,7 @@ private[sql] object JDBCRelation extends Logging {
 
     if (partitioning == null || partitioning.numPartitions <= 1 ||
       partitioning.lowerBound == partitioning.upperBound) {
-      return Array[Partition](JDBCPartition(null, 0))
+      Array[Partition](JDBCPartition(null, 0))
     }
 
     val lowerBound = partitioning.lowerBound

@@ -16,12 +16,13 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import scala.collection.JavaConversions._
-import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
+
+import scala.collection.JavaConversions._
 
 class Console extends SparkBatchSink {
 
@@ -29,24 +30,24 @@ class Console extends SparkBatchSink {
     val limit = config.getInt("limit")
 
     config.getString("serializer") match {
-      case "plain" => {
+      case "plain" =>
         if (limit == -1) {
           df.show(Int.MaxValue, false)
         } else if (limit > 0) {
           df.show(limit, false)
         }
-      }
-      case "json" => {
+      case "json" =>
         if (limit == -1) {
+          // scalastyle:off
           df.toJSON.take(Int.MaxValue).foreach(s => println(s))
-
+          // scalastyle:on
         } else if (limit > 0) {
+          // scalastyle:off
           df.toJSON.take(limit).foreach(s => println(s))
+          // scalastyle:on
         }
-      }
-      case "schema" => {
+      case "schema" =>
         df.printSchema()
-      }
     }
   }
 

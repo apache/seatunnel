@@ -16,20 +16,24 @@
  */
 package org.apache.seatunnel.spark.source
 
-import java.util.Properties
-import scala.collection.JavaConversions._
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-import org.apache.spark.streaming.dstream.{DStream, InputDStream}
-import org.apache.spark.streaming.kafka010._
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.streaming.dstream.{DStream, InputDStream}
+import org.apache.spark.streaming.kafka010._
+import org.slf4j.LoggerFactory
+
+import java.util.Properties
+import scala.collection.JavaConversions._
 
 class KafkaStream extends SparkStreamingSource[(String, String)] {
+
+  private val LOGGER = LoggerFactory.getLogger(classOf[KafkaStream])
 
   private var schema: StructType = _
 
@@ -66,10 +70,10 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
       kafkaParams.put(key, String.valueOf(value))
     })
 
-    println("[INFO] Input Kafka Params:")
+    LOGGER.info("Input Kafka Params:")
     for (entry <- kafkaParams) {
       val (key, value) = entry
-      println("[INFO] \t" + key + " = " + value)
+      LOGGER.info("\t" + key + " = " + value)
     }
   }
 
@@ -108,8 +112,8 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
         }
       }
       case false => new CheckResult(
-          false,
-          "please specify [topics] as non-empty string, multiple topics separated by \",\"")
+        false,
+        "please specify [topics] as non-empty string, multiple topics separated by \",\"")
     }
   }
 
@@ -119,7 +123,7 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
       val fromOffset = offsets.fromOffset
       val untilOffset = offsets.untilOffset
       if (untilOffset != fromOffset) {
-        println(
+        LOGGER.info(
           s"complete consume topic: ${offsets.topic} partition: ${offsets.partition} from ${fromOffset} until ${untilOffset}")
       }
     }
