@@ -17,6 +17,7 @@
 
 package io.github.interestinglab.waterdrop.spark.source
 
+import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
 import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
@@ -95,6 +96,7 @@ class Redis extends SparkBatchSource {
     // Get data from redis through keys and combine it into a dataset
     val redisConfig = new RedisConfig(RedisEndpoint(host = host, port = port, auth = auth, dbNum = dbNum, timeout = timeout))
     val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(redisConfig = redisConfig)
+    import spark.implicits._
     val ds = stringRDD.toDF("raw_key", "raw_message")
     ds.createOrReplaceTempView(s"$regTable")
     ds

@@ -14,46 +14,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.spark.source
+package io.github.interestinglab.waterdrop.spark.sink
 
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.config.ConfigFactory
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.stream.SparkStreamingSource
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
-import org.apache.spark.streaming.dstream.DStream
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
 
+class Hudi extends SparkBatchSink {
 
-class SocketStream extends SparkStreamingSource[String] {
+  override def checkConfig(): CheckResult = {
+    val requiredOptions = Seq("hoodie.base.path", "hoodie.table.name")
+    var missingOptions = new StringBuilder
+    requiredOptions.map(opt =>
+      if (!config.hasPath(opt)) {
+        missingOptions.append(opt).append(",")
+      }
+    )
+    missingOptions.isEmpty match {
+      case true =>
+        new CheckResult(true, "")
+      case false =>
+        missingOptions = missingOptions.deleteCharAt(missingOptions.length - 1)
+        new CheckResult(false, s"please specify [$missingOptions] as non-empty string")
+    }
+  }
 
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "host" -> "localhost",
-        "port" -> 9999
-      ))
+        "save_mode" -> "append"
+      )
+    )
     config = config.withFallback(defaultConfig)
   }
 
-  override def getData(env: SparkEnvironment): DStream[String] = {
-    env.getStreamingContext.socketTextStream(config.getString("host"), config.getInt("port"))
+  override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
+    val writer = df.write.format("org.apache.hudi")
+    for (e <- config.entrySet()) {
+      writer.option(e.getKey, e.getValue.toString)
+    }
+    writer.mode(config.getString("save_mode"))
+      .save(config.getString("hoodie.base.path"))
   }
-
-  override def checkConfig(): CheckResult = {
-    new CheckResult(true, "")
-  }
-
-  override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[String]): Dataset[Row] = {
-    val rowsRDD = rdd.map(element => {
-      RowFactory.create(element)
-    })
-
-    val schema = StructType(Array(StructField("raw_message", DataTypes.StringType)))
-    sparkSession.createDataFrame(rowsRDD, schema)
-  }
-
 }

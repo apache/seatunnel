@@ -14,33 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.interestinglab.waterdrop.spark.source
+package io.github.interestinglab.waterdrop.spark.sink
 
 import io.github.interestinglab.waterdrop.common.config.CheckResult
 import io.github.interestinglab.waterdrop.spark.SparkEnvironment
-import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSource
+import io.github.interestinglab.waterdrop.spark.batch.SparkBatchSink
 import org.apache.commons.lang3.StringUtils
+import org.apache.phoenix.spark.ZkConnectUtil._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
-import org.apache.phoenix.spark.ZkConnectUtil._
-import scala.collection.JavaConverters._
 
-class Phoenix extends SparkBatchSource with Logging {
+import scala.collection.JavaConverters._
+import scala.util.Try
+
+class Phoenix extends SparkBatchSink with Logging {
 
   var phoenixCfg: Map[String, String] = _
   val phoenixPrefix = "phoenix"
 
-  override def getData(env: SparkEnvironment): Dataset[Row] = {
+  override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     import org.apache.phoenix.spark.sparkExtend._
-    env.getSparkSession.sqlContext.phoenixTableAsDataFrame(
-      table = phoenixCfg(s"$phoenixPrefix.table"),
-      columns = {
-        if (config.hasPath("columns")) config.getStringList("columns").asScala else Seq()
-      },
+    data.saveToPhoenix(
       zkUrl = Some(phoenixCfg(s"$phoenixPrefix.zk-connect")),
-      predicate = if (phoenixCfg.contains(s"$phoenixPrefix.predicate")) Some(phoenixCfg(s"$phoenixPrefix.predicate")) else None,
-      tenantId = if (phoenixCfg.contains(s"$phoenixPrefix.tenantId")) Some(phoenixCfg(s"$phoenixPrefix.tenantId")) else None
-    )
+      tableName = phoenixCfg(s"$phoenixPrefix.table"),
+      tenantId = {
+        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId")) Some(phoenixCfg(s"$phoenixPrefix.tenantId")) else None
+      },
+      skipNormalizingIdentifier = {
+        Try {
+          if (config.hasPath("skipNormalizingIdentifier")) config.getBoolean("skipNormalizingIdentifier") else false
+        }.getOrElse(false)
+      })
   }
 
   override def checkConfig(): CheckResult = {

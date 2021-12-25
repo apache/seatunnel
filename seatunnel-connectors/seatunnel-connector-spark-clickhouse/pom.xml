@@ -36,8 +36,8 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-spark-20_${scala.binary.version}</artifactId>
+            <groupId>ru.yandex.clickhouse</groupId>
+            <artifactId>clickhouse-jdbc</artifactId>
         </dependency>
 
         <dependency>
@@ -49,6 +49,7 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
         </dependency>
+
     </dependencies>
 
 </project>
