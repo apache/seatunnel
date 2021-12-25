@@ -16,15 +16,16 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import scala.collection.JavaConverters._
-import scala.util.Try
 import org.apache.commons.lang3.StringUtils
 import org.apache.phoenix.spark.ZkConnectUtil._
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.{Dataset, Row}
+
+import scala.collection.JavaConverters._
+import scala.util.Try
 
 class Phoenix extends SparkBatchSink with Logging {
 
@@ -37,22 +38,26 @@ class Phoenix extends SparkBatchSink with Logging {
       zkUrl = Some(phoenixCfg(s"$phoenixPrefix.zk-connect")),
       tableName = phoenixCfg(s"$phoenixPrefix.table"),
       tenantId = {
-        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId"))
+        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId")) {
           Some(phoenixCfg(s"$phoenixPrefix.tenantId"))
-        else None
+        } else {
+          None
+        }
       },
       skipNormalizingIdentifier = {
         Try {
-          if (config.hasPath("skipNormalizingIdentifier"))
+          if (config.hasPath("skipNormalizingIdentifier")) {
             config.getBoolean("skipNormalizingIdentifier")
-          else false
+          } else {
+            false
+          }
         }.getOrElse(false)
       })
   }
 
   override def checkConfig(): CheckResult = {
     if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(
-        config.getString("zk-connect"))) {
+      config.getString("zk-connect"))) {
       checkZkConnect(config.getString("zk-connect"))
       new CheckResult(true, "")
     } else {

@@ -16,14 +16,15 @@
  */
 package org.apache.seatunnel.spark.source
 
-import scala.collection.JavaConverters._
 import org.apache.commons.lang3.StringUtils
 import org.apache.phoenix.spark.ZkConnectUtil._
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.{Dataset, Row}
+
+import scala.collection.JavaConverters._
 
 class Phoenix extends SparkBatchSource with Logging {
 
@@ -39,18 +40,22 @@ class Phoenix extends SparkBatchSource with Logging {
       },
       zkUrl = Some(phoenixCfg(s"$phoenixPrefix.zk-connect")),
       predicate =
-        if (phoenixCfg.contains(s"$phoenixPrefix.predicate"))
+        if (phoenixCfg.contains(s"$phoenixPrefix.predicate")) {
           Some(phoenixCfg(s"$phoenixPrefix.predicate"))
-        else None,
+        } else {
+          None
+        },
       tenantId =
-        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId"))
+        if (phoenixCfg.contains(s"$phoenixPrefix.tenantId")) {
           Some(phoenixCfg(s"$phoenixPrefix.tenantId"))
-        else None)
+        } else {
+          None
+        })
   }
 
   override def checkConfig(): CheckResult = {
     if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(
-        config.getString("zk-connect"))) {
+      config.getString("zk-connect"))) {
       checkZkConnect(config.getString("zk-connect"))
       new CheckResult(true, "")
     } else {

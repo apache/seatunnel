@@ -225,8 +225,7 @@ private[jdbc2] class JDBCRDD(
     var stmt: PreparedStatement = null
     var conn: Connection = null
 
-    def close() {
-      if (closed) return
+    def close(): Unit = {
       try {
         if (null != rs) {
           rs.close()

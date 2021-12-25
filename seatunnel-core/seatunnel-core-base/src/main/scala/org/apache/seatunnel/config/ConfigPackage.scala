@@ -17,13 +17,13 @@
 package org.apache.seatunnel.config
 
 class ConfigPackage(engine: String) {
-  val packagePrefix = "org.apache.seatunnel." + engine
-  val upperEngine = engine.substring(0, 1).toUpperCase() + engine.substring(1)
-  val sourcePackage = packagePrefix + ".source"
-  val transformPackage = packagePrefix + ".transform"
-  val sinkPackage = packagePrefix + ".sink"
-  val envPackage = packagePrefix + ".env"
-  val baseSourceClass = packagePrefix + ".Base" + upperEngine + "Source"
-  val baseTransformClass = packagePrefix + ".Base" + upperEngine + "Transform"
-  val baseSinkClass = packagePrefix + ".Base" + upperEngine + "Sink"
+  val packagePrefix: String = "org.apache.seatunnel." + engine
+  val upperEngine: String = engine.substring(0, 1).toUpperCase() + engine.substring(1)
+  val sourcePackage: String = packagePrefix + ".source"
+  val transformPackage: String = packagePrefix + ".transform"
+  val sinkPackage: String = packagePrefix + ".sink"
+  val envPackage: String = packagePrefix + ".env"
+  val baseSourceClass: String = packagePrefix + ".Base" + upperEngine + "Source"
+  val baseTransformClass: String = packagePrefix + ".Base" + upperEngine + "Transform"
+  val baseSinkClass: String = packagePrefix + ".Base" + upperEngine + "Sink"
 }

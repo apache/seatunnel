@@ -23,6 +23,7 @@ import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.slf4j.LoggerFactory
 
 import java.io.File
 import java.nio.file.Paths
@@ -31,6 +32,8 @@ import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 class Json extends BaseSparkTransform {
+
+  private val LOGGER = LoggerFactory.getLogger(classOf[Json])
 
   var customSchema: StructType = new StructType()
   var useCustomSchema: Boolean = false
@@ -110,7 +113,7 @@ class Json extends BaseSparkTransform {
       case true => dir + file
       case false => dir + "/" + file
     }
-    println("[INFO] specify json schema file path: " + fullPath)
+    LOGGER.info("specify json schema file path: " + fullPath)
     val path = new File(fullPath)
     if (path.exists && !path.isDirectory) {
       // try to load json schema from driver node's local file system, instead of distributed file system.
