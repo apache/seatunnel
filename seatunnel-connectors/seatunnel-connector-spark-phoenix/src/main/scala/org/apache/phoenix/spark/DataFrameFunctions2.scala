@@ -32,8 +32,12 @@ import scala.collection.JavaConversions._
 
 class DataFrameFunctions2(data: Dataset[Row]) extends Serializable {
 
-  def saveToPhoenix(tableName: String, conf: Configuration = new Configuration,
-                    zkUrl: Option[String] = None, tenantId: Option[String] = None, skipNormalizingIdentifier: Boolean = false): Unit = {
+  def saveToPhoenix(
+      tableName: String,
+      conf: Configuration = new Configuration,
+      zkUrl: Option[String] = None,
+      tenantId: Option[String] = None,
+      skipNormalizingIdentifier: Boolean = false): Unit = {
 
     val config = HBaseConfiguration.create
     val job = Job.getInstance(config)
@@ -44,14 +48,17 @@ class DataFrameFunctions2(data: Dataset[Row]) extends Serializable {
 
     val fieldArray = getFieldArray(skipNormalizingIdentifier, data)
 
-    @transient val outConfig = ConfigurationUtil.getOutputConfiguration(tableName, fieldArray, zkUrl, tenantId, Some(conf))
+    @transient val outConfig =
+      ConfigurationUtil.getOutputConfiguration(tableName, fieldArray, zkUrl, tenantId, Some(conf))
 
     val zkUrlFinal = ConfigurationUtil.getZookeeperURL(outConfig)
 
     val phxRDD = data.rdd.mapPartitions { rows =>
       applyCs(c1)
-      @transient val partitionConfig = ConfigurationUtil.getOutputConfiguration(tableName, fieldArray, zkUrlFinal, tenantId)
-      @transient val columns = PhoenixConfigurationUtil.getUpsertColumnMetadataList(partitionConfig).toList
+      @transient val partitionConfig =
+        ConfigurationUtil.getOutputConfiguration(tableName, fieldArray, zkUrlFinal, tenantId)
+      @transient val columns =
+        PhoenixConfigurationUtil.getUpsertColumnMetadataList(partitionConfig).toList
 
       rows.map { row =>
         val rec = new PhoenixRecordWritable(columns)
@@ -65,8 +72,7 @@ class DataFrameFunctions2(data: Dataset[Row]) extends Serializable {
       classOf[NullWritable],
       classOf[PhoenixRecordWritable],
       classOf[PhoenixOutputFormat[PhoenixRecordWritable]],
-      outConfig
-    )
+      outConfig)
   }
 
   def getFieldArray(skipNormalizingIdentifier: Boolean = false, data: DataFrame): Array[String] = {
