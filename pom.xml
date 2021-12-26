@@ -594,10 +594,8 @@
                         <failOnWarning>false</failOnWarning>
                         <failOnViolation>true</failOnViolation>
                         <includeTestSourceDirectory>false</includeTestSourceDirectory>
-                        <sourceDirectories>
-                            <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>
-                            <testSourceDirectory>${project.basedir}/src/test/scala</testSourceDirectory>
-                        </sourceDirectories>
+                        <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>
+                        <testSourceDirectory>${project.basedir}/src/test/scala</testSourceDirectory>
                         <configLocation>${maven.multiModuleProjectDirectory}/scalastyle-config.xml</configLocation>
                         <inputEncoding>UTF-8</inputEncoding>
                         <outputEncoding>UTF-8</outputEncoding>
