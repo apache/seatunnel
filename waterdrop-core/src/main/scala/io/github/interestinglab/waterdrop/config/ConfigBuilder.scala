@@ -269,7 +269,8 @@ class ConfigBuilder(configFile: String) {
           (ServiceLoader load classOf[BaseOutput]).asScala ++
           (ServiceLoader load classOf[BaseStructuredStreamingInput]).asScala ++
           (ServiceLoader load classOf[BaseStructuredStreamingOutput]).asScala ++
-          (ServiceLoader load classOf[BaseStructuredStreamingOutputIntra])
+          (ServiceLoader load classOf[BaseStructuredStreamingOutputIntra]).asScala ++
+          (ServiceLoader load classOf[BaseAction]).asScala
 
       var classFound = false
       breakable {

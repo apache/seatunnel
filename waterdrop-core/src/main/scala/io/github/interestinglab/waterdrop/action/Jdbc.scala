@@ -1,4 +1,4 @@
-package io.github.interestinglab.waterdrop.action.batch
+package io.github.interestinglab.waterdrop.action
 
 import java.sql.{Connection, DriverManager}
 
@@ -71,7 +71,7 @@ class Jdbc extends BaseAction {
 
   def executeSql(executeType: String): Unit = {
     val configList = config.getList(executeType)
-    if (configList.size() > 0) {
+    if (configList != null && configList.size() > 0) {
       val dataBaseConfig = getDataBaseConfig();
       val connection = getConnection(dataBaseConfig._1, dataBaseConfig._2, dataBaseConfig._3, dataBaseConfig._4)
       val statement = connection.createStatement()

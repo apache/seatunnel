@@ -126,7 +126,8 @@ final class ConfigParser {
                     || path.first().equals("output")
                     || path.first().equals("source")
                     || path.first().equals("transform")
-                    || path.first().equals("sink"))) {
+                    || path.first().equals("sink")
+                    || path.first().equals("action"))) {
                     v = parseObjectForWaterdrop((ConfigNodeObject)n);
                 } else {
                     v = parseObject((ConfigNodeObject)n);
