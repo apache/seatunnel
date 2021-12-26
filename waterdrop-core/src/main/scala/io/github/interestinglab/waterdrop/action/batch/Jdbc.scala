@@ -32,22 +32,12 @@ class Jdbc extends BaseAction {
 
   override def checkConfig(): (Boolean, String) = {
 
-    // TODO: are user, password required ?
-    val requiredOptions = List("driver", "url", "table", "user", "password");
+    val requiredOptions = List("driver", "url", "user", "password")
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
       !exists
     }
-
-    if (nonExistsOptions.length == 0) {
-      val saveModeAllowedValues = List("overwrite", "append", "ignore", "error");
-      if (!config.hasPath("save_mode") || saveModeAllowedValues.contains(config.getString("save_mode"))) {
-        (true, "")
-      } else {
-        (false, "wrong value of [save_mode], allowed values: " + saveModeAllowedValues.mkString(", "))
-      }
-
-    } else {
+    if (nonExistsOptions.nonEmpty) {
       (
         false,
         "please specify " + nonExistsOptions
@@ -58,10 +48,15 @@ class Jdbc extends BaseAction {
           .mkString(", ") + " as non-empty string"
       )
     }
+    (true, "")
   }
 
-  override def onExecutionStarted(sparkSession: SparkSession, sparkConf: SparkConf, config: Config): Unit = ???
+  override def onExecutionStarted(sparkSession: SparkSession, sparkConf: SparkConf, config: Config): Unit = {
+    /*"beforeActions", "afterActions"*/
+  }
 
-  override def onExecutionFinished(sparkConf: SparkConf, config: Config): Unit = ???
+  override def onExecutionFinished(sparkConf: SparkConf, config: Config): Unit = {
+    /*"beforeActions", "afterActions"*/
+  }
 
 }
