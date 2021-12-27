@@ -1,6 +1,6 @@
 package io.github.interestinglab.waterdrop.action
 
-import java.sql.{Connection, DriverManager}
+import java.sql.{Connection, DriverManager, SQLException}
 
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import org.apache.spark.SparkConf
@@ -57,11 +57,11 @@ class Jdbc extends BaseAction {
   }
 
   override def onExecutionStarted(sparkSession: SparkSession, sparkConf: SparkConf, config: Config): Unit = {
-    executeSql("beforeActions")
+    executeSql("before")
   }
 
   override def onExecutionFinished(sparkConf: SparkConf, config: Config): Unit = {
-    executeSql("afterActions")
+    executeSql("after")
   }
 
   def getConnection(driver: String, url: String, user: String, password: String) : Connection = {
@@ -70,14 +70,31 @@ class Jdbc extends BaseAction {
   }
 
   def executeSql(executeType: String): Unit = {
-    val configList = config.getList(executeType)
-    if (configList != null && configList.size() > 0) {
-      val dataBaseConfig = getDataBaseConfig();
-      val connection = getConnection(dataBaseConfig._1, dataBaseConfig._2, dataBaseConfig._3, dataBaseConfig._4)
-      val statement = connection.createStatement()
-      configList.asScala.foreach(sql => statement.execute(sql.unwrapped().toString))
-      statement.close()
-      connection.close()
+    if (config.hasPath(executeType)) {
+      val actionConfig = config.getConfig(executeType)
+      if (actionConfig.hasPath("actions")) {
+        val configList = actionConfig.getList("actions")
+        val ignoreErrorSql = if (actionConfig.hasPath("errorSqlIgnored")) actionConfig.getBoolean("errorSqlIgnored") else false
+        if (configList != null && configList.size() > 0) {
+          val dataBaseConfig = getDataBaseConfig();
+          val connection = getConnection(dataBaseConfig._1, dataBaseConfig._2, dataBaseConfig._3, dataBaseConfig._4)
+          val statement = connection.createStatement()
+          configList.asScala.foreach {
+            sql =>
+              try {
+                statement.execute(sql.unwrapped().toString)
+              } catch {
+                case e: SQLException => {
+                  if (!ignoreErrorSql) {
+                    throw new SQLException(e)
+                  }
+                }
+              }
+          }
+          statement.close()
+          connection.close()
+        }
+      }
     }
   }
 
