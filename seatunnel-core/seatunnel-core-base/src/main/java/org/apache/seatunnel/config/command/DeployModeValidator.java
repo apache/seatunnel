@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel;
+package org.apache.seatunnel.config.command;
 
-import org.apache.seatunnel.config.command.CommandLineArgs;
-import org.apache.seatunnel.config.command.CommandLineUtils;
+import com.beust.jcommander.IParameterValidator;
+import com.beust.jcommander.ParameterException;
+import org.apache.seatunnel.common.config.Common;
 
-import static org.apache.seatunnel.utils.Engine.SPARK;
-
-public class SeatunnelSpark {
-
-    public static void main(String[] args) {
-        CommandLineArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Seatunnel.run(sparkArgs, SPARK, args);
+public class DeployModeValidator implements IParameterValidator {
+    @Override
+    public void validate(String name, String value)
+        throws ParameterException {
+        if (!Common.isModeAllowed(value)) {
+            throw new ParameterException("deploy-mode: " + value + " is not allowed.");
+        }
     }
-
 }
