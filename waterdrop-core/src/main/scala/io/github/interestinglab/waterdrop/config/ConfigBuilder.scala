@@ -71,6 +71,7 @@ class ConfigBuilder(configFile: String) {
     val streamingInputs = this.createStreamingInputs("streaming")
     val outputs = this.createOutputs[BaseOutput]("batch")
     val filters = this.createFilters
+    val actions = this.createActions
   }
 
   def getSparkConfigs: Config = {
