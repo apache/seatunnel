@@ -15,18 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel;
+package org.apache.seatunnel.config.command;
 
-import org.apache.seatunnel.config.command.CommandLineArgs;
-import org.apache.seatunnel.config.command.CommandLineUtils;
+import com.beust.jcommander.ParameterException;
+import org.junit.Assert;
+import org.junit.Test;
 
-import static org.apache.seatunnel.utils.Engine.SPARK;
+public class CommandLineUtilsTest {
 
-public class SeatunnelSpark {
+    @Test
+    public void testParseSparkArgs() {
+        String[] args = {"-c", "app.conf", "-e", "cluster", "-m", "local[*]"};
+        CommandLineArgs commandLineArgs = CommandLineUtils.parseSparkArgs(args);
 
-    public static void main(String[] args) {
-        CommandLineArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Seatunnel.run(sparkArgs, SPARK, args);
+        Assert.assertEquals("app.conf", commandLineArgs.getConfiFile());
+        Assert.assertEquals("cluster", commandLineArgs.getDeployMode());
+    }
+
+    @Test
+    public void testParseSparkArgsException() {
+        String[] args = {"-c", "app.conf", "-e", "cluster2xxx", "-m", "local[*]"};
+        Assert.assertThrows(ParameterException.class, () -> CommandLineUtils.parseSparkArgs(args));
     }
 
 }
