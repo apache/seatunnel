@@ -18,6 +18,7 @@
   "retryCount": 10,
   "fallbackRetryDelay": "1000s",
   "aliveStatusCodes": [
+    0,
     200,
     401
   ]
