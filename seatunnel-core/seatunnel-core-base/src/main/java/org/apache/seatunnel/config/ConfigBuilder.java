@@ -116,18 +116,18 @@ public class ConfigBuilder {
         ServiceLoader<T> plugins;
         switch (pluginType) {
             case SOURCE:
-                packageName = configPackage.sourcePackage();
-                Class<T> baseSource = (Class<T>) Class.forName(configPackage.baseSourceClass());
+                packageName = configPackage.getSourcePackage();
+                Class<T> baseSource = (Class<T>) Class.forName(configPackage.getBaseSourceClass());
                 plugins = ServiceLoader.load(baseSource);
                 break;
             case TRANSFORM:
-                packageName = configPackage.transformPackage();
-                Class<T> baseTransform = (Class<T>) Class.forName(configPackage.baseTransformClass());
+                packageName = configPackage.getTransformPackage();
+                Class<T> baseTransform = (Class<T>) Class.forName(configPackage.getBaseTransformClass());
                 plugins = ServiceLoader.load(baseTransform);
                 break;
             case SINK:
-                packageName = configPackage.sinkPackage();
-                Class<T> baseSink = (Class<T>) Class.forName(configPackage.baseSinkClass());
+                packageName = configPackage.getSinkPackage();
+                Class<T> baseSink = (Class<T>) Class.forName(configPackage.getBaseSinkClass());
                 plugins = ServiceLoader.load(baseSink);
                 break;
             default:
