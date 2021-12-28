@@ -18,6 +18,23 @@
 
 
 # copy command line arguments
+
+function usage() {
+  echo "Usage: start-seatunnel-spark.sh [options]"
+  echo "  options:"
+  echo "    --deploy-mode,-e DEPLOY_MODE  Spark deploy mode"
+  echo "    --master, -m MASTER_URL       Spark master"
+  echo "    --config, -c FILE_PATH        Config file"
+  echo "    --variable, -i PROP=VALUE     Variable substitution, such as -i city=beijing, or -i date=20190318"
+  echo "    --check, -t                   Check config"
+  echo "    --help, -h                    Show this help message"
+}
+
+if [[ "$@" = *--help ]] || [[ "$@" = *-h ]] || [[ $# -le 1 ]]; then
+  usage
+  exit 0
+fi
+
 CMD_ARGUMENTS=$@
 
 PARAMS=""
