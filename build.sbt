@@ -18,7 +18,7 @@
  *
  */
 name         := "seatunnel"
-version      := "1.5.6"
+version      := "1.5.7"
 organization := "io.github.interestinglab.waterdrop"
 
 scalaVersion := "2.11.8"
