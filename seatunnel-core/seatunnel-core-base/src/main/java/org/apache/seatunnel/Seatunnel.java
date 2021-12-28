@@ -21,10 +21,10 @@ import org.apache.seatunnel.apis.BaseSink;
 import org.apache.seatunnel.apis.BaseSource;
 import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.config.ConfigRuntimeException;
-import org.apache.seatunnel.config.CommandLineArgs;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.config.ConfigBuilder;
+import org.apache.seatunnel.config.command.CommandLineArgs;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
@@ -34,18 +34,12 @@ import org.apache.seatunnel.utils.Engine;
 import org.apache.seatunnel.utils.PluginType;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Option;
-import scala.collection.JavaConverters;
-import scala.collection.Seq;
-import scopt.OptionParser;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -53,27 +47,22 @@ import java.util.Optional;
 public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
-    public static void run(OptionParser<CommandLineArgs> parser, Engine engine, String[] args) {
-        Seq<String> seq = JavaConverters.asScalaIteratorConverter(Arrays.asList(args).iterator()).asScala().toSeq();
-        Option<CommandLineArgs> option = parser.parse(seq, new CommandLineArgs("client", "application.conf", false));
-        if (option.isDefined()) {
-            CommandLineArgs commandLineArgs = option.get();
-            Common.setDeployMode(commandLineArgs.deployMode());
-            String configFilePath = getConfigFilePath(commandLineArgs, engine);
-            boolean testConfig = commandLineArgs.testConfig();
-            if (testConfig) {
-                new ConfigBuilder(configFilePath).checkConfig();
-                LOGGER.info("config OK !");
-            } else {
-                try {
-                    entryPoint(configFilePath, engine);
-                } catch (ConfigRuntimeException e) {
-                    showConfigError(e);
-                    throw e;
-                } catch (Exception e) {
-                    showFatalError(e);
-                    throw e;
-                }
+    public static void run(CommandLineArgs commandLineArgs, Engine engine, String[] args) {
+        Common.setDeployMode(commandLineArgs.getDeployMode());
+        String configFilePath = getConfigFilePath(commandLineArgs, engine);
+        boolean testConfig = commandLineArgs.isTestConfig();
+        if (testConfig) {
+            new ConfigBuilder(configFilePath).checkConfig();
+            LOGGER.info("config OK !");
+        } else {
+            try {
+                entryPoint(configFilePath, engine);
+            } catch (ConfigRuntimeException e) {
+                showConfigError(e);
+                throw e;
+            } catch (Exception e) {
+                showFatalError(e);
+                throw e;
             }
         }
     }
@@ -82,14 +71,14 @@ public class Seatunnel {
         String path = null;
         switch (engine) {
             case FLINK:
-                path = cmdArgs.configFile();
+                path = cmdArgs.getConfiFile();
                 break;
             case SPARK:
                 final Optional<String> mode = Common.getDeployMode();
                 if (mode.isPresent() && "cluster".equals(mode.get())) {
-                    path = Paths.get(cmdArgs.configFile()).getFileName().toString();
+                    path = Paths.get(cmdArgs.getConfiFile()).getFileName().toString();
                 } else {
-                    path = cmdArgs.configFile();
+                    path = cmdArgs.getConfiFile();
                 }
                 break;
             default:
@@ -172,25 +161,25 @@ public class Seatunnel {
 
     private static void showConfigError(Throwable throwable) {
         LOGGER.error(
-                "\n\n===============================================================================\n\n");
+            "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
         LOGGER.error("Config Error:\n");
         LOGGER.error("Reason: {} \n", errorMsg);
         LOGGER.error(
-                "\n===============================================================================\n\n\n");
+            "\n===============================================================================\n\n\n");
     }
 
     private static void showFatalError(Throwable throwable) {
         LOGGER.error(
-                "\n\n===============================================================================\n\n");
+            "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
         LOGGER.error("Fatal Error, \n");
         // FIX
         LOGGER.error(
-                "Please submit issue a bug in https://github.com/apache/seatunnel/issues\n");
+            "Please submit issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
         LOGGER.error("Reason:{} \n", errorMsg);
         LOGGER.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         LOGGER.error(
-                "\n===============================================================================\n\n\n");
+            "\n===============================================================================\n\n\n");
     }
 }
