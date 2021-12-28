@@ -45,124 +45,124 @@
             <artifactId>seatunnel-api-spark</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-kafka</artifactId>
+            <artifactId>seatunnel-connector-spark-kafka</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-fake</artifactId>
+            <artifactId>seatunnel-connector-spark-fake</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-file</artifactId>
+            <artifactId>seatunnel-connector-spark-file</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-socket</artifactId>
+            <artifactId>seatunnel-connector-spark-socket</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-jdbc</artifactId>
+            <artifactId>seatunnel-connector-spark-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-elasticsearch</artifactId>
+            <artifactId>seatunnel-connector-spark-elasticsearch</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-hive</artifactId>
+            <artifactId>seatunnel-connector-spark-hive</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-phoenix</artifactId>
+            <artifactId>seatunnel-connector-spark-phoenix</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-redis</artifactId>
+            <artifactId>seatunnel-connector-spark-redis</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-mongodb</artifactId>
+            <artifactId>seatunnel-connector-spark-mongodb</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-source-kudu</artifactId>
+            <artifactId>seatunnel-connector-spark-kudu</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-phoenix</artifactId>
+            <artifactId>seatunnel-connector-spark-email</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-jdbc</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-email</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-transform-sql</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-transform-json</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>plugin-spark-transform-split</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-console</artifactId>
+            <artifactId>seatunnel-connector-spark-console</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-elasticsearch</artifactId>
+            <artifactId>seatunnel-connector-spark-clickhouse</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-clickhouse</artifactId>
+            <artifactId>seatunnel-connector-spark-hbase</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-file</artifactId>
+            <artifactId>seatunnel-connector-spark-hudi</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-hbase</artifactId>
+            <artifactId>seatunnel-connector-spark-doris</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-kafka</artifactId>
+            <artifactId>plugin-spark-transform-sql</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-spark-sink-hudi</artifactId>
+            <artifactId>plugin-spark-transform-json</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
