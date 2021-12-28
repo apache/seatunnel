@@ -22,7 +22,8 @@ on:
     branches: [dev]
 
 jobs:
-  CodeQL-Build:
+  analyze:
+    name: Analyze
     # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
     runs-on: ubuntu-latest
     steps:
