@@ -30,16 +30,12 @@ import org.apache.seatunnel.spark.batch.SparkBatchExecution;
 import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
 import org.apache.seatunnel.utils.Engine;
 
+import org.apache.seatunnel.utils.SeatunnelServiceLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
+import java.util.*;
 
 public class ConfigBuilder {
 
@@ -54,19 +50,33 @@ public class ConfigBuilder {
     private Config envConfig;
     private final RuntimeEnv env;
 
+    private Map<String, Class<?>> SOURCE_PLUGINS = new HashMap<>();
+    private Map<String, Class<?>> TRANSFORM_PLUGINS = new HashMap<>();
+    private Map<String, Class<?>> SINK_PLUGINS = new HashMap<>();
+
     public ConfigBuilder(String configFile, Engine engine) {
         this.configFile = configFile;
         this.engine = engine;
-        this.configPackage = new ConfigPackage(engine.getEngine());
+        if (Engine.NULL != engine) {
+            this.configPackage = new ConfigPackage(engine.getEngine());
+        }
         this.config = load();
         this.env = createEnv();
+
+        try {
+            Class<?> baseSource = Class.forName(configPackage.baseSourceClass());
+            Class<?> baseTransform = Class.forName(configPackage.baseTransformClass());
+            Class<?> baseSink = Class.forName(configPackage.baseSinkClass());
+            SOURCE_PLUGINS = SeatunnelServiceLoader.load(baseSource);
+            TRANSFORM_PLUGINS = SeatunnelServiceLoader.load(baseTransform);
+            SINK_PLUGINS = SeatunnelServiceLoader.load(baseSink);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     public ConfigBuilder(String configFile) {
-        this.configFile = configFile;
-        this.engine = Engine.NULL;
-        this.config = load();
-        this.env = createEnv();
+        this(configFile, Engine.NULL);
     }
 
     private Config load() {
@@ -112,44 +122,24 @@ public class ConfigBuilder {
             // canonical class name
             return (T) Class.forName(name).newInstance();
         }
-        String packageName;
-        ServiceLoader<T> plugins;
+        Map<String, Class<?>> classMap;
         switch (pluginType) {
             case SOURCE:
-                packageName = configPackage.sourcePackage();
-                Class<T> baseSource = (Class<T>) Class.forName(configPackage.baseSourceClass());
-                plugins = ServiceLoader.load(baseSource);
+                classMap = SOURCE_PLUGINS;
                 break;
             case TRANSFORM:
-                packageName = configPackage.transformPackage();
-                Class<T> baseTransform = (Class<T>) Class.forName(configPackage.baseTransformClass());
-                plugins = ServiceLoader.load(baseTransform);
+                classMap = TRANSFORM_PLUGINS;
                 break;
             case SINK:
-                packageName = configPackage.sinkPackage();
-                Class<T> baseSink = (Class<T>) Class.forName(configPackage.baseSinkClass());
-                plugins = ServiceLoader.load(baseSink);
+                classMap = SINK_PLUGINS;
                 break;
             default:
                 throw new IllegalArgumentException("PluginType not support : [" + pluginType + "]");
         }
-        String canonicalName = packageName + "." + name;
-        for (Iterator<T> it = plugins.iterator(); it.hasNext(); ) {
-            try {
-                T plugin = it.next();
-                Class<?> serviceClass = plugin.getClass();
-                String serviceClassName = serviceClass.getName();
-                String clsNameToLower = serviceClassName.toLowerCase();
-                if (clsNameToLower.equals(canonicalName.toLowerCase())) {
-                    return plugin;
-                }
-            } catch (ServiceConfigurationError e) {
-                // Iterator.next() may throw ServiceConfigurationError,
-                // but maybe caused by a not used plugin in this job
-                LOGGER.warn("Error when load plugin: [{}]", canonicalName, e);
-            }
+        if (!classMap.containsKey(name)) {
+            throw new ClassNotFoundException("Plugin [" + pluginType.getType() + "] class not found by name :[" + name + "]");
         }
-        throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
+        return (T) classMap.get(name).newInstance();
     }
 
 
