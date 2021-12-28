@@ -21,28 +21,28 @@ import com.beust.jcommander.JCommander;
 
 public class CommandLineUtils {
 
-    public static org.apache.seatunnel.config.command.CommandLineArgs parseSparkArgs(String[] args) {
+    public static CommandLineArgs parseSparkArgs(String[] args) {
         CommandSparkArgs commandSparkArgs = new CommandSparkArgs();
         JCommander.newBuilder()
             .addObject(commandSparkArgs)
             .build()
             .parse(args);
 
-        return new org.apache.seatunnel.config.command.CommandLineArgs(
+        return new CommandLineArgs(
             commandSparkArgs.getDeployMode(),
             commandSparkArgs.getConfigFile(),
             commandSparkArgs.isTestConfig()
         );
     }
 
-    public static org.apache.seatunnel.config.command.CommandLineArgs parseFlinkArgs(String[] args) {
-        org.apache.seatunnel.config.command.CommandFlinkArgs commandFlinkArgs = new org.apache.seatunnel.config.command.CommandFlinkArgs();
+    public static CommandLineArgs parseFlinkArgs(String[] args) {
+        CommandFlinkArgs commandFlinkArgs = new CommandFlinkArgs();
         JCommander.newBuilder()
             .addObject(commandFlinkArgs)
             .build()
             .parse(args);
 
-        return new org.apache.seatunnel.config.command.CommandLineArgs(
+        return new CommandLineArgs(
             commandFlinkArgs.getConfigFile(),
             commandFlinkArgs.isTestConfig()
         );
