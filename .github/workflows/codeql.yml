@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['java','scala']
+        language: ['java']
 
     steps:
       - name: Checkout repository
