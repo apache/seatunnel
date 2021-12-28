@@ -19,7 +19,7 @@
 # copy command line arguments
 
 function usage() {
-  echo "Usage: start-seatunnel-spark.sh [options]"
+  echo "Usage: start-seatunnel-sql.sh [options]"
   echo "  options:"
   echo "    --config, -c FILE_PATH        Config file"
   echo "    --variable, -i PROP=VALUE     Variable substitution, such as -i city=beijing, or -i date=20190318"
