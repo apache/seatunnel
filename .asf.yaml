@@ -20,7 +20,13 @@ github:
   labels:
     - data-integration
     - high-performance
-    - offline&real-time
+    - offline
+    - real-time
+    - data-pipeline
+    - sql-engine
+    - apache
+    - seatunnel
+    - etl-framework
   enabled_merge_buttons:
     squash: true
     merge: false
