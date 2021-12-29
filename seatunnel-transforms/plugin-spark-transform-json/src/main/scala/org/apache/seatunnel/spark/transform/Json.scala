@@ -45,48 +45,39 @@ class Json extends BaseSparkTransform {
     import spark.implicits._
 
     config.getString("target_field") match {
-      case RowConstant.ROOT => {
+      case RowConstant.ROOT =>
 
-        val jsonRDD = df.select(srcField).as[String].rdd
+        val jsonRDD = df.select(srcField).as[String].rdd.toDS()
 
         val newDF = srcField match {
           // for backward-compatibility for spark < 2.2.0, we created rdd, not Dataset[String]
-          case "raw_message" => {
+          case "raw_message" =>
             val tmpDF =
               if (this.useCustomSchema) {
                 spark.read.schema(this.customSchema).json(jsonRDD)
               } else {
                 spark.read.json(jsonRDD)
               }
-
             tmpDF
-          }
-          case s: String => {
+          case s: String =>
             val schema =
               if (this.useCustomSchema) this.customSchema else spark.read.json(jsonRDD).schema
             var tmpDf = df.withColumn(RowConstant.TMP, from_json(col(s), schema))
-            schema.map { field =>
+            schema.foreach { field =>
               tmpDf = tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
             }
             tmpDf.drop(RowConstant.TMP)
-          }
         }
-
         newDF
-      }
-      case targetField: String => {
+      case targetField: String =>
         // for backward-compatibility for spark < 2.2.0, we created rdd, not Dataset[String]
-        val schema = this.useCustomSchema match {
-          case true => {
-            this.customSchema
-          }
-          case false => {
-            val jsonRDD = df.select(srcField).as[String].rdd
-            spark.read.json(jsonRDD).schema
-          }
+        val schema = if (this.useCustomSchema) {
+          this.customSchema
+        } else {
+          val jsonRDD = df.select(srcField).as[String].rdd.toDS()
+          spark.read.json(jsonRDD).schema
         }
         df.withColumn(targetField, from_json(col(srcField), schema))
-      }
     }
   }
 
@@ -109,9 +100,10 @@ class Json extends BaseSparkTransform {
   }
 
   private def parseCustomJsonSchema(spark: SparkSession, dir: String, file: String): Unit = {
-    val fullPath = dir.endsWith("/") match {
-      case true => dir + file
-      case false => dir + "/" + file
+    val fullPath = if (dir.endsWith("/")) {
+      dir + file
+    } else {
+      dir + "/" + file
     }
     LOGGER.info("specify json schema file path: " + fullPath)
     val path = new File(fullPath)
@@ -121,17 +113,16 @@ class Json extends BaseSparkTransform {
 
       var schemaLines = ""
       Try(source.getLines().toList.mkString) match {
-        case Success(schema: String) => {
+        case Success(schema: String) =>
           schemaLines = schema
           source.close()
-        }
-        case Failure(_) => {
+        case Failure(_) =>
           source.close()
           throw new ConfigRuntimeException("Loading file of " + fullPath + " failed.")
-        }
       }
-      val schemaRdd = spark.sparkContext.parallelize(List(schemaLines))
-      val schemaJsonDF = spark.read.option("multiline", true).json(schemaRdd)
+      import spark.implicits._
+      val schemaRdd = spark.sparkContext.parallelize(List(schemaLines)).toDS()
+      val schemaJsonDF = spark.read.option("multiline", value = true).json(schemaRdd)
       schemaJsonDF.printSchema()
       val schemaJson = schemaJsonDF.schema.json
       this.customSchema = DataType.fromJson(schemaJson).asInstanceOf[StructType]
