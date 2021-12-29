@@ -52,7 +52,7 @@ public class Seatunnel {
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
         boolean testConfig = commandLineArgs.isTestConfig();
         if (testConfig) {
-            new ConfigBuilder(configFilePath).checkConfig();
+            new ConfigBuilder(configFilePath, engine, true).checkConfig();
             LOGGER.info("config OK !");
         } else {
             try {
@@ -161,25 +161,25 @@ public class Seatunnel {
 
     private static void showConfigError(Throwable throwable) {
         LOGGER.error(
-            "\n\n===============================================================================\n\n");
+                "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
         LOGGER.error("Config Error:\n");
         LOGGER.error("Reason: {} \n", errorMsg);
         LOGGER.error(
-            "\n===============================================================================\n\n\n");
+                "\n===============================================================================\n\n\n");
     }
 
     private static void showFatalError(Throwable throwable) {
         LOGGER.error(
-            "\n\n===============================================================================\n\n");
+                "\n\n===============================================================================\n\n");
         String errorMsg = throwable.getMessage();
         LOGGER.error("Fatal Error, \n");
         // FIX
         LOGGER.error(
-            "Please submit issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
+                "Please submit issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
         LOGGER.error("Reason:{} \n", errorMsg);
         LOGGER.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         LOGGER.error(
-            "\n===============================================================================\n\n\n");
+                "\n===============================================================================\n\n\n");
     }
 }
