@@ -53,7 +53,7 @@ jobs:
           ./mvnw -B checkstyle:check
       - name: Build and Package
         run: |
-          ./mvnw -B package  \
+          ./mvnw -B package scalastyle:check \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
                  -Dhttp.keepAlive=false \

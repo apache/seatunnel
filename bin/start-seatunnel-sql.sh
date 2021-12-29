@@ -17,6 +17,21 @@
 #
 
 # copy command line arguments
+
+function usage() {
+  echo "Usage: start-seatunnel-sql.sh [options]"
+  echo "  options:"
+  echo "    --config, -c FILE_PATH        Config file"
+  echo "    --variable, -i PROP=VALUE     Variable substitution, such as -i city=beijing, or -i date=20190318"
+  echo "    --check, -t                   Check config"
+  echo "    --help, -h                    Show this help message"
+}
+
+if [[ "$@" = *--help ]] || [[ "$@" = *-h ]] || [[ $# -le 1 ]]; then
+  usage
+  exit 0
+fi
+
 PARAMS=""
 while (( "$#" )); do
   case "$1" in
@@ -63,5 +78,5 @@ export JVM_ARGS=$(string_trim "${variables_substitution}")
 
 exec ${FLINK_HOME}/bin/flink run \
     ${PARAMS} \
-    -c io.github.interestinglab.waterdrop.core.sql.WaterdropSql \
+    -c org.apache.seatunnel.core.sql.SeatunnelSql \
     ${assemblyJarName} --config ${CONFIG_FILE}

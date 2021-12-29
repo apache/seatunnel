@@ -18,6 +18,23 @@
 
 
 # copy command line arguments
+
+function usage() {
+  echo "Usage: start-seatunnel-spark.sh [options]"
+  echo "  options:"
+  echo "    --deploy-mode,-e DEPLOY_MODE  Spark deploy mode"
+  echo "    --master, -m MASTER_URL       Spark master"
+  echo "    --config, -c FILE_PATH        Config file"
+  echo "    --variable, -i PROP=VALUE     Variable substitution, such as -i city=beijing, or -i date=20190318"
+  echo "    --check, -t                   Check config"
+  echo "    --help, -h                    Show this help message"
+}
+
+if [[ "$@" = *--help ]] || [[ "$@" = *-h ]] || [[ $# -le 1 ]]; then
+  usage
+  exit 0
+fi
+
 CMD_ARGUMENTS=$@
 
 PARAMS=""
@@ -118,7 +135,7 @@ variables_substitution=$(string_trim "${variables_substitution}")
 
 ## get spark conf from config file and specify them in spark-submit
 function get_spark_conf {
-    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
+    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} org.apache.seatunnel.config.ExposeSparkConf ${CONFIG_FILE})
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
         exit -1
@@ -162,7 +179,7 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.WaterdropSpark \
+exec ${SPARK_HOME}/bin/spark-submit --class org.apache.seatunnel.SeatunnelSpark \
     --name $(getAppName ${CONFIG_FILE}) \
     --jars $(echo ${LIB_DIR}/*.jar | tr ' ' ',') \
     --master ${MASTER} \
