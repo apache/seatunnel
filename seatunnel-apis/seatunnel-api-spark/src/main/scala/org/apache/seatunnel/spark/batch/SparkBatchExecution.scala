@@ -77,24 +77,21 @@ object SparkBatchExecution {
   private[seatunnel] def registerInputTempView(source: BaseSparkSource[Dataset[Row]], environment: SparkEnvironment): Unit = {
     val conf = source.getConfig
     conf.hasPath(SparkBatchExecution.resultTableName) match {
-      case true => {
+      case true =>
         val tableName = conf.getString(SparkBatchExecution.resultTableName)
         registerTempView(tableName, source.getData(environment))
-      }
-      case false => {
+      case false =>
         throw new ConfigRuntimeException(
           "Plugin[" + source.getClass.getName + "] must be registered as dataset/table, please set \"result_table_name\" config")
-      }
     }
   }
 
   private[seatunnel] def transformProcess(environment: SparkEnvironment, transform: BaseSparkTransform, ds: Dataset[Row]): Dataset[Row] = {
     val config = transform.getConfig()
     val fromDs = config.hasPath(SparkBatchExecution.sourceTableName) match {
-      case true => {
+      case true =>
         val sourceTableName = config.getString(SparkBatchExecution.sourceTableName)
         environment.getSparkSession.read.table(sourceTableName)
-      }
       case false => ds
     }
 
@@ -112,10 +109,9 @@ object SparkBatchExecution {
   private[seatunnel] def sinkProcess(environment: SparkEnvironment, sink: BaseSparkSink[_], ds: Dataset[Row]): Unit = {
     val config = sink.getConfig()
     val fromDs = config.hasPath(SparkBatchExecution.sourceTableName) match {
-      case true => {
+      case true =>
         val sourceTableName = config.getString(SparkBatchExecution.sourceTableName)
         environment.getSparkSession.read.table(sourceTableName)
-      }
       case false => ds
     }
 

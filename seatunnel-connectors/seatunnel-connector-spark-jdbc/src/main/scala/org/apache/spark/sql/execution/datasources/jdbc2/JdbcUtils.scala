@@ -180,7 +180,9 @@ object JdbcUtils extends Logging {
         val sql =
           s"INSERT INTO $table ($columns) VALUES ($placeholders) ON DUPLICATE KEY UPDATE $duplicateSetting"
         if (props.getProperty("showSql", "false").equals("true")) {
+          // scalastyle:off
           println(s"${JDBCSaveMode.Update} => sql => $sql")
+          // scalastyle:on
         }
         sql
       case _ => s"INSERT INTO $table ($columns) VALUES ($placeholders)"

@@ -16,16 +16,20 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import scala.collection.JavaConversions._
-import org.apache.spark.sql.{Dataset, Row}
-import org.elasticsearch.spark.sql._
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.utils.StringTemplate
 import org.apache.seatunnel.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
+import org.elasticsearch.spark.sql._
+import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions._
 
 class Elasticsearch extends SparkBatchSink {
+
+  private val LOGGER = LoggerFactory.getLogger(classOf[Elasticsearch])
 
   val esPrefix = "es."
   var esCfg: Map[String, String] = Map()
@@ -68,10 +72,10 @@ class Elasticsearch extends SparkBatchSink {
 
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
 
-    println("[INFO] Output ElasticSearch Params:")
+    LOGGER.info("Output ElasticSearch Params:")
     for (entry <- esCfg) {
       val (key, value) = entry
-      println("[INFO] \t" + key + " = " + value)
+      LOGGER.info("\t" + key + " = " + value)
     }
   }
 

@@ -16,18 +16,19 @@
  */
 package org.apache.seatunnel.spark.source
 
-import java.security.SecureRandom
-import scala.collection.JavaConversions._
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-import org.apache.spark.storage.StorageLevel
-import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.receiver.Receiver
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.config.{Config, ConfigFactory}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.streaming.dstream.DStream
+import org.apache.spark.streaming.receiver.Receiver
+
+import java.security.SecureRandom
+import scala.collection.JavaConversions._
 
 class FakeStream extends SparkStreamingSource[String] {
 
@@ -73,21 +74,23 @@ private class FakeReceiver(config: Config)
     contentList.get(n)
   }
 
-  def onStart() {
+  def onStart(): Unit = {
     // Start the thread that receives data over a connection
 
     new Thread("FakeReceiver Source") {
-      override def run() { receive() }
+      override def run(): Unit = {
+        receive()
+      }
     }.start()
   }
 
-  def onStop() {
+  def onStop(): Unit = {
     // There is nothing much to do as the thread calling receive()
     // is designed to stop by itself isStopped() returns false
   }
 
   /** Create a socket connection and receive data until receiver is stopped */
-  private def receive() {
+  private def receive(): Unit = {
     while (!isStopped()) {
 
       store(generateData())

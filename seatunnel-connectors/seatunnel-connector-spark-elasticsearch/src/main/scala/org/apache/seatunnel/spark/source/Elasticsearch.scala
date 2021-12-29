@@ -16,13 +16,17 @@
  */
 package org.apache.seatunnel.spark.source
 
-import scala.collection.JavaConversions._
-import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.sql.{Dataset, Row}
+import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions._
 
 class Elasticsearch extends SparkBatchSource {
+
+  private val LOGGER = LoggerFactory.getLogger(classOf[Elasticsearch])
 
   var esCfg: Map[String, String] = Map()
   val esPrefix = "es."
@@ -41,10 +45,10 @@ class Elasticsearch extends SparkBatchSource {
 
     esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
 
-    println("[INFO] Input ElasticSearch Params:")
+    LOGGER.info("Input ElasticSearch Params:")
     for (entry <- esCfg) {
       val (key, value) = entry
-      println("[INFO] \t" + key + " = " + value)
+      LOGGER.info("\t" + key + " = " + value)
     }
   }
 
@@ -55,7 +59,6 @@ class Elasticsearch extends SparkBatchSource {
       .format("org.elasticsearch.spark.sql")
       .options(esCfg)
       .load(index)
-
   }
 
   override def checkConfig(): CheckResult = {
