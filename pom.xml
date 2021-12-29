@@ -33,7 +33,7 @@
         Production ready big data processing product based on Apache Spark and Apache Flink.
     </description>
 
-    <url>https://github.com/InterestingLab/seatunnel</url>
+    <url>https://github.com/apache/incubator-seatunnel</url>
 
     <licenses>
         <license>
@@ -43,9 +43,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git@github.com:InterestingLab/seatunnel.git</connection>
-        <developerConnection>scm:git:git@github.com:InterestingLab/seatunnel.git</developerConnection>
-        <url>https://github.com/InterestingLab/seatunnel</url>
+        <connection>scm:git:git@github.com:apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:git@github.com:apache/incubator-seatunnel.git</developerConnection>
+        <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
 
