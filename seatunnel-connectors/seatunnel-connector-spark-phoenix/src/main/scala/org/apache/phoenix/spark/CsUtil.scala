@@ -23,7 +23,7 @@ import org.apache.spark.broadcast.Broadcast
 
 object CsUtil {
 
-  def applyCs(c1: Option[Broadcast[SerializableWritable[Credentials]]]) {
+  def applyCs(c1: Option[Broadcast[SerializableWritable[Credentials]]]): Unit = {
     @transient val ugi = UserGroupInformation.getCurrentUser
     if (null != ugi && null != c1 && c1.isDefined && null != c1.get.value &&
       null != c1.get.value.value) {

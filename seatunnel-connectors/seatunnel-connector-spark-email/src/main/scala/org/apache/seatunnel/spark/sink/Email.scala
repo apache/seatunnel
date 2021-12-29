@@ -16,17 +16,18 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import java.io.ByteArrayOutputStream
-import scala.collection.JavaConverters._
 import com.norbitltd.spoiwo.model.Workbook
 import com.norbitltd.spoiwo.natures.xlsx.Model2XlsxConversions._
 import com.typesafe.config.ConfigFactory
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import org.apache.spark.sql.{Dataset, Row}
-import play.api.libs.mailer.{Attachment, AttachmentData, Email, SMTPConfiguration, SMTPMailer}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
+import play.api.libs.mailer.{Attachment, AttachmentData, Email, SMTPConfiguration, SMTPMailer}
+
+import java.io.ByteArrayOutputStream
+import scala.collection.JavaConverters._
 
 class Email extends SparkBatchSink {
 
@@ -64,12 +65,14 @@ class Email extends SparkBatchSink {
     val bodyHtml = if (config.hasPath("bodyHtml")) Some(config.getString("bodyHtml")) else None
 
     val cc =
-      if (config.hasPath("cc")) config.getString("cc").split(",").map(_.trim()).filter(_.length > 0)
+      if (config.hasPath("cc")) config.getString("cc").split(",").map(_.trim()).filter(_.nonEmpty)
       else Array[String]()
     val bcc =
-      if (config.hasPath("bcc"))
-        config.getString("bcc").split(",").map(_.trim()).filter(_.length > 0)
-      else Array[String]()
+      if (config.hasPath("bcc")) {
+        config.getString("bcc").split(",").map(_.trim()).filter(_.nonEmpty)
+      } else {
+        Array[String]()
+      }
     val email = Email(
       subject,
       from,
@@ -111,12 +114,12 @@ class Email extends SparkBatchSink {
   override def prepare(prepareEnv: SparkEnvironment): Unit = {}
 
   def createMailer(
-      host: String,
-      port: Int,
-      user: String,
-      password: String,
-      timeout: Int = 10000,
-      connectionTimeout: Int = 10000): SMTPMailer = {
+                    host: String,
+                    port: Int,
+                    user: String,
+                    password: String,
+                    timeout: Int = 10000,
+                    connectionTimeout: Int = 10000): SMTPMailer = {
     // STMP's service SMTPConfiguration
     val configuration = new SMTPConfiguration(
       host,

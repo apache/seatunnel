@@ -49,7 +49,7 @@ class Hbase extends SparkBatchSink with Logging {
         val (optionName, exists) = p
         !exists
       }
-    if (nonExistsOptions.length != 0) {
+    if (nonExistsOptions.nonEmpty) {
       new CheckResult(
         false,
         "please specify " + nonExistsOptions.map("[" + _._1 + "]").mkString(
@@ -103,8 +103,9 @@ class Hbase extends SparkBatchSink with Logging {
       }
 
       def familyQualifierToByte: Set[(Array[Byte], Array[Byte], String)] = {
-        if (columnFamily == null || colNames == null)
+        if (columnFamily == null || colNames == null) {
           throw new Exception("null can't be convert to Bytes")
+        }
         colNames.filter(htc.getField(_).cf != HBaseTableCatalog.rowKey).map(colName =>
           (Bytes.toBytes(htc.getField(colName).cf), Bytes.toBytes(colName), colName)).toSet
       }
@@ -145,8 +146,9 @@ class Hbase extends SparkBatchSink with Logging {
         hbaseConn.getRegionLocator(tableName))
 
     } finally {
-      if (hbaseConn != null)
+      if (hbaseConn != null) {
         hbaseConn.close()
+      }
 
       cleanUpStagingDir(stagingDir)
     }
@@ -158,8 +160,9 @@ class Hbase extends SparkBatchSink with Logging {
     if (!fs.delete(stagingPath, true)) {
       logWarning(s"clean staging dir ${stagingDir} failed")
     }
-    if (fs != null)
+    if (fs != null) {
       fs.close()
+    }
   }
 
   private def truncateHTable(connection: Connection, tableName: TableName): Unit = {
