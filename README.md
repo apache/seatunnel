@@ -2,7 +2,7 @@
 
 <img src="https://github.com/apache/incubator-seatunnel-website/blob/main/Logo.png" alt="seatunnel logo" height="200px" align="right" />
 
-[![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
+[![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
 
 ---
 [![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
@@ -80,7 +80,7 @@ and Flink.
 
 ## Downloads
 
-Download address for run-directly software package :https://github.com/InterestingLab/SeaTunnel/releases
+Download address for run-directly software package :https://github.com/apache/incubator-seatunnel/releases
 
 ## Quick start
 
@@ -132,7 +132,7 @@ unacceptable behavior.
 
 ## Developer
 
-Thanks to all developers https://github.com/InterestingLab/SeaTunnel/graphs/contributors
+Thanks to all developers https://github.com/apache/incubator-seatunnel/graphs/contributors
 
 ## Contact Us
 
