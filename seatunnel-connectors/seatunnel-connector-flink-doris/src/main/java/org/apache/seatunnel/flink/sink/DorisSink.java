@@ -61,30 +61,30 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "fenodes", "username", "password", "table_name", "db_name");
+        return CheckConfigUtil.check(config, "fenodes", "user", "password", "table", "database");
     }
 
     @Override
     public void prepare(FlinkEnvironment prepareEnv) {
         fenodes = config.getString("fenodes");
-        username = config.getString("username");
-        tableName = config.getString("table_name");
+        username = config.getString("user");
+        tableName = config.getString("table");
         password = config.getString("password");
-        dbName = config.getString("db_name");
-        if (config.hasPath("doris_sink_batch_size")) {
-            batchSize = config.getInt("doris_sink_batch_size");
-            Preconditions.checkArgument(batchSize > 0, "doris_sink_batch_size must be greater than 0");
+        dbName = config.getString("database");
+        if (config.hasPath("batch_size")) {
+            batchSize = config.getInt("batch_size");
+            Preconditions.checkArgument(batchSize > 0, "batch_size must be greater than 0");
         }
-        if (config.hasPath("doris_sink_interval")) {
-            batchIntervalMs = config.getInt("doris_sink_interval");
-            Preconditions.checkArgument(batchIntervalMs > 0, "doris_sink_interval must be greater than 0");
+        if (config.hasPath("interval")) {
+            batchIntervalMs = config.getInt("interval");
+            Preconditions.checkArgument(batchIntervalMs > 0, "interval must be greater than 0");
         }
-        if (config.hasPath("doris_sink_max_retries")) {
-            maxRetries = config.getInt("doris_sink_max_retries");
-            Preconditions.checkArgument(maxRetries > 0, "doris_sink_max_retries must be greater than 0");
+        if (config.hasPath("max_retries")) {
+            maxRetries = config.getInt("max_retries");
+            Preconditions.checkArgument(maxRetries > 0, "max_retries must be greater than 0");
         }
 
-        String producerPrefix = "doris_sink_properties.";
+        String producerPrefix = "doris.";
         PropertiesUtil.setProperties(config, streamLoadProp, producerPrefix, false);
     }
 
