@@ -1,5 +1,5 @@
 # seatunnel [![Build Status](https://travis-ci.org/InterestingLab/seatunnel.svg?branch=master)](https://travis-ci.org/InterestingLab/seatunnel)
-<img src="https://github.com/apache/incubator-seatunnel-website/blob/main/Logo.png" alt="seatunnel logo" height="200px" align="right" />
+<img src="https://seatunnel.apache.org/img/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
 [![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
 
