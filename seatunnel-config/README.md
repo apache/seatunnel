@@ -11,9 +11,9 @@ This project is a fork of https://github.com/lightbend/config, its mainly purpos
 
 If you want to do some test, please see:
 
-* Test Main Class: config/src/test/java/interestinglab/CompleteTests.java
+* Test Main Class: seatunnel-config/src/test/java/org/apache/seatunnel/config/CompleteTests.java
 
-* Config File Example: config/src/test/resources/interestinglab/variables.conf
+* Config File Example: seatunnel-config/src/test/resources/seatunnel/variables.conf
 
 If you want to Package the jar:
 
