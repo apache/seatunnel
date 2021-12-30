@@ -11,6 +11,9 @@
     },
     {
       "pattern": "^https://img.shields.io"
+    },
+    {
+      "pattern": "^https://json.org/"
     }
   ],
   "timeout": "10s",
