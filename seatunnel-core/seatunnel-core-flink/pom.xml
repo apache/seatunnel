@@ -98,25 +98,25 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-sql</artifactId>
+            <artifactId>seatunnel-transform-flink-sql</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-split</artifactId>
+            <artifactId>seatunnel-transform-flink-split</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-table2datasteam</artifactId>
+            <artifactId>seatunnel-transform-flink-table2datastream</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-datastream2table</artifactId>
+            <artifactId>seatunnel-transform-flink-datastream2table</artifactId>
             <version>${project.version}</version>
         </dependency>
 

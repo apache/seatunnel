@@ -27,7 +27,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-spark-transform-json</artifactId>
+    <artifactId>seatunnel-transform-spark-json</artifactId>
 
     <dependencies>
         <dependency>
