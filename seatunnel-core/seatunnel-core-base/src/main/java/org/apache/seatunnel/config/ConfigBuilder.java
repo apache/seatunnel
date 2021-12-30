@@ -55,17 +55,11 @@ public class ConfigBuilder {
     private final RuntimeEnv env;
 
     public ConfigBuilder(String configFile, Engine engine) {
-        this(configFile, engine, false);
-    }
-
-    public ConfigBuilder(String configFile, Engine engine, Boolean isTest) {
         this.configFile = configFile;
         this.engine = engine;
         this.config = load();
         this.env = createEnv();
-        if (!isTest) {
-            this.configPackage = new ConfigPackage(engine.getEngine());
-        }
+        this.configPackage = new ConfigPackage(engine.getEngine());
     }
 
     private Config load() {
