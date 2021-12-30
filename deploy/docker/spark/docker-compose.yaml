@@ -45,6 +45,7 @@ services:
       - client
       - --config
       - /application.conf
+      - -t
     depends_on:
       datasource:
         condition: service_completed_successfully
