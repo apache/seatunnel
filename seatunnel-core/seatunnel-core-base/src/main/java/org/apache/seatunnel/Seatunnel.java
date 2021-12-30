@@ -52,7 +52,7 @@ public class Seatunnel {
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
         boolean testConfig = commandLineArgs.isTestConfig();
         if (testConfig) {
-            new ConfigBuilder(configFilePath).checkConfig();
+            new ConfigBuilder(configFilePath, engine).checkConfig();
             LOGGER.info("config OK !");
         } else {
             try {
