@@ -20,17 +20,17 @@ package org.apache.seatunnel.config.command;
 public class CommandLineArgs {
 
     private String deployMode = "client";
-    private String confiFile;
-    private boolean testConfig;
+    private final String configFile;
+    private final boolean testConfig;
 
-    public CommandLineArgs(String confiFile, boolean testConfig) {
-        this.confiFile = confiFile;
+    public CommandLineArgs(String configFile, boolean testConfig) {
+        this.configFile = configFile;
         this.testConfig = testConfig;
     }
 
-    public CommandLineArgs(String deployMode, String confiFile, boolean testConfig) {
+    public CommandLineArgs(String deployMode, String configFile, boolean testConfig) {
         this.deployMode = deployMode;
-        this.confiFile = confiFile;
+        this.configFile = configFile;
         this.testConfig = testConfig;
     }
 
@@ -38,8 +38,8 @@ public class CommandLineArgs {
         return deployMode;
     }
 
-    public String getConfiFile() {
-        return confiFile;
+    public String getConfigFile() {
+        return configFile;
     }
 
     public boolean isTestConfig() {

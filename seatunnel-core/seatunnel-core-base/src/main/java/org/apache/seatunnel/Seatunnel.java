@@ -71,14 +71,14 @@ public class Seatunnel {
         String path = null;
         switch (engine) {
             case FLINK:
-                path = cmdArgs.getConfiFile();
+                path = cmdArgs.getConfigFile();
                 break;
             case SPARK:
                 final Optional<String> mode = Common.getDeployMode();
                 if (mode.isPresent() && "cluster".equals(mode.get())) {
-                    path = Paths.get(cmdArgs.getConfiFile()).getFileName().toString();
+                    path = Paths.get(cmdArgs.getConfigFile()).getFileName().toString();
                 } else {
-                    path = cmdArgs.getConfiFile();
+                    path = cmdArgs.getConfigFile();
                 }
                 break;
             default:
