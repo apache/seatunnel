@@ -47,7 +47,7 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 
 ## Workflow of SeaTunnel
 
-![seatunnel-workflow_en-US.png](https://user-images.githubusercontent.com/29206593/142733546-8a83c99e-0338-49a9-8fb2-eb216aac29b4.png)
+![seatunnel-workflow.png](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.png)
 
 Input[Data Source Input] -> Filter[Data Processing] -> Output[Result Output]
 
