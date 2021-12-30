@@ -1,58 +1,130 @@
-package org.apache.seatunnel.spark.sink
-
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{Dataset, Row}
-import redis.clients.jedis.JedisCluster
-
-
-/**
- * @FileDescription
- * @Create 2021-12-07 13:07
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-class Redis extends SparkBatchSink with Logging{
+package  org.apache.seatunnel.spark.sink;
 
-  var redisCfg: Map[String, String] = _
-  val redisPrefix = "redis."
-  var cluster: JedisCluster = _
+import com.redislabs.provider.redis.toRedisContext
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.spark.SparkEnvironment
+import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.internal.Logging
+
+import scala.collection.JavaConverters.asScalaSetConverter
+import scala.collection.mutable.Map
+
+class Redis extends SparkBatchSink with Logging {
+
+  val redisConfig: Map[String, String] = Map()
+  val redisPrefix = "redis"
+  var redisSaveType: RedisSaveType.Value = _
+  val HASH_NAME = "redis_hash_name"
+  val SET_NAME = "redis_set_name"
+  val ZSET_NAME = "redis_zset_name"
+  val LIST_NAME = "redis_list_name"
+  val REDIS_SAVE_TYPE = "redis_save_type"
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-
-
-    data.toDF().show()
+    implicit val sc = env.getSparkSession.sparkContext
+    redisSaveType match {
+      case RedisSaveType.KV => dealWithKV(data)
+      case RedisSaveType.HASH => dealWithHASH(data, redisConfig.get(HASH_NAME).get)
+      case RedisSaveType.SET => dealWithSet(data, redisConfig.get(SET_NAME).get)
+      case RedisSaveType.ZSET => dealWithZSet(data, redisConfig.get(ZSET_NAME).get)
+      case RedisSaveType.LIST => dealWithList(data, redisConfig.get(LIST_NAME).get)
+    }
   }
-
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List("host", "prefKey", "queue")
+    config.entrySet().asScala.filter(x => x.getKey.startsWith("redis")).foreach(entry => {
+      if (entry.getKey.equals("redis_save_type")) {
+        redisSaveType = RedisSaveType.withName(config.getString("redis_save_type"))
+      }
+      redisConfig.put(entry.getKey, config.getString(entry.getKey))
+    })
 
-    val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
-      val (optionName, exists) = p
-      !exists
+    def checkParam(checkArr: Array[String]): CheckResult = {
+      val notExistConfig: Array[String] = checkArr.filter(checkItem => !config.hasPath(checkItem))
+      if (notExistConfig.isEmpty) {
+        new CheckResult(true, "redis config is enough")
+      } else {
+        new CheckResult(false, s"redis config is not enough please check config [${notExistConfig.mkString(",")}]")
+      }
     }
 
-    if (nonExistsOptions.nonEmpty) {
-      val message = " as non-empty string please specify "
-      new CheckResult(false, message)
-    }else{
-      new CheckResult(true, "")
+    val result = checkParam(Array("redis_save_type", "redis_host", "redis_port"))
+    if (!result.isSuccess) {
+      result
+    } else {
+      redisSaveType match {
+        case RedisSaveType.KV => checkParam(Array())
+        case RedisSaveType.HASH => checkParam(Array(HASH_NAME))
+        case RedisSaveType.SET => checkParam(Array(SET_NAME))
+        case RedisSaveType.ZSET => checkParam(Array(ZSET_NAME))
+        case RedisSaveType.LIST => checkParam(Array(LIST_NAME))
+        case _ => new CheckResult(false, "unknown redis config")
+      }
     }
-
   }
-
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
 
-    redisCfg = config.entrySet().asScala.map {
-      entry => s"$redisPrefix.${entry.getKey}" -> String.valueOf(entry.getValue.unwrapped())
-    }.toMap
-    redisCfg.foreach( println(_))
-
+    val conf = prepareEnv.getSparkSession.conf
+    conf.set("spark.redis.host", config.getString("redis_host"))
+    conf.set("spark.redis.port", config.getString("redis_port"))
+    if (config.hasPath("redis.auth")) {
+      conf.set("spark.redis.auth", "passwd")
+    }
   }
 
 
+  def dealWithKV(data: Dataset[Row])(implicit sc: SparkContext): Unit = {
+    val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
+    sc.toRedisKV(value)
+  }
+
+  def dealWithList(data: Dataset[Row], listName: String)(implicit sc: SparkContext): Unit = {
+    val value = data.rdd.map(x => (x.getString(0)))
+    sc.toRedisLIST(value, listName)
+  }
+
+  def dealWithSet(data: Dataset[Row], setName: String)(implicit sc: SparkContext): Unit = {
+    val value = data.rdd.map(x => (x.getString(0)))
+    sc.toRedisSET(value, setName)
+  }
+
+  def dealWithZSet(data: Dataset[Row], setName: String)(implicit sc: SparkContext): Unit = {
+    val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
+    sc.toRedisZSET(value, setName)
+  }
+
+  def dealWithHASH(data: Dataset[Row], hashName: String)(implicit sc: SparkContext): Unit = {
+    val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
+    sc.toRedisHASH(value, hashName)
+  }
+}
 
 
+object RedisSaveType extends Enumeration {
+  def RedisSaveType = Value
 
-
+  val KV = Value("KV")
+  val HASH = Value("HASH")
+  val LIST = Value("LIST")
+  val SET = Value("SET")
+  val ZSET = Value("ZSET")
 }
