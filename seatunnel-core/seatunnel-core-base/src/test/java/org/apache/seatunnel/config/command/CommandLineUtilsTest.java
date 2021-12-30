@@ -28,7 +28,7 @@ public class CommandLineUtilsTest {
         String[] args = {"-c", "app.conf", "-e", "cluster", "-m", "local[*]"};
         CommandLineArgs commandLineArgs = CommandLineUtils.parseSparkArgs(args);
 
-        Assert.assertEquals("app.conf", commandLineArgs.getConfiFile());
+        Assert.assertEquals("app.conf", commandLineArgs.getConfigFile());
         Assert.assertEquals("cluster", commandLineArgs.getDeployMode());
     }
 

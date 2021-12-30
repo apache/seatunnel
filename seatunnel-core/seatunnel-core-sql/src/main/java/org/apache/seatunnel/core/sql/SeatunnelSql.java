@@ -36,7 +36,7 @@ public class SeatunnelSql {
 
     private static JobInfo parseJob(String[] args) throws IOException {
         CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
-        String configFilePath = flinkArgs.getConfiFile();
+        String configFilePath = flinkArgs.getConfigFile();
         String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
         return new JobInfo(jobContent);
     }
