@@ -30,7 +30,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-public class DataSteamToTable implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
+public class DataStreamToTable implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
     private Config config;
 

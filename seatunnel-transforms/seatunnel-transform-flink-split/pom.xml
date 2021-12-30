@@ -27,7 +27,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>plugin-flink-transform-table2datasteam</artifactId>
+    <artifactId>seatunnel-transform-flink-split</artifactId>
 
     <dependencies>
         <dependency>
@@ -36,6 +36,7 @@
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-java</artifactId>
@@ -49,6 +50,5 @@
             <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
         </dependency>
     </dependencies>
-
 
 </project>
