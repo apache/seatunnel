@@ -62,4 +62,4 @@ jobs:
       - name: Run Unit tests
         run: ./mvnw clean verify -B -Dmaven.test.skip=false -Dgpg.skip=true
       - name: Check dependency license
-        run: tools/dependencies/checkLICENSE.sh
+        run: tools/dependencies/checkLicense.sh
