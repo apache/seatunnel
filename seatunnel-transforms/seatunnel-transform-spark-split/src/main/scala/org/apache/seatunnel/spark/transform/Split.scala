@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.transform
 
 import org.apache.seatunnel.common.RowConstant
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.{Dataset, Row}
