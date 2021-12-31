@@ -57,16 +57,9 @@ public class ConfigBuilder {
     public ConfigBuilder(String configFile, Engine engine) {
         this.configFile = configFile;
         this.engine = engine;
+        this.config = load();
+        this.env = createEnv();
         this.configPackage = new ConfigPackage(engine.getEngine());
-        this.config = load();
-        this.env = createEnv();
-    }
-
-    public ConfigBuilder(String configFile) {
-        this.configFile = configFile;
-        this.engine = Engine.NULL;
-        this.config = load();
-        this.env = createEnv();
     }
 
     private Config load() {

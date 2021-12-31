@@ -43,7 +43,7 @@ public class CommandSparkArgs {
 
     @Parameter(names = {"-t", "--check"},
         description = "check config")
-    private boolean testConfig = true;
+    private boolean testConfig = false;
 
     public String getConfigFile() {
         return configFile;
