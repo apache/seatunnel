@@ -34,7 +34,7 @@ class Hive extends SparkBatchSink with Logging {
       case true =>
         new CheckResult(true, "")
       case false =>
-        new CheckResult(false, "please specify sql or source_table_name or result_table_name")
+        new CheckResult(false, "please specify sql or source_table_name && result_table_name")
     }
   }
 
