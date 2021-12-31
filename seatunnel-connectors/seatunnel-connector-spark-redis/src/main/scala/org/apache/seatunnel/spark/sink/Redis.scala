@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package  org.apache.seatunnel.spark.sink;
+package org.apache.seatunnel.spark.sink
 
 import com.redislabs.provider.redis.toRedisContext
 import org.apache.seatunnel.common.config.CheckResult
@@ -25,11 +25,11 @@ import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.internal.Logging
 
 import scala.collection.JavaConverters.asScalaSetConverter
-import scala.collection.mutable.Map
+import scala.collection.mutable
 
 class Redis extends SparkBatchSink with Logging {
 
-  val redisConfig: Map[String, String] = Map()
+  val redisConfig: mutable.Map[String, String] = mutable.Map()
   val redisPrefix = "redis"
   var redisSaveType: RedisSaveType.Value = _
   val HASH_NAME = "redis_hash_name"
@@ -39,13 +39,13 @@ class Redis extends SparkBatchSink with Logging {
   val REDIS_SAVE_TYPE = "redis_save_type"
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-    implicit val sc = env.getSparkSession.sparkContext
+    implicit val sc: SparkContext = env.getSparkSession.sparkContext
     redisSaveType match {
       case RedisSaveType.KV => dealWithKV(data)
-      case RedisSaveType.HASH => dealWithHASH(data, redisConfig.get(HASH_NAME).get)
-      case RedisSaveType.SET => dealWithSet(data, redisConfig.get(SET_NAME).get)
-      case RedisSaveType.ZSET => dealWithZSet(data, redisConfig.get(ZSET_NAME).get)
-      case RedisSaveType.LIST => dealWithList(data, redisConfig.get(LIST_NAME).get)
+      case RedisSaveType.HASH => dealWithHASH(data, redisConfig(HASH_NAME))
+      case RedisSaveType.SET => dealWithSet(data, redisConfig(SET_NAME))
+      case RedisSaveType.ZSET => dealWithZSet(data, redisConfig(ZSET_NAME))
+      case RedisSaveType.LIST => dealWithList(data, redisConfig(LIST_NAME))
     }
   }
 
@@ -98,12 +98,12 @@ class Redis extends SparkBatchSink with Logging {
   }
 
   def dealWithList(data: Dataset[Row], listName: String)(implicit sc: SparkContext): Unit = {
-    val value = data.rdd.map(x => (x.getString(0)))
+    val value = data.rdd.map(x => x.getString(0))
     sc.toRedisLIST(value, listName)
   }
 
   def dealWithSet(data: Dataset[Row], setName: String)(implicit sc: SparkContext): Unit = {
-    val value = data.rdd.map(x => (x.getString(0)))
+    val value = data.rdd.map(x => x.getString(0))
     sc.toRedisSET(value, setName)
   }
 
@@ -120,11 +120,11 @@ class Redis extends SparkBatchSink with Logging {
 
 
 object RedisSaveType extends Enumeration {
-  def RedisSaveType = Value
+  def RedisSaveType: Value = Value
 
-  val KV = Value("KV")
-  val HASH = Value("HASH")
-  val LIST = Value("LIST")
-  val SET = Value("SET")
-  val ZSET = Value("ZSET")
+  val KV: RedisSaveType.Value = Value("KV")
+  val HASH: RedisSaveType.Value = Value("HASH")
+  val LIST: RedisSaveType.Value = Value("LIST")
+  val SET: RedisSaveType.Value = Value("SET")
+  val ZSET: RedisSaveType.Value = Value("ZSET")
 }
