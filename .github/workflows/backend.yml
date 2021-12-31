@@ -61,3 +61,5 @@ jobs:
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
       - name: Run Unit tests
         run: ./mvnw clean verify -B -Dmaven.test.skip=false -Dgpg.skip=true
+      - name: Check dependency license
+        run: tools/dependencies/checkLICENSE.sh
