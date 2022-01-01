@@ -33,29 +33,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class FlinkBatchExecution implements Execution<FlinkBatchSource<?>, FlinkBatchTransform<?, ?>, FlinkBatchSink<?, ?>> {
+public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkBatchExecution.class);
 
     private Config config;
 
-    private final FlinkEnvironment flinkEnvironment;
+    private FlinkEnvironment flinkEnvironment;
 
     public FlinkBatchExecution(FlinkEnvironment flinkEnvironment) {
         this.flinkEnvironment = flinkEnvironment;
     }
 
     @Override
-    public void start(List<FlinkBatchSource<?>> sources, List<FlinkBatchTransform<?, ?>> transforms, List<FlinkBatchSink<?, ?>> sinks) {
+    public void start(List<FlinkBatchSource> sources, List<FlinkBatchTransform> transforms, List<FlinkBatchSink> sinks) {
         List<DataSet> data = new ArrayList<>();
 
-        for (FlinkBatchSource<?> source : sources) {
-            DataSet<?> dataSet = source.getData(flinkEnvironment);
+        for (FlinkBatchSource source : sources) {
+            DataSet dataSet = source.getData(flinkEnvironment);
             data.add(dataSet);
             registerResultTable(source, dataSet);
         }
 
-        DataSet<?> input = data.get(0);
+        DataSet input = data.get(0);
 
         for (FlinkBatchTransform transform : transforms) {
             DataSet dataSet = fromSourceTable(transform);
