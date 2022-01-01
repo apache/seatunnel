@@ -8,14 +8,14 @@ Write Rows to [Apache Hive](https://hive.apache.org).
 
 | name                                    | type          | required | default value |
 | --------------------------------------- | ------------- | -------- | ------------- |
-| [sql](#hql)                             | string        | no       | -             |
-| [source_table_name](#source_table_name) | string        | no       | -             |
-| [result_table_name](#result_table_name) | string        | no       | -             |
-| [sink_columns](#sink_columns)           | string        | no       | -             |
-| [save_mode](#save_mode)                 | string        | no       | -             |
-| [partition_by](#partition_by)           | Array[string] | no       | -             |
+| [sql](#sql-string)                             | string        | no       | -             |
+| [source_table_name](#source_table_name-string) | string        | no       | -             |
+| [result_table_name](#result_table_name-string) | string        | no       | -             |
+| [sink_columns](#sink_columns-string)           | string        | no       | -             |
+| [save_mode](#save_mode-string)                 | string        | no       | -             |
+| [partition_by](#partition_by-arraystring)           | Array[string] | no       | -             |
 
-##### sql[string]
+##### sql [string]
 Hive sql：insert into/overwrite $table  select * from xxx_table  
 
 If this option exists, other options will be ignored
@@ -32,11 +32,11 @@ The output hive table name.
 
 Same with option `spark.mode` in Spark.
 
-##### sink_columns[string]
+##### sink_columns [string]
 
 Select the required fields in source_table_name and store them in result_table_name, separated by commas.
 
-##### partition_by[Array[string]]
+##### partition_by [Array[string]]
 
 Hive partition fields
 
