@@ -45,9 +45,10 @@ class Hudi extends SparkBatchSource {
   override def getData(env: SparkEnvironment): Dataset[Row] = {
 
     val reader = env.getSparkSession.read.format("org.apache.hudi")
-    for ((k: String, v: String) <- config.entrySet()) {
-      reader.option(k, v)
-    }
+    for (e <- config.entrySet()) {
+       reader.option(e.getKey, e.getValue.toString)
+     }
+
     reader.load(config.getString("hoodie.datasource.read.paths"))
   }
 }
