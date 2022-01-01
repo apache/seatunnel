@@ -8,9 +8,9 @@ Read data from Hudi.
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- | ------------- |
-| [hoodie.datasource.read.paths](#hoodie.datasource.read.paths-string)           | string | yes      | -             |
+| [hoodie.datasource.read.paths](#hoodiedatasourcereadpaths-string)           | string | yes      | -             |
 
-[More hudi Configurations](https://hudi.apache.org/docs/configurations/#Read-Options)
+Refer to [hudi read options](https://hudi.apache.org/docs/configurations/#Read-Options) for configurations.
 
 ### hoodie.datasource.read.paths [string]
 
