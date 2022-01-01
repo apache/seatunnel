@@ -44,7 +44,7 @@ import java.util.UUID;
  */
 public class DorisStreamLoad implements Serializable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DorisStreamLoad.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DorisStreamLoad.class);
     private static final List<String> DORIS_SUCCESS_STATUS = Arrays.asList("Success", "Publish Timeout");
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String LOAD_URL_PATTERN = "http://%s/api/%s/%s/_stream_load?";
@@ -82,7 +82,7 @@ public class DorisStreamLoad implements Serializable {
 
     public void load(String value) {
         LoadResponse loadResponse = loadBatch(value);
-        LOG.info("Streamload Response:{}", loadResponse);
+        LOGGER.info("Streamload Response:{}", loadResponse);
         if (loadResponse.status != 200) {
             throw new RuntimeException("stream load error: " + loadResponse.respContent);
         } else {
@@ -138,7 +138,7 @@ public class DorisStreamLoad implements Serializable {
             return new LoadResponse(status, respMsg, response.toString());
         } catch (Exception e) {
             String err = "failed to stream load data with label:" + label;
-            LOG.warn(err, e);
+            LOGGER.warn(err, e);
             throw new RuntimeException("stream load error: " + err);
         } finally {
             if (feConn != null) {
