@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
 
 public class FlinkEnvironment implements RuntimeEnv {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FlinkEnvironment.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkEnvironment.class);
 
     private Config config;
 
@@ -172,7 +172,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                     environment.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
                     break;
                 default:
-                    LOG.warn("set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time", timeType);
+                    LOGGER.warn("set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time", timeType);
                     break;
             }
         }
@@ -194,7 +194,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                         checkpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE);
                         break;
                     default:
-                        LOG.warn("set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once", mode);
+                        LOGGER.warn("set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once", mode);
                         break;
                 }
             }
