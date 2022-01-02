@@ -69,8 +69,8 @@
         <spark.version>2.4.0</spark.version>
         <flink.version>1.9.0</flink.version>
         <hudi.version>0.10.0</hudi.version>
-        <hadoop.binary.version>2.7</hadoop.binary.version>
-        <hadoop.version>2.7.5</hadoop.version>
+        <hadoop.binary.version>2.6h</hadoop.binary.version>
+        <hadoop.version>2.6.5</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
@@ -104,7 +104,7 @@
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
-        <spark.scope>provided</spark.scope>
+        <spark.scope>compile</spark.scope>
         <flink.scope>provided</flink.scope>
         <httpclient.version>4.5.2</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
@@ -115,6 +115,7 @@
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
+        <tispark.version>2.1.9-spark_2.4</tispark.version>
     </properties>
 
     <dependencyManagement>
@@ -199,7 +200,7 @@
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>${mysql.version}</version>
-                <scope>test</scope>
+<!--                <scope>test</scope>-->
             </dependency>
 
             <dependency>
@@ -399,6 +400,12 @@
                 <artifactId>junit</artifactId>
                 <version>${junit.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.pingcap.tispark</groupId>
+                <artifactId>tispark-core</artifactId>
+                <version>${tispark.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
