@@ -121,6 +121,10 @@ new retail brand of Yonghui Yunchuang Technology.
 Shuidichou adopts SeaTunnel to do real-time streaming and regular offline batch processing on Yarn, processing 3~4T data
 volume average daily, and later writing the data to Clickhouse.
 
+- Tencent Cloud
+
+Collecting various logs from business services into Apache Kafka, some of the data in Apache Kafka is consumed and extracted through Seatunnel, and then store into Clickhouse. 
+
 For more use cases, please refer to: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/case_study/
 
 # Code of conduct

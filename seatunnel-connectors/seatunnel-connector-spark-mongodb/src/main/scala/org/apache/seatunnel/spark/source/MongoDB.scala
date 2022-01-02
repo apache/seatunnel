@@ -25,7 +25,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
-import org.apache.seatunnel.spark.utils.SparkSturctTypeUtil
+import org.apache.seatunnel.spark.utils.SparkStructTypeUtil
 
 class MongoDB extends SparkBatchSource {
 
@@ -49,7 +49,7 @@ class MongoDB extends SparkBatchSource {
     config.hasPath("schema") match {
       case true => {
         val schemaJson = JSON.parseObject(config.getString("schema"))
-        schema = SparkSturctTypeUtil.getStructType(schema, schemaJson)
+        schema = SparkStructTypeUtil.getStructType(schema, schemaJson)
       }
       case false => {}
     }
