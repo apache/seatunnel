@@ -31,8 +31,9 @@ class Hudi extends SparkBatchSource {
     val requiredOptions = Seq("hoodie.datasource.read.paths")
     var missingOptions = new StringBuilder
     requiredOptions.map(opt =>
-      if (!config.hasPath(opt))
-        missingOptions.append(opt).append(","))
+      if (!config.hasPath(opt)) {
+        missingOptions.append(opt).append(",")
+      })
     missingOptions.isEmpty match {
       case true =>
         new CheckResult(true, "")
