@@ -39,12 +39,7 @@ import java.util.List;
 public class DruidSource implements FlinkBatchSource<Row> {
 
     private Config config;
-
     private DruidInputFormat druidInputFormat;
-
-    private static final String PATH = "path";
-    private static final String SOURCE_FORMAT = "format.type";
-    private static final String SCHEMA = "schema";
 
     private static final String JDBC_URL = "jdbc_url";
     private static final String DATASOURCE = "datasource";
@@ -71,7 +66,7 @@ public class DruidSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, PATH, SOURCE_FORMAT, SCHEMA);
+        return CheckConfigUtil.check(config, JDBC_URL, DATASOURCE);
     }
 
     @Override
