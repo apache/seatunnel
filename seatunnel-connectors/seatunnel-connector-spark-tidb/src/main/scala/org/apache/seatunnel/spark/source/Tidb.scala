@@ -29,7 +29,7 @@ class Tidb extends SparkBatchSource {
   override def checkConfig(): CheckResult = {
     config.hasPath("pre_sql") && config.hasPath("database") match {
       case true => new CheckResult(true, "")
-      case false => new CheckResult(false, "please specify [pre_sql or database]")
+      case false => new CheckResult(false, "please specify [pre_sql] and [database]")
     }
   }
 
