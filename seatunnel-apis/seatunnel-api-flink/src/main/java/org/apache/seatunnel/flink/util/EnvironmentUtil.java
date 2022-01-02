@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 public class EnvironmentUtil {
 
-    private static final Logger LOG = LoggerFactory.getLogger(EnvironmentUtil.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EnvironmentUtil.class);
 
     public static void setRestartStrategy(Config config, ExecutionConfig executionConfig) {
         try {
@@ -53,7 +53,7 @@ public class EnvironmentUtil {
                                 Time.of(delayInterval, TimeUnit.MILLISECONDS)));
                         break;
                     default:
-                        LOG.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
+                        LOGGER.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
                 }
             }
         } catch (Exception e) {
