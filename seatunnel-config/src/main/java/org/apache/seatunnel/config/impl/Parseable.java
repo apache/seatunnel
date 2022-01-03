@@ -262,29 +262,26 @@ public abstract class Parseable implements ConfigParseable {
     // options.getAllowMissing()
     protected AbstractConfigValue rawParseValue(ConfigOrigin origin, ConfigParseOptions finalOptions)
             throws IOException {
-        Reader reader = reader(finalOptions);
+        try (Reader reader = reader(finalOptions)) {
 
-        // after reader() we will have loaded the Content-Type.
-        ConfigSyntax contentType = contentType();
+            // after reader() we will have loaded the Content-Type.
+            ConfigSyntax contentType = contentType();
 
-        ConfigParseOptions optionsWithContentType;
-        if (contentType != null) {
-            if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
-                trace("Overriding syntax "
-                        + finalOptions.getSyntax()
-                        + " with Content-Type which specified "
-                        + contentType);
+            ConfigParseOptions optionsWithContentType;
+            if (contentType != null) {
+                if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
+                    trace("Overriding syntax "
+                            + finalOptions.getSyntax()
+                            + " with Content-Type which specified "
+                            + contentType);
+                }
+
+                optionsWithContentType = finalOptions.setSyntax(contentType);
+            } else {
+                optionsWithContentType = finalOptions;
             }
 
-            optionsWithContentType = finalOptions.setSyntax(contentType);
-        } else {
-            optionsWithContentType = finalOptions;
-        }
-
-        try {
             return rawParseValue(reader, origin, optionsWithContentType);
-        } finally {
-            reader.close();
         }
     }
 
@@ -302,29 +299,26 @@ public abstract class Parseable implements ConfigParseable {
     // options.getAllowMissing()
     protected ConfigDocument rawParseDocument(ConfigOrigin origin, ConfigParseOptions finalOptions)
             throws IOException {
-        Reader reader = reader(finalOptions);
+        try (Reader reader = reader(finalOptions)) {
 
-        // after reader() we will have loaded the Content-Type.
-        ConfigSyntax contentType = contentType();
+            // after reader() we will have loaded the Content-Type.
+            ConfigSyntax contentType = contentType();
 
-        ConfigParseOptions optionsWithContentType;
-        if (contentType != null) {
-            if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
-                trace("Overriding syntax "
-                        + finalOptions.getSyntax()
-                        + " with Content-Type which specified "
-                        + contentType);
+            ConfigParseOptions optionsWithContentType;
+            if (contentType != null) {
+                if (ConfigImpl.traceLoadsEnable() && finalOptions.getSyntax() != null) {
+                    trace("Overriding syntax "
+                            + finalOptions.getSyntax()
+                            + " with Content-Type which specified "
+                            + contentType);
+                }
+
+                optionsWithContentType = finalOptions.setSyntax(contentType);
+            } else {
+                optionsWithContentType = finalOptions;
             }
 
-            optionsWithContentType = finalOptions.setSyntax(contentType);
-        } else {
-            optionsWithContentType = finalOptions;
-        }
-
-        try {
             return rawParseDocument(reader, origin, optionsWithContentType);
-        } finally {
-            reader.close();
         }
     }
 
