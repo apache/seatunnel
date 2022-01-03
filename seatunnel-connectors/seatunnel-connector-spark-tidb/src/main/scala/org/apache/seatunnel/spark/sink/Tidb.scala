@@ -32,11 +32,11 @@ class Tidb extends SparkBatchSink {
 
     val prop = new java.util.Properties
     prop.setProperty("driver", "com.mysql.jdbc.Driver")
-    prop.setProperty("useSSL", config.getString("useSSL"))
-    prop.setProperty("isolationLevel", config.getString("isolationLevel"))
+    prop.setProperty("use_ssl", config.getString("use_ssl"))
+    prop.setProperty("isolation_level", config.getString("isolation_level"))
     prop.setProperty("user", config.getString("user"))
     prop.setProperty("password", config.getString("password"))
-    prop.setProperty(JDBCOptions.JDBC_BATCH_INSERT_SIZE, config.getString("batchSize"))
+    prop.setProperty(JDBCOptions.JDBC_BATCH_INSERT_SIZE, config.getString("batch_size"))
 
     val saveMode = config.getString("save_mode")
 
@@ -77,9 +77,9 @@ class Tidb extends SparkBatchSink {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "save_mode" -> "append", // allowed values: overwrite, append, ignore, error
-        "useSSL" -> "false",
-        "isolationLevel" -> "NONE",
-        "batchSize" -> 150
+        "use_ssl" -> "false",
+        "isolation_level" -> "NONE",
+        "batch_size" -> 150
       )
     )
     config = config.withFallback(defaultConfig)

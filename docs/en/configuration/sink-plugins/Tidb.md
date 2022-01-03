@@ -13,9 +13,9 @@ Write data to Tidb.
 | [password](#password-string)         | string | yes      | -             |
 | [table](#table-string)            | string | yes      | -             |
 | [save_mode](#save_mode-string)        | string | no       | append        |
-| [useSSL](#useSSL-string)           | string | no       | false         |
-| [isolationLevel](#isolationLevel-string)    | string | no       | NONE           |
-| [batchSize](#batchSize-int)    | int | no       | 150           |
+| [use_ssl](#use_ssl-string)           | string | no       | false         |
+| [isolation_level](#isolation_level-string)    | string | no       | NONE           |
+| [batch_size](#batch_size-int)    | int | no       | 150           |
 
 ##### url [string]
 
@@ -37,15 +37,15 @@ Source Data Table Name
 
 Storage mode, currently supports `overwrite` , `append` , `ignore` and `error` . For the specific meaning of each mode, see [save-modes](https://spark.apache.org/docs/latest/sql-programming-guide.html#save-modes)
 
-##### useSSL [string]
+##### use_ssl [string]
 
 The default value is `false`
 
-##### isolationLevel [string]
+##### isolation_level [string]
 
 Recommended to set isolationLevel to NONE if you have a large DF to load.
 
-##### batchSize [int]
+##### batch_size [int]
 
 Jdbc Batch Insert Size
 
