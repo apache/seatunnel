@@ -14,7 +14,6 @@ Read data from Apache Druid.
 | end_date   | `String`       | no       | -             |
 | columns    | `List<String>` | no       | `*`           |
 
-
 ### jdbc_url [`String`]
 
 The URL of JDBC of Apache Druid.
@@ -25,11 +24,11 @@ The DataSource name in Apache Druid.
 
 ### start_date [`String`]
 
-The start timestamp of DataSource.
+The start date of DataSource, for example, `'2016-06-27'`, `'2016-06-27 00:00:00'`, etc.
 
 ### end_date [`String`]
 
-The end timestamp of DataSource.
+The end date of DataSource, for example, `'2016-06-28'`, `'2016-06-28 00:00:00'`, etc.
 
 ### columns [`List<String>`]
 
@@ -41,7 +40,7 @@ Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) fo
 
 ## Example
 
-```bash
+```hocon
 DruidSource {
   jdbc_url = "jdbc:avatica:remote:url=http://localhost:8082/druid/v2/sql/avatica/"
   datasource = "wikipedia"
@@ -50,4 +49,3 @@ DruidSource {
   columns = ["flags","page"]
 }
 ```
-
