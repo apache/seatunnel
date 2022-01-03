@@ -188,8 +188,7 @@ final class PropertiesParser {
          * Make a list of scope paths from longest to shortest, so children go
          * before parents.
          */
-        List<Path> sortedScopePaths = new ArrayList<Path>();
-        sortedScopePaths.addAll(scopePaths);
+        List<Path> sortedScopePaths = new ArrayList<Path>(scopePaths);
         // sort descending by length
         Collections.sort(sortedScopePaths, new Comparator<Path>() {
             @Override
