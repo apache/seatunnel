@@ -19,7 +19,7 @@ your pd servers
 
 default value : org.apache.spark.sql.TiExtensions
 
-## Options
+### Options
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- | ------------- |
@@ -38,7 +38,7 @@ sql script
 
 Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) for details
 
-## Example
+### Example
 
 ```bash
 env {
