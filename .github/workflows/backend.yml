@@ -49,15 +49,23 @@ jobs:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven
       - name: Check Style
+        env:
+          MAVEN_OPTS: -Xmx2G -Xms2G
         run: |
-          ./mvnw -B checkstyle:check
+          ./mvnw -B -Djdk.version=8 checkstyle:check
       - name: Build and Package
+        env:
+          MAVEN_OPTS: -Xmx2G -Xms2G
         run: |
-          ./mvnw -B package scalastyle:check \
+          ./mvnw -B -Djdk.version=8 package scalastyle:check \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
+                 -Dmaven.wagon.http.retryHandler.count=3 \
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
       - name: Run Unit tests
-        run: ./mvnw clean verify -B -Dmaven.test.skip=false -Dgpg.skip=true
+        env:
+          MAVEN_OPTS: -Xmx2G -Xms2G
+        run: |
+          ./mvnw -B -Djdk.version=8 clean verify -Dmaven.test.skip=false -Dgpg.skip=true
