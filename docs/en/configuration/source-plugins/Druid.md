@@ -6,13 +6,13 @@ Read data from Apache Druid.
 
 ## Options
 
-| name            | type           | required | default value |
-| --------------- | -------------- | -------- | ------------- |
-| jdbc_url        | `String`       | yes      | -             |
-| datasource      | `String`       | yes      | -             |
-| start_timestamp | `Long`         | no       | -             |
-| end_timestamp   | `Long`         | no       | -             |
-| columns         | `List<String>` | no       | `*`           |
+| name       | type           | required | default value |
+| ---------- | -------------- | -------- | ------------- |
+| jdbc_url   | `String`       | yes      | -             |
+| datasource | `String`       | yes      | -             |
+| start_date | `String`       | no       | -             |
+| end_date   | `String`       | no       | -             |
+| columns    | `List<String>` | no       | `*`           |
 
 
 ### jdbc_url [`String`]
@@ -23,11 +23,11 @@ The URL of JDBC of Apache Druid.
 
 The DataSource name in Apache Druid.
 
-### start_timestamp [`Long`]
+### start_date [`String`]
 
 The start timestamp of DataSource.
 
-### end_timestamp [`Long`]
+### end_date [`String`]
 
 The end timestamp of DataSource.
 
@@ -42,12 +42,12 @@ Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) fo
 ## Example
 
 ```bash
-druid {
-    jdbc_url = "jdbc:avatica:remote:url=http://localhost:8082/druid/v2/sql/avatica/"
-    datasource = "wikipedia"
-    start_timestamp = 1464710400
-    end_timestamp = 1467302400
-    columns = ["flags","page"]
+DruidSource {
+  jdbc_url = "jdbc:avatica:remote:url=http://localhost:8082/druid/v2/sql/avatica/"
+  datasource = "wikipedia"
+  start_date = "2016-06-27 00:00:00"
+  end_date = "2016-06-28 00:00:00"
+  columns = ["flags","page"]
 }
 ```
 

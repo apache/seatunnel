@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink.source;
 
+import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -36,6 +37,16 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BOOLEAN_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BYTE_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.DOUBLE_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.FLOAT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
+
 public class DruidSource implements FlinkBatchSource<Row> {
 
     private Config config;
@@ -43,11 +54,28 @@ public class DruidSource implements FlinkBatchSource<Row> {
 
     private static final String JDBC_URL = "jdbc_url";
     private static final String DATASOURCE = "datasource";
-    private static final String START_TIMESTAMP = "start_timestamp";
-    private static final String END_TIMESTAMP = "end_timestamp";
+    private static final String START_TIMESTAMP = "start_date";
+    private static final String END_TIMESTAMP = "end_date";
     private static final String COLUMNS = "columns";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
+
+    {
+        // https://druid.apache.org/docs/latest/querying/sql.html#data-types
+        informationMapping.put("CHAR", STRING_TYPE_INFO);
+        informationMapping.put("VARCHAR", STRING_TYPE_INFO);
+        informationMapping.put("DECIMAL", BIG_DEC_TYPE_INFO);
+        informationMapping.put("FLOAT", FLOAT_TYPE_INFO);
+        informationMapping.put("REAL", DOUBLE_TYPE_INFO);
+        informationMapping.put("DOUBLE", DOUBLE_TYPE_INFO);
+        informationMapping.put("BOOLEAN", BOOLEAN_TYPE_INFO);
+        informationMapping.put("TINYINT", BYTE_TYPE_INFO);
+        informationMapping.put("SMALLINT", SHORT_TYPE_INFO);
+        informationMapping.put("INTEGER", INT_TYPE_INFO);
+        informationMapping.put("BIGINT", LONG_TYPE_INFO);
+        informationMapping.put("TIMESTAMP", SqlTimeTypeInfo.TIMESTAMP);
+        informationMapping.put("DATE", SqlTimeTypeInfo.DATE);
+    }
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
@@ -73,8 +101,8 @@ public class DruidSource implements FlinkBatchSource<Row> {
     public void prepare(FlinkEnvironment env) {
         String jdbcURL = config.getString(JDBC_URL);
         String datasource = config.getString(DATASOURCE);
-        Long startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getLong(START_TIMESTAMP) : null;
-        Long endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getLong(END_TIMESTAMP) : null;
+        String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP) : null;
+        String endTimestamp = config.hasPath(END_TIMESTAMP) ? config.getString(END_TIMESTAMP) : null;
         List<String> columns = config.hasPath(COLUMNS) ? config.getStringList(COLUMNS) : null;
 
         String sql = new DruidSql(datasource, startTimestamp, endTimestamp, columns).sql();

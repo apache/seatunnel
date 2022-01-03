@@ -27,29 +27,25 @@ public class DruidSql {
     private static final String COLUMNS_DEFAULT = "*";
 
     private String datasource;
-    private Long startTimestamp;
-    private Long endTimestamp;
+    private String startDate;
+    private String endDate;
     private List<String> columns;
 
     public DruidSql(String datasource) {
         this.datasource = datasource;
     }
 
-    public DruidSql(String datasource, Long startTimestamp, Long endTimestamp) {
+    public DruidSql(String datasource, String startDate, String endDate) {
         this.datasource = datasource;
-        this.startTimestamp = startTimestamp;
-        this.endTimestamp = endTimestamp;
+        this.startDate = startDate;
+        this.endDate = endDate;
     }
 
-    public DruidSql(String datasource, Long startTimestamp, Long endTimestamp, List<String> columns) {
+    public DruidSql(String datasource, String startDate, String endDate, List<String> columns) {
         this.datasource = datasource;
-        this.startTimestamp = startTimestamp;
-        this.endTimestamp = endTimestamp;
+        this.startDate = startDate;
+        this.endDate = endDate;
         this.columns = columns;
-    }
-
-    public static String getQueryTemplate() {
-        return QUERY_TEMPLATE;
     }
 
     public String getDatasource() {
@@ -60,20 +56,20 @@ public class DruidSql {
         this.datasource = datasource;
     }
 
-    public Long getStartTimestamp() {
-        return startTimestamp;
+    public String getStartDate() {
+        return startDate;
     }
 
-    public void setStartTimestamp(Long startTimestamp) {
-        this.startTimestamp = startTimestamp;
+    public void setStartDate(String startDate) {
+        this.startDate = startDate;
     }
 
-    public Long getEndTimestamp() {
-        return endTimestamp;
+    public String getEndDate() {
+        return endDate;
     }
 
-    public void setEndTimestamp(Long endTimestamp) {
-        this.endTimestamp = endTimestamp;
+    public void setEndDate(String endDate) {
+        this.endDate = endDate;
     }
 
     public List<String> getColumns() {
@@ -92,13 +88,13 @@ public class DruidSql {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        DruidSql druidSQL = (DruidSql) o;
-        return Objects.equals(datasource, druidSQL.datasource) && Objects.equals(startTimestamp, druidSQL.startTimestamp) && Objects.equals(endTimestamp, druidSQL.endTimestamp) && Objects.equals(columns, druidSQL.columns);
+        DruidSql druidSql = (DruidSql) o;
+        return Objects.equals(datasource, druidSql.datasource) && Objects.equals(startDate, druidSql.startDate) && Objects.equals(endDate, druidSql.endDate) && Objects.equals(columns, druidSql.columns);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(datasource, startTimestamp, endTimestamp, columns);
+        return Objects.hash(datasource, startDate, endDate, columns);
     }
 
     public String sql() {
@@ -107,11 +103,11 @@ public class DruidSql {
             columns = String.join(",", getColumns());
         }
         String sql = String.format(QUERY_TEMPLATE, columns, getDatasource());
-        if (startTimestamp != null) {
-            sql += "AND __time >= " + startTimestamp;
+        if (startDate != null) {
+            sql += " AND __time >= TIMESTAMP '" + startDate + "'";
         }
-        if (endTimestamp != null) {
-            sql += "AND __time <= " + endTimestamp;
+        if (endDate != null) {
+            sql += " AND __time < TIMESTAMP '" + endDate + "'";
         }
         return sql;
     }
