@@ -29,7 +29,7 @@ Username
 
 User Password
 
-#### table [string]
+##### table [string]
 
 Source Data Table Name
 
