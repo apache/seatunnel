@@ -73,12 +73,7 @@ public abstract class Parseable implements ConfigParseable {
         ConfigParseable relativeTo(String filename);
     }
 
-    private static final ThreadLocal<LinkedList<Parseable>> PARSE_STACK = new ThreadLocal<LinkedList<Parseable>>() {
-        @Override
-        protected LinkedList<Parseable> initialValue() {
-            return new LinkedList<Parseable>();
-        }
-    };
+    private static final ThreadLocal<LinkedList<Parseable>> PARSE_STACK = ThreadLocal.withInitial(LinkedList::new);
 
     private static final int MAX_INCLUDE_DEPTH = 50;
 
