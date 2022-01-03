@@ -70,8 +70,7 @@ final class ConfigNodeRoot extends ConfigNodeComplexValue {
     protected boolean hasValue(String desiredPath) {
         Path path = PathParser.parsePath(desiredPath);
         ArrayList<AbstractConfigNode> childrenCopy = new ArrayList<AbstractConfigNode>(children);
-        for (int i = 0; i < childrenCopy.size(); i++) {
-            AbstractConfigNode node = childrenCopy.get(i);
+        for (AbstractConfigNode node : childrenCopy) {
             if (node instanceof ConfigNodeComplexValue) {
                 if (node instanceof ConfigNodeArray) {
                     throw new WrongType(origin, "The ConfigDocument had an array at the root level, and values cannot be modified inside an array.");

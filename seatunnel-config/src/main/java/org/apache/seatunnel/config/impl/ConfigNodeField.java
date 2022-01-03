@@ -51,18 +51,18 @@ final class ConfigNodeField extends AbstractConfigNode {
     }
 
     public AbstractConfigNodeValue value() {
-        for (int i = 0; i < children.size(); i++) {
-            if (children.get(i) instanceof AbstractConfigNodeValue) {
-                return (AbstractConfigNodeValue) children.get(i);
+        for (AbstractConfigNode child : children) {
+            if (child instanceof AbstractConfigNodeValue) {
+                return (AbstractConfigNodeValue) child;
             }
         }
         throw new BugOrBroken("Field node doesn't have a value");
     }
 
     public ConfigNodePath path() {
-        for (int i = 0; i < children.size(); i++) {
-            if (children.get(i) instanceof ConfigNodePath) {
-                return (ConfigNodePath) children.get(i);
+        for (AbstractConfigNode child : children) {
+            if (child instanceof ConfigNodePath) {
+                return (ConfigNodePath) child;
             }
         }
         throw new BugOrBroken("Field node doesn't have a path");
