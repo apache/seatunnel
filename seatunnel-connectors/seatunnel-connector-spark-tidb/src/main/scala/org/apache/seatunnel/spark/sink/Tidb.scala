@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.seatunnel.spark.sink
 
 import org.apache.seatunnel.common.config.CheckResult
@@ -37,7 +36,7 @@ class Tidb extends SparkBatchSink {
     prop.setProperty("isolationLevel", config.getString("isolationLevel"))
     prop.setProperty("user", config.getString("user"))
     prop.setProperty("password", config.getString("password"))
-    prop.setProperty(JDBCOptions.JDBC_BATCH_INSERT_SIZE, config.getString("batchsize"))
+    prop.setProperty(JDBCOptions.JDBC_BATCH_INSERT_SIZE, config.getString("batchSize"))
 
     val saveMode = config.getString("save_mode")
 
@@ -80,7 +79,7 @@ class Tidb extends SparkBatchSink {
         "save_mode" -> "append", // allowed values: overwrite, append, ignore, error
         "useSSL" -> "false",
         "isolationLevel" -> "NONE",
-        "batchsize" -> 150
+        "batchSize" -> 150
       )
     )
     config = config.withFallback(defaultConfig)

@@ -54,7 +54,7 @@
 
         <dependency>
             <groupId>com.pingcap.tispark</groupId>
-            <artifactId>tispark-core</artifactId>
+            <artifactId>tispark-assembly</artifactId>
         </dependency>
 
     </dependencies>
