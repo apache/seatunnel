@@ -1,21 +1,21 @@
 # Source plugin: Tidb
 
-## Description
+### Description
 
 Read data from Tidb.
 
-## Env Options
+### Env Options
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- | ------------- |
-| spark.tispark.pd.addresses       | string | yes      | -             |
-| spark.sql.extensions        | string | yes      | org.apache.spark.sql.TiExtensions         |
+| [spark.tispark.pd.addresses](#spark.tispark.pd.addresses-string)       | string | yes      | -             |
+| [spark.sql.extensions](#spark.sql.extensions-string)        | string | yes      | org.apache.spark.sql.TiExtensions         |
 
-### spark.tispark.pd.addresses [string]
+##### spark.tispark.pd.addresses [string]
 
 your pd servers
 
-### spark.sql.extensions [string]
+##### spark.sql.extensions [string]
 
 default value : org.apache.spark.sql.TiExtensions
 
@@ -23,18 +23,18 @@ default value : org.apache.spark.sql.TiExtensions
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- | ------------- |
-| database       | string | yes      | -             |
-| pre_sql        | string | yes      | -         |
+| [database](#database-string)       | string | yes      | -             |
+| [pre_sql](#pre_sql-string)        | string | yes      | -         |
 
-### database [string]
+##### database [string]
 
 Tidb database
 
-### pre_sql [string]
+##### pre_sql [string]
 
 sql script
 
-### common options [string]
+##### common options [string]
 
 Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) for details
 
