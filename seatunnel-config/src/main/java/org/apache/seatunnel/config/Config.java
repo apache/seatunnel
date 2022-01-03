@@ -583,7 +583,7 @@ public interface Config extends ConfigMergeable {
      * @throws ConfigException.Missing   if value is absent or null
      * @throws ConfigException.WrongType if value is not convertible to an Enum
      */
-    public <T extends Enum<T>> T getEnum(Class<T> enumClass, String path);
+    <T extends Enum<T>> T getEnum(Class<T> enumClass, String path);
 
     /**
      * @param path path expression
