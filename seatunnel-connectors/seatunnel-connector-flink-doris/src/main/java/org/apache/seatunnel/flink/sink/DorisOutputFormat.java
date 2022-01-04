@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
  * DorisDynamicOutputFormat
  **/
 public class DorisOutputFormat<T> extends RichOutputFormat<T> {
-    private static final Logger LOG = LoggerFactory.getLogger(DorisSinkFunction.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DorisSinkFunction.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String FIELD_DELIMITER_KEY = "column_separator";
     private static final String FIELD_DELIMITER_DEFAULT = "\t";
@@ -186,7 +186,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
             try {
                 flush();
             } catch (Exception e) {
-                LOG.warn("Writing records to doris failed.", e);
+                LOGGER.warn("Writing records to doris failed.", e);
                 throw new RuntimeException("Writing records to doris failed.", e);
             }
         }
@@ -214,7 +214,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                 batch.clear();
                 break;
             } catch (Exception e) {
-                LOG.error("doris sink error, retry times = {}", i, e);
+                LOGGER.error("doris sink error, retry times = {}", i, e);
                 if (i >= maxRetries) {
                     throw new IOException(e);
                 }
