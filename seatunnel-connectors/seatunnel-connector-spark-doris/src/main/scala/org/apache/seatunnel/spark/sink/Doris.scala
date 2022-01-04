@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.spark.sink
 
-import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -30,17 +30,25 @@ class Doris extends SparkBatchSink with Serializable {
   var apiUrl: String = _
   var batch_size: Int = 100
   var column_separator: String = "\t"
-  var propertiesMap = new mutable.HashMap[String, String]()
+  var propertiesMap = new mutable.HashMap[String,String]()
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val user: String = config.getString(Config.USER)
     val password: String = config.getString(Config.PASSWORD)
     if (propertiesMap.contains(Config.COLUMN_SEPARATOR)) {
-      column_separator = propertiesMap(Config.COLUMN_SEPARATOR)
+      column_separator =  propertiesMap(Config.COLUMN_SEPARATOR)
     }
     val sparkSession = env.getSparkSession
     import sparkSession.implicits._
-    val dataFrame = data.map(x => x.toString().replaceAll("\\[|\\]", "").replace(",", column_separator))
+    val fields = data.schema.fields
+    val dataFrame = data.map(row => {
+      val builder = new StringBuilder
+      fields.foreach(f => {
+        val filedValue = row.getAs[Any](f.name)
+        builder.append(filedValue).append(column_separator)
+      })
+      builder.substring(0,builder.length - 1)
+    })
     dataFrame.foreachPartition { partition =>
       var count: Int = 0
       val buffer = new ListBuffer[String]
@@ -59,7 +67,7 @@ class Doris extends SparkBatchSink with Serializable {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
+    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME,Config.USER,Config.PASSWORD)
     val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
       val (optionName, exists) = p
       !exists
@@ -78,16 +86,18 @@ class Doris extends SparkBatchSink with Serializable {
       val dataBase: String = config.getString(Config.DATABASE)
       val tableName: String = config.getString(Config.TABLE_NAME)
       this.apiUrl = s"http://$host/api/$dataBase/$tableName/_stream_load"
-      val httpConfig = JavaConversions.asScalaSet(config.entrySet()).filter(x => x.getKey.startsWith(Config.ARGS_PREFIX))
-      if (httpConfig.nonEmpty) {
-        httpConfig.foreach(tuple => {
-          val split = tuple.getKey.split(".")
+      if (TypesafeConfigUtils.hasSubConfig(config,Config.ARGS_PREFIX)) {
+        val properties = TypesafeConfigUtils.extractSubConfig(config, Config.ARGS_PREFIX, true)
+        val iterator = properties.entrySet().iterator()
+        while (iterator.hasNext) {
+          val map = iterator.next()
+          val split = map.getKey.split("\\.")
           if (split.size == 2) {
-            propertiesMap.put(split(1), tuple.getValue.render())
+            propertiesMap.put(split(1),String.valueOf(map.getValue.unwrapped))
           }
-        })
+        }
       }
-      new CheckResult(true, Config.CHECK_SUCCESS)
+      new CheckResult(true,Config.CHECK_SUCCESS)
     }
   }
 

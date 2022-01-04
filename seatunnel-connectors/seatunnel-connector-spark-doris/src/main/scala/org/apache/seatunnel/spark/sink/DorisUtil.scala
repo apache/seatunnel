@@ -78,7 +78,7 @@ object DorisUtil extends Serializable {
       val bufferReader = new BufferedReader(new InputStreamReader(response.getEntity.getContent))
       val stringBuffer = new StringBuffer()
       var str = ""
-      while (str != null) {
+      while( str != null){
         stringBuffer.append(str.trim)
         str = bufferReader.readLine()
       }
@@ -94,6 +94,7 @@ object DorisUtil extends Serializable {
     (status, httpclient, response)
   }
 
+
   def basicAuthHeader(username: String, password: String): String = {
     val tobeEncode: String = username + ":" + password
     val encoded = Base64.encodeBase64(tobeEncode.getBytes(StandardCharsets.UTF_8))
@@ -105,7 +106,7 @@ object DorisUtil extends Serializable {
 class DorisUtil(httpHeader: Map[String, String], apiUrl: String, user: String, password: String) {
   def saveMessages(messages: String): Unit = {
     val httpClient = DorisUtil.createClient
-    val result = Try(DorisUtil.streamLoad(httpClient, httpHeader, messages, apiUrl, user, password))
+    val result = Try(DorisUtil.streamLoad(httpClient, httpHeader,messages, apiUrl, user, password))
     result match {
       case Success(_) =>
         httpClient.close()
