@@ -115,6 +115,7 @@
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
+        <calcite-druid.version>1.29.0</calcite-druid.version>
     </properties>
 
     <dependencyManagement>
@@ -399,6 +400,12 @@
                 <artifactId>junit</artifactId>
                 <version>${junit.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.calcite</groupId>
+                <artifactId>calcite-druid</artifactId>
+                <version>${calcite-druid.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
