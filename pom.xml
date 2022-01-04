@@ -62,15 +62,15 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
-        <scala.version>2.11.8</scala.version>
-        <scala.binary.version>2.11</scala.binary.version>
+        <scala.version>2.12.15</scala.version>
+        <scala.binary.version>2.12</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
-        <spark.version>2.4.0</spark.version>
-        <flink.version>1.9.0</flink.version>
+        <spark.version>3.2.0</spark.version>
+        <flink.version>1.10.3</flink.version>
         <hudi.version>0.10.0</hudi.version>
-        <hadoop.binary.version>2.7</hadoop.binary.version>
-        <hadoop.version>2.7.5</hadoop.version>
+        <hadoop.binary.version>2.10</hadoop.binary.version>
+        <hadoop.version>2.10.1</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
@@ -96,12 +96,12 @@
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
         <parquet-avro.version>1.10.0</parquet-avro.version>
         <transport.version>6.3.1</transport.version>
-        <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
-        <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
+        <elasticsearch-spark.version>7.16.2</elasticsearch-spark.version>
+        <clickhouse-jdbc.version>0.3.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
-        <kudu-spark.version>1.7.0</kudu-spark.version>
-        <mongo-spark.version>2.2.0</mongo-spark.version>
-        <spark-redis.version>2.6.0</spark-redis.version>
+        <kudu-spark.version>1.15.0</kudu-spark.version>
+        <mongo-spark.version>3.0.1</mongo-spark.version>
+        <spark-redis.version>3.0.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
@@ -258,7 +258,7 @@
 
             <dependency>
                 <groupId>org.elasticsearch</groupId>
-                <artifactId>elasticsearch-spark-20_${scala.binary.version}</artifactId>
+                <artifactId>elasticsearch-spark-30_${scala.binary.version}</artifactId>
                 <version>${elasticsearch-spark.version}</version>
             </dependency>
 
@@ -294,7 +294,7 @@
 
             <dependency>
                 <groupId>org.apache.kudu</groupId>
-                <artifactId>kudu-spark2_${scala.binary.version}</artifactId>
+                <artifactId>kudu-spark3_${scala.binary.version}</artifactId>
                 <version>${kudu-spark.version}</version>
             </dependency>
 

@@ -41,7 +41,7 @@ class Doris extends SparkBatchSink with Serializable {
     val sparkSession = env.getSparkSession
     import sparkSession.implicits._
     val dataFrame = data.map(x => x.toString().replaceAll("\\[|\\]", "").replace(",", column_separator))
-    dataFrame.foreachPartition { partition =>
+    dataFrame.rdd.foreachPartition { partition =>
       var count: Int = 0
       val buffer = new ListBuffer[String]
       val dorisUtil = new DorisUtil(propertiesMap.toMap, apiUrl, user, password)

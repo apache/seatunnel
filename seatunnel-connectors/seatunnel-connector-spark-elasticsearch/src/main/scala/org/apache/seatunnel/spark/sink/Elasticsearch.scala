@@ -61,7 +61,7 @@ class Elasticsearch extends SparkBatchSink {
 
     config
       .entrySet()
-      .foreach(entry => {
+      .forEach(entry => {
         val key = entry.getKey
 
         if (key.startsWith(esPrefix)) {
