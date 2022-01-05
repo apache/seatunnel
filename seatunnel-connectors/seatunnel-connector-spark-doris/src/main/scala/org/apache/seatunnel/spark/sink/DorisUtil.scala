@@ -78,7 +78,7 @@ object DorisUtil extends Serializable {
       val bufferReader = new BufferedReader(new InputStreamReader(response.getEntity.getContent))
       val stringBuffer = new StringBuffer()
       var str = ""
-      while( str != null){
+      while (str != null) {
         stringBuffer.append(str.trim)
         str = bufferReader.readLine()
       }
@@ -106,14 +106,17 @@ object DorisUtil extends Serializable {
 class DorisUtil(httpHeader: Map[String, String], apiUrl: String, user: String, password: String) {
   def saveMessages(messages: String): Unit = {
     val httpClient = DorisUtil.createClient
-    val result = DorisUtil.streamLoad(httpClient, httpHeader,messages, apiUrl, user, password)
-    if (result._1) {
-      httpClient.close()
-      result._2.close()
-    } else {
-      httpClient.close()
-      result._2.close()
-      throw new RuntimeException("save message to Doris failed...")
+    val result = Try(DorisUtil.streamLoad(httpClient, httpHeader, messages, apiUrl, user, password))
+    result match {
+      case Success(_) => {
+        httpClient.close()
+        result.get._2.close()
+      }
+      case Failure(var1: Exception) => {
+        httpClient.close()
+        result.get._2.close()
+        throw new RuntimeException(var1.getMessage)
+      }
     }
   }
 }
