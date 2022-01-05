@@ -16,14 +16,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-mkdir seatunnel-dependencies || true
-mvn dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=seatunnel-dependencies
 
-# List all modules(jars) that belong to the DolphinScheduler itself, these will be ignored when checking the dependency
+./mvnw dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
+
+# List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
+ls /tmp/seatunnel-dependencies > all-dependencies.txt
+
 # licenses
-echo '=== Self modules: ' && mvn --batch-mode --quiet -Dexec.executable='echo' -Dexec.args='${project.artifactId}-${project.version}.jar' exec:exec | tee self-modules.txt
-
-echo '=== Distributed dependencies: ' && find seatunnel-dependencies -name "*.jar" -exec basename {} \; | sort | uniq | tee all-dependencies.txt
+echo '=== Self modules: ' && ./mvnw --batch-mode --quiet -Dexec.executable='echo' -Dexec.args='${project.artifactId}-${project.version}.jar' exec:exec | tee self-modules.txt
 
 # Exclude all self modules(jars) to generate all third-party dependencies
 echo '=== Third party dependencies: ' && grep -vf self-modules.txt all-dependencies.txt | sort | uniq | tee third-party-dependencies.txt
