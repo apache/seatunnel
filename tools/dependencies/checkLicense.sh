@@ -22,6 +22,8 @@
 # List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
 ls /tmp/seatunnel-dependencies > all-dependencies.txt
 
+echo "start"
+
 # licenses
 echo '=== Self modules: ' && ./mvnw --batch-mode --quiet -Dexec.executable='echo' -Dexec.args='${project.artifactId}-${project.version}.jar' exec:exec | tee self-modules.txt
 
