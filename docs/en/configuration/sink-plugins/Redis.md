@@ -6,15 +6,15 @@ Write Rows to a Redis.
 
 ### Options
 
-| name | type | required | default value | engine |
-| --- | --- | --- | --- | --- |
-| [redis_host](#redis-host-string) | string | yes | "localhost" | all streaming |
-| [redis_port](#redis-port-string) | string | yes | "6379" | all streaming |
-| [redis_save_type](#redis-save-type-string) | string | yes | - | all streaming |
-| [redis_hash_name](#redis-hash-key-name-string) | string | no | - | all streaming |
-| [redis_list_name](#redis-list-key-name-string) | string | no | - | all streaming |
-| [redis_zset_name](#redis-zset-key-name-string) | string | no | - | all streaming |
-| [redis_set_name](#redis-set-key-name-string) | string | no | - | all streaming |
+| name | type | required | default value |
+| --- | --- | --- | --- | 
+| [redis_host](#redis_host-string) | string | yes | "localhost" |
+| [redis_port](#redis_port-string) | string | yes | "6379" | 
+| [redis_save_type](#redis_save_type-string) | string | yes | - | 
+| [redis_hash_name](#redis_hash_name-string) | string | no | - |
+| [redis_list_name](#redis_list_name-string) | string | no | - | 
+| [redis_zset_name](#redis_zset_name-string) | string | no | - | 
+| [redis_set_name](#redis_set_name-string) | string | no | - |
 
 ##### redis_host [string]
 
