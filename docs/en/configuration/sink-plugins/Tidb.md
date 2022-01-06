@@ -1,8 +1,8 @@
-# Sink plugin: Tidb
+# Sink plugin: TiDB
 
 ### Description
 
-Write data to Tidb.
+Write data to TiDB.
 
 ### Env Options
 
@@ -10,6 +10,14 @@ Write data to Tidb.
 | -------------- | ------ | -------- | ------------- |
 | [spark.tispark.pd.addresses](#spark.tispark.pd.addresses-string)       | string | yes      | -             |
 | [spark.sql.extensions](#spark.sql.extensions-string)        | string | yes      | org.apache.spark.sql.TiExtensions         |
+
+##### spark.tispark.pd.addresses [string]
+
+TiDB Pd Address
+
+##### spark.sql.extensions [string]
+
+Spark Sql Extensions
 
 ### Options
 
@@ -33,19 +41,19 @@ TiDB port
 
 ##### user [string]
 
-Username
+TiDB user
 
 ##### password [string]
 
-User Password
+TiDB password
 
 ##### table [string]
 
-Source Data Table Name
+TiDB table name
 
 ##### database [string]
 
-Source Data Database Name
+TiDB database name
 
 ##### replace [string]
 
@@ -57,6 +65,11 @@ Source Data Database Name
 ### Examples
 
 ```bash
+env {
+    spark.tispark.pd.addresses = "127.0.0.1:2379"
+    spark.sql.extensions = "org.apache.spark.sql.TiExtensions"
+}
+
 tidb {
     addr = "127.0.0.1",
     port = "4000"
