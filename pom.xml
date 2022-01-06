@@ -57,7 +57,7 @@
         <module>seatunnel-transforms</module>
         <module>seatunnel-connectors</module>
         <module>seatunnel-dist</module>
-        <module>seatunnel-test</module>
+        <module>seatunnel-examples</module>
     </modules>
 
     <properties>

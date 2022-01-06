@@ -24,7 +24,7 @@ import org.apache.seatunnel.config.command.CommandLineArgs;
 
 public class LocalTest {
 
-    public static final String TEST_RESOURCE_DIR = "/seatunnel-test/src/main/resources/test_config/";
+    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/src/main/resources/test_config/";
 
     public static void main(String[] args) {
 
