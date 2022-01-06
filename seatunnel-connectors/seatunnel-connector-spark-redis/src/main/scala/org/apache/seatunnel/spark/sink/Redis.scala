@@ -76,7 +76,7 @@ class Redis extends SparkBatchSink with Logging {
         case RedisSaveType.SET => checkParam(Array(SET_NAME))
         case RedisSaveType.ZSET => checkParam(Array(ZSET_NAME))
         case RedisSaveType.LIST => checkParam(Array(LIST_NAME))
-        case _ => new CheckResult(false, "unknown redis config RedisSaveType must be in [KV HASH SET ZSET LIST]")
+        case _ => new CheckResult(false, "Unknown redis config. redis_save_type must be in [KV HASH SET ZSET LIST]")
       }
     }
   }
@@ -90,7 +90,6 @@ class Redis extends SparkBatchSink with Logging {
       conf.set("spark.redis.auth", "passwd")
     }
   }
-
 
   def dealWithKV(data: Dataset[Row])(implicit sc: SparkContext): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
@@ -117,7 +116,6 @@ class Redis extends SparkBatchSink with Logging {
     sc.toRedisHASH(value, hashName)
   }
 }
-
 
 object RedisSaveType extends Enumeration {
   def RedisSaveType: Value = Value
