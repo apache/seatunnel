@@ -32,7 +32,4 @@
     <modules>
         <module>seatunnel-flink-examples</module>
     </modules>
-
-
-
 </project>
