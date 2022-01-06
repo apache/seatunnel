@@ -57,16 +57,9 @@ public class ConfigBuilder {
     public ConfigBuilder(String configFile, Engine engine) {
         this.configFile = configFile;
         this.engine = engine;
+        this.config = load();
+        this.env = createEnv();
         this.configPackage = new ConfigPackage(engine.getEngine());
-        this.config = load();
-        this.env = createEnv();
-    }
-
-    public ConfigBuilder(String configFile) {
-        this.configFile = configFile;
-        this.engine = Engine.NULL;
-        this.config = load();
-        this.env = createEnv();
     }
 
     private Config load() {
@@ -116,18 +109,18 @@ public class ConfigBuilder {
         ServiceLoader<T> plugins;
         switch (pluginType) {
             case SOURCE:
-                packageName = configPackage.sourcePackage();
-                Class<T> baseSource = (Class<T>) Class.forName(configPackage.baseSourceClass());
+                packageName = configPackage.getSourcePackage();
+                Class<T> baseSource = (Class<T>) Class.forName(configPackage.getBaseSourceClass());
                 plugins = ServiceLoader.load(baseSource);
                 break;
             case TRANSFORM:
-                packageName = configPackage.transformPackage();
-                Class<T> baseTransform = (Class<T>) Class.forName(configPackage.baseTransformClass());
+                packageName = configPackage.getTransformPackage();
+                Class<T> baseTransform = (Class<T>) Class.forName(configPackage.getBaseTransformClass());
                 plugins = ServiceLoader.load(baseTransform);
                 break;
             case SINK:
-                packageName = configPackage.sinkPackage();
-                Class<T> baseSink = (Class<T>) Class.forName(configPackage.baseSinkClass());
+                packageName = configPackage.getSinkPackage();
+                Class<T> baseSink = (Class<T>) Class.forName(configPackage.getBaseSinkClass());
                 plugins = ServiceLoader.load(baseSink);
                 break;
             default:

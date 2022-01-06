@@ -33,7 +33,7 @@
         Production ready big data processing product based on Apache Spark and Apache Flink.
     </description>
 
-    <url>https://github.com/InterestingLab/seatunnel</url>
+    <url>https://github.com/apache/incubator-seatunnel</url>
 
     <licenses>
         <license>
@@ -43,9 +43,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git@github.com:InterestingLab/seatunnel.git</connection>
-        <developerConnection>scm:git:git@github.com:InterestingLab/seatunnel.git</developerConnection>
-        <url>https://github.com/InterestingLab/seatunnel</url>
+        <connection>scm:git:git@github.com:apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:git@github.com:apache/incubator-seatunnel.git</developerConnection>
+        <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -89,7 +89,6 @@
         <maven-compiler-plugin.version>2.0.2</maven-compiler-plugin.version>
         <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
         <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
-        <scopt.version>3.7.1</scopt.version>
         <spoiwo.version>1.8.0</spoiwo.version>
         <play-mailer.version>7.0.2</play-mailer.version>
         <phoenix-spark.version>5.0.0-HBase-2.0</phoenix-spark.version>
@@ -114,6 +113,9 @@
         <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
         <docker.hub>apache</docker.hub>
         <docker.tag>${project.version}</docker.tag>
+        <jcommander.version>1.81</jcommander.version>
+        <junit.version>4.13.2</junit.version>
+        <calcite-druid.version>1.29.0</calcite-druid.version>
     </properties>
 
     <dependencyManagement>
@@ -183,14 +185,14 @@
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-common</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
-                <scope>provided</scope>
+                <scope>${flink.scope}</scope>
             </dependency>
 
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
@@ -199,12 +201,6 @@
                 <artifactId>mysql-connector-java</artifactId>
                 <version>${mysql.version}</version>
                 <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>com.github.scopt</groupId>
-                <artifactId>scopt_${scala.binary.version}</artifactId>
-                <version>${scopt.version}</version>
             </dependency>
 
             <dependency>
@@ -393,6 +389,24 @@
                 <version>${httpasyncclient.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.beust</groupId>
+                <artifactId>jcommander</artifactId>
+                <version>${jcommander.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.calcite</groupId>
+                <artifactId>calcite-druid</artifactId>
+                <version>${calcite-druid.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -580,6 +594,31 @@
                 </plugin>
 
                 <plugin>
+                    <groupId>org.scalastyle</groupId>
+                    <artifactId>scalastyle-maven-plugin</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <verbose>false</verbose>
+                        <failOnViolation>true</failOnViolation>
+                        <includeTestSourceDirectory>false</includeTestSourceDirectory>
+                        <failOnWarning>false</failOnWarning>
+                        <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
+                        <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
+                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml</configLocation>
+                        <outputFile>${project.build.directory}/target/scalastyle-output.xml</outputFile>
+                        <inputEncoding>UTF-8</inputEncoding>
+                        <outputEncoding>UTF-8</outputEncoding>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-pmd-plugin</artifactId>
                     <version>${maven-pmd-plugin.version}</version>
@@ -724,6 +763,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.scalastyle</groupId>
+                <artifactId>scalastyle-maven-plugin</artifactId>
             </plugin>
 
             <plugin>

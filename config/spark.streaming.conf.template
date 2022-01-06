@@ -32,7 +32,7 @@ env {
 source {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
   fakeStream {
-    content = ["Hello World, InterestingLab"]
+    content = ["Hello World, SeaTunnel"]
   }
 
 

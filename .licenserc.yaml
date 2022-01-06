@@ -24,6 +24,7 @@ header:
     - seatunnel-dist
     - NOTICE
     - LICENSE
+    - DISCLAIMER
     - mvnw.cmd
     - .mvn
     - .gitattributes

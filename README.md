@@ -1,8 +1,8 @@
 # SeaTunnel
 
-<img src="https://github.com/apache/incubator-seatunnel-website/blob/main/Logo.png" alt="seatunnel logo" height="200px" align="right" />
+<img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
-[![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
+[![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
 
 ---
 [![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
@@ -47,7 +47,7 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 
 ## Workflow of SeaTunnel
 
-![seatunnel-workflow_en-US.png](https://user-images.githubusercontent.com/29206593/142733546-8a83c99e-0338-49a9-8fb2-eb216aac29b4.png)
+![seatunnel-workflow.svg](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.svg)
 
 Input[Data Source Input] -> Filter[Data Processing] -> Output[Result Output]
 
@@ -80,7 +80,7 @@ and Flink.
 
 ## Downloads
 
-Download address for run-directly software package :https://github.com/InterestingLab/SeaTunnel/releases
+Download address for run-directly software package :https://github.com/apache/incubator-seatunnel/releases
 
 ## Quick start
 
@@ -121,6 +121,10 @@ new retail brand of Yonghui Yunchuang Technology.
 Shuidichou adopts SeaTunnel to do real-time streaming and regular offline batch processing on Yarn, processing 3~4T data
 volume average daily, and later writing the data to Clickhouse.
 
+- Tencent Cloud
+
+Collecting various logs from business services into Apache Kafka, some of the data in Apache Kafka is consumed and extracted through Seatunnel, and then store into Clickhouse. 
+
 For more use cases, please refer to: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/case_study/
 
 # Code of conduct
@@ -132,12 +136,12 @@ unacceptable behavior.
 
 ## Developer
 
-Thanks to all developers https://github.com/InterestingLab/SeaTunnel/graphs/contributors
+Thanks to all developers https://github.com/apache/incubator-seatunnel/graphs/contributors
 
 ## Contact Us
 
 * Mail list: **dev@seatunnel.apache.org**. Mail to `dev-subscribe@seatunnel.apache.org`, follow the reply to subscribe
   the mail list.
-* Slack: Send `Request to join SeaTunnel slack` mail to the mail list(`dev@seatunnel.apache.org`), we will invite you
-  in.
-* [bilibili](https://space.bilibili.com/1542095008)
+* Slack: https://join.slack.com/t/apacheseatunnel/shared_invite/zt-10u1eujlc-g4E~ppbinD0oKpGeoo_dAw
+* Twitter: https://twitter.com/ASFSeaTunnel
+* [bilibili](https://space.bilibili.com/1542095008) (for china users)

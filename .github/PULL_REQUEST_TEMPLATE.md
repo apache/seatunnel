@@ -8,7 +8,7 @@ Feel free to ping committers for the review!
 
 ## Contribution Checklist
 
-  - Make sure that the pull request corresponds to a [GITHUB issue](https://github.com/InterestingLab/seatunnel/issues).
+  - Make sure that the pull request corresponds to a [GITHUB issue](https://github.com/apache/incubator-seatunnel/issues).
 
   - Name the pull request in the form "[SeaTunnel #XXXX] [component] Title of the pull request", where *SeaTunnel #XXXX* should be replaced by the actual issue number.
 
@@ -23,4 +23,4 @@ Feel free to ping committers for the review!
 ## Check list
 
 * [ ] Code changed are covered with tests, or it does not need tests for reason:
-* [ ] Change does not need document change, or I will submit document change to https://github.com/InterestingLab/seatunnel-docs later
+* [ ] If necessary, please update the documentation to describe the new feature. https://github.com/apache/incubator-seatunnel/tree/dev/docs

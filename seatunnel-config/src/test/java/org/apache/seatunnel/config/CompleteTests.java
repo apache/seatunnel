@@ -26,7 +26,7 @@ public class CompleteTests {
 
         CompleteTests completeTests = new CompleteTests();
 
-        Config config = ConfigFactory.parseFile(completeTests.getFileFromResources("interestinglab/variables.conf"));
+        Config config = ConfigFactory.parseFile(completeTests.getFileFromResources("seatunnel/variables.conf"));
 
         config = config.resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                 .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));

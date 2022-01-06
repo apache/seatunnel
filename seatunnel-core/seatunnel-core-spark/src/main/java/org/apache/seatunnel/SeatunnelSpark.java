@@ -17,17 +17,16 @@
 
 package org.apache.seatunnel;
 
-import org.apache.seatunnel.config.CommandLineArgs;
-import org.apache.seatunnel.config.CommandLineUtils;
-import scopt.OptionParser;
+import org.apache.seatunnel.config.command.CommandLineArgs;
+import org.apache.seatunnel.config.command.CommandLineUtils;
 
 import static org.apache.seatunnel.utils.Engine.SPARK;
 
 public class SeatunnelSpark {
 
     public static void main(String[] args) {
-        OptionParser<CommandLineArgs> sparkParser = CommandLineUtils.sparkParser();
-        Seatunnel.run(sparkParser, SPARK, args);
+        CommandLineArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
+        Seatunnel.run(sparkArgs, SPARK, args);
     }
 
 }

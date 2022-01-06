@@ -1,7 +1,7 @@
-# seatunnel [![Build Status](https://travis-ci.org/InterestingLab/seatunnel.svg?branch=master)](https://travis-ci.org/InterestingLab/seatunnel)
-<img src="https://github.com/apache/incubator-seatunnel-website/blob/main/Logo.png" alt="seatunnel logo" height="200px" align="right" />
+# seatunnel
+<img src="https://seatunnel.apache.org/img/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
-[![Backend Workflow](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/InterestingLab/seatunnel/actions/workflows/backend.yml)
+[![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
 
 
 ---
@@ -44,7 +44,7 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 ## SeaTunnel 的工作流程
 
-![seatunnel-workflow_zh-CN.png](https://user-images.githubusercontent.com/29206593/142733822-541b052e-7995-48ac-9cf4-e12ab6c06285.png)
+![seatunnel-workflow.svg](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.svg)
 
 ```
                          Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
@@ -82,7 +82,7 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Outpu
 
 ## 下载
 
-可以直接运行的软件包下载地址：https://github.com/InterestingLab/seatunnel/releases
+可以直接运行的软件包下载地址：https://github.com/apache/incubator-seatunnel/releases
 
 ## 快速入门
 
@@ -117,7 +117,7 @@ SeaTunnel遵守贡献者公约[code of conduct](https://www.apache.org/foundatio
 
 ## 开发者
 
-感谢[所有开发者](https://github.com/InterestingLab/seatunnel/graphs/contributors)
+感谢[所有开发者](https://github.com/apache/incubator-seatunnel/graphs/contributors)
 
 ## 欢迎联系
 

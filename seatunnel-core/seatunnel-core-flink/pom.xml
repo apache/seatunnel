@@ -41,96 +41,85 @@
             <artifactId>seatunnel-core-base</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.github.scopt</groupId>
-            <artifactId>scopt_${scala.binary.version}</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api-flink</artifactId>
             <version>${project.version}</version>
-
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-source-kafka</artifactId>
-            <version>${project.version}</version>
-
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-kafka</artifactId>
-            <version>${project.version}</version>
-
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-sql</artifactId>
+            <artifactId>seatunnel-connector-flink-kafka</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-split</artifactId>
+            <artifactId>seatunnel-connector-flink-console</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-table2datasteam</artifactId>
+            <artifactId>seatunnel-connector-flink-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-transform-datastream2table</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-console</artifactId>
-            <version>${project.version}</version>
 
-        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-jdbc</artifactId>
+            <artifactId>seatunnel-connector-flink-fake</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-source-fake</artifactId>
+            <artifactId>seatunnel-connector-flink-socket</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-source-socket</artifactId>
+            <artifactId>seatunnel-connector-flink-file</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-source-file</artifactId>
+            <artifactId>seatunnel-connector-flink-elasticsearch</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-source-jdbc</artifactId>
+            <artifactId>seatunnel-connector-flink-doris</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-file</artifactId>
+            <artifactId>seatunnel-transform-flink-sql</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-elasticsearch</artifactId>
+            <artifactId>seatunnel-transform-flink-split</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>plugin-flink-sink-doris</artifactId>
+            <artifactId>seatunnel-transform-flink-table2datastream</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transform-flink-datastream2table</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>

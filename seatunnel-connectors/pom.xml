@@ -31,40 +31,33 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>plugin-spark-source-kafka</module>
-        <module>plugin-spark-source-jdbc</module>
-        <module>plugin-spark-source-fake</module>
-        <module>plugin-spark-source-file</module>
-        <module>plugin-spark-source-elasticsearch</module>
-        <module>plugin-spark-source-hive</module>
-        <module>plugin-spark-sink-console</module>
-        <module>plugin-spark-sink-clickhouse</module>
-        <module>plugin-spark-sink-elasticsearch</module>
-        <module>plugin-spark-sink-hbase</module>
-        <module>plugin-spark-sink-kafka</module>
-        <module>plugin-flink-source-kafka</module>
-        <module>plugin-flink-sink-console</module>
-        <module>plugin-flink-sink-kafka</module>
-        <module>plugin-flink-source-file</module>
-        <module>plugin-flink-sink-jdbc</module>
-        <module>plugin-flink-source-fake</module>
-        <module>plugin-flink-source-socket</module>
-        <module>plugin-flink-source-jdbc</module>
-        <module>plugin-flink-sink-file</module>
-        <module>plugin-flink-sink-elasticsearch</module>
-        <module>plugin-spark-sink-file</module>
-        <module>plugin-spark-source-socket</module>
-        <module>plugin-spark-source-phoenix</module>
-        <module>plugin-spark-phoenix-core</module>
-        <module>plugin-spark-sink-phoenix</module>
-        <module>plugin-spark-sink-jdbc</module>
-        <module>plugin-spark-sink-email</module>
-        <module>plugin-spark-source-redis</module>
-        <module>plugin-spark-sink-hudi</module>
-        <module>plugin-spark-source-kudu</module>
-        <module>plugin-spark-source-mongodb</module>
-        <module>plugin-flink-sink-doris</module>
-        <module>plugin-spark-sink-doris</module>
+        <module>seatunnel-connector-spark-doris</module>
+        <module>seatunnel-connector-spark-file</module>
+        <module>seatunnel-connector-spark-kafka</module>
+        <module>seatunnel-connector-spark-socket</module>
+        <module>seatunnel-connector-spark-redis</module>
+        <module>seatunnel-connector-spark-phoenix</module>
+        <module>seatunnel-connector-spark-mongodb</module>
+        <module>seatunnel-connector-spark-kudu</module>
+        <module>seatunnel-connector-spark-jdbc</module>
+        <module>seatunnel-connector-spark-hive</module>
+        <module>seatunnel-connector-spark-fake</module>
+        <module>seatunnel-connector-spark-elasticsearch</module>
+        <module>seatunnel-connector-spark-hudi</module>
+        <module>seatunnel-connector-spark-hbase</module>
+        <module>seatunnel-connector-spark-console</module>
+        <module>seatunnel-connector-spark-clickhouse</module>
+        <module>seatunnel-connector-spark-email</module>
+        <module>seatunnel-connector-flink-console</module>
+        <module>seatunnel-connector-flink-druid</module>
+        <module>seatunnel-connector-flink-elasticsearch</module>
+        <module>seatunnel-connector-flink-file</module>
+        <module>seatunnel-connector-flink-jdbc</module>
+        <module>seatunnel-connector-flink-kafka</module>
+        <module>seatunnel-connector-flink-fake</module>
+        <module>seatunnel-connector-flink-socket</module>
+        <module>seatunnel-connector-flink-doris</module>
+
     </modules>
 
 </project>

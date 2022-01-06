@@ -11,6 +11,9 @@
     },
     {
       "pattern": "^https://img.shields.io"
+    },
+    {
+      "pattern": "^https://json.org/"
     }
   ],
   "timeout": "10s",
@@ -18,6 +21,7 @@
   "retryCount": 10,
   "fallbackRetryDelay": "1000s",
   "aliveStatusCodes": [
+    0,
     200,
     401
   ]
