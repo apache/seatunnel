@@ -176,7 +176,7 @@ public class Seatunnel {
         LOGGER.error("Fatal Error, \n");
         // FIX
         LOGGER.error(
-            "Please submit issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
+            "Please submit bug report in https://github.com/apache/incubator-seatunnel/issues\n");
         LOGGER.error("Reason:{} \n", errorMsg);
         LOGGER.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         LOGGER.error(
