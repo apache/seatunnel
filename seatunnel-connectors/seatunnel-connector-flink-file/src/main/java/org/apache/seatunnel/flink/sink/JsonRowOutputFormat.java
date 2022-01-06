@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.UnsupportedCharsetException;
+import java.util.Arrays;
 
 public class JsonRowOutputFormat extends FileOutputFormat<Row> {
 
@@ -109,10 +110,7 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
                         jsonArray.add(getJson(r, (RowTypeInfo) componentInfo));
                     }
                 } else {
-                    final Object[] objects = (Object[]) field;
-                    for (Object o : objects) {
-                        jsonArray.add(o);
-                    }
+                    jsonArray.addAll(Arrays.asList((Object[]) field));
                 }
                 json.put(name, jsonArray);
             } else if (type instanceof RowTypeInfo) {
