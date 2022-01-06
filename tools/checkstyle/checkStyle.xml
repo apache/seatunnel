@@ -80,12 +80,12 @@
         <property name="max" value="3000"/>
     </module>
 
-    <module name="TreeWalker">
+    <module name="LineLength">
+        <property name="max" value="500"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
 
-        <module name="LineLength">
-            <property name="max" value="500"/>
-            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
-        </module>
+    <module name="TreeWalker">
 
         <!-- Prohibit T.getT() methods for standard boxed types -->
         <module name="Regexp">
