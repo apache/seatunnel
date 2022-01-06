@@ -30,58 +30,45 @@ class Tidb extends SparkBatchSink {
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
 
-    val prop = new java.util.Properties
-    prop.setProperty("driver", "com.mysql.jdbc.Driver")
-    prop.setProperty("use_ssl", config.getString("use_ssl"))
-    prop.setProperty("isolation_level", config.getString("isolation_level"))
-    prop.setProperty("user", config.getString("user"))
-    prop.setProperty("password", config.getString("password"))
-    prop.setProperty(JDBCOptions.JDBC_BATCH_INSERT_SIZE, config.getString("batch_size"))
+    val tidbOptions: Map[String, String] = Map(
+      "tidb.addr" -> config.getString("addr"),
+      "tidb.password" -> config.getString("password"),
+      "tidb.port" -> config.getString("port"),
+      "tidb.user" -> config.getString("user"),
+      "database" -> config.getString("database"),
+      "table" -> config.getString("table")
+    )
 
-    val saveMode = config.getString("save_mode")
-
-    data.write.mode(saveMode).jdbc(config.getString("url"), config.getString("table"), prop)
-
+    data.write
+      .format("tidb")
+      .mode("append")
+      .options(tidbOptions)
+      .save()
   }
 
   override def checkConfig(): CheckResult = {
 
-    val requiredOptions = List("url", "table", "user", "password");
+    val requiredOptions = List("addr", "port", "database", "table", "user", "password");
 
-    val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
-      val (optionName, exists) = p
-      !exists
-    }
-
-    if (nonExistsOptions.isEmpty) {
-
-      val saveModeAllowedValues = List("overwrite", "append", "ignore", "error");
-
-      if (!config.hasPath("save_mode") || saveModeAllowedValues.contains(config.getString("save_mode"))) {
-        new CheckResult(true, "")
-      } else {
-        new CheckResult(false, "wrong value of [save_mode], allowed values: " + saveModeAllowedValues.mkString(", "))
+    val nonExistsOptions = requiredOptions
+      .map(optionName => (optionName, config.hasPath(optionName)))
+      .filter { p =>
+          val (_, exists) = p
+          !exists
       }
 
-    } else {
+    if (nonExistsOptions.nonEmpty) {
       new CheckResult(
         false,
         "please specify " + nonExistsOptions
           .map { case (option) => "[" + option + "]" }
           .mkString(", ") + " as non-empty string")
+
+    } else {
+      new CheckResult(true,"")
     }
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
-
-    val defaultConfig = ConfigFactory.parseMap(
-      Map(
-        "save_mode" -> "append", // allowed values: overwrite, append, ignore, error
-        "use_ssl" -> "false",
-        "isolation_level" -> "NONE",
-        "batch_size" -> 150
-      )
-    )
-    config = config.withFallback(defaultConfig)
   }
 }

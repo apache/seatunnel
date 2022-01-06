@@ -4,22 +4,32 @@
 
 Write data to Tidb.
 
+### Env Options
+
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| [spark.tispark.pd.addresses](#spark.tispark.pd.addresses-string)       | string | yes      | -             |
+| [spark.sql.extensions](#spark.sql.extensions-string)        | string | yes      | org.apache.spark.sql.TiExtensions         |
+
 ### Options
 
 | name             | type   | required | default value |
 |------------------| ------ |----------|---------------|
-| [url](#url-string)              | string | yes      | -             |
+| [addr](#addr-string)              | string | yes      | -             |
+| [port](#port-string)              | string | yes      | -             |
 | [user](#user-string)             | string | yes      | -             |
 | [password](#password-string)         | string | yes      | -             |
 | [table](#table-string)            | string | yes      | -             |
-| [save_mode](#save_mode-string)        | string | no       | append        |
-| [use_ssl](#use_ssl-string)           | string | no       | false         |
-| [isolation_level](#isolation_level-string)    | string | no       | NONE           |
-| [batch_size](#batch_size-int)    | int | no       | 150           |
+| [database](#database-string)        | string | yes       |        |
+| [replace](#replace-string)        | string | no       | false        |
 
-##### url [string]
+##### addr [string]
 
-The url of the tidb jdbc connection. Refer to a case: `jdbc:mysql://ip:port/dbName`
+TiDB address, which currently only supports one instance
+
+##### port [string]
+
+TiDB port
 
 ##### user [string]
 
@@ -33,29 +43,26 @@ User Password
 
 Source Data Table Name
 
-##### save_mode [string]
+##### database [string]
 
-Storage mode, currently supports `overwrite` , `append` , `ignore` and `error` . For the specific meaning of each mode, see [save-modes](https://spark.apache.org/docs/latest/sql-programming-guide.html#save-modes)
+Source Data Database Name
 
-##### use_ssl [string]
+##### replace [string]
 
-The default value is `false`
-
-##### isolation_level [string]
-
-Recommended to set isolationLevel to NONE if you have a large DF to load.
-
-##### batch_size [int]
-
-Jdbc Batch Insert Size
+- `true`:
+   - Update if the primary key or unique index exists in the table, otherwise insert.
+- `false`:
+   - Data with conflicts expects an exception if the primary key or unique index exists in the table, otherwise insert.
 
 ### Examples
 
 ```bash
 tidb {
-    url = "jdbc:mysql://ip:3306/database",
+    addr = "127.0.0.1",
+    port = "4000"
+    database = "database",
+    table = "tableName",
     user = "userName",
-    password = "***********",
-    table = "tableName"
+    password = "***********"
 }
 ```
