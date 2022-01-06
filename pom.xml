@@ -116,6 +116,7 @@
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
         <tispark.version>2.4.1</tispark.version>
+        <calcite-druid.version>1.29.0</calcite-druid.version>
     </properties>
 
     <dependencyManagement>
@@ -406,6 +407,12 @@
                 <groupId>com.pingcap.tispark</groupId>
                 <artifactId>tispark-assembly</artifactId>
                 <version>${tispark.version}</version>
+            </dependency>
+          
+            <dependency>
+                <groupId>org.apache.calcite</groupId>
+                <artifactId>calcite-druid</artifactId>
+                <version>${calcite-druid.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

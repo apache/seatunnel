@@ -58,6 +58,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Build and push docker images
+        env:
+          MAVEN_OPTS: -Xmx2G -Xms2G
         run: |
           ./mvnw -B clean deploy \
           -Dmaven.test.skip \
