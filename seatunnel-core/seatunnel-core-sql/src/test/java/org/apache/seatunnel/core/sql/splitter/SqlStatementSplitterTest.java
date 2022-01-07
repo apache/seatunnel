@@ -18,10 +18,8 @@
 package org.apache.seatunnel.core.sql.splitter;
 
 import java.util.List;
+import org.junit.Assert;
 import org.junit.Test;
-
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 public class SqlStatementSplitterTest {
 
@@ -29,18 +27,18 @@ public class SqlStatementSplitterTest {
     public void normalizeStatementsWithMultiSqls() {
         String sqlContent = "--test is a comment \n select * from dual; select now();";
         List<String> sqls = SqlStatementSplitter.normalizeStatements(sqlContent);
-        assertThat(sqls.size(), is(2));
-        assertThat(sqls.get(0), is("select * from dual"));
-        assertThat(sqls.get(1), is("select now()"));
+        Assert.assertEquals(sqls.size(), 2);
+        Assert.assertEquals(sqls.get(0), "select * from dual");
+        Assert.assertEquals(sqls.get(1), "select now()");
     }
 
     @Test
     public void normalizeStatementsWithMultiLines() {
         String sqlContent = "--test is a comment \n select * from dual;\n select now();";
         List<String> sqls = SqlStatementSplitter.normalizeStatements(sqlContent);
-        assertThat(sqls.size(), is(2));
-        assertThat(sqls.get(0), is("select * from dual"));
-        assertThat(sqls.get(1), is("select now()"));
+        Assert.assertEquals(sqls.size(), 2);
+        Assert.assertEquals(sqls.get(0), "select * from dual");
+        Assert.assertEquals(sqls.get(1), "select now()");
     }
 
 }
