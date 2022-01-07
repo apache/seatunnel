@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.sql.splitter;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -57,14 +56,14 @@ public class SqlStatementSplitter {
         for (String line : content.split(LINE_SEPARATOR)) {
             if (isEndOfStatement(line)) {
                 buffer.add(line);
-                statements.addAll(normalizeLine(buffer));
+                statements.add(normalizeLine(buffer));
                 buffer.clear();
             } else {
                 buffer.add(line);
             }
         }
         if (!buffer.isEmpty()) {
-            statements.addAll(normalizeLine(buffer));
+            statements.add(normalizeLine(buffer));
         }
         return statements;
     }
@@ -72,11 +71,10 @@ public class SqlStatementSplitter {
     /**
      * Remove comment lines.
      */
-    private static List<String> normalizeLine(List<String> buffer) {
-        String sqls = buffer.stream()
-                            .map(statementLine -> statementLine.replaceAll(BEGINNING_COMMENT_MASK, EMPTY_STR))
-                            .collect(Collectors.joining(LINE_SEPARATOR));
-        return Arrays.asList(sqls.split(SEMICOLON));
+    private static String normalizeLine(List<String> buffer) {
+        return buffer.stream()
+                     .map(statementLine -> statementLine.replaceAll(BEGINNING_COMMENT_MASK, ""))
+                     .collect(Collectors.joining("\n"));
     }
 
     private static boolean isEndOfStatement(String line) {

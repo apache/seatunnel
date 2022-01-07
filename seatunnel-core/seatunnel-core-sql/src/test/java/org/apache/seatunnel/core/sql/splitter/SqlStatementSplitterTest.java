@@ -18,27 +18,28 @@
 package org.apache.seatunnel.core.sql.splitter;
 
 import java.util.List;
-import org.junit.Assert;
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 public class SqlStatementSplitterTest {
 
     @Test
     public void normalizeStatementsWithMultiSqls() {
-        String sqlContent = "--test is a comment \n select * from dual; select now();";
+        // this is bad case, multi sql should split by line \n
+        String sqlContent = "--test is a comment \n select * from dual; select now(); select * from logs where log_content like ';'";
         List<String> sqls = SqlStatementSplitter.normalizeStatements(sqlContent);
-        Assert.assertEquals(sqls.size(), 2);
-        Assert.assertEquals(sqls.get(0), "select * from dual");
-        Assert.assertEquals(sqls.get(1), "select now()");
+        assertEquals(sqls.size(), 1);
+        assertEquals(sqls.get(0), "select * from dual; select now(); select * from logs where log_content like ';'");
     }
 
     @Test
     public void normalizeStatementsWithMultiLines() {
         String sqlContent = "--test is a comment \n select * from dual;\n select now();";
         List<String> sqls = SqlStatementSplitter.normalizeStatements(sqlContent);
-        Assert.assertEquals(sqls.size(), 2);
-        Assert.assertEquals(sqls.get(0), "select * from dual");
-        Assert.assertEquals(sqls.get(1), "select now()");
+        assertEquals(sqls.size(), 2);
+        assertEquals(sqls.get(0), "select * from dual");
+        assertEquals(sqls.get(1), "select now()");
     }
 
 }
