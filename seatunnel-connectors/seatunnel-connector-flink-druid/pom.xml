@@ -44,5 +44,9 @@
             <groupId>org.apache.calcite</groupId>
             <artifactId>calcite-druid</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.druid</groupId>
+            <artifactId>druid-indexing-service</artifactId>
+        </dependency>
     </dependencies>
 </project>
