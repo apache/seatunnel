@@ -76,16 +76,16 @@ class Kv extends BaseFilter {
 
     val kvUDF = udf((s: String) => kv(s))
 
-    var df2 = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
+    val df2 = df.withColumn(RowConstant.TMP, kvUDF(col(conf.getString("source_field"))))
 
     conf.getString("target_field") match {
       case RowConstant.ROOT => {
         val schema = inferSchemaOfMapType(spark, df2, RowConstant.TMP)
-        schema.fields map { field =>
-          df2 = df2.withColumn(field.name, col(RowConstant.TMP)(field.name))
-        }
-
-        df2.drop(RowConstant.TMP)
+        schema.fields
+          .foldLeft(df2) { (df2, field) =>
+            df2.withColumn(field.name, col(RowConstant.TMP)(field.name))
+          }
+          .drop(RowConstant.TMP)
       }
 
       case targetField: String => {
@@ -112,10 +112,9 @@ class Kv extends BaseFilter {
       .collect()
       .sorted
 
-    var structFields = Seq[StructField]()
-    keys map { key =>
-      structFields = structFields :+ DataTypes.createStructField(key, DataTypes.StringType, true)
-    }
+    val structFields = keys.map { key =>
+      DataTypes.createStructField(key, DataTypes.StringType, true)
+    }.toList
 
     DataTypes.createStructType(structFields)
   }
