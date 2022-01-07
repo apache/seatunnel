@@ -65,7 +65,7 @@ class Tidb extends SparkBatchSink {
           .mkString(", ") + " as non-empty string")
 
     } else {
-      new CheckResult(true,"")
+      new CheckResult(true, "")
     }
   }
 
