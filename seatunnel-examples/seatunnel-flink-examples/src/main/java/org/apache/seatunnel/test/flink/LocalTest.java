@@ -27,7 +27,7 @@ public class LocalTest {
     public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-flink-examples/src/main/resources/examples/";
 
     public static void main(String[] args) {
-        String configFile = getTestConfigFile("fake_to_console.config");
+        String configFile = getTestConfigFile("fake_to_console.conf");
         CommandLineArgs flinkArgs = new CommandLineArgs(configFile, false);
         Seatunnel.run(flinkArgs, FLINK, args);
     }
