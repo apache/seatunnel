@@ -1,4 +1,4 @@
-# Source plugin: Druid
+# Sink plugin: Druid
 
 ## Description
 

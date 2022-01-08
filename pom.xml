@@ -116,8 +116,8 @@
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
-        <calcite-druid.version>1.29.0</calcite-druid.version>
         <druid.version>0.22.0</druid.version>
+        <calcite-druid.version>1.29.0</calcite-druid.version>
     </properties>
 
     <dependencyManagement>
@@ -405,14 +405,14 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.calcite</groupId>
-                <artifactId>calcite-druid</artifactId>
-                <version>${calcite-druid.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>org.apache.druid</groupId>
                 <artifactId>druid-indexing-service</artifactId>
                 <version>${druid.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.calcite</groupId>
+                <artifactId>calcite-druid</artifactId>
+                <version>${calcite-druid.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
