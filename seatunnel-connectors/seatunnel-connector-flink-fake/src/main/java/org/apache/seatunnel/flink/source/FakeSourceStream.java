@@ -23,7 +23,7 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 

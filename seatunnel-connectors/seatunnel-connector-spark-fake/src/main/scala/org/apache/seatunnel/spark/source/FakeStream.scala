@@ -17,7 +17,7 @@
 package org.apache.seatunnel.spark.source
 
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.{Config, ConfigFactory}
+import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
 import org.apache.spark.rdd.RDD

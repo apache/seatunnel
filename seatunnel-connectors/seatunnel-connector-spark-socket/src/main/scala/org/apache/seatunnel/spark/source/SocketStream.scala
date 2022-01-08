@@ -22,7 +22,7 @@ import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
 

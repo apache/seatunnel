@@ -17,7 +17,7 @@
 package org.apache.seatunnel.spark.batch
 
 import org.apache.seatunnel.common.config.{CheckResult, ConfigRuntimeException}
-import org.apache.seatunnel.config.{Config, ConfigFactory}
+import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}

@@ -14,19 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-import org.apache.seatunnel.apis.BaseSource
-import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
+package org.apache.seatunnel.config.utils;
 
-trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
+import java.io.File;
+import java.net.URL;
 
-  protected var config: Config = ConfigFactory.empty()
+public class FileUtils {
 
-  override def setConfig(config: Config): Unit = this.config = config
+    // get file from classpath, resources folder
+    public static File getFileFromResources(String fileName) {
 
-  override def getConfig: Config = config
+        ClassLoader classLoader = FileUtils.class.getClassLoader();
 
-  def getData(env: SparkEnvironment): Data;
+        URL resource = classLoader.getResource(fileName);
+        if (resource == null) {
+            throw new IllegalArgumentException("file is not found!");
+        } else {
+            return new File(resource.getFile());
+        }
+
+    }
 
 }

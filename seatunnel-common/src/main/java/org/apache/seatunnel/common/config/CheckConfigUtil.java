@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.common.config;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 public class CheckConfigUtil {
 
