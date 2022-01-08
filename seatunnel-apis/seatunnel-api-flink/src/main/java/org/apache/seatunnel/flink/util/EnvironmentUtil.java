@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;

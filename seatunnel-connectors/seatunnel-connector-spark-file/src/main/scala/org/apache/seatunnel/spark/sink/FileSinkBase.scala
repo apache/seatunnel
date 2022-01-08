@@ -22,7 +22,7 @@ import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.utils.StringTemplate
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 
