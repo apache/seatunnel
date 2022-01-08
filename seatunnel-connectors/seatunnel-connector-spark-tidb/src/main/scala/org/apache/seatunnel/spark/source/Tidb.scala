@@ -20,7 +20,7 @@ package org.apache.seatunnel.spark.source
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
-import org.apache.spark.sql.{Dataset, Row, TiContext}
+import org.apache.spark.sql.{Dataset, Row}
 
 class Tidb extends SparkBatchSource {
 
@@ -34,10 +34,8 @@ class Tidb extends SparkBatchSource {
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
-    val database = config.getString("database")
-
-    val ti = new TiContext(env.getSparkSession)
-    ti.tidbMapDatabase(database)
-    env.getSparkSession.sql(config.getString("pre_sql"))
+    val spark = env.getSparkSession
+    spark.sql("use " + config.getString("database"))
+    spark.sql(config.getString("pre_sql"))
   }
 }
