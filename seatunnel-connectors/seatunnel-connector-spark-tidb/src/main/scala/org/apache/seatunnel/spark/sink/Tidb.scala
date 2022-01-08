@@ -17,33 +17,43 @@
 
 package org.apache.seatunnel.spark.sink
 
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
-import org.apache.spark.sql.{Dataset, Row, SaveMode}
+import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
+import scala.util.{Failure, Success, Try}
 
 class Tidb extends SparkBatchSink {
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
 
-    val tidbOptions: Map[String, String] = Map(
-      "tidb.addr" -> config.getString("addr"),
-      "tidb.password" -> config.getString("password"),
-      "tidb.port" -> config.getString("port"),
-      "tidb.user" -> config.getString("user"),
-      "database" -> config.getString("database"),
-      "table" -> config.getString("table")
-    )
-
-    data.write
+    val writer = data.write
       .format("tidb")
       .mode("append")
-      .options(tidbOptions)
-      .save()
+      .option("tidb.addr", config.getString("addr"))
+      .option("tidb.password", config.getString("password"))
+      .option("tidb.port", config.getString("port"))
+      .option("tidb.user", config.getString("user"))
+      .option("database", config.getString("database"))
+      .option("table", config.getString("table"))
+
+    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
+
+      case Success(options) => {
+        val optionMap = options
+          .entrySet()
+          .foldRight(Map[String, String]())((entry, m) => {
+            m + (entry.getKey -> entry.getValue.unwrapped().toString)
+          })
+
+        writer.options(optionMap)
+      }
+      case Failure(exception) => // do nothing
+    }
+
+    writer.save()
   }
 
   override def checkConfig(): CheckResult = {
