@@ -57,7 +57,7 @@ public class CompressionUtils {
 
         LOGGER.info(String.format("Untaring %s to dir %s.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath()));
 
-        final List<File> untaredFiles = new LinkedList<File>();
+        final List<File> untaredFiles = new LinkedList<>();
         final InputStream is = new FileInputStream(inputFile);
         final TarArchiveInputStream debInputStream = (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is);
         TarArchiveEntry entry = null;
