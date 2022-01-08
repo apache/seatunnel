@@ -24,9 +24,9 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{CloseableHttpClient, DefaultConnectionKeepAliveStrategy, DefaultRedirectStrategy, HttpClientBuilder}
 import org.apache.log4j.Logger
-
 import java.io.{BufferedReader, InputStreamReader}
 import java.nio.charset.{Charset, StandardCharsets}
+
 import scala.util.{Failure, Success, Try}
 
 object DorisUtil extends Serializable {
@@ -94,6 +94,7 @@ object DorisUtil extends Serializable {
     (status, httpclient, response)
   }
 
+
   def basicAuthHeader(username: String, password: String): String = {
     val tobeEncode: String = username + ":" + password
     val encoded = Base64.encodeBase64(tobeEncode.getBytes(StandardCharsets.UTF_8))
@@ -107,13 +108,15 @@ class DorisUtil(httpHeader: Map[String, String], apiUrl: String, user: String, p
     val httpClient = DorisUtil.createClient
     val result = Try(DorisUtil.streamLoad(httpClient, httpHeader, messages, apiUrl, user, password))
     result match {
-      case Success(_) =>
+      case Success(_) => {
         httpClient.close()
         result.get._2.close()
-      case Failure(var1: Exception) =>
+      }
+      case Failure(var1: Exception) => {
         httpClient.close()
         result.get._2.close()
         throw new RuntimeException(var1.getMessage)
+      }
     }
   }
 }

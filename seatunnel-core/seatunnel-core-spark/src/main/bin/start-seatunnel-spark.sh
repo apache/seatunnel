@@ -79,6 +79,13 @@ while (( "$#" )); do
 
   esac
 done
+
+if [ -z ${MASTER} ] || [ -z ${DEPLOY_MODE} ] || [ -z ${CONFIG_FILE} ]; then
+  echo "Error: The following options are required: [-e | --deploy-mode], [-m | --master], [-c | --config]"
+  usage
+  exit -1
+fi
+
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 

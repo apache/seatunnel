@@ -54,6 +54,13 @@ while (( "$#" )); do
 
   esac
 done
+
+if [ -z ${CONFIG_FILE} ]; then
+  echo "Error: The following option is required: [-c | --config]"
+  usage
+  exit -1
+fi
+
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 
