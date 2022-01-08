@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+
 import java.io.File;
 import java.util.Map;
 

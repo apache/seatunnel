@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.sink
 import scala.collection.JavaConversions._
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 

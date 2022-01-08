@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.util.ConfigKeyName;
 import org.apache.seatunnel.flink.util.EnvironmentUtil;
