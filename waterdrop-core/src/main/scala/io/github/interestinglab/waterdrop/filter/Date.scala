@@ -77,6 +77,7 @@ class Date extends BaseFilter {
     val dateParser = config.getString("source_time_format") match {
       case "UNIX" => new UnixParser(targetTimeFormat)
       case "UNIX_MS" => new UnixMSParser(targetTimeFormat)
+      case "TIMESTAMP" => new TimestampParser(targetTimeFormat)
       case sourceTimeFormat: String => new FormatParser(sourceTimeFormat, targetTimeFormat)
     }
 
