@@ -181,11 +181,9 @@ final class ConfigParser {
             ListIterator<String> i = keys.listIterator(keys.size());
             String deepest = i.previous();
             AbstractConfigObject o = new SimpleConfigObject(value.origin().withComments(null),
-                Collections.<String, AbstractConfigValue>singletonMap(
-                    deepest, value));
+                Collections.singletonMap(deepest, value));
             while (i.hasPrevious()) {
-                Map<String, AbstractConfigValue> m = Collections.<String, AbstractConfigValue>singletonMap(
-                    i.previous(), o);
+                Map<String, AbstractConfigValue> m = Collections.singletonMap(i.previous(), o);
                 o = new SimpleConfigObject(value.origin().withComments(null), m);
             }
 

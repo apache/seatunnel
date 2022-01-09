@@ -209,7 +209,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                 StateBackend fsStateBackend = new FsStateBackend(uri);
                 if (config.hasPath(ConfigKeyName.STATE_BACKEND)) {
                     String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
-                    if ("rocksdb".equals(stateBackend.toLowerCase())) {
+                    if ("rocksdb".equalsIgnoreCase(stateBackend)) {
                         StateBackend rocksDBStateBackend = new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
                         environment.setStateBackend(rocksDBStateBackend);
                     }

@@ -207,7 +207,7 @@ final class PathParser {
             splitTokens.add(Tokens.newUnquotedText(t.origin(), ConfigParseOptions.PATH_TOKEN_SEPARATOR));
         }
 
-        if (!tokenText.substring(tokenText.length() - ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), tokenText.length()).equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
+        if (!tokenText.startsWith(ConfigParseOptions.PATH_TOKEN_SEPARATOR, tokenText.length() - ConfigParseOptions.PATH_TOKEN_SEPARATOR.length())) {
             splitTokens.remove(splitTokens.size() - 1);
         }
 
@@ -229,7 +229,7 @@ final class PathParser {
             }
         } else {
             // "buf" plus up to the period is an element
-            current.sb.append(newText.substring(0, i));
+            current.sb.append(newText, 0, i);
             // then start a new element
             buf.add(new Element("", false));
             // recurse to consume remainder of newText
@@ -257,7 +257,6 @@ final class PathParser {
             char c = s.charAt(i);
             if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
                 lastWasDot = false;
-                continue;
             } else if (c == '.') {
                 if (lastWasDot) {
                     return true; // ".." means we need to throw an error
@@ -267,7 +266,6 @@ final class PathParser {
                 if (lastWasDot) {
                     return true;
                 }
-                continue;
             } else {
                 return true;
             }
