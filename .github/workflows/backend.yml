@@ -52,10 +52,10 @@ jobs:
           key: ${{ runner.os }}-maven
       - name: Check Style
         run: |
-          ./mvnw -B checkstyle:check
+          ./mvnw -T 16 -B checkstyle:check
       - name: Build and Package
         run: |
-          ./mvnw -B package scalastyle:check \
+          ./mvnw -T 16 -B package scalastyle:check \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
                  -Dhttp.keepAlive=false \
@@ -64,4 +64,4 @@ jobs:
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
       - name: Run Unit tests
         run: |
-          ./mvnw -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true
+          ./mvnw -T 16 -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true
