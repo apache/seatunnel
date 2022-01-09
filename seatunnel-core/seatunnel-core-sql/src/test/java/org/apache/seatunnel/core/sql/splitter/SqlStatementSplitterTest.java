@@ -29,17 +29,17 @@ public class SqlStatementSplitterTest {
         // this is bad case, multi sql should split by line \n
         String sqlContent = "--test is a comment \n select * from dual; select now(); select * from logs where log_content like ';'";
         List<String> sqls = SqlStatementSplitter.normalizeStatements(sqlContent);
-        assertEquals(sqls.size(), 1);
-        assertEquals(sqls.get(0), "select * from dual; select now(); select * from logs where log_content like ';'");
+        assertEquals(1, sqls.size());
+        assertEquals("select * from dual; select now(); select * from logs where log_content like ';'", sqls.get(0));
     }
 
     @Test
     public void normalizeStatementsWithMultiLines() {
         String sqlContent = "--test is a comment \n select * from dual;\n select now();";
         List<String> sqls = SqlStatementSplitter.normalizeStatements(sqlContent);
-        assertEquals(sqls.size(), 2);
-        assertEquals(sqls.get(0), "select * from dual");
-        assertEquals(sqls.get(1), "select now()");
+        assertEquals(2, sqls.size());
+        assertEquals("select * from dual", sqls.get(0));
+        assertEquals("select now()", sqls.get(1));
     }
 
 }
