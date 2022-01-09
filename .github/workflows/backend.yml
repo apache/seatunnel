@@ -55,7 +55,7 @@ jobs:
           ./mvnw -T 16 -B checkstyle:check
       - name: Build and Package
         run: |
-          ./mvnw -T 16 -B package scalastyle:check \
+          ./mvnw -B package scalastyle:check \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
                  -Dhttp.keepAlive=false \
