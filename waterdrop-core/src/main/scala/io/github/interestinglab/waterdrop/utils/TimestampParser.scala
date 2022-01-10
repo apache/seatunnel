@@ -31,7 +31,7 @@ class TimestampParser(targetTimeFormat: String) extends DateParser {
   def parse(input: String): (Boolean, String) = {
 
     try {
-      val inputDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss.SSS")
+      val inputDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
       parse(inputDateFormat.parse(input).getTime())
     } catch {
       case NonFatal(e) => (false, "")
