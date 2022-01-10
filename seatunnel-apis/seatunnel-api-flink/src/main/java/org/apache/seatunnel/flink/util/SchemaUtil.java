@@ -52,7 +52,7 @@ public class SchemaUtil {
                 getJsonSchema(schema, (JSONObject) info);
                 break;
             case "csv":
-                getCsvSchema(schema, (List<Map<String, String>>) info);
+                getCsvSchema(schema, (List<Map<String, Object>>) info);
                 break;
             case "orc":
                 getOrcSchema(schema, (JSONObject) info);
@@ -129,12 +129,18 @@ public class SchemaUtil {
         }
     }
 
-    private static void getCsvSchema(Schema schema, List<Map<String, String>> schemaList) {
-
-        for (Map<String, String> map : schemaList) {
-            String field = map.get("field");
-            String type = map.get("type").toUpperCase();
-            schema.field(field, type);
+    private static void getCsvSchema(Schema schema, List<Map<String, Object>> schemaList) {
+        for (Map<String, Object> map : schemaList) {
+            String field = map.get("field").toString();
+            String type = map.get("type").toString().toUpperCase();
+            if ("ROW".equals(type)) {
+                List<Map<String, String>> rowMap = (List<Map<String, String>>) map.get("row");
+                String[] rowFieldNames = rowMap.stream().map(m -> m.get("field")).toArray(String[]::new);
+                TypeInformation<Row> row = org.apache.flink.api.common.typeinfo.Types.ROW_NAMED(rowFieldNames, getCsvType(rowMap));
+                schema.field(field, row);
+            } else {
+                schema.field(field, type);
+            }
         }
     }
 
