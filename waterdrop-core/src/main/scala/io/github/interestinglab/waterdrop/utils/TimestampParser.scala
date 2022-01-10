@@ -21,7 +21,6 @@ package io.github.interestinglab.waterdrop.utils
 
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.sql.Timestamp;
 
 import scala.util.control.NonFatal
 
@@ -32,8 +31,8 @@ class TimestampParser(targetTimeFormat: String) extends DateParser {
   def parse(input: String): (Boolean, String) = {
 
     try {
-      val timeMillis = input.toLong
-      parse(timeMillis)
+      val inputDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss.SSSSSS")
+      parse(inputDateFormat.parse(input).getTime())
     } catch {
       case NonFatal(e) => (false, "")
     }
@@ -42,8 +41,7 @@ class TimestampParser(targetTimeFormat: String) extends DateParser {
   def parse(input: Long): (Boolean, String) = {
 
     val targetDateFormat = new SimpleDateFormat(this.targetFormat)
-    var ts = new Timestamp(input)
-    val date = new Date(ts.getTime())
+    val date = new Date(input)
     (true, targetDateFormat.format(date))
   }
 }
