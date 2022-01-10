@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink;
 
+import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.util.ConfigKeyName;
@@ -104,7 +105,17 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     private void createStreamTableEnvironment() {
-        tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment());
+        // use blink and streammode
+        EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance()
+                .inStreamingMode();
+        if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink".equals(this.config.getString(ConfigKeyName.PLANNER))) {
+            envBuiler.useBlinkPlanner();
+        } else {
+            envBuiler.useOldPlanner();
+        }
+        EnvironmentSettings environmentSettings = envBuiler.build();
+
+        tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
         if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
             long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
