@@ -30,14 +30,6 @@ class Hive extends SparkBatchSink with Logging {
 
   override def checkConfig(): CheckResult = {
     CheckConfigUtil.check(config, "sql", "source_table_name", "result_table_name")
-
-    config.hasPath("sql") || (config.hasPath("source_table_name") && config.hasPath(
-      "result_table_name")) match {
-      case true =>
-        new CheckResult(true, "")
-      case false =>
-        new CheckResult(false, "please specify sql or source_table_name && result_table_name")
-    }
   }
 
   override def prepare(env: SparkEnvironment): Unit = {}
