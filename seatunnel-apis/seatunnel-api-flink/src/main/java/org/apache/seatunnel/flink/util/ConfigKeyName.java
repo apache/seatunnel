@@ -39,5 +39,5 @@ public class ConfigKeyName {
     public static final String MAX_STATE_RETENTION_TIME = "execution.query.state.max-retention";
     public static final String MIN_STATE_RETENTION_TIME = "execution.query.state.min-retention";
     public static final String STATE_BACKEND = "execution.state.backend";
-
+    public static final String PLANNER = "execution.planner";
 }
