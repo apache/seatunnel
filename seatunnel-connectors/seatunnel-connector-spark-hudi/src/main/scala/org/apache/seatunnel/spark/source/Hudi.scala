@@ -16,8 +16,9 @@
  */
 package org.apache.seatunnel.spark.source
 
-import scala.collection.JavaConversions._
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 
+import scala.collection.JavaConversions._
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
@@ -28,27 +29,15 @@ class Hudi extends SparkBatchSource {
   override def prepare(env: SparkEnvironment): Unit = {}
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = Seq("hoodie.datasource.read.paths")
-    var missingOptions = new StringBuilder
-    requiredOptions.map(opt =>
-      if (!config.hasPath(opt)) {
-        missingOptions.append(opt).append(",")
-      })
-    missingOptions.isEmpty match {
-      case true =>
-        new CheckResult(true, "")
-      case false =>
-        missingOptions = missingOptions.deleteCharAt(missingOptions.length - 1)
-        new CheckResult(false, s"please specify [$missingOptions] as non-empty string")
-    }
+    check(config, "hoodie.datasource.read.paths")
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
 
     val reader = env.getSparkSession.read.format("org.apache.hudi")
     for (e <- config.entrySet()) {
-       reader.option(e.getKey, e.getValue.toString)
-     }
+      reader.option(e.getKey, e.getValue.toString)
+    }
 
     reader.load(config.getString("hoodie.datasource.read.paths"))
   }

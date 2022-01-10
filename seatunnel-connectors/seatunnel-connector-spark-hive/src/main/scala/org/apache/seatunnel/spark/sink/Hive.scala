@@ -20,7 +20,7 @@ import java.util
 
 import scala.collection.JavaConversions._
 
-import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.internal.Logging
@@ -29,6 +29,8 @@ import org.apache.spark.sql.{DataFrameWriter, Dataset, Row}
 class Hive extends SparkBatchSink with Logging {
 
   override def checkConfig(): CheckResult = {
+    CheckConfigUtil.check(config, "sql", "source_table_name", "result_table_name")
+
     config.hasPath("sql") || (config.hasPath("source_table_name") && config.hasPath(
       "result_table_name")) match {
       case true =>

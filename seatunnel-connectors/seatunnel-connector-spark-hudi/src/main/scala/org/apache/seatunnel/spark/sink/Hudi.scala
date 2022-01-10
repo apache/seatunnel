@@ -17,28 +17,18 @@
 package org.apache.seatunnel.spark.sink
 
 import scala.collection.JavaConversions._
-import org.apache.spark.sql.{Dataset, Row}
+
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
 
 class Hudi extends SparkBatchSink {
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = Seq("hoodie.base.path", "hoodie.table.name")
-    var missingOptions = new StringBuilder
-    requiredOptions.map(opt =>
-      if (!config.hasPath(opt)) {
-        missingOptions.append(opt).append(",")
-      })
-    missingOptions.isEmpty match {
-      case true =>
-        new CheckResult(true, "")
-      case false =>
-        missingOptions = missingOptions.deleteCharAt(missingOptions.length - 1)
-        new CheckResult(false, s"please specify [$missingOptions] as non-empty string")
-    }
+    check(config, "hoodie.base.path", "hoodie.table.name")
   }
 
   override def prepare(env: SparkEnvironment): Unit = {
