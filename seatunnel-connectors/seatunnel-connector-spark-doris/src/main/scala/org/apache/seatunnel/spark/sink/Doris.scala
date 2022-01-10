@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.spark.sink
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
-
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
 class Doris extends SparkBatchSink with Serializable {
 
@@ -70,11 +70,10 @@ class Doris extends SparkBatchSink with Serializable {
   override def checkConfig(): CheckResult = {
     val checkResult =
       check(config, Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
-    if (!checkResult.isSuccess) {
-      return checkResult
-    }
 
-    if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(
+    if (!checkResult.isSuccess) {
+      checkResult
+    } else if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(
         Config.PASSWORD) && !config.hasPath(Config.USER)) {
       new CheckResult(false, Config.CHECK_USER_ERROR)
     } else {

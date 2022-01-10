@@ -106,9 +106,10 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
     val checkResult = check(config, "topics")
     if (checkResult.isSuccess) {
       val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
-      return check(consumerConfig, "group.id")
+      check(consumerConfig, "group.id")
+    } else {
+      checkResult
     }
-    checkResult
   }
 
   override def afterOutput(): Unit = {
