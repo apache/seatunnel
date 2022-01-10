@@ -22,7 +22,7 @@ package io.github.interestinglab.waterdrop.filter
 import io.github.interestinglab.waterdrop.config.{Config, ConfigFactory}
 import io.github.interestinglab.waterdrop.apis.BaseFilter
 import io.github.interestinglab.waterdrop.core.RowConstant
-import io.github.interestinglab.waterdrop.utils.{FormatParser, StringTemplate, UnixMSParser, UnixParser}
+import io.github.interestinglab.waterdrop.utils.{FormatParser, StringTemplate, UnixMSParser, UnixParser, TimestampParser}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
@@ -77,6 +77,7 @@ class Date extends BaseFilter {
     val dateParser = config.getString("source_time_format") match {
       case "UNIX" => new UnixParser(targetTimeFormat)
       case "UNIX_MS" => new UnixMSParser(targetTimeFormat)
+      case "TIMESTAMP" => new TimestampParser(targetTimeFormat)
       case sourceTimeFormat: String => new FormatParser(sourceTimeFormat, targetTimeFormat)
     }
 
