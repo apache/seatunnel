@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.source
 
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
 import org.apache.spark.rdd.RDD

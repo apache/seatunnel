@@ -92,7 +92,7 @@ public class CompressionUtils {
      *
      * @param inputFile the input .gz file
      * @param outputDir the output directory file.
-     * @return The {@File} with the ungzipped content.
+     * @return The {@link File} with the ungzipped content.
      * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
      */

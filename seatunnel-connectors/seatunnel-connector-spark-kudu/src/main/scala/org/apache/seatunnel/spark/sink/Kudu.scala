@@ -14,46 +14,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.spark.sink
 
 import scala.collection.JavaConversions._
-import org.apache.spark.sql.{Dataset, Row}
+
+import org.apache.kudu.spark.kudu._
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
 
-class Hudi extends SparkBatchSink {
-
-  override def checkConfig(): CheckResult = {
-    val requiredOptions = Seq("hoodie.base.path", "hoodie.table.name")
-    var missingOptions = new StringBuilder
-    requiredOptions.map(opt =>
-      if (!config.hasPath(opt)) {
-        missingOptions.append(opt).append(",")
-      })
-    missingOptions.isEmpty match {
-      case true =>
-        new CheckResult(true, "")
-      case false =>
-        missingOptions = missingOptions.deleteCharAt(missingOptions.length - 1)
-        new CheckResult(false, s"please specify [$missingOptions] as non-empty string")
-    }
-  }
+class Kudu extends SparkBatchSink {
 
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "save_mode" -> "append"))
-    config = config.withFallback(defaultConfig)
+        "mode" -> "insert"))
+    this.config = config.withFallback(defaultConfig)
+  }
+
+  override def checkConfig(): CheckResult = {
+    config.hasPath("kudu_master") && config.hasPath("kudu_table") match {
+      case true =>
+        new CheckResult(true, "")
+      case false =>
+        new CheckResult(false, "please specify [kudu_master] and [kudu_table] ")
+    }
   }
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
-    val writer = df.write.format("org.apache.hudi")
-    for (e <- config.entrySet()) {
-      writer.option(e.getKey, e.getValue.toString)
+    val kuduContext = new KuduContext(
+      config.getString("kudu_master"),
+      df.sparkSession.sparkContext)
+
+    val table = config.getString("kudu_table")
+    config.getString("mode") match {
+      case "insert" => kuduContext.insertRows(df, table)
+      case "update" => kuduContext.updateRows(df, table)
+      case "upsert" => kuduContext.upsertRows(df, table)
+      case "insertIgnore" => kuduContext.insertIgnoreRows(df, table)
     }
-    writer.mode(config.getString("save_mode"))
-      .save(config.getString("hoodie.base.path"))
   }
 }
