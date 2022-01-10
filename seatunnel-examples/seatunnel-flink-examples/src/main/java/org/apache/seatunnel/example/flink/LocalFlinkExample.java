@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.test.flink;
+package org.apache.seatunnel.example.flink;
 
 import static org.apache.seatunnel.utils.Engine.FLINK;
 
 import org.apache.seatunnel.Seatunnel;
 import org.apache.seatunnel.config.command.CommandLineArgs;
 
-public class LocalTest {
+public class LocalFlinkExample {
 
     public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-flink-examples/src/main/resources/examples/";
 
