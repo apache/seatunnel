@@ -39,7 +39,6 @@ public class CheckConfigUtilTest {
         CheckResult check = CheckConfigUtil.check(config, "k0", "k1");
         Assert.assertTrue(check.isSuccess());
 
-        // negative case
         String errorMsg = "please specify [%s] as non-empty";
         check = CheckConfigUtil.check(config, "k0", "k1", "k2");
         Assert.assertEquals(String.format(errorMsg, "k2"), check.getMsg());
