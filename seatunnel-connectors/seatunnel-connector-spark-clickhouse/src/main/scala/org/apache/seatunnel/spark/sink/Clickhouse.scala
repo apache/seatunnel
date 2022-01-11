@@ -29,6 +29,7 @@ import java.sql.PreparedStatement
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
+import scala.annotation.tailrec
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
 import scala.util.matching.Regex
@@ -201,6 +202,7 @@ class Clickhouse extends SparkBatchSink {
     }
   }
 
+  @tailrec
   private def renderDefaultStatement(
                                       index: Int,
                                       fieldType: String,
@@ -299,6 +301,7 @@ class Clickhouse extends SparkBatchSink {
     }
   }
 
+  @tailrec
   private def execute(statement: PreparedStatement, retry: Int): Unit = {
     val res = Try(statement.executeBatch())
     res match {
