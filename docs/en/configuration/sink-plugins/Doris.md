@@ -29,7 +29,7 @@ Doris user's password
 Doris number of submissions per batch
 ##### doris. [string]
 Doris stream_load properties,you can use 'doris.' prefix + stream_load properties
-[More Doris stream_load Configurations](https://doris.apache.org/master/zh-CN/administrator-guide/load-data/stream-load-manual.html)
+[More Doris stream_load Configurations](https://doris.apache.org/zh-CN/administrator-guide/load-data/stream-load-manual.html)
 
 ### Examples
 
