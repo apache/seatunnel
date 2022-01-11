@@ -118,7 +118,10 @@ SeaTunnel遵守贡献者公约[code of conduct](https://www.apache.org/foundatio
 
 ## 开发者
 
-感谢[所有开发者](https://github.com/apache/incubator-seatunnel/graphs/contributors)
+感谢所有开发者！
+
+[![](https://opencollective.com/seatunnel/contributors.svg?width=666)](https://github.com/apache/incubator-seatunnel/graphs/contributors)
+
 
 ## 欢迎联系
 

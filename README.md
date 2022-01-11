@@ -136,7 +136,9 @@ unacceptable behavior.
 
 ## Developer
 
-Thanks to all developers https://github.com/apache/incubator-seatunnel/graphs/contributors
+Thanks to all developers!
+
+[![](https://opencollective.com/seatunnel/contributors.svg?width=666)](https://github.com/apache/incubator-seatunnel/graphs/contributors)
 
 ## Contact Us
 
