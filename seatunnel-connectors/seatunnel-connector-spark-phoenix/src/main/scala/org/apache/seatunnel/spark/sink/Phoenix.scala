@@ -16,16 +16,15 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import org.apache.commons.lang3.StringUtils
+import scala.collection.JavaConverters._
+import scala.util.Try
+
 import org.apache.phoenix.spark.ZkConnectUtil._
-import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
-
-import scala.collection.JavaConverters._
-import scala.util.Try
 
 class Phoenix extends SparkBatchSink with Logging {
 
@@ -56,13 +55,11 @@ class Phoenix extends SparkBatchSink with Logging {
   }
 
   override def checkConfig(): CheckResult = {
-    if (config.hasPath("zk-connect") && config.hasPath("table") && StringUtils.isNotBlank(
-      config.getString("zk-connect"))) {
+    val checkResult = CheckConfigUtil.check(config, "zk-connect", "table")
+    if (checkResult.isSuccess) {
       checkZkConnect(config.getString("zk-connect"))
-      new CheckResult(true, "")
-    } else {
-      new CheckResult(false, "please specify [zk-connect] as a non-empty string")
     }
+    checkResult
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
