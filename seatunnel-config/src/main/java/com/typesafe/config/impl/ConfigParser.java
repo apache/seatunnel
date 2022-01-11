@@ -66,7 +66,7 @@ final class ConfigParser {
             this.baseOrigin = origin;
             this.includer = includer;
             this.includeContext = includeContext;
-            this.pathStack = new LinkedList<Path>();
+            this.pathStack = new LinkedList<>();
             this.arrayCount = 0;
         }
 
@@ -79,7 +79,7 @@ final class ConfigParser {
                 throw new ConfigException.BugOrBroken("Found a concatenation node in JSON");
             }
 
-            List<AbstractConfigValue> values = new ArrayList<AbstractConfigValue>();
+            List<AbstractConfigValue> values = new ArrayList<>();
 
             for (AbstractConfigNode node : n.children()) {
                 AbstractConfigValue v = null;
@@ -145,7 +145,7 @@ final class ConfigParser {
             }
 
             if (comments != null && !comments.isEmpty()) {
-                v = v.withOrigin(v.origin().prependComments(new ArrayList<String>(comments)));
+                v = v.withOrigin(v.origin().prependComments(new ArrayList<>(comments)));
                 comments.clear();
             }
 
@@ -160,7 +160,7 @@ final class ConfigParser {
                                                                  AbstractConfigValue value) {
             // for path foo.bar, we are creating
             // { "foo" : { "bar" : value } }
-            List<String> keys = new ArrayList<String>();
+            List<String> keys = new ArrayList<>();
 
             String key = path.first();
             Path remaining = path.remainder();
@@ -181,11 +181,9 @@ final class ConfigParser {
             ListIterator<String> i = keys.listIterator(keys.size());
             String deepest = i.previous();
             AbstractConfigObject o = new SimpleConfigObject(value.origin().withComments(null),
-                Collections.<String, AbstractConfigValue>singletonMap(
-                    deepest, value));
+                Collections.singletonMap(deepest, value));
             while (i.hasPrevious()) {
-                Map<String, AbstractConfigValue> m = Collections.<String, AbstractConfigValue>singletonMap(
-                    i.previous(), o);
+                Map<String, AbstractConfigValue> m = Collections.singletonMap(i.previous(), o);
                 o = new SimpleConfigObject(value.origin().withComments(null), m);
             }
 
@@ -253,13 +251,13 @@ final class ConfigParser {
 
         private SimpleConfigList parseObjectForWaterdrop(ConfigNodeObject n) {
 
-            Map<String, AbstractConfigValue> values = new LinkedHashMap<String, AbstractConfigValue>();
-            List<AbstractConfigValue> valuesList = new ArrayList<AbstractConfigValue>();
+            Map<String, AbstractConfigValue> values = new LinkedHashMap<>();
+            List<AbstractConfigValue> valuesList = new ArrayList<>();
             SimpleConfigOrigin objectOrigin = lineOrigin();
             boolean lastWasNewline = false;
 
-            ArrayList<AbstractConfigNode> nodes = new ArrayList<AbstractConfigNode>(n.children());
-            List<String> comments = new ArrayList<String>();
+            ArrayList<AbstractConfigNode> nodes = new ArrayList<>(n.children());
+            List<String> comments = new ArrayList<>();
             for (int i = 0; i < nodes.size(); i++) {
                 AbstractConfigNode node = nodes.get(i);
                 if (node instanceof ConfigNodeComment) {
@@ -310,7 +308,7 @@ final class ConfigParser {
                     if (((ConfigNodeField) node).separator() == Tokens.PLUS_EQUALS) {
                         arrayCount -= 1;
 
-                        List<AbstractConfigValue> concat = new ArrayList<AbstractConfigValue>(2);
+                        List<AbstractConfigValue> concat = new ArrayList<>(2);
                         AbstractConfigValue previousRef = new ConfigReference(newValue.origin(),
                             new SubstitutionExpression(fullCurrentPath(), true /* optional */));
                         AbstractConfigValue list = new SimpleConfigList(newValue.origin(),
@@ -379,12 +377,12 @@ final class ConfigParser {
         }
 
         private AbstractConfigObject parseObject(ConfigNodeObject n) {
-            Map<String, AbstractConfigValue> values = new LinkedHashMap<String, AbstractConfigValue>();
+            Map<String, AbstractConfigValue> values = new LinkedHashMap<>();
             SimpleConfigOrigin objectOrigin = lineOrigin();
             boolean lastWasNewline = false;
 
-            ArrayList<AbstractConfigNode> nodes = new ArrayList<AbstractConfigNode>(n.children());
-            List<String> comments = new ArrayList<String>();
+            ArrayList<AbstractConfigNode> nodes = new ArrayList<>(n.children());
+            List<String> comments = new ArrayList<>();
             for (int i = 0; i < nodes.size(); i++) {
                 AbstractConfigNode node = nodes.get(i);
                 if (node instanceof ConfigNodeComment) {
@@ -435,7 +433,7 @@ final class ConfigParser {
                     if (((ConfigNodeField) node).separator() == Tokens.PLUS_EQUALS) {
                         arrayCount -= 1;
 
-                        List<AbstractConfigValue> concat = new ArrayList<AbstractConfigValue>(2);
+                        List<AbstractConfigValue> concat = new ArrayList<>(2);
                         AbstractConfigValue previousRef = new ConfigReference(newValue.origin(),
                             new SubstitutionExpression(fullCurrentPath(), true /* optional */));
                         AbstractConfigValue list = new SimpleConfigList(newValue.origin(),
@@ -517,10 +515,10 @@ final class ConfigParser {
             arrayCount += 1;
 
             SimpleConfigOrigin arrayOrigin = lineOrigin();
-            List<AbstractConfigValue> values = new ArrayList<AbstractConfigValue>();
+            List<AbstractConfigValue> values = new ArrayList<>();
 
             boolean lastWasNewLine = false;
-            List<String> comments = new ArrayList<String>();
+            List<String> comments = new ArrayList<>();
 
             AbstractConfigValue v = null;
 
@@ -533,7 +531,7 @@ final class ConfigParser {
                     if (lastWasNewLine && v == null) {
                         comments.clear();
                     } else if (v != null) {
-                        values.add(v.withOrigin(v.origin().appendComments(new ArrayList<String>(comments))));
+                        values.add(v.withOrigin(v.origin().appendComments(new ArrayList<>(comments))));
                         comments.clear();
                         v = null;
                     }
@@ -541,7 +539,7 @@ final class ConfigParser {
                 } else if (node instanceof AbstractConfigNodeValue) {
                     lastWasNewLine = false;
                     if (v != null) {
-                        values.add(v.withOrigin(v.origin().appendComments(new ArrayList<String>(comments))));
+                        values.add(v.withOrigin(v.origin().appendComments(new ArrayList<>(comments))));
                         comments.clear();
                     }
                     v = parseValue((AbstractConfigNodeValue) node, comments);
@@ -549,7 +547,7 @@ final class ConfigParser {
             }
             // There shouldn't be any comments at this point, but add them just in case
             if (v != null) {
-                values.add(v.withOrigin(v.origin().appendComments(new ArrayList<String>(comments))));
+                values.add(v.withOrigin(v.origin().appendComments(new ArrayList<>(comments))));
             }
             arrayCount -= 1;
             return new SimpleConfigList(arrayOrigin, values);
@@ -557,7 +555,7 @@ final class ConfigParser {
 
         AbstractConfigValue parse() {
             AbstractConfigValue result = null;
-            ArrayList<String> comments = new ArrayList<String>();
+            ArrayList<String> comments = new ArrayList<>();
             boolean lastWasNewLine = false;
             for (AbstractConfigNode node : document.children()) {
                 if (node instanceof ConfigNodeComment) {
@@ -570,7 +568,7 @@ final class ConfigParser {
                         if (lastWasNewLine && result == null) {
                             comments.clear();
                         } else if (result != null) {
-                            result = result.withOrigin(result.origin().appendComments(new ArrayList<String>(comments)));
+                            result = result.withOrigin(result.origin().appendComments(new ArrayList<>(comments)));
                             comments.clear();
                             break;
                         }

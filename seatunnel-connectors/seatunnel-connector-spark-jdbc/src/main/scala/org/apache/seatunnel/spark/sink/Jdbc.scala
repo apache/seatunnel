@@ -16,14 +16,15 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import scala.collection.JavaConversions._
+
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode
 import org.apache.spark.sql.{Dataset, Row}
-
-import scala.collection.JavaConversions._
+import org.apache.spark.sql.execution.datasources.jdbc2.JDBCSaveMode
 
 class Jdbc extends SparkBatchSink {
 
@@ -39,7 +40,9 @@ class Jdbc extends SparkBatchSink {
           "password" -> config.getString("password"),
           "dbtable" -> config.getString("dbTable"),
           "useSsl" -> config.getString("useSsl"),
-          "customUpdateStmt" -> config.getString("customUpdateStmt"), // Custom mysql duplicate key update statement when saveMode is update
+          "customUpdateStmt" -> config.getString(
+            "customUpdateStmt"
+          ), // Custom mysql duplicate key update statement when saveMode is update
           "duplicateIncs" -> config.getString("duplicateIncs"),
           "showSql" -> config.getString("showSql"))).save()
     } else {
@@ -53,25 +56,7 @@ class Jdbc extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List("driver", "url", "dbTable", "user", "password")
-    val nonExistsOptions =
-      requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
-        val (optionName, exists) = p
-        !exists
-      }
-
-    if (nonExistsOptions.nonEmpty) {
-      new CheckResult(
-        false,
-        "please specify " + nonExistsOptions
-          .map { option =>
-            val (name, exists) = option
-            "[" + name + "]"
-          }
-          .mkString(", ") + " as non-empty string")
-    } else {
-      new CheckResult(true, "")
-    }
+    check(config, "driver", "url", "dbTable", "user", "password")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
@@ -81,9 +66,7 @@ class Jdbc extends SparkBatchSink {
         "useSsl" -> "false",
         "showSql" -> "true",
         "customUpdateStmt" -> "",
-        "duplicateIncs" -> ""
-      )
-    )
+        "duplicateIncs" -> ""))
     config = config.withFallback(defaultConfig)
   }
 }

@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.utils;
+package org.apache.seatunnel.example.flink;
 
-public enum PluginType {
-    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
+import static org.apache.seatunnel.utils.Engine.FLINK;
 
-    private String type;
+import org.apache.seatunnel.Seatunnel;
+import org.apache.seatunnel.config.command.CommandLineArgs;
 
-    PluginType(String type) {
-        this.type = type;
+public class LocalFlinkExample {
+
+    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-flink-examples/src/main/resources/examples/";
+
+    public static void main(String[] args) {
+        String configFile = getTestConfigFile("fake_to_console.conf");
+        CommandLineArgs flinkArgs = new CommandLineArgs(configFile, false);
+        Seatunnel.run(flinkArgs, FLINK, args);
     }
 
-    public String getType() {
-        return type;
+    public static String getTestConfigFile(String configFile) {
+        return System.getProperty("user.dir") + TEST_RESOURCE_DIR + configFile;
     }
 }

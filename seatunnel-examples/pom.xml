@@ -31,5 +31,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>seatunnel-flink-examples</module>
+        <module>seatunnel-spark-examples</module>
     </modules>
 </project>
