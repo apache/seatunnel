@@ -58,12 +58,12 @@ processing plug-in, because the whole system is easy to expand.
 
 ## Plugins supported by SeaTunnel  
 
-- Input plugin Fake, File, Hdfs, Kafka, S3, Socket, self-developed Input plugin
+- Input plugin Fake, File, Hdfs, Kafka, Druid, S3, Socket, self-developed Input plugin
 
 - Filter plugin Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace,
   Sample, Split, Sql, Table, Truncate, Uppercase, Uuid, Self-developed Filter plugin
 
-- Output plugin Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, self-developed Output plugin
+- Output plugin Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, self-developed Output plugin
 
 ## Environmental dependency
 
