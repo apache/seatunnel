@@ -90,13 +90,11 @@ public class SchemaUtil {
                 }
                 formatDescriptor = csv;
                 break;
-            case "orc":
-                break;
             case "avro":
                 formatDescriptor = new Avro().avroSchema(config.getString("schema"));
                 break;
+            case "orc":
             case "parquet":
-                break;
             default:
                 break;
         }
