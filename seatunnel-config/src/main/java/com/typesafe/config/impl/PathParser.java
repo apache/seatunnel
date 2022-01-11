@@ -54,15 +54,10 @@ final class PathParser {
     }
 
     static ConfigNodePath parsePathNode(String path, ConfigSyntax flavor) {
-        StringReader reader = new StringReader(path);
-
-        try {
-            Iterator<Token> tokens = Tokenizer.tokenize(API_ORIGIN, reader,
-                flavor);
+        try (StringReader reader = new StringReader(path)) {
+            Iterator<Token> tokens = Tokenizer.tokenize(API_ORIGIN, reader, flavor);
             tokens.next(); // drop START
             return parsePathNodeExpression(tokens, API_ORIGIN, path, flavor);
-        } finally {
-            reader.close();
         }
     }
 
@@ -71,16 +66,10 @@ final class PathParser {
         if (speculated != null) {
             return speculated;
         }
-
-        StringReader reader = new StringReader(path);
-
-        try {
-            Iterator<Token> tokens = Tokenizer.tokenize(API_ORIGIN, reader,
-                ConfigSyntax.CONF);
+        try (StringReader reader = new StringReader(path)) {
+            Iterator<Token> tokens = Tokenizer.tokenize(API_ORIGIN, reader, ConfigSyntax.CONF);
             tokens.next(); // drop START
             return parsePathExpression(tokens, API_ORIGIN, path);
-        } finally {
-            reader.close();
         }
     }
 
@@ -101,7 +90,7 @@ final class PathParser {
 
     protected static ConfigNodePath parsePathNodeExpression(Iterator<Token> expression,
                                                             ConfigOrigin origin, String originalText, ConfigSyntax flavor) {
-        ArrayList<Token> pathTokens = new ArrayList<Token>();
+        ArrayList<Token> pathTokens = new ArrayList<>();
         Path path = parsePathExpression(expression, origin, originalText, pathTokens, flavor);
         return new ConfigNodePath(path, pathTokens);
     }
@@ -112,7 +101,7 @@ final class PathParser {
                                               ArrayList<Token> pathTokens,
                                               ConfigSyntax flavor) {
         // each builder in "buf" is an element in the path.
-        List<Element> buf = new ArrayList<Element>();
+        List<Element> buf = new ArrayList<>();
         buf.add(new Element("", false));
 
         if (!expression.hasNext()) {
@@ -208,7 +197,7 @@ final class PathParser {
             return Collections.singletonList(t);
         }
         String[] splitToken = tokenText.split(ConfigParseOptions.PATH_TOKEN_SEPARATOR);
-        ArrayList<Token> splitTokens = new ArrayList<Token>();
+        ArrayList<Token> splitTokens = new ArrayList<>();
         for (String s : splitToken) {
             if (flavor == ConfigSyntax.CONF) {
                 splitTokens.add(Tokens.newUnquotedText(t.origin(), s));
@@ -218,7 +207,7 @@ final class PathParser {
             splitTokens.add(Tokens.newUnquotedText(t.origin(), ConfigParseOptions.PATH_TOKEN_SEPARATOR));
         }
 
-        if (!tokenText.substring(tokenText.length() - ConfigParseOptions.PATH_TOKEN_SEPARATOR.length(), tokenText.length()).equals(ConfigParseOptions.PATH_TOKEN_SEPARATOR)) {
+        if (!tokenText.startsWith(ConfigParseOptions.PATH_TOKEN_SEPARATOR, tokenText.length() - ConfigParseOptions.PATH_TOKEN_SEPARATOR.length())) {
             splitTokens.remove(splitTokens.size() - 1);
         }
 
@@ -240,7 +229,7 @@ final class PathParser {
             }
         } else {
             // "buf" plus up to the period is an element
-            current.sb.append(newText.substring(0, i));
+            current.sb.append(newText, 0, i);
             // then start a new element
             buf.add(new Element("", false));
             // recurse to consume remainder of newText
@@ -268,7 +257,6 @@ final class PathParser {
             char c = s.charAt(i);
             if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
                 lastWasDot = false;
-                continue;
             } else if (c == '.') {
                 if (lastWasDot) {
                     return true; // ".." means we need to throw an error
@@ -278,7 +266,6 @@ final class PathParser {
                 if (lastWasDot) {
                     return true;
                 }
-                continue;
             } else {
                 return true;
             }
@@ -295,7 +282,7 @@ final class PathParser {
 
         // lastIndexOf takes last index it should look at, end - 1 not end
         int splitAt = s.lastIndexOf(ConfigParseOptions.PATH_TOKEN_SEPARATOR, end - 1);
-        ArrayList<Token> tokens = new ArrayList<Token>();
+        ArrayList<Token> tokens = new ArrayList<>();
         tokens.add(Tokens.newUnquotedText(null, s));
         // this works even if splitAt is -1; then we start the substring at 0
 
