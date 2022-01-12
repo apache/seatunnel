@@ -34,7 +34,7 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 - Mass data aggregation
 - Multi-source data processing
 
-## Features of SeaTunnel  
+## Features of SeaTunnel
 
 - Easy to use, flexible configuration, low code development
 - Real-time streaming
@@ -56,14 +56,14 @@ accustomed to SQL, you can also directly construct a data processing pipeline by
 Currently, the filter list supported by SeaTunnel is still being expanded. Furthermore, you can develop your own data
 processing plug-in, because the whole system is easy to expand.
 
-## Plugins supported by SeaTunnel  
+## Plugins supported by SeaTunnel
 
-- Input plugin Fake, File, Hdfs, Kafka, S3, Socket, self-developed Input plugin
+- Input plugin Fake, File, Hdfs, Kafka, Druid, S3, Socket, self-developed Input plugin
 
 - Filter plugin Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace,
   Sample, Split, Sql, Table, Truncate, Uppercase, Uuid, Self-developed Filter plugin
 
-- Output plugin Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, self-developed Output plugin
+- Output plugin Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, self-developed Output plugin
 
 ## Environmental dependency
 
@@ -136,7 +136,9 @@ unacceptable behavior.
 
 ## Developer
 
-Thanks to all developers https://github.com/apache/incubator-seatunnel/graphs/contributors
+Thanks to all developers!
+
+[![](https://opencollective.com/seatunnel/contributors.svg?width=666)](https://github.com/apache/incubator-seatunnel/graphs/contributors)
 
 ## Contact Us
 
