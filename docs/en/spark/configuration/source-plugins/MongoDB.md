@@ -1,4 +1,4 @@
-# Source plugin: MongoDB
+# Source plugin: MongoDB [Spark]
 
 ## Description
 
@@ -38,4 +38,3 @@ mongodb {
     result_table_name = "mongodb_result_table"
 }
 ```
-
