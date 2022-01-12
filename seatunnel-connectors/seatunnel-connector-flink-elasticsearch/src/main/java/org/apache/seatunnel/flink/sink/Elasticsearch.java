@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.seatunnel.config.Config;
-import org.apache.seatunnel.config.ConfigFactory;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.common.utils.StringTemplate;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
@@ -61,10 +62,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public CheckResult checkConfig() {
-        if (config.hasPath("hosts")) {
-            return new CheckResult(true, "");
-        }
-        return new CheckResult(false, "please specify [hosts] as a non-empty string list");
+        return CheckConfigUtil.check(config, "hosts");
     }
 
     @Override

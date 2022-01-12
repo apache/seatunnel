@@ -219,7 +219,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                     throw new IOException(e);
                 }
                 try {
-                    Thread.sleep(1000 * i);
+                    Thread.sleep(1000L * i);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new IOException("unable to flush; interrupted while doing another attempt", e);

@@ -28,13 +28,16 @@ public class SqlStatementSplitter {
 
     private static final String COMMENT_MASK = "--.*$";
     private static final String BEGINNING_COMMENT_MASK = "^(\\s)*--.*$";
+    private static final String SEMICOLON = ";";
+    private static final String LINE_SEPARATOR = "\n";
+    private static final String EMPTY_STR = "";
 
     public static List<String> normalizeStatements(String content) {
         List<String> normalizedStatements = new ArrayList<>();
 
         for (String stmt : splitContent(content)) {
             stmt = stmt.trim();
-            if (stmt.endsWith(";")) {
+            if (stmt.endsWith(SEMICOLON)) {
                 stmt = stmt.substring(0, stmt.length() - 1).trim();
             }
 
@@ -50,7 +53,7 @@ public class SqlStatementSplitter {
         List<String> statements = new ArrayList<>();
         List<String> buffer = new ArrayList<>();
 
-        for (String line : content.split("\n")) {
+        for (String line : content.split(LINE_SEPARATOR)) {
             if (isEndOfStatement(line)) {
                 buffer.add(line);
                 statements.add(normalizeLine(buffer));
@@ -70,11 +73,11 @@ public class SqlStatementSplitter {
      */
     private static String normalizeLine(List<String> buffer) {
         return buffer.stream()
-                .map(statementLine -> statementLine.replaceAll(BEGINNING_COMMENT_MASK, ""))
-                .collect(Collectors.joining("\n"));
+                     .map(statementLine -> statementLine.replaceAll(BEGINNING_COMMENT_MASK, EMPTY_STR))
+                     .collect(Collectors.joining(LINE_SEPARATOR));
     }
 
     private static boolean isEndOfStatement(String line) {
-        return line.replaceAll(COMMENT_MASK, "").trim().endsWith(";");
+        return line.replaceAll(COMMENT_MASK, EMPTY_STR).trim().endsWith(SEMICOLON);
     }
 }

@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.spark.sink
 
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
-
-import scala.collection.mutable.ListBuffer
-import scala.collection.{JavaConversions, mutable}
 
 class Doris extends SparkBatchSink with Serializable {
 
@@ -67,19 +68,13 @@ class Doris extends SparkBatchSink with Serializable {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List(Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
-    val nonExistsOptions = requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter { p =>
-      val (optionName, exists) = p
-      !exists
-    }
-    if (nonExistsOptions.nonEmpty) {
-      new CheckResult(false, "Please specify " + nonExistsOptions
-        .map { option =>
-          val (name, exists) = option
-          "[" + name + "]"
-        }.mkString(", ") + " as non-empty string"
-      )
-    } else if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(Config.PASSWORD) && !config.hasPath(Config.USER)) {
+    val checkResult =
+      check(config, Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
+
+    if (!checkResult.isSuccess) {
+      checkResult
+    } else if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(
+        Config.PASSWORD) && !config.hasPath(Config.USER)) {
       new CheckResult(false, Config.CHECK_USER_ERROR)
     } else {
       val host: String = config.getString(Config.HOST)

@@ -163,11 +163,9 @@ public class DorisStreamLoad implements Serializable {
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append("status: ").append(status);
-            sb.append(", resp msg: ").append(respMsg);
-            sb.append(", resp content: ").append(respContent);
-            return sb.toString();
+            return "status: " + status +
+                    ", resp msg: " + respMsg +
+                    ", resp content: " + respContent;
         }
     }
 }
