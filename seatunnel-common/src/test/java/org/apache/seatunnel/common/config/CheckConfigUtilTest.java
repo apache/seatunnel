@@ -30,10 +30,9 @@ public class CheckConfigUtilTest {
 
     @Test
     public void testCheck() {
-        Map<String, String> configMap = new HashMap<String, String>() {{
-            put("k0", "v0");
-            put("k1", "v1");
-        }};
+        Map<String, String> configMap = new HashMap<>();
+        configMap.put("k0", "v0");
+        configMap.put("k1", "v1");
         Config config = ConfigFactory.parseMap(configMap);
 
         CheckResult check = CheckConfigUtil.check(config, "k0", "k1");
