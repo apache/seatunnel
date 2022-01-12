@@ -59,7 +59,7 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 * Input plugin
 
-Fake, File, Hdfs, Kafka, S3, Socket, 自行开发的 Input plugin
+Fake, File, Hdfs, Kafka, Druid, S3, Socket, 自行开发的 Input plugin
 
 * Filter plugin
 
@@ -68,7 +68,7 @@ Table, Truncate, Uppercase, Uuid, 自行开发的Filter plugin
 
 * Output plugin
 
-Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Output plugin
+Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, 自行开发的 Output plugin
 
 ## 环境依赖
 
