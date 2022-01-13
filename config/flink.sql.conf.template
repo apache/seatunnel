@@ -18,8 +18,6 @@
 --
 -- This config file is a demonstration of sql processing in SeaTunnel config
 --
--- export FLINK_HOME=/opt/flink-1.13.3
--- bin/start-seatunnel-sql.sh --target local -Drest.port=8081 -Dtaskmanager.numberOfTaskSlots=1 -c config/application.conf
 --
 
 
