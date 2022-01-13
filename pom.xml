@@ -116,6 +116,7 @@
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
         <druid.version>0.22.0</druid.version>
+        <delta.version>0.6.0</delta.version>
         <calcite-druid.version>1.29.0</calcite-druid.version>
         <config.version>1.3.3</config.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
@@ -374,6 +375,12 @@
                 <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-spark-bundle_${scala.binary.version}</artifactId>
                 <version>${hudi.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.delta</groupId>
+                <artifactId>delta-core_${scala.binary.version}</artifactId>
+                <version>${delta.version}</version>
             </dependency>
 
             <dependency>
