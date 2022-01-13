@@ -75,6 +75,10 @@ CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
 
 assemblyJarName=$(find ${PLUGINS_DIR} -name seatunnel-core-flink*.jar)
 
+if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
+    source ${CONF_DIR}/seatunnel-env.sh
+fi
+
 string_trim() {
     echo $1 | awk '{$1=$1;print}'
 }
