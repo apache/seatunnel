@@ -57,6 +57,7 @@ class FakeStream extends SparkStreamingSource[String] {
 
   override def checkConfig(): CheckResult = {
     check(config, "content")
+  }
 }
 
 private class FakeReceiver(config: Config)
