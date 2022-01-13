@@ -18,6 +18,7 @@
 package org.apache.seatunnel.spark.source
 
 import org.apache.kudu.spark.kudu._
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
@@ -26,10 +27,7 @@ import org.apache.spark.sql.{Dataset, Row}
 class Kudu extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
-    config.hasPath("kudu_master") && config.hasPath("kudu_table") match {
-      case true => new CheckResult(true, "")
-      case false => new CheckResult(false, "please specify [kudu_master] and [kudu_table]")
-    }
+    check(config, "kudu_master", "kudu_table")
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {

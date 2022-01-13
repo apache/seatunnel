@@ -17,15 +17,17 @@
 package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
+
 import com.alibaba.fastjson.JSON
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.spark.sql.types.StructType
+import org.apache.seatunnel.common.Constants
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.seatunnel.spark.utils.SparkStructTypeUtil
+import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.sql.types.StructType
 
 class MongoDB extends SparkBatchSource {
 
@@ -67,15 +69,14 @@ class MongoDB extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
     TypesafeConfigUtils.hasSubConfig(config, confPrefix) match {
-      case true => {
+      case true =>
         val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
-          case true => new CheckResult(true, "")
+          case true => new CheckResult(true, Constants.CHECK_SUCCESS)
           case false => new CheckResult(
               false,
               "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
         }
-      }
       case false => new CheckResult(false, "please specify [readconfig]")
     }
   }

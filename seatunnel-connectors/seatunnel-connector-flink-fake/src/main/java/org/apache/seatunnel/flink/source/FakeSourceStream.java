@@ -22,6 +22,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -55,7 +56,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true, "");
+        return new CheckResult(true, Constants.CHECK_SUCCESS);
     }
 
     @Override
