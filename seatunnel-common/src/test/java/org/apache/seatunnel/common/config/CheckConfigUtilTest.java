@@ -18,23 +18,31 @@
 package org.apache.seatunnel.common.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-public class CheckConfigUtil {
+import java.util.HashMap;
+import java.util.Map;
 
-    public static CheckResult check(Config config, String... params) {
-        StringBuilder missingParams = new StringBuilder();
-        for (String param : params) {
-            if (!config.hasPath(param) || config.getAnyRef(param) == null) {
-                missingParams.append(param).append(",");
-            }
-        }
+import org.junit.Assert;
+import org.junit.Test;
 
-        if (missingParams.length() > 0) {
-            String errorMsg = String.format("please specify [%s] as non-empty",
-                    missingParams.deleteCharAt(missingParams.length() - 1));
-            return new CheckResult(false, errorMsg);
-        } else {
-            return new CheckResult(true, "");
-        }
+public class CheckConfigUtilTest {
+
+    @Test
+    public void testCheck() {
+        Map<String, String> configMap = new HashMap<>();
+        configMap.put("k0", "v0");
+        configMap.put("k1", "v1");
+        Config config = ConfigFactory.parseMap(configMap);
+
+        CheckResult check = CheckConfigUtil.check(config, "k0", "k1");
+        Assert.assertTrue(check.isSuccess());
+
+        String errorMsg = "please specify [%s] as non-empty";
+        check = CheckConfigUtil.check(config, "k0", "k1", "k2");
+        Assert.assertEquals(String.format(errorMsg, "k2"), check.getMsg());
+
+        check = CheckConfigUtil.check(config, "k0", "k1", "k2", "k3", "k4");
+        Assert.assertEquals(String.format(errorMsg, "k2,k3,k4"), check.getMsg());
     }
 }
