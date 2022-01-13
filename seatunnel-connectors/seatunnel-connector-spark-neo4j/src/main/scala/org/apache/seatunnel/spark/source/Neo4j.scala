@@ -52,8 +52,9 @@ class Neo4j extends SparkBatchSource {
     if (notConfigMustAllParam.isEmpty && isConfiguredOne) {
       new CheckResult(true, "neo4j config is enough")
     } else {
-      new CheckResult(false, s"neo4j config is not enough please check config [${notConfigMustAllParam.mkString(" ")}] " +
-        s"${if (!isConfiguredOne) "you must have one of " + mustConfiguredOne.mkString(" ") else ""}")
+      val errorMessage: String = s"neo4j config is not enough please check config [${notConfigMustAllParam.mkString(" ")}] " +
+        s"${if (!isConfiguredOne) "you must have one of " + mustConfiguredOne.mkString(" ") else ""}"
+      new CheckResult(false, errorMessage)
     }
 
   }
