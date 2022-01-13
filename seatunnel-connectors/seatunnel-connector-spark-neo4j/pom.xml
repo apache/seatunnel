@@ -56,7 +56,6 @@
         <dependency>
             <groupId>org.neo4j</groupId>
             <artifactId>neo4j-connector-apache-spark_${scala.binary.version}</artifactId>
-            <version>${neo4j.connector.spark.version}_for_spark_${spark.binary.version}</version>
         </dependency>
     </dependencies>
 

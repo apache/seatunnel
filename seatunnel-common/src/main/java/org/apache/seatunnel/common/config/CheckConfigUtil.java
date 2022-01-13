@@ -19,6 +19,11 @@ package org.apache.seatunnel.common.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class CheckConfigUtil {
 
     public static CheckResult check(Config config, String... params) {
@@ -36,5 +41,44 @@ public class CheckConfigUtil {
         } else {
             return new CheckResult(true, "");
         }
+    }
+
+    /**
+     * check config if there was at least one usable
+     */
+    public static CheckResult checkOne(Config config, String... params){
+        if (params.length == 0){
+            return new CheckResult(true, "");
+        }
+
+        List<String> missingParams = new LinkedList();
+        for (String param : params) {
+            if (!config.hasPath(param) || config.getAnyRef(param) == null) {
+                missingParams.add(param);
+            }
+        }
+
+        if (missingParams.size() == params.length) {
+            String errorMsg = String.format("please specify at least one config of [%s] as non-empty",
+                    missingParams.stream().collect(Collectors.joining(",")));
+            return new CheckResult(false, errorMsg);
+        } else {
+            return new CheckResult(true, "");
+        }
+    }
+
+    /**
+     * merge all check result
+     */
+    public static CheckResult mergeCheckMessage(CheckResult... checkResults){
+        List<String> list = new LinkedList<>();
+        List<CheckResult> notPassConfig = Arrays.stream(checkResults).filter(item -> !item.isSuccess()).collect(Collectors.toList());
+        if (notPassConfig.isEmpty()){
+            return new CheckResult(true, "");
+        }else{
+            String errMessage = notPassConfig.stream().map(it -> it.getMsg()).collect(Collectors.joining(","));
+            return new CheckResult(false, errMessage);
+        }
+
     }
 }

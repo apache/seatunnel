@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.spark.source
 
-import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{DataFrameReader, Dataset, Row}
@@ -29,8 +29,6 @@ class Neo4j extends SparkBatchSource {
 
   val neo4jConf: mutable.Map[String, String] = mutable.Map()
   val readFormatter: String = "org.neo4j.spark.DataSource"
-  val mustConfiguredAll: Array[String] = Array("result_table_name", "url")
-  val mustConfiguredOne: Array[String] = Array("query", "labels", "relationship")
 
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
@@ -45,17 +43,9 @@ class Neo4j extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
 
-    val notConfigMustAllParam: Array[String] = mustConfiguredAll.filter(item => !config.hasPath(item))
-    val notConfigMustOneParam: Array[String] = mustConfiguredOne.filter(item => !config.hasPath(item))
-    val isConfiguredOne: Boolean = notConfigMustOneParam.size < mustConfiguredOne.size
-
-    if (notConfigMustAllParam.isEmpty && isConfiguredOne) {
-      new CheckResult(true, "neo4j config is enough")
-    } else {
-      val errorMessage: String = s"neo4j config is not enough please check config [${notConfigMustAllParam.mkString(" ")}] " +
-        s"${if (!isConfiguredOne) "you must have one of " + mustConfiguredOne.mkString(" ") else ""}"
-      new CheckResult(false, errorMessage)
-    }
+    val checkALL: CheckResult = CheckConfigUtil.checkOne(config, "query", "labels", "relationship")
+    val checkOne: CheckResult = CheckConfigUtil.check(config, "result_table_name", "url")
+    CheckConfigUtil.mergeCheckMessage(checkALL, checkOne);
 
   }
 
