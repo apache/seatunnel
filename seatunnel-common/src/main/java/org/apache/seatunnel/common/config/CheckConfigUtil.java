@@ -46,8 +46,8 @@ public class CheckConfigUtil {
     /**
      * check config if there was at least one usable
      */
-    public static CheckResult checkOne(Config config, String... params){
-        if (params.length == 0){
+    public static CheckResult checkOne(Config config, String... params) {
+        if (params.length == 0) {
             return new CheckResult(true, "");
         }
 
@@ -70,12 +70,12 @@ public class CheckConfigUtil {
     /**
      * merge all check result
      */
-    public static CheckResult mergeCheckMessage(CheckResult... checkResults){
+    public static CheckResult mergeCheckMessage(CheckResult... checkResults) {
         List<String> list = new LinkedList<>();
         List<CheckResult> notPassConfig = Arrays.stream(checkResults).filter(item -> !item.isSuccess()).collect(Collectors.toList());
-        if (notPassConfig.isEmpty()){
+        if (notPassConfig.isEmpty()) {
             return new CheckResult(true, "");
-        }else{
+        } else {
             String errMessage = notPassConfig.stream().map(it -> it.getMsg()).collect(Collectors.joining(","));
             return new CheckResult(false, errMessage);
         }
