@@ -16,13 +16,14 @@
  */
 package org.apache.seatunnel.spark.source
 
+import scala.collection.JavaConversions._
+
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
 import org.slf4j.LoggerFactory
-
-import scala.collection.JavaConversions._
 
 class Elasticsearch extends SparkBatchSource {
 
@@ -62,15 +63,7 @@ class Elasticsearch extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    config.hasPath("hosts") && config.hasPath("index") && config.getStringList(
-      "hosts").size() > 0 match {
-      case true => {
-        // val hosts = config.getStringList("hosts")
-        // TODO CHECK hosts
-        new CheckResult(true, "")
-      }
-      case false => new CheckResult(false, "please specify [hosts] as a non-empty string list")
-    }
+    check(config, "hosts", "index")
   }
 
 }

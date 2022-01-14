@@ -1,5 +1,6 @@
 # seatunnel
-<img src="https://seatunnel.apache.org/img/logo.png" alt="seatunnel logo" height="200px" align="right" />
+
+<img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
 [![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
 
@@ -58,7 +59,7 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 * Input plugin
 
-Fake, File, Hdfs, Kafka, S3, Socket, 自行开发的 Input plugin
+Fake, File, Hdfs, Kafka, Druid, S3, Socket, 自行开发的 Input plugin
 
 * Filter plugin
 
@@ -67,7 +68,7 @@ Table, Truncate, Uppercase, Uuid, 自行开发的Filter plugin
 
 * Output plugin
 
-Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Output plugin
+Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, 自行开发的 Output plugin
 
 ## 环境依赖
 
@@ -117,7 +118,10 @@ SeaTunnel遵守贡献者公约[code of conduct](https://www.apache.org/foundatio
 
 ## 开发者
 
-感谢[所有开发者](https://github.com/apache/incubator-seatunnel/graphs/contributors)
+感谢所有开发者！
+
+[![](https://opencollective.com/seatunnel/contributors.svg?width=666)](https://github.com/apache/incubator-seatunnel/graphs/contributors)
+
 
 ## 欢迎联系
 

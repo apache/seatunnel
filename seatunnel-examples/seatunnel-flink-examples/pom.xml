@@ -32,12 +32,17 @@
         <flink.scope>compile</flink.scope>
     </properties>
     <dependencies>
+        <!--Resolve ConfigParser class conflict between Seatunnel and Flink.
+        Native debugging increases flink's default ConfigParser priority.-->
+        <dependency>
+            <groupId>com.typesafe</groupId>
+            <artifactId>config</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-core-flink</artifactId>
-            <version>${parent.version}</version>
+            <version>${project.version}</version>
         </dependency>
-
         <!--flink-->
         <dependency>
             <groupId>org.apache.flink</groupId>

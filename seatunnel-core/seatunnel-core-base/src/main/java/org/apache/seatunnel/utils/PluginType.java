@@ -22,7 +22,7 @@ public enum PluginType {
 
     private String type;
 
-    private PluginType(String type) {
+    PluginType(String type) {
         this.type = type;
     }
 

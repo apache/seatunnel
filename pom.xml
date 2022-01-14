@@ -116,6 +116,7 @@
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
+        <druid.version>0.22.0</druid.version>
         <calcite-druid.version>1.29.0</calcite-druid.version>
         <config.version>1.3.3</config.version>
         <cassandra.version>2.4.2</cassandra.version>
@@ -169,6 +170,12 @@
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-table-planner-blink_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
             </dependency>
@@ -407,6 +414,11 @@
                 <scope>test</scope>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.druid</groupId>
+                <artifactId>druid-indexing-service</artifactId>
+                <version>${druid.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.calcite</groupId>
                 <artifactId>calcite-druid</artifactId>
@@ -753,12 +765,6 @@
                     </executions>
                 </plugin>
                 <!-- maven deploy (End) -->
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-shade-plugin</artifactId>
-                    <version>${maven-shade-plugin.version}</version>
-                </plugin>
 
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
