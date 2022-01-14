@@ -120,6 +120,7 @@
         <config.version>1.3.3</config.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
+        <influxdb-java.version>2.22</influxdb-java.version>
     </properties>
 
     <dependencyManagement>
@@ -426,6 +427,12 @@
                 <groupId>com.typesafe</groupId>
                 <artifactId>config</artifactId>
                 <version>${config.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.influxdb</groupId>
+                <artifactId>influxdb-java</artifactId>
+                <version>${influxdb-java.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
