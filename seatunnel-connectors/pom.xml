@@ -58,7 +58,7 @@
         <module>seatunnel-connector-flink-fake</module>
         <module>seatunnel-connector-flink-socket</module>
         <module>seatunnel-connector-flink-doris</module>
-
+        <module>seatunnel-connector-flink-influxdb</module>
     </modules>
 
 </project>
