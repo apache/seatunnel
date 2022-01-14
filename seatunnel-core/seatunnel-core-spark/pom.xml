@@ -150,6 +150,30 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-spark-cassandra</artifactId>
+            <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>joda-time</artifactId>
+                    <groupId>joda-time</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>netty-all</artifactId>
+                    <groupId>io.netty</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>scala-library</artifactId>
+                    <groupId>org.scala-lang</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>scala-reflect</artifactId>
+                    <groupId>org.scala-lang</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-transform-spark-split</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -164,6 +188,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-transform-spark-json</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-configuration</groupId>
+            <artifactId>commons-configuration</artifactId>
+            <version>1.9</version>
         </dependency>
     </dependencies>
 
