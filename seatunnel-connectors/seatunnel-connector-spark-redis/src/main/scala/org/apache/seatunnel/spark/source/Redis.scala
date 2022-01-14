@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.spark.source
 
-import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
-import org.apache.spark.sql.{Dataset, Row}
+import com.redislabs.provider.redis.{toRedisContext, RedisConfig, RedisEndpoint}
+import org.apache.seatunnel.common.Constants
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.sql.{Dataset, Row}
 
 class Redis extends SparkBatchSource {
   val defaultPort: Int = 6379
@@ -45,7 +46,7 @@ class Redis extends SparkBatchSource {
         new CheckResult(
           false,
           "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
-      case _ => new CheckResult(true, "")
+      case _ => new CheckResult(true, Constants.CHECK_SUCCESS)
     }
   }
 

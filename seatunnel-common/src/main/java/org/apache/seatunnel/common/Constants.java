@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.common;
 
-public final class RowConstant {
-    public static final String ROOT = "__root__";
-    public static final String TMP = "__tmp__";
-    public static final String JSON = "__json__";
+public final class Constants {
+    public static final String ROW_ROOT = "__root__";
+    public static final String ROW_TMP = "__tmp__";
+    public static final String ROW_JSON = "__json__";
 
-    private RowConstant() {
+    public static final String CHECK_SUCCESS = "All check is success";
+
+    private Constants() {
     }
 }
