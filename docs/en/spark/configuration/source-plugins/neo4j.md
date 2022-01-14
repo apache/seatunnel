@@ -6,7 +6,11 @@ Read data from Neo4j.
 
 Neo4j Connector for Apache Spark allows you to read data from Neo4j in 3 different ways: by node labels, by relationship name, and by direct Cypher query.
 
+The Options required of yes* means that  you must specify  one way of (query labels relationship)
+
 for detail neo4j config message please visit [neo4j doc](#https://neo4j.com/docs/spark/current/reading/) 
+
+
 
 ## Options
 
@@ -51,15 +55,15 @@ url
 
 ### query [string]
 
-Cypher query to read the data
+Cypher query to read the data. you must specify  one way of (query labels relationship)
 
 ### labels [string]
 
-List of node labels separated by :. The first label will be the primary label
+List of node labels separated by : The first label will be the primary label. you must specify  one way of (query labels relationship)
 
 ### relationship [string]
 
-Name of a relationship
+Name of a relationship. you must specify  one way of (query labels relationship)
 
 ### schema_flatten_limit [string]
 Number of records to be used to create the Schema (only if APOC are not installed)
