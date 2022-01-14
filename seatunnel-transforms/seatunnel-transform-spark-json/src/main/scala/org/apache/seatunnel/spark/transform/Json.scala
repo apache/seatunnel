@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.RowConstant
 import org.apache.seatunnel.common.config.{CheckResult, Common, ConfigRuntimeException}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
@@ -24,9 +23,11 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.slf4j.LoggerFactory
-
 import java.io.File
 import java.nio.file.Paths
+
+import org.apache.seatunnel.common.Constants
+
 import scala.collection.JavaConversions._
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
@@ -45,7 +46,7 @@ class Json extends BaseSparkTransform {
     import spark.implicits._
 
     config.getString("target_field") match {
-      case RowConstant.ROOT => {
+      case Constants.ROW_ROOT => {
 
         val jsonRDD = df.select(srcField).as[String].rdd
 
@@ -64,11 +65,11 @@ class Json extends BaseSparkTransform {
           case s: String => {
             val schema =
               if (this.useCustomSchema) this.customSchema else spark.read.json(jsonRDD).schema
-            var tmpDf = df.withColumn(RowConstant.TMP, from_json(col(s), schema))
+            var tmpDf = df.withColumn(Constants.ROW_TMP, from_json(col(s), schema))
             schema.map { field =>
-              tmpDf = tmpDf.withColumn(field.name, col(RowConstant.TMP)(field.name))
+              tmpDf = tmpDf.withColumn(field.name, col(Constants.ROW_TMP)(field.name))
             }
-            tmpDf.drop(RowConstant.TMP)
+            tmpDf.drop(Constants.ROW_TMP)
           }
         }
 
@@ -90,13 +91,13 @@ class Json extends BaseSparkTransform {
     }
   }
 
-  override def checkConfig(): CheckResult = new CheckResult(true, "")
+  override def checkConfig(): CheckResult = new CheckResult(true, Constants.CHECK_SUCCESS)
 
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "source_field" -> "raw_message",
-        "target_field" -> RowConstant.ROOT,
+        "target_field" -> Constants.ROW_ROOT,
         "schema_dir" -> Paths
           .get(Common.pluginFilesDir("json").toString, "schemas")
           .toString,
