@@ -34,7 +34,8 @@ class Cassandra extends SparkBatchSource {
       .options(Map(
       "table" -> config.getString("table"),
       "keyspace" -> config.getString("keyspace"),
-      "cluster" -> config.getString("cluster")
+      "cluster" -> config.getString("cluster"),
+      "pushdown" -> config.getString("true")
     )).load()
   }
 
@@ -45,7 +46,8 @@ class Cassandra extends SparkBatchSource {
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "cluster" -> "default"))
+        "cluster" -> "default",
+        "pushdown" -> "true"))
     config = config.withFallback(defaultConfig)
   }
 }

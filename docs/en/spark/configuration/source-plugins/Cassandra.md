@@ -24,7 +24,6 @@ Refer to [spark-cassandra-connection-options](https://github.com/datastax/spark-
 | [keyspace](#keyspace-string)         | string | yes      | -             |
 | [cluster](#cluster-string)          | string | no       | default       |
 | [pushdown](#pushdown-string)         | string | no       | true         |
-| [confirm.truncate](#confirm.truncate-string) | string | no       | false         |
 
 ##### table [string]
 
@@ -41,10 +40,6 @@ The group of the Cluster Level Settings to inherit
 ##### pushdown [string]
 
 Enables pushing down predicates to Cassandra when applicable
-
-##### confirm.truncate [string]
-
-Confirm to truncate table when use Save.overwrite mode
 
 ### Example
 
