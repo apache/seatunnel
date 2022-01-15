@@ -16,7 +16,6 @@ Cassandra connection host
 ##### other
 Refer to [spark-cassandra-connection-options](https://github.com/datastax/spark-cassandra-connector/blob/b2.4/doc/reference.md#cassandra-connection-parameters) for configurations.
 
-
 ### Options
 
 | name             | type   | required | default value |
@@ -50,7 +49,7 @@ Confirm to truncate table when use Save.overwrite mode
 ### Example
 
 ```bash
-kudu {
+cassandra {
     table = "t2"
     keyspace = "excelsior"
     result_table_name = "test"

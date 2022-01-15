@@ -77,7 +77,6 @@
         <mysql.version>8.0.16</mysql.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
-        <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
         <maven-surefire-plugin.version>2.22.1</maven-surefire-plugin.version>
         <maven-checkstyle-plugin.version>3.1.0</maven-checkstyle-plugin.version>
@@ -105,7 +104,7 @@
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
-        <spark.scope>compile</spark.scope>
+        <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
         <httpclient.version>4.5.2</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
@@ -424,7 +423,6 @@
                 <artifactId>calcite-druid</artifactId>
                 <version>${calcite-druid.version}</version>
             </dependency>
-
             <dependency>
                 <groupId>com.typesafe</groupId>
                 <artifactId>config</artifactId>
