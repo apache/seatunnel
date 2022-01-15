@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.spark.transform
 
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
@@ -27,11 +28,7 @@ class Sql extends BaseSparkTransform {
   }
 
   override def checkConfig(): CheckResult = {
-    if (config.hasPath("sql")) {
-      new CheckResult(true, "")
-    } else {
-      new CheckResult(false, "please specify [sql]")
-    }
+    check(config, "sql")
   }
 
   override def prepare(env: SparkEnvironment): Unit = {}

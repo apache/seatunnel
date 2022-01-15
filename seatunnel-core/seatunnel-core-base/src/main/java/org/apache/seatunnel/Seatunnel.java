@@ -156,7 +156,10 @@ public class Seatunnel {
     }
 
     private static void showAsciiLogo() {
-        AsciiArtUtils.printAsciiArt("SeaTunnel");
+        String printAsciiLogo = System.getenv("SEATUNNEL_PRINT_ASCII_LOGO");
+        if ("true".equalsIgnoreCase(printAsciiLogo)) {
+            AsciiArtUtils.printAsciiArt(printAsciiLogo);
+        }
     }
 
     private static void showConfigError(Throwable throwable) {

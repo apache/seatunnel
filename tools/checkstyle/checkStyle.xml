@@ -336,11 +336,10 @@
             <property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$)"/>
             <message key="name.invalidPattern" value="Class type name ''{0}'' must match pattern ''{1}''."/>
         </module>
-        
+
         <module name="PackageName">
-            <property name="format" value="^org\.apache\.seatunnel(\.[a-zA-Z][a-zA-Z0-9]*)*$"/>
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]{1,})*$"/>
             <property name="severity" value="error"/>
-            <message key="name.invalidPattern" value="Package name ''{0}'' must match pattern ''{1}''."/>
         </module>
 
         <module name="ConstantNameCheck">

@@ -16,18 +16,19 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import java.io.ByteArrayOutputStream
+
+import scala.collection.JavaConverters._
+
 import com.norbitltd.spoiwo.model.Workbook
 import com.norbitltd.spoiwo.natures.xlsx.Model2XlsxConversions._
 import com.typesafe.config.ConfigFactory
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
 import play.api.libs.mailer.{Attachment, AttachmentData, Email, SMTPConfiguration, SMTPMailer}
-
-import java.io.ByteArrayOutputStream
-import scala.collection.JavaConverters._
 
 class Email extends SparkBatchSink {
 
@@ -94,32 +95,18 @@ class Email extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List("from", "to", "host", "port", "password")
-    val nonExistsOptions =
-      requiredOptions.map(optionName => (optionName, config.hasPath(optionName))).filter(!_._2)
-
-    if (nonExistsOptions.nonEmpty) {
-      new CheckResult(
-        false,
-        "please specify " + nonExistsOptions
-          .map { option =>
-            val (name, _) = option
-            "[" + name + "]"
-          }
-          .mkString(", ") + " as non-empty string")
-    }
-    new CheckResult(true, "")
+    CheckConfigUtil.check(config, "from", "to", "host", "port", "password")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {}
 
   def createMailer(
-                    host: String,
-                    port: Int,
-                    user: String,
-                    password: String,
-                    timeout: Int = 10000,
-                    connectionTimeout: Int = 10000): SMTPMailer = {
+      host: String,
+      port: Int,
+      user: String,
+      password: String,
+      timeout: Int = 10000,
+      connectionTimeout: Int = 10000): SMTPMailer = {
     // STMP's service SMTPConfiguration
     val configuration = new SMTPConfiguration(
       host,

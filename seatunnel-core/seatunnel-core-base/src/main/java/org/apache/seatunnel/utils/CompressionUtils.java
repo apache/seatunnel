@@ -57,7 +57,7 @@ public class CompressionUtils {
 
         LOGGER.info(String.format("Untaring %s to dir %s.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath()));
 
-        final List<File> untaredFiles = new LinkedList<File>();
+        final List<File> untaredFiles = new LinkedList<>();
         final InputStream is = new FileInputStream(inputFile);
         final TarArchiveInputStream debInputStream = (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is);
         TarArchiveEntry entry = null;
@@ -92,7 +92,7 @@ public class CompressionUtils {
      *
      * @param inputFile the input .gz file
      * @param outputDir the output directory file.
-     * @return The {@File} with the ungzipped content.
+     * @return The {@link File} with the ungzipped content.
      * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
      */
