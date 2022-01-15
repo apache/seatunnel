@@ -1,8 +1,8 @@
-# Source plugin: Cassandra
+# Sink plugin: Cassandra
 
 ### Description
 
-Read data from Cassandra.
+Write data into Cassandra.
 
 ### Env
 | name           | type   | required | default value |
@@ -23,7 +23,6 @@ Refer to [spark-cassandra-connection-options](https://github.com/datastax/spark-
 | [table](#table-string)            | string | yes      | -             |
 | [keyspace](#keyspace-string)         | string | yes      | -             |
 | [cluster](#cluster-string)          | string | no       | default       |
-| [pushdown](#pushdown-string)         | string | no       | true         |
 | [confirm.truncate](#confirm.truncate-string) | string | no       | false         |
 
 ##### table [string]
@@ -37,10 +36,6 @@ The keyspace where table is looked for
 ##### cluster [string]
 
 The group of the Cluster Level Settings to inherit
-
-##### pushdown [string]
-
-Enables pushing down predicates to Cassandra when applicable
 
 ##### confirm.truncate [string]
 

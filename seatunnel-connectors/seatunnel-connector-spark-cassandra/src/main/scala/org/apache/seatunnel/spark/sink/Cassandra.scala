@@ -14,28 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.source
+package org.apache.seatunnel.spark.sink
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.check
-
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
-import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
 
-class Cassandra extends SparkBatchSource {
+class Cassandra extends SparkBatchSink {
 
-  override def getData(env: SparkEnvironment): Dataset[Row] = {
-
-    env.getSparkSession.read.format("org.apache.spark.sql.cassandra")
+  override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
+    data.write
+      .format("org.apache.spark.sql.cassandra")
       .options(Map(
-      "table" -> config.getString("table"),
-      "keyspace" -> config.getString("keyspace"),
-      "cluster" -> config.getString("cluster")
-    )).load()
+        "table" -> config.getString("table"),
+        "keyspace" -> config.getString("keyspace"),
+        "cluster" -> config.getString("cluster")))
+      .save()
   }
 
   override def checkConfig(): CheckResult = {
