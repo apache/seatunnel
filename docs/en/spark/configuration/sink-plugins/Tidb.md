@@ -29,7 +29,6 @@ Spark Sql Extensions
 | [password](#password-string)         | string | yes      | -             |
 | [table](#table-string)            | string | yes      | -             |
 | [database](#database-string)        | string | yes       |        |
-| [replace](#replace-string)        | string | no       | false        |
 
 ##### addr [string]
 
@@ -55,12 +54,9 @@ TiDB table name
 
 TiDB database name
 
-##### replace [string]
+##### options
 
-- `true`:
-   - Update if the primary key or unique index exists in the table, otherwise insert.
-- `false`:
-   - Data with conflicts expects an exception if the primary key or unique index exists in the table, otherwise insert.
+Refer to [TiSpark Configurations](https://github.com/pingcap/tispark/blob/v2.4.1/docs/datasource_api_userguide.md)
 
 ### Examples
 
