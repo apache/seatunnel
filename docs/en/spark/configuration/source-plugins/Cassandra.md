@@ -41,6 +41,9 @@ The group of the Cluster Level Settings to inherit
 
 Enables pushing down predicates to Cassandra when applicable
 
+##### others
+
+Refer to [Spark-Cassandra-Connector Options](https://github.com/datastax/spark-cassandra-connector/blob/b2.4/doc/14_data_frames.md)
 ### Example
 
 ```bash

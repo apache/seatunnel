@@ -17,26 +17,41 @@
 package org.apache.seatunnel.spark.source
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.check
-
-import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
+import scala.util.{Failure, Success, Try}
 
 class Cassandra extends SparkBatchSource {
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
 
-    env.getSparkSession.read.format("org.apache.spark.sql.cassandra")
+    val reader = env.getSparkSession.read.format("org.apache.spark.sql.cassandra")
       .options(Map(
-      "table" -> config.getString("table"),
-      "keyspace" -> config.getString("keyspace"),
-      "cluster" -> config.getString("cluster"),
-      "pushdown" -> config.getString("true")
-    )).load()
+        "table" -> config.getString("table"),
+        "keyspace" -> config.getString("keyspace"),
+        "cluster" -> config.getString("cluster"),
+        "pushdown" -> config.getString("true")
+      ))
+
+    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
+
+      case Success(options) =>
+        val optionMap = options
+          .entrySet()
+          .foldRight(Map[String, String]())((entry, m) => {
+            m + (entry.getKey -> entry.getValue.unwrapped().toString)
+          })
+
+        reader.options(optionMap)
+      case Failure(exception) => // do nothing
+    }
+
+    reader.load()
   }
 
   override def checkConfig(): CheckResult = {
