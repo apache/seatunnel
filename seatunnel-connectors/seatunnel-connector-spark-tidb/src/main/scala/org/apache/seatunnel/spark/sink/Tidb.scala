@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.spark.sink
 
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
@@ -57,26 +58,7 @@ class Tidb extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-
-    val requiredOptions = List("addr", "port", "database", "table", "user", "password");
-
-    val nonExistsOptions = requiredOptions
-      .map(optionName => (optionName, config.hasPath(optionName)))
-      .filter { p =>
-          val (_, exists) = p
-          !exists
-      }
-
-    if (nonExistsOptions.nonEmpty) {
-      new CheckResult(
-        false,
-        "please specify " + nonExistsOptions
-          .map { case (option) => "[" + option + "]" }
-          .mkString(", ") + " as non-empty string")
-
-    } else {
-      new CheckResult(true, "")
-    }
+    check(config, "addr", "port", "database", "table", "user", "password")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
