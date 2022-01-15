@@ -147,3 +147,13 @@ Thanks to all developers!
 * Slack: https://join.slack.com/t/apacheseatunnel/shared_invite/zt-10u1eujlc-g4E~ppbinD0oKpGeoo_dAw
 * Twitter: https://twitter.com/ASFSeaTunnel
 * [bilibili](https://space.bilibili.com/1542095008) (for china users)
+
+# Landscapes
+
+<p align="center">
+<br/><br/>
+<img src="https://landscape.cncf.io/images/left-logo.svg" width="150"/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200"/>
+<br/><br/>
+SeaTunnel enriches the <a href="https://landscape.cncf.io/landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
+
+</p >

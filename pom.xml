@@ -121,6 +121,7 @@
         <cassandra.version>2.4.2</cassandra.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
+        <influxdb-java.version>2.22</influxdb-java.version>
     </properties>
 
     <dependencyManagement>
@@ -433,6 +434,12 @@
                 <groupId>com.datastax.spark</groupId>
                 <artifactId>spark-cassandra-connector_${scala.binary.version}</artifactId>
                 <version>${cassandra.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.influxdb</groupId>
+                <artifactId>influxdb-java</artifactId>
+                <version>${influxdb-java.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

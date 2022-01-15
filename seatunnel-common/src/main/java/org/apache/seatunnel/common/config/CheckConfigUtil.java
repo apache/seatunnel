@@ -19,6 +19,8 @@ package org.apache.seatunnel.common.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import static org.apache.seatunnel.common.Constants.CHECK_SUCCESS;
+
 public class CheckConfigUtil {
 
     public static CheckResult check(Config config, String... params) {
@@ -34,7 +36,7 @@ public class CheckConfigUtil {
                     missingParams.deleteCharAt(missingParams.length() - 1));
             return new CheckResult(false, errorMsg);
         } else {
-            return new CheckResult(true, "");
+            return new CheckResult(true, CHECK_SUCCESS);
         }
     }
 }
