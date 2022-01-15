@@ -142,7 +142,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
                     break;
                 case "specific":
                     String offset = config.getString("offset.reset.specific");
-                    HashMap<Integer, Long> map = new HashMap<>(16);
+                    HashMap<Integer, Long> map = new HashMap<>();
                     JSONObject.parseObject(offset).forEach((k, v) -> map.put(Integer.valueOf(k), Long.valueOf(v.toString())));
                     kafka.startFromSpecificOffsets(map);
                     break;

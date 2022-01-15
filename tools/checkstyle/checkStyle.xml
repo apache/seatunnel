@@ -194,6 +194,8 @@
 
         <module name="OneStatementPerLine"/>
 
+        <module name="MagicNumber"/>
+
         <module name="MultipleVariableDeclarations"/>
 
         <module name="ArrayTypeStyle"/>

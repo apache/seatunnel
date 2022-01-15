@@ -35,8 +35,12 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+
+    private static final int DEFAULT_BATCH_SIZE = 100;
+    private static final long DEFAULT_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1);
 
     private Config config;
     private String fenodes;
@@ -44,8 +48,8 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
     private String password;
     private String tableName;
     private String dbName;
-    private int batchSize = 100;
-    private long batchIntervalMs = 1000;
+    private int batchSize = DEFAULT_BATCH_SIZE;
+    private long batchIntervalMs = DEFAULT_INTERVAL_MS;
     private int maxRetries = 1;
     private Properties streamLoadProp = new Properties();
 
