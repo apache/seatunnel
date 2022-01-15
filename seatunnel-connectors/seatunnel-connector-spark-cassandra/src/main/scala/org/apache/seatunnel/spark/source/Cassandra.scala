@@ -35,7 +35,7 @@ class Cassandra extends SparkBatchSource {
         "table" -> config.getString("table"),
         "keyspace" -> config.getString("keyspace"),
         "cluster" -> config.getString("cluster"),
-        "pushdown" -> config.getString("true")
+        "pushdown" -> config.getString("pushdown")
       ))
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
