@@ -14,7 +14,8 @@ Write data into Cassandra.
 Cassandra connection host
 
 ##### other
-Refer to [spark-cassandra-connection-options](https://github.com/datastax/spark-cassandra-connector/blob/b2.4/doc/reference.md#cassandra-connection-parameters) for configurations.
+
+Refer to [spark-cassandra-connector-options](https://github.com/datastax/spark-cassandra-connector/blob/b2.4/doc/reference.md) for configurations.
 
 ### Options
 
