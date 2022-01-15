@@ -190,11 +190,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>commons-configuration</groupId>
-            <artifactId>commons-configuration</artifactId>
-            <version>1.9</version>
-        </dependency>
     </dependencies>
 
     <build>
