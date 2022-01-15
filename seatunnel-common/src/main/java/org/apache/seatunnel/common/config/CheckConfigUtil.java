@@ -17,16 +17,26 @@
 
 package org.apache.seatunnel.common.config;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import static org.apache.seatunnel.common.Constants.CHECK_SUCCESS;
 
 public class CheckConfigUtil {
 
     public static CheckResult check(Config config, String... params) {
+        StringBuilder missingParams = new StringBuilder();
         for (String param : params) {
             if (!config.hasPath(param) || config.getAnyRef(param) == null) {
-                return new CheckResult(false, "please specify [" + param + "] as non-empty");
+                missingParams.append(param).append(",");
             }
         }
-        return new CheckResult(true, "");
+
+        if (missingParams.length() > 0) {
+            String errorMsg = String.format("please specify [%s] as non-empty",
+                    missingParams.deleteCharAt(missingParams.length() - 1));
+            return new CheckResult(false, errorMsg);
+        } else {
+            return new CheckResult(true, CHECK_SUCCESS);
+        }
     }
 }

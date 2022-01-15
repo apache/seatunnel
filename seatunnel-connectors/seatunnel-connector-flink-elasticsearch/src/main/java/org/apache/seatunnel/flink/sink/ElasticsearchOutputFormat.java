@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;

@@ -24,9 +24,9 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.config.Config;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;

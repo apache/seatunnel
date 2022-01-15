@@ -16,9 +16,10 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.utils.StringTemplate
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -41,14 +42,7 @@ class Elasticsearch extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    config.hasPath("hosts") && config.getStringList("hosts").size() > 0 match {
-      case true => {
-        val hosts = config.getStringList("hosts")
-        // TODO CHECK hosts
-        new CheckResult(true, "")
-      }
-      case false => new CheckResult(false, "please specify [hosts] as a non-empty string list")
-    }
+    check(config, "hosts")
   }
 
   override def prepare(environment: SparkEnvironment): Unit = {

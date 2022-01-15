@@ -16,8 +16,9 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import org.apache.seatunnel.common.Constants
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -53,7 +54,7 @@ class Console extends SparkBatchSink {
 
   override def checkConfig(): CheckResult = {
     !config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1) match {
-      case true => new CheckResult(true, "")
+      case true => new CheckResult(true, Constants.CHECK_SUCCESS)
       case false =>
         new CheckResult(false, "please specify [limit] as Number[-1, " + Int.MaxValue + "]")
     }

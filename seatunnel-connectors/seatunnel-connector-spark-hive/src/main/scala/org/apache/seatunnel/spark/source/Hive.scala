@@ -16,20 +16,18 @@
  */
 package org.apache.seatunnel.spark.source
 
-import org.apache.spark.sql.{Dataset, Row}
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.sql.{Dataset, Row}
 
 class Hive extends SparkBatchSource {
 
   override def prepare(env: SparkEnvironment): Unit = {}
 
   override def checkConfig(): CheckResult = {
-    config.hasPath("pre_sql") match {
-      case true => new CheckResult(true, "")
-      case false => new CheckResult(false, "please specify [pre_sql]")
-    }
+    check(config, "pre_sql")
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {

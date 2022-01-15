@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.flink.batch;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
@@ -120,7 +121,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true, "");
+        return new CheckResult(true, Constants.CHECK_SUCCESS);
     }
 
     @Override
