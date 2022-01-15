@@ -24,6 +24,7 @@ Refer to [spark-cassandra-connection-options](https://github.com/datastax/spark-
 | [keyspace](#keyspace-string)         | string | yes      | -             |
 | [cluster](#cluster-string)          | string | no       | default       |
 | [confirm.truncate](#confirm.truncate-string) | string | no       | false         |
+| [save.mode](#save.mode-string)         | string | no      | append            |
 
 ##### table [string]
 
@@ -40,6 +41,10 @@ The group of the Cluster Level Settings to inherit
 ##### confirm.truncate [string]
 
 Confirm to truncate table when use Save.overwrite mode
+
+##### save.mode [string]
+
+Save mode
 
 ### Example
 
