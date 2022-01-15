@@ -53,7 +53,7 @@ class SparkEnvironment extends RuntimeEnv {
     config
       .entrySet()
       .foreach(entry => {
-        sparkConf.set(entry.getKey.replaceAll("\"",""), String.valueOf(entry.getValue.unwrapped()))
+        sparkConf.set(entry.getKey, String.valueOf(entry.getValue.unwrapped()))
       })
 
     sparkConf
