@@ -20,6 +20,7 @@ package org.apache.seatunnel;
 import org.apache.seatunnel.apis.BaseSink;
 import org.apache.seatunnel.apis.BaseSource;
 import org.apache.seatunnel.apis.BaseTransform;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
@@ -158,7 +159,7 @@ public class Seatunnel {
     private static void showAsciiLogo() {
         String printAsciiLogo = System.getenv("SEATUNNEL_PRINT_ASCII_LOGO");
         if ("true".equalsIgnoreCase(printAsciiLogo)) {
-            AsciiArtUtils.printAsciiArt(printAsciiLogo);
+            AsciiArtUtils.printAsciiArt(Constants.LOGO);
         }
     }
 
