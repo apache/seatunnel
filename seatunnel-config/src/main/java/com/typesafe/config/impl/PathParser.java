@@ -31,21 +31,6 @@ import java.util.Iterator;
 import java.util.List;
 
 final class PathParser {
-    static class Element {
-        StringBuilder sb;
-        // an element can be empty if it has a quoted empty string "" in it
-        boolean canBeEmpty;
-
-        Element(String initial, boolean canBeEmpty) {
-            this.canBeEmpty = canBeEmpty;
-            this.sb = new StringBuilder(initial);
-        }
-
-        @Override
-        public String toString() {
-            return "Element(" + sb.toString() + "," + canBeEmpty + ")";
-        }
-    }
 
     static ConfigOrigin API_ORIGIN = SimpleConfigOrigin.newSimple("path parameter");
 
@@ -304,5 +289,21 @@ final class PathParser {
         }
 
         return fastPathBuild(null, s, s.length());
+    }
+
+    static class Element {
+        StringBuilder sb;
+        // an element can be empty if it has a quoted empty string "" in it
+        boolean canBeEmpty;
+
+        Element(String initial, boolean canBeEmpty) {
+            this.canBeEmpty = canBeEmpty;
+            this.sb = new StringBuilder(initial);
+        }
+
+        @Override
+        public String toString() {
+            return "Element(" + sb.toString() + "," + canBeEmpty + ")";
+        }
     }
 }
