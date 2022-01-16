@@ -21,6 +21,8 @@
 CMD_ARGUMENTS=$@
 
 PARAMS=""
+variables_substitution="-Ddefault=seatunnel"
+
 while (( "$#" )); do
   case "$1" in
     -m|--master)
@@ -49,6 +51,7 @@ while (( "$#" )); do
       QUEUE=$2
       shift 2
       ;;
+
 
     --) # end argument parsing
       shift
@@ -125,9 +128,9 @@ string_trim() {
 
 variables_substitution=$(string_trim "${variables_substitution}")
 
-## get spark conf from config file and specify them in spark-submit
+## get spark conf from config file and specify them in spark-submit --conf
 function get_spark_conf {
-    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE})
+    spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} io.github.interestinglab.waterdrop.config.ExposeSparkConf ${CONFIG_FILE} "${variables_substitution}")
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
         exit -1
@@ -135,20 +138,9 @@ function get_spark_conf {
     echo ${spark_conf}
 }
 
-sparkconf=$(get_spark_conf)
+sparkConf=$(get_spark_conf)
 
-echo "[INFO] spark conf: ${sparkconf}"
-
-# Spark Driver Options
-driverJavaOpts=""
-executorJavaOpts=""
-clientModeDriverJavaOpts=""
-if [ ! -z "${variables_substitution}" ]; then
-  driverJavaOpts="${variables_substitution}"
-  executorJavaOpts="${variables_substitution}"
-  # in local, client mode, driverJavaOpts can not work, we must use --driver-java-options
-  clientModeDriverJavaOpts="${variables_substitution}"
-fi
+echo "[INFO] spark conf: ${sparkConf}"
 
 
 ## compress plugins.tar.gz in cluster mode
@@ -170,16 +162,14 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
   fi
 fi
 
-
-exec ${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.WaterdropStructuredStreaming \
+CMD=(${SPARK_HOME}/bin/spark-submit --class io.github.interestinglab.waterdrop.WaterdropStructuredStreaming \
     --name $(getAppName ${CONFIG_FILE}) \
     --master ${MASTER} \
     --deploy-mode ${DEPLOY_MODE} \
     --queue "${QUEUE}" \
-    --driver-java-options "${clientModeDriverJavaOpts}" \
-    --conf spark.executor.extraJavaOptions="${executorJavaOpts}" \
-    --conf spark.driver.extraJavaOptions="${driverJavaOpts}" \
-    ${sparkconf} \
+    "${sparkConf}" \
     ${JarDepOpts} \
     ${FilesDepOpts} \
-    ${assemblyJarName} ${CMD_ARGUMENTS}
+    ${assemblyJarName} ${CMD_ARGUMENTS})
+
+eval "${CMD[@]}"
