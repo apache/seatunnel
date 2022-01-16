@@ -419,7 +419,6 @@
                 <artifactId>tispark-assembly</artifactId>
                 <version>${tispark.version}</version>
             </dependency>
-
             <dependency>
                 <groupId>org.apache.druid</groupId>
                 <artifactId>druid-indexing-service</artifactId>
