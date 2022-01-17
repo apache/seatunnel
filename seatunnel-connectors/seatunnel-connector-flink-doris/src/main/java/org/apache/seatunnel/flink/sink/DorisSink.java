@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private static final int DEFAULT_BATCH_SIZE = 100;
-    private static final long DEFAULT_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1);
+    private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
 
     private Config config;
     private String fenodes;

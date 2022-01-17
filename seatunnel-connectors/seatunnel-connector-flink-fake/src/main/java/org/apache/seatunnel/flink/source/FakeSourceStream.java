@@ -73,7 +73,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
             int randomNum = (int) (1 + Math.random() * NAME_ARRAY.length);
             Row row = Row.of(NAME_ARRAY[randomNum - 1], System.currentTimeMillis());
             ctx.collect(row);
-            Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
         }
     }
 
