@@ -22,6 +22,8 @@ public final class Constants {
     public static final String ROW_TMP = "__tmp__";
     public static final String ROW_JSON = "__json__";
 
+    public static final String LOGO = "SeaTunnel";
+
     public static final String CHECK_SUCCESS = "All check is success";
 
     private Constants() {
