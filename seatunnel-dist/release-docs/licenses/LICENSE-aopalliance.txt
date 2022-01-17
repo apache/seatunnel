@@ -1,0 +1,18 @@
+Being in the public domain is not a license; rather, it means the
+material is not copyrighted and no license is needed. Practically
+speaking, though, if a work is in the public domain, it might as well
+have an all-permissive non-copyleft free software license. Public
+domain material is compatible with the GNU GPL.
+
+If you want to release your work to the public domain, we encourage
+you to use formal tools to do so. We ask people who make small
+contributions to GNU to sign a disclaimer form; that's one
+solution. If you're working on a project that doesn't have formal
+contribution policies like that, CC0 is a good tool that anyone can
+use. It formally dedicates your work to the public domain, and
+provides a fallback license for cases where that is not legally
+possible.
+
+http://directory.fsf.org/wiki/License:CC0
+
+Source: http://www.gnu.org/licenses/license-list.html#PublicDomain 
