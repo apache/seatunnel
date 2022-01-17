@@ -43,6 +43,8 @@ import java.util.Map;
 
 public class FileSource implements FlinkBatchSource<Row> {
 
+    private static final int DEFAULT_BATCH_SIZE = 1000;
+
     private Config config;
 
     private InputFormat inputFormat;
@@ -90,7 +92,7 @@ public class FileSource implements FlinkBatchSource<Row> {
                 inputFormat = new ParquetRowInputFormat(filePath, messageType);
                 break;
             case "orc":
-                OrcRowInputFormat orcRowInputFormat = new OrcRowInputFormat(path, schemaContent, null, 1000);
+                OrcRowInputFormat orcRowInputFormat = new OrcRowInputFormat(path, schemaContent, null, DEFAULT_BATCH_SIZE);
                 this.inputFormat = orcRowInputFormat;
                 break;
             case "csv":
