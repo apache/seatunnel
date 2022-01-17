@@ -65,13 +65,11 @@ fi
 eval set -- "$PARAMS"
 
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-UTILS_DIR=${BIN_DIR}/utils
 APP_DIR=$(dirname ${BIN_DIR})
 CONF_DIR=${APP_DIR}/config
 PLUGINS_DIR=${APP_DIR}/lib
 DEFAULT_CONFIG=${CONF_DIR}/application.conf
 CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
-
 
 assemblyJarName=$(find ${PLUGINS_DIR} -name seatunnel-core-sql*.jar)
 
