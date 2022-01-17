@@ -36,10 +36,10 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     private static final String HOST = "host";
     private static final String PORT = "port";
+    private static final int DEFAULT_PORT = 9999;
 
     private String host = "localhost";
-
-    private int port = 9999;
+    private int port = DEFAULT_PORT;
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
