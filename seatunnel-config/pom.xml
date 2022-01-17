@@ -63,6 +63,7 @@
                     <createSourcesJar>true</createSourcesJar>
                     <shadeSourcesContent>true</shadeSourcesContent>
                     <shadedArtifactAttached>false</shadedArtifactAttached>
+                    <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
                             <artifact>com.typesafe:config</artifact>
