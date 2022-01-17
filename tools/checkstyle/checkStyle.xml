@@ -173,6 +173,7 @@
             <property name="severity" value="error"/>
         </module>
 
+        <module name="InnerTypeLast"/>
         <module name="IllegalTokenText">
             <property name="tokens" value="STRING_LITERAL, CHAR_LITERAL"/>
             <property name="format"
