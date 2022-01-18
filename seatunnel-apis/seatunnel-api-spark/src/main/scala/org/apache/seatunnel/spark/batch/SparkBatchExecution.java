@@ -36,6 +36,12 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     private SparkEnvironment environment;
     private Config config = ConfigFactory.empty();
 
+    @SuppressWarnings("PMD.ConstantFieldShouldBeUpperCaseRule")
+    public static final String resultTableName = "result_table_name";
+
+    @SuppressWarnings("PMD.ConstantFieldShouldBeUpperCaseRule")
+    public static final String sourceTableName = "source_table_name";
+
     @Override
     public void setConfig(Config config) {
         this.config = config;
