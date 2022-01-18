@@ -55,15 +55,15 @@ url
 
 ### query [string]
 
-Cypher query to read the data. you must specify  one way of (query labels relationship)
+Cypher query to read the data.You must specify one option from [query, labels OR relationship]
 
 ### labels [string]
 
-List of node labels separated by : The first label will be the primary label. you must specify  one way of (query labels relationship)
+List of node labels separated by : The first label will be the primary label. You must specify one option from [query, labels OR relationship]
 
 ### relationship [string]
 
-Name of a relationship. you must specify  one way of (query labels relationship)
+Name of a relationship. You must specify one option from [query, labels OR relationship]
 
 ### schema.flatten.limit [string]
 Number of records to be used to create the Schema (only if APOC are not installed)

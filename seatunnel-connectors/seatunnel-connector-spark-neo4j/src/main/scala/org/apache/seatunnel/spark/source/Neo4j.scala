@@ -43,9 +43,9 @@ class Neo4j extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
 
-    val checkALL: CheckResult = CheckConfigUtil.checkOne(config, "query", "labels", "relationship")
-    val checkOne: CheckResult = CheckConfigUtil.check(config, "result_table_name", "url")
-    CheckConfigUtil.mergeCheckMessage(checkALL, checkOne);
+    val checkMustConfigOneOfParams: CheckResult = CheckConfigUtil.checkOne(config, "query", "labels", "relationship")
+    val checkMustConfigAllParams: CheckResult = CheckConfigUtil.check(config, "result_table_name", "url")
+    CheckConfigUtil.mergeCheckMessage(checkMustConfigAllParams, checkMustConfigOneOfParams);
 
   }
 
