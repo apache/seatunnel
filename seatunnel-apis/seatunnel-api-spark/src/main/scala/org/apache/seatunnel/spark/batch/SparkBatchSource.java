@@ -14,20 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-import org.apache.seatunnel.apis.BaseSink
-import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
-import org.apache.spark.sql.{Dataset, Row}
+package org.apache.seatunnel.spark.batch;
 
-trait BaseSparkSink[OUT] extends BaseSink[SparkEnvironment] {
-
-  protected var config: Config = ConfigFactory.empty()
-
-  override def setConfig(config: Config): Unit = this.config = config
-
-  override def getConfig: Config = config
-
-  def output(data: Dataset[Row], env: SparkEnvironment): OUT;
-
+import org.apache.seatunnel.spark.BaseSparkSource;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+@SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
+public abstract class SparkBatchSource extends BaseSparkSource<Dataset<Row>> {
 }

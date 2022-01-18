@@ -14,19 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-import org.apache.seatunnel.apis.BaseSource
-import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
+package org.apache.seatunnel.spark;
 
-trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
+import org.apache.seatunnel.apis.BaseSink;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
-  protected var config: Config = ConfigFactory.empty()
+public abstract class BaseSparkSink<OUT>  implements BaseSink<SparkEnvironment> {
+    protected Config config = ConfigFactory.empty();
 
-  override def setConfig(config: Config): Unit = this.config = config
+    @Override
+    public void setConfig(Config config){
+        this.config = config;
+    }
 
-  override def getConfig: Config = config
+    @Override
+    public Config getConfig(){
+        return config;
+    }
 
-  def getData(env: SparkEnvironment): Data;
+    public abstract OUT output(Dataset<Row> data, SparkEnvironment env);
 
 }

@@ -14,8 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.batch
 
-import org.apache.seatunnel.spark.BaseSparkSink
+package org.apache.seatunnel.spark;
 
-trait SparkBatchSink extends BaseSparkSink[Unit] {}
+import org.apache.seatunnel.apis.BaseSource;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+public abstract class BaseSparkSource<Data>  implements BaseSource<SparkEnvironment> {
+    protected Config config = ConfigFactory.empty();
+
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
+    @Override
+    public Config getConfig() {
+        return config;
+    }
+
+    public abstract Data getData(SparkEnvironment env);
+}
