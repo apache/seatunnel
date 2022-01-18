@@ -26,7 +26,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.plugin.Plugin;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
