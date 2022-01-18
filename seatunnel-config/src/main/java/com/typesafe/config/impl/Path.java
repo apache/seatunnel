@@ -27,6 +27,7 @@ final class Path {
 
     private final String first;
     private final Path remainder;
+    private static final int DEFAULT_VALUE = 41;
 
     Path(String first, Path remainder) {
         this.first = first;
@@ -188,7 +189,7 @@ final class Path {
 
     @Override
     public int hashCode() {
-        return 41 * (41 + first.hashCode())
+        return DEFAULT_VALUE * (DEFAULT_VALUE + first.hashCode())
                 + (remainder == null ? 0 : remainder.hashCode());
     }
 
