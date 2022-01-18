@@ -30,8 +30,8 @@ import java.io.Writer;
 
 public class CsvRowOutputFormat extends FileOutputFormat<Row> {
 
+    private static final int STREAM_BUFFER_SIZE = 4096;
     public static final String DEFAULT_LINE_DELIMITER = CsvInputFormat.DEFAULT_LINE_DELIMITER;
-
     public static final String DEFAULT_FIELD_DELIMITER = CsvInputFormat.DEFAULT_FIELD_DELIMITER;
 
     private transient Writer wrt;
@@ -131,8 +131,8 @@ public class CsvRowOutputFormat extends FileOutputFormat<Row> {
     @Override
     public void open(int taskNumber, int numTasks) throws IOException {
         super.open(taskNumber, numTasks);
-        this.wrt = this.charsetName == null ? new OutputStreamWriter(new BufferedOutputStream(this.stream, 4096)) :
-                new OutputStreamWriter(new BufferedOutputStream(this.stream, 4096), this.charsetName);
+        this.wrt = this.charsetName == null ? new OutputStreamWriter(new BufferedOutputStream(this.stream, STREAM_BUFFER_SIZE)) :
+                new OutputStreamWriter(new BufferedOutputStream(this.stream, STREAM_BUFFER_SIZE), this.charsetName);
     }
 
     @Override

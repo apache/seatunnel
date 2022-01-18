@@ -18,10 +18,12 @@ package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 class File extends SparkBatchSource {
 
@@ -33,12 +35,7 @@ class File extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    config.hasPath("path") match {
-      case true =>
-        new CheckResult(true, "")
-      case false =>
-        new CheckResult(false, "please specify [path] as string")
-    }
+    check(config, "path")
   }
 
   protected def fileReader(spark: SparkSession, path: String): Dataset[Row] = {
