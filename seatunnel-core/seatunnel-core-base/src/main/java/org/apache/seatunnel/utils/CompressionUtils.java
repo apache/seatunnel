@@ -32,8 +32,6 @@ import java.io.InputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 public class CompressionUtils {
@@ -48,40 +46,39 @@ public class CompressionUtils {
      *
      * @param inputFile the input .tar file
      * @param outputDir the output directory file.
-     * @return The {@link List} of {@link File}s with the untared content.
      * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
-     * @throws ArchiveException      a rchive exception
+     * @throws ArchiveException      archive exception
      */
-    public static List<File> unTar(final File inputFile, final File outputDir) throws FileNotFoundException, IOException, ArchiveException {
+    public static void unTar(final File inputFile, final File outputDir) throws FileNotFoundException, IOException, ArchiveException {
 
-        LOGGER.info(String.format("Untaring %s to dir %s.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath()));
+        LOGGER.info("Untaring {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
 
-        final List<File> untaredFiles = new LinkedList<>();
-        final InputStream is = new FileInputStream(inputFile);
-        final TarArchiveInputStream debInputStream = (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is);
-        TarArchiveEntry entry = null;
-        while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
-            final File outputFile = new File(outputDir, entry.getName());
-            if (entry.isDirectory()) {
-                LOGGER.info(String.format("Attempting to write output directory %s.", outputFile.getAbsolutePath()));
-                if (!outputFile.exists()) {
-                    LOGGER.info(String.format("Attempting to create output directory %s.", outputFile.getAbsolutePath()));
-                    if (!outputFile.mkdirs()) {
-                        throw new IllegalStateException(String.format("Couldn't create directory %s.", outputFile.getAbsolutePath()));
+        try (InputStream is = new FileInputStream(inputFile);
+             TarArchiveInputStream debInputStream = (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is)) {
+            TarArchiveEntry entry;
+            while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
+                final File outputFile = new File(outputDir, entry.getName());
+                if (outputFile.getPath().contains("..")) {
+                    LOGGER.warn("The {} path contains '..' which is unsafe, let's skip it!", outputFile.getPath());
+                    continue;
+                }
+                if (entry.isDirectory()) {
+                    LOGGER.info("Attempting to write output directory {}.", outputFile.getAbsolutePath());
+                    if (!outputFile.exists()) {
+                        LOGGER.info("Attempting to create output directory {}.", outputFile.getAbsolutePath());
+                        if (!outputFile.mkdirs()) {
+                            throw new IllegalStateException(String.format("Couldn't create directory %s.", outputFile.getAbsolutePath()));
+                        }
+                    }
+                } else {
+                    LOGGER.info("Creating output file {}.", outputFile.getAbsolutePath());
+                    try (OutputStream outputFileStream = new FileOutputStream(outputFile)) {
+                        IOUtils.copy(debInputStream, outputFileStream);
                     }
                 }
-            } else {
-                LOGGER.info(String.format("Creating output file %s.", outputFile.getAbsolutePath()));
-                final OutputStream outputFileStream = new FileOutputStream(outputFile);
-                IOUtils.copy(debInputStream, outputFileStream);
-                outputFileStream.close();
             }
-            untaredFiles.add(outputFile);
         }
-        debInputStream.close();
-
-        return untaredFiles;
     }
 
     /**
