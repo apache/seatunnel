@@ -32,5 +32,6 @@
     <modules>
         <module>seatunnel-flink-examples</module>
         <module>seatunnel-spark-examples</module>
+        <module>seatunnel-sql-examples</module>
     </modules>
 </project>
