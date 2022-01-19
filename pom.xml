@@ -492,13 +492,15 @@
                                 <goal>testCompile</goal>
                             </goals>
                         </execution>
-
                         <!-- attach javadocs and sources , -javadoc.jar, sources.jar, to pass mvn deploy-->
                         <execution>
                             <id>attach-javadocs</id>
                             <goals>
                                 <goal>doc-jar</goal>
                             </goals>
+                            <configuration>
+                                <skip>${maven.javadoc.skip}</skip>
+                            </configuration>
                         </execution>
                         <execution>
                             <id>attach-sources</id>
@@ -506,7 +508,6 @@
                                 <goal>add-source</goal>
                             </goals>
                         </execution>
-
                     </executions>
                 </plugin>
                 <!-- java/scala compiler (End) -->
