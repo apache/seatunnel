@@ -49,6 +49,7 @@ import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INF
 
 public class DruidSource implements FlinkBatchSource<Row> {
 
+    private static final long serialVersionUID = 8152628883440481281L;
     private Config config;
     private DruidInputFormat druidInputFormat;
 

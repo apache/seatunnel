@@ -53,6 +53,7 @@ import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_P
 
 public class JdbcSource implements FlinkBatchSource<Row> {
 
+    private static final long serialVersionUID = -3349505356339446415L;
     private Config config;
     private String tableName;
     private String driverName;

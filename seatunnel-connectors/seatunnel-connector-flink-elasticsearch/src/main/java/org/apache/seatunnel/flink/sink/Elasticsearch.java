@@ -47,6 +47,7 @@ import java.util.Map;
 
 public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
+    private static final long serialVersionUID = 8445868321245456793L;
     private Config config;
     private String indexName;
 

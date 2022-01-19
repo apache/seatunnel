@@ -37,6 +37,7 @@ import org.apache.flink.types.Row;
 
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
+    private static final long serialVersionUID = 3677571223952518115L;
     private static final int DEFAULT_BATCH_SIZE = 5000;
 
     private Config config;

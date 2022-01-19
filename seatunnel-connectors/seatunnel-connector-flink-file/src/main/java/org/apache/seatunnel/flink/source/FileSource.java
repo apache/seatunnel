@@ -43,6 +43,7 @@ import java.util.Map;
 
 public class FileSource implements FlinkBatchSource<Row> {
 
+    private static final long serialVersionUID = -5206798549756998426L;
     private static final int DEFAULT_BATCH_SIZE = 1000;
 
     private Config config;

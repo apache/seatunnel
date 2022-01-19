@@ -43,6 +43,7 @@ import java.util.Properties;
 
 public class KafkaTableStream implements FlinkStreamSource<Row> {
 
+    private static final long serialVersionUID = 5287018194573371428L;
     private Config config;
 
     private Properties kafkaParams = new Properties();

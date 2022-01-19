@@ -57,6 +57,7 @@ import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER
 public class DruidOutputFormat extends RichOutputFormat<Row> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
+    private static final long serialVersionUID = -7410857670269773005L;
 
     private final transient StringBuffer data;
     private final String coordinatorURL;
