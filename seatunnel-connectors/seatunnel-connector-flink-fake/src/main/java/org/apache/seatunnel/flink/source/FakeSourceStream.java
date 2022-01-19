@@ -57,7 +57,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     @Override
     public CheckResult checkConfig() {
-        return CheckResult.SUCCESS;
+        return CheckResult.success();
     }
 
     @Override

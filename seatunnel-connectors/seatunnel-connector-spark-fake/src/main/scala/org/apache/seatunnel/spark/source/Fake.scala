@@ -41,6 +41,6 @@ class Fake extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    CheckResult.SUCCESS
+    CheckResult.success()
   }
 }

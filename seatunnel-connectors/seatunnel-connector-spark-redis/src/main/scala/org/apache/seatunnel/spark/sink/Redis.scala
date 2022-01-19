@@ -60,7 +60,7 @@ class Redis extends SparkBatchSink with Logging {
     def checkParam(checkArr: Array[String]): CheckResult = {
       val notExistConfig: Array[String] = checkArr.filter(checkItem => !config.hasPath(checkItem))
       if (notExistConfig.isEmpty) {
-        new CheckResult(true, "redis config is enough")
+        CheckResult.success()
       } else {
         new CheckResult(false, s"redis config is not enough please check config [${notExistConfig.mkString(",")}]")
       }

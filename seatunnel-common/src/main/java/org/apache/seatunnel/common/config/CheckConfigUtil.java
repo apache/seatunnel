@@ -19,8 +19,6 @@ package org.apache.seatunnel.common.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import static org.apache.seatunnel.common.Constants.CHECK_SUCCESS;
-
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -41,7 +39,7 @@ public class CheckConfigUtil {
                     missingParams.deleteCharAt(missingParams.length() - 1));
             return new CheckResult(false, errorMsg);
         } else {
-            return CheckResult.SUCCESS;
+            return CheckResult.success();
         }
     }
 
@@ -50,7 +48,7 @@ public class CheckConfigUtil {
      */
     public static CheckResult checkOne(Config config, String... params) {
         if (params.length == 0) {
-            return CheckResult.SUCCESS;
+            return CheckResult.success();
         }
 
         List<String> missingParams = new LinkedList();
@@ -65,7 +63,7 @@ public class CheckConfigUtil {
                     missingParams.stream().collect(Collectors.joining(",")));
             return new CheckResult(false, errorMsg);
         } else {
-            return CheckResult.SUCCESS;
+            return CheckResult.success();
         }
     }
 
@@ -75,7 +73,7 @@ public class CheckConfigUtil {
     public static CheckResult mergeCheckMessage(CheckResult... checkResults) {
         List<CheckResult> notPassConfig = Arrays.stream(checkResults).filter(item -> !item.isSuccess()).collect(Collectors.toList());
         if (notPassConfig.isEmpty()) {
-            return new CheckResult(true, CHECK_SUCCESS);
+            return CheckResult.success();
         } else {
             String errMessage = notPassConfig.stream().map(CheckResult::getMsg).collect(Collectors.joining(","));
             return new CheckResult(false, errMessage);

@@ -45,7 +45,7 @@ class Redis extends SparkBatchSource {
         new CheckResult(
           false,
           "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
-      case _ => CheckResult.SUCCESS
+      case _ => CheckResult.success()
     }
   }
 

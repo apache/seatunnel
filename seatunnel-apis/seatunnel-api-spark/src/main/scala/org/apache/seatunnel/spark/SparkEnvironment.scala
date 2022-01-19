@@ -39,7 +39,7 @@ class SparkEnvironment extends RuntimeEnv {
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = CheckResult.SUCCESS
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(prepareEnv: lang.Boolean): Unit = {
     val sparkConf = createSparkConf()

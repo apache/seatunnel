@@ -53,7 +53,7 @@ class Console extends SparkBatchSink {
 
   override def checkConfig(): CheckResult = {
     !config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1) match {
-      case true => CheckResult.SUCCESS
+      case true => CheckResult.success()
       case false =>
         new CheckResult(false, "please specify [limit] as Number[-1, " + Int.MaxValue + "]")
     }

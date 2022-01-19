@@ -42,7 +42,7 @@ class SocketStream extends SparkStreamingSource[String] {
   }
 
   override def checkConfig(): CheckResult = {
-    CheckResult.SUCCESS
+    CheckResult.success()
   }
 
   override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[String]): Dataset[Row] = {

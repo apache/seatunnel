@@ -91,7 +91,7 @@ class Json extends BaseSparkTransform {
     }
   }
 
-  override def checkConfig(): CheckResult = CheckResult.SUCCESS
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(

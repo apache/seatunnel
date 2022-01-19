@@ -120,7 +120,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
 
     @Override
     public CheckResult checkConfig() {
-        return CheckResult.SUCCESS;
+        return CheckResult.success();
     }
 
     @Override

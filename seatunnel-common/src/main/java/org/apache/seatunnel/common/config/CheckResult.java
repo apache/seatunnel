@@ -19,19 +19,39 @@ package org.apache.seatunnel.common.config;
 
 import lombok.Data;
 
-import static org.apache.seatunnel.common.Constants.CHECK_SUCCESS;
-
 @Data
 public class CheckResult {
 
-    public static final CheckResult SUCCESS = new CheckResult(true, CHECK_SUCCESS);
+    private static final CheckResult SUCCESS = new CheckResult(true, "");
 
     private boolean success;
 
     private String msg;
 
+    /**
+     * Do not call this constructor directly,
+     * please use {@link #success} or {@link #error(String)} instead,
+     * will be private in the future
+     */
+    @Deprecated
     public CheckResult(boolean success, String msg) {
         this.success = success;
         this.msg = msg;
     }
+
+    /**
+     * @return a successful instance of CheckResult
+     */
+    public static CheckResult success() {
+        return SUCCESS;
+    }
+
+    /**
+     * @param msg the error message
+     * @return an error instance of CheckResult
+     */
+    public static CheckResult error(String msg) {
+        return new CheckResult(false, msg);
+    }
+
 }

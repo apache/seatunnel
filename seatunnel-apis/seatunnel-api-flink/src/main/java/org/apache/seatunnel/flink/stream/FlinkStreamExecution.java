@@ -120,7 +120,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     @Override
     public CheckResult checkConfig() {
-        return CheckResult.SUCCESS;
+        return CheckResult.success();
     }
 
     @Override

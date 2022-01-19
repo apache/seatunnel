@@ -76,9 +76,9 @@ public class EnvironmentUtil {
                     }
                     break;
                 default:
-                    return CheckResult.SUCCESS;
+                    return CheckResult.success();
             }
         }
-        return CheckResult.SUCCESS;
+        return CheckResult.success();
     }
 }

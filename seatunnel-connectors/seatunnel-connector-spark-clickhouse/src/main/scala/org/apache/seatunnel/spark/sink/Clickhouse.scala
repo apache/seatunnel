@@ -131,7 +131,7 @@ class Clickhouse extends SparkBatchSink {
         this.fields = config.getStringList("fields")
         acceptedClickHouseSchema()
       } else {
-        CheckResult.SUCCESS
+        CheckResult.success()
       }
     }
   }
@@ -197,7 +197,7 @@ class Clickhouse extends SparkBatchSink {
             .map { case (option) => "[" + option + "]" }
             .mkString(", ") + " not support in current version.")
       } else {
-        CheckResult.SUCCESS
+        CheckResult.success()
       }
     }
   }

@@ -36,7 +36,7 @@ abstract class FileSinkBase extends SparkBatchSink {
         val dir = config.getString("path")
 
         dir.startsWith("/") || uriInAllowedSchema(dir, allowedURISchema) match {
-          case true => CheckResult.SUCCESS
+          case true => CheckResult.success()
           case false =>
             new CheckResult(
               false,

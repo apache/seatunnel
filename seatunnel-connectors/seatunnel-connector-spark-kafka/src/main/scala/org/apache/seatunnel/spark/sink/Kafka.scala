@@ -39,7 +39,7 @@ class Kafka extends SparkBatchSink with Logging {
     val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
     config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
-      case true => CheckResult.SUCCESS
+      case true => CheckResult.success()
       case false =>
         new CheckResult(false, "please specify [topic] and [producer.bootstrap.servers]")
     }

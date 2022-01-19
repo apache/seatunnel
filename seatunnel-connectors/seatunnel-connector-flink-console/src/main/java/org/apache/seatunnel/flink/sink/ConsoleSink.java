@@ -58,7 +58,7 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
 
     @Override
     public CheckResult checkConfig() {
-        return CheckResult.SUCCESS;
+        return CheckResult.success();
     }
 
     @Override

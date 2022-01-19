@@ -32,7 +32,7 @@ class StructuredStreamingExecution(environment: SparkEnvironment)
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = CheckResult.SUCCESS
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(void: Void): Unit = {}
 
