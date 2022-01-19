@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -77,9 +76,9 @@ public class EnvironmentUtil {
                     }
                     break;
                 default:
-                    return new CheckResult(true, Constants.CHECK_SUCCESS);
+                    return CheckResult.SUCCESS;
             }
         }
-        return new CheckResult(true, Constants.CHECK_SUCCESS);
+        return CheckResult.SUCCESS;
     }
 }

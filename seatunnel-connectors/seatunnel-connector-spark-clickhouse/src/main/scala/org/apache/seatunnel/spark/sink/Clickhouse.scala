@@ -27,7 +27,6 @@ import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 
-import org.apache.seatunnel.common.Constants
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -132,7 +131,7 @@ class Clickhouse extends SparkBatchSink {
         this.fields = config.getStringList("fields")
         acceptedClickHouseSchema()
       } else {
-        new CheckResult(true, Constants.CHECK_SUCCESS)
+        CheckResult.SUCCESS
       }
     }
   }
@@ -198,7 +197,7 @@ class Clickhouse extends SparkBatchSink {
             .map { case (option) => "[" + option + "]" }
             .mkString(", ") + " not support in current version.")
       } else {
-        new CheckResult(true, Constants.CHECK_SUCCESS)
+        CheckResult.SUCCESS
       }
     }
   }

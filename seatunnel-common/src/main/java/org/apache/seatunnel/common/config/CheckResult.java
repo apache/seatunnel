@@ -19,8 +19,12 @@ package org.apache.seatunnel.common.config;
 
 import lombok.Data;
 
+import static org.apache.seatunnel.common.Constants.CHECK_SUCCESS;
+
 @Data
 public class CheckResult {
+
+    public static final CheckResult SUCCESS = new CheckResult(true, CHECK_SUCCESS);
 
     private boolean success;
 

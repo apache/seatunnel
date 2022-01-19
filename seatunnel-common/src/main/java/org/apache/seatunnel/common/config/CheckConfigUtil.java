@@ -41,7 +41,7 @@ public class CheckConfigUtil {
                     missingParams.deleteCharAt(missingParams.length() - 1));
             return new CheckResult(false, errorMsg);
         } else {
-            return new CheckResult(true, CHECK_SUCCESS);
+            return CheckResult.SUCCESS;
         }
     }
 
@@ -50,7 +50,7 @@ public class CheckConfigUtil {
      */
     public static CheckResult checkOne(Config config, String... params) {
         if (params.length == 0) {
-            return new CheckResult(true, "");
+            return CheckResult.SUCCESS;
         }
 
         List<String> missingParams = new LinkedList();
@@ -65,7 +65,7 @@ public class CheckConfigUtil {
                     missingParams.stream().collect(Collectors.joining(",")));
             return new CheckResult(false, errorMsg);
         } else {
-            return new CheckResult(true, CHECK_SUCCESS);
+            return CheckResult.SUCCESS;
         }
     }
 

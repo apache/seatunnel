@@ -18,7 +18,6 @@ package org.apache.seatunnel.spark.sink
 
 import java.util
 
-import org.apache.seatunnel.common.Constants
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
@@ -37,7 +36,7 @@ abstract class FileSinkBase extends SparkBatchSink {
         val dir = config.getString("path")
 
         dir.startsWith("/") || uriInAllowedSchema(dir, allowedURISchema) match {
-          case true => new CheckResult(true, Constants.CHECK_SUCCESS)
+          case true => CheckResult.SUCCESS
           case false =>
             new CheckResult(
               false,
