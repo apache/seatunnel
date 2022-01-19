@@ -8,7 +8,7 @@ Neo4j Connector for Apache Spark allows you to read data from Neo4j in 3 differe
 
 The Options required of yes* means that  you must specify  one way of (query labels relationship)
 
-for detail neo4j config message please visit [neo4j doc](#https://neo4j.com/docs/spark/current/reading/) 
+for detail neo4j config message please visit [neo4j doc](https://neo4j.com/docs/spark/current/reading/) 
 
 
 
