@@ -49,6 +49,7 @@
         <module>seatunnel-connector-spark-clickhouse</module>
         <module>seatunnel-connector-spark-email</module>
         <module>seatunnel-connector-spark-tidb</module>
+        <module>seatunnel-connector-spark-neo4j</module>
         <module>seatunnel-connector-flink-console</module>
         <module>seatunnel-connector-flink-druid</module>
         <module>seatunnel-connector-flink-elasticsearch</module>

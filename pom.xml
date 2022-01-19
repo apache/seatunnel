@@ -68,6 +68,8 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <spark.version>2.4.0</spark.version>
+        <spark.binary.version>2.4</spark.binary.version>
+        <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
         <flink.version>1.9.0</flink.version>
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
@@ -433,6 +435,12 @@
                 <groupId>com.typesafe</groupId>
                 <artifactId>config</artifactId>
                 <version>${config.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.neo4j</groupId>
+                <artifactId>neo4j-connector-apache-spark_${scala.binary.version}</artifactId>
+                <version>${neo4j.connector.spark.version}_for_spark_${spark.binary.version}</version>
             </dependency>
 
             <dependency>
