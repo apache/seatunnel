@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
@@ -43,7 +43,7 @@ import java.io.PrintStream;
 
 public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FileSink.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
     private static final String PATH = "path";
     private static final String FORMAT = "format";
@@ -83,7 +83,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
                 outputFormat = new TextOutputFormat(filePath);
                 break;
             default:
-                LOG.warn(" unknown file_format [{}],only support json,csv,text", format);
+                LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
                 break;
 
         }

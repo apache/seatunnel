@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
@@ -29,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 public class EnvironmentUtil {
 
-    private static final Logger LOG = LoggerFactory.getLogger(EnvironmentUtil.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EnvironmentUtil.class);
 
     public static void setRestartStrategy(Config config, ExecutionConfig executionConfig) {
         try {
@@ -53,7 +54,7 @@ public class EnvironmentUtil {
                                 Time.of(delayInterval, TimeUnit.MILLISECONDS)));
                         break;
                     default:
-                        LOG.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
+                        LOGGER.warn("set restart.strategy failed, unknown restart.strategy [{}],only support no,fixed-delay,failure-rate", restartStrategy);
                 }
             }
         } catch (Exception e) {
@@ -76,9 +77,9 @@ public class EnvironmentUtil {
                     }
                     break;
                 default:
-                    return new CheckResult(true, "");
+                    return new CheckResult(true, Constants.CHECK_SUCCESS);
             }
         }
-        return new CheckResult(true, "");
+        return new CheckResult(true, Constants.CHECK_SUCCESS);
     }
 }

@@ -16,9 +16,6 @@
 # limitations under the License.
 #
 
-
-# copy command line arguments
-
 function usage() {
   echo "Usage: start-seatunnel-spark.sh [options]"
   echo "  options:"
@@ -37,26 +34,37 @@ fi
 
 CMD_ARGUMENTS=$@
 
+is_exist() {
+    if [ -z $1 ]; then
+      usage
+      exit -1
+    fi
+}
+
 PARAMS=""
 while (( "$#" )); do
   case "$1" in
     -m|--master)
       MASTER=$2
+      is_exist ${MASTER}
       shift 2
       ;;
 
     -e|--deploy-mode)
       DEPLOY_MODE=$2
+      is_exist ${DEPLOY_MODE}
       shift 2
       ;;
 
     -c|--config)
       CONFIG_FILE=$2
+      is_exist ${CONFIG_FILE}
       shift 2
       ;;
 
     -i|--variable)
       variable=$2
+      is_exist ${variable}
       java_property_value="-D${variable}"
       variables_substitution="${java_property_value} ${variables_substitution}"
       shift 2
@@ -79,6 +87,13 @@ while (( "$#" )); do
 
   esac
 done
+
+if [ -z ${MASTER} ] || [ -z ${DEPLOY_MODE} ] || [ -z ${CONFIG_FILE} ]; then
+  echo "Error: The following options are required: [-e | --deploy-mode], [-m | --master], [-c | --config]"
+  usage
+  exit -1
+fi
+
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
 
@@ -126,6 +141,10 @@ elif [ "$DEPLOY_MODE" == "client" ]; then
 fi
 
 assemblyJarName=$(find ${LIB_DIR} -name seatunnel-core-spark*.jar)
+
+if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
+    source ${CONF_DIR}/seatunnel-env.sh
+fi
 
 string_trim() {
     echo $1 | awk '{$1=$1;print}'

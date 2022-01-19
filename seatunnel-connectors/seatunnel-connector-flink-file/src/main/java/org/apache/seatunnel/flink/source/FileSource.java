@@ -18,7 +18,7 @@
 package org.apache.seatunnel.flink.source;
 
 import com.alibaba.fastjson.JSONObject;
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
@@ -42,6 +42,8 @@ import java.util.List;
 import java.util.Map;
 
 public class FileSource implements FlinkBatchSource<Row> {
+
+    private static final int DEFAULT_BATCH_SIZE = 1000;
 
     private Config config;
 
@@ -90,7 +92,7 @@ public class FileSource implements FlinkBatchSource<Row> {
                 inputFormat = new ParquetRowInputFormat(filePath, messageType);
                 break;
             case "orc":
-                OrcRowInputFormat orcRowInputFormat = new OrcRowInputFormat(path, schemaContent, null, 1000);
+                OrcRowInputFormat orcRowInputFormat = new OrcRowInputFormat(path, schemaContent, null, DEFAULT_BATCH_SIZE);
                 this.inputFormat = orcRowInputFormat;
                 break;
             case "csv":

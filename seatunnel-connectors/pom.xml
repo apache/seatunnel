@@ -48,7 +48,10 @@
         <module>seatunnel-connector-spark-console</module>
         <module>seatunnel-connector-spark-clickhouse</module>
         <module>seatunnel-connector-spark-email</module>
+        <module>seatunnel-connector-spark-tidb</module>
+        <module>seatunnel-connector-spark-neo4j</module>
         <module>seatunnel-connector-flink-console</module>
+        <module>seatunnel-connector-flink-druid</module>
         <module>seatunnel-connector-flink-elasticsearch</module>
         <module>seatunnel-connector-flink-file</module>
         <module>seatunnel-connector-flink-jdbc</module>
@@ -56,7 +59,7 @@
         <module>seatunnel-connector-flink-fake</module>
         <module>seatunnel-connector-flink-socket</module>
         <module>seatunnel-connector-flink-doris</module>
-
+        <module>seatunnel-connector-flink-influxdb</module>
     </modules>
 
 </project>

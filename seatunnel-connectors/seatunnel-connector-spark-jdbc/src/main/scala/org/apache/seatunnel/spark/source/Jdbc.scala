@@ -18,10 +18,12 @@ package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
-import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
+
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.CheckConfigUtil.check
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
 
 class Jdbc extends SparkBatchSource {
 
@@ -32,23 +34,7 @@ class Jdbc extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    val requiredOptions = List("url", "table", "user", "password");
-
-    val nonExistsOptions = requiredOptions
-      .map(optionName => (optionName, config.hasPath(optionName)))
-      .filter { p =>
-        val (optionName, exists) = p
-        !exists
-      }
-    if (nonExistsOptions.isEmpty) {
-      new CheckResult(true, "")
-    } else {
-      new CheckResult(
-        false,
-        "please specify " + nonExistsOptions
-          .map { case (field, _) => "[" + field + "]" }
-          .mkString(", ") + " as non-empty string")
-    }
+    check(config, "url", "table", "user", "password")
   }
 
   def jdbcReader(sparkSession: SparkSession, driver: String): DataFrameReader = {

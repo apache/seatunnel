@@ -17,12 +17,14 @@
 package org.apache.seatunnel.spark.batch
 
 import org.apache.seatunnel.common.config.{CheckResult, ConfigRuntimeException}
-import org.apache.seatunnel.config.{Config, ConfigFactory}
+import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
-
 import java.util.{List => JList}
+
+import org.apache.seatunnel.common.Constants
+
 import scala.collection.JavaConversions._
 
 class SparkBatchExecution(environment: SparkEnvironment)
@@ -34,7 +36,7 @@ class SparkBatchExecution(environment: SparkEnvironment)
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = new CheckResult(true, "")
+  override def checkConfig(): CheckResult = new CheckResult(true, Constants.CHECK_SUCCESS)
 
   override def prepare(prepareEnv: Void): Unit = {}
 

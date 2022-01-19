@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.flink.source;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
@@ -35,10 +36,10 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     private static final String HOST = "host";
     private static final String PORT = "port";
+    private static final int DEFAULT_PORT = 9999;
 
     private String host = "localhost";
-
-    private int port = 9999;
+    private int port = DEFAULT_PORT;
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
@@ -64,7 +65,7 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true, "");
+        return new CheckResult(true, Constants.CHECK_SUCCESS);
     }
 
     @Override

@@ -20,6 +20,7 @@ package org.apache.seatunnel;
 import org.apache.seatunnel.apis.BaseSink;
 import org.apache.seatunnel.apis.BaseSource;
 import org.apache.seatunnel.apis.BaseTransform;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
@@ -156,7 +157,10 @@ public class Seatunnel {
     }
 
     private static void showAsciiLogo() {
-        AsciiArtUtils.printAsciiArt("SeaTunnel");
+        String printAsciiLogo = System.getenv("SEATUNNEL_PRINT_ASCII_LOGO");
+        if ("true".equalsIgnoreCase(printAsciiLogo)) {
+            AsciiArtUtils.printAsciiArt(Constants.LOGO);
+        }
     }
 
     private static void showConfigError(Throwable throwable) {
@@ -176,7 +180,7 @@ public class Seatunnel {
         LOGGER.error("Fatal Error, \n");
         // FIX
         LOGGER.error(
-            "Please submit issue a bug in https://github.com/InterestingLab/waterdrop/issues\n");
+            "Please submit bug report in https://github.com/apache/incubator-seatunnel/issues\n");
         LOGGER.error("Reason:{} \n", errorMsg);
         LOGGER.error("Exception StackTrace:{} ", ExceptionUtils.getStackTrace(throwable));
         LOGGER.error(

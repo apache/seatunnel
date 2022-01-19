@@ -23,4 +23,4 @@ Feel free to ping committers for the review!
 ## Check list
 
 * [ ] Code changed are covered with tests, or it does not need tests for reason:
-* [ ] Change does not need document change, or I will submit document change to https://github.com/apache/incubator-seatunnel-website later
+* [ ] If necessary, please update the documentation to describe the new feature. https://github.com/apache/incubator-seatunnel/tree/dev/docs

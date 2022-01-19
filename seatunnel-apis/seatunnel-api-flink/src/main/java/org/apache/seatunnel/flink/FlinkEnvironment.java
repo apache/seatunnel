@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.flink;
 
-import org.apache.seatunnel.config.Config;
+import org.apache.flink.table.api.EnvironmentSettings;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.util.ConfigKeyName;
 import org.apache.seatunnel.flink.util.EnvironmentUtil;
@@ -41,7 +42,7 @@ import org.slf4j.LoggerFactory;
 
 public class FlinkEnvironment implements RuntimeEnv {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FlinkEnvironment.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkEnvironment.class);
 
     private Config config;
 
@@ -104,7 +105,17 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     private void createStreamTableEnvironment() {
-        tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment());
+        // use blink and streammode
+        EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance()
+                .inStreamingMode();
+        if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink".equals(this.config.getString(ConfigKeyName.PLANNER))) {
+            envBuilder.useBlinkPlanner();
+        } else {
+            envBuilder.useOldPlanner();
+        }
+        EnvironmentSettings environmentSettings = envBuilder.build();
+
+        tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
         if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
             long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
@@ -172,7 +183,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                     environment.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
                     break;
                 default:
-                    LOG.warn("set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time", timeType);
+                    LOGGER.warn("set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time", timeType);
                     break;
             }
         }
@@ -194,7 +205,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                         checkpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE);
                         break;
                     default:
-                        LOG.warn("set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once", mode);
+                        LOGGER.warn("set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once", mode);
                         break;
                 }
             }
@@ -209,7 +220,7 @@ public class FlinkEnvironment implements RuntimeEnv {
                 StateBackend fsStateBackend = new FsStateBackend(uri);
                 if (config.hasPath(ConfigKeyName.STATE_BACKEND)) {
                     String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
-                    if ("rocksdb".equals(stateBackend.toLowerCase())) {
+                    if ("rocksdb".equalsIgnoreCase(stateBackend)) {
                         StateBackend rocksDBStateBackend = new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
                         environment.setStateBackend(rocksDBStateBackend);
                     }
