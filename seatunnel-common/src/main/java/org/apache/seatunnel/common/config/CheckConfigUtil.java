@@ -73,12 +73,11 @@ public class CheckConfigUtil {
      * merge all check result
      */
     public static CheckResult mergeCheckMessage(CheckResult... checkResults) {
-        List<String> list = new LinkedList<>();
         List<CheckResult> notPassConfig = Arrays.stream(checkResults).filter(item -> !item.isSuccess()).collect(Collectors.toList());
         if (notPassConfig.isEmpty()) {
             return new CheckResult(true, CHECK_SUCCESS);
         } else {
-            String errMessage = notPassConfig.stream().map(it -> it.getMsg()).collect(Collectors.joining(","));
+            String errMessage = notPassConfig.stream().map(CheckResult::getMsg).collect(Collectors.joining(","));
             return new CheckResult(false, errMessage);
         }
 
