@@ -98,8 +98,7 @@ class Clickhouse extends SparkBatchSink {
     }
 
     if (nonExistsOptions.nonEmpty) {
-      new CheckResult(
-        false,
+      CheckResult.error(
         "please specify " + nonExistsOptions
           .map { option =>
             val (name, exists) = option
@@ -109,7 +108,7 @@ class Clickhouse extends SparkBatchSink {
     } else if (config.hasPath("username") && !config.hasPath("password") || config.hasPath(
         "password")
       && !config.hasPath("username")) {
-      new CheckResult(false, "please specify username and password at the same time")
+      CheckResult.error("please specify username and password at the same time")
     } else {
       this.jdbcLink = String.format(
         "jdbc:clickhouse://%s/%s",
@@ -181,8 +180,7 @@ class Clickhouse extends SparkBatchSink {
       .filter { case (_, exist) => !exist }
 
     if (nonExistsFields.nonEmpty) {
-      new CheckResult(
-        false,
+      CheckResult.error(
         "field " + nonExistsFields
           .map { case (option) => "[" + option + "]" }
           .mkString(", ") + " not exist in table " + this.table)
@@ -191,8 +189,7 @@ class Clickhouse extends SparkBatchSink {
         .map(field => (tableSchema(field), Clickhouse.supportOrNot(tableSchema(field))))
         .filter { case (_, exist) => !exist }
       if (nonSupportedType.nonEmpty) {
-        new CheckResult(
-          false,
+        CheckResult.error(
           "clickHouse data type " + nonSupportedType
             .map { case (option) => "[" + option + "]" }
             .mkString(", ") + " not support in current version.")

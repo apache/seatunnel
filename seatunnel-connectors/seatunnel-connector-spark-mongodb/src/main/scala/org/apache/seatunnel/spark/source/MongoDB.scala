@@ -72,11 +72,10 @@ class MongoDB extends SparkBatchSource {
         val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
         read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
           case true => CheckResult.success()
-          case false => new CheckResult(
-              false,
+          case false => CheckResult.error(
               "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
         }
-      case false => new CheckResult(false, "please specify [readconfig]")
+      case false => CheckResult.error("please specify [readconfig]")
     }
   }
 

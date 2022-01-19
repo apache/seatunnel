@@ -41,7 +41,7 @@ class Kafka extends SparkBatchSink with Logging {
     config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
       case true => CheckResult.success()
       case false =>
-        new CheckResult(false, "please specify [topic] and [producer.bootstrap.servers]")
+        CheckResult.error("please specify [topic] and [producer.bootstrap.servers]")
     }
   }
 

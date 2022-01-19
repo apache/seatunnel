@@ -38,13 +38,12 @@ abstract class FileSinkBase extends SparkBatchSink {
         dir.startsWith("/") || uriInAllowedSchema(dir, allowedURISchema) match {
           case true => CheckResult.success()
           case false =>
-            new CheckResult(
-              false,
+            CheckResult.error(
               "invalid path URI, please set the following allowed schemas: " + allowedURISchema.mkString(
                 ", "))
         }
       }
-      case false => new CheckResult(false, "please specify [path] as non-empty string")
+      case false => CheckResult.error("please specify [path] as non-empty string")
     }
   }
 

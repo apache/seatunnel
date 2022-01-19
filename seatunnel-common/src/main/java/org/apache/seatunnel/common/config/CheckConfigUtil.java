@@ -37,7 +37,7 @@ public class CheckConfigUtil {
         if (missingParams.length() > 0) {
             String errorMsg = String.format("please specify [%s] as non-empty",
                     missingParams.deleteCharAt(missingParams.length() - 1));
-            return new CheckResult(false, errorMsg);
+            return CheckResult.error(errorMsg);
         } else {
             return CheckResult.success();
         }
@@ -61,7 +61,7 @@ public class CheckConfigUtil {
         if (missingParams.size() == params.length) {
             String errorMsg = String.format("please specify at least one config of [%s] as non-empty",
                     missingParams.stream().collect(Collectors.joining(",")));
-            return new CheckResult(false, errorMsg);
+            return CheckResult.error(errorMsg);
         } else {
             return CheckResult.success();
         }
@@ -76,7 +76,7 @@ public class CheckConfigUtil {
             return CheckResult.success();
         } else {
             String errMessage = notPassConfig.stream().map(CheckResult::getMsg).collect(Collectors.joining(","));
-            return new CheckResult(false, errMessage);
+            return CheckResult.error(errMessage);
         }
 
     }

@@ -62,7 +62,7 @@ class Redis extends SparkBatchSink with Logging {
       if (notExistConfig.isEmpty) {
         CheckResult.success()
       } else {
-        new CheckResult(false, s"redis config is not enough please check config [${notExistConfig.mkString(",")}]")
+        CheckResult.error(s"redis config is not enough please check config [${notExistConfig.mkString(",")}]")
       }
     }
 
@@ -76,7 +76,7 @@ class Redis extends SparkBatchSink with Logging {
         case RedisSaveType.SET => checkParam(Array(SET_NAME))
         case RedisSaveType.ZSET => checkParam(Array(ZSET_NAME))
         case RedisSaveType.LIST => checkParam(Array(LIST_NAME))
-        case _ => new CheckResult(false, "Unknown redis config. redis_save_type must be in [KV HASH SET ZSET LIST]")
+        case _ => CheckResult.error("Unknown redis config. redis_save_type must be in [KV HASH SET ZSET LIST]")
       }
     }
   }

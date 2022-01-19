@@ -37,13 +37,12 @@ class Redis extends SparkBatchSource {
 
     config match {
       case _ if !hasTableName =>
-        new CheckResult(false, "please specify [result_table_name] as non-empty string")
-      case _ if !hasRedisHost => new CheckResult(false, "please specify [host] as non-empty string")
+        CheckResult.error("please specify [result_table_name] as non-empty string")
+      case _ if !hasRedisHost => CheckResult.error("please specify [host] as non-empty string")
       case _ if !hasRedisPassword =>
-        new CheckResult(false, "please specify [auth] as non-empty string")
+        CheckResult.error("please specify [auth] as non-empty string")
       case _ if !hasKeys =>
-        new CheckResult(
-          false,
+        CheckResult.error(
           "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
       case _ => CheckResult.success()
     }
