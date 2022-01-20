@@ -48,7 +48,7 @@ import java.util.Optional;
 public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
-    public static void run(CommandLineArgs commandLineArgs, Engine engine, String[] args) {
+    public static void run(CommandLineArgs commandLineArgs, Engine engine) {
         Common.setDeployMode(commandLineArgs.getDeployMode());
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
         boolean testConfig = commandLineArgs.isTestConfig();
@@ -109,7 +109,7 @@ public class Seatunnel {
                 try {
                     checkResult = plugin.checkConfig();
                 } catch (Exception e) {
-                    checkResult = new CheckResult(false, e.getMessage());
+                    checkResult = CheckResult.error(e.getMessage());
                 }
                 if (!checkResult.isSuccess()) {
                     LOGGER.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());

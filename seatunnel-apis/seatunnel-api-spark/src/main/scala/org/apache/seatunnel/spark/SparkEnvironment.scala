@@ -20,7 +20,6 @@ import java.lang
 
 import scala.collection.JavaConversions._
 
-import org.apache.seatunnel.common.Constants
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.env.RuntimeEnv
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
@@ -40,7 +39,7 @@ class SparkEnvironment extends RuntimeEnv {
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = new CheckResult(true, Constants.CHECK_SUCCESS)
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(prepareEnv: lang.Boolean): Unit = {
     val sparkConf = createSparkConf()

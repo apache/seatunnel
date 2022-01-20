@@ -19,8 +19,6 @@ package org.apache.seatunnel.common.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import static org.apache.seatunnel.common.Constants.CHECK_SUCCESS;
-
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -39,9 +37,9 @@ public class CheckConfigUtil {
         if (missingParams.length() > 0) {
             String errorMsg = String.format("please specify [%s] as non-empty",
                     missingParams.deleteCharAt(missingParams.length() - 1));
-            return new CheckResult(false, errorMsg);
+            return CheckResult.error(errorMsg);
         } else {
-            return new CheckResult(true, CHECK_SUCCESS);
+            return CheckResult.success();
         }
     }
 
@@ -50,7 +48,7 @@ public class CheckConfigUtil {
      */
     public static CheckResult checkOne(Config config, String... params) {
         if (params.length == 0) {
-            return new CheckResult(true, "");
+            return CheckResult.success();
         }
 
         List<String> missingParams = new LinkedList();
@@ -63,9 +61,9 @@ public class CheckConfigUtil {
         if (missingParams.size() == params.length) {
             String errorMsg = String.format("please specify at least one config of [%s] as non-empty",
                     missingParams.stream().collect(Collectors.joining(",")));
-            return new CheckResult(false, errorMsg);
+            return CheckResult.error(errorMsg);
         } else {
-            return new CheckResult(true, CHECK_SUCCESS);
+            return CheckResult.success();
         }
     }
 
@@ -73,13 +71,12 @@ public class CheckConfigUtil {
      * merge all check result
      */
     public static CheckResult mergeCheckMessage(CheckResult... checkResults) {
-        List<String> list = new LinkedList<>();
         List<CheckResult> notPassConfig = Arrays.stream(checkResults).filter(item -> !item.isSuccess()).collect(Collectors.toList());
         if (notPassConfig.isEmpty()) {
-            return new CheckResult(true, CHECK_SUCCESS);
+            return CheckResult.success();
         } else {
-            String errMessage = notPassConfig.stream().map(it -> it.getMsg()).collect(Collectors.joining(","));
-            return new CheckResult(false, errMessage);
+            String errMessage = notPassConfig.stream().map(CheckResult::getMsg).collect(Collectors.joining(","));
+            return CheckResult.error(errMessage);
         }
 
     }
