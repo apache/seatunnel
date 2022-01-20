@@ -17,7 +17,7 @@
 # limitations under the License.
 #
 
-./mvnw -pl '!seatunnel-examples,!seatunnel-examples/seatunnel-spark-examples,!seatunnel-examples/seatunnel-flink-examples' dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
+./mvnw dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
 
 # List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
 ls /tmp/seatunnel-dependencies > all-dependencies.txt
