@@ -67,7 +67,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        Config defaultConfig = ConfigFactory.parseMap(new HashMap<String, String>(2) {
+        Config defaultConfig = ConfigFactory.parseMap(new HashMap<String, String>(3) {
             {
                 put("index", "seatunnel");
                 put("index_type", "log");
