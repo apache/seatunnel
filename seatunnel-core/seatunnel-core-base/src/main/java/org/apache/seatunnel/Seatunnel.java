@@ -109,7 +109,7 @@ public class Seatunnel {
                 try {
                     checkResult = plugin.checkConfig();
                 } catch (Exception e) {
-                    checkResult = new CheckResult(false, e.getMessage());
+                    checkResult = CheckResult.error(e.getMessage());
                 }
                 if (!checkResult.isSuccess()) {
                     LOGGER.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());
