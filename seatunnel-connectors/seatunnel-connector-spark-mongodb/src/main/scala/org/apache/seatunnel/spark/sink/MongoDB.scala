@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.sink
 
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.WriteConfig
-import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -47,16 +47,7 @@ class MongoDB extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    if (TypesafeConfigUtils.hasSubConfig(config, confPrefix)) {
-      val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
-      if (read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection")) {
-        CheckResult.success()
-      } else {
-        CheckResult.error("please specify [writeconfig.uri] and [writeconfig.database] and [writeconfig.collection]")
-      }
-    } else {
-      CheckResult.error("please specify [writeconfig] ")
-    }
+    CheckConfigUtil.check(config, "writeconfig.uri", "writeconfig.database", "writeconfig.collection")
   }
 
   override def output(df: Dataset[Row], env: SparkEnvironment): Unit = {
