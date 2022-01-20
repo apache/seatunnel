@@ -124,14 +124,13 @@ List of target node Labels separated by :
 
 > The returned table is a data table in which both fields are strings
 
-+----+--------+--------------------+----+
-|<id>|<labels>|name                |born|
-+----+--------+--------------------+----+
-|1   |[Person]|Keanu Reeves        |1964|
-|2   |[Person]|Carrie-Anne Moss    |1967|
-|3   |[Person]|Laurence Fishburne  |1961|
-|4   |[Person]|Hugo Weaving        |1960|
-|5   |[Person]|Andy Wachowski      |1967|
-|6   |[Person]|Lana Wachowski      |1965|
-|7   |[Person]|Joel Silver         |1952|
-|8   |[Person]|Emil Eifrem         |1978|
+| `<id>` | `<labels>` | name               | born |
+| ------ | ---------- | ------------------ | ---- |
+| 1      | [Person]   | Keanu Reeves       | 1964 |
+| 2      | [Person]   | Carrie-Anne Moss   | 1967 |
+| 3      | [Person]   | Laurence Fishburne | 1961 |
+| 4      | [Person]   | Hugo Weaving       | 1960 |
+| 5      | [Person]   | Andy Wachowski     | 1967 |
+| 6      | [Person]   | Lana Wachowski     | 1965 |
+| 7      | [Person]   | Joel Silver        | 1952 |
+| 8      | [Person]   | Emil Eifrem        | 1978 |
