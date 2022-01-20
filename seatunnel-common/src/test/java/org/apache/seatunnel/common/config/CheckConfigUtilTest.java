@@ -26,7 +26,9 @@ import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.seatunnel.common.config.CheckConfigUtil.*;
+import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists;
+import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAtLeastOneExists;
+import static org.apache.seatunnel.common.config.CheckConfigUtil.mergeCheckResults;
 
 public class CheckConfigUtilTest {
 
