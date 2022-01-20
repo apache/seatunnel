@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.stream;
+package org.apache.seatunnel.flink.impl;
 
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.flink.util.TableUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.plugin.Plugin;
@@ -34,46 +38,46 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink> {
+public class FlinkExecution implements Execution<FlinkSource, FlinkTransform, FlinkSink> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkStreamExecution.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkExecution.class);
 
     private Config config;
 
     private FlinkEnvironment flinkEnvironment;
 
-    public FlinkStreamExecution(FlinkEnvironment streamEnvironment) {
+    public FlinkExecution(FlinkEnvironment streamEnvironment) {
         this.flinkEnvironment = streamEnvironment;
     }
 
     @Override
-    public void start(List<FlinkStreamSource> sources, List<FlinkStreamTransform> transforms, List<FlinkStreamSink> sinks) {
-        List<DataStream> data = new ArrayList<>();
+    public void start(List<FlinkSource> sources, List<FlinkTransform> transforms, List<FlinkSink> sinks) {
+        List<DataStream<RowData>> data = new ArrayList<>();
 
-        for (FlinkStreamSource source : sources) {
-            DataStream dataStream = source.getData(flinkEnvironment);
+        for (FlinkSource source : sources) {
+            DataStream<RowData> dataStream = source.getData(flinkEnvironment);
             data.add(dataStream);
             registerResultTable(source, dataStream);
         }
 
-        DataStream input = data.get(0);
+        DataStream<RowData> input = data.get(0);
 
-        for (FlinkStreamTransform transform : transforms) {
-            DataStream stream = fromSourceTable(transform);
+        for (FlinkTransform transform : transforms) {
+            DataStream<RowData> stream = fromSourceTable(transform);
             if (Objects.isNull(stream)) {
                 stream = input;
             }
-            input = transform.processStream(flinkEnvironment, stream);
+            input = transform.process(flinkEnvironment, stream);
             registerResultTable(transform, input);
             transform.registerFunction(flinkEnvironment);
         }
 
-        for (FlinkStreamSink sink : sinks) {
-            DataStream stream = fromSourceTable(sink);
+        for (FlinkSink sink : sinks) {
+            DataStream<RowData> stream = fromSourceTable(sink);
             if (Objects.isNull(stream)) {
                 stream = input;
             }
-            sink.outputStream(flinkEnvironment, stream);
+            sink.output(flinkEnvironment,stream);
         }
         try {
             LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
@@ -83,7 +87,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         }
     }
 
-    private void registerResultTable(Plugin plugin, DataStream dataStream) {
+    private void registerResultTable(Plugin plugin, DataStream<RowData> dataStream) {
         Config config = plugin.getConfig();
         if (config.hasPath(RESULT_TABLE_NAME)) {
             String name = config.getString(RESULT_TABLE_NAME);
@@ -91,20 +95,21 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             if (!TableUtil.tableExists(tableEnvironment, name)) {
                 if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
+                    tableEnvironment.createTemporaryView(name, dataStream,fieldName);
                 } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
+                    tableEnvironment.createTemporaryView(name, dataStream);
                 }
             }
         }
     }
 
-    private DataStream fromSourceTable(Plugin plugin) {
+    private DataStream<RowData> fromSourceTable(Plugin plugin) {
         Config config = plugin.getConfig();
         if (config.hasPath(SOURCE_TABLE_NAME)) {
             StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
-            Table table = tableEnvironment.scan(config.getString(SOURCE_TABLE_NAME));
-            return TableUtil.tableToDataStream(tableEnvironment, table, true);
+            Table table = tableEnvironment.from(config.getString(SOURCE_TABLE_NAME));
+            // default use retractstream
+            return TableUtil.tableToDataStream(tableEnvironment, table, false);
         }
         return null;
     }

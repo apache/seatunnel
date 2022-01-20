@@ -26,25 +26,57 @@ import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.ObjectPath;
+import org.apache.flink.table.catalog.ResolvedSchema;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.runtime.typeutils.InternalTypeInfo;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class TableUtil {
 
-    public static DataStream<Row> tableToDataStream(StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {
-
-        TypeInformation<Row> typeInfo = table.getSchema().toRowType();
+    public static DataStream<RowData> tableToDataStream(StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {
+        // change table to stream
+        DataType[] tableDataTypes = table.getResolvedSchema().getColumnDataTypes().toArray(new DataType[0]);
+        String[] tableFieldNames = table.getResolvedSchema().getColumnNames().toArray(new String[0]);
+        TypeInformation<RowData> typeInformation =
+                TableUtil.getTypeInformation(tableDataTypes, tableFieldNames);
         if (isAppend) {
-            return tableEnvironment.toAppendStream(table, typeInfo);
+            return tableEnvironment.toAppendStream(table, typeInformation);
+        } else {
+            return tableEnvironment.toRetractStream(table, typeInformation).map(f -> f.f1);
         }
-        return tableEnvironment
-                .toRetractStream(table, typeInfo)
-                .filter(row -> row.f0)
-                .map(row -> row.f1)
-                .returns(typeInfo);
     }
 
-    public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table) {
-        return tableEnvironment.toDataSet(table, table.getSchema().toRowType());
+
+    /**
+     * 获取TypeInformation
+     *
+     * @param dataTypes
+     * @param fieldNames
+     * @return
+     */
+    public static TypeInformation<RowData> getTypeInformation(
+            DataType[] dataTypes, String[] fieldNames) {
+        return InternalTypeInfo.of(getRowType(dataTypes, fieldNames));
+    }
+
+
+    /**
+     * 获取RowType
+     *
+     * @param dataTypes
+     * @param fieldNames
+     * @return
+     */
+    public static RowType getRowType(DataType[] dataTypes, String[] fieldNames) {
+        return RowType.of(
+                Arrays.stream(dataTypes).map(DataType::getLogicalType).toArray(LogicalType[]::new),
+                fieldNames);
     }
 
     public static void dataStreamToTable(StreamTableEnvironment tableEnvironment, String tableName, DataStream<Row> dataStream) {

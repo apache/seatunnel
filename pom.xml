@@ -63,7 +63,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
-        <scala.version>2.11.8</scala.version>
+        <scala.version>2.11.12</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
@@ -169,12 +169,7 @@
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
             </dependency>
-            <dependency>
-                <groupId>org.apache.flink</groupId>
-                <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
+
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-planner-blink_${scala.binary.version}</artifactId>
@@ -286,7 +281,7 @@
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-jdbc_${scala.binary.version}</artifactId>
+                <artifactId>flink-connector-jdbc_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
             </dependency>
 

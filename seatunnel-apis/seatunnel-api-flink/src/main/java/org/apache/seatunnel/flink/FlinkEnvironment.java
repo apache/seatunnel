@@ -24,7 +24,6 @@ import org.apache.seatunnel.flink.util.ConfigKeyName;
 import org.apache.seatunnel.flink.util.EnvironmentUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
@@ -33,7 +32,6 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableConfig;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.TernaryBoolean;
 
@@ -49,10 +47,6 @@ public class FlinkEnvironment implements RuntimeEnv {
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
-
-    private ExecutionEnvironment batchEnvironment;
-
-    private BatchTableEnvironment batchTableEnvironment;
 
     private boolean isStreaming;
 
@@ -76,13 +70,8 @@ public class FlinkEnvironment implements RuntimeEnv {
     @Override
     public void prepare(Boolean isStreaming) {
         this.isStreaming = isStreaming;
-        if (isStreaming) {
-            createStreamEnvironment();
-            createStreamTableEnvironment();
-        } else {
-            createBatchTableEnvironment();
-            createExecutionEnvironment();
-        }
+        createStreamEnvironment();
+        createStreamTableEnvironment(isStreaming);
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
@@ -104,15 +93,14 @@ public class FlinkEnvironment implements RuntimeEnv {
         return tableEnvironment;
     }
 
-    private void createStreamTableEnvironment() {
-        // use blink and streammode
-        EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance()
-                .inStreamingMode();
-        if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink".equals(this.config.getString(ConfigKeyName.PLANNER))) {
-            envBuilder.useBlinkPlanner();
-        } else {
-            envBuilder.useOldPlanner();
+    private void createStreamTableEnvironment(Boolean isStreaming) {
+        EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance().useBlinkPlanner();
+        if(isStreaming){
+            envBuilder.inStreamingMode();
+        }else {
+            envBuilder.inBatchMode();
         }
+
         EnvironmentSettings environmentSettings = envBuilder.build();
 
         tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
@@ -146,27 +134,6 @@ public class FlinkEnvironment implements RuntimeEnv {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
         }
-    }
-
-    public ExecutionEnvironment getBatchEnvironment() {
-        return batchEnvironment;
-    }
-
-    public BatchTableEnvironment getBatchTableEnvironment() {
-        return batchTableEnvironment;
-    }
-
-    private void createExecutionEnvironment() {
-        batchEnvironment = ExecutionEnvironment.getExecutionEnvironment();
-        if (config.hasPath(ConfigKeyName.PARALLELISM)) {
-            int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
-            batchEnvironment.setParallelism(parallelism);
-        }
-        EnvironmentUtil.setRestartStrategy(config, batchEnvironment.getConfig());
-    }
-
-    private void createBatchTableEnvironment() {
-        batchTableEnvironment = BatchTableEnvironment.create(batchEnvironment);
     }
 
     private void setTimeCharacteristic() {
