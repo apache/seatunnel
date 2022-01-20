@@ -60,8 +60,9 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
         final StreamingFileSink<Row> sink = StreamingFileSink
                 .forRowFormat(filePath, (Encoder<Row>) (element, stream) -> {
-                    PrintStream out = new PrintStream(stream);
-                    out.println(element);
+                    try (PrintStream out = new PrintStream(stream)) {
+                        out.println(element);
+                    }
                 })
                 .build();
         return dataStream.addSink(sink);
