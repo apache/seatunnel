@@ -24,7 +24,6 @@ import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTran
 import org.apache.spark.sql.{Dataset, Row}
 import java.util.{List => JList}
 
-import org.apache.seatunnel.common.Constants
 
 import scala.collection.JavaConversions._
 
@@ -78,7 +77,7 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = new CheckResult(true, Constants.CHECK_SUCCESS)
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(void: Void): Unit = {}
 }
