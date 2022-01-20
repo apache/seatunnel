@@ -82,7 +82,7 @@ public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransfor
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, FIELDS);
+        return CheckConfigUtil.checkAllExists(config, FIELDS);
     }
 
     @Override

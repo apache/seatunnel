@@ -17,19 +17,19 @@
 
 package org.apache.seatunnel.spark.source
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
+
 import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
+import org.apache.seatunnel.common.config.CheckConfigUtil.{checkAllExists, checkAtLeastOneExists}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{DataFrameReader, Dataset, Row}
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 class Neo4j extends SparkBatchSource {
 
   val neo4jConf: mutable.Map[String, String] = mutable.Map()
   val readFormatter: String = "org.neo4j.spark.DataSource"
-
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     val read: DataFrameReader = env.getSparkSession.read
@@ -42,10 +42,9 @@ class Neo4j extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-
-    val checkMustConfigOneOfParams: CheckResult = CheckConfigUtil.checkOne(config, "query", "labels", "relationship")
-    val checkMustConfigAllParams: CheckResult = CheckConfigUtil.check(config, "result_table_name", "url")
-    CheckConfigUtil.mergeCheckMessage(checkMustConfigAllParams, checkMustConfigOneOfParams);
+    val checkMustConfigOneOfParams = checkAtLeastOneExists(config, "query", "labels", "relationship")
+    val checkMustConfigAllParams = checkAllExists(config, "result_table_name", "url")
+    CheckConfigUtil.mergeCheckResults(checkMustConfigAllParams, checkMustConfigOneOfParams);
 
   }
 

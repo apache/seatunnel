@@ -65,7 +65,7 @@ public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, SQL);
+        return CheckConfigUtil.checkAllExists(config, SQL);
     }
 
     @Override

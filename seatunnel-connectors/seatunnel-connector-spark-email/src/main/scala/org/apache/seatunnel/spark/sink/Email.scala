@@ -95,7 +95,7 @@ class Email extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    CheckConfigUtil.check(config, "from", "to", "host", "port", "password")
+    CheckConfigUtil.checkAllExists(config, "from", "to", "host", "port", "password")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {}
