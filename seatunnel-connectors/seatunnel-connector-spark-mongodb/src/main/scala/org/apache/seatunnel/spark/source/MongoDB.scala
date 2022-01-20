@@ -62,7 +62,7 @@ class MongoDB extends SparkBatchSource {
       MongoSpark.builder().sparkSession(env.getSparkSession).readConfig(readConfig).build().toDF(
         schema)
     } else {
-      MongoSpark.load(env.getSparkSession, readConfig);
+      MongoSpark.load(env.getSparkSession, readConfig)
     }
   }
 
