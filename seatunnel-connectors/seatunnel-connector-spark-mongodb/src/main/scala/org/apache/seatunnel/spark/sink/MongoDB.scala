@@ -24,6 +24,8 @@ import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
 
+import scala.collection.JavaConversions._
+
 class MongoDB extends SparkBatchSink {
 
   var writeConfig: WriteConfig = _
