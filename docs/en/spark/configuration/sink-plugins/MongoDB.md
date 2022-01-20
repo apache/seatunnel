@@ -27,7 +27,7 @@ collection to write to mongoDB
 
 ### common options [string]
 
-Source plugin common parameters, please refer to [Source Plugin](./source-plugin.md) for details
+Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) for details
 
 ## Examples
 
