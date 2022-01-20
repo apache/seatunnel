@@ -48,7 +48,7 @@ import java.util.Optional;
 public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
-    public static void run(CommandLineArgs commandLineArgs, Engine engine, String[] args) {
+    public static void run(CommandLineArgs commandLineArgs, Engine engine) {
         Common.setDeployMode(commandLineArgs.getDeployMode());
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
         boolean testConfig = commandLineArgs.isTestConfig();
