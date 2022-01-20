@@ -225,6 +225,7 @@ flink-table-api-scala-bridge_2.11-1.9.0.jar
 flink-table-api-scala_2.11-1.9.0.jar
 flink-table-common-1.9.0.jar
 flink-table-planner_2.11-1.9.0.jar
+flink-clients_2.11-1.13.3.jar
 force-shading-1.13.3.jar
 force-shading-1.9.0.jar
 frocksdbjni-5.17.2-artisans-1.0.jar
