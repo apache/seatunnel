@@ -50,12 +50,12 @@ class MongoDB extends SparkBatchSink {
     if (TypesafeConfigUtils.hasSubConfig(config, confPrefix)) {
       val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
       if (read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection")) {
-        new CheckResult(true, "")
+        CheckResult.success()
       } else {
-        new CheckResult(false, "please specify [writeconfig.uri] and [writeconfig.database] and [writeconfig.collection]")
+        CheckResult.error("please specify [writeconfig.uri] and [writeconfig.database] and [writeconfig.collection]")
       }
     } else {
-      new CheckResult(false, "please specify [writeconfig] ")
+      CheckResult.error("please specify [writeconfig] ")
     }
   }
 
