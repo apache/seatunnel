@@ -28,6 +28,6 @@ trait BaseSparkTransform extends BaseTransform[SparkEnvironment] {
 
   override def getConfig: Config = config
 
-  def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row];
+  def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row]
 
 }
