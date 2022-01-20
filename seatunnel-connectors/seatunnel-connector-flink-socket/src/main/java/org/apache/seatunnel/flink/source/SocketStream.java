@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.source;
 
-import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -65,7 +64,7 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true, Constants.CHECK_SUCCESS);
+        return CheckResult.success();
     }
 
     @Override

@@ -55,13 +55,15 @@ jobs:
           ./mvnw -T 2C -B checkstyle:check
       - name: Build and Package
         run: |
-          ./mvnw -B package scalastyle:check \
+          ./mvnw -B install scalastyle:check \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.http.retryHandler.count=3 \
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+      - name: Check dependency license
+        run: bash ./tools/dependencies/checkLicense.sh
       - name: Run Unit tests
         run: |
           ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true

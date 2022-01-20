@@ -26,7 +26,7 @@ public class SeatunnelSpark {
 
     public static void main(String[] args) {
         CommandLineArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Seatunnel.run(sparkArgs, SPARK, args);
+        Seatunnel.run(sparkArgs, SPARK);
     }
 
 }

@@ -75,7 +75,7 @@ class Doris extends SparkBatchSink with Serializable {
       checkResult
     } else if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(
         Config.PASSWORD) && !config.hasPath(Config.USER)) {
-      new CheckResult(false, Config.CHECK_USER_ERROR)
+      CheckResult.error(Config.CHECK_USER_ERROR)
     } else {
       val host: String = config.getString(Config.HOST)
       val dataBase: String = config.getString(Config.DATABASE)
@@ -92,7 +92,7 @@ class Doris extends SparkBatchSink with Serializable {
           }
         }
       }
-      new CheckResult(true, Config.CHECK_SUCCESS)
+      CheckResult.error(Config.CHECK_SUCCESS)
     }
   }
 
