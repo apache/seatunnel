@@ -47,6 +47,8 @@ import java.util.Map;
 
 public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
+    private static final int DEFAULT_CONFIG_SIZE = 3;
+
     private Config config;
     private String indexName;
 
@@ -67,7 +69,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        Config defaultConfig = ConfigFactory.parseMap(new HashMap<String, String>(3) {
+        Config defaultConfig = ConfigFactory.parseMap(new HashMap<String, String>(DEFAULT_CONFIG_SIZE) {
             {
                 put("index", "seatunnel");
                 put("index_type", "log");
