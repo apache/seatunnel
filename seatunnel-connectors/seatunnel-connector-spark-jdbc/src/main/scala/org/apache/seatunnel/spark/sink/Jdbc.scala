@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.sink
 
 import scala.collection.JavaConversions._
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -56,7 +56,7 @@ class Jdbc extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    check(config, "driver", "url", "dbTable", "user", "password")
+    checkAllExists(config, "driver", "url", "dbTable", "user", "password")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {

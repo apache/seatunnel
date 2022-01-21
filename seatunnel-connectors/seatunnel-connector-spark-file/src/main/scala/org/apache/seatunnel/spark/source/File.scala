@@ -20,7 +20,7 @@ import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -35,7 +35,7 @@ class File extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    check(config, "path")
+    checkAllExists(config, "path")
   }
 
   protected def fileReader(spark: SparkSession, path: String): Dataset[Row] = {

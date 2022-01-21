@@ -107,7 +107,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, PATH, FORMAT);
+        return CheckConfigUtil.checkAllExists(config, PATH, FORMAT);
     }
 
     @Override

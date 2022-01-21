@@ -60,7 +60,7 @@ public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, SERVER_URL, DATABASE, MEASUREMENT, TAGS, FIELDS);
+        return CheckConfigUtil.checkAllExists(config, SERVER_URL, DATABASE, MEASUREMENT, TAGS, FIELDS);
     }
 
     @Override
