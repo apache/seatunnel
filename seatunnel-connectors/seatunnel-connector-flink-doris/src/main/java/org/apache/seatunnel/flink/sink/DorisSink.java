@@ -65,7 +65,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "fenodes", "user", "password", "table", "database");
+        return CheckConfigUtil.checkAllExists(config, "fenodes", "user", "password", "table", "database");
     }
 
     @Override

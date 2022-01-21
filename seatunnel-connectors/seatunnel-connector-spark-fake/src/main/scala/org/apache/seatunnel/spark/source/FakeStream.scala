@@ -28,7 +28,7 @@ import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.receiver.Receiver
 import java.security.SecureRandom
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 
 import scala.collection.JavaConversions._
 
@@ -56,7 +56,7 @@ class FakeStream extends SparkStreamingSource[String] {
   }
 
   override def checkConfig(): CheckResult = {
-    check(config, "content")
+    checkAllExists(config, "content")
   }
 }
 

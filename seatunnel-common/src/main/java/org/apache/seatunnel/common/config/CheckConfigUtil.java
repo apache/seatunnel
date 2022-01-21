@@ -26,17 +26,22 @@ import java.util.stream.Collectors;
 
 public class CheckConfigUtil {
 
+    /**
+     * please using {@link #checkAllExists} instead, since 2.0.5
+     */
+    @Deprecated
     public static CheckResult check(Config config, String... params) {
-        StringBuilder missingParams = new StringBuilder();
-        for (String param : params) {
-            if (!config.hasPath(param) || config.getAnyRef(param) == null) {
-                missingParams.append(param).append(",");
-            }
-        }
+        return checkAllExists(config, params);
+    }
 
-        if (missingParams.length() > 0) {
+    public static CheckResult checkAllExists(Config config, String... params) {
+        List<String> missingParams = Arrays.stream(params)
+                .filter(param -> !config.hasPath(param) || config.getAnyRef(param) == null)
+                .collect(Collectors.toList());
+
+        if (missingParams.size() > 0) {
             String errorMsg = String.format("please specify [%s] as non-empty",
-                    missingParams.deleteCharAt(missingParams.length() - 1));
+                    String.join(",", missingParams));
             return CheckResult.error(errorMsg);
         } else {
             return CheckResult.success();
@@ -46,7 +51,7 @@ public class CheckConfigUtil {
     /**
      * check config if there was at least one usable
      */
-    public static CheckResult checkOne(Config config, String... params) {
+    public static CheckResult checkAtLeastOneExists(Config config, String... params) {
         if (params.length == 0) {
             return CheckResult.success();
         }
@@ -60,7 +65,7 @@ public class CheckConfigUtil {
 
         if (missingParams.size() == params.length) {
             String errorMsg = String.format("please specify at least one config of [%s] as non-empty",
-                    missingParams.stream().collect(Collectors.joining(",")));
+                    String.join(",", missingParams));
             return CheckResult.error(errorMsg);
         } else {
             return CheckResult.success();
@@ -70,12 +75,14 @@ public class CheckConfigUtil {
     /**
      * merge all check result
      */
-    public static CheckResult mergeCheckMessage(CheckResult... checkResults) {
-        List<CheckResult> notPassConfig = Arrays.stream(checkResults).filter(item -> !item.isSuccess()).collect(Collectors.toList());
+    public static CheckResult mergeCheckResults(CheckResult... checkResults) {
+        List<CheckResult> notPassConfig = Arrays.stream(checkResults)
+                .filter(item -> !item.isSuccess()).collect(Collectors.toList());
         if (notPassConfig.isEmpty()) {
             return CheckResult.success();
         } else {
-            String errMessage = notPassConfig.stream().map(CheckResult::getMsg).collect(Collectors.joining(","));
+            String errMessage = notPassConfig.stream().map(CheckResult::getMsg)
+                    .collect(Collectors.joining(","));
             return CheckResult.error(errMessage);
         }
 

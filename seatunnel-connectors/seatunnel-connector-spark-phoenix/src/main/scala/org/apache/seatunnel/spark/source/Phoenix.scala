@@ -53,7 +53,7 @@ class Phoenix extends SparkBatchSource with Logging {
   }
 
   override def checkConfig(): CheckResult = {
-    val checkResult = CheckConfigUtil.check(config, "zk-connect", "table")
+    val checkResult = CheckConfigUtil.checkAllExists(config, "zk-connect", "table")
     if (checkResult.isSuccess) {
       checkZkConnect(config.getString("zk-connect"))
     }

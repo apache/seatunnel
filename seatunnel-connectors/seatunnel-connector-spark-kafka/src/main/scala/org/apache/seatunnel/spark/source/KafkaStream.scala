@@ -22,7 +22,7 @@ import scala.collection.JavaConversions._
 
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
@@ -103,10 +103,10 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
   }
 
   override def checkConfig(): CheckResult = {
-    val checkResult = check(config, "topics")
+    val checkResult = checkAllExists(config, "topics")
     if (checkResult.isSuccess) {
       val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
-      check(consumerConfig, "group.id")
+      checkAllExists(consumerConfig, "group.id")
     } else {
       checkResult
     }

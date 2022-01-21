@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.sink
 
 import scala.collection.JavaConversions._
 import org.apache.kudu.spark.kudu._
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -36,7 +36,7 @@ class Kudu extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    check(config, "kudu_master", "kudu_table")
+    checkAllExists(config, "kudu_master", "kudu_table")
   }
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {

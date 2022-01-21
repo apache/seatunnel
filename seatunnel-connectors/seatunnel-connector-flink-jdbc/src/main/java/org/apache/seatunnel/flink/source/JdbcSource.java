@@ -107,7 +107,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "driver", "url", "username", "query");
+        return CheckConfigUtil.checkAllExists(config, "driver", "url", "username", "query");
     }
 
     @Override
