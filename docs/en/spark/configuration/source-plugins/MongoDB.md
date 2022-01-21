@@ -6,11 +6,14 @@ Read data from MongoDB.
 
 ## Options
 
-| name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
-| readconfig.uri            | string | yes      | -             |
-| readconfig.database       | string | yes      | -         |
-| readconfig.collection     | string | yes      | -             |
+| name                  | type   | required | default value |
+|-----------------------| ------ |----------|---------------|
+| readconfig.uri        | string | yes      | -             |
+| readconfig.database   | string | yes      | -             |
+| readconfig.collection | string | yes      | -             |
+| readconfig.*          | string | no       | -             |
+| schema                | string | no       | -             |
+| common-options        | string | yes      | -             |
 
 ### readconfig.uri [string]
 
@@ -24,6 +27,14 @@ MongoDB database
 
 MongoDB collection
 
+### readconfig.* [string]
+
+More other parameters can be configured here, see [MongoDB Configuration](https://docs.mongodb.com/spark-connector/current/configuration/) for details, see the Input Configuration section. The way to specify parameters is to prefix the original parameter name `readconfig.` For example, the way to set `spark.mongodb.input.partitioner` is `readconfig.spark.mongodb.input.partitioner="MongoPaginateBySizePartitioner"` . If you do not specify these optional parameters, the default values of the official MongoDB documentation will be used.
+
+### schema [string]
+
+Because `MongoDB` does not have the concept of `schema`, when spark reads `MongoDB` , it will sample `MongoDB` data and infer the `schema` . In fact, this process will be slow and may be inaccurate. This parameter can be manually specified. Avoid these problems. `schema` is a `json` string, such as `{\"name\":\"string\",\"age\":\"integer\",\"addrs\":{\"country\":\"string\ ",\"city\":\"string\"}}`
+
 ### common options [string]
 
 Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) for details
@@ -32,9 +43,11 @@ Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) fo
 
 ```bash
 mongodb {
-    readconfig.uri = "mongodb://username:password@192.168.0.1:27017/test"
-    readconfig.database = "test"
-    readconfig.collection = "collection1"
+    readconfig.uri = "mongodb://username:password@127.0.0.1:27017/mypost"
+    readconfig.database = "mydatabase"
+    readconfig.collection = "mycollection"
+    readconfig.spark.mongodb.input.partitioner = "MongoPaginateBySizePartitioner"
+    schema="{\"name\":\"string\",\"age\":\"integer\",\"addrs\":{\"country\":\"string\",\"city\":\"string\"}}"
     result_table_name = "mongodb_result_table"
 }
 ```

@@ -21,7 +21,7 @@ import scala.collection.JavaConversions._
 import com.alibaba.fastjson.JSON
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
-import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.seatunnel.spark.utils.SparkStructTypeUtil
@@ -47,13 +47,12 @@ class MongoDB extends SparkBatchSource {
         val value = String.valueOf(entry.getValue.unwrapped())
         map.put(key, value)
       })
-    config.hasPath("schema") match {
-      case true => {
-        val schemaJson = JSON.parseObject(config.getString("schema"))
-        schema = SparkStructTypeUtil.getStructType(schema, schemaJson)
-      }
-      case false => {}
+
+    if (config.hasPath("schema")) {
+      val schemaJson = JSON.parseObject(config.getString("schema"))
+      schema = SparkStructTypeUtil.getStructType(schema, schemaJson)
     }
+
     readConfig = ReadConfig(map)
   }
 
@@ -67,16 +66,7 @@ class MongoDB extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    TypesafeConfigUtils.hasSubConfig(config, confPrefix) match {
-      case true =>
-        val read = TypesafeConfigUtils.extractSubConfig(config, confPrefix, false)
-        read.hasPath("uri") && read.hasPath("database") && read.hasPath("collection") match {
-          case true => CheckResult.success()
-          case false => CheckResult.error(
-              "please specify [readconfig.uri] and [readconfig.database] and [readconfig.collection]")
-        }
-      case false => CheckResult.error("please specify [readconfig]")
-    }
+    CheckConfigUtil.checkAllExists(config, "readconfig.uri", "readconfig.database", "readconfig.collection")
   }
 
 }
