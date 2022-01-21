@@ -28,6 +28,6 @@ trait BaseSparkSink[OUT] extends BaseSink[SparkEnvironment] {
 
   override def getConfig: Config = config
 
-  def output(data: Dataset[Row], env: SparkEnvironment): OUT;
+  def output(data: Dataset[Row], env: SparkEnvironment): OUT
 
 }
