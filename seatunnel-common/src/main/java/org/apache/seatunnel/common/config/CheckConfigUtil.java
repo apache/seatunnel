@@ -26,6 +26,14 @@ import java.util.stream.Collectors;
 
 public class CheckConfigUtil {
 
+    /**
+     * please using {@link #checkAllExists} instead, since 2.0.5
+     */
+    @Deprecated
+    public static CheckResult check(Config config, String... params) {
+        return checkAllExists(config, params);
+    }
+
     public static CheckResult checkAllExists(Config config, String... params) {
         List<String> missingParams = Arrays.stream(params)
                 .filter(param -> !config.hasPath(param) || config.getAnyRef(param) == null)
