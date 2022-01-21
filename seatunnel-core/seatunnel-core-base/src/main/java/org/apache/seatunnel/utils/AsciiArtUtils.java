@@ -27,7 +27,12 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
 public class AsciiArtUtils {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(AsciiArtUtils.class);
+
+    private static final int FONT_SIZE = 24;
+    private static final int DRAW_X = 6;
+    private static final int RGB = -16777216;
 
     /**
      * Print ASCII art of string
@@ -40,16 +45,16 @@ public class AsciiArtUtils {
         final int height = 32;
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics g = image.getGraphics();
-        g.setFont(new Font("Dialog", Font.PLAIN, 24));
+        g.setFont(new Font("Dialog", Font.PLAIN, FONT_SIZE));
         Graphics2D graphics = (Graphics2D) g;
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        graphics.drawString(str, 6, 24);
+        graphics.drawString(str, DRAW_X, FONT_SIZE);
 
         for (int y = 0; y < height; y++) {
             StringBuilder sb = new StringBuilder();
             for (int x = 0; x < width; x++) {
-                sb.append(image.getRGB(x, y) == -16777216 ? " " : image.getRGB(x, y) == -1 ? "#" : "*");
+                sb.append(image.getRGB(x, y) == RGB ? " " : image.getRGB(x, y) == -1 ? "#" : "*");
             }
             if (sb.toString().trim().isEmpty()) {
                 continue;

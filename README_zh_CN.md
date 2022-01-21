@@ -4,8 +4,9 @@
 
 [![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
 
-
 ---
+[![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
+[![CN doc](https://img.shields.io/badge/文档-中文版-blue.svg)](README_zh_CN.md)
 
 更名通知：SeaTunnel 原名为 waterdrop，于 2021 年 10 月 12 日更名为 SeaTunnel。
 

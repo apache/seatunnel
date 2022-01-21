@@ -60,8 +60,9 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
         final StreamingFileSink<Row> sink = StreamingFileSink
                 .forRowFormat(filePath, (Encoder<Row>) (element, stream) -> {
-                    PrintStream out = new PrintStream(stream);
-                    out.println(element);
+                    try (PrintStream out = new PrintStream(stream)) {
+                        out.println(element);
+                    }
                 })
                 .build();
         return dataStream.addSink(sink);
@@ -106,7 +107,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, PATH, FORMAT);
+        return CheckConfigUtil.checkAllExists(config, PATH, FORMAT);
     }
 
     @Override

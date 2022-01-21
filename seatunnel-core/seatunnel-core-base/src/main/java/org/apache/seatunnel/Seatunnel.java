@@ -20,6 +20,7 @@ package org.apache.seatunnel;
 import org.apache.seatunnel.apis.BaseSink;
 import org.apache.seatunnel.apis.BaseSource;
 import org.apache.seatunnel.apis.BaseTransform;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
@@ -47,7 +48,7 @@ import java.util.Optional;
 public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
-    public static void run(CommandLineArgs commandLineArgs, Engine engine, String[] args) {
+    public static void run(CommandLineArgs commandLineArgs, Engine engine) {
         Common.setDeployMode(commandLineArgs.getDeployMode());
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
         boolean testConfig = commandLineArgs.isTestConfig();
@@ -108,7 +109,7 @@ public class Seatunnel {
                 try {
                     checkResult = plugin.checkConfig();
                 } catch (Exception e) {
-                    checkResult = new CheckResult(false, e.getMessage());
+                    checkResult = CheckResult.error(e.getMessage());
                 }
                 if (!checkResult.isSuccess()) {
                     LOGGER.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());
@@ -158,7 +159,7 @@ public class Seatunnel {
     private static void showAsciiLogo() {
         String printAsciiLogo = System.getenv("SEATUNNEL_PRINT_ASCII_LOGO");
         if ("true".equalsIgnoreCase(printAsciiLogo)) {
-            AsciiArtUtils.printAsciiArt(printAsciiLogo);
+            AsciiArtUtils.printAsciiArt(Constants.LOGO);
         }
     }
 

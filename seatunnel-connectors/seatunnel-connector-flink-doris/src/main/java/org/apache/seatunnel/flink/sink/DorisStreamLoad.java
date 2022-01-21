@@ -18,6 +18,7 @@
 package org.apache.seatunnel.flink.sink;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,7 +84,7 @@ public class DorisStreamLoad implements Serializable {
     public void load(String value) {
         LoadResponse loadResponse = loadBatch(value);
         LOGGER.info("Streamload Response:{}", loadResponse);
-        if (loadResponse.status != 200) {
+        if (loadResponse.status != HttpResponseStatus.OK.code()) {
             throw new RuntimeException("stream load error: " + loadResponse.respContent);
         } else {
             try {
@@ -111,7 +112,7 @@ public class DorisStreamLoad implements Serializable {
             feConn = getConnection(loadUrlStr, label);
             int status = feConn.getResponseCode();
             // fe send back http response code TEMPORARY_REDIRECT 307 and new be location
-            if (status != 307) {
+            if (status != HttpResponseStatus.TEMPORARY_REDIRECT.code()) {
                 throw new Exception("status is not TEMPORARY_REDIRECT 307, status: " + status);
             }
             String location = feConn.getHeaderField("Location");

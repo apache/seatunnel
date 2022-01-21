@@ -32,16 +32,25 @@ if [[ "$@" = *--help ]] || [[ "$@" = *-h ]] || [[ $# -le 1 ]]; then
   exit 0
 fi
 
+is_exist() {
+    if [ -z $1 ]; then
+      usage
+      exit -1
+    fi
+}
+
 PARAMS=""
 while (( "$#" )); do
   case "$1" in
     -c|--config)
       CONFIG_FILE=$2
+      is_exist ${CONFIG_FILE}
       shift 2
       ;;
 
     -i|--variable)
       variable=$2
+      is_exist ${variable}
       java_property_value="-D${variable}"
       variables_substitution="${java_property_value} ${variables_substitution}"
       shift 2
@@ -65,13 +74,11 @@ fi
 eval set -- "$PARAMS"
 
 BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-UTILS_DIR=${BIN_DIR}/utils
 APP_DIR=$(dirname ${BIN_DIR})
 CONF_DIR=${APP_DIR}/config
 PLUGINS_DIR=${APP_DIR}/lib
 DEFAULT_CONFIG=${CONF_DIR}/application.conf
 CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
-
 
 assemblyJarName=$(find ${PLUGINS_DIR} -name seatunnel-core-flink*.jar)
 

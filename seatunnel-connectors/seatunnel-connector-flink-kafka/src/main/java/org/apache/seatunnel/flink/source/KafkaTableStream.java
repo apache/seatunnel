@@ -62,6 +62,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private static final String GROUP_ID = "group.id";
     private static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
     private static final String OFFSET_RESET = "offset.reset";
+    private static final int DEFAULT_INITIAL_CAPACITY = 16;
 
     @Override
     public void setConfig(Config config) {
@@ -76,11 +77,11 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     @Override
     public CheckResult checkConfig() {
 
-        CheckResult result = CheckConfigUtil.check(config, TOPICS, SCHEMA, SOURCE_FORMAT, RESULT_TABLE_NAME);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, TOPICS, SCHEMA, SOURCE_FORMAT, RESULT_TABLE_NAME);
 
         if (result.isSuccess()) {
             Config consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false);
-            return CheckConfigUtil.check(consumerConfig, BOOTSTRAP_SERVERS, GROUP_ID);
+            return CheckConfigUtil.checkAllExists(consumerConfig, BOOTSTRAP_SERVERS, GROUP_ID);
         }
 
         return result;
@@ -142,7 +143,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
                     break;
                 case "specific":
                     String offset = config.getString("offset.reset.specific");
-                    HashMap<Integer, Long> map = new HashMap<>(16);
+                    HashMap<Integer, Long> map = new HashMap<>(DEFAULT_INITIAL_CAPACITY);
                     JSONObject.parseObject(offset).forEach((k, v) -> map.put(Integer.valueOf(k), Long.valueOf(v.toString())));
                     kafka.startFromSpecificOffsets(map);
                     break;

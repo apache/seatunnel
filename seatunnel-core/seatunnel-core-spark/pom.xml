@@ -177,6 +177,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
+      
+        <dependency>
+            <artifactId>seatunnel-connector-spark-neo4j</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

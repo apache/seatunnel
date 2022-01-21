@@ -62,7 +62,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "hosts");
+        return CheckConfigUtil.checkAllExists(config, "hosts");
     }
 
     @Override
@@ -93,8 +93,8 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
                 httpHosts,
                 new ElasticsearchSinkFunction<Row>() {
                     public IndexRequest createIndexRequest(Row element) {
-                        Map<String, Object> json = new HashMap<>(100);
                         int elementLen = element.getArity();
+                        Map<String, Object> json = new HashMap<>(elementLen);
                         for (int i = 0; i < elementLen; i++) {
                             json.put(fieldNames[i], element.getField(i));
                         }
@@ -132,8 +132,8 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
             }
 
             private IndexRequest createIndexRequest(Row element) {
-                Map<String, Object> json = new HashMap<>(100);
                 int elementLen = element.getArity();
+                Map<String, Object> json = new HashMap<>(elementLen);
                 for (int i = 0; i < elementLen; i++) {
                     json.put(fieldNames[i], element.getField(i));
                 }

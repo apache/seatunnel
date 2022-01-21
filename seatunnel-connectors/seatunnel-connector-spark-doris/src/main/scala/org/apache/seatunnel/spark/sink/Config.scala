@@ -35,6 +35,5 @@ object Config extends Serializable {
 
   val CHECK_INT_ERROR = "Please check bulk_size is larger than 0"
   val CHECK_USER_ERROR = "Please check username and password at the same time"
-  val CHECK_SUCCESS = "All check is success"
 
 }
