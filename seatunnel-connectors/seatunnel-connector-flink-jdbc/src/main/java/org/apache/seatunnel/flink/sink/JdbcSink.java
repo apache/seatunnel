@@ -37,13 +37,15 @@ import org.apache.flink.types.Row;
 
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
+    private static final int DEFAULT_BATCH_SIZE = 5000;
+
     private Config config;
     private String driverName;
     private String dbUrl;
     private String username;
     private String password;
     private String query;
-    private int batchSize = 5000;
+    private int batchSize = DEFAULT_BATCH_SIZE;
 
     @Override
     public void setConfig(Config config) {
@@ -57,7 +59,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "driver", "url", "username", "query");
+        return CheckConfigUtil.checkAllExists(config, "driver", "url", "username", "query");
     }
 
     @Override

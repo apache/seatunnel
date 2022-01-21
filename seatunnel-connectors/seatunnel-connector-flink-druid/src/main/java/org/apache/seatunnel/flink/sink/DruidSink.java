@@ -52,7 +52,7 @@ public class DruidSink implements FlinkBatchSink<Row, Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, COORDINATOR_URL, DATASOURCE);
+        return CheckConfigUtil.checkAllExists(config, COORDINATOR_URL, DATASOURCE);
     }
 
     @Override

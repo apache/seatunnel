@@ -63,6 +63,7 @@
                     <createSourcesJar>true</createSourcesJar>
                     <shadeSourcesContent>true</shadeSourcesContent>
                     <shadedArtifactAttached>false</shadedArtifactAttached>
+                    <createDependencyReducedPom>false</createDependencyReducedPom>
                     <filters>
                         <filter>
                             <artifact>com.typesafe:config</artifact>
@@ -76,6 +77,7 @@
                                 <exclude>com/typesafe/config/impl/ConfigParser.class</exclude>
                                 <exclude>com/typesafe/config/impl/ConfigNodePath.class</exclude>
                                 <exclude>com/typesafe/config/impl/PathParser.class</exclude>
+                                <exclude>com/typesafe/config/impl/Path.class</exclude>
                             </excludes>
                         </filter>
                     </filters>

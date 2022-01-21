@@ -22,11 +22,12 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
@@ -56,7 +57,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true, Constants.CHECK_SUCCESS);
+        return CheckResult.success();
     }
 
     @Override
@@ -68,10 +69,10 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     @Override
     public void run(SourceContext<Row> ctx) throws Exception {
         while (running) {
-            int randomNum = (int) (1 + Math.random() * 3);
+            int randomNum = (int) (1 + Math.random() * NAME_ARRAY.length);
             Row row = Row.of(NAME_ARRAY[randomNum - 1], System.currentTimeMillis());
             ctx.collect(row);
-            Thread.sleep(1000);
+            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
         }
     }
 
