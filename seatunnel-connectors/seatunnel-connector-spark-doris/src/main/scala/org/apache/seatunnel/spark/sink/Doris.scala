@@ -92,7 +92,7 @@ class Doris extends SparkBatchSink with Serializable {
           }
         }
       }
-      CheckResult.error(Config.CHECK_SUCCESS)
+      CheckResult.success()
     }
   }
 
