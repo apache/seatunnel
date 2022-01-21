@@ -26,7 +26,7 @@ public class SeatunnelFlink {
 
     public static void main(String[] args) {
         CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
-        Seatunnel.run(flinkArgs, FLINK, args);
+        Seatunnel.run(flinkArgs, FLINK);
     }
 
 }

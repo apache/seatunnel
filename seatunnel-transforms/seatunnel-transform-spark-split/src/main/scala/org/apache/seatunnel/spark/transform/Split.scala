@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.transform
 import org.apache.seatunnel.common.Constants
 
 import scala.collection.JavaConversions._
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
@@ -57,7 +57,7 @@ class Split extends BaseSparkTransform {
   }
 
   override def checkConfig(): CheckResult = {
-    check(config, "fields")
+    checkAllExists(config, "fields")
   }
 
   override def prepare(env: SparkEnvironment): Unit = {

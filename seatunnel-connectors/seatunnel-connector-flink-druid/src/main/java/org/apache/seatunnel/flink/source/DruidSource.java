@@ -95,7 +95,7 @@ public class DruidSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, JDBC_URL, DATASOURCE);
+        return CheckConfigUtil.checkAllExists(config, JDBC_URL, DATASOURCE);
     }
 
     @Override

@@ -16,7 +16,7 @@
  */
 package org.apache.seatunnel.spark.sink
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.utils.StringTemplate
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
@@ -42,7 +42,7 @@ class Elasticsearch extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    check(config, "hosts")
+    checkAllExists(config, "hosts")
   }
 
   override def prepare(environment: SparkEnvironment): Unit = {

@@ -24,8 +24,6 @@ public final class Constants {
 
     public static final String LOGO = "SeaTunnel";
 
-    public static final String CHECK_SUCCESS = "All check is success";
-
     private Constants() {
     }
 }

@@ -78,11 +78,11 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     @Override
     public CheckResult checkConfig() {
 
-        CheckResult result = CheckConfigUtil.check(config, TOPICS, SCHEMA, SOURCE_FORMAT, RESULT_TABLE_NAME);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, TOPICS, SCHEMA, SOURCE_FORMAT, RESULT_TABLE_NAME);
 
         if (result.isSuccess()) {
             Config consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false);
-            return CheckConfigUtil.check(consumerConfig, BOOTSTRAP_SERVERS, GROUP_ID);
+            return CheckConfigUtil.checkAllExists(consumerConfig, BOOTSTRAP_SERVERS, GROUP_ID);
         }
 
         return result;

@@ -63,7 +63,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "hosts");
+        return CheckConfigUtil.checkAllExists(config, "hosts");
     }
 
     @Override

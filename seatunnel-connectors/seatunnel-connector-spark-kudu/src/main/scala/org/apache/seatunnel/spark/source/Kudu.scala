@@ -18,7 +18,7 @@
 package org.apache.seatunnel.spark.source
 
 import org.apache.kudu.spark.kudu._
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
@@ -27,7 +27,7 @@ import org.apache.spark.sql.{Dataset, Row}
 class Kudu extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
-    check(config, "kudu_master", "kudu_table")
+    checkAllExists(config, "kudu_master", "kudu_table")
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {

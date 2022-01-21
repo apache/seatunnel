@@ -99,7 +99,7 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "topics");
+        return CheckConfigUtil.checkAllExists(config, "topics");
     }
 
     @Override

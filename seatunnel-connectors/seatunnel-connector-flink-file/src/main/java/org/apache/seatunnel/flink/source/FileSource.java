@@ -71,7 +71,7 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, PATH, SOURCE_FORMAT, SCHEMA);
+        return CheckConfigUtil.checkAllExists(config, PATH, SOURCE_FORMAT, SCHEMA);
     }
 
     @Override

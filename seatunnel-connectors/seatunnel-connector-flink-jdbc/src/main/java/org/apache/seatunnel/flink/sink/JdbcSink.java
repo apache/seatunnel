@@ -60,7 +60,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "driver", "url", "username", "query");
+        return CheckConfigUtil.checkAllExists(config, "driver", "url", "username", "query");
     }
 
     @Override

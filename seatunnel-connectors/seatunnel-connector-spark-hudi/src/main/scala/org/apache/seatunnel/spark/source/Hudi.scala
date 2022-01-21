@@ -16,7 +16,7 @@
  */
 package org.apache.seatunnel.spark.source
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 
 import scala.collection.JavaConversions._
 import org.apache.seatunnel.common.config.CheckResult
@@ -29,7 +29,7 @@ class Hudi extends SparkBatchSource {
   override def prepare(env: SparkEnvironment): Unit = {}
 
   override def checkConfig(): CheckResult = {
-    check(config, "hoodie.datasource.read.paths")
+    checkAllExists(config, "hoodie.datasource.read.paths")
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {

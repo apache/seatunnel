@@ -22,7 +22,6 @@ import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 import java.util.{List => JList}
 
-import org.apache.seatunnel.common.Constants
 
 class StructuredStreamingExecution(environment: SparkEnvironment)
   extends Execution[StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink] {
@@ -33,7 +32,7 @@ class StructuredStreamingExecution(environment: SparkEnvironment)
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = new CheckResult(true, Constants.CHECK_SUCCESS)
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(void: Void): Unit = {}
 

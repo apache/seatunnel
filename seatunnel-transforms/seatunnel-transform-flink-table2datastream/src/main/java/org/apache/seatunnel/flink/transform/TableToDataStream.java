@@ -67,7 +67,7 @@ public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkB
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, Plugin.SOURCE_TABLE_NAME);
+        return CheckConfigUtil.checkAllExists(config, Plugin.SOURCE_TABLE_NAME);
     }
 
     @Override
