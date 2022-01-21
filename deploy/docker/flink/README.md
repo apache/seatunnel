@@ -26,7 +26,7 @@ docker run -it --rm \
   apache/seatunnel-flink --config /app/config/application.conf
 ```
 
-You will find the running job in http://localhost:8081.
+You will find the running job in `http://localhost:8081`.
 
 ## Test data
 
