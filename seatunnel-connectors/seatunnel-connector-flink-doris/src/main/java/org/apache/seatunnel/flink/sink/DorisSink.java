@@ -34,6 +34,7 @@ import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
+import javax.annotation.Nullable;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -104,6 +105,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
     }
 
     @Override
+    @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);

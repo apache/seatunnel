@@ -22,8 +22,11 @@ import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 
+import javax.annotation.Nullable;
+
 public interface FlinkStreamSink<IN, OUT> extends BaseFlinkSink {
 
+    @Nullable
     DataStreamSink<OUT> outputStream(FlinkEnvironment env, DataStream<IN> dataStream);
 
 }

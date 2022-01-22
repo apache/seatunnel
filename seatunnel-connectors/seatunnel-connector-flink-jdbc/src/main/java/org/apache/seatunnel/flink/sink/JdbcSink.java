@@ -35,6 +35,8 @@ import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.types.Row;
 
+import javax.annotation.Nullable;
+
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private static final int DEFAULT_BATCH_SIZE = 5000;
@@ -77,6 +79,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     }
 
     @Override
+    @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
         createSink(env.getStreamTableEnvironment(), table);
@@ -84,6 +87,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     }
 
     @Override
+    @Nullable
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         final Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
         createSink(env.getBatchTableEnvironment(), table);

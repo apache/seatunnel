@@ -22,7 +22,10 @@ import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 
+import javax.annotation.Nullable;
+
 public interface FlinkBatchSink<IN, OUT> extends BaseFlinkSink {
 
+    @Nullable
     DataSink<OUT> outputBatch(FlinkEnvironment env, DataSet<IN> inDataSet);
 }
