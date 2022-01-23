@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.sql.job;
 
-import org.apache.seatunnel.core.sql.splitter.SqlStatementSplitter;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
@@ -27,6 +26,7 @@ import org.apache.flink.table.api.internal.TableEnvironmentImpl;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.command.SetOperation;
+import org.apache.seatunnel.core.sql.splitter.SqlStatementSplitter;
 
 import java.util.List;
 

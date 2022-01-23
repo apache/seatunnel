@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.flink.stream;
 
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.seatunnel.flink.BaseFlinkTransform;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.flink.streaming.api.datastream.DataStream;
 
 public interface FlinkStreamTransform<IN, OUT> extends BaseFlinkTransform {
 

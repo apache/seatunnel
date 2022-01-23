@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
-import org.apache.seatunnel.flink.stream.FlinkStreamSink;
-import org.apache.seatunnel.flink.util.SchemaUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.io.jdbc.JDBCAppendTableSink;
@@ -34,6 +27,13 @@ import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.types.Row;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSink;
+import org.apache.seatunnel.flink.stream.FlinkStreamSink;
+import org.apache.seatunnel.flink.util.SchemaUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
