@@ -52,7 +52,7 @@ class Ignite extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "table", "schema","config.file.path")
+    checkAllExists(config, "table", "config.file.path")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
