@@ -56,7 +56,11 @@ class FakeStream extends SparkStreamingSource[String] {
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "content")
+    if (config.hasPath("content") && config.getStringList("content").nonEmpty) {
+      CheckResult.success()
+    } else {
+      CheckResult.error("please make sure [content] is of type string array")
+    }
   }
 }
 
