@@ -60,6 +60,7 @@ class SparkBatchExecution(environment: SparkEnvironment)
         SparkBatchExecution.sinkProcess(environment, sink, ds)
       })
       // }
+      environment.getSparkSession.stop()
     }
   }
 

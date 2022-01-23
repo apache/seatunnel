@@ -124,6 +124,7 @@
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
         <influxdb-java.version>2.22</influxdb-java.version>
+        <ignite-spark.version>2.12.0</ignite-spark.version>
     </properties>
 
     <dependencyManagement>
@@ -447,6 +448,12 @@
                 <groupId>org.influxdb</groupId>
                 <artifactId>influxdb-java</artifactId>
                 <version>${influxdb-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-spark-2.4</artifactId>
+                <version>${ignite-spark.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
