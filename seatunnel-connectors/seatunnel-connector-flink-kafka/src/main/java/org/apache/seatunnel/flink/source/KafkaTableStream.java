@@ -17,17 +17,19 @@
 
 package org.apache.seatunnel.flink.source;
 
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.Feature;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.flink.util.SchemaUtil;
 import org.apache.seatunnel.flink.util.TableUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.parser.Feature;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;

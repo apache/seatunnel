@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.flink.sink;
 
+import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_FIELD_DELIMITER;
+import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER;
+
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -50,9 +53,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
-
-import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_FIELD_DELIMITER;
-import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER;
 
 public class DruidOutputFormat extends RichOutputFormat<Row> {
 

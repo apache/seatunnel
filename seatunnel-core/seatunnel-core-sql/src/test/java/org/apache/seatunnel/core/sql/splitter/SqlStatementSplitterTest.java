@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.core.sql.splitter;
 
-import java.util.List;
+import static org.junit.Assert.assertEquals;
+
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+import java.util.List;
 
 public class SqlStatementSplitterTest {
 

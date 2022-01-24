@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.config.command;
 
+import org.apache.seatunnel.common.config.Common;
+
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.ParameterException;
-import org.apache.seatunnel.common.config.Common;
 
 public class DeployModeValidator implements IParameterValidator {
     @Override
