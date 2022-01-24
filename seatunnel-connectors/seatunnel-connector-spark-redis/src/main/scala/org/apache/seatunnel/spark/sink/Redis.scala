@@ -16,16 +16,18 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import scala.collection.JavaConverters.asScalaSetConverter
+import scala.collection.mutable
+
 import com.redislabs.provider.redis.toRedisContext
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.seatunnel.spark.sink.RedisSaveType.KV
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.internal.Logging
-
-import scala.collection.JavaConverters.asScalaSetConverter
-import scala.collection.mutable
+import org.apache.spark.sql.{Dataset, Row}
 
 class Redis extends SparkBatchSink with Logging {
 
@@ -50,39 +52,26 @@ class Redis extends SparkBatchSink with Logging {
   }
 
   override def checkConfig(): CheckResult = {
-    config.entrySet().asScala.filter(x => x.getKey.startsWith("redis")).foreach(entry => {
-      if (entry.getKey.equals("redis_save_type")) {
-        redisSaveType = RedisSaveType.withName(config.getString("redis_save_type"))
-      }
-      redisConfig.put(entry.getKey, config.getString(entry.getKey))
-    })
-
-    def checkParam(checkArr: Array[String]): CheckResult = {
-      val notExistConfig: Array[String] = checkArr.filter(checkItem => !config.hasPath(checkItem))
-      if (notExistConfig.isEmpty) {
-        CheckResult.success()
-      } else {
-        CheckResult.error(s"redis config is not enough please check config [${notExistConfig.mkString(",")}]")
-      }
-    }
-
-    val result = checkParam(Array("redis_save_type", "redis_host", "redis_port"))
-    if (!result.isSuccess) {
-      result
-    } else {
+    val saveType = Array("HASH", "SET", "ZSET", "LIST", "KV")
+    val checkResult = checkAllExists(config, "redis_save_type", "redis_host", "redis_port")
+    if (checkResult.isSuccess) {
+      redisSaveType = RedisSaveType.withName(config.getString("redis_save_type"))
       redisSaveType match {
-        case RedisSaveType.KV => checkParam(Array())
-        case RedisSaveType.HASH => checkParam(Array(HASH_NAME))
-        case RedisSaveType.SET => checkParam(Array(SET_NAME))
-        case RedisSaveType.ZSET => checkParam(Array(ZSET_NAME))
-        case RedisSaveType.LIST => checkParam(Array(LIST_NAME))
-        case _ => CheckResult.error("Unknown redis config. redis_save_type must be in [KV HASH SET ZSET LIST]")
+        case typ if !saveType.contains(typ.toString) =>
+          CheckResult.error(s"redis_save_type must be in ${saveType.mkString(",")}")
+        case typ if !KV.equals(typ) =>
+          checkAllExists(config, s"redis_${typ.toString.toLowerCase}_name")
+        case _ => checkResult
       }
+    } else {
+      checkResult
     }
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
-
+    config.entrySet().asScala.filter(x => x.getKey.startsWith("redis")).foreach(entry => {
+      redisConfig.put(entry.getKey, config.getString(entry.getKey))
+    })
     val conf = prepareEnv.getSparkSession.conf
     conf.set("spark.redis.host", config.getString("redis_host"))
     conf.set("spark.redis.port", config.getString("redis_port"))

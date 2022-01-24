@@ -18,6 +18,7 @@
 package org.apache.seatunnel.spark.source
 
 import com.redislabs.provider.redis.{toRedisContext, RedisConfig, RedisEndpoint}
+import org.apache.seatunnel.common.config.CheckConfigUtil.{checkAllExists, checkAtLeastOneExists, mergeCheckResults}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
@@ -30,22 +31,9 @@ class Redis extends SparkBatchSource {
   val defaultPartition: Int = 3
 
   override def checkConfig(): CheckResult = {
-    val hasTableName = config.hasPath("result_table_name") || config.hasPath("table_name")
-    val hasRedisHost = config.hasPath("host")
-    val hasKeys = config.hasPath("key_pattern")
-    val hasRedisPassword = config.hasPath("auth")
-
-    config match {
-      case _ if !hasTableName =>
-        CheckResult.error("please specify [result_table_name] as non-empty string")
-      case _ if !hasRedisHost => CheckResult.error("please specify [host] as non-empty string")
-      case _ if !hasRedisPassword =>
-        CheckResult.error("please specify [auth] as non-empty string")
-      case _ if !hasKeys =>
-        CheckResult.error(
-          "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
-      case _ => CheckResult.success()
-    }
+    mergeCheckResults(
+      checkAllExists(config, "host", "key_pattern", "auth"),
+      checkAtLeastOneExists(config, "result_table_name", "table_name"))
   }
 
   /**
