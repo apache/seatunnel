@@ -28,6 +28,8 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.io.jdbc.JDBCInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -52,6 +54,8 @@ import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_IN
 import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
 
 public class JdbcSource implements FlinkBatchSource<Row> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSource.class);
 
     private Config config;
     private String tableName;
@@ -166,7 +170,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
             }
             connection.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("get row type info exception", e);
         }
 
         int size = map.size();
