@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.sql.job;
 
 import org.apache.seatunnel.core.sql.splitter.SqlStatementSplitter;
+
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;

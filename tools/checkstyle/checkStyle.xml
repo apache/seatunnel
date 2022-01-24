@@ -81,6 +81,16 @@
     </module>
 
     <module name="TreeWalker">
+        <module name="ImportOrder">
+            <property name="severity" value="error"/>
+            <property name="staticGroups" value="org.apache.seatunnel,org.apache.seatunnel.shade,*,javax,/^java\./,scala"/>
+            <property name="groups" value="org.apache.seatunnel,org.apache.seatunnel.shade,*,javax,/^java\./,scala"/>
+            <property name="separated" value="true"/>
+            <property name="sortStaticImportsAlphabetically" value="true"/>
+            <property name="option" value="top"/>
+            <property name="tokens" value="STATIC_IMPORT, IMPORT"/>
+            <message key="import.ordering" value="Import {0} appears after other imports that it should precede"/>
+        </module>
 
         <module name="LineLength">
             <property name="max" value="500"/>
