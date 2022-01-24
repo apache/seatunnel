@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.example.spark;
 
+import static org.apache.seatunnel.utils.Engine.SPARK;
+
 import org.apache.seatunnel.Seatunnel;
 import org.apache.seatunnel.config.command.CommandLineArgs;
-
-import static org.apache.seatunnel.utils.Engine.SPARK;
 
 public class LocalSparkExample {
 

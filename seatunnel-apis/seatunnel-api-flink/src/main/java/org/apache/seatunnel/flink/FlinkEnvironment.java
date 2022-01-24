@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.flink;
 
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.env.RuntimeEnv;
+import org.apache.seatunnel.flink.util.ConfigKeyName;
+import org.apache.seatunnel.flink.util.EnvironmentUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
@@ -31,11 +38,6 @@ import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
 import org.apache.flink.table.api.java.StreamTableEnvironment;
 import org.apache.flink.util.TernaryBoolean;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.env.RuntimeEnv;
-import org.apache.seatunnel.flink.util.ConfigKeyName;
-import org.apache.seatunnel.flink.util.EnvironmentUtil;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

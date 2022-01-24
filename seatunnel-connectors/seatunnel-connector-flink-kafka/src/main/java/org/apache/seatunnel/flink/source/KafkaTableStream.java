@@ -17,6 +17,17 @@
 
 package org.apache.seatunnel.flink.source;
 
+import org.apache.seatunnel.common.PropertiesUtil;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+import org.apache.seatunnel.flink.util.SchemaUtil;
+import org.apache.seatunnel.flink.util.TableUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.parser.Feature;
 import org.apache.commons.lang3.StringUtils;
@@ -28,15 +39,6 @@ import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.common.PropertiesUtil;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.stream.FlinkStreamSource;
-import org.apache.seatunnel.flink.util.SchemaUtil;
-import org.apache.seatunnel.flink.util.TableUtil;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

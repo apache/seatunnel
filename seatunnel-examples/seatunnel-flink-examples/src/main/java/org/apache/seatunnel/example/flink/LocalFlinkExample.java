@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.example.flink;
 
+import static org.apache.seatunnel.utils.Engine.FLINK;
+
 import org.apache.seatunnel.Seatunnel;
 import org.apache.seatunnel.config.command.CommandLineArgs;
-
-import static org.apache.seatunnel.utils.Engine.FLINK;
 
 public class LocalFlinkExample {
 

@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.common.config;
 
+import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists;
+import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAtLeastOneExists;
+import static org.apache.seatunnel.common.config.CheckConfigUtil.mergeCheckResults;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists;
-import static org.apache.seatunnel.common.config.CheckConfigUtil.checkAtLeastOneExists;
-import static org.apache.seatunnel.common.config.CheckConfigUtil.mergeCheckResults;
 
 public class CheckConfigUtilTest {
 

@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.flink.source;
 
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.util.SchemaUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.alibaba.fastjson.JSONObject;
 import org.apache.avro.Schema;
 import org.apache.flink.api.common.io.InputFormat;
@@ -30,12 +38,6 @@ import org.apache.flink.orc.OrcRowInputFormat;
 import org.apache.flink.types.Row;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
-import org.apache.seatunnel.flink.util.SchemaUtil;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;

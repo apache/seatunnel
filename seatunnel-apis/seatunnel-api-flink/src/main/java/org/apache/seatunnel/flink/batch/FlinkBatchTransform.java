@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.flink.batch;
 
-import org.apache.flink.api.java.DataSet;
 import org.apache.seatunnel.flink.BaseFlinkTransform;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+
+import org.apache.flink.api.java.DataSet;
 
 public interface FlinkBatchTransform<IN, OUT> extends BaseFlinkTransform {
 
