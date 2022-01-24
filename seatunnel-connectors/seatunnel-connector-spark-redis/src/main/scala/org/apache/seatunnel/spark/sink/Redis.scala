@@ -90,15 +90,6 @@ class Redis extends SparkBatchSink with Logging {
     config = config.withFallback(defaultConfig)
   }
 
-  def checkParam(checkArr: Array[String]): CheckResult = {
-    val notExistConfig: Array[String] = checkArr.filter(checkItem => !config.hasPath(checkItem))
-    if (notExistConfig.isEmpty) {
-      CheckResult.success()
-    } else {
-      CheckResult.error(s"redis config is not enough please check config [${notExistConfig.mkString(",")}]")
-    }
-  }
-
   def dealWithKV(data: Dataset[Row])(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
     sc.toRedisKV(value)(redisConfig = redisConfig)

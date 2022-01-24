@@ -19,11 +19,11 @@ Write Rows to a Redis.
 | [redis_zset_name](#redis_zset_name-string) | string | no       | -             | 
 | [redis_set_name](#redis_set_name-string)   | string | no       | -             |
 
-#### redis_host [string]
+### redis_host [string]
 
 redis host
 
-#### redis_port [string]
+### redis_port [string]
 
 redis port
 
@@ -39,23 +39,23 @@ redis database
 
 redis timeout
 
-#### redis_save_type [string]
+### redis_save_type [string]
 
 redis save type eg: KV HASH LIST SET ZSET
 
-#### redis_hash_name [string]
+### redis_hash_name [string]
 
 if redis save type is HASH must config hash name 
 
-#### redis_list_name [string]
+### redis_list_name [string]
 
 if redis save type is list must config list name
 
-#### redis_zset_name [string]
+### redis_zset_name [string]
 
 if redis save type is zset must config zset name
 
-#### redis_set_name [string]
+### redis_set_name [string]
 
 if redis save type is set must config set name
 
