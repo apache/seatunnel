@@ -98,7 +98,7 @@ public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransfor
         for (int i = 0; i < types.length; i++) {
             types[i] = Types.STRING();
         }
-        rowTypeInfo = new RowTypeInfo(types, fields.toArray(new String[]{}));
+        rowTypeInfo = new RowTypeInfo(types, fields.toArray(new String[0]));
     }
 
 }
