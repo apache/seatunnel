@@ -37,8 +37,8 @@ source {
 
 
 
-  # You can also use other input plugins, such as hdfs
-  # hdfs {
+  # You can also use other input plugins, such as file
+  # file {
   #   result_table_name = "accesslog"
   #   path = "hdfs://hadoop-cluster-01/nginx/accesslog"
   #   format = "json"
@@ -55,7 +55,7 @@ transform {
     delimiter = ","
   }
 
-  # you can also you other filter plugins, such as sql
+  # you can also use other filter plugins, such as sql
   # Sql {
   #   sql = "select * from accesslog where request_time > 1000"
   # }
@@ -68,7 +68,7 @@ sink {
   # choose stdout output plugin to output data to console
   Console {}
 
-  # you can also you other output plugins, such as sql
+  # you can also use other output plugins, such as hdfs
   # hdfs {
   #   path = "hdfs://hadoop-cluster-01/nginx/accesslog_processed"
   #   save_mode = "append"
