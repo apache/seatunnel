@@ -78,7 +78,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
             flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName(), e);
         }
     }
 
