@@ -27,8 +27,8 @@ import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 
-import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.{extractSubConfig, hasSubConfig}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -45,7 +45,6 @@ class Clickhouse extends SparkBatchSink {
   var table: String = _
   var fields: java.util.List[String] = _
   var retryCodes: java.util.List[Integer] = _
-  //  var config: Config = ConfigFactory.empty()
   val clickhousePrefix = "clickhouse."
   val properties: Properties = new Properties()
 
@@ -84,10 +83,9 @@ class Clickhouse extends SparkBatchSink {
     var checkResult = checkAllExists(config, "host", "table", "database", "username", "password")
     if (checkResult.isSuccess) {
       if (hasSubConfig(config, clickhousePrefix)) {
-        extractSubConfig(config, clickhousePrefix, false)
-          .entrySet().foreach(e => {
-            properties.put(e.getKey, String.valueOf(e.getValue.unwrapped()))
-          })
+        extractSubConfig(config, clickhousePrefix, false).entrySet().foreach(e => {
+          properties.put(e.getKey, String.valueOf(e.getValue.unwrapped()))
+        })
       }
       if (config.hasPath("username")) {
         properties.put("user", config.getString("username"))
