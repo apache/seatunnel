@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.plugin;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
 

@@ -19,6 +19,7 @@ package org.apache.seatunnel.flink.batch;
 
 import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+
 import org.apache.flink.api.java.DataSet;
 
 public interface FlinkBatchSource<T> extends BaseFlinkSource {
