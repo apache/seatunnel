@@ -37,11 +37,15 @@ import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Properties;
 
 public class KafkaTableStream implements FlinkStreamSource<Row> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTableStream.class);
 
     private Config config;
 
@@ -158,8 +162,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         try {
             return SchemaUtil.setFormat(format, config);
         } catch (Exception e) {
-            // TODO: logging
-            e.printStackTrace();
+            LOGGER.warn("set format exception", e);
         }
         throw new RuntimeException("format config error");
     }
