@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.flink.batch;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.plugin.Plugin;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.java.BatchTableEnvironment;
@@ -78,7 +80,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
             flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName(), e);
         }
     }
 

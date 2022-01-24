@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
@@ -57,7 +59,7 @@ public class EnvironmentUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("set restart.strategy in config '{}' exception", config, e);
         }
     }
 

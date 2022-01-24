@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.config.utils.FileUtils;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.config.utils.FileUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
