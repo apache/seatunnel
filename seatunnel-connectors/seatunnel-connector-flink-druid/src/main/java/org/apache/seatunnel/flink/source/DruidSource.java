@@ -27,6 +27,8 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -48,6 +50,8 @@ import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
 
 public class DruidSource implements FlinkBatchSource<Row> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DruidSource.class);
 
     private Config config;
     private DruidInputFormat druidInputFormat;
@@ -128,7 +132,7 @@ public class DruidSource implements FlinkBatchSource<Row> {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("Failed to get column information from JDBC URL: {}", jdbcURL, e);
         }
 
         int size = map.size();

@@ -57,7 +57,7 @@ public class EnvironmentUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("set restart.strategy in config '{}' exception", config, e);
         }
     }
 

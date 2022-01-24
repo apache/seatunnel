@@ -78,7 +78,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
             flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName(), e);
         }
     }
 
