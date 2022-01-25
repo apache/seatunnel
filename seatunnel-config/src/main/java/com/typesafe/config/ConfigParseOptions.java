@@ -56,7 +56,7 @@ public final class ConfigParseOptions {
     }
 
     /**
-     * Gets an instance of <code>ConfigParseOptions</code> with all fields
+     * Gets an instance of {@code ConfigParseOptions} with all fields
      * set to the default values. Start with this instance and make any
      * changes you need.
      *
@@ -231,7 +231,7 @@ public final class ConfigParseOptions {
 
     /**
      * Set the class loader. If set to null,
-     * <code>Thread.currentThread().getContextClassLoader()</code> will be used.
+     * {@code Thread.currentThread().getContextClassLoader()} will be used.
      *
      * @param loader a class loader or {@code null} to use thread context class
      *               loader
@@ -249,7 +249,7 @@ public final class ConfigParseOptions {
     /**
      * Get the class loader; never returns {@code null}, if the class loader was
      * unset, returns
-     * <code>Thread.currentThread().getContextClassLoader()</code>.
+     * {@code Thread.currentThread().getContextClassLoader()}.
      *
      * @return class loader to use
      */
