@@ -22,23 +22,30 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-transforms</artifactId>
         <version>2.0.5-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-transforms</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>seatunnel-transform-spark-concat</artifactId>
 
-    <modules>
-        <module>seatunnel-transform-flink-table2datastream</module>
-        <module>seatunnel-transform-flink-datastream2table</module>
-        <module>seatunnel-transform-flink-sql</module>
-        <module>seatunnel-transform-flink-split</module>
-        <module>seatunnel-transform-spark-json</module>
-        <module>seatunnel-transform-spark-split</module>
-        <module>seatunnel-transform-spark-sql</module>
-        <module>seatunnel-transform-spark-concat</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api-spark</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_${scala.binary.version}</artifactId>
+        </dependency>
+    </dependencies>
 
 </project>
