@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.batch;
+package org.apache.seatunnel.spark.sink
 
-import org.apache.seatunnel.flink.BaseFlinkSink;
-import org.apache.seatunnel.flink.FlinkEnvironment;
+object RedisSaveType extends Enumeration {
+  def RedisSaveType: Value = Value
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
-
-public interface FlinkBatchSink<IN, OUT> extends BaseFlinkSink {
-
-    DataSink<OUT> outputBatch(FlinkEnvironment env, DataSet<IN> inDataSet);
+  val KV: Value = Value("KV")
+  val HASH: Value = Value("HASH")
+  val LIST: Value = Value("LIST")
+  val SET: Value = Value("SET")
+  val ZSET: Value = Value("ZSET")
 }
