@@ -485,6 +485,10 @@
                     <groupId>net.alchim31.maven</groupId>
                     <artifactId>scala-maven-plugin</artifactId>
                     <version>${scala-maven-plugin.version}</version>
+                    <configuration>
+                        <scalaCompatVersion>${scala.binary.version}</scalaCompatVersion>
+                        <scalaVersion>${scala.version}</scalaVersion>
+                    </configuration>
                     <executions>
                         <execution>
                             <id>scala-compile-first</id>
