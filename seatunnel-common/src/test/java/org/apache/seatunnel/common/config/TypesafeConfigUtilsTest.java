@@ -17,17 +17,20 @@
 
 package org.apache.seatunnel.common.config;
 
+import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
+import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable;
+import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.apache.seatunnel.common.config.TypesafeConfigUtils.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 
 public class TypesafeConfigUtilsTest {
 
