@@ -37,7 +37,7 @@ public class StringTemplate {
         final SimpleDateFormat sdf = new SimpleDateFormat(timeFormat);
         final String formattedDate = sdf.format(new Date());
 
-        final Map<String, String> valuesMap = new HashMap(5);
+        final Map<String, String> valuesMap = new HashMap(3);
         valuesMap.put("uuid", UUID.randomUUID().toString());
         valuesMap.put("now", formattedDate);
         valuesMap.put(timeFormat, formattedDate);
