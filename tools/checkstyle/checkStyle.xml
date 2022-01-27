@@ -26,6 +26,9 @@
     <property name="severity" value="error"/>
 
     <property name="fileExtensions" value="java, properties, xml"/>
+    <module name="SuppressionFilter">
+        <property name="file" value="**/com/typesafe/config/**"/>
+    </module>
 
     <module name="NewlineAtEndOfFile">
         <!-- windows can use \r\n vs \n, so enforce the most used one ie UNIx style -->
