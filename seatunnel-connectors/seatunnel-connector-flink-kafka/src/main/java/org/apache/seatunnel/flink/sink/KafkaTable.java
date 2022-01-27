@@ -39,6 +39,7 @@ import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
 
 import javax.annotation.Nullable;
+
 import java.util.Properties;
 
 public class KafkaTable implements FlinkStreamSink<Row, Row> {
