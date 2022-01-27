@@ -208,3 +208,9 @@ The following components are provided under the Apache License. See project link
 The text of each license is the standard Apache 2.0 license.
 
 tools/dependencies/checkLicense.sh files from https://github.com/apache/skywalking
+mvnw files from https://github.com/apache/maven-wrapper Apache 2.0
+seatunnel-config/src/main/java/com/typesafe/config/impl/ConfigNodePath.java    from  https://github.com/lightbend/config
+seatunnel-config/src/main/java/com/typesafe/config/impl/ConfigParser.java      from  https://github.com/lightbend/config
+seatunnel-config/src/main/java/com/typesafe/config/impl/Path.java              from  https://github.com/lightbend/config
+seatunnel-config/src/main/java/com/typesafe/config/impl/PathParser.java        from  https://github.com/lightbend/config
+seatunnel-config/src/main/java/com/typesafe/config/ConfigParseOptions.java     from https://github.com/lightbend/config
