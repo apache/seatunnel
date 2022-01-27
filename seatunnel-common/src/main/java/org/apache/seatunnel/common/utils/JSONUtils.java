@@ -53,8 +53,8 @@ import java.util.TimeZone;
 /**
  * json utils
  */
-public class JSONUtils {
-    private static final Logger LOGGER = LoggerFactory.getLogger(JSONUtils.class);
+public class JsonUtils {
+    private static final Logger LOGGER = LoggerFactory.getLogger(JsonUtils.class);
 
     /**
      * can use static singleton, inject: just make sure to reuse!
@@ -66,7 +66,7 @@ public class JSONUtils {
             .configure(REQUIRE_SETTERS_FOR_GETTERS, true)
             .setTimeZone(TimeZone.getDefault());
 
-    private JSONUtils() {
+    private JsonUtils() {
         throw new UnsupportedOperationException("Construct JSONUtils");
     }
 

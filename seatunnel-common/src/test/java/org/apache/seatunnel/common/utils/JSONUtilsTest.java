@@ -33,21 +33,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JSONUtilsTest {
+public class JsonUtilsTest {
 
     @Test
     public void createArrayNodeTest() {
         CheckResult obj = CheckResult.error("my test");
         String result = "[{\"success\":false,\"msg\":\"my test\"},{\"success\":false,\"msg\":\"my test\"}]";
-        JsonNode jsonNode = JSONUtils.toJsonNode(obj);
+        JsonNode jsonNode = JsonUtils.toJsonNode(obj);
 
-        ArrayNode arrayNode = JSONUtils.createArrayNode();
+        ArrayNode arrayNode = JsonUtils.createArrayNode();
         ArrayList<JsonNode> objects = new ArrayList<>();
         objects.add(jsonNode);
         objects.add(jsonNode);
 
         ArrayNode jsonNodes = arrayNode.addAll(objects);
-        String s = JSONUtils.toJsonString(jsonNodes);
+        String s = JsonUtils.toJsonString(jsonNodes);
         Assert.assertEquals(s, result);
 
     }
@@ -57,8 +57,8 @@ public class JSONUtilsTest {
         CheckResult obj = CheckResult.error("my test");
         String str = "{\"success\":false,\"msg\":\"my test\"}";
 
-        JsonNode jsonNodes = JSONUtils.toJsonNode(obj);
-        String s = JSONUtils.toJsonString(jsonNodes);
+        JsonNode jsonNodes = JsonUtils.toJsonNode(obj);
+        String s = JsonUtils.toJsonString(jsonNodes);
         Assert.assertEquals(s, str);
 
     }
@@ -67,10 +67,10 @@ public class JSONUtilsTest {
     public void createObjectNodeTest() {
         String jsonStr = "{\"a\":\"b\",\"b\":\"d\"}";
 
-        ObjectNode objectNode = JSONUtils.createObjectNode();
+        ObjectNode objectNode = JsonUtils.createObjectNode();
         objectNode.put("a", "b");
         objectNode.put("b", "d");
-        String s = JSONUtils.toJsonString(objectNode);
+        String s = JsonUtils.toJsonString(objectNode);
         Assert.assertEquals(s, jsonStr);
     }
 
@@ -79,7 +79,7 @@ public class JSONUtilsTest {
 
         String jsonStr = "{\"id\":\"1001\",\"name\":\"Jobs\"}";
 
-        Map<String, String> models = JSONUtils.toMap(jsonStr);
+        Map<String, String> models = JsonUtils.toMap(jsonStr);
         Assert.assertEquals("1001", models.get("id"));
         Assert.assertEquals("Jobs", models.get("name"));
 
@@ -89,7 +89,7 @@ public class JSONUtilsTest {
     public void string2MapTest() {
         String str = list2String();
 
-        List<LinkedHashMap> maps = JSONUtils.toList(str, LinkedHashMap.class);
+        List<LinkedHashMap> maps = JsonUtils.toList(str, LinkedHashMap.class);
 
         Assert.assertEquals(1, maps.size());
         Assert.assertEquals("mysql200", maps.get(0).get("mysql service name"));
@@ -110,55 +110,55 @@ public class JSONUtilsTest {
 
         List<LinkedHashMap<String, String>> maps = new ArrayList<>();
         maps.add(0, map1);
-        String resultJson = JSONUtils.toJsonString(maps);
+        String resultJson = JsonUtils.toJsonString(maps);
         return resultJson;
     }
 
     @Test
     public void testParseObject() {
-        Assert.assertNull(JSONUtils.parseObject(""));
-        Assert.assertNull(JSONUtils.parseObject("foo", String.class));
+        Assert.assertNull(JsonUtils.parseObject(""));
+        Assert.assertNull(JsonUtils.parseObject("foo", String.class));
     }
 
     @Test
     public void testNodeString() {
-        Assert.assertEquals("", JSONUtils.getNodeString("", "key"));
-        Assert.assertEquals("", JSONUtils.getNodeString("abc", "key"));
-        Assert.assertEquals("", JSONUtils.getNodeString("{\"bar\":\"foo\"}", "key"));
-        Assert.assertEquals("foo", JSONUtils.getNodeString("{\"bar\":\"foo\"}", "bar"));
-        Assert.assertEquals("[1,2,3]", JSONUtils.getNodeString("{\"bar\": [1,2,3]}", "bar"));
-        Assert.assertEquals("{\"1\":\"2\",\"2\":3}", JSONUtils.getNodeString("{\"bar\": {\"1\":\"2\",\"2\":3}}", "bar"));
+        Assert.assertEquals("", JsonUtils.getNodeString("", "key"));
+        Assert.assertEquals("", JsonUtils.getNodeString("abc", "key"));
+        Assert.assertEquals("", JsonUtils.getNodeString("{\"bar\":\"foo\"}", "key"));
+        Assert.assertEquals("foo", JsonUtils.getNodeString("{\"bar\":\"foo\"}", "bar"));
+        Assert.assertEquals("[1,2,3]", JsonUtils.getNodeString("{\"bar\": [1,2,3]}", "bar"));
+        Assert.assertEquals("{\"1\":\"2\",\"2\":3}", JsonUtils.getNodeString("{\"bar\": {\"1\":\"2\",\"2\":3}}", "bar"));
     }
 
     @Test
     public void testJsonByteArray() {
         String str = "foo";
-        byte[] serializeByte = JSONUtils.toJsonByteArray(str);
-        String deserialize = JSONUtils.parseObject(serializeByte, String.class);
+        byte[] serializeByte = JsonUtils.toJsonByteArray(str);
+        String deserialize = JsonUtils.parseObject(serializeByte, String.class);
         Assert.assertEquals(str, deserialize);
         str = null;
-        serializeByte = JSONUtils.toJsonByteArray(str);
-        deserialize = JSONUtils.parseObject(serializeByte, String.class);
+        serializeByte = JsonUtils.toJsonByteArray(str);
+        deserialize = JsonUtils.parseObject(serializeByte, String.class);
         Assert.assertNull(deserialize);
     }
 
     @Test
     public void testToList() {
         Assert.assertEquals(new ArrayList(),
-                JSONUtils.toList("A1B2C3", null));
+                JsonUtils.toList("A1B2C3", null));
         Assert.assertEquals(new ArrayList(),
-                JSONUtils.toList("", null));
+                JsonUtils.toList("", null));
     }
 
     @Test
     public void testCheckJsonValid() {
-        Assert.assertTrue(JSONUtils.checkJsonValid("3"));
-        Assert.assertFalse(JSONUtils.checkJsonValid(""));
+        Assert.assertTrue(JsonUtils.checkJsonValid("3"));
+        Assert.assertFalse(JsonUtils.checkJsonValid(""));
     }
 
     @Test
     public void testFindValue() {
-        Assert.assertNull(JSONUtils.findValue(
+        Assert.assertNull(JsonUtils.findValue(
                 new ArrayNode(new JsonNodeFactory(true)), null));
     }
 
@@ -167,17 +167,17 @@ public class JSONUtilsTest {
         Map<String, String> map = new HashMap<>();
         map.put("foo", "bar");
 
-        Assert.assertTrue(map.equals(JSONUtils.toMap(
+        Assert.assertTrue(map.equals(JsonUtils.toMap(
                 "{\n" + "\"foo\": \"bar\"\n" + "}")));
 
-        Assert.assertFalse(map.equals(JSONUtils.toMap(
+        Assert.assertFalse(map.equals(JsonUtils.toMap(
                 "{\n" + "\"bar\": \"foo\"\n" + "}")));
 
-        Assert.assertNull(JSONUtils.toMap("3"));
-        Assert.assertNull(JSONUtils.toMap(null));
+        Assert.assertNull(JsonUtils.toMap("3"));
+        Assert.assertNull(JsonUtils.toMap(null));
 
         String str = "{\"resourceList\":[],\"localParams\":[],\"rawScript\":\"#!/bin/bash\\necho \\\"shell-1\\\"\"}";
-        Map<String, String> m = JSONUtils.toMap(str);
+        Map<String, String> m = JsonUtils.toMap(str);
         Assert.assertNotNull(m);
     }
 
@@ -187,18 +187,18 @@ public class JSONUtilsTest {
         map.put("foo", "bar");
 
         Assert.assertEquals("{\"foo\":\"bar\"}",
-                JSONUtils.toJsonString(map));
+                JsonUtils.toJsonString(map));
         Assert.assertEquals(String.valueOf((Object) null),
-                JSONUtils.toJsonString(null));
+                JsonUtils.toJsonString(null));
 
         Assert.assertEquals("{\"foo\":\"bar\"}",
-                JSONUtils.toJsonString(map, SerializationFeature.WRITE_NULL_MAP_VALUES));
+                JsonUtils.toJsonString(map, SerializationFeature.WRITE_NULL_MAP_VALUES));
     }
 
     @Test
     public void parseObject() {
         String str = "{\"color\":\"yellow\",\"type\":\"renault\"}";
-        ObjectNode node = JSONUtils.parseObject(str);
+        ObjectNode node = JsonUtils.parseObject(str);
 
         Assert.assertEquals("yellow", node.path("color").asText());
         node.put("price", "100");
@@ -211,7 +211,7 @@ public class JSONUtilsTest {
     @Test
     public void parseArray() {
         String str = "[{\"color\":\"yellow\",\"type\":\"renault\"}]";
-        ArrayNode node = JSONUtils.parseArray(str);
+        ArrayNode node = JsonUtils.parseArray(str);
 
         Assert.assertEquals("yellow", node.path(0).path("color").asText());
     }

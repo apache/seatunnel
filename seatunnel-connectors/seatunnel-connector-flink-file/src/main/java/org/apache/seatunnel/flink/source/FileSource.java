@@ -19,7 +19,7 @@ package org.apache.seatunnel.flink.source;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.utils.JSONUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
 import org.apache.seatunnel.flink.util.SchemaUtil;
@@ -84,7 +84,7 @@ public class FileSource implements FlinkBatchSource<Row> {
         Path filePath = new Path(path);
         switch (format) {
             case "json":
-                ObjectNode jsonSchemaInfo = JSONUtils.parseObject(schemaContent);
+                ObjectNode jsonSchemaInfo = JsonUtils.parseObject(schemaContent);
                 RowTypeInfo jsonInfo = SchemaUtil.getTypeInformation(jsonSchemaInfo);
                 JsonRowInputFormat jsonInputFormat = new JsonRowInputFormat(filePath, null, jsonInfo);
                 inputFormat = jsonInputFormat;

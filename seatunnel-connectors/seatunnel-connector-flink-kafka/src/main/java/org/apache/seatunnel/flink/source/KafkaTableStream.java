@@ -21,7 +21,7 @@ import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-import org.apache.seatunnel.common.utils.JSONUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.flink.util.SchemaUtil;
@@ -107,7 +107,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         }
         String schemaContent = config.getString(SCHEMA);
         format = config.getString(SOURCE_FORMAT);
-        schemaInfo = JSONUtils.parseObject(schemaContent);
+        schemaInfo = JsonUtils.parseObject(schemaContent);
     }
 
     @Override
