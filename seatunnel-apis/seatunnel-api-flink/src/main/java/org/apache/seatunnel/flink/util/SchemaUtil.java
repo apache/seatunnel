@@ -20,8 +20,9 @@ package org.apache.seatunnel.flink.util;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
@@ -39,30 +40,30 @@ import org.apache.flink.types.Row;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public class SchemaUtil {
 
-    public static void setSchema(Schema schema, Object info, String format) {
+    public static void setSchema(Schema schema, ObjectNode info, String format) {
 
         switch (format.toLowerCase()) {
             case "json":
-                getJsonSchema(schema, (JSONObject) info);
+                getJsonSchema(schema, info);
                 break;
             case "csv":
-                getCsvSchema(schema, (List<Map<String, String>>) info);
+                getCsvSchema(schema, info);
                 break;
             case "orc":
-                getOrcSchema(schema, (JSONObject) info);
+                getOrcSchema(schema, info);
                 break;
             case "avro":
-                getAvroSchema(schema, (JSONObject) info);
+                getAvroSchema(schema, info);
                 break;
             case "parquet":
-                getParquetSchema(schema, (JSONObject) info);
+                getParquetSchema(schema, info);
                 break;
             default:
         }
@@ -102,38 +103,57 @@ public class SchemaUtil {
         return formatDescriptor;
     }
 
-    private static void getJsonSchema(Schema schema, JSONObject json) {
-
-        for (Map.Entry<String, Object> entry : json.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
-            if (value instanceof String) {
-                schema.field(key, Types.STRING());
-            } else if (value instanceof Integer) {
-                schema.field(key, Types.INT());
-            } else if (value instanceof Long) {
-                schema.field(key, Types.LONG());
-            } else if (value instanceof BigDecimal) {
-                schema.field(key, Types.JAVA_BIG_DEC());
-            } else if (value instanceof JSONObject) {
-                schema.field(key, getTypeInformation((JSONObject) value));
-            } else if (value instanceof JSONArray) {
-                Object obj = ((JSONArray) value).get(0);
-                if (obj instanceof JSONObject) {
-                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation((JSONObject) obj)));
-                } else {
-                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Object[].class, TypeInformation.of(Object.class)));
-                }
+    private static void getJsonSchema(Schema schema, ObjectNode json) {
+        Iterator<String> fieldIterator = json.fieldNames();
+        while (fieldIterator.hasNext()) {
+            String key = fieldIterator.next();
+            JsonNode value = json.findValue(key);
+            switch (value.getNodeType()) {
+                case STRING:
+                    schema.field(key, Types.STRING());
+                    break;
+                case NUMBER:
+                    switch (value.numberType()) {
+                        case INT:
+                            schema.field(key, Types.INT());
+                            break;
+                        case LONG:
+                            schema.field(key, Types.LONG());
+                            break;
+                        case BIG_DECIMAL:
+                            schema.field(key, Types.JAVA_BIG_DEC());
+                            break;
+                        case DOUBLE:
+                            schema.field(key, Types.DOUBLE());
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                case ARRAY:
+                    JsonNode jsonNode = value.get(0);
+                    if (jsonNode.getNodeType().equals(JsonNodeType.OBJECT)) {
+                        schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation((ObjectNode) jsonNode)));
+                    } else {
+                        schema.field(key, ObjectArrayTypeInfo.getInfoFor(Object[].class, TypeInformation.of(Object.class)));
+                    }
+                    break;
+                case OBJECT:
+                    schema.field(key, getTypeInformation(json));
+                    break;
+                default:
+                    break;
             }
         }
     }
 
-    private static void getCsvSchema(Schema schema, List<Map<String, String>> schemaList) {
-
-        for (Map<String, String> map : schemaList) {
-            String field = map.get("field");
-            String type = map.get("type").toUpperCase();
-            schema.field(field, type);
+    private static void getCsvSchema(Schema schema, ObjectNode schemaList) {
+        if (schemaList.isArray()) {
+            for (JsonNode node : schemaList) {
+                String field = node.get("field").asText();
+                String type = node.get("type").asText().toUpperCase();
+                schema.field(field, type);
+            }
         }
     }
 
@@ -154,7 +174,7 @@ public class SchemaUtil {
      * @param schema schema
      * @param json   json
      */
-    private static void getOrcSchema(Schema schema, JSONObject json) {
+    private static void getOrcSchema(Schema schema, ObjectNode json) {
 
     }
 
@@ -165,11 +185,11 @@ public class SchemaUtil {
      * @param schema schema
      * @param json   json
      */
-    private static void getParquetSchema(Schema schema, JSONObject json) {
+    private static void getParquetSchema(Schema schema, ObjectNode json) {
 
     }
 
-    private static void getAvroSchema(Schema schema, JSONObject json) {
+    private static void getAvroSchema(Schema schema, ObjectNode json) {
         RowTypeInfo typeInfo = (RowTypeInfo) AvroSchemaConverter.<Row>convertToTypeInfo(json.toString());
         String[] fieldNames = typeInfo.getFieldNames();
         for (String name : fieldNames) {
@@ -177,28 +197,47 @@ public class SchemaUtil {
         }
     }
 
-    public static RowTypeInfo getTypeInformation(JSONObject json) {
+    public static RowTypeInfo getTypeInformation(ObjectNode json) {
         int size = json.size();
         String[] fields = new String[size];
         TypeInformation[] informations = new TypeInformation[size];
         int i = 0;
-        for (Map.Entry<String, Object> entry : json.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
+        Iterator<String> fieldIterator = json.fieldNames();
+        while (fieldIterator.hasNext()) {
+            String key = fieldIterator.next();
             fields[i] = key;
-            if (value instanceof String) {
-                informations[i] = Types.STRING();
-            } else if (value instanceof Integer) {
-                informations[i] = Types.INT();
-            } else if (value instanceof Long) {
-                informations[i] = Types.LONG();
-            } else if (value instanceof BigDecimal) {
-                informations[i] = Types.JAVA_BIG_DEC();
-            } else if (value instanceof JSONObject) {
-                informations[i] = getTypeInformation((JSONObject) value);
-            } else if (value instanceof JSONArray) {
-                JSONObject demo = ((JSONArray) value).getJSONObject(0);
-                informations[i] = ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation(demo));
+            JsonNode value = json.findValue(key);
+            switch (value.getNodeType()) {
+                case OBJECT:
+                    informations[i] = getTypeInformation((ObjectNode) value);
+                    break;
+                case ARRAY:
+                    JsonNode jsonNode = value.get(0);
+                    informations[i] = ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation((ObjectNode) jsonNode));
+                    break;
+                case STRING:
+                    informations[i] = Types.STRING();
+                    break;
+                case NUMBER:
+                    switch (value.numberType()) {
+                        case INT:
+                            informations[i] = Types.INT();
+                            break;
+                        case LONG:
+                            informations[i] = Types.LONG();
+                            break;
+                        case BIG_DECIMAL:
+                            informations[i] = Types.JAVA_BIG_DEC();
+                            break;
+                        case DOUBLE:
+                            informations[i] = Types.DOUBLE();
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                default:
+                    break;
             }
             i++;
         }

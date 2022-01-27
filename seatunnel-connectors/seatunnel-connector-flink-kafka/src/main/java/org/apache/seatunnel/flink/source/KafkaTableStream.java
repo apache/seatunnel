@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.utils.JSONUtils;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.flink.util.SchemaUtil;
@@ -29,7 +30,7 @@ import org.apache.seatunnel.flink.util.TableUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.Feature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
@@ -53,7 +54,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private Properties kafkaParams = new Properties();
     private String topic;
-    private Object schemaInfo;
+    private ObjectNode schemaInfo;
     private String rowTimeField;
     private String tableName;
     private final String consumerPrefix = "consumer.";
@@ -106,7 +107,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         }
         String schemaContent = config.getString(SCHEMA);
         format = config.getString(SOURCE_FORMAT);
-        schemaInfo = JSONObject.parse(schemaContent, Feature.OrderedField);
+        schemaInfo = JSONUtils.parseObject(schemaContent);
     }
 
     @Override
