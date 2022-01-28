@@ -58,14 +58,21 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
 
+    private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
+    private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
+
     private final transient StringBuffer data;
     private final String coordinatorURL;
     private final String datasource;
+    private final String timestampColumn;
+    private final String timestampFormat;
 
-    public DruidOutputFormat(String coordinatorURL, String datasource) {
+    public DruidOutputFormat(String coordinatorURL, String datasource, String timestampColumn, String timestampFormat) {
         this.data = new StringBuffer();
         this.coordinatorURL = coordinatorURL;
         this.datasource = datasource;
+        this.timestampColumn = timestampColumn == null ? DEFAULT_TIMESTAMP_COLUMN : timestampColumn;
+        this.timestampFormat = timestampFormat == null ? DEFAULT_TIMESTAMP_FORMAT : timestampFormat;
     }
 
     @Override
@@ -142,7 +149,7 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
                 new ParallelIndexIngestionSpec(
                         new DataSchema(
                                 this.datasource,
-                                new TimestampSpec("ts", "auto", null),
+                                new TimestampSpec(this.timestampColumn, this.timestampFormat, null),
                                 new DimensionsSpec(Collections.emptyList()),
                                 null,
                                 new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
@@ -160,7 +167,7 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
                 null,
                 new InlineInputSource(this.data.toString()),
                 new CsvInputFormat(
-                        Arrays.asList("name", "ts"),
+                        Arrays.asList("name", timestampColumn),
                         "|",
                         null,
                         false,
