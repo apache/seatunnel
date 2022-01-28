@@ -33,6 +33,8 @@ import java.util.List;
 public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
 
     private static final String SERVER_URL = "server_url";
+    private static final String USER_NAME = "username";
+    private static final String PASSWORD = "password";
     private static final String DATABASE = "database";
     private static final String MEASUREMENT = "measurement";
     private static final String TAGS = "tags";
@@ -40,6 +42,8 @@ public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
 
     private Config config;
     private String serverURL;
+    private String username;
+    private String password;
     private String database;
     private String measurement;
     private List<String> tags;
@@ -47,7 +51,7 @@ public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        return dataSet.output(new InfluxDbOutputFormat(serverURL, database, measurement, tags, fields));
+        return dataSet.output(new InfluxDbOutputFormat(serverURL, username, password, database, measurement, tags, fields));
     }
 
     @Override
@@ -68,6 +72,8 @@ public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
     @Override
     public void prepare(FlinkEnvironment env) {
         this.serverURL = config.getString(SERVER_URL);
+        this.username = config.hasPath(USER_NAME) ? config.getString(USER_NAME) : null;
+        this.password = config.hasPath(PASSWORD) ? config.getString(PASSWORD) : null;
         this.database = config.getString(DATABASE);
         this.measurement = config.getString(MEASUREMENT);
         this.tags = config.getStringList(TAGS);
