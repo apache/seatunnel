@@ -110,8 +110,7 @@ public class JsonUtilsTest {
 
         List<LinkedHashMap<String, String>> maps = new ArrayList<>();
         maps.add(0, map1);
-        String resultJson = JsonUtils.toJsonString(maps);
-        return resultJson;
+        return JsonUtils.toJsonString(maps);
     }
 
     @Test
@@ -167,11 +166,11 @@ public class JsonUtilsTest {
         Map<String, String> map = new HashMap<>();
         map.put("foo", "bar");
 
-        Assert.assertTrue(map.equals(JsonUtils.toMap(
-                "{\n" + "\"foo\": \"bar\"\n" + "}")));
+        Assert.assertEquals(map, JsonUtils.toMap(
+                "{\n" + "\"foo\": \"bar\"\n" + "}"));
 
-        Assert.assertFalse(map.equals(JsonUtils.toMap(
-                "{\n" + "\"bar\": \"foo\"\n" + "}")));
+        Assert.assertNotEquals(map, JsonUtils.toMap(
+                "{\n" + "\"bar\": \"foo\"\n" + "}"));
 
         Assert.assertNull(JsonUtils.toMap("3"));
         Assert.assertNull(JsonUtils.toMap(null));

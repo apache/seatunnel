@@ -53,7 +53,7 @@ import java.util.TimeZone;
 /**
  * json utils
  */
-public class JsonUtils {
+public final class JsonUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonUtils.class);
 
     /**
