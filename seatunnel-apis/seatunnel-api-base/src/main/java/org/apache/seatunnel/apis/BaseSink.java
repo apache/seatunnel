@@ -20,5 +20,8 @@ package org.apache.seatunnel.apis;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
 
+/**
+ * a base interface indicates a sink plugin which will write data to other system.
+ */
 public interface BaseSink<T extends RuntimeEnv> extends Plugin<T> {
 }
