@@ -32,6 +32,8 @@ import java.util.Arrays;
 
 public class TextRowInputFormat extends DelimitedInputFormat<Row> implements ResultTypeQueryable<Row> {
 
+    private static final long serialVersionUID = -7881695870867510222L;
+
     private static final byte CARRIAGE_RETURN = (byte) '\r';
 
     private static final byte NEW_LINE = (byte) '\n';

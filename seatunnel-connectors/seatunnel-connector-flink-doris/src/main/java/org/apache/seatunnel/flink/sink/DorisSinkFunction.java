@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 public class DorisSinkFunction<T> extends RichSinkFunction<T>
         implements CheckpointedFunction {
 
+    private static final long serialVersionUID = -2259171589402599426L;
     private final DorisOutputFormat outputFormat;
 
     public DorisSinkFunction(@Nonnull DorisOutputFormat outputFormat) {

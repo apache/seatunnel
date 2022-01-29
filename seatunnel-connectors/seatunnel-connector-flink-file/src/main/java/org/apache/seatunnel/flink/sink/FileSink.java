@@ -46,6 +46,8 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
+    private static final long serialVersionUID = -1648045076508797396L;
+
     private static final String PATH = "path";
     private static final String FORMAT = "format";
     private static final String WRITE_MODE = "write_mode";

@@ -36,6 +36,7 @@ import org.apache.flink.types.Row;
 
 public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
+    private static final long serialVersionUID = 4556842426965038124L;
     private Config config;
 
     private boolean isAppend;
