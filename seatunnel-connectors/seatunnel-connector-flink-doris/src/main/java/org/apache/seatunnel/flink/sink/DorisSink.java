@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 
 public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
+    private static final long serialVersionUID = 4747849769146047770L;
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
 

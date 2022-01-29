@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource<Row> {
 
+    private static final long serialVersionUID = -3026082767246767679L;
     private volatile boolean running = true;
 
     private Config config;
