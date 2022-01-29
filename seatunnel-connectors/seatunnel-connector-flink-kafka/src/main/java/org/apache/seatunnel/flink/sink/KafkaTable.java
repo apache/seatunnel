@@ -42,6 +42,7 @@ import java.util.Properties;
 
 public class KafkaTable implements FlinkStreamSink<Row, Row> {
 
+    private static final long serialVersionUID = 3980751499724935230L;
     private Config config;
     private Properties kafkaParams = new Properties();
     private String topic;

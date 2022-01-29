@@ -57,6 +57,7 @@ import java.util.Collections;
 public class DruidOutputFormat extends RichOutputFormat<Row> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
+    private static final long serialVersionUID = -7410857670269773005L;
 
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
     private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";

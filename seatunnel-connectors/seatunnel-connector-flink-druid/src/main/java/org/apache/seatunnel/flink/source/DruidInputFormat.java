@@ -47,6 +47,7 @@ import java.util.Arrays;
 public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implements ResultTypeQueryable<Row> {
 
     private static final Logger LOG = LoggerFactory.getLogger(DruidInputFormat.class);
+    private static final long serialVersionUID = 6404870251026854042L;
 
     private String jdbcURL;
     private String query;

@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 public class InfluxDbOutputFormat extends RichOutputFormat<Row> {
 
+    private static final long serialVersionUID = 22664885413601039L;
     private final InfluxDB influxDB;
     private final String measurement;
     private final List<String> tags;

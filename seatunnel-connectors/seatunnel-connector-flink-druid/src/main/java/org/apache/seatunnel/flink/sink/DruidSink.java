@@ -30,6 +30,7 @@ import org.apache.flink.types.Row;
 
 public class DruidSink implements FlinkBatchSink<Row, Row> {
 
+    private static final long serialVersionUID = -2967782261362988646L;
     private static final String COORDINATOR_URL = "coordinator_url";
     private static final String DATASOURCE = "datasource";
     private static final String TIMESTAMP_COLUMN = "timestamp_column";
