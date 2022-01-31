@@ -20,6 +20,9 @@ import org.apache.seatunnel.apis.BaseSink
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.{Dataset, Row}
 
+/**
+ * a base interface indicates a sink plugin running on Spark.
+ */
 trait BaseSparkSink[OUT] extends BaseSink[SparkEnvironment] {
 
   protected var config: Config = ConfigFactory.empty()
