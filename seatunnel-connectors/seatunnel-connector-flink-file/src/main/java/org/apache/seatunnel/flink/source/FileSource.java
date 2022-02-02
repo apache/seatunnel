@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink.source;
 
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -54,10 +55,16 @@ public class FileSource implements FlinkBatchSource<Row> {
     private static final String PATH = "path";
     private static final String SOURCE_FORMAT = "format.type";
     private static final String SCHEMA = "schema";
+    private static final String PARALLELISM = "parallelism";
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(inputFormat);
+        DataSource dataSource = env.getBatchEnvironment().createInput(inputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
+        return dataSource;
     }
 
     @Override
