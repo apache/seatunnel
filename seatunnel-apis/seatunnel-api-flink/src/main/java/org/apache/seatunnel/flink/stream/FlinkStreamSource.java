@@ -22,6 +22,9 @@ import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 
+/**
+ * a FlinkStreamSource plugin will read data from other system using Flink DataStream API.
+ */
 public interface FlinkStreamSource<T> extends BaseFlinkSource {
 
     DataStream<T> getData(FlinkEnvironment env);

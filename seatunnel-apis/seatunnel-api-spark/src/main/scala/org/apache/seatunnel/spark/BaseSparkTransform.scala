@@ -20,6 +20,9 @@ import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.apis.BaseTransform
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 
+/**
+ * a base interface indicates a transform plugin running on Spark.
+ */
 trait BaseSparkTransform extends BaseTransform[SparkEnvironment] {
 
   protected var config: Config = ConfigFactory.empty()
