@@ -19,6 +19,9 @@ package org.apache.seatunnel.env;
 
 import org.apache.seatunnel.plugin.Plugin;
 
+/**
+ * engine related runtime environment
+ */
 public interface RuntimeEnv extends Plugin<Boolean> {
 
 }
