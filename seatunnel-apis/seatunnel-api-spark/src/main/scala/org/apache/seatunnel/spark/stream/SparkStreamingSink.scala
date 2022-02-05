@@ -18,4 +18,8 @@ package org.apache.seatunnel.spark.stream
 
 import org.apache.seatunnel.spark.BaseSparkSink
 
+/**
+ * a SparkStreamingSink plugin will write data to other system
+ * using Spark Streaming API.
+ */
 trait SparkStreamingSink extends BaseSparkSink[Unit] {}

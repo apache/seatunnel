@@ -21,6 +21,10 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.streaming.dstream.DStream
 
+/**
+ * a SparkStreamingSource plugin will read data from other system
+ * using Spark Streaming API.
+ */
 trait SparkStreamingSource[T] extends BaseSparkSource[DStream[T]] {
 
   def beforeOutput(): Unit = {}

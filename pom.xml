@@ -118,7 +118,7 @@
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
         <tispark.version>2.4.1</tispark.version>
-        <druid.version>0.22.0</druid.version>
+        <druid.version>0.22.1</druid.version>
         <calcite-druid.version>1.29.0</calcite-druid.version>
         <config.version>1.3.3</config.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
