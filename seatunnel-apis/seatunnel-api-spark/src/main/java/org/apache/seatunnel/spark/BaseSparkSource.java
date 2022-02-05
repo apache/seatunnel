@@ -22,6 +22,9 @@ import org.apache.seatunnel.apis.BaseSource;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+/**
+ * a base interface indicates a source plugin running on Spark.
+ */
 public abstract class BaseSparkSource<T> implements BaseSource<SparkEnvironment> {
 
     protected Config config = ConfigFactory.empty();

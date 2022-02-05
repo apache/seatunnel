@@ -25,6 +25,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
+/**
+ * a base interface indicates a transform plugin running on Spark.
+ */
 public abstract class BaseSparkTransform implements BaseTransform<SparkEnvironment> {
 
     protected Config config = ConfigFactory.empty();

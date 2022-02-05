@@ -22,6 +22,10 @@ import org.apache.seatunnel.spark.BaseSparkSource;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
+/**
+ * a StructuredStreamingSource plugin will read data from other system
+ * using Spark Structured streaming API.
+ */
 @SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
 public abstract class StructuredStreamingSource extends BaseSparkSource<Dataset<Row>> {
 }

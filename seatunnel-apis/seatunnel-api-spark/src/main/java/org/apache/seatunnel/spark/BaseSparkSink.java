@@ -26,6 +26,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
+/**
+ * a base interface indicates a sink plugin running on Spark.
+ */
 public abstract class BaseSparkSink<OUT> implements BaseSink<SparkEnvironment> {
 
     protected Config config = ConfigFactory.empty();

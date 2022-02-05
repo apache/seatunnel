@@ -22,6 +22,10 @@ import org.apache.seatunnel.spark.BaseSparkSource;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
+/**
+ * a SparkBatchSource plugin will read data from other system
+ *  using Spark DataSet API.
+ */
 @SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
 public abstract class SparkBatchSource extends BaseSparkSource<Dataset<Row>> {
 }

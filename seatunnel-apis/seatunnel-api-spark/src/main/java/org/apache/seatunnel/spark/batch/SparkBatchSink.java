@@ -21,6 +21,10 @@ import org.apache.seatunnel.spark.BaseSparkSink;
 
 import scala.Unit;
 
+/**
+ * a SparkBatchSink plugin will write data to other system
+ *  using Spark DataSet API.
+ */
 @SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
 public abstract class SparkBatchSink extends BaseSparkSink<Unit> {
 }
