@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.RuntimeEnv;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.SparkSession;
@@ -29,13 +30,13 @@ import org.apache.spark.streaming.StreamingContext;
 
 public class SparkEnvironment implements RuntimeEnv {
 
-    private final long sparkStreamingDuration = 5;
+    private static final long DEFAULT_SPARK_STREAMING_DURATION = 5;
 
     private SparkSession sparkSession;
 
     private StreamingContext streamingContext;
 
-    private Config config;
+    private Config config = ConfigFactory.empty();
 
     @Override
     public void setConfig(Config config) {
@@ -69,15 +70,13 @@ public class SparkEnvironment implements RuntimeEnv {
 
     private SparkConf createSparkConf() {
         SparkConf sparkConf = new SparkConf();
-        this.config.entrySet().forEach(entry -> {
-            sparkConf.set(entry.getKey(), String.valueOf(entry.getValue().unwrapped()));
-        });
+        this.config.entrySet().forEach(entry -> sparkConf.set(entry.getKey(), String.valueOf(entry.getValue().unwrapped())));
         return sparkConf;
     }
 
     private void createStreamingContext() {
         SparkConf conf = this.sparkSession.sparkContext().getConf();
-        long duration = conf.getLong("spark.stream.batchDuration", sparkStreamingDuration);
+        long duration = conf.getLong("spark.stream.batchDuration", DEFAULT_SPARK_STREAMING_DURATION);
         if (this.streamingContext == null) {
             this.streamingContext = new StreamingContext(sparkSession.sparkContext(), Seconds.apply(duration));
         }
