@@ -12,6 +12,7 @@ Write data to Apache Druid.
 | datasource       | `String` | yes      | -             |
 | timestamp_column | `String` | no       | timestamp     |
 | timestamp_format | `String` | no       | auto          |
+| parallelism      | `Int`    | no       | -             |
 
 ### coordinator_url [`String`]
 
@@ -48,6 +49,10 @@ The timestamp format in Apache Druid, the default value is `auto`, it could be:
   - automatically detects ISO (either 'T' or space separator) or millis format
 
 - any [Joda DateTimeFormat](http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html) string
+
+### parallelism [`Int`]
+
+The parallelism of an individual operator, data source, or data sink
 
 ## Example
 
