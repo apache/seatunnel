@@ -38,6 +38,14 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     public static final String SOURCE_TABLE_NAME = "source_table_name";
     public static final String RESULT_TABLE_NAME = "result_table_name";
 
+    private final SparkEnvironment environment;
+
+    private Config config = ConfigFactory.empty();
+
+    public SparkBatchExecution(SparkEnvironment environment) {
+        this.environment = environment;
+    }
+
     public static void registerTempView(String tableName, Dataset<Row> ds) {
         ds.createOrReplaceGlobalTempView(tableName);
     }
@@ -68,8 +76,8 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     public static void registerTransformTempView(BaseSparkTransform transform, Dataset<Row> ds) {
         Config config = transform.getConfig();
         if (config.hasPath(SparkBatchExecution.RESULT_TABLE_NAME)) {
-            config.getString(SparkBatchExecution.RESULT_TABLE_NAME);
-            registerTempView(RESULT_TABLE_NAME, ds);
+            String resultTableName = config.getString(SparkBatchExecution.RESULT_TABLE_NAME);
+            registerTempView(resultTableName, ds);
         }
     }
 
@@ -83,14 +91,6 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
             fromDs = ds;
         }
         sink.output(fromDs, environment);
-    }
-
-    private final SparkEnvironment environment;
-
-    private Config config = ConfigFactory.empty();
-
-    public SparkBatchExecution(SparkEnvironment environment) {
-        this.environment = environment;
     }
 
     @Override
