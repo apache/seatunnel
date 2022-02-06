@@ -18,7 +18,6 @@
 package org.apache.seatunnel.spark;
 
 import org.apache.seatunnel.apis.BaseSink;
-import org.apache.seatunnel.common.config.CheckResult;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -42,8 +41,6 @@ public abstract class BaseSparkSink<OUT> implements BaseSink<SparkEnvironment> {
     public Config getConfig() {
         return config;
     }
-
-    public abstract CheckResult checkConfig();
 
     public abstract void prepare(SparkEnvironment prepareEnv);
 
