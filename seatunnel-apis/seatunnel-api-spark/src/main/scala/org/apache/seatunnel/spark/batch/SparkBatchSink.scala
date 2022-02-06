@@ -18,4 +18,8 @@ package org.apache.seatunnel.spark.batch
 
 import org.apache.seatunnel.spark.BaseSparkSink
 
+/**
+ * a SparkBatchSink plugin will write data to other system
+ *  using Spark DataSet API.
+ */
 trait SparkBatchSink extends BaseSparkSink[Unit] {}
