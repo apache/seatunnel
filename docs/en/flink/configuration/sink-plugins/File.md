@@ -39,7 +39,7 @@ Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) f
 
 ### parallelism [`Int`]
 
-The parallelism of an individual operator, data source, or data sink
+The parallelism of an individual operator, for FileSink
 
 
 ## Examples

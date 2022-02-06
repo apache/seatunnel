@@ -47,7 +47,7 @@ The list of Field in InfluxDB.
 
 ### parallelism [`Int`]
 
-The parallelism of an individual operator, data source, or data sink
+The parallelism of an individual operator, for InfluxDbSink
 
 
 ## Example

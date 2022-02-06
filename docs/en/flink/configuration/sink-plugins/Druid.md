@@ -52,7 +52,7 @@ The timestamp format in Apache Druid, the default value is `auto`, it could be:
 
 ### parallelism [`Int`]
 
-The parallelism of an individual operator, data source, or data sink
+The parallelism of an individual operator, for DruidSink
 
 ## Example
 

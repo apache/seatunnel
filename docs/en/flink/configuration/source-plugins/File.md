@@ -12,6 +12,7 @@ Read data from the file system
 | path           | string | yes      | -             |
 | schema         | string | yes      | -             |
 | common-options | string | no       | -             |
+| parallelism    | int    | no       | -             |
 
 ### format.type [string]
 
@@ -46,6 +47,10 @@ The file path is required. The `hdfs file` starts with `hdfs://` , and the `loca
 ### common options [string]
 
 Source plugin common parameters, please refer to [Source Plugin](./source-plugin.md) for details
+
+### parallelism [`Int`]
+
+The parallelism of an individual operator, for FileSource
 
 ## Examples
 

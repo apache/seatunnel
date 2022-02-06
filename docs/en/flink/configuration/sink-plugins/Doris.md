@@ -58,7 +58,7 @@ The doris stream load parameters.you can use 'doris.' prefix + stream_load prope
 
 ### parallelism [Int]
 
-The parallelism of an individual operator, data source, or data sink
+The parallelism of an individual operator, for DorisSink
 
 ### Examples
 
