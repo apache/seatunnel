@@ -290,6 +290,8 @@ ion-java-1.0.2.jar
 j2objc-annotations-1.1.jar
 jackson-annotations-2.11.0.jar
 jackson-core-2.11.0.jar
+jackson-core-2.6.7.jar
+jackson-core-2.7.3.jar
 jackson-core-asl-1.9.13.jar
 jackson-core-asl-1.9.2.jar
 jackson-databind-2.11.0.jar
