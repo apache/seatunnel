@@ -29,7 +29,11 @@ public class LocalSparkExample {
     public static void main(String[] args) {
         String configFile = getTestConfigFile("spark.batch.conf.template");
         CommandLineArgs sparkArgs = new CommandLineArgs(configFile, false);
-        Seatunnel.run(sparkArgs, SPARK);
+        try {
+            Seatunnel.run(sparkArgs, SPARK);
+        } catch (Exception e) {
+            System.exit(-1);
+        }
     }
 
     public static String getTestConfigFile(String configFile) {
