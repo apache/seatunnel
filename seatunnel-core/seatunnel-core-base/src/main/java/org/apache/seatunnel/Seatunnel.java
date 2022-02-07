@@ -49,7 +49,7 @@ import java.util.Optional;
 public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
-    public static void run(CommandLineArgs commandLineArgs, Engine engine) {
+    public static void run(CommandLineArgs commandLineArgs, Engine engine) throws Exception{
         Common.setDeployMode(commandLineArgs.getDeployMode());
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
         boolean testConfig = commandLineArgs.isTestConfig();
@@ -89,7 +89,7 @@ public class Seatunnel {
         return path;
     }
 
-    private static void entryPoint(String configFile, Engine engine) {
+    private static void entryPoint(String configFile, Engine engine) throws Exception {
 
         ConfigBuilder configBuilder = new ConfigBuilder(configFile, engine);
         List<BaseSource> sources = configBuilder.createPlugins(PluginType.SOURCE);

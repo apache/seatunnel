@@ -27,7 +27,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +48,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
     }
 
     @Override
-    public void start(List<FlinkStreamSource> sources, List<FlinkStreamTransform> transforms, List<FlinkStreamSink> sinks) {
+    public void start(List<FlinkStreamSource> sources, List<FlinkStreamTransform> transforms, List<FlinkStreamSink> sinks) throws Exception {
         List<DataStream> data = new ArrayList<>();
 
         for (FlinkStreamSource source : sources) {
@@ -80,7 +80,8 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
             flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
         } catch (Exception e) {
-            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName(), e);
+            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
+            throw e;
         }
     }
 
