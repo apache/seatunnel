@@ -30,7 +30,6 @@
     <artifactId>seatunnel-sql-examples</artifactId>
     <properties>
         <flink.scope>compile</flink.scope>
-        <flink.version>1.13.3</flink.version>
     </properties>
     <dependencies>
         <!--Resolve ConfigParser class conflict between Seatunnel and Flink.

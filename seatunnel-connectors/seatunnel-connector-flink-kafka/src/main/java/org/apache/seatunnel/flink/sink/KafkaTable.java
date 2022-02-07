@@ -31,12 +31,14 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.FormatDescriptor;
 import org.apache.flink.table.descriptors.Json;
 import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
+
+import javax.annotation.Nullable;
 
 import java.util.Properties;
 
@@ -48,6 +50,7 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
     private String topic;
 
     @Override
+    @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
@@ -60,11 +63,12 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
         String[] fieldNames = table.getSchema().getFieldNames();
         Schema schema = getSchema(types, fieldNames);
         String uniqueTableName = SchemaUtil.getUniqueTableName();
+
         tableEnvironment.connect(getKafkaConnect())
                 .withSchema(schema)
                 .withFormat(setFormat())
                 .inAppendMode()
-                .registerTableSink(uniqueTableName);
+                .createTemporaryTable(uniqueTableName);
         table.insertInto(uniqueTableName);
     }
 

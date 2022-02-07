@@ -28,7 +28,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.BatchTableEnvironment;
+import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
