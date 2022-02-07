@@ -38,8 +38,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.io.jdbc.JDBCInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connector.jdbc.JdbcInputFormat;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,7 +73,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
-    private JDBCInputFormat jdbcInputFormat;
+    private JdbcInputFormat jdbcInputFormat;
 
     {
         informationMapping.put("VARCHAR", STRING_TYPE_INFO);
@@ -145,7 +145,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
             fetchSize = config.getInt("fetch_size");
         }
 
-        jdbcInputFormat = JDBCInputFormat.buildJDBCInputFormat()
+        jdbcInputFormat = JdbcInputFormat.buildJdbcInputFormat()
                 .setDrivername(driverName)
                 .setDBUrl(dbUrl)
                 .setUsername(username)
