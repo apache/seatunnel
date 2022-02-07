@@ -321,15 +321,15 @@ The text of each license is the standard Apache 2.0 license.
      (Apache 2) Apache Derby Network Server (org.apache.derby:derbynet:10.14.2.0 - http://db.apache.org/derby/)
      (Apache 2) Apache Derby Database Engine and Embedded JDBC Driver (org.apache.derby:derby:10.14.2.0 - http://db.apache.org/derby/)
      (The Apache Software License, Version 2.0) Disruptor Framework (com.lmax:disruptor:3.3.6 - http://lmax-exchange.github.com/disruptor)
-     (Apache License, Version 2.0) druid-aws-common (org.apache.druid:druid-aws-common:0.22.0 - https://druid.apache.org/druid-aws-common/)
-     (Apache License, Version 2.0) druid-console (org.apache.druid:druid-console:0.22.0 - https://druid.apache.org/druid-console/)
-     (Apache License, Version 2.0) druid-core (org.apache.druid:druid-core:0.22.0 - https://druid.apache.org/druid-core/)
-     (Apache License, Version 2.0) druid-gcp-common (org.apache.druid:druid-gcp-common:0.22.0 - https://druid.apache.org/druid-gcp-common/)
-     (Apache License, Version 2.0) druid-hll (org.apache.druid:druid-hll:0.22.0 - https://druid.apache.org/druid-hll/)
-     (Apache License, Version 2.0) druid-indexing-hadoop (org.apache.druid:druid-indexing-hadoop:0.22.0 - https://druid.apache.org/druid-indexing-hadoop/)
-     (Apache License, Version 2.0) druid-indexing-service (org.apache.druid:druid-indexing-service:0.22.0 - https://druid.apache.org/druid-indexing-service/)
-     (Apache License, Version 2.0) druid-processing (org.apache.druid:druid-processing:0.22.0 - https://druid.apache.org/druid-processing/)
-     (Apache License, Version 2.0) druid-server (org.apache.druid:druid-server:0.22.0 - https://druid.apache.org/druid-server/)
+     (Apache License, Version 2.0) druid-aws-common (org.apache.druid:druid-aws-common:0.22.1 - https://druid.apache.org/druid-aws-common/)
+     (Apache License, Version 2.0) druid-console (org.apache.druid:druid-console:0.22.1 - https://druid.apache.org/druid-console/)
+     (Apache License, Version 2.0) druid-core (org.apache.druid:druid-core:0.22.1 - https://druid.apache.org/druid-core/)
+     (Apache License, Version 2.0) druid-gcp-common (org.apache.druid:druid-gcp-common:0.22.1 - https://druid.apache.org/druid-gcp-common/)
+     (Apache License, Version 2.0) druid-hll (org.apache.druid:druid-hll:0.22.1 - https://druid.apache.org/druid-hll/)
+     (Apache License, Version 2.0) druid-indexing-hadoop (org.apache.druid:druid-indexing-hadoop:0.22.1 - https://druid.apache.org/druid-indexing-hadoop/)
+     (Apache License, Version 2.0) druid-indexing-service (org.apache.druid:druid-indexing-service:0.22.1 - https://druid.apache.org/druid-indexing-service/)
+     (Apache License, Version 2.0) druid-processing (org.apache.druid:druid-processing:0.22.1 - https://druid.apache.org/druid-processing/)
+     (Apache License, Version 2.0) druid-server (org.apache.druid:druid-server:0.22.1 - https://druid.apache.org/druid-server/)
      (The Apache Software License, Version 2.0) reindex (org.elasticsearch.plugin:reindex-client:6.3.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) elasticsearch-core (org.elasticsearch:elasticsearch-core:6.3.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) transport-netty4 (org.elasticsearch.plugin:transport-netty4-client:6.3.1 - https://github.com/elastic/elasticsearch)
@@ -347,7 +347,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Elasticsearch Spark (for Spark 2.X) (org.elasticsearch:elasticsearch-spark-20_2.11:6.8.3 - http://github.com/elastic/elasticsearch-hadoop)
      (Apache 2.0) error-prone annotations (com.google.errorprone:error_prone_annotations:2.8.0 - https://errorprone.info/error_prone_annotations)
      (The Apache Software License, Version 2.0) Esri Geometry API for Java (com.esri.geometry:esri-geometry-api:2.2.0 - https://github.com/Esri/geometry-api-java)
-     (Apache License, Version 2.0) extendedset (org.apache.druid:extendedset:0.22.0 - https://druid.apache.org/extendedset/)
+     (Apache License, Version 2.0) extendedset (org.apache.druid:extendedset:0.22.1 - https://druid.apache.org/extendedset/)
      (Apache 2) fastjson (com.alibaba:fastjson:1.2.60 - https://github.com/alibaba/fastjson)
      (Apache License, Version 2.0) fastutil (it.unimi.dsi:fastutil:6.5.6 - http://fasutil.dsi.unimi.it/)
      (Apache License, Version 2.0) fastutil (it.unimi.dsi:fastutil:7.0.13 - http://fasutil.di.unimi.it/)
@@ -946,7 +946,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
 
      (Mozilla Public License Version 2.0) jamon-runtime (org.jamon:jamon-runtime:2.4.1 - http://www.jamon.org/jamon-java-parent/jamon-runtime/)
      (Mozilla Public License, Version 2.0) Mozilla Rhino (org.mozilla:rhino:1.7.11 - https://developer.mozilla.org/en/Rhino)
-    
+
 ========================================================================
 Unicode License
 ========================================================================

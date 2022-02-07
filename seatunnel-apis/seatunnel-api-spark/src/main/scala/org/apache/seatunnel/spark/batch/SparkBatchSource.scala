@@ -19,4 +19,8 @@ package org.apache.seatunnel.spark.batch
 import org.apache.seatunnel.spark.BaseSparkSource
 import org.apache.spark.sql.{Dataset, Row}
 
+/**
+ * a SparkBatchSource plugin will read data from other system
+ *  using Spark DataSet API.
+ */
 trait SparkBatchSource extends BaseSparkSource[Dataset[Row]] {}
