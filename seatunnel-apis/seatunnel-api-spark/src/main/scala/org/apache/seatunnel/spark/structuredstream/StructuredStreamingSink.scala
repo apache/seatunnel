@@ -20,4 +20,8 @@ import org.apache.seatunnel.spark.BaseSparkSink
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.streaming.DataStreamWriter
 
+/**
+ * a StructuredStreamingSink plugin will write data to other system
+ * using Spark Structured streaming API.
+ */
 trait StructuredStreamingSink extends BaseSparkSink[DataStreamWriter[Row]] {}

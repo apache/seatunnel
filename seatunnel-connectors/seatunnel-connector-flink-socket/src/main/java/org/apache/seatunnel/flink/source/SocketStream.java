@@ -33,6 +33,7 @@ import org.apache.flink.types.Row;
 
 public class SocketStream implements FlinkStreamSource<Row> {
 
+    private static final long serialVersionUID = 986629276153771291L;
     private Config config;
 
     private static final String HOST = "host";

@@ -32,6 +32,7 @@ import java.util.List;
 
 public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
 
+    private static final long serialVersionUID = 7358988750295693096L;
     private static final String SERVER_URL = "server_url";
     private static final String USER_NAME = "username";
     private static final String PASSWORD = "password";
@@ -39,6 +40,7 @@ public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
     private static final String MEASUREMENT = "measurement";
     private static final String TAGS = "tags";
     private static final String FIELDS = "fields";
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
     private String serverURL;
@@ -51,7 +53,12 @@ public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        return dataSet.output(new InfluxDbOutputFormat(serverURL, username, password, database, measurement, tags, fields));
+        DataSink<Row> dataSink = dataSet.output(new InfluxDbOutputFormat(serverURL, username, password, database, measurement, tags, fields));
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSink.setParallelism(parallelism);
+        }
+        return dataSink;
     }
 
     @Override

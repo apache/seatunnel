@@ -19,4 +19,8 @@ package org.apache.seatunnel.spark.structuredstream
 import org.apache.seatunnel.spark.BaseSparkSource
 import org.apache.spark.sql.{Dataset, Row}
 
+/**
+ * a StructuredStreamingSource plugin will read data from other system
+ * using Spark Structured streaming API.
+ */
 trait StructuredStreamingSource extends BaseSparkSource[Dataset[Row]] {}

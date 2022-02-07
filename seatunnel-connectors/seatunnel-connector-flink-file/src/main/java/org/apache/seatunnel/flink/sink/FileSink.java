@@ -46,9 +46,12 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
+    private static final long serialVersionUID = -1648045076508797396L;
+
     private static final String PATH = "path";
     private static final String FORMAT = "format";
     private static final String WRITE_MODE = "write_mode";
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
 
@@ -93,7 +96,13 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
             String mode = config.getString(WRITE_MODE);
             outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
         }
-        return dataSet.output(outputFormat);
+
+        DataSink dataSink = dataSet.output(outputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSink.setParallelism(parallelism);
+        }
+        return dataSink;
     }
 
     @Override

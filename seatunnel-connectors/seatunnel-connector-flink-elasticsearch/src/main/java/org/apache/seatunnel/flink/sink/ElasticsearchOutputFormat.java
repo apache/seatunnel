@@ -41,6 +41,7 @@ import java.util.List;
 
 public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
+    private static final long serialVersionUID = 2048590860723433896L;
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchOutputFormat.class);
 
     private Config config;

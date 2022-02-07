@@ -25,6 +25,9 @@ import org.apache.flink.api.java.operators.DataSink;
 
 import javax.annotation.Nullable;
 
+/**
+ * a FlinkBatchSink plugin will write data to other system using Flink DataSet API.
+ */
 public interface FlinkBatchSink<IN, OUT> extends BaseFlinkSink {
 
     @Nullable

@@ -30,6 +30,7 @@ import java.io.Writer;
 
 public class CsvRowOutputFormat extends FileOutputFormat<Row> {
 
+    private static final long serialVersionUID = 8646976668519603413L;
     private static final int STREAM_BUFFER_SIZE = 4096;
     public static final String DEFAULT_LINE_DELIMITER = CsvInputFormat.DEFAULT_LINE_DELIMITER;
     public static final String DEFAULT_FIELD_DELIMITER = CsvInputFormat.DEFAULT_FIELD_DELIMITER;

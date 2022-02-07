@@ -32,6 +32,7 @@ import java.io.IOException;
 
 public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements ResultTypeQueryable<Row> {
 
+    private static final long serialVersionUID = 3256896054712026638L;
     private RowTypeInfo rowTypeInfo;
 
     private static final byte CARRIAGE_RETURN = (byte) '\r';
