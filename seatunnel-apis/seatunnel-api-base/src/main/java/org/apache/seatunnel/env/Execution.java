@@ -36,5 +36,5 @@ public interface Execution<SR extends BaseSource, TF extends BaseTransform, SK e
      * @param transforms transform plugin list
      * @param sinks      sink plugin list
      */
-    void start(List<SR> sources, List<TF> transforms, List<SK> sinks);
+    void start(List<SR> sources, List<TF> transforms, List<SK> sinks) throws Exception;
 }
