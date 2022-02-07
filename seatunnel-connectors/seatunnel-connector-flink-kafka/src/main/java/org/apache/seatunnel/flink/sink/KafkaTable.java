@@ -38,6 +38,8 @@ import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
 
+import javax.annotation.Nullable;
+
 import java.util.Properties;
 
 public class KafkaTable implements FlinkStreamSink<Row, Row> {
@@ -48,6 +50,7 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
     private String topic;
 
     @Override
+    @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
