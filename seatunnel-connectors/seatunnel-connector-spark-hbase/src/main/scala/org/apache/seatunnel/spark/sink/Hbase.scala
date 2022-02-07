@@ -27,7 +27,7 @@ import org.apache.hadoop.hbase.spark.{ByteArrayWrapper, FamiliesQualifiersValues
 import org.apache.hadoop.hbase.spark.datasources.HBaseTableCatalog
 import org.apache.hadoop.hbase.tool.LoadIncrementalHFiles
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -44,7 +44,7 @@ class Hbase extends SparkBatchSink with Logging {
   var hbasePrefix = "hbase."
 
   override def checkConfig(): CheckResult = {
-    check(config, "hbase.zookeeper.quorum", "catalog", "staging_dir")
+    checkAllExists(config, "hbase.zookeeper.quorum", "catalog", "staging_dir")
   }
 
   override def prepare(env: SparkEnvironment): Unit = {

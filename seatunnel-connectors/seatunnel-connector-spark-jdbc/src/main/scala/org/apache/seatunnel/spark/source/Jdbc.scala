@@ -20,7 +20,7 @@ import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
@@ -34,7 +34,7 @@ class Jdbc extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    check(config, "url", "table", "user", "password")
+    checkAllExists(config, "url", "table", "user", "password")
   }
 
   def jdbcReader(sparkSession: SparkSession, driver: String): DataFrameReader = {

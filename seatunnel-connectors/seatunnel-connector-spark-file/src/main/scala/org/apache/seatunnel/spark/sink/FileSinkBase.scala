@@ -17,6 +17,8 @@
 package org.apache.seatunnel.spark.sink
 
 import java.util
+
+
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.{Dataset, Row}
@@ -34,15 +36,14 @@ abstract class FileSinkBase extends SparkBatchSink {
         val dir = config.getString("path")
 
         dir.startsWith("/") || uriInAllowedSchema(dir, allowedURISchema) match {
-          case true => new CheckResult(true, "")
+          case true => CheckResult.success()
           case false =>
-            new CheckResult(
-              false,
+            CheckResult.error(
               "invalid path URI, please set the following allowed schemas: " + allowedURISchema.mkString(
                 ", "))
         }
       }
-      case false => new CheckResult(false, "please specify [path] as non-empty string")
+      case false => CheckResult.error("please specify [path] as non-empty string")
     }
   }
 

@@ -16,15 +16,16 @@
  */
 package org.apache.seatunnel.spark
 
+import java.lang
+
+import scala.collection.JavaConversions._
+
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.RuntimeEnv
+import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-
-import java.lang
-import scala.collection.JavaConversions._
 
 class SparkEnvironment extends RuntimeEnv {
 
@@ -38,7 +39,7 @@ class SparkEnvironment extends RuntimeEnv {
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = new CheckResult(true, "")
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(prepareEnv: lang.Boolean): Unit = {
     val sparkConf = createSparkConf()

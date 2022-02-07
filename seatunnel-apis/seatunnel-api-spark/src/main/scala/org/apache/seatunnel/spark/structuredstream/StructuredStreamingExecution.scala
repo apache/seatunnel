@@ -20,8 +20,8 @@ import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-
 import java.util.{List => JList}
+
 
 class StructuredStreamingExecution(environment: SparkEnvironment)
   extends Execution[StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink] {
@@ -32,7 +32,7 @@ class StructuredStreamingExecution(environment: SparkEnvironment)
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = new CheckResult(true, "")
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(void: Void): Unit = {}
 

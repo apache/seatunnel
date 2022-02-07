@@ -19,6 +19,9 @@ package org.apache.seatunnel.spark
 import org.apache.seatunnel.apis.BaseSource
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 
+/**
+ * a base interface indicates a source plugin running on Spark.
+ */
 trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
 
   protected var config: Config = ConfigFactory.empty()
@@ -27,6 +30,6 @@ trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
 
   override def getConfig: Config = config
 
-  def getData(env: SparkEnvironment): Data;
+  def getData(env: SparkEnvironment): Data
 
 }

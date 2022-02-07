@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.config.utils.FileUtils;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.config.utils.FileUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class ConfigFactoryTest {
@@ -66,4 +68,14 @@ public class ConfigFactoryTest {
 
     }
 
+    @Test
+    public void testQuotedString() {
+        List<String> keys = Arrays.asList("spark.app.name", "spark.executor.instances", "spark.executor.cores",
+                "spark.executor.memory", "spark.streaming.batchDuration");
+
+        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
+        Config evnConfig = config.getConfig("env");
+        evnConfig.entrySet().forEach(entry -> Assert.assertTrue(keys.contains(entry.getKey())));
+
+    }
 }

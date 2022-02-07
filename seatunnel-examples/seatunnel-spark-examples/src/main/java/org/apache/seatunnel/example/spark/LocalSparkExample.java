@@ -28,8 +28,12 @@ public class LocalSparkExample {
 
     public static void main(String[] args) {
         String configFile = getTestConfigFile("spark.batch.conf.template");
-        CommandLineArgs flinkArgs = new CommandLineArgs(configFile, false);
-        Seatunnel.run(flinkArgs, SPARK, args);
+        CommandLineArgs sparkArgs = new CommandLineArgs(configFile, false);
+        try {
+            Seatunnel.run(sparkArgs, SPARK);
+        } catch (Exception e) {
+            System.exit(-1);
+        }
     }
 
     public static String getTestConfigFile(String configFile) {

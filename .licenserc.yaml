@@ -38,5 +38,6 @@ header:
     - '**/NOTICE'
     - '**/META-INF/services/**'
     - '**/.gitkeep'
+    - '**/com/typesafe/config/**'
 
   comment: on-failure

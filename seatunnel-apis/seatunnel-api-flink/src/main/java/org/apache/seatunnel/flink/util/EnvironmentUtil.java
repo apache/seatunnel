@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
@@ -57,7 +59,7 @@ public class EnvironmentUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("set restart.strategy in config '{}' exception", config, e);
         }
     }
 
@@ -67,18 +69,18 @@ public class EnvironmentUtil {
             switch (restartStrategy.toLowerCase()) {
                 case "fixed-delay":
                     if (!(config.hasPath(ConfigKeyName.RESTART_ATTEMPTS) && config.hasPath(ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS))) {
-                        return new CheckResult(false, String.format("fixed-delay restart strategy must set [%s],[%s]", ConfigKeyName.RESTART_ATTEMPTS, ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS));
+                        return CheckResult.error(String.format("fixed-delay restart strategy must set [%s],[%s]", ConfigKeyName.RESTART_ATTEMPTS, ConfigKeyName.RESTART_DELAY_BETWEEN_ATTEMPTS));
                     }
                     break;
                 case "failure-rate":
                     if (!(config.hasPath(ConfigKeyName.RESTART_FAILURE_INTERVAL) && config.hasPath(ConfigKeyName.RESTART_FAILURE_RATE) && config.hasPath(ConfigKeyName.RESTART_DELAY_INTERVAL))) {
-                        return new CheckResult(false, String.format("failure-rate restart strategy must set [%s],[%s],[%s]", ConfigKeyName.RESTART_FAILURE_INTERVAL, ConfigKeyName.RESTART_FAILURE_RATE, ConfigKeyName.RESTART_DELAY_INTERVAL));
+                        return CheckResult.error(String.format("failure-rate restart strategy must set [%s],[%s],[%s]", ConfigKeyName.RESTART_FAILURE_INTERVAL, ConfigKeyName.RESTART_FAILURE_RATE, ConfigKeyName.RESTART_DELAY_INTERVAL));
                     }
                     break;
                 default:
-                    return new CheckResult(true, "");
+                    return CheckResult.success();
             }
         }
-        return new CheckResult(true, "");
+        return CheckResult.success();
     }
 }

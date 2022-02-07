@@ -21,7 +21,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.common.config.CheckConfigUtil.check
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -69,13 +69,13 @@ class Doris extends SparkBatchSink with Serializable {
 
   override def checkConfig(): CheckResult = {
     val checkResult =
-      check(config, Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
+      checkAllExists(config, Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
 
     if (!checkResult.isSuccess) {
       checkResult
     } else if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(
         Config.PASSWORD) && !config.hasPath(Config.USER)) {
-      new CheckResult(false, Config.CHECK_USER_ERROR)
+      CheckResult.error(Config.CHECK_USER_ERROR)
     } else {
       val host: String = config.getString(Config.HOST)
       val dataBase: String = config.getString(Config.DATABASE)
@@ -92,7 +92,7 @@ class Doris extends SparkBatchSink with Serializable {
           }
         }
       }
-      new CheckResult(true, Config.CHECK_SUCCESS)
+      CheckResult.success()
     }
   }
 

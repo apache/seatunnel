@@ -15,13 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common;
+package org.apache.seatunnel.spark.source
 
-public final class RowConstant {
-    public static final String ROOT = "__root__";
-    public static final String TMP = "__tmp__";
-    public static final String JSON = "__json__";
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.spark.SparkEnvironment
+import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.spark.sql.{Dataset, Row}
 
-    private RowConstant() {
-    }
+class Tidb extends SparkBatchSource {
+
+  override def prepare(env: SparkEnvironment): Unit = {}
+
+  override def checkConfig(): CheckResult = {
+    checkAllExists(config, "pre_sql", "database")
+  }
+
+  override def getData(env: SparkEnvironment): Dataset[Row] = {
+    val spark = env.getSparkSession
+    spark.sql("use " + config.getString("database"))
+    spark.sql(config.getString("pre_sql"))
+  }
 }

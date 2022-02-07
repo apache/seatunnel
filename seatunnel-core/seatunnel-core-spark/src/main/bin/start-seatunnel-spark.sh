@@ -16,9 +16,6 @@
 # limitations under the License.
 #
 
-
-# copy command line arguments
-
 function usage() {
   echo "Usage: start-seatunnel-spark.sh [options]"
   echo "  options:"
@@ -37,26 +34,37 @@ fi
 
 CMD_ARGUMENTS=$@
 
+is_exist() {
+    if [ -z $1 ]; then
+      usage
+      exit -1
+    fi
+}
+
 PARAMS=""
 while (( "$#" )); do
   case "$1" in
     -m|--master)
       MASTER=$2
+      is_exist ${MASTER}
       shift 2
       ;;
 
     -e|--deploy-mode)
       DEPLOY_MODE=$2
+      is_exist ${DEPLOY_MODE}
       shift 2
       ;;
 
     -c|--config)
       CONFIG_FILE=$2
+      is_exist ${CONFIG_FILE}
       shift 2
       ;;
 
     -i|--variable)
       variable=$2
+      is_exist ${variable}
       java_property_value="-D${variable}"
       variables_substitution="${java_property_value} ${variables_substitution}"
       shift 2

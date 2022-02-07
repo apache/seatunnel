@@ -18,6 +18,7 @@
 package org.apache.seatunnel.flink.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
@@ -28,15 +29,20 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.util.List;
 
 public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
+
+    private static final long serialVersionUID = 2048590860723433896L;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchOutputFormat.class);
 
     private Config config;
 
@@ -72,7 +78,7 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
             try {
                 transportClient.addTransportAddresses(new TransportAddress(InetAddress.getByName(host.split(":")[0]), Integer.parseInt(host.split(":")[1])));
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.warn("Host '{}' parse failed.", host, e);
             }
         }
 

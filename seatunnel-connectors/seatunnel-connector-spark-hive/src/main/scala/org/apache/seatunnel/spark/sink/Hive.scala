@@ -29,7 +29,7 @@ import org.apache.spark.sql.{DataFrameWriter, Dataset, Row}
 class Hive extends SparkBatchSink with Logging {
 
   override def checkConfig(): CheckResult = {
-    CheckConfigUtil.check(config, "sql", "source_table_name", "result_table_name")
+    CheckConfigUtil.checkAllExists(config, "sql", "source_table_name", "result_table_name")
   }
 
   override def prepare(env: SparkEnvironment): Unit = {}
