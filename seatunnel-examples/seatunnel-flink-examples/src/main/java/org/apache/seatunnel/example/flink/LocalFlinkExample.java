@@ -29,7 +29,11 @@ public class LocalFlinkExample {
     public static void main(String[] args) {
         String configFile = getTestConfigFile("fake_to_console.conf");
         CommandLineArgs flinkArgs = new CommandLineArgs(configFile, false);
-        Seatunnel.run(flinkArgs, FLINK);
+        try {
+            Seatunnel.run(flinkArgs, FLINK);
+        } catch (Exception e) {
+            System.exit(-1);
+        }
     }
 
     public static String getTestConfigFile(String configFile) {

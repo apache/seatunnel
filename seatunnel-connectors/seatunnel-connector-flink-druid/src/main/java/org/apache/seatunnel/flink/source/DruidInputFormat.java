@@ -31,6 +31,8 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Array;
@@ -170,6 +172,7 @@ public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implement
     }
 
     @Override
+    @Nullable
     public Row nextRecord(Row row) throws IOException {
         try {
             if (!hasNext) {
