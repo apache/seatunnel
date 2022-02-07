@@ -185,10 +185,8 @@ public class JsonUtilsTest {
         Map<String, Object> map = new HashMap<>();
         map.put("foo", "bar");
 
-        Assert.assertEquals("{\"foo\":\"bar\"}",
-                JsonUtils.toJsonString(map));
-        Assert.assertEquals(String.valueOf((Object) null),
-                JsonUtils.toJsonString(null));
+        Assert.assertEquals("{\"foo\":\"bar\"}", JsonUtils.toJsonString(map));
+        Assert.assertEquals(String.valueOf((Object) null), JsonUtils.toJsonString(null));
 
         Assert.assertEquals("{\"foo\":\"bar\"}",
                 JsonUtils.toJsonString(map, SerializationFeature.WRITE_NULL_MAP_VALUES));
