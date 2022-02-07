@@ -50,6 +50,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     private static final long serialVersionUID = 8445868321245456793L;
     private static final int DEFAULT_CONFIG_SIZE = 3;
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
     private String indexName;
@@ -120,6 +121,10 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
         esSinkBuilder.setBulkFlushMaxActions(1);
 
         // finally, build and add the sink to the job's pipeline
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataStream.addSink(esSinkBuilder.build()).setParallelism(parallelism);
+        }
         return dataStream.addSink(esSinkBuilder.build());
     }
 
@@ -129,7 +134,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
         indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
-        return dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
+        DataSink<Row> dataSink = dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
             @Override
             public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {
                 indexer.add(createIndexRequest(element));
@@ -148,5 +153,12 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
                         .source(json);
             }
         }));
+
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSink.setParallelism(parallelism);
+        }
+        return dataSink;
+
     }
 }

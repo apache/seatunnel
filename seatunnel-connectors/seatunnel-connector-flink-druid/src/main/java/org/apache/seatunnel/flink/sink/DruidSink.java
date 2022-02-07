@@ -35,6 +35,7 @@ public class DruidSink implements FlinkBatchSink<Row, Row> {
     private static final String DATASOURCE = "datasource";
     private static final String TIMESTAMP_COLUMN = "timestamp_column";
     private static final String TIMESTAMP_FORMAT = "timestamp_format";
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
     private String coordinatorURL;
@@ -44,7 +45,12 @@ public class DruidSink implements FlinkBatchSink<Row, Row> {
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        return dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat));
+        DataSink<Row> dataSink = dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat));
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSink.setParallelism(parallelism);
+        }
+        return dataSink;
     }
 
     @Override

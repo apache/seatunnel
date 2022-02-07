@@ -31,6 +31,7 @@ import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.io.RowCsvInputFormat;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetRowInputFormat;
@@ -54,10 +55,16 @@ public class FileSource implements FlinkBatchSource<Row> {
     private static final String PATH = "path";
     private static final String SOURCE_FORMAT = "format.type";
     private static final String SCHEMA = "schema";
+    private static final String PARALLELISM = "parallelism";
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(inputFormat);
+        DataSource dataSource = env.getBatchEnvironment().createInput(inputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
+        return dataSource;
     }
 
     @Override
