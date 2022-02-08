@@ -16,7 +16,7 @@
 #
 name: Feature request
 description: Suggest an idea for seatunnel
-title: "[Feature][Module Name] Feature title"
+title: "[Feature] [Module Name] Feature title"
 labels: ["Feature"]
 body:
   - type: markdown
