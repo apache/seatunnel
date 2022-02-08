@@ -2,11 +2,11 @@
 
 ### 描述
 
-向Doris表中写数据
+将数据写入 Doris
 
 ### 配置
 
-| 配置项 | 类型 | 必填 | 默认值 | 支持引擎 |
+| name | type | required | default value | engine |
 | --- | --- | --- | --- | --- |
 | fenodes | string | yes | - | Flink |
 | database | string | yes | - | Flink  |
@@ -28,7 +28,7 @@ Doris 数据库名称
 
 ##### table [string]
 
-Doris 表名称
+Doris 表名
 
 ##### user [string]
 
@@ -40,19 +40,23 @@ Doris 密码
 
 ##### batch_size [int]
 
-单次写Doris的最大行数,默认值100
+单次写入 Doris 的最大行数,默认值为：100
 
 ##### interval [int]
 
-flush 间隔时间(毫秒)，超过该时间后异步线程将 缓存中数据写入Doris。设置为0表示关闭定期写入。
+flush 间隔时间(毫秒)，超过时间后异步线程将缓存中数据写入 Doris。设置为 0 表示关闭定期写入。
 
 ##### max_retries [int]
 
-写Doris失败之后的重试次数
+写 Doris 失败后的重试次数
 
 ##### doris.* [string]
 
-Stream load 的导入参数。例如:'doris.column_separator' = ', ' 定义列分隔符
+Stream load 的导入参数。例如:'doris.column_separator' = ', ' 定义列分隔符 [More Doris stream_load Configurations](https://doris.apache.org/administrator-guide/load-data/stream-load-manual.html)
+
+#### parallelism [Int]
+
+DorisSink 单个算子的并行性
 
 ### Examples
 
