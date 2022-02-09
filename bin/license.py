@@ -15,15 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
-import yaml
+import sys
 
-parser = argparse.ArgumentParser()
-parser.add_argument('third_party', type=str)
-parser.add_argument('license', type=str)
-args = parser.parse_args()
+if len(sys.argv) - 1 != 2:
+    print("The length of arguments should be 2!")
+    print("The first argument should be the path to the THIRD-PARTY.txt file.")
+    print("The second argument should be the path to the LICENSE file.")
+    exit(-1)
 
-with open(args.third_party, "r") as f:
+third_party = sys.argv[1]
+license = sys.argv[2]
+
+with open(third_party, "r") as f:
     licenses = f.readlines()
 
 licenses_keyword_map = {
@@ -334,5 +337,5 @@ for k, v in licenses_map.items():
         res += '\n'
     res += '\n\n'
 
-with open(args.license, "w") as f:
+with open(license, "w") as f:
     f.write(res)
