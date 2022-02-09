@@ -1,3 +1,4 @@
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -199,3 +200,148 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+--------------------------------------------------------------------------------
+
+This product includes code from Apache Hive.
+
+* org.apache.hadoop.hive.ql.io.CombineHiveInputFormat copied to org.apache.hudi.hadoop.hive.HoodieCombineHiveInputFormat
+* org.apache.hadoop.hive.serde2.ColumnProjectionUtils copied and modified to org.apache.hudi.hadoop.HoodieColumnProjectionUtils
+
+Copyright: 2011-2019 The Apache Software Foundation
+Home page: http://hive.apache.org/
+License: http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
+This product includes code from Apache SystemML.
+
+* org.apache.hudi.client.utils.LazyIterableIterator  adapted from org/apache/sysml/runtime/instructions/spark/data/LazyIterableIterator
+
+Copyright: 2015-2018 The Apache Software Foundation
+Home page: https://systemml.apache.org/
+License: http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
+This product includes code from https://github.com/twitter/commons/blob/master/src/java/com/twitter/common/objectsize/ObjectSizeCalculator.java with the following license
+
+=================================================================================================
+ Copyright 2011 Twitter, Inc.
+ -------------------------------------------------------------------------------------------------
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this work except in compliance with the License.
+ You may obtain a copy of the License in the LICENSE file, or at:
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+=================================================================================================
+
+This product includes code from Apache Spark
+
+* org.apache.hudi.AvroConversionHelper copied from classes in org/apache/spark/sql/avro package
+
+* org.apache.hudi.HoodieSparkUtils.scala copied some methods from org.apache.spark.deploy.SparkHadoopUtil.scala
+
+Copyright: 2014 and onwards The Apache Software Foundation
+Home page: http://spark.apache.org/
+License: http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
+This product includes code from https://github.com/big-data-europe/README
+
+* docker/hoodie/hadoop/base/entrypoint.sh copied from https://github.com/big-data-europe/docker-hadoop/blob/master/base/entrypoint.sh 
+
+which is under the MIT license (https://github.com/big-data-europe/README#license)
+
+The MIT License (MIT)
+
+Copyright (c) 2015 TENFORCE BVBA, INSTITUT FUR ANGEWANDTE INFORMATIK EV,
+NATIONAL CENTER FOR SCIENTIFIC RESEARCH "DEMOKRITOS", SEMANTIC WEB COMPANY
+GMBH, FRAUNHOFER-GESELLSCHAFT ZUR FOERDERUNG DER ANGEWANDTEN FORSCHUNG E.V,
+ETHNIKO KAI KAPODISTRIAKO PANEPISTIMIO ATHINON, GEIE ERCIM
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+This product includes code from Apache Hadoop
+
+* org.apache.hudi.common.bloom.InternalDynamicBloomFilter.java adapted from org.apache.hadoop.util.bloom.DynamicBloomFilter.java
+
+* org.apache.hudi.common.bloom.InternalFilter copied from classes in org.apache.hadoop.util.bloom package
+
+with the following license
+
+Copyright (c) 2005, European Commission project OneLab under contract 034819 (http://www.one-lab.org)
+
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+ -------------------------------------------------------------------------------
+
+ This product includes code from Apache Cassandra
+
+ * org.apache.hudi.common.util.BufferedRandomAccessFile adapted from org.apache.cassandra.io.BufferedRandomAccessFile
+
+ Copyright: 2011-2019 The Apache Software Foundation
+ Home page: http://cassandra.apache.org/
+ License: http://www.apache.org/licenses/LICENSE-2.0
+
+ -------------------------------------------------------------------------------
+
+ This product includes code from Apache commons-lang
+
+ * org.apache.hudi.common.util.collection.Pair adapted from org.apache.commons.lang3.tuple.Pair
+
+ Copyright 2001-2020 The Apache Software Foundation
+
+ Home page: https://commons.apache.org/proper/commons-lang/
+ License: http://www.apache.org/licenses/LICENSE-2.0
+
+ -------------------------------------------------------------------------------
+
+ This product includes code from StreamSets Data Collector
+
+  * com.streamsets.pipeline.lib.util.avroorc.AvroToOrcRecordConverter copied and modified to org.apache.hudi.common.util.AvroOrcUtils
+  * com.streamsets.pipeline.lib.util.avroorc.AvroToOrcSchemaConverter copied and modified to org.apache.hudi.common.util.AvroOrcUtils
+
+  Copyright 2018 StreamSets Inc.
+
+  Home page: https://github.com/streamsets/datacollector-oss
+  License: http://www.apache.org/licenses/LICENSE-2.0

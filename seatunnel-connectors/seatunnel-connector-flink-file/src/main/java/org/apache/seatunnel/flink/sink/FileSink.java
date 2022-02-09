@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
-import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.serialization.Encoder;
 import org.apache.flink.api.java.DataSet;
@@ -35,7 +37,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
 import org.apache.flink.types.Row;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,9 +46,12 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
+    private static final long serialVersionUID = -1648045076508797396L;
+
     private static final String PATH = "path";
     private static final String FORMAT = "format";
     private static final String WRITE_MODE = "write_mode";
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
 
@@ -92,7 +96,13 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
             String mode = config.getString(WRITE_MODE);
             outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
         }
-        return dataSet.output(outputFormat);
+
+        DataSink dataSink = dataSet.output(outputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSink.setParallelism(parallelism);
+        }
+        return dataSink;
     }
 
     @Override

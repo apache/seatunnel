@@ -17,23 +17,26 @@
 
 package org.apache.seatunnel.flink.source;
 
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
+
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
-
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource<Row> {
 
+    private static final long serialVersionUID = -3026082767246767679L;
     private volatile boolean running = true;
 
     private Config config;

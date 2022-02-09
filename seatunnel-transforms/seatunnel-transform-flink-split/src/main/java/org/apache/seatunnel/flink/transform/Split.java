@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.flink.transform;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -96,7 +98,7 @@ public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransfor
         for (int i = 0; i < types.length; i++) {
             types[i] = Types.STRING();
         }
-        rowTypeInfo = new RowTypeInfo(types, fields.toArray(new String[]{}));
+        rowTypeInfo = new RowTypeInfo(types, fields.toArray(new String[0]));
     }
 
 }

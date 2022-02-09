@@ -17,21 +17,23 @@
 
 package org.apache.seatunnel.flink.transform;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.plugin.Plugin;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
 public class DataStreamToTable implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
+    private static final long serialVersionUID = -7861928245025199286L;
     private Config config;
 
     @Override

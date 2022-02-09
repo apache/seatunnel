@@ -31,13 +31,24 @@ import java.util.concurrent.TimeUnit;
 
 public class InfluxDbOutputFormat extends RichOutputFormat<Row> {
 
+    private static final long serialVersionUID = 22664885413601039L;
     private final InfluxDB influxDB;
     private final String measurement;
     private final List<String> tags;
     private final List<String> fields;
 
-    public InfluxDbOutputFormat(String serverURL, String database, String measurement, List<String> tags, List<String> fields) {
-        this.influxDB = InfluxDBFactory.connect(serverURL);
+    public InfluxDbOutputFormat(String serverURL,
+                                String username,
+                                String password,
+                                String database,
+                                String measurement,
+                                List<String> tags,
+                                List<String> fields) {
+        if (username == null || password == null) {
+            this.influxDB = InfluxDBFactory.connect(serverURL);
+        } else {
+            this.influxDB = InfluxDBFactory.connect(serverURL, username, password);
+        }
         this.influxDB.query(new Query("CREATE DATABASE " + database));
         this.influxDB.setDatabase(database);
         this.influxDB.enableBatch(

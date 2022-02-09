@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
-import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
@@ -34,6 +36,7 @@ import java.io.IOException;
 
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink<Row, Row>, FlinkStreamSink<Row, Row> {
 
+    private static final long serialVersionUID = 3482649370594181723L;
     private Config config;
 
     @Override
