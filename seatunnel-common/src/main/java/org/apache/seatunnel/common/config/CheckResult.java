@@ -17,12 +17,9 @@
 
 package org.apache.seatunnel.common.config;
 
-import lombok.Data;
-
-@Data
 public class CheckResult {
 
-    private static final CheckResult SUCCESS = new CheckResult(true, "");
+    private static CheckResult SUCCESS = new CheckResult(true, "");
 
     private boolean success;
 
@@ -54,4 +51,19 @@ public class CheckResult {
         return new CheckResult(false, msg);
     }
 
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+    public void setMsg(String msg) {
+        this.msg = msg;
+    }
 }
