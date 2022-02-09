@@ -31,7 +31,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-config</artifactId>
+            <artifactId>seatunnel-config-shade</artifactId>
             <version>${project.version}</version>
         </dependency>
 

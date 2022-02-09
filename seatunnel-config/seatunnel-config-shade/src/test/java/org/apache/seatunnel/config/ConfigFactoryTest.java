@@ -19,8 +19,8 @@ package org.apache.seatunnel.config;
 
 import org.apache.seatunnel.config.utils.FileUtils;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
