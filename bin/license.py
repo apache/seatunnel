@@ -30,15 +30,26 @@ with open(third_party, "r") as f:
     licenses = f.readlines()
 
 licenses_keyword_map = {
-    "Apache 2.0 License": "Apache",
-    "MIT License": "MIT",
-    "BSD License": "BSD",
-    "CC0-1.0 License": "CC0",
-    "CDDL License": "CDDL",
-    "Eclipse Public License": "Eclipse",
-    "Public Domain License": "Public Domain",
-    "Mozilla Public License Version 2.0": "Mozilla Public License",
-    "Unicode License": "Unicode/ICU License"
+    "Apache 2.0 License": ["Apache", "APL2"],
+    "MIT License": ["MIT"],
+    "BSD License": ["BSD"],
+    "CC0-1.0 License": ["CC0"],
+    "CDDL License": ["CDDL"],
+    "Eclipse Public License": ["Eclipse"],
+    "Public Domain License": ["Public Domain"],
+    "Mozilla Public License Version 2.0": ["Mozilla Public License"],
+    "Go License": ["The Go license"],
+    "Unicode License": ["Unicode/ICU License"]
+}
+unknown_licenses_map = {
+    "commons-beanutils:commons-beanutils:1.7.0": "(Apache License, Version 2.0) Apache Commons BeanUtils (commons-beanutils:commons-beanutils:1.7.0 - https://commons.apache.org/proper/commons-beanutils/)",
+    "commons-pool:commons-pool:1.5.4": "(The Apache Software License, Version 2.0) Commons Pool (commons-pool:commons-pool:1.5.4 - http://commons.apache.org/pool/)",
+    "org.antlr:antlr-runtime:3.4": "(BSD licence) ANTLR 3 Runtime (org.antlr:antlr-runtime:3.4 - http://www.antlr.org)",
+    "javax.transaction:jta:1.1": "(CDDL + GPLv2 with classpath exception) Java Transaction API (javax.transaction:jta:1.1 - http://java.sun.com/products/jta)",
+    "javax.servlet.jsp:jsp-api:2.1": "(CDDL + GPLv2 with classpath exception) Java Servlet API (javax.servlet.jsp:jsp-api:2.1 - https://javaee.github.io/javaee-jsp-api)",
+    "javax.servlet:servlet-api:2.5": "(CDDL + GPLv2 with classpath exception) Java Servlet API (javax.servlet:servlet-api:2.5 - http://servlet-spec.java.net)",
+    "oro:oro:2.0.8": "(Apache License, Version 1.1) ORO (oro:oro:2.0.8 - https://mvnrepository.com/artifact/oro/oro)",
+    "org.hyperic:sigar:1.6.5.132": "(Apache License, Version 2.0) Sigar (org.hyperic:sigar:1.6.5.132 - https://github.com/hyperic/sigar)"
 }
 licenses_describe_map = {
     "Apache 2.0 License":
@@ -69,6 +80,9 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
     "Unicode License": """The following components are provided under the Unicode License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 """,
+    "Go License": """The following components are provided under the Go License. See project link for details.
+The text of each license is also included at licenses/LICENSE-[project].txt.
+""",
     "Other License": """The following components are provided under some minority Licenses. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 """
@@ -83,10 +97,16 @@ licenses_map = {
     "Public Domain License": [],
     "Mozilla Public License Version 2.0": [],
     "Unicode License": [],
+    "Go License": [],
     "Other License": []
 }
 
 for _ in licenses:
+    if "Unknown license" in _:
+        for k, v in unknown_licenses_map.items():
+            if k in _:
+                _ = v
+                break
     _ = _.strip(" ")
     if _ == '\n':
         continue
@@ -99,9 +119,10 @@ for _ in licenses:
     type = items[0]
     l = None
     for k in licenses_keyword_map:
-        if licenses_keyword_map[k] in type:
-            l = k
-            break
+        for keyword in licenses_keyword_map[k]:
+            if keyword in type:
+                l = k
+                break
     if l is None:
         l = "Other License"
     licenses_map[l].append(_.strip('\n'))
@@ -322,6 +343,8 @@ licenses.
 """
 
 for k, v in licenses_map.items():
+    if len(v) == 0:
+        continue
     print(k)
     print(v)
     print('\n')
