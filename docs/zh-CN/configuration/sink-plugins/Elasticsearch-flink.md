@@ -17,7 +17,7 @@
 
 ### hosts [array]
 
-`Elasticsearch` 集群地址, 格式为 `host:port` , 允许指定多个主机. 例如： `["host1:9200", "host2:9200"]` .
+`Elasticsearch` 集群地址，格式为 `host:port` 允许指定多个主机。例如：`["host1:9200", "host2:9200"]`
 
 ### index_type [string]
 
@@ -25,7 +25,7 @@ Elasticsearch 索引类型
 
 ### index_time_format [string]
 
-当 `index` 参数中的格式为 `xxxx-${now}` , `index_time_format` 可以指定名称的时间格式 `index` 默认时间格式为 `yyyy.MM.dd` . 常用时间格式如下所示:
+当 `index` 参数中的格式为 `xxxx-${now}` ， `index_time_format` 可以指定名称的时间格式 `index` 默认时间格式为 `yyyy.MM.dd` 。常用时间格式如下所示：
 
 | Symbol | Description        |
 | ------ | ------------------ |
@@ -36,11 +36,11 @@ Elasticsearch 索引类型
 | m      | Minute in hour     |
 | s      | Second in minute   |
 
-有关详细的时间格式，请参阅： [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)
+有关时间格式参考： [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)
 
 ### index [string]
 
-Elasticsearch `index` 名称。 如果需要 `index` 基于时间生成，可以指定时间变量，例如 `seatunnel-${now}` . `now` 表示当前数据处理时间。
+Elasticsearch `index` 名称。 如果需要 `index` 基于时间生成可以指定时间变量，例如 `seatunnel-${now}` . `now` 表示当前数据处理时间。
 
 ### parallelism [`Int`]
 
@@ -48,7 +48,7 @@ Elasticsearch `index` 名称。 如果需要 `index` 基于时间生成，可以
 
 ### common options [string]
 
-Sink 插件常用参数，详见 [Sink Plugin](./sink-plugin.md)
+Sink 插件常用参数 [Sink Plugin](./sink-plugin.md)
 
 ## Examples
 
