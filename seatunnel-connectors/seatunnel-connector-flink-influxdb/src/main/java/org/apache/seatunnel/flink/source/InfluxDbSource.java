@@ -47,6 +47,8 @@ public class InfluxDbSource implements FlinkBatchSource<Row> {
     private InfluxDbInputFormat influxDbInputFormat;
 
     private static final String SERVER_URL = "server_url";
+    private static final String USER_NAME = "username";
+    private static final String PASSWORD = "password";
     private static final String DATABASE = "database";
     private static final String MEASUREMENT = "measurement";
     private static final String FIELDS = "fields";
@@ -91,6 +93,8 @@ public class InfluxDbSource implements FlinkBatchSource<Row> {
     @Override
     public void prepare(FlinkEnvironment env) {
         String serverURL = config.getString(SERVER_URL);
+        String username = config.hasPath(USER_NAME) ? config.getString(USER_NAME) : null;
+        String password = config.hasPath(PASSWORD) ? config.getString(PASSWORD) : null;
         String database = config.getString(DATABASE);
         String measurement = config.getString(MEASUREMENT);
         List<String> fields = config.getStringList(FIELDS);
@@ -108,6 +112,8 @@ public class InfluxDbSource implements FlinkBatchSource<Row> {
 
         this.influxDbInputFormat = InfluxDbInputFormat.buildInfluxDbInputFormat()
                 .setServerURL(serverURL)
+                .setUsername(username)
+                .setPassword(password)
                 .setDatabase(database)
                 .setQuery(sql)
                 .setFields(fields)
