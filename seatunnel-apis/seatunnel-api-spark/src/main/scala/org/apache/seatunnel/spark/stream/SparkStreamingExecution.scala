@@ -44,9 +44,9 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
       sparkEnvironment,
       dataset => {
         val conf = source.getConfig
-        if (conf.hasPath(SparkBatchExecution.resultTableName)) {
+        if (conf.hasPath(SparkBatchExecution.RESULT_TABLE_NAME)) {
           SparkBatchExecution.registerTempView(
-            conf.getString(SparkBatchExecution.resultTableName),
+            conf.getString(SparkBatchExecution.RESULT_TABLE_NAME),
             dataset)
         }
         var ds = dataset

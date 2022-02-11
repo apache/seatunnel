@@ -14,23 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.seatunnel.apis.BaseTransform
-import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
+package org.apache.seatunnel.spark;
+
+import org.apache.seatunnel.apis.BaseSource;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 /**
- * a base interface indicates a transform plugin running on Spark.
+ * a base interface indicates a source plugin running on Spark.
  */
-trait BaseSparkTransform extends BaseTransform[SparkEnvironment] {
+public abstract class BaseSparkSource<T> implements BaseSource<SparkEnvironment> {
 
-  protected var config: Config = ConfigFactory.empty()
+    protected Config config = ConfigFactory.empty();
 
-  override def setConfig(config: Config): Unit = this.config = config
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
 
-  override def getConfig: Config = config
+    @Override
+    public Config getConfig() {
+        return this.config;
+    }
 
-  def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row]
-
+    public abstract T getData(SparkEnvironment env);
 }
