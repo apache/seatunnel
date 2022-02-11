@@ -21,6 +21,8 @@ on:
     branches: [dev]
     paths-ignore:
       - 'docs/**'
+      - 'README.md'
+      - 'README_zh_CN.md'
 
 jobs:
   analyze:

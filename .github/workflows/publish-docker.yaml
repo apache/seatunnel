@@ -23,6 +23,8 @@ on:
       - docker
     paths-ignore:
       - 'docs/**'
+      - 'README.md'
+      - 'README_zh_CN.md'
 
 env:
   HUB: ghcr.io/${{ github.repository }}
