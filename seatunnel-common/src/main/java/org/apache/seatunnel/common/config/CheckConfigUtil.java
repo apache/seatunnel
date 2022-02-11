@@ -56,7 +56,7 @@ public class CheckConfigUtil {
             return CheckResult.success();
         }
 
-        List<String> missingParams = new LinkedList();
+        List<String> missingParams = new LinkedList<>();
         for (String param : params) {
             if (!config.hasPath(param) || config.getAnyRef(param) == null) {
                 missingParams.add(param);
