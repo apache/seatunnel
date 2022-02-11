@@ -9,3 +9,11 @@ If you have any new Jar binary package adding in you PR, you need to follow the 
 
 If you want to learn more about strategy of License, you could read
 [License Notice](https://seatunnel.apache.org/community/submit_guide/license) in submit guide.
+
+
+
+
+
+
+
+
