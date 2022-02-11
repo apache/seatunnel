@@ -24,8 +24,7 @@ on:
       - dev
     paths-ignore:
       - 'docs/**'
-      - 'README.md'
-      - 'README_zh_CN.md'
+      - '**/*.md'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
