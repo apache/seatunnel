@@ -19,6 +19,8 @@ on:
   push:
   pull_request:
     branches: [dev]
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   analyze:
