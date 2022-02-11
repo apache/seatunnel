@@ -44,6 +44,8 @@ public class InfluxDbInputFormat extends RichInputFormat<Row, InputSplit> implem
     private static final Logger LOG = LoggerFactory.getLogger(InfluxDbInputFormat.class);
 
     private String serverURL;
+    private String username;
+    private String password;
     private String database;
     private String query;
     private List<String> fields;
@@ -69,7 +71,11 @@ public class InfluxDbInputFormat extends RichInputFormat<Row, InputSplit> implem
     @Override
     public void openInputFormat() {
         try {
-            conn = InfluxDBFactory.connect(serverURL);
+            if (username == null || password == null) {
+                conn = InfluxDBFactory.connect(serverURL);
+            } else {
+                conn = InfluxDBFactory.connect(serverURL, username, password);
+            }
             conn.setDatabase(database);
             offset = 0;
             hasNext = true;
@@ -160,6 +166,16 @@ public class InfluxDbInputFormat extends RichInputFormat<Row, InputSplit> implem
 
         public InfluxDbInputFormatBuilder setServerURL(String serverURL) {
             format.serverURL = serverURL;
+            return this;
+        }
+
+        public InfluxDbInputFormatBuilder setUsername(String username) {
+            format.username = username;
+            return this;
+        }
+
+        public InfluxDbInputFormatBuilder setPassword(String password) {
+            format.password = password;
             return this;
         }
 
