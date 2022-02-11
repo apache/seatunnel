@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.seatunnel.spark.sink.Config.{ARGS_PREFIX, DATABASE, HOST, PASSWORD, TABLE_NAME, USER}
 import org.apache.spark.sql.{Dataset, Row}
 
 class Doris extends SparkBatchSink with Serializable {
@@ -68,35 +69,23 @@ class Doris extends SparkBatchSink with Serializable {
   }
 
   override def checkConfig(): CheckResult = {
-    val checkResult =
-      checkAllExists(config, Config.HOST, Config.DATABASE, Config.TABLE_NAME, Config.USER, Config.PASSWORD)
-
-    if (!checkResult.isSuccess) {
-      checkResult
-    } else if (config.hasPath(Config.USER) && !config.hasPath(Config.PASSWORD) || config.hasPath(
-        Config.PASSWORD) && !config.hasPath(Config.USER)) {
-      CheckResult.error(Config.CHECK_USER_ERROR)
-    } else {
-      val host: String = config.getString(Config.HOST)
-      val dataBase: String = config.getString(Config.DATABASE)
-      val tableName: String = config.getString(Config.TABLE_NAME)
-      this.apiUrl = s"http://$host/api/$dataBase/$tableName/_stream_load"
-      if (TypesafeConfigUtils.hasSubConfig(config, Config.ARGS_PREFIX)) {
-        val properties = TypesafeConfigUtils.extractSubConfig(config, Config.ARGS_PREFIX, true)
-        val iterator = properties.entrySet().iterator()
-        while (iterator.hasNext) {
-          val map = iterator.next()
-          val split = map.getKey.split("\\.")
-          if (split.size == 2) {
-            propertiesMap.put(split(1), String.valueOf(map.getValue.unwrapped))
-          }
-        }
-      }
-      CheckResult.success()
-    }
+    checkAllExists(config, HOST, DATABASE, TABLE_NAME, USER, PASSWORD)
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
+    apiUrl =
+      s"http://${config.getString(HOST)}/api/${config.getString(DATABASE)}/${config.getString(TABLE_NAME)}/_stream_load"
+    if (TypesafeConfigUtils.hasSubConfig(config, ARGS_PREFIX)) {
+      val properties = TypesafeConfigUtils.extractSubConfig(config, ARGS_PREFIX, true)
+      val iterator = properties.entrySet().iterator()
+      while (iterator.hasNext) {
+        val map = iterator.next()
+        val split = map.getKey.split("\\.")
+        if (split.size == 2) {
+          propertiesMap.put(split(1), String.valueOf(map.getValue.unwrapped))
+        }
+      }
+    }
     if (config.hasPath(Config.BULK_SIZE) && config.getInt(Config.BULK_SIZE) > 0) {
       batch_size = config.getInt(Config.BULK_SIZE)
     }
