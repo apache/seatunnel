@@ -14,22 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-import org.apache.seatunnel.apis.BaseSource
-import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
+package org.apache.seatunnel.spark.structuredstream;
+
+import org.apache.seatunnel.spark.BaseSparkSink;
+
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.streaming.DataStreamWriter;
 
 /**
- * a base interface indicates a source plugin running on Spark.
+ * a StructuredStreamingSink plugin will write data to other system
+ * using Spark Structured streaming API.
  */
-trait BaseSparkSource[Data] extends BaseSource[SparkEnvironment] {
-
-  protected var config: Config = ConfigFactory.empty()
-
-  override def setConfig(config: Config): Unit = this.config = config
-
-  override def getConfig: Config = config
-
-  def getData(env: SparkEnvironment): Data
-
+@SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
+public abstract class StructuredStreamingSink extends BaseSparkSink<DataStreamWriter<Row>> {
 }

@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.structuredstream
 
-import org.apache.seatunnel.spark.BaseSparkSink
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.streaming.DataStreamWriter
+package org.apache.seatunnel.spark.batch;
+
+import org.apache.seatunnel.spark.BaseSparkSource;
+
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
 /**
- * a StructuredStreamingSink plugin will write data to other system
- * using Spark Structured streaming API.
+ * a SparkBatchSource plugin will read data from other system
+ *  using Spark DataSet API.
  */
-trait StructuredStreamingSink extends BaseSparkSink[DataStreamWriter[Row]] {}
+@SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
+public abstract class SparkBatchSource extends BaseSparkSource<Dataset<Row>> {
+}
