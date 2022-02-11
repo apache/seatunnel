@@ -43,3 +43,5 @@ sink {
     # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/configuration/base
 }
 ```
+
+If you want to know the details of this format configuration, Please see [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md).
