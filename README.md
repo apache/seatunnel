@@ -86,7 +86,7 @@ Download address for run-directly software package :https://github.com/apache/in
 
 ## Quick start
 
-Quick start: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/quick-start
+Quick start: https://interestinglab.github.io/seatunnel-docs/#/en/quick-start
 
 Detailed documentation on SeaTunnel:https://interestinglab.github.io/seatunnel-docs/#/
 
@@ -127,7 +127,7 @@ volume average daily, and later writing the data to Clickhouse.
 
 Collecting various logs from business services into Apache Kafka, some of the data in Apache Kafka is consumed and extracted through Seatunnel, and then store into Clickhouse. 
 
-For more use cases, please refer to: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/case_study/
+For more use cases, please refer to: https://github.com/apache/incubator-seatunnel/issues/686
 
 # Code of conduct
 
