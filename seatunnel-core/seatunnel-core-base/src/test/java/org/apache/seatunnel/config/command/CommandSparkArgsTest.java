@@ -17,34 +17,25 @@
 
 package org.apache.seatunnel.config.command;
 
-import com.beust.jcommander.Parameter;
+import com.beust.jcommander.JCommander;
+import org.junit.Assert;
+import org.junit.Test;
 
-import java.util.List;
+import java.util.Collections;
 
-public class CommandFlinkArgs {
+public class CommandSparkArgsTest {
 
-    @Parameter(names = {"-c", "--config"},
-        description = "config file",
-        required = true)
-    private String configFile = "application.conf";
-
-    @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = null;
-
-    @Parameter(names = {"-t", "--check"},
-        description = "check config")
-    private boolean testConfig = false;
-
-    public String getConfigFile() {
-        return configFile;
-    }
-
-    public boolean isTestConfig() {
-        return testConfig;
-    }
-
-    public List<String> getVariables() {
-        return variables;
+    @Test
+    public void testParseSparkArgs() {
+        String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=shijiazhuang"};
+        CommandSparkArgs sparkArgs = new CommandSparkArgs();
+        JCommander.newBuilder()
+            .addObject(sparkArgs)
+            .build()
+            .parse(args);
+        Assert.assertEquals("app.conf", sparkArgs.getConfigFile());
+        Assert.assertEquals("client", sparkArgs.getDeployMode());
+        Assert.assertEquals("yarn", sparkArgs.getMaster());
+        Assert.assertEquals(Collections.singletonList("city=shijiazhuang"), sparkArgs.getVariables());
     }
 }

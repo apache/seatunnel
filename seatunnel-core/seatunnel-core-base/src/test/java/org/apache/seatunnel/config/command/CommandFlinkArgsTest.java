@@ -17,34 +17,24 @@
 
 package org.apache.seatunnel.config.command;
 
-import com.beust.jcommander.Parameter;
+import com.beust.jcommander.JCommander;
+import org.junit.Assert;
+import org.junit.Test;
 
-import java.util.List;
+import java.util.Arrays;
 
-public class CommandFlinkArgs {
+public class CommandFlinkArgsTest {
 
-    @Parameter(names = {"-c", "--config"},
-        description = "config file",
-        required = true)
-    private String configFile = "application.conf";
-
-    @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = null;
-
-    @Parameter(names = {"-t", "--check"},
-        description = "check config")
-    private boolean testConfig = false;
-
-    public String getConfigFile() {
-        return configFile;
-    }
-
-    public boolean isTestConfig() {
-        return testConfig;
-    }
-
-    public List<String> getVariables() {
-        return variables;
+    @Test
+    public void testParseFlinkArgs() {
+        String[] args = {"-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202"};
+        CommandFlinkArgs flinkArgs = new CommandFlinkArgs();
+        JCommander.newBuilder()
+            .addObject(flinkArgs)
+            .build()
+            .parse(args);
+        Assert.assertEquals("app.conf", flinkArgs.getConfigFile());
+        Assert.assertTrue(flinkArgs.isTestConfig());
+        Assert.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
     }
 }
