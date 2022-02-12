@@ -24,13 +24,9 @@ import org.apache.seatunnel.config.command.CommandLineUtils;
 
 public class SeatunnelFlink {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
-        try {
-            Seatunnel.run(flinkArgs, FLINK);
-        } catch (Exception e) {
-            System.exit(-1);
-        }
+        Seatunnel.run(flinkArgs, FLINK);
     }
 
 }
