@@ -85,7 +85,7 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         Dataset<Row> fromDs;
         Config config = sink.getConfig();
         if (config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME)) {
-            String sourceTableName = config.getString(SparkBatchExecution.RESULT_TABLE_NAME);
+            String sourceTableName = config.getString(SparkBatchExecution.SOURCE_TABLE_NAME);
             fromDs = environment.getSparkSession().read().table(sourceTableName);
         } else {
             fromDs = ds;
