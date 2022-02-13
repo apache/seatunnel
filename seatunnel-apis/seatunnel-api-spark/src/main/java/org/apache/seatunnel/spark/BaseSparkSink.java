@@ -14,13 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.batch
 
-import org.apache.seatunnel.spark.BaseSparkSource
-import org.apache.spark.sql.{Dataset, Row}
+package org.apache.seatunnel.spark;
+
+import org.apache.seatunnel.apis.BaseSink;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
 /**
- * a SparkBatchSource plugin will read data from other system
- *  using Spark DataSet API.
+ * a base interface indicates a sink plugin running on Spark.
  */
-trait SparkBatchSource extends BaseSparkSource[Dataset[Row]] {}
+public abstract class BaseSparkSink<OUT> implements BaseSink<SparkEnvironment> {
+
+    protected Config config = ConfigFactory.empty();
+
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
+    @Override
+    public Config getConfig() {
+        return config;
+    }
+
+    public abstract void prepare(SparkEnvironment prepareEnv);
+
+    public abstract OUT output(Dataset<Row> data, SparkEnvironment env);
+}

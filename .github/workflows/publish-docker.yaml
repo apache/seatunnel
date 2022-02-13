@@ -21,6 +21,9 @@ on:
     branches:
       - dev
       - docker
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 env:
   HUB: ghcr.io/${{ github.repository }}

@@ -22,6 +22,9 @@ on:
   pull_request:
     branches:
       - dev
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
