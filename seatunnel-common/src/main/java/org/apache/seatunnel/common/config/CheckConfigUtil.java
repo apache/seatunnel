@@ -36,7 +36,7 @@ public class CheckConfigUtil {
 
     public static CheckResult checkAllExists(Config config, String... params) {
         List<String> missingParams = Arrays.stream(params)
-                .filter(param -> isInvalidParam(config, param))
+                .filter(param -> !isValidParam(config, param))
                 .collect(Collectors.toList());
 
         if (missingParams.size() > 0) {
@@ -58,7 +58,7 @@ public class CheckConfigUtil {
 
         List<String> missingParams = new LinkedList();
         for (String param : params) {
-            if (isInvalidParam(config, param)) {
+            if (!isValidParam(config, param)) {
                 missingParams.add(param);
             }
         }
@@ -72,14 +72,14 @@ public class CheckConfigUtil {
         }
     }
 
-    public static boolean isInvalidParam(Config config, String param) {
-        boolean isInvalidParam = false;
-        if (!config.hasPath(param) || config.getAnyRef(param) == null) {
-            isInvalidParam = true;
+    public static boolean isValidParam(Config config, String param) {
+        boolean isValidParam = true;
+        if (!config.hasPath(param)) {
+            isValidParam = false;
         } else if (config.getAnyRef(param) instanceof List) {
-            isInvalidParam = ((List<?>) config.getAnyRef(param)).size() == 0;
+            isValidParam = !((List<?>) config.getAnyRef(param)).isEmpty();
         }
-        return isInvalidParam;
+        return isValidParam;
     }
 
     /**
