@@ -148,7 +148,7 @@ Thanks to all developers!
   the mail list.
 * Slack: https://join.slack.com/t/apacheseatunnel/shared_invite/zt-123jmewxe-RjB_DW3M3gV~xL91pZ0oVQ
 * Twitter: https://twitter.com/ASFSeaTunnel
-* [bilibili](https://space.bilibili.com/1542095008) (for china users)
+* [Bilibili](https://space.bilibili.com/1542095008) (for Chinese users)
 
 # Landscapes
 
