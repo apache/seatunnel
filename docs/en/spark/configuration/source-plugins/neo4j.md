@@ -1,4 +1,6 @@
-# Source plugin: Neo4j [Spark]
+# Neo4j
+
+> Source plugin: Neo4j [Spark]
 
 ## Description
 

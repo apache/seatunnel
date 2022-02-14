@@ -1,4 +1,6 @@
-# Source plugin: Hudi
+# Hudi
+
+> Source plugin: Hudi [Spark]
 
 ## Description
 

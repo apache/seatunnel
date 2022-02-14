@@ -1,4 +1,6 @@
-# Source plugin : JDBC [Spark]
+# Jdbc
+
+> Source plugin : Jdbc [Spark]
 
 ## Description
 

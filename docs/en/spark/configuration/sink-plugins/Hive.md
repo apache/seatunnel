@@ -1,4 +1,6 @@
-# Sink plugin: Hive
+# Hive
+
+> Sink plugin: Hive [Spark]
 
 ### Description
 

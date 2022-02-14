@@ -1,4 +1,6 @@
-# Sink plugin : Mysql [Spark]
+# Mysql
+
+> Sink plugin : Mysql [Spark]
 
 ## Description
 

@@ -1,4 +1,6 @@
-# Sink plugin : Kafka [Flink]
+# Kafka
+
+> Sink plugin : Kafka [Flink]
 
 ## Description
 

@@ -1,4 +1,6 @@
-# Sink plugin : Console [Flink]
+# Console
+
+> Sink plugin : Console [Flink]
 
 ## Description
 

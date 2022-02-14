@@ -1,4 +1,6 @@
-# Sink plugin : Elasticsearch [Flink]
+# Elasticsearch
+
+> Sink plugin : Elasticsearch [Flink]
 
 ## Description
 

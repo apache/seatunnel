@@ -1,4 +1,6 @@
-# Source plugin: Kudu [Spark]
+# Kudu
+
+> Source plugin: Kudu [Spark]
 
 ## Description
 

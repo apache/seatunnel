@@ -1,4 +1,6 @@
-# Sink plugin : Hbase [Spark]
+# Hbase
+
+> Sink plugin : Hbase [Spark]
 
 ## Description
 

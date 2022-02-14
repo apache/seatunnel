@@ -1,4 +1,6 @@
-# Sink plugin: Kafka [Spark]
+# Kafka
+
+> Sink plugin: Kafka [Spark]
 
 ## Description
 

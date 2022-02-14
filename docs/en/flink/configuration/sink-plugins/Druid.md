@@ -1,4 +1,6 @@
-# Sink plugin: Druid
+# Druid
+
+> # Sink plugin: Druid [Flink]
 
 ## Description
 
