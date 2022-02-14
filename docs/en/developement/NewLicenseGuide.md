@@ -1,4 +1,4 @@
-## How to add a new License Guide
+# How to add a new License Guide
 
 If you have any new Jar binary package adding in you PR, you need to follow the steps below to notice license
 

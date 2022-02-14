@@ -1,4 +1,6 @@
-# Transform plugin : Split [Flink]
+# Split
+
+> Transform plugin : Split [Flink]
 
 ## Description
 

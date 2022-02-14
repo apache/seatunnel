@@ -1,4 +1,6 @@
-# Full configuration file example [Flink]
+# Config Examples
+
+> Full configuration file example [Flink]
 
 An example is as follows:
 
