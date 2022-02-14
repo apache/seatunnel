@@ -35,6 +35,7 @@ public class DruidSink implements FlinkBatchSink<Row, Row> {
     private static final String DATASOURCE = "datasource";
     private static final String TIMESTAMP_COLUMN = "timestamp_column";
     private static final String TIMESTAMP_FORMAT = "timestamp_format";
+    private static final String TIMESTAMP_MISSING_VALUE = "timestamp_missing_value";
     private static final String PARALLELISM = "parallelism";
 
     private Config config;
@@ -42,10 +43,11 @@ public class DruidSink implements FlinkBatchSink<Row, Row> {
     private String datasource;
     private String timestampColumn;
     private String timestampFormat;
+    private String timestampMissingValue;
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        DataSink<Row> dataSink = dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat));
+        DataSink<Row> dataSink = dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat, timestampMissingValue));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSink.setParallelism(parallelism);
@@ -74,5 +76,6 @@ public class DruidSink implements FlinkBatchSink<Row, Row> {
         this.datasource = config.getString(DATASOURCE);
         this.timestampColumn = config.hasPath(TIMESTAMP_COLUMN) ? config.getString(TIMESTAMP_COLUMN) : null;
         this.timestampFormat = config.hasPath(TIMESTAMP_FORMAT) ? config.getString(TIMESTAMP_FORMAT) : null;
+        this.timestampMissingValue = config.hasPath(TIMESTAMP_MISSING_VALUE) ? config.getString(TIMESTAMP_MISSING_VALUE) : null;
     }
 }
