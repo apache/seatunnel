@@ -36,9 +36,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-public class CompressionUtils {
+public final class CompressionUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CompressionUtils.class);
+
+    private CompressionUtils() {
+    }
 
     /**
      * Untar an input file into an output file.
