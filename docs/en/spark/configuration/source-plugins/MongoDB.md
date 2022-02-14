@@ -1,4 +1,6 @@
-# Source plugin: MongoDB [Spark]
+# MongoDb
+
+> Source plugin: MongoDb [Spark]
 
 ## Description
 

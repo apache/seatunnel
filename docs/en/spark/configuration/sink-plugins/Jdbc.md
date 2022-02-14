@@ -1,4 +1,6 @@
-# Sink plugin : Jdbc [Spark]
+# Jdbc
+
+> Sink plugin : Jdbc [Spark]
 
 ## Description
 

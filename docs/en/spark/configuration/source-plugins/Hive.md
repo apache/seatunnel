@@ -1,4 +1,6 @@
-# Source plugin : Hive [Spark]
+# Hive
+
+> Source plugin : Hive [Spark]
 
 ## Description
 

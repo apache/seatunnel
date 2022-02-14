@@ -1,4 +1,6 @@
-# Source plugin : KafkaStream [Spark]
+# KafkaStream
+
+> Source plugin : KafkaStream [Spark]
 
 ## Description
 

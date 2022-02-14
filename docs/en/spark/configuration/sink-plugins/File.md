@@ -1,4 +1,6 @@
-# Sink plugin : File [Spark]
+# File
+
+> Sink plugin : File [Spark]
 
 ## Description
 

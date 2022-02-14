@@ -1,4 +1,6 @@
-# Sink plugin: InfluxDB
+# InfluxDB
+
+> Sink plugin: InfluxDB [Flink]
 
 ## Description
 

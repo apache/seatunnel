@@ -1,4 +1,6 @@
-# Source plugin: InfluxDB
+# InfluxDb
+
+> Source plugin: InfluxDb [Flink]
 
 ## Description
 

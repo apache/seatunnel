@@ -1,4 +1,6 @@
-# Sink plugin : Hdfs [Spark]
+# Hdfs
+
+> Sink plugin : Hdfs [Spark]
 
 ## Description
 

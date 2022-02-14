@@ -1,4 +1,6 @@
-# Sink plugin : Clickhouse [Spark]
+# Clickhouse
+
+> Sink plugin : Clickhouse [Spark]
 
 ## Description
 
