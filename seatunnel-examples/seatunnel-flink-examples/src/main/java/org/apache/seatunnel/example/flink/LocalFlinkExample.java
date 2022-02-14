@@ -26,14 +26,10 @@ public class LocalFlinkExample {
 
     public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-flink-examples/src/main/resources/examples/";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         String configFile = getTestConfigFile("fake_to_console.conf");
         CommandLineArgs flinkArgs = new CommandLineArgs(configFile, false);
-        try {
-            Seatunnel.run(flinkArgs, FLINK);
-        } catch (Exception e) {
-            System.exit(-1);
-        }
+        Seatunnel.run(flinkArgs, FLINK);
     }
 
     public static String getTestConfigFile(String configFile) {
