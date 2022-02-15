@@ -20,7 +20,10 @@ package org.apache.seatunnel.config.utils;
 import java.io.File;
 import java.net.URL;
 
-public class FileUtils {
+public final class FileUtils {
+
+    private FileUtils() {
+    }
 
     // get file from classpath, resources folder
     public static File getFileFromResources(String fileName) {
