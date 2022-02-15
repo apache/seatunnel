@@ -26,13 +26,16 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
-public class AsciiArtUtils {
+public final class AsciiArtUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AsciiArtUtils.class);
 
     private static final int FONT_SIZE = 24;
     private static final int DRAW_X = 6;
     private static final int RGB = -16777216;
+
+    private AsciiArtUtils() {
+    }
 
     /**
      * Print ASCII art of string

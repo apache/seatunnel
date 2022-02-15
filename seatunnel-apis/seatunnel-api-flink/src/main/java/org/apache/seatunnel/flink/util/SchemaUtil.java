@@ -44,7 +44,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class SchemaUtil {
+public final class SchemaUtil {
+
+    private SchemaUtil() {
+    }
 
     public static void setSchema(Schema schema, Object info, String format) {
 

@@ -1,4 +1,6 @@
-# Source plugin: Druid
+# Druid
+
+> Source plugin: Druid [Flink]
 
 ## Description
 

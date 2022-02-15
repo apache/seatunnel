@@ -35,12 +35,14 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfi
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexTuningConfig;
+import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,19 +63,26 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
 
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
     private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
+    private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = null;
 
     private final transient StringBuffer data;
     private final String coordinatorURL;
     private final String datasource;
     private final String timestampColumn;
     private final String timestampFormat;
+    private final DateTime timestampMissingValue;
 
-    public DruidOutputFormat(String coordinatorURL, String datasource, String timestampColumn, String timestampFormat) {
+    public DruidOutputFormat(String coordinatorURL,
+                             String datasource,
+                             String timestampColumn,
+                             String timestampFormat,
+                             String timestampMissingValue) {
         this.data = new StringBuffer();
         this.coordinatorURL = coordinatorURL;
         this.datasource = datasource;
         this.timestampColumn = timestampColumn == null ? DEFAULT_TIMESTAMP_COLUMN : timestampColumn;
         this.timestampFormat = timestampFormat == null ? DEFAULT_TIMESTAMP_FORMAT : timestampFormat;
+        this.timestampMissingValue = timestampMissingValue == null ? DEFAULT_TIMESTAMP_MISSING_VALUE : DateTimes.of(timestampMissingValue);
     }
 
     @Override
@@ -150,7 +159,7 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
                 new ParallelIndexIngestionSpec(
                         new DataSchema(
                                 this.datasource,
-                                new TimestampSpec(this.timestampColumn, this.timestampFormat, null),
+                                new TimestampSpec(this.timestampColumn, this.timestampFormat, this.timestampMissingValue),
                                 new DimensionsSpec(Collections.emptyList()),
                                 null,
                                 new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),

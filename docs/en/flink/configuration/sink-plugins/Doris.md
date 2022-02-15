@@ -1,4 +1,6 @@
-# Sink plugin: Doris [Flink]
+# Doris
+
+> Sink plugin: Doris [Flink]
 
 ### Description
 

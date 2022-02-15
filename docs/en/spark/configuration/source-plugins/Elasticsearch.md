@@ -1,4 +1,6 @@
-# Source plugin : Elasticsearch [Spark]
+# Elasticsearch
+
+> Source plugin : Elasticsearch [Spark]
 
 ## Description
 

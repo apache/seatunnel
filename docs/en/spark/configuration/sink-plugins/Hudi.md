@@ -1,4 +1,6 @@
-# Sink plugin: Hudi [Spark]
+# Hudi
+
+> Sink plugin: Hudi [Spark]
 
 ## Description
 

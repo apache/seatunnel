@@ -1,4 +1,6 @@
-# Sink plugin: Kudu
+# Kudu
+
+> Sink plugin: Kudu [Spark]
 
 ## Description
 

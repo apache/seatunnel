@@ -1,4 +1,6 @@
-# Sink plugin : JDBC [Flink]
+# Jdbc
+
+> Sink plugin : Jdbc [Flink]
 
 ## Description
 

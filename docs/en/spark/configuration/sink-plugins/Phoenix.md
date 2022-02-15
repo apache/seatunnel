@@ -1,4 +1,6 @@
-# Sink plugin : Phoenix [Spark]
+# Phoenix
+
+> Sink plugin : Phoenix [Spark]
 
 ## Description
 
