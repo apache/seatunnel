@@ -831,6 +831,7 @@
                                 <arguments>
                                     <argument>${project.basedir}/seatunnel-dist/target/THIRD-PARTY.txt</argument>
                                     <argument>${project.basedir}/seatunnel-dist/release-docs/LICENSE</argument>
+                                    <argument>true</argument>
                                 </arguments>
                             </configuration>
                         </execution>

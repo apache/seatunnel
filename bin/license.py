@@ -15,16 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 
-if len(sys.argv) - 1 != 2:
+if len(sys.argv) - 1 != 3:
     print("The length of arguments should be 2!")
     print("The first argument should be the path to the THIRD-PARTY.txt file.")
     print("The second argument should be the path to the LICENSE file.")
+    print("The third argument should be a flag that controls whether to print the diff or change the LICENSE file.")
     exit(-1)
 
 third_party = sys.argv[1]
 license = sys.argv[2]
+print_diff = sys.argv[3]
 
 with open(third_party, "r") as f:
     licenses = f.readlines()
@@ -102,6 +105,8 @@ licenses_map = {
 }
 
 for _ in licenses:
+    if "org.apache.seatunnel" in _:
+        continue
     if "Unknown license" in _:
         for k, v in unknown_licenses_map.items():
             if k in _:
@@ -360,5 +365,12 @@ for k, v in licenses_map.items():
         res += '\n'
     res += '\n\n'
 
-with open(license, "w") as f:
-    f.write(res)
+if print_diff == 'true':
+    tmp_file = third_party + ".tmp"
+    with open(tmp_file, "w") as f:
+        f.write(res)
+    print("Please modify the LICENSE file according to the diff information:")
+    os.system("diff " + license + " " + tmp_file)
+else:
+    with open(license, "w") as f:
+        f.write(res)
