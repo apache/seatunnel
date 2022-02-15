@@ -25,7 +25,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class StringTemplate {
+public final class StringTemplate {
+
+    private StringTemplate() {
+    }
 
     /**
      * @param str        raw string

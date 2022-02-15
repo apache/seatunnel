@@ -29,9 +29,12 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-public class EnvironmentUtil {
+public final class EnvironmentUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EnvironmentUtil.class);
+
+    private EnvironmentUtil() {
+    }
 
     public static void setRestartStrategy(Config config, ExecutionConfig executionConfig) {
         try {
