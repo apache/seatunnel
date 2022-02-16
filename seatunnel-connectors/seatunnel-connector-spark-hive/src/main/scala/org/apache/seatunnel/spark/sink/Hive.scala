@@ -32,7 +32,7 @@ class Hive extends SparkBatchSink with Logging {
     if (config.hasPath("sql")) {
       CheckResult.success()
     } else {
-      CheckConfigUtil.checkAllExists(config, "source_table_name", "result_table_name")
+      CheckConfigUtil.checkAllExists(config, "result_table_name")
     }
   }
 
@@ -44,14 +44,12 @@ class Hive extends SparkBatchSink with Logging {
       val sql = config.getString("sql")
       sparkSession.sql(sql)
     } else {
-      val sourceTableName = config.getString("source_table_name")
       val resultTableName = config.getString("result_table_name")
-      val sinkColumns = if (config.hasPath("sink_columns")) {
-        config.getString("sink_columns")
+      val sinkFrame = if (config.hasPath("sink_columns")) {
+        df.selectExpr(config.getString("sink_columns").split(","): _*)
       } else {
-        "*"
+        df
       }
-      val sinkFrame = sparkSession.sql(s"select $sinkColumns from $sourceTableName")
       val frameWriter: DataFrameWriter[Row] = if (config.hasPath("save_mode")) {
         sinkFrame.write.mode(config.getString("save_mode"))
       } else {
