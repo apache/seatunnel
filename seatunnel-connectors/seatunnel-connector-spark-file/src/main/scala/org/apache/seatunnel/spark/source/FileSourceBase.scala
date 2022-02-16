@@ -35,16 +35,16 @@ abstract class FileSourceBase extends SparkBatchSource {
   }
 
   def checkConfigImpl(schema: String): CheckResult = {
-    checkAllExists(config, "path") match {
-      case result if result.isSuccess =>
-        val dir = config.getString("path")
-        dir.startsWith("/") || dir.startsWith(schema) match {
-          case false =>
-            CheckResult.error(
-              "invalid path URI, please set the following allowed schemas: " + schema)
-          case _ => result
-        }
-      case _ => _
+    val checkResult = checkAllExists(config, "path")
+    if (checkResult.isSuccess) {
+      val dir = config.getString("path")
+      dir.startsWith("/") || dir.startsWith(schema) match {
+        case false =>
+          CheckResult.error("invalid path URI, please set the following allowed schemas: " + schema)
+        case _ => checkResult
+      }
+    } else {
+      checkResult
     }
   }
 
