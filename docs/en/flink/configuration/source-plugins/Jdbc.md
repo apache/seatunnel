@@ -1,4 +1,6 @@
-# Source plugin : JDBC [Flink]
+# Jdbc
+
+> Source plugin : Jdbc [Flink]
 
 ## Description
 

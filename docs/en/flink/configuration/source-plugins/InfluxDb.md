@@ -1,4 +1,6 @@
-# Source plugin: InfluxDB
+# InfluxDb
+
+> Source plugin: InfluxDb [Flink]
 
 ## Description
 
@@ -9,6 +11,8 @@ Read data from InfluxDB.
 | name        | type           | required | default value |
 | ----------- | -------------- | -------- | ------------- |
 | server_url  | `String`       | yes      | -             |
+| username    | `String`       | no       | -             |
+| password    | `String`       | no       | -             |
 | database    | `String`       | yes      | -             |
 | measurement | `String`       | yes      | -             |
 | fields      | `List<String>` | yes      | -             |
@@ -17,6 +21,14 @@ Read data from InfluxDB.
 ### server_url [`String`]
 
 The URL of InfluxDB Server.
+
+### username [`String`]
+
+The username of InfluxDB Server.
+
+### password [`String`]
+
+The password of InfluxDB Server.
 
 ### datasource [`String`]
 
@@ -36,9 +48,25 @@ The list of Field Types in InfluxDB.
 
 ## Example
 
+### Simple
+
 ```hocon
 InfluxDbSource {
   server_url = "http://127.0.0.1:8086/"
+  database = "influxdb"
+  measurement = "m"
+  fields = ["time", "temperature"]
+  field_types = ["STRING", "DOUBLE"]
+}
+```
+
+### Auth
+
+```hocon
+InfluxDbSource {
+  server_url = "http://127.0.0.1:8086/"
+  username = "admin"
+  password = "password"
   database = "influxdb"
   measurement = "m"
   fields = ["time", "temperature"]

@@ -83,8 +83,8 @@
     <module name="TreeWalker">
         <module name="ImportOrder">
             <property name="severity" value="error"/>
-            <property name="staticGroups" value="org.apache.seatunnel,org.apache.seatunnel.shade,*,javax,/^java\./,scala"/>
-            <property name="groups" value="org.apache.seatunnel,org.apache.seatunnel.shade,*,javax,/^java\./,scala"/>
+            <property name="staticGroups" value="org.apache.seatunnel,org.apache.seatunnel.shade,*,javax,java,scala"/>
+            <property name="groups" value="org.apache.seatunnel,org.apache.seatunnel.shade,*,javax,java,scala"/>
             <property name="separated" value="true"/>
             <property name="sortStaticImportsAlphabetically" value="true"/>
             <property name="option" value="top"/>

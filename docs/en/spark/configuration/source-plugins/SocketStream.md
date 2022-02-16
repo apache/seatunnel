@@ -1,4 +1,6 @@
-# Source plugin : SocketStream [Spark]
+# SocketStream
+
+> Source plugin : SocketStream [Spark]
 
 ## Description
 

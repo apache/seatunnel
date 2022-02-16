@@ -1,4 +1,6 @@
-# Source plugin : FakeStream [Spark]
+# FakeStream
+
+> Source plugin : FakeStream [Spark]
 
 ## Description
 

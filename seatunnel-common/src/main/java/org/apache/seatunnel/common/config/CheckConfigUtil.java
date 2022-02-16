@@ -24,7 +24,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class CheckConfigUtil {
+public final class CheckConfigUtil {
+
+    private CheckConfigUtil() {
+    }
 
     /**
      * please using {@link #checkAllExists} instead, since 2.0.5
@@ -56,7 +59,7 @@ public class CheckConfigUtil {
             return CheckResult.success();
         }
 
-        List<String> missingParams = new LinkedList();
+        List<String> missingParams = new LinkedList<>();
         for (String param : params) {
             if (!config.hasPath(param) || config.getAnyRef(param) == null) {
                 missingParams.add(param);

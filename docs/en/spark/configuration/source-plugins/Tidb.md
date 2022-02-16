@@ -1,4 +1,6 @@
-# Source plugin: Tidb
+# Tidb
+
+> Source plugin: Tidb [Spark]
 
 ### Description
 

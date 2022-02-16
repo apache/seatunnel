@@ -28,7 +28,10 @@ import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.types.Row;
 
-public class TableUtil {
+public final class TableUtil {
+
+    private TableUtil() {
+    }
 
     public static DataStream<Row> tableToDataStream(StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {
 

@@ -1,4 +1,6 @@
-# Sink plugin : File [Flink]
+# File
+
+> Sink plugin : File [Flink]
 
 ## Description
 

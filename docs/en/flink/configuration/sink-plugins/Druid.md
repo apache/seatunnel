@@ -1,4 +1,6 @@
-# Sink plugin: Druid
+# Druid
+
+> # Sink plugin: Druid [Flink]
 
 ## Description
 
@@ -6,13 +8,14 @@ Write data to Apache Druid.
 
 ## Options
 
-| name             | type     | required | default value |
-| ---------------- | -------- | -------- | ------------- |
-| coordinator_url  | `String` | yes      | -             |
-| datasource       | `String` | yes      | -             |
-| timestamp_column | `String` | no       | timestamp     |
-| timestamp_format | `String` | no       | auto          |
-| parallelism      | `Int`    | no       | -             |
+| name                    | type     | required | default value |
+| ----------------------- | -------- | -------- | ------------- |
+| coordinator_url         | `String` | yes      | -             |
+| datasource              | `String` | yes      | -             |
+| timestamp_column        | `String` | no       | timestamp     |
+| timestamp_format        | `String` | no       | auto          |
+| timestamp_missing_value | `String` | no       | -             |
+| parallelism             | `Int`    | no       | -             |
 
 ### coordinator_url [`String`]
 
@@ -50,6 +53,10 @@ The timestamp format in Apache Druid, the default value is `auto`, it could be:
 
 - any [Joda DateTimeFormat](http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html) string
 
+### timestamp_missing_value [`String`]
+
+The timestamp missing value in Apache Druid, which is used for input records that have a null or missing timestamp. The value of `timestamp_missing_value` should be in ISO 8601 format, for example `"2022-02-02T02:02:02.222"`.
+
 ### parallelism [`Int`]
 
 The parallelism of an individual operator, for DruidSink
@@ -75,3 +82,16 @@ DruidSink {
   timestamp_format = "auto"
 }
 ```
+
+### Specified timestamp column, format and missing value
+
+```hocon
+DruidSink {
+  coordinator_url = "http://localhost:8081/"
+  datasource = "wikipedia"
+  timestamp_column = "timestamp"
+  timestamp_format = "auto"
+  timestamp_missing_value = "2022-02-02T02:02:02.222"
+}
+```
+
