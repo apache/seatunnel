@@ -25,13 +25,16 @@ import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Point;
 import org.influxdb.dto.Query;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class InfluxDbOutputFormat extends RichOutputFormat<Row> {
+public class InfluxDbOutputFormat<T> extends RichOutputFormat<T> {
 
     private static final long serialVersionUID = 22664885413601039L;
+    private static final Logger LOGGER = LoggerFactory.getLogger(InfluxDbOutputFormat.class);
     private final InfluxDB influxDB;
     private final String measurement;
     private final List<String> tags;
@@ -73,31 +76,37 @@ public class InfluxDbOutputFormat extends RichOutputFormat<Row> {
     }
 
     @Override
-    public void writeRecord(Row element) {
-        Point.Builder builder = Point.measurement(this.measurement);
-        builder.time(Long.valueOf(element.getField(0).toString()), TimeUnit.MILLISECONDS);
-        for (int i = 1; i < tags.size() + 1; i++) {
-            Object v = element.getField(i);
-            if (v != null) {
-                builder.tag(tags.get(i - 1), String.valueOf(v));
-            }
-        }
-        for (int i = tags.size() + 1; i < element.getArity(); i++) {
-            Object v = element.getField(i);
-            if (v != null) {
-                if (v instanceof Number) {
-                    builder.addField(fields.get(i - 1), (Number) v);
-                } else if (v instanceof String) {
-                    builder.addField(fields.get(i - 1), (String) v);
-                } else if (v instanceof Boolean) {
-                    builder.addField(fields.get(i - 1), (Boolean) v);
-                } else {
-                    throw new RuntimeException("Not support type of field: " + v);
+    public void writeRecord(T t) {
+        if (t instanceof Row) {
+            Row element = (Row) t;
+            Point.Builder builder = Point.measurement(this.measurement);
+            builder.time(Long.valueOf(element.getField(0).toString()), TimeUnit.MILLISECONDS);
+            for (int i = 1; i < tags.size() + 1; i++) {
+                Object v = element.getField(i);
+                if (v != null) {
+                    builder.tag(tags.get(i - 1), String.valueOf(v));
                 }
             }
+            for (int i = tags.size() + 1; i < element.getArity(); i++) {
+                Object v = element.getField(i);
+                if (v != null) {
+                    if (v instanceof Number) {
+                        builder.addField(fields.get(i - 1), (Number) v);
+                    } else if (v instanceof String) {
+                        builder.addField(fields.get(i - 1), (String) v);
+                    } else if (v instanceof Boolean) {
+                        builder.addField(fields.get(i - 1), (Boolean) v);
+                    } else {
+                        throw new RuntimeException("Not support type of field: " + v);
+                    }
+                }
+            }
+            Point point = builder.build();
+            influxDB.write(point);
+        } else {
+            // unsupported element format
+            LOGGER.error("unsupported element format");
         }
-        Point point = builder.build();
-        influxDB.write(point);
     }
 
     @Override

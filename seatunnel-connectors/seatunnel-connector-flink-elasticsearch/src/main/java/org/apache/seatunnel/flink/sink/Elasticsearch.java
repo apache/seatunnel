@@ -21,15 +21,12 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.StringTemplate;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
@@ -46,7 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class Elasticsearch implements FlinkStreamSink<Row, Row> {
 
     private static final long serialVersionUID = 8445868321245456793L;
     private static final int DEFAULT_CONFIG_SIZE = 3;
@@ -128,37 +125,4 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
         return dataStream.addSink(esSinkBuilder.build());
     }
 
-    @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-
-        RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
-        String[] fieldNames = rowTypeInfo.getFieldNames();
-        indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
-        DataSink<Row> dataSink = dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
-            @Override
-            public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {
-                indexer.add(createIndexRequest(element));
-            }
-
-            private IndexRequest createIndexRequest(Row element) {
-                int elementLen = element.getArity();
-                Map<String, Object> json = new HashMap<>(elementLen);
-                for (int i = 0; i < elementLen; i++) {
-                    json.put(fieldNames[i], element.getField(i));
-                }
-
-                return Requests.indexRequest()
-                        .index(indexName)
-                        .type(config.getString("index_type"))
-                        .source(json);
-            }
-        }));
-
-        if (config.hasPath(PARALLELISM)) {
-            int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
-        }
-        return dataSink;
-
-    }
 }

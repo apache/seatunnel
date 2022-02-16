@@ -27,21 +27,21 @@ import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INF
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
 import java.util.HashMap;
 import java.util.List;
 
-public class InfluxDbSource implements FlinkBatchSource<Row> {
+public class InfluxDbSource implements FlinkStreamSource<Row> {
 
     private Config config;
     private InfluxDbInputFormat influxDbInputFormat;
@@ -71,8 +71,8 @@ public class InfluxDbSource implements FlinkBatchSource<Row> {
     }
 
     @Override
-    public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(influxDbInputFormat);
+    public DataStream<Row> getData(FlinkEnvironment env) {
+        return env.getStreamExecutionEnvironment().createInput(influxDbInputFormat);
     }
 
     @Override

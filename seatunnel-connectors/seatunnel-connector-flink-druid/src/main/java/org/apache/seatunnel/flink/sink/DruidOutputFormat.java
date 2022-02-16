@@ -56,7 +56,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 
-public class DruidOutputFormat extends RichOutputFormat<Row> {
+public class DruidOutputFormat<T> extends RichOutputFormat<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidOutputFormat.class);
     private static final long serialVersionUID = -7410857670269773005L;
@@ -94,18 +94,24 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
     }
 
     @Override
-    public void writeRecord(Row element) {
-        int fieldIndex = element.getArity();
-        for (int i = 0; i < fieldIndex; i++) {
-            Object v = element.getField(i);
-            if (i != 0) {
-                this.data.append(DEFAULT_FIELD_DELIMITER);
+    public void writeRecord(T t) {
+        if (t instanceof Row) {
+            Row element = (Row) t;
+            int fieldIndex = element.getArity();
+            for (int i = 0; i < fieldIndex; i++) {
+                Object v = element.getField(i);
+                if (i != 0) {
+                    this.data.append(DEFAULT_FIELD_DELIMITER);
+                }
+                if (v != null) {
+                    this.data.append(v);
+                }
             }
-            if (v != null) {
-                this.data.append(v.toString());
-            }
+            this.data.append(DEFAULT_LINE_DELIMITER);
+        } else {
+            // unsupported element format
+            LOGGER.error("unsupported element format");
         }
-        this.data.append(DEFAULT_LINE_DELIMITER);
     }
 
     @Override

@@ -20,7 +20,7 @@ package org.apache.seatunnel.flink.source;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.flink.util.SchemaUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -29,13 +29,13 @@ import com.alibaba.fastjson.JSONObject;
 import org.apache.avro.Schema;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.io.RowCsvInputFormat;
-import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetRowInputFormat;
 import org.apache.flink.orc.OrcRowInputFormat;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.types.Row;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
@@ -43,7 +43,7 @@ import org.apache.parquet.schema.MessageType;
 import java.util.List;
 import java.util.Map;
 
-public class FileSource implements FlinkBatchSource<Row> {
+public class FileSource implements FlinkStreamSource<Row> {
 
     private static final long serialVersionUID = -5206798549756998426L;
     private static final int DEFAULT_BATCH_SIZE = 1000;
@@ -58,8 +58,8 @@ public class FileSource implements FlinkBatchSource<Row> {
     private static final String PARALLELISM = "parallelism";
 
     @Override
-    public DataSet<Row> getData(FlinkEnvironment env) {
-        DataSource dataSource = env.getBatchEnvironment().createInput(inputFormat);
+    public DataStream<Row> getData(FlinkEnvironment env) {
+        DataStreamSource dataSource = env.getStreamExecutionEnvironment().createInput(inputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSource.setParallelism(parallelism);

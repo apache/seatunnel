@@ -21,7 +21,6 @@ import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchExecution;
 import org.apache.seatunnel.flink.stream.FlinkStreamExecution;
 import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -210,11 +209,7 @@ public class ConfigBuilder {
                 break;
             case FLINK:
                 FlinkEnvironment flinkEnvironment = (FlinkEnvironment) env;
-                if (streaming) {
-                    execution = new FlinkStreamExecution(flinkEnvironment);
-                } else {
-                    execution = new FlinkBatchExecution(flinkEnvironment);
-                }
+                execution = new FlinkStreamExecution(flinkEnvironment);
                 break;
             default:
                 break;

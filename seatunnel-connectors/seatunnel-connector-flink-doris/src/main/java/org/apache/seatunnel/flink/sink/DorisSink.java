@@ -21,17 +21,13 @@ import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
@@ -41,7 +37,7 @@ import javax.annotation.Nullable;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class DorisSink implements FlinkStreamSink<Row, Row> {
 
     private static final long serialVersionUID = 4747849769146047770L;
     private static final int DEFAULT_BATCH_SIZE = 100;
@@ -96,22 +92,6 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
 
         String producerPrefix = "doris.";
         PropertiesUtil.setProperties(config, streamLoadProp, producerPrefix, false);
-    }
-
-    @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        batchIntervalMs = 0;
-        BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
-        Table table = tableEnvironment.fromDataSet(dataSet);
-        String[] fieldNames = table.getSchema().getFieldNames();
-
-        DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(fenodes, dbName, tableName, username, password, streamLoadProp);
-        DataSink<Row> rowDataSink = dataSet.output(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
-        if (config.hasPath(PARALLELISM)) {
-            int parallelism = config.getInt(PARALLELISM);
-            return rowDataSink.setParallelism(parallelism);
-        }
-        return rowDataSink;
     }
 
     @Override

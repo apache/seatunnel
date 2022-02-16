@@ -18,11 +18,9 @@
 package org.apache.seatunnel.flink.util;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.ObjectPath;
@@ -46,16 +44,8 @@ public final class TableUtil {
                 .returns(typeInfo);
     }
 
-    public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table) {
-        return tableEnvironment.toDataSet(table, table.getSchema().toRowType());
-    }
-
     public static void dataStreamToTable(StreamTableEnvironment tableEnvironment, String tableName, DataStream<Row> dataStream) {
-        tableEnvironment.registerDataStream(tableName, dataStream);
-    }
-
-    public static void dataSetToTable(BatchTableEnvironment tableEnvironment, String tableName, DataSet<Row> dataSet) {
-        tableEnvironment.registerDataSet(tableName, dataSet);
+        tableEnvironment.createTemporaryView(tableName, dataStream);
     }
 
     public static boolean tableExists(TableEnvironment tableEnvironment, String name) {

@@ -20,18 +20,12 @@ package org.apache.seatunnel.flink.sink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.serialization.Encoder;
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.io.TextOutputFormat;
-import org.apache.flink.api.java.operators.DataSink;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
-import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
@@ -42,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
 
-public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class FileSink implements FlinkStreamSink<Row, Row> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
@@ -70,39 +64,6 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
                 })
                 .build();
         return dataStream.addSink(sink);
-    }
-
-    @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        String format = config.getString(FORMAT);
-        switch (format) {
-            case "json":
-                RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
-                outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
-                break;
-            case "csv":
-                CsvRowOutputFormat csvFormat = new CsvRowOutputFormat(filePath);
-                outputFormat = csvFormat;
-                break;
-            case "text":
-                outputFormat = new TextOutputFormat(filePath);
-                break;
-            default:
-                LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
-                break;
-
-        }
-        if (config.hasPath(WRITE_MODE)) {
-            String mode = config.getString(WRITE_MODE);
-            outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
-        }
-
-        DataSink dataSink = dataSet.output(outputFormat);
-        if (config.hasPath(PARALLELISM)) {
-            int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
-        }
-        return dataSink;
     }
 
     @Override

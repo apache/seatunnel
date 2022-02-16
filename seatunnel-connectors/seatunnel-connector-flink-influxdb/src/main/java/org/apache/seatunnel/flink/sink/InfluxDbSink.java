@@ -20,17 +20,19 @@ package org.apache.seatunnel.flink.sink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
+import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 
-public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
+public class InfluxDbSink implements FlinkStreamSink<Row, Row> {
 
     private static final long serialVersionUID = 7358988750295693096L;
     private static final String SERVER_URL = "server_url";
@@ -51,14 +53,16 @@ public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
     private List<String> tags;
     private List<String> fields;
 
+    @Nullable
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        DataSink<Row> dataSink = dataSet.output(new InfluxDbOutputFormat(serverURL, username, password, database, measurement, tags, fields));
+    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+        DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new InfluxDbSinkFunction<>(
+                new InfluxDbOutputFormat<>(serverURL, username, password, database, measurement, tags, fields)));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            rowDataStreamSink.setParallelism(parallelism);
         }
-        return dataSink;
+        return null;
     }
 
     @Override

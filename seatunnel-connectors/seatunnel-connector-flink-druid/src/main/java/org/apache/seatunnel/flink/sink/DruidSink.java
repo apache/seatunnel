@@ -20,15 +20,17 @@ package org.apache.seatunnel.flink.sink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
+import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
 
-public class DruidSink implements FlinkBatchSink<Row, Row> {
+import javax.annotation.Nullable;
+
+public class DruidSink implements FlinkStreamSink<Row, Row> {
 
     private static final long serialVersionUID = -2967782261362988646L;
     private static final String COORDINATOR_URL = "coordinator_url";
@@ -45,14 +47,16 @@ public class DruidSink implements FlinkBatchSink<Row, Row> {
     private String timestampFormat;
     private String timestampMissingValue;
 
+    @Nullable
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        DataSink<Row> dataSink = dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat, timestampMissingValue));
+    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+        DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new DruidSinkFunction<>(
+                new DruidOutputFormat<>(coordinatorURL, datasource, timestampColumn, timestampFormat, timestampMissingValue)));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            rowDataStreamSink.setParallelism(parallelism);
         }
-        return dataSink;
+        return null;
     }
 
     @Override

@@ -31,15 +31,15 @@ import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_P
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.JdbcInputFormat;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +55,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class JdbcSource implements FlinkBatchSource<Row> {
+public class JdbcSource implements FlinkStreamSource<Row> {
 
     private static final long serialVersionUID = -3349505356339446415L;
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSource.class);
@@ -98,8 +98,8 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     }
 
     @Override
-    public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(jdbcInputFormat);
+    public DataStream<Row> getData(FlinkEnvironment env) {
+        return env.getStreamExecutionEnvironment().createInput(jdbcInputFormat);
     }
 
     @Override

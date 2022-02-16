@@ -30,15 +30,15 @@ import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INF
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +52,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public class DruidSource implements FlinkBatchSource<Row> {
+public class DruidSource implements FlinkStreamSource<Row> {
 
     private static final long serialVersionUID = 8152628883440481281L;
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidSource.class);
@@ -87,8 +87,8 @@ public class DruidSource implements FlinkBatchSource<Row> {
     }
 
     @Override
-    public DataSet<Row> getData(FlinkEnvironment env) {
-        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(druidInputFormat);
+    public DataStream<Row> getData(FlinkEnvironment env) {
+        DataStreamSource<Row> dataSource = env.getStreamExecutionEnvironment().createInput(druidInputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSource.setParallelism(parallelism);

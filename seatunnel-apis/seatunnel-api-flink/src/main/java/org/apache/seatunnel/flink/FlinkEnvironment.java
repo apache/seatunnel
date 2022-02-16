@@ -24,8 +24,8 @@ import org.apache.seatunnel.flink.util.EnvironmentUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
@@ -35,7 +35,6 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableConfig;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
@@ -50,10 +49,6 @@ public class FlinkEnvironment implements RuntimeEnv {
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
-
-    private ExecutionEnvironment batchEnvironment;
-
-    private BatchTableEnvironment batchTableEnvironment;
 
     private boolean isStreaming;
 
@@ -77,13 +72,8 @@ public class FlinkEnvironment implements RuntimeEnv {
     @Override
     public void prepare(Boolean isStreaming) {
         this.isStreaming = isStreaming;
-        if (isStreaming) {
-            createStreamEnvironment();
-            createStreamTableEnvironment();
-        } else {
-            createBatchTableEnvironment();
-            createExecutionEnvironment();
-        }
+        createStreamEnvironment();
+        createStreamTableEnvironment();
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
@@ -147,27 +137,12 @@ public class FlinkEnvironment implements RuntimeEnv {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
         }
-    }
 
-    public ExecutionEnvironment getBatchEnvironment() {
-        return batchEnvironment;
-    }
-
-    public BatchTableEnvironment getBatchTableEnvironment() {
-        return batchTableEnvironment;
-    }
-
-    private void createExecutionEnvironment() {
-        batchEnvironment = ExecutionEnvironment.getExecutionEnvironment();
-        if (config.hasPath(ConfigKeyName.PARALLELISM)) {
-            int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
-            batchEnvironment.setParallelism(parallelism);
+        // env set RuntimeExecutionMode.BATCH
+        if (!isStreaming) {
+            environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
         }
-        EnvironmentUtil.setRestartStrategy(config, batchEnvironment.getConfig());
-    }
 
-    private void createBatchTableEnvironment() {
-        batchTableEnvironment = BatchTableEnvironment.create(batchEnvironment);
     }
 
     private void setTimeCharacteristic() {
