@@ -57,6 +57,7 @@ jobs:
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
-                 -Pdocker
+                 -Pdocker \
+                 --no-snapshot-updates
       - name: Sanity Check Docker Images
         run: docker-compose -f deploy/docker/spark/docker-compose.yaml up

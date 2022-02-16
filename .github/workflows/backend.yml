@@ -60,7 +60,7 @@ jobs:
             ${{ runner.os }}-maven-
       - name: Check Style
         run: |
-          ./mvnw -T 2C -B checkstyle:check
+          ./mvnw -T 2C -B checkstyle:check --no-snapshot-updates
       - name: Build and Package
         run: |
           ./mvnw -B install scalastyle:check \
@@ -69,9 +69,10 @@ jobs:
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.http.retryHandler.count=3 \
-                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
+                 --no-snapshot-updates
       - name: Check dependency license
         run: bash ./tools/dependencies/checkLicense.sh
       - name: Run Unit tests
         run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true
+          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true --no-snapshot-updates
