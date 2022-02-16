@@ -20,22 +20,26 @@ package org.apache.seatunnel.flink.sink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
+import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
+import org.apache.flink.connector.jdbc.utils.JdbcTypeUtil;
+import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.types.Row;
 
 import javax.annotation.Nullable;
 
-public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+import java.util.Arrays;
+
+public class JdbcSink implements FlinkStreamSink<Row, Row> {
 
     private static final long serialVersionUID = 3677571223952518115L;
     private static final int DEFAULT_BATCH_SIZE = 5000;
@@ -81,34 +85,24 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
-        createSink(env.getStreamTableEnvironment(), table);
+        TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
+
+        int[] types = Arrays.stream(fieldTypes).mapToInt(JdbcTypeUtil::typeInformationToSqlType).toArray();
+        SinkFunction<Row> sink = org.apache.flink.connector.jdbc.JdbcSink.sink(
+            query,
+            (st, row) -> JdbcUtils.setRecordToStatement(st, types, row),
+            JdbcExecutionOptions.builder()
+                .withBatchSize(batchSize)
+                .build(),
+            new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+                .withUrl(dbUrl)
+                .withDriverName(driverName)
+                .withUsername(username)
+                .withPassword(password)
+                .build());
+
+        dataStream.addSink(sink);
         return null;
     }
 
-    @Override
-    @Nullable
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        final Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
-        createSink(env.getBatchTableEnvironment(), table);
-        return null;
-    }
-
-    private void createSink(TableEnvironment tableEnvironment, Table table) {
-        /*  TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
-            String[] fieldNames = table.getSchema().getFieldNames();
-            TableSink sink = JDBCAppendTableSink.builder()
-                    .setDrivername(driverName)
-                    .setDBUrl(dbUrl)
-                    .setUsername(username)
-                    .setPassword(password)
-                    .setBatchSize(batchSize)
-                    .setQuery(query)
-                    .setParameterTypes(fieldTypes)
-                    .build()
-                    .configure(fieldNames, fieldTypes);
-            String uniqueTableName = SchemaUtil.getUniqueTableName();
-            tableEnvironment.registerTableSink(uniqueTableName, sink);
-            table.insertInto(uniqueTableName);
-        */
-    }
 }
