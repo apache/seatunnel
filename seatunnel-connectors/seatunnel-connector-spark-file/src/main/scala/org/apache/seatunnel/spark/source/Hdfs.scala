@@ -26,7 +26,7 @@ class Hdfs extends FileSourceBase {
     checkConfigImpl("hdfs://")
   }
 
-  override def getData(env: SparkEnvironment): Unit = {
+  override def getData(env: SparkEnvironment): Dataset[Row] = {
     getDataImpl(env, "hdfs://")
   }
 }

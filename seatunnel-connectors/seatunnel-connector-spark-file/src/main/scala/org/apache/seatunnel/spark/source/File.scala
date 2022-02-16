@@ -26,7 +26,7 @@ class File extends FileSourceBase {
     checkConfigImpl("file://")
   }
 
-  override def getData(env: SparkEnvironment): Unit = {
+  override def getData(env: SparkEnvironment): Dataset[Row] = {
     getDataImpl(env, "file://")
   }
 }
