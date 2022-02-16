@@ -20,13 +20,13 @@ import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.spark.sql.{Dataset, Row}
 
-class File extends FileSourceBase {
+class Hdfs extends FileSourceBase {
 
   override def checkConfig(): CheckResult = {
     checkConfigImpl("file://")
   }
 
   override def getData(env: SparkEnvironment): Unit = {
-    getDataImpl(env, "file://")
+    getDataImpl(env, "hdfs://")
   }
 }
