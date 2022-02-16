@@ -51,10 +51,13 @@ jobs:
         with:
           java-version:  8
           distribution: 'adopt'
-      - uses: actions/cache@v2
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Check Style
         run: |
           ./mvnw -T 2C -B checkstyle:check
