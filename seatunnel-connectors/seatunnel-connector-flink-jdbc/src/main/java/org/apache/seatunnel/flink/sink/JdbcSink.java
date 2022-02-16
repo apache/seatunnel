@@ -43,6 +43,8 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
 
     private static final long serialVersionUID = 3677571223952518115L;
     private static final int DEFAULT_BATCH_SIZE = 5000;
+    private static final int DEFAULT_MAX_RETRY_TIMES = 3;
+    private static final int DEFAULT_INTERVAL_MILLIS = 0;
 
     private Config config;
     private String driverName;
@@ -51,6 +53,8 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
     private String password;
     private String query;
     private int batchSize = DEFAULT_BATCH_SIZE;
+    private long batchIntervalMs = DEFAULT_INTERVAL_MILLIS;
+    private int maxRetries = DEFAULT_MAX_RETRY_TIMES;
 
     @Override
     public void setConfig(Config config) {
@@ -79,6 +83,12 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
         if (config.hasPath("batch_size")) {
             batchSize = config.getInt("batch_size");
         }
+        if (config.hasPath("batch_interval")) {
+            batchIntervalMs = config.getLong("batch_interval");
+        }
+        if (config.hasPath("batch_max_retries")) {
+            maxRetries = config.getInt("batch_max_retries");
+        }
     }
 
     @Override
@@ -93,6 +103,8 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
             (st, row) -> JdbcUtils.setRecordToStatement(st, types, row),
             JdbcExecutionOptions.builder()
                 .withBatchSize(batchSize)
+                .withBatchIntervalMs(batchIntervalMs)
+                .withMaxRetries(maxRetries)
                 .build(),
             new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
                 .withUrl(dbUrl)
@@ -101,8 +113,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
                 .withPassword(password)
                 .build());
 
-        dataStream.addSink(sink);
-        return null;
+        return dataStream.addSink(sink);
     }
 
 }
