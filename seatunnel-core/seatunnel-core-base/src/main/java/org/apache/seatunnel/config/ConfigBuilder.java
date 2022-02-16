@@ -190,7 +190,7 @@ public class ConfigBuilder {
                 env = new FlinkEnvironment();
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("Engine: " + engine + " is not supported");
         }
         env.setConfig(envConfig);
         env.prepare(streaming);
