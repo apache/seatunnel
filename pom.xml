@@ -825,4 +825,15 @@
         </plugins>
     </build>
 
+    <repositories>
+        <repository>
+            <id>jboss</id>
+            <name>JBoss Repository</name>
+            <url>https://repository.jboss.org/nexus/content/groups/public</url>
+            <snapshots>
+                <enabled>false</enabled>
+                <updatePolicy>never</updatePolicy>
+            </snapshots>
+        </repository>
+    </repositories>
 </project>
