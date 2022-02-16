@@ -36,9 +36,9 @@ Storage mode, currently supports overwrite, append, ignore and error. For the sp
 
 Serialization method, currently supports csv, json, parquet, orc and text
 
-#### common options [string]
+### common options [string]
 
-Common parameters of `Sink` plugin, please refer to [Sink Plugin](/zh-cn/v2/spark/configuration/sink-plugins/)
+Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) for details
 
 ## Examples
 
