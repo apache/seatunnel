@@ -63,7 +63,7 @@ abstract class FileSourceBase extends SparkBatchSource {
 
         reader = reader.options(optionMap)
       }
-      case Failure(_) => // do nothing
+      case Failure(_) =>
     }
 
     format match {
@@ -77,12 +77,11 @@ abstract class FileSourceBase extends SparkBatchSource {
   }
 
   protected def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
-
     val path = uri.startsWith("/") match {
       case true => defaultUriSchema + uri
       case false => uri
     }
-
     path
   }
+
 }

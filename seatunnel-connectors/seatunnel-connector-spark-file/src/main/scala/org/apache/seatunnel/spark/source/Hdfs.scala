@@ -23,7 +23,7 @@ import org.apache.spark.sql.{Dataset, Row}
 class Hdfs extends FileSourceBase {
 
   override def checkConfig(): CheckResult = {
-    checkConfigImpl("file://")
+    checkConfigImpl("hdfs://")
   }
 
   override def getData(env: SparkEnvironment): Unit = {
