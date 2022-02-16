@@ -1,4 +1,6 @@
-# Sink plugin : Email [Spark]
+# Email
+
+> Sink plugin : Email [Spark]
 
 ## Description
 

@@ -22,8 +22,9 @@ import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.spark.batch.SparkBatchExecution
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
-
 import java.util.{List => JList}
+
+
 import scala.collection.JavaConversions._
 
 class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
@@ -43,9 +44,9 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
       sparkEnvironment,
       dataset => {
         val conf = source.getConfig
-        if (conf.hasPath(SparkBatchExecution.resultTableName)) {
+        if (conf.hasPath(SparkBatchExecution.RESULT_TABLE_NAME)) {
           SparkBatchExecution.registerTempView(
-            conf.getString(SparkBatchExecution.resultTableName),
+            conf.getString(SparkBatchExecution.RESULT_TABLE_NAME),
             dataset)
         }
         var ds = dataset
@@ -76,7 +77,7 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = new CheckResult(true, "")
+  override def checkConfig(): CheckResult = CheckResult.success()
 
   override def prepare(void: Void): Unit = {}
 }

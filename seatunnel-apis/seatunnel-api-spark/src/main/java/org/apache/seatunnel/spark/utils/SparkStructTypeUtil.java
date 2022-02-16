@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.spark.utils;
 
-import com.alibaba.fastjson.JSONObject;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
+
+import com.alibaba.fastjson.JSONObject;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
@@ -26,7 +27,10 @@ import org.apache.spark.sql.types.StructType;
 import java.util.List;
 import java.util.Map;
 
-public class SparkStructTypeUtil {
+public final class SparkStructTypeUtil {
+
+    private SparkStructTypeUtil() {
+    }
 
     public static StructType getStructType(StructType schema, JSONObject json) {
         StructType newSchema = schema.copy(schema.fields());

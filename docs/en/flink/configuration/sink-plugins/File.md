@@ -1,4 +1,6 @@
-# Sink plugin : File [Flink]
+# File
+
+> Sink plugin : File [Flink]
 
 ## Description
 
@@ -12,6 +14,8 @@ Write data to the file system
 | path           | string | yes      | -             |
 | write_mode     | string | no       | -             |
 | common-options | string | no       | -             |
+| parallelism    | int    | no       | -             |
+
 
 ### format [string]
 
@@ -34,6 +38,11 @@ The file path is required. The `hdfs file` starts with `hdfs://` , and the `loca
 ### common options [string]
 
 Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) for details
+
+### parallelism [`Int`]
+
+The parallelism of an individual operator, for FileSink
+
 
 ## Examples
 

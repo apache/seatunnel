@@ -17,17 +17,32 @@
 
 package org.apache.seatunnel.flink.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BOOLEAN_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BYTE_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.DOUBLE_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.FLOAT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
+
 import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
-import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.io.jdbc.JDBCInputFormat;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connector.jdbc.JdbcInputFormat;
 import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -40,18 +55,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BYTE_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BOOLEAN_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.FLOAT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.DOUBLE_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
-
 public class JdbcSource implements FlinkBatchSource<Row> {
+
+    private static final long serialVersionUID = -3349505356339446415L;
+    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSource.class);
 
     private Config config;
     private String tableName;
@@ -66,7 +73,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
-    private JDBCInputFormat jdbcInputFormat;
+    private JdbcInputFormat jdbcInputFormat;
 
     {
         informationMapping.put("VARCHAR", STRING_TYPE_INFO);
@@ -107,7 +114,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, "driver", "url", "username", "query");
+        return CheckConfigUtil.checkAllExists(config, "driver", "url", "username", "query");
     }
 
     @Override
@@ -138,7 +145,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
             fetchSize = config.getInt("fetch_size");
         }
 
-        jdbcInputFormat = JDBCInputFormat.buildJDBCInputFormat()
+        jdbcInputFormat = JdbcInputFormat.buildJdbcInputFormat()
                 .setDrivername(driverName)
                 .setDBUrl(dbUrl)
                 .setUsername(username)
@@ -166,7 +173,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
             }
             connection.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.warn("get row type info exception", e);
         }
 
         int size = map.size();

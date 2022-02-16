@@ -17,6 +17,10 @@ metastore_db/
 
 work_dir
 
+all-dependencies.txt
+self-modules.txt
+third-party-dependencies.txt
+
 *.keytab
 /derby.log
 

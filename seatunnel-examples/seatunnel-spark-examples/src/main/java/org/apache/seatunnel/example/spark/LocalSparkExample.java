@@ -26,10 +26,10 @@ public class LocalSparkExample {
 
     public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-spark-examples/src/main/resources/examples/";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         String configFile = getTestConfigFile("spark.batch.conf.template");
-        CommandLineArgs flinkArgs = new CommandLineArgs(configFile, false);
-        Seatunnel.run(flinkArgs, SPARK, args);
+        CommandLineArgs sparkArgs = new CommandLineArgs(configFile, false);
+        Seatunnel.run(sparkArgs, SPARK);
     }
 
     public static String getTestConfigFile(String configFile) {

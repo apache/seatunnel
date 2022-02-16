@@ -19,8 +19,12 @@ package org.apache.seatunnel.flink.batch;
 
 import org.apache.seatunnel.flink.BaseFlinkTransform;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+
 import org.apache.flink.api.java.DataSet;
 
+/**
+ * a FlinkBatchTransform plugin will do transformations to Flink DataSet.
+ */
 public interface FlinkBatchTransform<IN, OUT> extends BaseFlinkTransform {
 
     DataSet<OUT> processBatch(FlinkEnvironment env, DataSet<IN> data);

@@ -24,7 +24,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class TypesafeConfigUtils {
+public final class TypesafeConfigUtils {
+
+    private TypesafeConfigUtils() {
+    }
 
     /**
      * Extract sub config with fixed prefix

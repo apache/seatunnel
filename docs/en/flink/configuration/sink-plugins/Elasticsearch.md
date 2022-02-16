@@ -1,4 +1,6 @@
-# Sink plugin : Elasticsearch [Flink]
+# Elasticsearch
+
+> Sink plugin : Elasticsearch [Flink]
 
 ## Description
 
@@ -13,6 +15,7 @@ Output data to ElasticSearch
 | index_time_format | string | no       | yyyy.MM.dd    |
 | index             | string | no       | seatunnel     |
 | common-options    | string | no       | -             |
+| parallelism       | int    | no       | -             |
 
 ### hosts [array]
 
@@ -40,6 +43,10 @@ See [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/
 ### index [string]
 
 Elasticsearch `index` name. If you need to generate an `index` based on time, you can specify a time variable, such as `seatunnel-${now}` . `now` represents the current data processing time.
+
+### parallelism [`Int`]
+
+The parallelism of an individual operator, data source, or data sink
 
 ### common options [string]
 

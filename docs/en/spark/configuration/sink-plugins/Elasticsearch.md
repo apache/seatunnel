@@ -1,4 +1,6 @@
-# Sink plugin : Elasticsearch [Spark]
+# Elasticsearch
+
+> Sink plugin : Elasticsearch [Spark]
 
 ## Description
 

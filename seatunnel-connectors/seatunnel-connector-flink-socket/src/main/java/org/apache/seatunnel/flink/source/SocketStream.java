@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.flink.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.scala.typeutils.Types;
@@ -31,14 +33,15 @@ import org.apache.flink.types.Row;
 
 public class SocketStream implements FlinkStreamSource<Row> {
 
+    private static final long serialVersionUID = 986629276153771291L;
     private Config config;
 
     private static final String HOST = "host";
     private static final String PORT = "port";
+    private static final int DEFAULT_PORT = 9999;
 
     private String host = "localhost";
-
-    private int port = 9999;
+    private int port = DEFAULT_PORT;
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
@@ -64,7 +67,7 @@ public class SocketStream implements FlinkStreamSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return new CheckResult(true, "");
+        return CheckResult.success();
     }
 
     @Override

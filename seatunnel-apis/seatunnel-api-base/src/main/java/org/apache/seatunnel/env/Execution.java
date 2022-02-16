@@ -24,6 +24,17 @@ import org.apache.seatunnel.plugin.Plugin;
 
 import java.util.List;
 
+/**
+ * the SeaTunnel job's execution context
+ */
 public interface Execution<SR extends BaseSource, TF extends BaseTransform, SK extends BaseSink> extends Plugin<Void> {
-    void start(List<SR> sources, List<TF> transforms, List<SK> sinks);
+
+    /**
+     * start to execute the SeaTunnel job
+     *
+     * @param sources    source plugin list
+     * @param transforms transform plugin list
+     * @param sinks      sink plugin list
+     */
+    void start(List<SR> sources, List<TF> transforms, List<SK> sinks) throws Exception;
 }

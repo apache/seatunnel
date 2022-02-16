@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel;
 
+import static org.apache.seatunnel.utils.Engine.FLINK;
+
 import org.apache.seatunnel.config.command.CommandLineArgs;
 import org.apache.seatunnel.config.command.CommandLineUtils;
 
-import static org.apache.seatunnel.utils.Engine.FLINK;
-
 public class SeatunnelFlink {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
-        Seatunnel.run(flinkArgs, FLINK, args);
+        Seatunnel.run(flinkArgs, FLINK);
     }
 
 }
