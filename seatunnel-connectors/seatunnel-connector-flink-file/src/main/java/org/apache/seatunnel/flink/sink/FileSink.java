@@ -25,16 +25,15 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.io.FileOutputFormat;
-import org.apache.flink.api.common.serialization.Encoder;
+import org.apache.flink.api.java.io.TextOutputFormat;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
-import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.PrintStream;
 
 public class FileSink implements FlinkStreamSink<Row, Row> {
 
@@ -56,14 +55,33 @@ public class FileSink implements FlinkStreamSink<Row, Row> {
     @Override
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
 
-        final StreamingFileSink<Row> sink = StreamingFileSink
-                .forRowFormat(filePath, (Encoder<Row>) (element, stream) -> {
-                    try (PrintStream out = new PrintStream(stream)) {
-                        out.println(element);
-                    }
-                })
-                .build();
-        return dataStream.addSink(sink);
+        String format = config.getString(FORMAT);
+        switch (format) {
+            case "json":
+                RowTypeInfo rowTypeInfo = (RowTypeInfo) dataStream.getType();
+                outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
+                break;
+            case "csv":
+                CsvRowOutputFormat csvFormat = new CsvRowOutputFormat(filePath);
+                outputFormat = csvFormat;
+                break;
+            case "text":
+                outputFormat = new TextOutputFormat(filePath);
+                break;
+            default:
+                LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
+                break;
+        }
+        if (config.hasPath(WRITE_MODE)) {
+            String mode = config.getString(WRITE_MODE);
+            outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
+        }
+        DataStreamSink rowDataStreamSink = dataStream.addSink(new FileSinkFunction<>(outputFormat));
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return rowDataStreamSink.setParallelism(parallelism);
+        }
+        return rowDataStreamSink;
     }
 
     @Override
