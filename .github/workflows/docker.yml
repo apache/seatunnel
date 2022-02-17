@@ -22,6 +22,9 @@ on:
   pull_request:
     branches:
       - dev
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 concurrency:
   group: docker-${{ github.event.pull_request.number || github.ref }}
@@ -31,6 +34,7 @@ jobs:
   check:
     name: Spark
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 1.8
@@ -38,10 +42,13 @@ jobs:
         with:
           java-version:  8
           distribution: 'adopt'
-      - uses: actions/cache@v2
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Build and Package
         run: |
           ./mvnw -B package \
@@ -50,6 +57,7 @@ jobs:
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
-                 -Pdocker
+                 -Pdocker \
+                 --no-snapshot-updates
       - name: Sanity Check Docker Images
         run: docker-compose -f deploy/docker/spark/docker-compose.yaml up

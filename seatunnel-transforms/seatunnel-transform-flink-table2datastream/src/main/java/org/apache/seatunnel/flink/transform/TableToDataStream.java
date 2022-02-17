@@ -17,24 +17,26 @@
 
 package org.apache.seatunnel.flink.transform;
 
-import org.apache.seatunnel.config.Config;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.flink.util.TableUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.plugin.Plugin;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.BatchTableEnvironment;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
 public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
 
+    private static final long serialVersionUID = 4556842426965038124L;
     private Config config;
 
     private boolean isAppend;
@@ -66,7 +68,7 @@ public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkB
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, Plugin.SOURCE_TABLE_NAME);
+        return CheckConfigUtil.checkAllExists(config, Plugin.SOURCE_TABLE_NAME);
     }
 
     @Override

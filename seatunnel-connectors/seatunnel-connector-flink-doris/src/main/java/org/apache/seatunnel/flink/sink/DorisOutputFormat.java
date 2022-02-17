@@ -43,7 +43,9 @@ import java.util.regex.Pattern;
  * DorisDynamicOutputFormat
  **/
 public class DorisOutputFormat<T> extends RichOutputFormat<T> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DorisSinkFunction.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DorisOutputFormat.class);
+    private static final long serialVersionUID = -4514164348993670086L;
+    private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String FIELD_DELIMITER_KEY = "column_separator";
     private static final String FIELD_DELIMITER_DEFAULT = "\t";
@@ -219,7 +221,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                     throw new IOException(e);
                 }
                 try {
-                    Thread.sleep(1000 * i);
+                    Thread.sleep(DEFAULT_INTERVAL_MS * i);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     throw new IOException("unable to flush; interrupted while doing another attempt", e);

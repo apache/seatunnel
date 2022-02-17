@@ -16,16 +16,17 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import java.util.Properties
+
+import scala.collection.JavaConversions._
+
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
-import org.apache.seatunnel.config.ConfigFactory
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
-
-import java.util.Properties
-import scala.collection.JavaConversions._
 
 class Kafka extends SparkBatchSink with Logging {
 
@@ -38,9 +39,9 @@ class Kafka extends SparkBatchSink with Logging {
     val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
     config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
-      case true => new CheckResult(true, "")
+      case true => CheckResult.success()
       case false =>
-        new CheckResult(false, "please specify [topic] and [producer.bootstrap.servers]")
+        CheckResult.error("please specify [topic] and [producer.bootstrap.servers]")
     }
   }
 

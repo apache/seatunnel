@@ -17,11 +17,15 @@
 
 package org.apache.seatunnel.plugin;
 
-import org.apache.seatunnel.config.Config;
 import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
 
+/**
+ * a base interface indicates belonging to SeaTunnel.
+ */
 public interface Plugin<T> extends Serializable {
     String RESULT_TABLE_NAME = "result_table_name";
     String SOURCE_TABLE_NAME = "source_table_name";

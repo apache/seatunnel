@@ -23,12 +23,17 @@ import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchExecution;
 import org.apache.seatunnel.flink.stream.FlinkStreamExecution;
-import org.apache.seatunnel.utils.PluginType;
 import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
 import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
 import org.apache.seatunnel.utils.Engine;
+import org.apache.seatunnel.utils.PluginType;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -185,7 +190,7 @@ public class ConfigBuilder {
                 env = new FlinkEnvironment();
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("Engine: " + engine + " is not supported");
         }
         env.setConfig(envConfig);
         env.prepare(streaming);

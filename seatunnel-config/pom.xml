@@ -25,16 +25,13 @@
         <version>2.0.5-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
     <artifactId>seatunnel-config</artifactId>
+    <packaging>pom</packaging>
 
     <name>seatunnel-config</name>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>${java.version}</maven.compiler.source>
-        <maven.compiler.target>${java.version}</maven.compiler.target>
-        <skip.pmd.check>true</skip.pmd.check>
-    </properties>
-
+    <modules>
+        <module>seatunnel-config-shade</module>
+        <module>seatunnel-config-base</module>
+    </modules>
 </project>

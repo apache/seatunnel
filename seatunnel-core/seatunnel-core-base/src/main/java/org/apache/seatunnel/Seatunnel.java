@@ -20,6 +20,7 @@ package org.apache.seatunnel;
 import org.apache.seatunnel.apis.BaseSink;
 import org.apache.seatunnel.apis.BaseSource;
 import org.apache.seatunnel.apis.BaseTransform;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
@@ -32,6 +33,7 @@ import org.apache.seatunnel.utils.AsciiArtUtils;
 import org.apache.seatunnel.utils.CompressionUtils;
 import org.apache.seatunnel.utils.Engine;
 import org.apache.seatunnel.utils.PluginType;
+
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
@@ -47,7 +49,7 @@ import java.util.Optional;
 public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
-    public static void run(CommandLineArgs commandLineArgs, Engine engine, String[] args) {
+    public static void run(CommandLineArgs commandLineArgs, Engine engine) throws Exception {
         Common.setDeployMode(commandLineArgs.getDeployMode());
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
         boolean testConfig = commandLineArgs.isTestConfig();
@@ -87,7 +89,7 @@ public class Seatunnel {
         return path;
     }
 
-    private static void entryPoint(String configFile, Engine engine) {
+    private static void entryPoint(String configFile, Engine engine) throws Exception {
 
         ConfigBuilder configBuilder = new ConfigBuilder(configFile, engine);
         List<BaseSource> sources = configBuilder.createPlugins(PluginType.SOURCE);
@@ -108,7 +110,7 @@ public class Seatunnel {
                 try {
                     checkResult = plugin.checkConfig();
                 } catch (Exception e) {
-                    checkResult = new CheckResult(false, e.getMessage());
+                    checkResult = CheckResult.error(e.getMessage());
                 }
                 if (!checkResult.isSuccess()) {
                     LOGGER.error("Plugin[{}] contains invalid config, error: {} \n", plugin.getClass().getName(), checkResult.getMsg());
@@ -156,7 +158,10 @@ public class Seatunnel {
     }
 
     private static void showAsciiLogo() {
-        AsciiArtUtils.printAsciiArt("SeaTunnel");
+        String printAsciiLogo = System.getenv("SEATUNNEL_PRINT_ASCII_LOGO");
+        if ("true".equalsIgnoreCase(printAsciiLogo)) {
+            AsciiArtUtils.printAsciiArt(Constants.LOGO);
+        }
     }
 
     private static void showConfigError(Throwable throwable) {

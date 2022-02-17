@@ -16,14 +16,15 @@
  */
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.RowConstant
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.ConfigFactory
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.{Dataset, Row}
+import org.apache.seatunnel.common.Constants
 
 import scala.collection.JavaConversions._
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
+import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
+import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.sql.functions.{col, udf}
 
 class Split extends BaseSparkTransform {
 
@@ -33,15 +34,15 @@ class Split extends BaseSparkTransform {
 
     // https://stackoverflow.com/a/33345698/1145750
     config.getString("target_field") match {
-      case RowConstant.ROOT => {
+      case Constants.ROW_ROOT => {
         val func = udf((s: String) => {
           split(s, config.getString("delimiter"), keys.size())
         })
-        var filterDf = df.withColumn(RowConstant.TMP, func(col(srcField)))
+        var filterDf = df.withColumn(Constants.ROW_TMP, func(col(srcField)))
         for (i <- 0 until keys.size()) {
-          filterDf = filterDf.withColumn(keys.get(i), col(RowConstant.TMP)(i))
+          filterDf = filterDf.withColumn(keys.get(i), col(Constants.ROW_TMP)(i))
         }
-        filterDf.drop(RowConstant.TMP)
+        filterDf.drop(Constants.ROW_TMP)
       }
       case targetField: String => {
         val func = udf((s: String) => {
@@ -56,10 +57,7 @@ class Split extends BaseSparkTransform {
   }
 
   override def checkConfig(): CheckResult = {
-    config.hasPath("fields") && config.getStringList("fields").size() > 0 match {
-      case true => new CheckResult(true, "")
-      case false => new CheckResult(false, "please specify [fields] as a non-empty string list")
-    }
+    checkAllExists(config, "fields")
   }
 
   override def prepare(env: SparkEnvironment): Unit = {
@@ -67,7 +65,7 @@ class Split extends BaseSparkTransform {
       Map(
         "delimiter" -> " ",
         "source_field" -> "raw_message",
-        "target_field" -> RowConstant.ROOT))
+        "target_field" -> Constants.ROW_ROOT))
     config = config.withFallback(defaultConfig)
   }
 

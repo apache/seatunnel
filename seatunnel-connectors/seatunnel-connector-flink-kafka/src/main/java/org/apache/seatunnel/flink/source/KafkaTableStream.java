@@ -17,31 +17,38 @@
 
 package org.apache.seatunnel.flink.source;
 
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.Feature;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-import org.apache.seatunnel.config.Config;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.flink.util.SchemaUtil;
 import org.apache.seatunnel.flink.util.TableUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.parser.Feature;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.FormatDescriptor;
 import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Properties;
 
 public class KafkaTableStream implements FlinkStreamSource<Row> {
+
+    private static final long serialVersionUID = 5287018194573371428L;
+    private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTableStream.class);
 
     private Config config;
 
@@ -62,6 +69,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private static final String GROUP_ID = "group.id";
     private static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
     private static final String OFFSET_RESET = "offset.reset";
+    private static final int DEFAULT_INITIAL_CAPACITY = 16;
 
     @Override
     public void setConfig(Config config) {
@@ -76,11 +84,11 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     @Override
     public CheckResult checkConfig() {
 
-        CheckResult result = CheckConfigUtil.check(config, TOPICS, SCHEMA, SOURCE_FORMAT, RESULT_TABLE_NAME);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, TOPICS, SCHEMA, SOURCE_FORMAT, RESULT_TABLE_NAME);
 
         if (result.isSuccess()) {
             Config consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false);
-            return CheckConfigUtil.check(consumerConfig, BOOTSTRAP_SERVERS, GROUP_ID);
+            return CheckConfigUtil.checkAllExists(consumerConfig, BOOTSTRAP_SERVERS, GROUP_ID);
         }
 
         return result;
@@ -110,7 +118,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
                 .withFormat(setFormat())
                 .withSchema(getSchema())
                 .inAppendMode()
-                .registerTableSource(tableName);
+                .createTemporaryTable(tableName);
         Table table = tableEnvironment.scan(tableName);
         return TableUtil.tableToDataStream(tableEnvironment, table, true);
     }
@@ -142,7 +150,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
                     break;
                 case "specific":
                     String offset = config.getString("offset.reset.specific");
-                    HashMap<Integer, Long> map = new HashMap<>(16);
+                    HashMap<Integer, Long> map = new HashMap<>(DEFAULT_INITIAL_CAPACITY);
                     JSONObject.parseObject(offset).forEach((k, v) -> map.put(Integer.valueOf(k), Long.valueOf(v.toString())));
                     kafka.startFromSpecificOffsets(map);
                     break;
@@ -157,8 +165,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
         try {
             return SchemaUtil.setFormat(format, config);
         } catch (Exception e) {
-            // TODO: logging
-            e.printStackTrace();
+            LOGGER.warn("set format exception", e);
         }
         throw new RuntimeException("format config error");
     }

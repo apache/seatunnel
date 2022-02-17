@@ -19,8 +19,12 @@ package org.apache.seatunnel.flink.stream;
 
 import org.apache.seatunnel.flink.BaseFlinkTransform;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+
 import org.apache.flink.streaming.api.datastream.DataStream;
 
+/**
+ * a FlinkBatchTransform plugin will do transformations to Flink DataStream.
+ */
 public interface FlinkStreamTransform<IN, OUT> extends BaseFlinkTransform {
 
     DataStream<OUT> processStream(FlinkEnvironment env, DataStream<IN> dataStream);

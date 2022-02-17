@@ -21,6 +21,9 @@ on:
     branches:
       - dev
       - docker
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 env:
   HUB: ghcr.io/${{ github.repository }}
@@ -68,4 +71,5 @@ jobs:
           -Dmaven.deploy.skip \
           -Ddocker.tag=${{ github.sha }} \
           -Ddocker.hub=${{ env.HUB }} \
-          -Pdocker
+          -Pdocker \
+          --no-snapshot-updates

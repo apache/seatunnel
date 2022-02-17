@@ -26,19 +26,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-public class CompressionUtils {
+public final class CompressionUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CompressionUtils.class);
+
+    private CompressionUtils() {
+    }
 
     /**
      * Untar an input file into an output file.
@@ -57,7 +60,7 @@ public class CompressionUtils {
 
         LOGGER.info(String.format("Untaring %s to dir %s.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath()));
 
-        final List<File> untaredFiles = new LinkedList<File>();
+        final List<File> untaredFiles = new LinkedList<>();
         final InputStream is = new FileInputStream(inputFile);
         final TarArchiveInputStream debInputStream = (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is);
         TarArchiveEntry entry = null;
@@ -92,7 +95,7 @@ public class CompressionUtils {
      *
      * @param inputFile the input .gz file
      * @param outputDir the output directory file.
-     * @return The {@File} with the ungzipped content.
+     * @return The {@link File} with the ungzipped content.
      * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
      */

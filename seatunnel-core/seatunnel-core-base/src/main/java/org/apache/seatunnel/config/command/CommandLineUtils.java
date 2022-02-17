@@ -19,7 +19,10 @@ package org.apache.seatunnel.config.command;
 
 import com.beust.jcommander.JCommander;
 
-public class CommandLineUtils {
+public final class CommandLineUtils {
+
+    private CommandLineUtils() {
+    }
 
     public static CommandLineArgs parseSparkArgs(String[] args) {
         CommandSparkArgs commandSparkArgs = new CommandSparkArgs();

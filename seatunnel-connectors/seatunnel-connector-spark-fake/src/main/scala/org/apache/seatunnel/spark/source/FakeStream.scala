@@ -17,7 +17,7 @@
 package org.apache.seatunnel.spark.source
 
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.config.{Config, ConfigFactory}
+import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
 import org.apache.spark.rdd.RDD
@@ -26,8 +26,10 @@ import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.receiver.Receiver
-
 import java.security.SecureRandom
+
+import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+
 import scala.collection.JavaConversions._
 
 class FakeStream extends SparkStreamingSource[String] {
@@ -54,11 +56,10 @@ class FakeStream extends SparkStreamingSource[String] {
   }
 
   override def checkConfig(): CheckResult = {
-
     if (config.hasPath("content") && config.getStringList("content").nonEmpty) {
-      new CheckResult(true, "")
+      CheckResult.success()
     } else {
-      new CheckResult(false, "please make sure [content] is of type string array")
+      CheckResult.error("please make sure [content] is of type string array")
     }
   }
 }

@@ -1,10 +1,14 @@
-# seatunnel
-<img src="https://seatunnel.apache.org/img/logo.png" alt="seatunnel logo" height="200px" align="right" />
+# SeaTunnel
+
+<img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
 [![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
-
+[![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://join.slack.com/t/apacheseatunnel/shared_invite/zt-123jmewxe-RjB_DW3M3gV~xL91pZ0oVQ)
+[![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
 ---
+[![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
+[![CN doc](https://img.shields.io/badge/文档-中文版-blue.svg)](README_zh_CN.md)
 
 更名通知：SeaTunnel 原名为 waterdrop，于 2021 年 10 月 12 日更名为 SeaTunnel。
 
@@ -58,7 +62,7 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 * Input plugin
 
-Fake, File, Hdfs, Kafka, S3, Socket, 自行开发的 Input plugin
+Fake, File, Hdfs, Kafka, Druid, S3, Socket, 自行开发的 Input plugin
 
 * Filter plugin
 
@@ -67,7 +71,7 @@ Table, Truncate, Uppercase, Uuid, 自行开发的Filter plugin
 
 * Output plugin
 
-Elasticsearch, File, Hdfs, Jdbc, Kafka, Mysql, S3, Stdout, 自行开发的 Output plugin
+Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, 自行开发的 Output plugin
 
 ## 环境依赖
 
@@ -117,7 +121,10 @@ SeaTunnel遵守贡献者公约[code of conduct](https://www.apache.org/foundatio
 
 ## 开发者
 
-感谢[所有开发者](https://github.com/apache/incubator-seatunnel/graphs/contributors)
+感谢所有开发者！
+
+[![](https://opencollective.com/seatunnel/contributors.svg?width=666)](https://github.com/apache/incubator-seatunnel/graphs/contributors)
+
 
 ## 欢迎联系
 

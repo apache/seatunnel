@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.flink.transform;
 
-import org.apache.seatunnel.config.Config;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.flink.util.TableUtil;
-import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.BatchTableEnvironment;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
 public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
@@ -65,7 +67,7 @@ public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, SQL);
+        return CheckConfigUtil.checkAllExists(config, SQL);
     }
 
     @Override

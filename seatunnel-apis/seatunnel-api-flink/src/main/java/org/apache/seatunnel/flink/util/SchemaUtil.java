@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.flink.util;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import org.apache.seatunnel.config.Config;
-import org.apache.seatunnel.config.ConfigValue;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
@@ -43,7 +44,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class SchemaUtil {
+public final class SchemaUtil {
+
+    private SchemaUtil() {
+    }
 
     public static void setSchema(Schema schema, Object info, String format) {
 
@@ -90,13 +94,11 @@ public class SchemaUtil {
                 }
                 formatDescriptor = csv;
                 break;
-            case "orc":
-                break;
             case "avro":
                 formatDescriptor = new Avro().avroSchema(config.getString("schema"));
                 break;
+            case "orc":
             case "parquet":
-                break;
             default:
                 break;
         }
