@@ -17,7 +17,7 @@ Read data through jdbc
 | query          | string | yes      | -             |
 | fetch_size     | int    | no       | -             |
 | common-options | string | no       | -             |
-| parallelism    | Int  | no       | -             |
+| parallelism    | Int    | no       | -             |
 
 ### driver [string]
 

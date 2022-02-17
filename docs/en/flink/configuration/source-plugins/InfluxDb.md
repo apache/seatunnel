@@ -17,7 +17,7 @@ Read data from InfluxDB.
 | measurement | `String`       | yes      | -             |
 | fields      | `List<String>` | yes      | -             |
 | field_types | `List<String>` | yes      | -             |
-| parallelism | `Int`          | no      | -             |
+| parallelism | `Int`          | no       | -             |
 
 ### server_url [`String`]
 
