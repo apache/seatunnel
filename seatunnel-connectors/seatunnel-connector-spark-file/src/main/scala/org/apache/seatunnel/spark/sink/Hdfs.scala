@@ -18,15 +18,16 @@ package org.apache.seatunnel.spark.sink
 
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.spark.Config.HDFS
 import org.apache.seatunnel.spark.SparkEnvironment
 
 class Hdfs extends FileSinkBase {
 
   override def checkConfig(): CheckResult = {
-    checkConfigImpl(List("hdfs://"))
+    checkConfigImpl(List(HDFS))
   }
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-    outputImpl(data, "hdfs://")
+    outputImpl(data, HDFS)
   }
 }

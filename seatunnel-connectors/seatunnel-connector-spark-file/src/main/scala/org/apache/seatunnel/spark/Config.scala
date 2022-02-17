@@ -14,20 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.source
+package org.apache.seatunnel.spark
 
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.SparkEnvironment
-import org.apache.seatunnel.spark.Config.HDFS
-import org.apache.spark.sql.{Dataset, Row}
+object Config extends Serializable {
 
-class Hdfs extends FileSourceBase {
+  val PATH = "path"
+  val PARTITION_BY = "partition_by"
+  val SAVE_MODE = "save_mode"
+  val SERIALIZER = "serializer"
+  val PATH_TIME_FORMAT = "path_time_format"
+  val FORMAT = "format"
 
-  override def checkConfig(): CheckResult = {
-    checkConfigImpl(HDFS)
-  }
+  val FILE = "file://"
+  val HDFS = "hdfs://"
 
-  override def getData(env: SparkEnvironment): Dataset[Row] = {
-    getDataImpl(env, HDFS)
-  }
+  val TEXT = "text"
+  val PARQUET = "parquet"
+  val JSON = "json"
+  val ORC = "orc"
+  val CSV = "csv"
+
 }

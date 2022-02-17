@@ -3,48 +3,31 @@
 > Source plugin : Hdfs [Spark]
 
 ## Description
-Export data to HDFS
+read data from HDFS
 
 ## Options
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| options| object | no | - |
-| partition_by | array | no | - |
+| format | string | no | json |
 | path | string | yes | - |
-| save_mode | string | no | error |
-| serializer | string | no | json |
-| common-options | string | no | - |
+| common-options| string | yes | - |
 
-#### options [object]
+##### format [string]
+Format for reading files from HDFS, currently supports text, parquet, json, orc, csv.
 
-Custom parameters
-
-#### partition_by [array]
-
-Partition data based on selected fields
-
-#### path [string]
-
-Output file path, starting with **hdfs://**
-
-#### save_mode [string]
-
-Storage mode, currently supports overwrite, append, ignore and error. For the specific meaning of each mode, see [save-modes](http://spark.apache.org/docs/2.2.0/sql-programming-guide.html#save-modes)
-
-#### serializer [string]
-
-Serialization method, currently supports csv, json, parquet, orc and text
+##### path [string]
+Hadoop cluster file path, starting with hdfs://
 
 ### common options [string]
 
-Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) for details
+Source plugin common parameters, please refer to [Source Plugin](./source-plugin.md) for details
 
 ## Examples
 
 ```
 hdfs {
     path = "hdfs:///var/logs"
-    serializer = "json"
+    result_table_name = "access_log"
 }
 ```

@@ -21,8 +21,9 @@ import scala.util.{Failure, Success, Try}
 
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+import org.apache.seatunnel.spark.Config._
 import org.apache.seatunnel.spark.SparkEnvironment
-import org.apache.seatunnel.spark.batch.{SparkBatchSink, SparkBatchSource}
+import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 abstract class FileSourceBase extends SparkBatchSource {
@@ -30,14 +31,14 @@ abstract class FileSourceBase extends SparkBatchSource {
   override def prepare(env: SparkEnvironment): Unit = {}
 
   def getDataImpl(env: SparkEnvironment, schema: String): Dataset[Row] = {
-    val path = buildPathWithDefaultSchema(config.getString("path"), schema)
+    val path = buildPathWithDefaultSchema(config.getString(PATH), schema)
     fileReader(env.getSparkSession, path)
   }
 
   def checkConfigImpl(schema: String): CheckResult = {
-    val checkResult = checkAllExists(config, "path")
+    val checkResult = checkAllExists(config, PATH)
     if (checkResult.isSuccess) {
-      val dir = config.getString("path")
+      val dir = config.getString(PATH)
       dir.startsWith("/") || dir.startsWith(schema) match {
         case false =>
           CheckResult.error("invalid path URI, please set the following allowed schemas: " + schema)
@@ -49,7 +50,7 @@ abstract class FileSourceBase extends SparkBatchSource {
   }
 
   protected def fileReader(spark: SparkSession, path: String): Dataset[Row] = {
-    val format = config.getString("format")
+    val format = config.getString(FORMAT)
     var reader = spark.read.format(format)
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
@@ -67,11 +68,11 @@ abstract class FileSourceBase extends SparkBatchSource {
     }
 
     format match {
-      case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
-      case "parquet" => reader.parquet(path)
-      case "json" => reader.json(path)
-      case "orc" => reader.orc(path)
-      case "csv" => reader.csv(path)
+      case TEXT => reader.load(path).withColumnRenamed("value", "raw_message")
+      case PARQUET => reader.parquet(path)
+      case JSON => reader.json(path)
+      case ORC => reader.orc(path)
+      case CSV => reader.csv(path)
       case _ => reader.format(format).load(path)
     }
   }

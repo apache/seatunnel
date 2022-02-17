@@ -19,14 +19,15 @@ package org.apache.seatunnel.spark.sink
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
+import org.apache.seatunnel.spark.Config.FILE
 
 class File extends FileSinkBase {
 
   override def checkConfig(): CheckResult = {
-    checkConfigImpl(List("file://"))
+    checkConfigImpl(List(FILE))
   }
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-    outputImpl(data, "file://")
+    outputImpl(data, FILE)
   }
 }

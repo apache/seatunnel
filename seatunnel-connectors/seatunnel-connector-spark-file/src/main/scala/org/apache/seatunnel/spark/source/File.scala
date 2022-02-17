@@ -18,15 +18,16 @@ package org.apache.seatunnel.spark.source
 
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
+import org.apache.seatunnel.spark.Config.FILE
 import org.apache.spark.sql.{Dataset, Row}
 
 class File extends FileSourceBase {
 
   override def checkConfig(): CheckResult = {
-    checkConfigImpl("file://")
+    checkConfigImpl(FILE)
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
-    getDataImpl(env, "file://")
+    getDataImpl(env, FILE)
   }
 }

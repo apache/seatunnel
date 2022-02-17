@@ -18,22 +18,23 @@ package org.apache.seatunnel.spark.sink
 
 import java.util
 
-
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
-import org.apache.spark.sql.{Dataset, Row}
+
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.utils.StringTemplate
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
+import org.apache.seatunnel.spark.Config.{CSV, JSON, ORC, PARQUET, PARTITION_BY, PATH, PATH_TIME_FORMAT, SAVE_MODE, SERIALIZER, TEXT}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.spark.sql.{Dataset, Row}
 
 abstract class FileSinkBase extends SparkBatchSink {
 
   def checkConfigImpl(allowedURISchema: List[String]): CheckResult = {
-    config.hasPath("path") && !config.getString("path").trim.isEmpty match {
-      case true => {
-        val dir = config.getString("path")
+    config.hasPath(PATH) && !config.getString(PATH).trim.isEmpty match {
+      case true =>
+        val dir = config.getString(PATH)
 
         dir.startsWith("/") || uriInAllowedSchema(dir, allowedURISchema) match {
           case true => CheckResult.success()
@@ -42,7 +43,6 @@ abstract class FileSinkBase extends SparkBatchSink {
               "invalid path URI, please set the following allowed schemas: " + allowedURISchema.mkString(
                 ", "))
         }
-      }
       case false => CheckResult.error("please specify [path] as non-empty string")
     }
   }
@@ -50,10 +50,10 @@ abstract class FileSinkBase extends SparkBatchSink {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "partition_by" -> util.Arrays.asList(),
-        "save_mode" -> "error", // allowed values: overwrite, append, ignore, error
-        "serializer" -> "json", // allowed values: csv, json, parquet, text
-        "path_time_format" -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
+        PARTITION_BY -> util.Arrays.asList(),
+        SAVE_MODE -> "error", // allowed values: overwrite, append, ignore, error
+        SERIALIZER -> "json", // allowed values: csv, json, parquet, text
+        PATH_TIME_FORMAT -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
       ))
     config = config.withFallback(defaultConfig)
   }
@@ -63,39 +63,32 @@ abstract class FileSinkBase extends SparkBatchSink {
    * @return true if schema name is allowed
    */
   protected def uriInAllowedSchema(uri: String, allowedURISchema: List[String]): Boolean = {
-
     val notAllowed = allowedURISchema.forall(schema => {
       !uri.startsWith(schema)
     })
-
     !notAllowed
   }
 
   protected def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
-
     val path = uri.startsWith("/") match {
       case true => defaultUriSchema + uri
       case false => uri
     }
-
     path
   }
 
   def outputImpl(df: Dataset[Row], defaultUriSchema: String): Unit = {
-
-    var writer = df.write.mode(config.getString("save_mode"))
-
-    writer = config.getStringList("partition_by").length == 0 match {
+    var writer = df.write.mode(config.getString(SAVE_MODE))
+    writer = config.getStringList(PARTITION_BY).length == 0 match {
       case true => writer
-      case false => {
-        val partitionKeys = config.getStringList("partition_by")
+      case false =>
+        val partitionKeys = config.getStringList(PARTITION_BY)
         writer.partitionBy(partitionKeys: _*)
-      }
     }
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
 
-      case Success(options) => {
+      case Success(options) =>
         val optionMap = options
           .entrySet()
           .foldRight(Map[String, String]())((entry, m) => {
@@ -103,19 +96,17 @@ abstract class FileSinkBase extends SparkBatchSink {
           })
 
         writer.options(optionMap)
-      }
-      case Failure(exception) => // do nothing
-
+      case Failure(_) => // do nothing
     }
 
-    var path = buildPathWithDefaultSchema(config.getString("path"), defaultUriSchema)
-    path = StringTemplate.substitute(path, config.getString("path_time_format"))
-    config.getString("serializer") match {
-      case "csv" => writer.csv(path)
-      case "json" => writer.json(path)
-      case "parquet" => writer.parquet(path)
-      case "text" => writer.text(path)
-      case "orc" => writer.orc(path)
+    var path = buildPathWithDefaultSchema(config.getString(PATH), defaultUriSchema)
+    path = StringTemplate.substitute(path, config.getString(PATH_TIME_FORMAT))
+    config.getString(SERIALIZER) match {
+      case CSV => writer.csv(path)
+      case JSON => writer.json(path)
+      case PARQUET => writer.parquet(path)
+      case TEXT => writer.text(path)
+      case ORC => writer.orc(path)
     }
   }
 }
