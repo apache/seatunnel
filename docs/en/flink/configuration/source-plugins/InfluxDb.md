@@ -17,6 +17,7 @@ Read data from InfluxDB.
 | measurement | `String`       | yes      | -             |
 | fields      | `List<String>` | yes      | -             |
 | field_types | `List<String>` | yes      | -             |
+| parallelism | `Int`          | no      | -             |
 
 ### server_url [`String`]
 
@@ -45,6 +46,10 @@ The list of Field in InfluxDB.
 ### field_types [`List<String>`]
 
 The list of Field Types in InfluxDB.
+
+### parallelism [`Int`]
+
+The parallelism of an individual operator, for InfluxDbSource.
 
 ## Example
 
