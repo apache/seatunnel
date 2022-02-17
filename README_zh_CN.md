@@ -15,7 +15,6 @@
 ---
 
 SeaTunnel 是一个非常易用的支持海量数据实时同步的超高性能分布式数据集成平台，每天可以稳定高效同步数百亿数据，已在近百家公司生产上使用。
----
 
 ## 为什么我们需要 SeaTunnel
 
@@ -51,11 +50,11 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 ![seatunnel-workflow.svg](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.svg)
 
 ```
-                         Input[数据源输入] -> Filter[数据处理] -> Output[结果输出]
+Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 ```
 
-多个 Filter 构建了数据处理的 Pipeline，满足各种各样的数据处理需求，如果您熟悉 SQL，也可以直接通过 SQL 构建数据处理的 Pipeline，简单高效。目前 seatunnel
-支持的[Filter列表](https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/configuration/filter-plugin),
+多个 Transform 构建了数据处理的 Pipeline，满足各种各样的数据处理需求，如果您熟悉 SQL，也可以直接通过 SQL 构建数据处理的 Pipeline，简单高效。目前 seatunnel
+支持的[Transform 列表](https://seatunnel.apache.org/docs/spark/configuration/transform-plugins/transform-plugin),
 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
 ## SeaTunnel 支持的插件
@@ -90,9 +89,13 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, 自行开发�
 
 ## 快速入门
 
-快速入门：https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/quick-start
+**Spark**
+https://seatunnel.apache.org/docs/spark/quick-start
 
-关于 SeaTunnel 的[详细文档](https://interestinglab.github.io/seatunnel-docs/)
+**Flink**
+https://seatunnel.apache.org/docs/flink/quick-start
+
+关于 SeaTunnel 的[详细文档](https://seatunnel.apache.org/docs/introduction)
 
 ## 生产应用案例
 
@@ -111,7 +114,7 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, 自行开发�
 
 * 水滴筹, 数据平台 水滴筹在 Yarn 上使用 SeaTunnel 做实时流式以及定时的离线批处理，每天处理 3～4T 的数据量，最终将数据写入 Clickhouse。
 
-更多案例参见: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/case_study/
+更多案例参见: https://seatunnel.apache.org/blog
 
 ## 行为准则
 
