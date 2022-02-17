@@ -63,5 +63,6 @@
                 </configuration>
             </plugin>
         </plugins>
+        <finalName>apache-seatunnel-incubating-${project.version}</finalName>
     </build>
 </project>
