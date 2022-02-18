@@ -46,6 +46,8 @@ public class IotDbSource implements FlinkBatchSource<Row> {
     private IotDbInputFormat ioTDbInputFormat;
 
     private static final String URL = "url";
+    private static final String USER = "user";
+    private static final String PASSWORD = "password";
     private static final String STORAGE = "storage";
     private static final String FIELDS = "fields";
     private static final String FIELD_TYPES = "field_types";
@@ -93,6 +95,8 @@ public class IotDbSource implements FlinkBatchSource<Row> {
     @Override
     public void prepare(FlinkEnvironment env) {
         String url = config.getString(URL);
+        String user = config.hasPath(USER) ? config.getString(USER) : null;
+        String password = config.hasPath(PASSWORD) ? config.getString(PASSWORD) : null;
         String storage = config.getString(STORAGE);
         List<String> fields = config.getStringList(FIELDS);
         List<String> fieldTypes = config.getStringList(FIELD_TYPES);
@@ -109,6 +113,8 @@ public class IotDbSource implements FlinkBatchSource<Row> {
 
         this.ioTDbInputFormat = IotDbInputFormat.buildIoTDbInputFormat()
                 .setURL(url)
+                .setUser(user)
+                .setPassword(password)
                 .setQuery(sql)
                 .setFields(fields)
                 .setRowTypeInfo(getRowTypeInfo(fields, fieldTypes))

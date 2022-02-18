@@ -45,6 +45,8 @@ public class IotDbInputFormat extends RichInputFormat<Row, InputSplit> implement
     private static final String IOTDB_DRIVER = "org.apache.iotdb.jdbc.IoTDBDriver";
 
     private String url;
+    private String user;
+    private String password;
     private String query;
     private List<String> fields;
     private RowTypeInfo rowTypeInfo;
@@ -71,7 +73,11 @@ public class IotDbInputFormat extends RichInputFormat<Row, InputSplit> implement
     public void openInputFormat() {
         try {
             Class.forName(IOTDB_DRIVER);
-            connection = DriverManager.getConnection(url);
+            if (user == null || password == null) {
+                connection = DriverManager.getConnection(url);
+            } else {
+                connection = DriverManager.getConnection(url, user, password);
+            }
             statement = connection.createStatement();
             offset = 0;
             hasNext = true;
@@ -156,6 +162,16 @@ public class IotDbInputFormat extends RichInputFormat<Row, InputSplit> implement
 
         public IotDbInputFormatBuilder setURL(String url) {
             format.url = url;
+            return this;
+        }
+
+        public IotDbInputFormatBuilder setUser(String user) {
+            format.user = user;
+            return this;
+        }
+
+        public IotDbInputFormatBuilder setPassword(String password) {
+            format.password = password;
             return this;
         }
 
