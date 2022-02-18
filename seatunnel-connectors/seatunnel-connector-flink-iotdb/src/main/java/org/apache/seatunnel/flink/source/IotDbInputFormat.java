@@ -71,7 +71,7 @@ public class IotDbInputFormat extends RichInputFormat<Row, InputSplit> implement
     public void openInputFormat() {
         try {
             Class.forName(IOTDB_DRIVER);
-            connection = DriverManager.getConnection(url, "root", "root");
+            connection = DriverManager.getConnection(url);
             statement = connection.createStatement();
             offset = 0;
             hasNext = true;
