@@ -44,7 +44,7 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     }
 
     public static void registerTempView(String tableName, Dataset<Row> ds) {
-        ds.createOrReplaceGlobalTempView(tableName);
+        ds.createOrReplaceTempView(tableName);
     }
 
     public static void registerInputTempView(BaseSparkSource<Dataset<Row>> source, SparkEnvironment environment) {
@@ -96,7 +96,7 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform transform : transforms) {
-                if (ds.head().size() > 0) {
+                if (ds.takeAsList(1).size() > 0) {
                     ds = SparkBatchExecution.transformProcess(environment, transform, ds);
                     SparkBatchExecution.registerTransformTempView(transform, ds);
                 }
