@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +18,13 @@
 import os
 import sys
 
+if sys.version_info.major < 3:
+    print('At least Python3 is required!')
+    print('Please refer to the https://www.python.org/downloads/ documentation if you do not have a right Python env.')
+    exit(-1)
+
 if len(sys.argv) - 1 != 3:
-    print("The length of arguments should be 2!")
+    print("The length of arguments should be 3!")
     print("The first argument should be the path to the THIRD-PARTY.txt file.")
     print("The second argument should be the path to the LICENSE file.")
     print("The third argument should be a flag that controls whether to print the diff or change the LICENSE file.")
