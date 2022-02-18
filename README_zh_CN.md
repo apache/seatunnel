@@ -61,7 +61,7 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 
 * Input plugin
 
-Fake, File, Hdfs, Kafka, Druid, S3, Socket, 自行开发的 Input plugin
+Fake, File, Hdfs, Kafka, Druid, InfluxDB, S3, Socket, 自行开发的 Input plugin
 
 * Filter plugin
 
@@ -70,7 +70,7 @@ Table, Truncate, Uppercase, Uuid, 自行开发的Filter plugin
 
 * Output plugin
 
-Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, 自行开发的 Output plugin
+Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, InfluxDB, Mysql, S3, Stdout, 自行开发的 Output plugin
 
 ## 环境依赖
 
