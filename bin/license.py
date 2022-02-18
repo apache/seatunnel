@@ -90,9 +90,6 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
 """,
     "Go License": """The following components are provided under the Go License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
-""",
-    "Other License": """The following components are provided under some minority Licenses. See project link for details.
-The text of each license is also included at licenses/LICENSE-[project].txt.
 """
 }
 licenses_map = {
@@ -136,6 +133,13 @@ for _ in licenses:
     if l is None:
         l = "Other License"
     licenses_map[l].append(_.strip('\n'))
+
+if len(licenses_map["Other License"]) != 0:
+    for other_license in licenses_map["Other License"]:
+        print(other_license)
+    print("There are some licenses are unknown!")
+    print("Please confirm the license by finding LICENSE file in the corresponding Jar file and maintain it in the unknown_licenses_map instance.")
+    exit(-1)
 
 res = ""
 res += """                                 Apache License
