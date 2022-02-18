@@ -35,8 +35,6 @@ source {
     result_table_name = "my_dataset"
   }
 
-
-
   # You can also use other input plugins, such as hdfs
   # hdfs {
   #   result_table_name = "accesslog"
@@ -45,14 +43,11 @@ source {
   # }
 
   # If you would like to get more information about how to configure seatunnel and see full list of input plugins,
-  # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v2/spark/developing-plugin
+  # please go to https://seatunnel.apache.org/docs/spark/configuration/source-plugins/Fake
 }
 
 transform {
   # split data by specific delimiter
-
-
-
 
   # you can also you other filter plugins, such as sql
   # sql {
@@ -60,14 +55,12 @@ transform {
   # }
 
   # If you would like to get more information about how to configure seatunnel and see full list of filter plugins,
-  # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v2/spark/developing-plugin
+  # please go to https://seatunnel.apache.org/docs/spark/configuration/transform-plugins/Split
 }
 
 sink {
   # choose stdout output plugin to output data to console
   Console {}
-
-
 
   # you can also you other output plugins, such as sql
   # hdfs {
@@ -76,5 +69,5 @@ sink {
   # }
 
   # If you would like to get more information about how to configure seatunnel and see full list of output plugins,
-  # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v2/spark/developing-plugin
+  # please go to https://seatunnel.apache.org/docs/spark/configuration/sink-plugins/Console
 }
