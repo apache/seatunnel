@@ -124,6 +124,7 @@
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
         <influxdb-java.version>2.22</influxdb-java.version>
+        <iotdb.version>0.12.4</iotdb.version>
     </properties>
 
     <dependencyManagement>
@@ -460,6 +461,12 @@
                 <groupId>org.influxdb</groupId>
                 <artifactId>influxdb-java</artifactId>
                 <version>${influxdb-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.iotdb</groupId>
+                <artifactId>iotdb-jdbc</artifactId>
+                <version>${iotdb.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

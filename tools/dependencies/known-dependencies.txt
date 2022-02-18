@@ -277,6 +277,8 @@ icu4j-charset-60.2.jar
 icu4j-localespi-60.2.jar
 influxdb-java-2.22.jar
 ion-java-1.0.2.jar
+iotdb-jdbc-0.12.4.jar
+iotdb-thrift-0.12.4.jar
 j2objc-annotations-1.1.jar
 jackson-annotations-2.10.5.jar
 jackson-annotations-2.11.0.jar
@@ -346,6 +348,7 @@ jaxb-impl-2.2.3-1.jar
 jboss-logging-3.2.1.Final.jar
 jcip-annotations-1.0-1.jar
 jcl-over-slf4j-1.7.12.jar
+jcl-over-slf4j-1.7.28.jar
 jcodings-1.0.18.jar
 jcodings-1.0.43.jar
 jcommander-1.81.jar
@@ -445,6 +448,7 @@ kryo-shaded-4.0.2.jar
 kudu-spark2_2.11-1.7.0.jar
 lang-mustache-client-6.3.1.jar
 leveldbjni-all-1.8.jar
+libthrift-0.14.1.jar
 libthrift-0.9.0.jar
 log4j-1.2-api-2.15.0.jar
 log4j-1.2.14.jar
@@ -456,6 +460,8 @@ log4j-core-2.13.2.jar
 log4j-core-2.15.0.jar
 log4j-jul-2.15.0.jar
 log4j-slf4j-impl-2.15.0.jar
+logback-classic-1.2.3.jar
+logback-core-1.2.3.jar
 logging-interceptor-4.9.1.jar
 lucene-analyzers-common-7.3.1.jar
 lucene-backward-codecs-7.3.1.jar
@@ -533,7 +539,9 @@ okio-2.8.0.jar
 opencsv-4.6.jar
 orc-core-1.5.6.jar
 orc-shims-1.5.6.jar
+org.osgi.core-6.0.0.jar
 osgi-resource-locator-1.0.1.jar
+osgi.cmpn-6.0.0.jar
 paranamer-2.3.jar
 paranamer-2.7.jar
 parent-join-client-6.3.1.jar
@@ -550,6 +558,7 @@ parquet-hadoop-1.10.0.jar
 parquet-hadoop-1.11.1.jar
 parquet-jackson-1.10.0.jar
 parquet-jackson-1.11.1.jar
+pax-jdbc-common-1.4.5.jar
 percolator-client-6.3.1.jar
 phoenix-core-5.0.0-HBase-2.0.jar
 phoenix-spark-5.0.0-HBase-2.0.jar
@@ -581,6 +590,7 @@ scala-xml_2.11-1.0.5.jar
 scala-xml_2.11-1.3.0.jar
 scalaj-http_2.11-2.3.0.jar
 scalap-2.11.12.jar
+service-rpc-0.12.4.jar
 servlet-api-2.5.jar
 shims-0.9.0.jar
 sigar-1.6.5.132.jar
@@ -598,6 +608,7 @@ snappy-0.3.jar
 snappy-java-1.1.4.jar
 snappy-java-1.1.7.1.jar
 snappy-java-1.1.8.3.jar
+snappy-java-1.1.8.4.jar
 spark-catalyst_2.11-2.4.0.jar
 spark-hive-thriftserver_2.11-2.3.4.jar
 spark-redis_2.11-2.6.0.jar
@@ -624,6 +635,7 @@ tispark-core-internal-2.4.1.jar
 token-provider-1.0.1.jar
 transport-6.3.1.jar
 transport-netty4-client-6.3.1.jar
+tsfile-0.12.4.jar
 twill-api-0.8.0.jar
 twill-common-0.8.0.jar
 twill-core-0.8.0.jar
