@@ -71,4 +71,5 @@ jobs:
           -Dmaven.deploy.skip \
           -Ddocker.tag=${{ github.sha }} \
           -Ddocker.hub=${{ env.HUB }} \
-          -Pdocker
+          -Pdocker \
+          --no-snapshot-updates

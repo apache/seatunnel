@@ -35,9 +35,6 @@ import java.util.List;
 
 public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSparkTransform, SparkBatchSink> {
 
-    public static final String SOURCE_TABLE_NAME = "source_table_name";
-    public static final String RESULT_TABLE_NAME = "result_table_name";
-
     private final SparkEnvironment environment;
 
     private Config config = ConfigFactory.empty();
@@ -47,25 +44,25 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     }
 
     public static void registerTempView(String tableName, Dataset<Row> ds) {
-        ds.createOrReplaceGlobalTempView(tableName);
+        ds.createOrReplaceTempView(tableName);
     }
 
     public static void registerInputTempView(BaseSparkSource<Dataset<Row>> source, SparkEnvironment environment) {
         Config config = source.getConfig();
-        if (config.hasPath(SparkBatchExecution.RESULT_TABLE_NAME)) {
-            String tableName = config.getString(SparkBatchExecution.RESULT_TABLE_NAME);
+        if (config.hasPath(RESULT_TABLE_NAME)) {
+            String tableName = config.getString(RESULT_TABLE_NAME);
             registerTempView(tableName, source.getData(environment));
         } else {
-            throw new ConfigRuntimeException(
-                    "Plugin[" + source.getClass().getName() + "] must be registered as dataset/table, please set \"result_table_name\" config");
+            throw new ConfigRuntimeException("Plugin[" + source.getClass().getName() + "] " +
+                "must be registered as dataset/table, please set \"" + RESULT_TABLE_NAME + "\" config");
         }
     }
 
     public static Dataset<Row> transformProcess(SparkEnvironment environment, BaseSparkTransform transform, Dataset<Row> ds) {
         Dataset<Row> fromDs;
         Config config = transform.getConfig();
-        if (config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME)) {
-            String sourceTableName = config.getString(SparkBatchExecution.SOURCE_TABLE_NAME);
+        if (config.hasPath(SOURCE_TABLE_NAME)) {
+            String sourceTableName = config.getString(SOURCE_TABLE_NAME);
             fromDs = environment.getSparkSession().read().table(sourceTableName);
         } else {
             fromDs = ds;
@@ -75,8 +72,8 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
 
     public static void registerTransformTempView(BaseSparkTransform transform, Dataset<Row> ds) {
         Config config = transform.getConfig();
-        if (config.hasPath(SparkBatchExecution.RESULT_TABLE_NAME)) {
-            String resultTableName = config.getString(SparkBatchExecution.RESULT_TABLE_NAME);
+        if (config.hasPath(RESULT_TABLE_NAME)) {
+            String resultTableName = config.getString(RESULT_TABLE_NAME);
             registerTempView(resultTableName, ds);
         }
     }
@@ -84,8 +81,8 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     public static void sinkProcess(SparkEnvironment environment, BaseSparkSink<?> sink, Dataset<Row> ds) {
         Dataset<Row> fromDs;
         Config config = sink.getConfig();
-        if (config.hasPath(SparkBatchExecution.SOURCE_TABLE_NAME)) {
-            String sourceTableName = config.getString(SparkBatchExecution.SOURCE_TABLE_NAME);
+        if (config.hasPath(SOURCE_TABLE_NAME)) {
+            String sourceTableName = config.getString(SOURCE_TABLE_NAME);
             fromDs = environment.getSparkSession().read().table(sourceTableName);
         } else {
             fromDs = ds;
@@ -99,7 +96,7 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform transform : transforms) {
-                if (ds.head().size() > 0) {
+                if (ds.takeAsList(1).size() > 0) {
                     ds = SparkBatchExecution.transformProcess(environment, transform, ds);
                     SparkBatchExecution.registerTransformTempView(transform, ds);
                 }
