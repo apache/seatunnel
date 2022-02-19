@@ -1,9 +1,9 @@
-# Hdfs
+# File
 
-> Source plugin : Hdfs [Spark]
+> Source plugin : File [Spark]
 
 ## Description
-read data from HDFS
+read data from local or hdfs file.
 
 ## Options
 
@@ -14,10 +14,11 @@ read data from HDFS
 | common-options| string | yes | - |
 
 ##### format [string]
-Format for reading files from HDFS, currently supports text, parquet, json, orc, csv.
+Format for reading files, currently supports text, parquet, json, orc, csv.
 
 ##### path [string]
-Hadoop cluster file path, starting with hdfs://
+- If read data from hdfs , the file path should start with `hdfs://`  
+- If read data from local , the file path should start with `file://`
 
 ### common options [string]
 
@@ -26,8 +27,15 @@ Source plugin common parameters, please refer to [Source Plugin](./source-plugin
 ## Examples
 
 ```
-hdfs {
+file {
     path = "hdfs:///var/logs"
+    result_table_name = "access_log"
+}
+```
+
+```
+file {
+    path = "file:///var/logs"
     result_table_name = "access_log"
 }
 ```
