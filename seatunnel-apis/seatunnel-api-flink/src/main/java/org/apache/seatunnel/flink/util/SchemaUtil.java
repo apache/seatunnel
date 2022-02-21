@@ -43,8 +43,11 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 public final class SchemaUtil {
+
+    private static final Pattern DASH_COMPILE = Pattern.compile("-");
 
     private SchemaUtil() {
     }
@@ -209,6 +212,6 @@ public final class SchemaUtil {
     }
 
     public static String getUniqueTableName() {
-        return UUID.randomUUID().toString().replaceAll("-", "_");
+        return DASH_COMPILE.matcher(UUID.randomUUID().toString()).replaceAll("_");
     }
 }
