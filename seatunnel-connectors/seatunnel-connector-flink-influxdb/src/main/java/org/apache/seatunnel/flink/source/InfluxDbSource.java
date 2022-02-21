@@ -36,6 +36,7 @@ import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.types.Row;
 
 import java.util.HashMap;
@@ -73,11 +74,12 @@ public class InfluxDbSource implements FlinkStreamSource<Row> {
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
+        DataStreamSource<Row> dataSource = env.getStreamExecutionEnvironment().createInput(influxDbInputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSource.setParallelism(parallelism);
         }
-        return env.getStreamExecutionEnvironment().createInput(influxDbInputFormat);
+        return dataSource;
     }
 
     @Override

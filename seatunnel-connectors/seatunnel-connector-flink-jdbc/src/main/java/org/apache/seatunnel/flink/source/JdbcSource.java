@@ -40,6 +40,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.JdbcInputFormat;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,11 +101,12 @@ public class JdbcSource implements FlinkStreamSource<Row> {
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
+        DataStreamSource<Row> dataSource = env.getStreamExecutionEnvironment().createInput(jdbcInputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSource.setParallelism(parallelism);
         }
-        return env.getStreamExecutionEnvironment().createInput(jdbcInputFormat);
+        return dataSource;
     }
 
     @Override
