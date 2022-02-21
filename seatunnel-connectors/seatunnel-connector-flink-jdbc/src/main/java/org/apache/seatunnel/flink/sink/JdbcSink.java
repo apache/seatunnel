@@ -45,6 +45,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
     private static final int DEFAULT_BATCH_SIZE = 5000;
     private static final int DEFAULT_MAX_RETRY_TIMES = 3;
     private static final int DEFAULT_INTERVAL_MILLIS = 0;
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
     private String driverName;
@@ -113,6 +114,9 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
                 .withPassword(password)
                 .build());
 
+        if (config.hasPath(PARALLELISM)) {
+            return dataStream.addSink(sink).setParallelism(config.getInt(PARALLELISM));
+        }
         return dataStream.addSink(sink);
     }
 
