@@ -10,12 +10,12 @@ Please [download Spark](https://spark.apache.org/downloads.html) first, please c
 
 ### Step 2: Download seatunnel
 
-Enter the [seatunnel installation package download page](https://github.com/InterestingLab/seatunnel/releases) and download the latest version of `seatunnel-<version>.zip`
+Enter the [seatunnel installation package download page](https://github.com/apache/incubator-seatunnel/releases) and download the latest version of `seatunnel-<version>.zip`
 
 Or download the specified version directly (take `2.0.4` as an example):
 
 ```bash
-wget https://github.com/InterestingLab/seatunnel/releases/download/v2.0.4/waterdrop-dist-2.0.4-2.11.8-release.zip -O seatunnel-2.0.4.zip
+wget https://github.com/apache/incubator-seatunnel/releases/download/v2.0.4/waterdrop-dist-2.0.4-2.11.8-release.zip -O seatunnel-2.0.4.zip
 ```
 
 After downloading, unzip:
@@ -94,7 +94,7 @@ The `seatunnel` log prints out:
 
 If you want to know more `seatunnel configuration examples`, please refer to:
 
-- Configuration example 2: [Batch offline batch processing](https://github.com/InterestingLab/seatunnel/blob/dev/config/spark.batch.conf.template)
+- Configuration example 2: [Batch offline batch processing](https://github.com/apache/incubator-seatunnel/blob/dev/config/spark.batch.conf.template)
 
 The above configuration is the default [offline batch configuration template], which can be run directly, the command is as follows:
 

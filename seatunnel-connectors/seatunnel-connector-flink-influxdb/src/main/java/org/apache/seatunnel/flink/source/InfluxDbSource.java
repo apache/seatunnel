@@ -35,6 +35,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
 
@@ -55,6 +56,7 @@ public class InfluxDbSource implements FlinkBatchSource<Row> {
     private static final String FIELD_TYPES = "field_types";
     private static final String START_TIMESTAMP = "start_date";
     private static final String END_TIMESTAMP = "end_date";
+    private static final String PARALLELISM = "parallelism";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -72,7 +74,12 @@ public class InfluxDbSource implements FlinkBatchSource<Row> {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(influxDbInputFormat);
+        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(influxDbInputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
+        return dataSource;
     }
 
     @Override
