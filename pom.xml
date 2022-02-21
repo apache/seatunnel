@@ -27,6 +27,12 @@
     <packaging>pom</packaging>
     <version>2.0.5-SNAPSHOT</version>
 
+    <parent>
+        <groupId>org.apache</groupId>
+        <artifactId>apache</artifactId>
+        <version>25</version>
+    </parent>
+
     <name>SeaTunnel</name>
 
     <description>
