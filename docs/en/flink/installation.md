@@ -3,7 +3,7 @@
 ## Download
 
 ```bash
-https://github.com/InterestingLab/seatunnel/releases
+https://github.com/apache/incubator-seatunnel/releases
 ```
 
 ## Environmental preparation
@@ -21,7 +21,7 @@ Please [download Flink](https://flink.apache.org/downloads.html) first, please c
 Download the seatunnel installation package and unzip
 
 ```bash
-wget https://github.com/InterestingLab/seatunnel/releases/download/v<version>/seatunnel-<version>.zip -O seatunnel-<version>.zip
+wget https://github.com/apache/incubator-seatunnel/releases/download/v<version>/seatunnel-<version>.zip -O seatunnel-<version>.zip
 unzip seatunnel-<version>.zip
 ln -s seatunnel-<version> seatunnel
 ```

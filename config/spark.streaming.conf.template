@@ -35,8 +35,6 @@ source {
     content = ["Hello World, SeaTunnel"]
   }
 
-
-
   # You can also use other input plugins, such as file
   # file {
   #   result_table_name = "accesslog"
@@ -45,7 +43,7 @@ source {
   # }
 
   # If you would like to get more information about how to configure seatunnel and see full list of input plugins,
-  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
+  # please go to https://seatunnel.apache.org/docs/spark/configuration/source-plugins/FakeStream
 }
 
 transform {
@@ -61,7 +59,7 @@ transform {
   # }
 
   # If you would like to get more information about how to configure seatunnel and see full list of filter plugins,
-  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
+  # please go to https://seatunnel.apache.org/docs/spark/configuration/transform-plugins/Split
 }
 
 sink {
@@ -75,5 +73,5 @@ sink {
   # }
 
   # If you would like to get more information about how to configure seatunnel and see full list of output plugins,
-  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
+  # please go to https://seatunnel.apache.org/docs/spark/configuration/sink-plugins/Console
 }

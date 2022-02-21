@@ -55,6 +55,7 @@ public class InfluxDbSource implements FlinkStreamSource<Row> {
     private static final String FIELD_TYPES = "field_types";
     private static final String START_TIMESTAMP = "start_date";
     private static final String END_TIMESTAMP = "end_date";
+    private static final String PARALLELISM = "parallelism";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -72,6 +73,10 @@ public class InfluxDbSource implements FlinkStreamSource<Row> {
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
         return env.getStreamExecutionEnvironment().createInput(influxDbInputFormat);
     }
 

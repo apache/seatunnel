@@ -70,6 +70,7 @@ public class JdbcSource implements FlinkStreamSource<Row> {
     private Set<String> fields;
 
     private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
+    private static final String PARALLELISM = "parallelism";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -99,6 +100,10 @@ public class JdbcSource implements FlinkStreamSource<Row> {
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
         return env.getStreamExecutionEnvironment().createInput(jdbcInputFormat);
     }
 
