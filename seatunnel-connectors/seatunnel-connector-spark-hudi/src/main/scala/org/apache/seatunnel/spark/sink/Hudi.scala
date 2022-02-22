@@ -41,7 +41,7 @@ class Hudi extends SparkBatchSink {
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
     val writer = df.write.format("org.apache.hudi")
     for (e <- config.entrySet()) {
-      writer.option(e.getKey, e.getValue.toString)
+      writer.option(e.getKey, config.getString(e.getKey))
     }
     writer.mode(config.getString("save_mode"))
       .save(config.getString("hoodie.base.path"))
