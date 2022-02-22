@@ -54,6 +54,26 @@
         <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
+    
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/apache/incubator-seatunnel/issues</url>
+    </issueManagement>
+
+    <mailingLists>
+        <mailingList>
+            <name>SeaTunnel Developer List</name>
+            <post>dev@seatunnel.apache.org</post>
+            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
+        </mailingList>
+        <mailingList>
+            <name>SeaTunnel Commits List</name>
+            <post>commits@seatunnel.apache.org</post>
+            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
+        </mailingList>
+    </mailingLists>
 
     <modules>
         <module>seatunnel-config</module>
