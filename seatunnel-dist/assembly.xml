@@ -91,6 +91,19 @@
             </includes>
             <fileMode>0755</fileMode>
         </fileSet>
-
+        <!--Licenses And NOTICE-->
+        <fileSet>
+            <directory>${basedir}/release-docs</directory>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        <!-- DISCLAIMER -->
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>DISCLAIMER</include>
+            </includes>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        
     </fileSets>
 </assembly>
