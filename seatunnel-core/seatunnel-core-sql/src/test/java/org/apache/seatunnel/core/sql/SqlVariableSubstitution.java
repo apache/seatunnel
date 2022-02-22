@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.core.sql;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.seatunnel.config.command.CommandLineArgs;
 import org.apache.seatunnel.config.command.CommandLineUtils;
 import org.apache.seatunnel.core.sql.job.JobInfo;
+
+import org.apache.commons.io.FileUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -33,7 +34,7 @@ public class SqlVariableSubstitution {
     @Test
     public void normalizeStatementsWithMultiSqls() throws Exception {
         String[] args = {"-c", System.getProperty("user.dir") + TEST_RESOURCE_DIR + "flink.sql.conf.template",
-                "-t", "-i", "table_name=events"};
+            "-t", "-i", "table_name=events"};
 
         CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
         String configFilePath = flinkArgs.getConfigFile();
