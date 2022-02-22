@@ -18,6 +18,7 @@
 package org.apache.seatunnel.flink.source;
 
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BOOLEAN_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BYTE_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.DOUBLE_TYPE_INFO;
@@ -81,11 +82,17 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         informationMapping.put("VARCHAR", STRING_TYPE_INFO);
         informationMapping.put("BOOLEAN", BOOLEAN_TYPE_INFO);
         informationMapping.put("TINYINT", BYTE_TYPE_INFO);
+        informationMapping.put("TINYINT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("SMALLINT", SHORT_TYPE_INFO);
+        informationMapping.put("SMALLINT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("INTEGER", INT_TYPE_INFO);
+        informationMapping.put("INTEGER UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("MEDIUMINT", INT_TYPE_INFO);
+        informationMapping.put("MEDIUMINT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("INT", INT_TYPE_INFO);
+        informationMapping.put("INT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("BIGINT", LONG_TYPE_INFO);
+        informationMapping.put("BIGINT UNSIGNED", BIG_INT_TYPE_INFO);
         informationMapping.put("FLOAT", FLOAT_TYPE_INFO);
         informationMapping.put("DOUBLE", DOUBLE_TYPE_INFO);
         informationMapping.put("CHAR", STRING_TYPE_INFO);
@@ -93,6 +100,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         informationMapping.put("LONGTEXT", STRING_TYPE_INFO);
         informationMapping.put("DATE", SqlTimeTypeInfo.DATE);
         informationMapping.put("TIME", SqlTimeTypeInfo.TIME);
+        informationMapping.put("DATETIME", SqlTimeTypeInfo.TIMESTAMP);
         informationMapping.put("TIMESTAMP", SqlTimeTypeInfo.TIMESTAMP);
         informationMapping.put("DECIMAL", BIG_DEC_TYPE_INFO);
         informationMapping.put("BINARY", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
