@@ -38,6 +38,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.JdbcInputFormat;
 import org.apache.flink.types.Row;
@@ -70,6 +71,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     private Set<String> fields;
 
     private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
+    private static final String PARALLELISM = "parallelism";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -99,7 +101,12 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(jdbcInputFormat);
+        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(jdbcInputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
+        return dataSource;
     }
 
     @Override

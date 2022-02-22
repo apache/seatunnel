@@ -70,7 +70,7 @@
         <spark.version>2.4.0</spark.version>
         <spark.binary.version>2.4</spark.binary.version>
         <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
-        <flink.version>1.13.5</flink.version>
+        <flink.version>1.13.6</flink.version>
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
@@ -206,6 +206,18 @@
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-optimizer_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-clients_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
             </dependency>
@@ -801,6 +813,11 @@
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
             </plugin>
 
             <plugin>
