@@ -22,16 +22,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.apache.seatunnel</groupId>
-    <artifactId>seatunnel</artifactId>
-    <packaging>pom</packaging>
-    <version>2.0.5-SNAPSHOT</version>
-
     <parent>
         <groupId>org.apache</groupId>
         <artifactId>apache</artifactId>
         <version>25</version>
     </parent>
+    
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel</artifactId>
+    <packaging>pom</packaging>
+    <version>2.0.5-SNAPSHOT</version>
 
     <name>SeaTunnel</name>
 
@@ -111,7 +111,7 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
-        <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
+        <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
         <httpclient.version>4.5.2</httpclient.version>
