@@ -43,7 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Elasticsearch implements FlinkStreamSink<Row, Row> {
+public class Elasticsearch implements FlinkStreamSink<Row> {
 
     private static final long serialVersionUID = 8445868321245456793L;
     private static final int DEFAULT_CONFIG_SIZE = 3;
@@ -80,7 +80,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row> {
     }
 
     @Override
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
 
         List<HttpHost> httpHosts = new ArrayList<>();
         List<String> hosts = config.getStringList("hosts");
@@ -116,13 +116,12 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row> {
 
         // configuration for the bulk requests; this instructs the sink to emit after every element, otherwise they would be buffered
         esSinkBuilder.setBulkFlushMaxActions(1);
-
+        DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(esSinkBuilder.build());
         // finally, build and add the sink to the job's pipeline
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataStream.addSink(esSinkBuilder.build()).setParallelism(parallelism);
+            rowDataStreamSink.setParallelism(parallelism);
         }
-        return dataStream.addSink(esSinkBuilder.build());
     }
 
 }

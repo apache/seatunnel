@@ -28,11 +28,9 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 
-public class InfluxDbSink implements FlinkStreamSink<Row, Row> {
+public class InfluxDbSink implements FlinkStreamSink<Row> {
 
     private static final long serialVersionUID = 7358988750295693096L;
     private static final String SERVER_URL = "server_url";
@@ -53,16 +51,14 @@ public class InfluxDbSink implements FlinkStreamSink<Row, Row> {
     private List<String> tags;
     private List<String> fields;
 
-    @Nullable
     @Override
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new InfluxDbSinkFunction<>(
                 new InfluxDbOutputFormat<>(serverURL, username, password, database, measurement, tags, fields)));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             rowDataStreamSink.setParallelism(parallelism);
         }
-        return null;
     }
 
     @Override

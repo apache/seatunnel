@@ -35,11 +35,9 @@ import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.types.Row;
 
-import javax.annotation.Nullable;
-
 import java.util.Arrays;
 
-public class JdbcSink implements FlinkStreamSink<Row, Row> {
+public class JdbcSink implements FlinkStreamSink<Row> {
 
     private static final long serialVersionUID = 3677571223952518115L;
     private static final int DEFAULT_BATCH_SIZE = 5000;
@@ -93,8 +91,7 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
     }
 
     @Override
-    @Nullable
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
         TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
 
@@ -114,10 +111,10 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
                 .withPassword(password)
                 .build());
 
+        DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(sink);
         if (config.hasPath(PARALLELISM)) {
-            return dataStream.addSink(sink).setParallelism(config.getInt(PARALLELISM));
+            rowDataStreamSink.setParallelism(config.getInt(PARALLELISM));
         }
-        return dataStream.addSink(sink);
     }
 
 }

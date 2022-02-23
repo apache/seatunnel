@@ -28,7 +28,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
@@ -38,11 +37,9 @@ import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.types.Row;
 
-import javax.annotation.Nullable;
-
 import java.util.Properties;
 
-public class KafkaTable implements FlinkStreamSink<Row, Row> {
+public class KafkaTable implements FlinkStreamSink<Row> {
 
     private static final long serialVersionUID = 3980751499724935230L;
     private Config config;
@@ -50,12 +47,10 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
     private String topic;
 
     @Override
-    @Nullable
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
         insert(tableEnvironment, table);
-        return null;
     }
 
     private void insert(TableEnvironment tableEnvironment, Table table) {

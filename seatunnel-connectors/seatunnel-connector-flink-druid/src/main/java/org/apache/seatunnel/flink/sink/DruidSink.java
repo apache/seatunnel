@@ -28,9 +28,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
 
-import javax.annotation.Nullable;
-
-public class DruidSink implements FlinkStreamSink<Row, Row> {
+public class DruidSink implements FlinkStreamSink<Row> {
 
     private static final long serialVersionUID = -2967782261362988646L;
     private static final String COORDINATOR_URL = "coordinator_url";
@@ -47,16 +45,14 @@ public class DruidSink implements FlinkStreamSink<Row, Row> {
     private String timestampFormat;
     private String timestampMissingValue;
 
-    @Nullable
     @Override
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new DruidSinkFunction<>(
                 new DruidOutputFormat<>(coordinatorURL, datasource, timestampColumn, timestampFormat, timestampMissingValue)));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             rowDataStreamSink.setParallelism(parallelism);
         }
-        return null;
     }
 
     @Override

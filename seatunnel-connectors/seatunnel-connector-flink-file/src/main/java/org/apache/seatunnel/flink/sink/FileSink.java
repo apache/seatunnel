@@ -35,7 +35,7 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class FileSink implements FlinkStreamSink<Row, Row> {
+public class FileSink implements FlinkStreamSink<Row> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
@@ -53,7 +53,7 @@ public class FileSink implements FlinkStreamSink<Row, Row> {
     private Path filePath;
 
     @Override
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
 
         String format = config.getString(FORMAT);
         switch (format) {
@@ -79,9 +79,8 @@ public class FileSink implements FlinkStreamSink<Row, Row> {
         DataStreamSink rowDataStreamSink = dataStream.addSink(new FileSinkFunction<>(outputFormat));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return rowDataStreamSink.setParallelism(parallelism);
+            rowDataStreamSink.setParallelism(parallelism);
         }
-        return rowDataStreamSink;
     }
 
     @Override

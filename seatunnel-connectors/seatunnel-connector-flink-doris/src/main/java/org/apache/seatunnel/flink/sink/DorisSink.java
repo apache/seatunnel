@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-public class DorisSink implements FlinkStreamSink<Row, Row> {
+public class DorisSink implements FlinkStreamSink<Row> {
 
     private static final long serialVersionUID = 4747849769146047770L;
     private static final int DEFAULT_BATCH_SIZE = 100;
@@ -95,8 +95,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row> {
     }
 
     @Override
-    @Nullable
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
         String[] fieldNames = table.getSchema().getFieldNames();
@@ -107,6 +106,5 @@ public class DorisSink implements FlinkStreamSink<Row, Row> {
             int parallelism = config.getInt(PARALLELISM);
             rowDataStreamSink.setParallelism(parallelism);
         }
-        return null;
     }
 }
