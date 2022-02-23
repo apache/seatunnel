@@ -22,10 +22,12 @@ public class CommandLineArgs {
     private String deployMode = "client";
     private final String configFile;
     private final boolean testConfig;
+    private String variable;
 
-    public CommandLineArgs(String configFile, boolean testConfig) {
+    public CommandLineArgs(String configFile, boolean testConfig, String variable) {
         this.configFile = configFile;
         this.testConfig = testConfig;
+        this.variable = variable;
     }
 
     public CommandLineArgs(String deployMode, String configFile, boolean testConfig) {
@@ -45,4 +47,9 @@ public class CommandLineArgs {
     public boolean isTestConfig() {
         return testConfig;
     }
+
+    public String getVariable() {
+        return variable;
+    }
+
 }
