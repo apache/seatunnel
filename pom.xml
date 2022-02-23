@@ -22,6 +22,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>org.apache</groupId>
+        <artifactId>apache</artifactId>
+        <version>25</version>
+    </parent>
+    
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
@@ -48,6 +54,26 @@
         <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
+    
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/apache/incubator-seatunnel/issues</url>
+    </issueManagement>
+
+    <mailingLists>
+        <mailingList>
+            <name>SeaTunnel Developer List</name>
+            <post>dev@seatunnel.apache.org</post>
+            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
+        </mailingList>
+        <mailingList>
+            <name>SeaTunnel Commits List</name>
+            <post>commits@seatunnel.apache.org</post>
+            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
+        </mailingList>
+    </mailingLists>
 
     <modules>
         <module>seatunnel-config</module>
@@ -105,7 +131,7 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
-        <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
+        <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
         <httpclient.version>4.5.2</httpclient.version>
