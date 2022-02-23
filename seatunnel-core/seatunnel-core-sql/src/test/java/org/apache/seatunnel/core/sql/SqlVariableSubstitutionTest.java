@@ -28,7 +28,7 @@ import org.junit.Test;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 
-public class SqlVariableSubstitution {
+public class SqlVariableSubstitutionTest {
     public static final String TEST_RESOURCE_DIR = "/src/test/resources/";
 
     @Test
