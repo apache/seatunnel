@@ -28,7 +28,7 @@ public class LocalSparkExample {
 
     public static void main(String[] args) throws Exception {
         String configFile = getTestConfigFile("spark.batch.conf.template");
-        CommandLineArgs sparkArgs = new CommandLineArgs(configFile, false);
+        CommandLineArgs sparkArgs = new CommandLineArgs(configFile, false, null);
         Seatunnel.run(sparkArgs, SPARK);
     }
 
