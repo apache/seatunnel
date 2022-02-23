@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
@@ -34,16 +33,14 @@ public final class TableUtil {
     }
 
     public static DataStream<Row> tableToDataStream(StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {
-
-        TypeInformation<Row> typeInfo = table.getSchema().toRowType();
         if (isAppend) {
-            return tableEnvironment.toAppendStream(table, typeInfo);
+            return tableEnvironment.toAppendStream(table, Row.class);
         }
         return tableEnvironment
-                .toRetractStream(table, typeInfo)
+                .toRetractStream(table, Row.class)
                 .filter(row -> row.f0)
                 .map(row -> row.f1)
-                .returns(typeInfo);
+                .returns(Row.class);
     }
 
     public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table) {
@@ -51,7 +48,7 @@ public final class TableUtil {
     }
 
     public static void dataStreamToTable(StreamTableEnvironment tableEnvironment, String tableName, DataStream<Row> dataStream) {
-        tableEnvironment.registerDataStream(tableName, dataStream);
+        tableEnvironment.createTemporaryView(tableName, dataStream);
     }
 
     public static void dataSetToTable(BatchTableEnvironment tableEnvironment, String tableName, DataSet<Row> dataSet) {

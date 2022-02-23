@@ -25,13 +25,17 @@ import org.apache.seatunnel.plugin.Plugin;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.table.api.ApiExpression;
+import org.apache.flink.table.api.Expressions;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -93,19 +97,36 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
             if (!TableUtil.tableExists(tableEnvironment, name)) {
                 if (config.hasPath("field_name")) {
                     String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
+                    tableEnvironment.createTemporaryView(name, dataStream, convertFieldNameExpression(fieldName));
                 } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
+                    tableEnvironment.createTemporaryView(name, dataStream);
                 }
             }
         }
+    }
+
+    /**
+     * fieldName converted from String to Expression
+     *
+     * @param fieldName config field_name
+     * @return ApiExpression[]
+     */
+    private ApiExpression[] convertFieldNameExpression(String fieldName) {
+        List<ApiExpression> fieldNameExpressionsList = new ArrayList<>();
+        if (StringUtils.isNotBlank(fieldName)) {
+            Arrays.stream(StringUtils.split(fieldName, ","))
+                    .map(StringUtils::trim)
+                    .map(Expressions::$)
+                    .forEach(fieldNameExpressionsList::add);
+        }
+        return fieldNameExpressionsList.toArray(new ApiExpression[0]);
     }
 
     private DataStream fromSourceTable(Plugin plugin) {
         Config config = plugin.getConfig();
         if (config.hasPath(SOURCE_TABLE_NAME)) {
             StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
-            Table table = tableEnvironment.scan(config.getString(SOURCE_TABLE_NAME));
+            Table table = tableEnvironment.from(config.getString(SOURCE_TABLE_NAME));
             return TableUtil.tableToDataStream(tableEnvironment, table, true);
         }
         return null;

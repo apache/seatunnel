@@ -39,7 +39,7 @@ public class DataStreamToTable implements FlinkStreamTransform<Row, Row>, FlinkB
     @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
-        tableEnvironment.registerDataStream(config.getString(Plugin.RESULT_TABLE_NAME), dataStream);
+        tableEnvironment.createTemporaryView(config.getString(Plugin.RESULT_TABLE_NAME), dataStream);
         return dataStream;
     }
 

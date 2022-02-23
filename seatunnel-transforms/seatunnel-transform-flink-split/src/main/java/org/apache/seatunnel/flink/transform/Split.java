@@ -64,11 +64,11 @@ public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransfor
         if (flinkEnvironment.isStreaming()) {
             flinkEnvironment
                     .getStreamTableEnvironment()
-                    .registerFunction("split", new ScalarSplit(rowTypeInfo, num, separator));
+                    .createTemporarySystemFunction("split", new ScalarSplit(rowTypeInfo, num, separator));
         } else {
             flinkEnvironment
                     .getBatchTableEnvironment()
-                    .registerFunction("split", new ScalarSplit(rowTypeInfo, num, separator));
+                    .createTemporarySystemFunction("split", new ScalarSplit(rowTypeInfo, num, separator));
         }
     }
 

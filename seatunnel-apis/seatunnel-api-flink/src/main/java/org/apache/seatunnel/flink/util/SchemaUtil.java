@@ -81,7 +81,7 @@ public final class SchemaUtil {
                 formatDescriptor = new Json().failOnMissingField(false).deriveSchema();
                 break;
             case "csv":
-                Csv csv = new Csv().deriveSchema();
+                Csv csv = new Csv();
                 Field interPro = csv.getClass().getDeclaredField("internalProperties");
                 interPro.setAccessible(true);
                 Object desc = interPro.get(csv);
