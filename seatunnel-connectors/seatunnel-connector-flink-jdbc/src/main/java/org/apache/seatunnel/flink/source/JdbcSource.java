@@ -90,7 +90,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         informationMapping.put("MEDIUMINT", INT_TYPE_INFO);
         informationMapping.put("MEDIUMINT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("INT", INT_TYPE_INFO);
-        informationMapping.put("INT UNSIGNED", INT_TYPE_INFO);
+        informationMapping.put("INT UNSIGNED", LONG_TYPE_INFO);
         informationMapping.put("BIGINT", LONG_TYPE_INFO);
         informationMapping.put("BIGINT UNSIGNED", BIG_INT_TYPE_INFO);
         informationMapping.put("FLOAT", FLOAT_TYPE_INFO);
