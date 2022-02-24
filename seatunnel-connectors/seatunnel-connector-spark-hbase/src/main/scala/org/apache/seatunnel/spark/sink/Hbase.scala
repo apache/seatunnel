@@ -42,6 +42,7 @@ class Hbase extends SparkBatchSink with Logging {
   @transient var hbaseConf: Configuration = _
   var hbaseContext: HBaseContext = _
   var hbasePrefix = "hbase."
+  var zookeeperPrefix = "zookeeper."
 
   override def checkConfig(): CheckResult = {
     checkAllExists(config, "hbase.zookeeper.quorum", "catalog", "staging_dir")
@@ -58,7 +59,7 @@ class Hbase extends SparkBatchSink with Logging {
       .entrySet()
       .foreach(entry => {
         val key = entry.getKey
-        if (key.startsWith(hbasePrefix)) {
+        if (key.startsWith(hbasePrefix) || key.startsWith(zookeeperPrefix)) {
           val value = String.valueOf(entry.getValue.unwrapped())
           hbaseConf.set(key, value)
         }
