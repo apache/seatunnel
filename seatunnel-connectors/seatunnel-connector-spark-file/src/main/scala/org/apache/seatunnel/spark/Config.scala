@@ -25,9 +25,6 @@ object Config extends Serializable {
   val PATH_TIME_FORMAT = "path_time_format"
   val FORMAT = "format"
 
-  val FILE = "file://"
-  val HDFS = "hdfs://"
-
   val TEXT = "text"
   val PARQUET = "parquet"
   val JSON = "json"
