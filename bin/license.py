@@ -368,7 +368,7 @@ for k, v in licenses_map.items():
     res += "========================================================================\n\n"
     res += licenses_describe_map[k]
     res += '\n'
-    for _ in v:
+    for _ in sorted(v):
         res += "     "
         res += _
         res += '\n'
