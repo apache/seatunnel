@@ -379,7 +379,12 @@ if print_diff == 'true':
     with open(tmp_file, "w") as f:
         f.write(res)
     print("Please modify the LICENSE file according to the diff information:")
-    os.system("diff " + license + " " + tmp_file)
+    diff_res = os.system("diff " + license + " " + tmp_file)
+    if int(diff_res) == 0:
+        exit(0)
+    else:
+        exit(-1)
 else:
     with open(license, "w") as f:
         f.write(res)
+exit(0)
