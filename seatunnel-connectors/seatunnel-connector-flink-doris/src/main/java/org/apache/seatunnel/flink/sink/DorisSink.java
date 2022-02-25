@@ -38,6 +38,7 @@ import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -103,7 +104,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
         batchIntervalMs = 0;
         BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
         Table table = tableEnvironment.fromDataSet(dataSet);
-        String[] fieldNames = table.getSchema().getFieldNames();
+        List<String> fieldNames = table.getResolvedSchema().getColumnNames();
 
         DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(fenodes, dbName, tableName, username, password, streamLoadProp);
         DataSink<Row> rowDataSink = dataSet.output(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
@@ -119,7 +120,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
-        String[] fieldNames = table.getSchema().getFieldNames();
+        List<String> fieldNames = table.getResolvedSchema().getColumnNames();
 
         DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(fenodes, dbName, tableName, username, password, streamLoadProp);
         DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new DorisSinkFunction<>(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries)));

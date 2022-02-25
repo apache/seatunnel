@@ -57,7 +57,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     private static final String ESCAPE_DELIMITERS_KEY = "escape_delimiters";
     private static final String ESCAPE_DELIMITERS_DEFAULT = "false";
     private static final Pattern DELIMITER_PATTERN = Pattern.compile("\\\\x(\\d{2})");
-    private final String[] fieldNames;
+    private final List<String> fieldNames;
     private final boolean jsonFormat;
     private final int batchSize;
     private final int maxRetries;
@@ -72,7 +72,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     private transient volatile boolean closed = false;
 
     public DorisOutputFormat(DorisStreamLoad dorisStreamLoad,
-                             String[] fieldNames,
+                             List<String> fieldNames,
                              int batchSize, long batchIntervalMs, int maxRetries) {
         this.dorisStreamLoad = dorisStreamLoad;
         parseDelimiter();
@@ -159,7 +159,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                 Object field = rowData.getField(i);
                 if (jsonFormat) {
                     String data = field != null ? field.toString() : null;
-                    valueMap.put(this.fieldNames[i], data);
+                    valueMap.put(this.fieldNames.get(i), data);
                 } else {
                     String data = field != null ? field.toString() : NULL_VALUE;
                     value.add(data);

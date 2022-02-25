@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink.sink;
 
+import org.apache.flink.table.types.DataType;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -26,7 +27,6 @@ import org.apache.seatunnel.flink.util.SchemaUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
@@ -40,6 +40,7 @@ import org.apache.flink.types.Row;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
 import java.util.Properties;
 
 public class KafkaTable implements FlinkStreamSink<Row, Row> {
@@ -59,8 +60,8 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
     }
 
     private void insert(TableEnvironment tableEnvironment, Table table) {
-        TypeInformation<?>[] types = table.getSchema().getFieldTypes();
-        String[] fieldNames = table.getSchema().getFieldNames();
+        List<DataType> types = table.getResolvedSchema().getColumnDataTypes();
+        List<String> fieldNames = table.getResolvedSchema().getColumnNames();
         Schema schema = getSchema(types, fieldNames);
         String uniqueTableName = SchemaUtil.getUniqueTableName();
 
@@ -69,13 +70,13 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
                 .withFormat(setFormat())
                 .inAppendMode()
                 .createTemporaryTable(uniqueTableName);
-        table.insertInto(uniqueTableName);
+        table.executeInsert(uniqueTableName);
     }
 
-    private Schema getSchema(TypeInformation<?>[] informations, String[] fieldNames) {
+    private Schema getSchema(List<DataType> types, List<String> fieldNames) {
         Schema schema = new Schema();
-        for (int i = 0; i < informations.length; i++) {
-            schema.field(fieldNames[i], informations[i]);
+        for (int i = 0; i < types.size(); i++) {
+            schema.field(fieldNames.get(i), types.get(i));
         }
         return schema;
     }
