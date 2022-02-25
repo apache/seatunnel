@@ -14,19 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.sink
+package org.apache.seatunnel.spark
 
-import org.apache.spark.sql.{Dataset, Row}
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.SparkEnvironment
+object Config extends Serializable {
 
-class Hdfs extends FileSinkBase {
+  val PATH = "path"
+  val PARTITION_BY = "partition_by"
+  val SAVE_MODE = "save_mode"
+  val SERIALIZER = "serializer"
+  val PATH_TIME_FORMAT = "path_time_format"
+  val FORMAT = "format"
 
-  override def checkConfig(): CheckResult = {
-    checkConfigImpl(List("hdfs://"))
-  }
+  val TEXT = "text"
+  val PARQUET = "parquet"
+  val JSON = "json"
+  val ORC = "orc"
+  val CSV = "csv"
 
-  override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
-    outputImpl(data, "hdfs://")
-  }
 }
