@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-name: Backend
+name: License Checker
 
 on:
   push:
@@ -31,6 +31,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-license:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check License Header
+        uses: apache/skywalking-eyes@main
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -44,6 +51,11 @@ jobs:
         with:
           java-version:  8
           distribution: 'adopt'
+      - name: Set up Python 3
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+          architecture: 'x64'
       - name: Cache local Maven repository
         uses: actions/cache@v2
         with:
@@ -51,19 +63,11 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-      - name: Check Style
+      - name: Generate THIRD-PARTY
         run: |
-          ./mvnw -T 2C -B checkstyle:check --no-snapshot-updates
-      - name: Build and Package
+          ./mvnw license:aggregate-add-third-party -DskipTests -Dcheckstyle.skip
+      - name: Check dependency license
+        run: bash ./tools/dependencies/checkLicense.sh
+      - name: Check LICENSE file
         run: |
-          ./mvnw -B install scalastyle:check \
-                 -Dmaven.test.skip=true \
-                 -Dcheckstyle.skip=true \
-                 -Dhttp.keepAlive=false \
-                 -Dmaven.wagon.http.pool=false \
-                 -Dmaven.wagon.http.retryHandler.count=3 \
-                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
-                 --no-snapshot-updates
-      - name: Run Unit tests
-        run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true --no-snapshot-updates
+          python3 bin/license.py seatunnel-dist/target/THIRD-PARTY.txt seatunnel-dist/release-docs/LICENSE false
