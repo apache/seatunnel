@@ -64,7 +64,7 @@ processing plug-in, because the whole system is easy to expand.
 
 |            Spark Connector Plugins            | Database Type  | Source                          | Sink                          |
 |:----------------------:|:--------------:|:-------------------------------:|:-------------------------------:|
-|Batch |Fake|[doc](./docs/env/spark/configuration/source-plugins/file.md)|[doc](./docs/env/spark/configuration/sink-plugins/file.md)|
+|Batch |Fake|[doc](./docs/env/spark/configuration/source-plugins/Fake.md)|[doc](./docs/env/spark/configuration/sink-plugins/Fake.md)|
 | |ElasticSearch|[doc](./docs/en/spark/configuration/source-plugins/Elasticsearch.md)|[doc](./docs/en/spark/configuration/sink-plugins/Elasticsearch.md)|
 | |File|[doc](./docs/en/spark/configuration/source-plugins/File.md)|[doc](./docs/en/spark/configuration/sink-plugins/File.md)|
 | |Hive|[doc](./docs/env/spark/configuration/source-plugins/Hive.md)|[doc](./docs/env/spark/configuration/source-plugins/Hive.md)|
@@ -91,7 +91,7 @@ processing plug-in, because the whole system is easy to expand.
 |            Flink Connector Plugins            | Database Type  | Source                          | Sink                          |
 |:----------------------:|:--------------:|:-------------------------------:|:-------------------------------:|
 | |Druid|[doc](./docs/en/flink/configuration/source-plugins/Druid.md)|[doc](./docs/en/flink/configuration/sink-plugins/Druid.md)|
-| |Fake|[doc](./docs/en/flink/configuration/source-plugins/Druid.md)| |
+| |Fake|[doc](./docs/en/flink/configuration/source-plugins/Fake.md)| |
 | |File|[doc](./docs/en/flink/configuration/source-plugins/File.md)|[doc](./docs/en/flink/configuration/sink-plugins/File.md)|
 | |InfluxDb|[doc](./docs/en/flink/configuration/source-plugins/InfluxDb.md)|[doc](./docs/en/flink/configuration/sink-plugins/InfluxDb.md)|
 | |Jdbc|[doc](./docs/en/flink/configuration/source-plugins/Jdbc.md)|[doc](./docs/en/flink/configuration/sink-plugins/Jdbc.md)|
