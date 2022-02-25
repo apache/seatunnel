@@ -27,7 +27,7 @@ on:
       - '**/*.md'
 
 concurrency:
-  group: backend-${{ github.event.pull_request.number || github.ref }}
+  group: lc-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
