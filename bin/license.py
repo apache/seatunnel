@@ -49,7 +49,7 @@ licenses_keyword_map = {
     "Go License": ["The Go license"],
     "Unicode License": ["Unicode/ICU License"]
 }
-unknown_licenses_map = {
+dependency_licenses_map = {
     "commons-beanutils:commons-beanutils:1.7.0": "(Apache License, Version 2.0) Apache Commons BeanUtils (commons-beanutils:commons-beanutils:1.7.0 - https://commons.apache.org/proper/commons-beanutils/)",
     "commons-pool:commons-pool:1.5.4": "(The Apache Software License, Version 2.0) Commons Pool (commons-pool:commons-pool:1.5.4 - http://commons.apache.org/pool/)",
     "org.antlr:antlr-runtime:3.4": "(BSD licence) ANTLR 3 Runtime (org.antlr:antlr-runtime:3.4 - http://www.antlr.org)",
@@ -110,7 +110,7 @@ for _ in licenses:
     if "org.apache.seatunnel" in _:
         continue
     if "Unknown license" in _:
-        for k, v in unknown_licenses_map.items():
+        for k, v in dependency_licenses_map.items():
             if k in _:
                 _ = v
                 break
