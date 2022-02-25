@@ -27,6 +27,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -78,9 +79,11 @@ public class CheckConfigUtilTest {
     }
 
     public Config getConfig() {
-        Map<String, String> configMap = new HashMap<>();
+        Map<String, Object> configMap = new HashMap<>();
         configMap.put("k0", "v0");
         configMap.put("k1", "v1");
+        configMap.put("k2", new ArrayList<>());
+        configMap.put("k3", null);
         return ConfigFactory.parseMap(configMap);
     }
 }

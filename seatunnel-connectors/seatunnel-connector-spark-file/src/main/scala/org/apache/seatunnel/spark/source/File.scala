@@ -21,6 +21,7 @@ import scala.util.{Failure, Success, Try}
 
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+import org.apache.seatunnel.spark.Config.{CSV, FORMAT, JSON, ORC, PARQUET, PATH, TEXT}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -30,21 +31,19 @@ class File extends SparkBatchSource {
   override def prepare(env: SparkEnvironment): Unit = {}
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
-    val path = buildPathWithDefaultSchema(config.getString("path"), "file://")
-    fileReader(env.getSparkSession, path)
+    fileReader(env.getSparkSession, config.getString(PATH))
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "path")
+    checkAllExists(config, PATH)
   }
 
   protected def fileReader(spark: SparkSession, path: String): Dataset[Row] = {
-    val format = config.getString("format")
+    val format = config.getString(FORMAT)
     var reader = spark.read.format(format)
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
-
-      case Success(options) => {
+      case Success(options) =>
         val optionMap = options
           .entrySet()
           .foldRight(Map[String, String]())((entry, m) => {
@@ -52,27 +51,16 @@ class File extends SparkBatchSource {
           })
 
         reader = reader.options(optionMap)
-      }
-      case Failure(_) => // do nothing
+      case Failure(_) =>
     }
 
     format match {
-      case "text" => reader.load(path).withColumnRenamed("value", "raw_message")
-      case "parquet" => reader.parquet(path)
-      case "json" => reader.json(path)
-      case "orc" => reader.orc(path)
-      case "csv" => reader.csv(path)
+      case TEXT => reader.load(path).withColumnRenamed("value", "raw_message")
+      case PARQUET => reader.parquet(path)
+      case JSON => reader.json(path)
+      case ORC => reader.orc(path)
+      case CSV => reader.csv(path)
       case _ => reader.format(format).load(path)
     }
-  }
-
-  protected def buildPathWithDefaultSchema(uri: String, defaultUriSchema: String): String = {
-
-    val path = uri.startsWith("/") match {
-      case true => defaultUriSchema + uri
-      case false => uri
-    }
-
-    path
   }
 }
