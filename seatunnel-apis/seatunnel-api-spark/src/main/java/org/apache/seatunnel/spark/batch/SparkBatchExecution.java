@@ -92,17 +92,17 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
 
     @Override
     public void start(List<SparkBatchSource> sources, List<BaseSparkTransform> transforms, List<SparkBatchSink> sinks) {
-        sources.forEach(source -> SparkBatchExecution.registerInputTempView(source, environment));
+        sources.forEach(source -> registerInputTempView(source, environment));
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform transform : transforms) {
                 if (ds.takeAsList(1).size() > 0) {
-                    ds = SparkBatchExecution.transformProcess(environment, transform, ds);
-                    SparkBatchExecution.registerTransformTempView(transform, ds);
+                    ds = transformProcess(environment, transform, ds);
+                    registerTransformTempView(transform, ds);
                 }
             }
             for (SparkBatchSink sink : sinks) {
-                SparkBatchExecution.sinkProcess(environment, sink, ds);
+                sinkProcess(environment, sink, ds);
             }
         }
     }

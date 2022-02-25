@@ -19,29 +19,31 @@ package org.apache.seatunnel.core.sql;
 
 import org.apache.seatunnel.config.command.CommandLineArgs;
 import org.apache.seatunnel.config.command.CommandLineUtils;
-import org.apache.seatunnel.core.sql.job.Executor;
 import org.apache.seatunnel.core.sql.job.JobInfo;
 
 import org.apache.commons.io.FileUtils;
+import org.junit.Assert;
+import org.junit.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-public class SeatunnelSql {
+public class SqlVariableSubstitutionTest {
+    public static final String TEST_RESOURCE_DIR = "/src/test/resources/";
 
-    public static void main(String[] args) throws Exception {
-        JobInfo jobInfo = parseJob(args);
-        Executor.runJob(jobInfo);
-    }
+    @Test
+    public void normalizeStatementsWithMultiSqls() throws Exception {
+        String[] args = {"-c", System.getProperty("user.dir") + TEST_RESOURCE_DIR + "flink.sql.conf.template",
+            "-t", "-i", "table_name=events"};
 
-    private static JobInfo parseJob(String[] args) throws IOException {
         CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
         String configFilePath = flinkArgs.getConfigFile();
         String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
         JobInfo jobInfo = new JobInfo(jobContent);
+        Assert.assertFalse(jobInfo.getJobContent().contains("events"));
+
         jobInfo.substitute(flinkArgs.getVariable());
-        return jobInfo;
+        Assert.assertTrue(jobInfo.getJobContent().contains("events"));
     }
 
 }
