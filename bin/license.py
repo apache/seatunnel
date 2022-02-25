@@ -375,7 +375,7 @@ if print_diff == 'true':
     tmp_file = third_party + ".tmp"
     with open(tmp_file, "w") as f:
         f.write(res)
-    print("Please modify the LICENSE file according to the diff information:")
+    print("Please modify the LICENSE file according to the diff information.")
     diff_res = os.system("diff " + license + " " + tmp_file)
     if int(diff_res) != 0:
         print("Failed.")
