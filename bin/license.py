@@ -359,9 +359,6 @@ licenses.
 for k, v in licenses_map.items():
     if len(v) == 0:
         continue
-    print(k)
-    print(v)
-    print('\n')
     res += "========================================================================\n"
     res += k
     res += '\n'
@@ -380,11 +377,11 @@ if print_diff == 'true':
         f.write(res)
     print("Please modify the LICENSE file according to the diff information:")
     diff_res = os.system("diff " + license + " " + tmp_file)
-    if int(diff_res) == 0:
-        exit(0)
-    else:
+    if int(diff_res) != 0:
+        print("Failed.")
         exit(-1)
+    else:
+        print("Successful.")
 else:
     with open(license, "w") as f:
         f.write(res)
-exit(0)
