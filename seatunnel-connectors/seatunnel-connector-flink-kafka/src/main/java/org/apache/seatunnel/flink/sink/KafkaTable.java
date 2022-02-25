@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.flink.table.types.DataType;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -36,6 +35,7 @@ import org.apache.flink.table.descriptors.FormatDescriptor;
 import org.apache.flink.table.descriptors.Json;
 import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Schema;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 
 import javax.annotation.Nullable;
@@ -90,7 +90,7 @@ public class KafkaTable implements FlinkStreamSink<Row, Row> {
     }
 
     private FormatDescriptor setFormat() {
-        return new Json().failOnMissingField(false).deriveSchema();
+        return new Json().failOnMissingField(false);
     }
 
     @Override
