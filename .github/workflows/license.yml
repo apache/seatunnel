@@ -58,7 +58,7 @@ jobs:
             ${{ runner.os }}-maven-
       - name: Generate THIRD-PARTY
         run: |
-          ./mvnw clean license:aggregate-add-third-party -DskipTests -Dcheckstyle.skip
+          ./mvnw clean license:aggregate-add-third-party -DskipTests -Dcheckstyle.skip -U
       - name: Check LICENSE file
         run: |
           python3 bin/license.py seatunnel-dist/target/THIRD-PARTY.txt seatunnel-dist/release-docs/LICENSE true
