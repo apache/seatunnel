@@ -16,6 +16,7 @@
 # limitations under the License.
 
 import os
+import platform
 import sys
 
 if sys.version_info.major < 3:
@@ -137,8 +138,7 @@ for _ in licenses:
 if len(licenses_map["Other License"]) != 0:
     for other_license in licenses_map["Other License"]:
         print(other_license)
-    print("There are some licenses are unknown!")
-    print("Please confirm the license by finding LICENSE file in the corresponding Jar file and maintain it in the unknown_licenses_map instance.")
+    print("Please confirm the license by finding LICENSE file in the corresponding Jar file and maintain it in the dependency_licenses_map instance.")
     exit(-1)
 
 res = ""
@@ -376,7 +376,10 @@ if print_diff == 'true':
     with open(tmp_file, "w") as f:
         f.write(res)
     print("Please modify the LICENSE file according to the diff information.")
-    diff_res = os.system("diff " + license + " " + tmp_file)
+    if platform.system() == "Windows":
+        diff_res = os.system("FC " + license + " " + tmp_file)
+    else:
+        diff_res = os.system("diff " + license + " " + tmp_file)
     if int(diff_res) != 0:
         print("Failed.")
         exit(-1)
