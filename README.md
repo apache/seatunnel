@@ -62,67 +62,68 @@ processing plug-in, because the whole system is easy to expand.
 
 ## Plugins supported by SeaTunnel
 
-|            Spark Connector Plugins            | Database Type  | Source                          | Sink                          |
-|:----------------------:|:--------------:|:-------------------------------:|:-------------------------------:|
-|Batch |Fake|[doc](./docs/env/spark/configuration/source-plugins/Fake.md)|[doc](./docs/env/spark/configuration/sink-plugins/Fake.md)|
-| |ElasticSearch|[doc](./docs/en/spark/configuration/source-plugins/Elasticsearch.md)|[doc](./docs/en/spark/configuration/sink-plugins/Elasticsearch.md)|
-| |File|[doc](./docs/en/spark/configuration/source-plugins/File.md)|[doc](./docs/en/spark/configuration/sink-plugins/File.md)|
-| |Hive|[doc](./docs/env/spark/configuration/source-plugins/Hive.md)|[doc](./docs/env/spark/configuration/source-plugins/Hive.md)|
-| |Hudi|[doc](./docs/env/spark/configuration/source-plugins/Hudi.md)|[doc](./docs/env/spark/configuration/sink-plugins/Hudi.md)|
-| |Jdbc|[doc](./docs/env/spark/configuration/source-plugins/Jdbc.md)|[doc](./docs/env/spark/configuration/sink-plugins/Jdbc.md)|
-| |MongoDB|[doc](./docs/env/spark/configuration/source-plugins/MongoDB.md)|[doc](./docs/env/spark/configuration/sink-plugins/MongoDB.md)|
-| |neo4j|[doc](./docs/env/spark/configuration/source-plugins/neo4j.md)|[doc](./docs/env/spark/configuration/sink-plugins/neo4j.md)|
-| |Phoenix|[doc](./docs/env/spark/configuration/source-plugins/Phoenix.md)|[doc](./docs/env/spark/configuration/sink-plugins/Phoenix.md)|
-| |Redis|[doc](./docs/env/spark/configuration/source-plugins/Redis.md)|[doc](./docs/env/spark/configuration/sink-plugins/Redis.md)|
-| |Tidb|[doc](./docs/env/spark/configuration/source-plugins/Tidb.md)|[doc](./docs/env/spark/configuration/sink-plugins/Tidb.md)|
-| |Clickhouse| |[doc](./docs/env/spark/configuration/sink-plugins/Clickhouse.md)|
-| |Doris| |[doc](./docs/env/spark/configuration/sink-plugins/Doris.md)|
-| |Email| |[doc](./docs/env/spark/configuration/sink-plugins/Email.md)|
-| |Hbase| |[doc](./docs/env/spark/configuration/sink-plugins/Hbase.md)|
-| |Kafka| |[doc](./docs/env/spark/configuration/sink-plugins/Kafka.md)|
-| |Console| |[doc](./docs/env/spark/configuration/sink-plugins/Console.md)|
-| |Kudu|[doc](./docs/env/spark/configuration/source-plugins/Kudu.md)|[doc](./docs/env/spark/configuration/sink-plugins/Kudu.md)|
-| |Mysql| |[doc](./docs/env/spark/configuration/sink-plugins/Mysql.md)|
-| |Redis|[doc](./docs/env/spark/configuration/source-plugins/Redis.md)|[doc](./docs/env/spark/configuration/sink-plugins/Redis.md)|
-|Stream |FakeStream|[doc](./docs/env/spark/configuration/source-plugins/FakeStream.md)|[doc](./docs/env/spark/configuration/sink-plugins/FakeStream.md)|
-| |KafkaStream|[doc](./docs/en/spark/configuration/source-plugins/KafkaStream.md)|[doc](./docs/en/spark/configuration/sink-plugins/KafkaStream.md)|
-| |SocketStream|[doc](./docs/en/spark/configuration/source-plugins/SocketStream.md)|[doc](./docs/en/spark/configuration/sink-plugins/SocketStream.md)|
+| Spark Connector Plugins | Database Type  | Source                                                            | Sink                                                                |
+|:-----------------------:|:--------------:|:-----------------------------------------------------------------:|:-------------------------------------------------------------------:|
+|Batch                    |Fake           |[doc](./docs/en/spark/configuration/source-plugins/Fake.md)         |                                                                     |
+|                         |ElasticSearch  |[doc](./docs/en/spark/configuration/source-plugins/Elasticsearch.md)|[doc](./docs/en/spark/configuration/sink-plugins/Elasticsearch.md)   |
+|                         |File           |[doc](./docs/en/spark/configuration/source-plugins/File.md)         |[doc](./docs/en/spark/configuration/sink-plugins/File.md)            |
+|                         |Hive           |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)         |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)          |
+|                         |Hudi           |[doc](./docs/en/spark/configuration/source-plugins/Hudi.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Hudi.md)            |
+|                         |Jdbc           |[doc](./docs/en/spark/configuration/source-plugins/Jdbc.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Jdbc.md)            |
+|                         |MongoDB        |[doc](./docs/en/spark/configuration/source-plugins/MongoDB.md)      |[doc](./docs/en/spark/configuration/sink-plugins/MongoDB.md)         |
+|                         |neo4j          |[doc](./docs/en/spark/configuration/source-plugins/neo4j.md)        |                                                                     |
+|                         |Phoenix        |[doc](./docs/en/spark/configuration/source-plugins/Phoenix.md)      |[doc](./docs/en/spark/configuration/sink-plugins/Phoenix.md)         |
+|                         |Redis          |[doc](./docs/en/spark/configuration/source-plugins/Redis.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Redis.md)           |
+|                         |Tidb           |[doc](./docs/en/spark/configuration/source-plugins/Tidb.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Tidb.md)            |
+|                         |Clickhouse     |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Clickhouse.md)      |  
+|                         |Doris          |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Doris.md)           |
+|                         |Email          |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Email.md)           |
+|                         |Hbase          |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Hbase.md)           |
+|                         |Kafka          |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Kafka.md)           |
+|                         |Console        |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Console.md)         |
+|                         |Kudu           |[doc](./docs/en/spark/configuration/source-plugins/Kudu.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Kudu.md)            |
+|                         |Mysql          |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Mysql.md)           |
+|                         |Redis          |[doc](./docs/en/spark/configuration/source-plugins/Redis.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Redis.md)           |
+|Stream                   |FakeStream     |[doc](./docs/en/spark/configuration/source-plugins/FakeStream.md)   |                                                                     |
+|                         |KafkaStream    |[doc](./docs/en/spark/configuration/source-plugins/KafkaStream.md)  |                                                                     |
+|                         |SocketStream   |[doc](./docs/en/spark/configuration/source-plugins/SocketStream.md) |                                                                     |
 
-|            Flink Connector Plugins            | Database Type  | Source                          | Sink                          |
-|:----------------------:|:--------------:|:-------------------------------:|:-------------------------------:|
-| |Druid|[doc](./docs/en/flink/configuration/source-plugins/Druid.md)|[doc](./docs/en/flink/configuration/sink-plugins/Druid.md)|
-| |Fake|[doc](./docs/en/flink/configuration/source-plugins/Fake.md)| |
-| |File|[doc](./docs/en/flink/configuration/source-plugins/File.md)|[doc](./docs/en/flink/configuration/sink-plugins/File.md)|
-| |InfluxDb|[doc](./docs/en/flink/configuration/source-plugins/InfluxDb.md)|[doc](./docs/en/flink/configuration/sink-plugins/InfluxDb.md)|
-| |Jdbc|[doc](./docs/en/flink/configuration/source-plugins/Jdbc.md)|[doc](./docs/en/flink/configuration/sink-plugins/Jdbc.md)|
-| |Kafka|[doc](./docs/en/flink/configuration/source-plugins/Kafka.md)|[doc](./docs/en/flink/configuration/sink-plugins/Kafka.md)|
-| |Socket|[doc](./docs/en/flink/configuration/source-plugins/Socket.md)| |
-| |Console| |[doc](./docs/en/flink/configuration/sink-plugins/Console.md)|
-| |Doris| |[doc](./docs/en/flink/configuration/sink-plugins/Doris.md)|
-| |ElasticSearch| |[doc](./docs/en/flink/configuration/sink-plugins/ElasticSearch.md)|
+| Flink Connector Plugins  | Database Type  | Source                                                           | Sink                                                               |
+|:------------------------:|:--------------:|:----------------------------------------------------------------:|:------------------------------------------------------------------:|
+|                          |Druid           |[doc](./docs/en/flink/configuration/source-plugins/Druid.md)      |[doc](./docs/en/flink/configuration/sink-plugins/Druid.md)          |
+|                          |Fake            |[doc](./docs/en/flink/configuration/source-plugins/Fake.md)       |                                                                    |
+|                          |File            |[doc](./docs/en/flink/configuration/source-plugins/File.md)       |[doc](./docs/en/flink/configuration/sink-plugins/File.md)           |
+|                          |InfluxDb        |[doc](./docs/en/flink/configuration/source-plugins/InfluxDb.md)   |[doc](./docs/en/flink/configuration/sink-plugins/InfluxDb.md)       |
+|                          |Jdbc            |[doc](./docs/en/flink/configuration/source-plugins/Jdbc.md)       |[doc](./docs/en/flink/configuration/sink-plugins/Jdbc.md)           |
+|                          |Kafka           |[doc](./docs/en/flink/configuration/source-plugins/Kafka.md)      |[doc](./docs/en/flink/configuration/sink-plugins/Kafka.md)          |
+|                          |Socket          |[doc](./docs/en/flink/configuration/source-plugins/Socket.md)     |                                                                    |
+|                          |Console         |                                                                  |[doc](./docs/en/flink/configuration/sink-plugins/Console.md)        |
+|                          |Doris           |                                                                  |[doc](./docs/en/flink/configuration/sink-plugins/Doris.md)          |
+|                          |ElasticSearch   |                                                                  |[doc](./docs/en/flink/configuration/sink-plugins/Elasticsearch.md)  |
 
-|            Flink Transform Plugins            | Spark  | Flink                          |
-|:----------------------:|:--------------:|:-------------------------------:|
-|Add| |
-|CheckSum| |
-|Convert | |
-|Date | |
-|Drop | |
-|Grok | |
-|Json |[doc](./docs/en/spark/configuration/transform-plugins/Json.md)|
-|Kv | |
-|Lowercase | |
-|Remove | |
-|Rename | |
-|Repartition | |
-|Replace | |
-|Sample | |
-|Split |[doc](./docs/en/spark/configuration/transform-plugins/Split.md)|[doc](./docs/en/flink/configuration/transform-plugins/Split.md) |
-|Sql |[doc](./docs/en/spark/configuration/transform-plugins/Sql.md)|[doc](./docs/en/flink/configuration/transform-plugins/Sql.md) |
-|Table | |
-|Truncate | |
-|Uppercase | |
-|Uuid | |
+|Flink Transform Plugins | Spark                                                            | Flink                                                          |
+|:----------------------:|:----------------------------------------------------------------:|:--------------------------------------------------------------:|
+|Add                     |                                                                  |                                                                |
+|CheckSum                |                                                                  |                                                                |
+|Convert                 |                                                                  |                                                                |
+|Date                    |                                                                  |                                                                |
+|Drop                    |                                                                  |                                                                |
+|Grok                    |                                                                  |                                                                |
+|Json                    |[doc](./docs/en/spark/configuration/transform-plugins/Json.md)    |                                                                |
+|Kv                      |                                                                  |                                                                |
+|Lowercase               |                                                                  |                                                                |
+|Remove                  |                                                                  |                                                                |
+|Rename                  |                                                                  |                                                                |
+|Repartition             |                                                                  |                                                                |
+|Replace                 |                                                                  |                                                                |
+|Sample                  |                                                                  |                                                                |
+|Split                   |[doc](./docs/en/spark/configuration/transform-plugins/Split.md)   |[doc](./docs/en/flink/configuration/transform-plugins/Split.md) |
+|Sql                     |[doc](./docs/en/spark/configuration/transform-plugins/Sql.md)     |[doc](./docs/en/flink/configuration/transform-plugins/Sql.md)   |
+|Table                   |                                                                  |                                                                |
+|Truncate                |                                                                  |                                                                |
+|Uppercase               |                                                                  |                                                                |
+|Uuid                    |                                                                  |                                                                |
+
 ## Environmental dependency
 
 1. java runtime environment, java >= 8
