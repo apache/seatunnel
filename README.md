@@ -62,7 +62,7 @@ processing plug-in, because the whole system is easy to expand.
 
 ## Plugins supported by SeaTunnel
 
-| <div style="width: 130pt">Spark Connector Plugins  | <div style="width: 80pt">Database Type  | <div style="width: 50pt">Source| <div style="width: 50pt">Sink                        |
+| <div style="width: 130pt">Spark Connector Plugins | <div style="width: 80pt">Database Type | <div style="width: 50pt">Source | <div style="width: 50pt">Sink                        |
 |:------------------------:|:--------------:|:------------------------------------------------------------------:|:-------------------------------------------------------------------:|
 |Batch                     |Fake            |[doc](./docs/en/spark/configuration/source-plugins/Fake.md)         |                                                                     |
 |                          |ElasticSearch   |[doc](./docs/en/spark/configuration/source-plugins/Elasticsearch.md)|[doc](./docs/en/spark/configuration/sink-plugins/Elasticsearch.md)   |
@@ -101,7 +101,7 @@ processing plug-in, because the whole system is easy to expand.
 |                          |Doris           |                                                                    |[doc](./docs/en/flink/configuration/sink-plugins/Doris.md)           |
 |                          |ElasticSearch   |                                                                    |[doc](./docs/en/flink/configuration/sink-plugins/Elasticsearch.md)   |
 
-|<div style="width: 130pt">Transform Plugins| <div style="width: 100pt">Spark                                    |  <div style="width: 100pt">Flink                                     |
+|<div style="width: 130pt">Transform Plugins| <div style="width: 100pt">Spark                                    | <div style="width: 100pt">Flink                                     |
 |:-----------------------------------------:|:------------------------------------------------------------------:|:-------------------------------------------------------------------:|
 |Add                                        |                                                                    |                                                                     |
 |CheckSum                                   |                                                                    |                                                                     |
