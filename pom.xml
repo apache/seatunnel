@@ -96,6 +96,7 @@
         <spark.version>2.4.0</spark.version>
         <spark.binary.version>2.4</spark.binary.version>
         <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
+        <iceberg.version>0.13.1</iceberg.version>
         <flink.version>1.13.6</flink.version>
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
@@ -498,6 +499,17 @@
                 <groupId>org.influxdb</groupId>
                 <artifactId>influxdb-java</artifactId>
                 <version>${influxdb-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-core</artifactId>
+                <version>${iceberg.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-spark-runtime</artifactId>
+                <version>${iceberg.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
