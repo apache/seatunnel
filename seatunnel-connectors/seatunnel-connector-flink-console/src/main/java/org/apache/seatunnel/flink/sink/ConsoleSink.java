@@ -74,16 +74,16 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
     }
 
     @Override
-    public void open(int taskNumber, int numTasks) throws IOException {
+    public void open(int taskNumber, int numTasks) {
 
     }
 
     @Override
-    public void writeRecord(Row record) throws IOException {
+    public void writeRecord(Row record) {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
 
     }
 }

@@ -32,9 +32,9 @@ class Console extends SparkBatchSink {
     config.getString("serializer") match {
       case "plain" =>
         if (limit == -1) {
-          df.show(Int.MaxValue, false)
+          df.show(Int.MaxValue, truncate = false)
         } else if (limit > 0) {
-          df.show(limit, false)
+          df.show(limit, truncate = false)
         }
       case "json" =>
         if (limit == -1) {
@@ -52,10 +52,10 @@ class Console extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    !config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1) match {
-      case true => CheckResult.success()
-      case false =>
-        CheckResult.error("please specify [limit] as Number[-1, " + Int.MaxValue + "]")
+    if (!config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1)) {
+      CheckResult.success()
+    } else {
+      CheckResult.error("please specify [limit] as Number[-1, " + Int.MaxValue + "]")
     }
   }
 

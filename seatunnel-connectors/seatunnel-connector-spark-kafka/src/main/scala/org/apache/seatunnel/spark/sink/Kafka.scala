@@ -38,10 +38,10 @@ class Kafka extends SparkBatchSink with Logging {
 
     val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
-    config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers") match {
-      case true => CheckResult.success()
-      case false =>
-        CheckResult.error("please specify [topic] and [producer.bootstrap.servers]")
+    if (config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers")) {
+      CheckResult.success()
+    } else {
+      CheckResult.error("please specify [topic] and [producer.bootstrap.servers]")
     }
   }
 
@@ -81,7 +81,7 @@ class Kafka extends SparkBatchSink with Logging {
       format = config.getString("serializer")
     }
     format match {
-      case "text" => {
+      case "text" =>
         if (df.schema.size != 1) {
           throw new Exception(
             s"Text data source supports only a single column," +
@@ -93,15 +93,13 @@ class Kafka extends SparkBatchSink with Logging {
             }
           }
         }
-      }
-      case _ => {
+      case _ =>
         val dataSet = df.toJSON
         dataSet.foreach { row =>
           kafkaSink.foreach { ks =>
             ks.value.send(topic, row)
           }
         }
-      }
     }
   }
 }

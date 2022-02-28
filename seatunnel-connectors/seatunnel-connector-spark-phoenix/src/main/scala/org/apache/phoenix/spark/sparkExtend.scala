@@ -18,6 +18,8 @@ package org.apache.phoenix.spark
 
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
+import scala.language.implicitConversions
+
 object sparkExtend {
 
   implicit def toSparkSqlContextFunctions2(sqlContext: SQLContext): SparkSqlContextFunctions2 = {

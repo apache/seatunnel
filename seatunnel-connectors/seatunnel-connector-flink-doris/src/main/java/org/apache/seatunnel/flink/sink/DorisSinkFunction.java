@@ -32,9 +32,9 @@ public class DorisSinkFunction<T> extends RichSinkFunction<T>
         implements CheckpointedFunction {
 
     private static final long serialVersionUID = -2259171589402599426L;
-    private final DorisOutputFormat outputFormat;
+    private final DorisOutputFormat<Object> outputFormat;
 
-    public DorisSinkFunction(@Nonnull DorisOutputFormat outputFormat) {
+    public DorisSinkFunction(@Nonnull DorisOutputFormat<Object> outputFormat) {
         this.outputFormat = Preconditions.checkNotNull(outputFormat);
     }
 
@@ -52,12 +52,12 @@ public class DorisSinkFunction<T> extends RichSinkFunction<T>
     }
 
     @Override
-    public void initializeState(FunctionInitializationContext context) throws Exception {
+    public void initializeState(FunctionInitializationContext context) {
 
     }
 
     @Override
-    public void snapshotState(FunctionSnapshotContext context) throws Exception {
+    public void snapshotState(FunctionSnapshotContext context) {
 
     }
 

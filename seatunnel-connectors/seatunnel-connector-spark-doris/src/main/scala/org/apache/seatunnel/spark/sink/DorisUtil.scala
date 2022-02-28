@@ -89,7 +89,7 @@ object DorisUtil extends Serializable {
            |""".stripMargin)
     } catch {
       case e: Exception => status = false
-        (status, httpclient, response)
+        return (status, httpclient, response)
     }
     (status, httpclient, response)
   }
@@ -108,15 +108,13 @@ class DorisUtil(httpHeader: Map[String, String], apiUrl: String, user: String, p
     val httpClient = DorisUtil.createClient
     val result = Try(DorisUtil.streamLoad(httpClient, httpHeader, messages, apiUrl, user, password))
     result match {
-      case Success(_) => {
+      case Success(_) =>
         httpClient.close()
         result.get._2.close()
-      }
-      case Failure(var1: Exception) => {
+      case Failure(var1: Exception) =>
         httpClient.close()
         result.get._2.close()
         throw new RuntimeException(var1.getMessage)
-      }
     }
   }
 }
