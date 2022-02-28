@@ -272,6 +272,12 @@
                 <groupId>org.apache.phoenix</groupId>
                 <artifactId>phoenix-spark</artifactId>
                 <version>${phoenix-spark.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.glassfish.web</groupId>
+                        <artifactId>javax.servlet.jsp</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -344,6 +350,12 @@
                 <groupId>org.apache.hbase.connectors.spark</groupId>
                 <artifactId>hbase-spark</artifactId>
                 <version>${hbase-spark.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.glassfish.web</groupId>
+                        <artifactId>javax.servlet.jsp</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
