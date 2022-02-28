@@ -88,8 +88,8 @@ object DorisUtil extends Serializable {
            |${stringBuffer.toString}
            |""".stripMargin)
     } catch {
-      case e: Exception => status = false
-        return (status, httpclient, response)
+      case _: Exception => status = false
+        (status, httpclient, response)
     }
     (status, httpclient, response)
   }
