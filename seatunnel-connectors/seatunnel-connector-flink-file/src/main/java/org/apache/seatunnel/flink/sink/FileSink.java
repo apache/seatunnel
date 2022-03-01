@@ -81,8 +81,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
                 outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
                 break;
             case "csv":
-                CsvRowOutputFormat csvFormat = new CsvRowOutputFormat(filePath);
-                outputFormat = csvFormat;
+                outputFormat = new CsvRowOutputFormat(filePath);
                 break;
             case "text":
                 outputFormat = new TextOutputFormat(filePath);

@@ -40,29 +40,28 @@ class Hive extends SparkBatchSink with Logging {
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
     val sparkSession = df.sparkSession
-    config.hasPath("sql") match {
-      case true => {
-        val sql = config.getString("sql")
-        sparkSession.sql(sql)
+    if (config.hasPath("sql")) {
+      val sql = config.getString("sql")
+      sparkSession.sql(sql)
+    } else {
+      val sourceTableName = config.getString("source_table_name")
+      val resultTableName = config.getString("result_table_name")
+      val sinkColumns = if (config.hasPath("sink_columns")) {
+        config.getString("sink_columns")
+      } else {
+        "*"
       }
-      case _ => {
-        val sourceTableName = config.getString("source_table_name")
-        val resultTableName = config.getString("result_table_name")
-        val sinkColumns = config.hasPath("sink_columns") match {
-          case true => config.getString("sink_columns")
-          case false => "*"
-        }
-        val sinkFrame = sparkSession.sql(s"select $sinkColumns from $sourceTableName")
-        val frameWriter: DataFrameWriter[Row] = config.hasPath("save_mode") match {
-          case true => sinkFrame.write.mode(config.getString("save_mode"))
-          case _ => sinkFrame.write
-        }
-        config.hasPath("partition_by") match {
-          case true =>
-            val partitionList: util.List[String] = config.getStringList("partition_by")
-            frameWriter.partitionBy(partitionList: _*).saveAsTable(resultTableName)
-          case _ => frameWriter.saveAsTable(resultTableName)
-        }
+      val sinkFrame = sparkSession.sql(s"select $sinkColumns from $sourceTableName")
+      val frameWriter: DataFrameWriter[Row] = if (config.hasPath("save_mode")) {
+        sinkFrame.write.mode(config.getString("save_mode"))
+      } else {
+        sinkFrame.write
+      }
+      if (config.hasPath("partition_by")) {
+        val partitionList: util.List[String] = config.getStringList("partition_by")
+        frameWriter.partitionBy(partitionList: _*).saveAsTable(resultTableName)
+      } else {
+        frameWriter.saveAsTable(resultTableName)
       }
     }
   }

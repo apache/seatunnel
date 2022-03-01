@@ -22,7 +22,7 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 class KafkaProducerUtil(createProducer: () => KafkaProducer[String, String]) extends Serializable {
 
-  lazy val producer = createProducer()
+  lazy val producer: KafkaProducer[String, String] = createProducer()
 
   def send(topic: String, value: String): Unit =
     producer.send(new ProducerRecord(topic, value))

@@ -64,11 +64,11 @@ class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
   // ------------------------------------------------------------
   require(parameters.isDefinedAt(JDBC_URL), s"Option '$JDBC_URL' is required.")
   // a JDBC URL
-  val url = parameters(JDBC_URL)
+  val url: String = parameters(JDBC_URL)
 
   // table name or a table subquery.
-  val tableOrQuery = (parameters.get(JDBC_TABLE_NAME), parameters.get(JDBC_QUERY_STRING)) match {
-    case (Some(name), Some(subquery)) =>
+  val tableOrQuery: String = (parameters.get(JDBC_TABLE_NAME), parameters.get(JDBC_QUERY_STRING)) match {
+    case (Some(_), Some(_)) =>
       throw new IllegalArgumentException(
         s"Both '$JDBC_TABLE_NAME' and '$JDBC_QUERY_STRING' can not be specified at the same time.")
     case (None, None) =>
@@ -84,14 +84,14 @@ class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
       if (subquery.isEmpty) {
         throw new IllegalArgumentException(s"Option `$JDBC_QUERY_STRING` can not be empty.")
       } else {
-        s"(${subquery}) __SPARK_GEN_JDBC_SUBQUERY_NAME_${curId.getAndIncrement()}"
+        s"($subquery) __SPARK_GEN_JDBC_SUBQUERY_NAME_${curId.getAndIncrement()}"
       }
   }
 
   // ------------------------------------------------------------
   // Optional parameters
   // ------------------------------------------------------------
-  val driverClass = {
+  val driverClass: String = {
     val userSpecifiedDriverClass = parameters.get(JDBC_DRIVER_CLASS)
     userSpecifiedDriverClass.foreach(DriverRegistry.register)
 
@@ -104,21 +104,21 @@ class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
   }
 
   // the number of partitions
-  val numPartitions = parameters.get(JDBC_NUM_PARTITIONS).map(_.toInt)
+  val numPartitions: Option[Int] = parameters.get(JDBC_NUM_PARTITIONS).map(_.toInt)
 
   // the number of seconds the driver will wait for a Statement object to execute to the given
   // number of seconds. Zero means there is no limit.
-  val queryTimeout = parameters.getOrElse(JDBC_QUERY_TIMEOUT, "0").toInt
+  val queryTimeout: Int = parameters.getOrElse(JDBC_QUERY_TIMEOUT, "0").toInt
 
   // ------------------------------------------------------------
   // Optional parameters only for reading
   // ------------------------------------------------------------
   // the column used to partition
-  val partitionColumn = parameters.get(JDBC_PARTITION_COLUMN)
+  val partitionColumn: Option[String] = parameters.get(JDBC_PARTITION_COLUMN)
   // the lower bound of partition column
-  val lowerBound = parameters.get(JDBC_LOWER_BOUND)
+  val lowerBound: Option[String] = parameters.get(JDBC_LOWER_BOUND)
   // the upper bound of the partition column
-  val upperBound = parameters.get(JDBC_UPPER_BOUND)
+  val upperBound: Option[String] = parameters.get(JDBC_UPPER_BOUND)
   // numPartitions is also used for data source writing
   require(
     (partitionColumn.isEmpty && lowerBound.isEmpty && upperBound.isEmpty) ||
@@ -141,7 +141,7 @@ class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
        |        .load()
      """.stripMargin)
 
-  val fetchSize = {
+  val fetchSize: Int = {
     val size = parameters.getOrElse(JDBC_BATCH_FETCH_SIZE, "0").toInt
     require(
       size >= 0,
@@ -155,17 +155,17 @@ class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
   // Optional parameters only for writing
   // ------------------------------------------------------------
   // if to truncate the table from the JDBC database
-  val isTruncate = parameters.getOrElse(JDBC_TRUNCATE, "false").toBoolean
+  val isTruncate: Boolean = parameters.getOrElse(JDBC_TRUNCATE, "false").toBoolean
 
   val isCascadeTruncate: Option[Boolean] = parameters.get(JDBC_CASCADE_TRUNCATE).map(_.toBoolean)
   // the create table option , which can be table_options or partition_options.
   // E.g., "CREATE TABLE t (name string) ENGINE=InnoDB DEFAULT CHARSET=utf8"
   // TODO: to reuse the existing partition parameters for those partition specific options
-  val createTableOptions = parameters.getOrElse(JDBC_CREATE_TABLE_OPTIONS, "")
-  val createTableColumnTypes = parameters.get(JDBC_CREATE_TABLE_COLUMN_TYPES)
-  val customSchema = parameters.get(JDBC_CUSTOM_DATAFRAME_COLUMN_TYPES)
+  val createTableOptions: String = parameters.getOrElse(JDBC_CREATE_TABLE_OPTIONS, "")
+  val createTableColumnTypes: Option[String] = parameters.get(JDBC_CREATE_TABLE_COLUMN_TYPES)
+  val customSchema: Option[String] = parameters.get(JDBC_CUSTOM_DATAFRAME_COLUMN_TYPES)
 
-  val batchSize = {
+  val batchSize: Int = {
     val size = parameters.getOrElse(JDBC_BATCH_INSERT_SIZE, "1000").toInt
     require(
       size >= 1,
@@ -173,7 +173,7 @@ class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
         s"`$JDBC_BATCH_INSERT_SIZE`. The minimum value is 1.")
     size
   }
-  val isolationLevel =
+  val isolationLevel: Int =
     parameters.getOrElse(JDBC_TXN_ISOLATION_LEVEL, "READ_UNCOMMITTED") match {
       case "NONE" => Connection.TRANSACTION_NONE
       case "READ_UNCOMMITTED" => Connection.TRANSACTION_READ_UNCOMMITTED
@@ -182,10 +182,10 @@ class JDBCOptions(@transient val parameters: CaseInsensitiveMap[String])
       case "SERIALIZABLE" => Connection.TRANSACTION_SERIALIZABLE
     }
   // An option to execute custom SQL before fetching data from the remote DB
-  val sessionInitStatement = parameters.get(JDBC_SESSION_INIT_STATEMENT)
+  val sessionInitStatement: Option[String] = parameters.get(JDBC_SESSION_INIT_STATEMENT)
 
   // An option to allow/disallow pushing down predicate into JDBC data source
-  val pushDownPredicate = parameters.getOrElse(JDBC_PUSHDOWN_PREDICATE, "true").toBoolean
+  val pushDownPredicate: Boolean = parameters.getOrElse(JDBC_PUSHDOWN_PREDICATE, "true").toBoolean
 }
 
 class JdbcOptionsInWrite(@transient override val parameters: CaseInsensitiveMap[String])
@@ -206,10 +206,10 @@ class JdbcOptionsInWrite(@transient override val parameters: CaseInsensitiveMap[
     s"Option '$JDBC_TABLE_NAME' is required. " +
       s"Option '$JDBC_QUERY_STRING' is not applicable while writing.")
 
-  val table = parameters(JDBC_TABLE_NAME)
+  val table: String = parameters(JDBC_TABLE_NAME)
 
   // SeaTunnel: custom mysql duplicate key update statement when saveMode is update
-  val customUpdateStmt = parameters.get(JDBC_CUSTOM_UPDATE_STMT)
+  val customUpdateStmt: Option[String] = parameters.get(JDBC_CUSTOM_UPDATE_STMT)
 }
 
 object JDBCOptions {
@@ -221,26 +221,26 @@ object JDBCOptions {
     name
   }
 
-  val JDBC_URL = newOption("url")
-  val JDBC_TABLE_NAME = newOption("dbtable")
-  val JDBC_QUERY_STRING = newOption("query")
-  val JDBC_DRIVER_CLASS = newOption("driver")
-  val JDBC_PARTITION_COLUMN = newOption("partitionColumn")
-  val JDBC_LOWER_BOUND = newOption("lowerBound")
-  val JDBC_UPPER_BOUND = newOption("upperBound")
-  val JDBC_NUM_PARTITIONS = newOption("numPartitions")
-  val JDBC_QUERY_TIMEOUT = newOption("queryTimeout")
-  val JDBC_BATCH_FETCH_SIZE = newOption("fetchsize")
-  val JDBC_TRUNCATE = newOption("truncate")
-  val JDBC_CASCADE_TRUNCATE = newOption("cascadeTruncate")
-  val JDBC_CREATE_TABLE_OPTIONS = newOption("createTableOptions")
-  val JDBC_CREATE_TABLE_COLUMN_TYPES = newOption("createTableColumnTypes")
-  val JDBC_CUSTOM_DATAFRAME_COLUMN_TYPES = newOption("customSchema")
-  val JDBC_BATCH_INSERT_SIZE = newOption("batchsize")
-  val JDBC_TXN_ISOLATION_LEVEL = newOption("isolationLevel")
-  val JDBC_SESSION_INIT_STATEMENT = newOption("sessionInitStatement")
-  val JDBC_PUSHDOWN_PREDICATE = newOption("pushDownPredicate")
+  val JDBC_URL: String = newOption("url")
+  val JDBC_TABLE_NAME: String = newOption("dbtable")
+  val JDBC_QUERY_STRING: String = newOption("query")
+  val JDBC_DRIVER_CLASS: String = newOption("driver")
+  val JDBC_PARTITION_COLUMN: String = newOption("partitionColumn")
+  val JDBC_LOWER_BOUND: String = newOption("lowerBound")
+  val JDBC_UPPER_BOUND: String = newOption("upperBound")
+  val JDBC_NUM_PARTITIONS: String = newOption("numPartitions")
+  val JDBC_QUERY_TIMEOUT: String = newOption("queryTimeout")
+  val JDBC_BATCH_FETCH_SIZE: String = newOption("fetchsize")
+  val JDBC_TRUNCATE: String = newOption("truncate")
+  val JDBC_CASCADE_TRUNCATE: String = newOption("cascadeTruncate")
+  val JDBC_CREATE_TABLE_OPTIONS: String = newOption("createTableOptions")
+  val JDBC_CREATE_TABLE_COLUMN_TYPES: String = newOption("createTableColumnTypes")
+  val JDBC_CUSTOM_DATAFRAME_COLUMN_TYPES: String = newOption("customSchema")
+  val JDBC_BATCH_INSERT_SIZE: String = newOption("batchsize")
+  val JDBC_TXN_ISOLATION_LEVEL: String = newOption("isolationLevel")
+  val JDBC_SESSION_INIT_STATEMENT: String = newOption("sessionInitStatement")
+  val JDBC_PUSHDOWN_PREDICATE: String = newOption("pushDownPredicate")
   // SeaTunnel: add extra options
-  val JDBC_DUPLICATE_INCS = newOption("duplicateIncs")
-  val JDBC_CUSTOM_UPDATE_STMT = newOption("customUpdateStmt")
+  val JDBC_DUPLICATE_INCS: String = newOption("duplicateIncs")
+  val JDBC_CUSTOM_UPDATE_STMT: String = newOption("customUpdateStmt")
 }

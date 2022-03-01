@@ -147,7 +147,7 @@ class Hbase extends SparkBatchSink with Logging {
     val stagingPath = new Path(stagingDir)
     val fs = stagingPath.getFileSystem(hbaseContext.config)
     if (!fs.delete(stagingPath, true)) {
-      logWarning(s"clean staging dir ${stagingDir} failed")
+      logWarning(s"clean staging dir $stagingDir failed")
     }
     if (fs != null) {
       fs.close()

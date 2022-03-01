@@ -120,7 +120,7 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
       if (untilOffset != fromOffset) {
         LOGGER.info(
           s"complete consume topic: ${offsets.topic} partition:" +
-            s"${offsets.partition} from ${fromOffset} until ${untilOffset}")
+            s"${offsets.partition} from $fromOffset until $untilOffset")
       }
     }
   }
