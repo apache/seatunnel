@@ -49,11 +49,11 @@ class File extends SparkBatchSink {
 
   override def output(ds: Dataset[Row], env: SparkEnvironment): Unit = {
     var writer = ds.write.mode(config.getString(SAVE_MODE))
-    writer = config.getStringList(PARTITION_BY).isEmpty match {
-      case true => writer
-      case false =>
-        val partitionKeys = config.getStringList(PARTITION_BY)
-        writer.partitionBy(partitionKeys: _*)
+    writer = if (config.getStringList(PARTITION_BY).isEmpty) {
+      writer
+    } else {
+      val partitionKeys = config.getStringList(PARTITION_BY)
+      writer.partitionBy(partitionKeys: _*)
     }
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {

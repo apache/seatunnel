@@ -82,7 +82,6 @@ processing plug-in, because the whole system is easy to expand.
 |                          |Kafka           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Kafka.md)           |
 |                          |Console         |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Console.md)         |
 |                          |Kudu            |[doc](./docs/en/spark/configuration/source-plugins/Kudu.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Kudu.md)            |
-|                          |Mysql           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Mysql.md)           |
 |                          |Redis           |[doc](./docs/en/spark/configuration/source-plugins/Redis.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Redis.md)           |
 |Stream                    |FakeStream      |[doc](./docs/en/spark/configuration/source-plugins/FakeStream.md)   |                                                                     |
 |                          |KafkaStream     |[doc](./docs/en/spark/configuration/source-plugins/KafkaStream.md)  |                                                                     |

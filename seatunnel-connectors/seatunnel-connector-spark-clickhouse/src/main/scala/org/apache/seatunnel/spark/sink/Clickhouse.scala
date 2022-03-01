@@ -21,12 +21,10 @@ import java.sql.PreparedStatement
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
-
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
-
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.{extractSubConfig, hasSubConfig}
@@ -36,6 +34,8 @@ import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
+
+import scala.annotation.tailrec
 
 class Clickhouse extends SparkBatchSink {
 
@@ -151,7 +151,7 @@ class Clickhouse extends SparkBatchSink {
     if (nonExistsFields.nonEmpty) {
       CheckResult.error(
         "field " + nonExistsFields
-          .map { case (option) => "[" + option + "]" }
+          .map(option => "[" + option + "]")
           .mkString(", ") + " not exist in table " + this.table)
     } else {
       val nonSupportedType = fields
@@ -160,7 +160,7 @@ class Clickhouse extends SparkBatchSink {
       if (nonSupportedType.nonEmpty) {
         CheckResult.error(
           "clickHouse data type " + nonSupportedType
-            .map { case (option) => "[" + option + "]" }
+            .map(option => "[" + option + "]")
             .mkString(", ") + " not support in current version.")
       } else {
         CheckResult.success()
@@ -168,6 +168,7 @@ class Clickhouse extends SparkBatchSink {
     }
   }
 
+  @tailrec
   private def renderDefaultStatement(
       index: Int,
       fieldType: String,
@@ -266,13 +267,13 @@ class Clickhouse extends SparkBatchSink {
     }
   }
 
+  @tailrec
   private def execute(statement: PreparedStatement, retry: Int): Unit = {
     val res = Try(statement.executeBatch())
     res match {
-      case Success(_) => {
+      case Success(_) =>
         statement.close()
-      }
-      case Failure(e: ClickHouseException) => {
+      case Failure(e: ClickHouseException) =>
         val errorCode = e.getErrorCode
         if (retryCodes.contains(errorCode)) {
           if (retry > 0) {
@@ -283,14 +284,11 @@ class Clickhouse extends SparkBatchSink {
         } else {
           throw e
         }
-      }
-      case Failure(e: ClickHouseUnknownException) => {
+      case Failure(e: ClickHouseUnknownException) =>
         statement.close()
         throw e
-      }
-      case Failure(e: Exception) => {
+      case Failure(e: Exception) =>
         throw e
-      }
     }
   }
 }
