@@ -18,14 +18,26 @@ package org.apache.seatunnel.spark.source
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
 
-class Iceberg extends SparkBatchSource{
+import scala.collection.JavaConversions._
+
+class Iceberg extends SparkBatchSource {
   override def getData(env: SparkEnvironment): Dataset[Row] = {
-    val df = env.getSparkSession.read.format("iceberg")
-      .load(config.getString("path"))
+    val reader = env.getSparkSession.read.format("iceberg")
+    for (e <- config.entrySet()) {
+      e.getValue.valueType match {
+        case ConfigValueType.NUMBER =>
+          reader.option(e.getKey, Long.unbox(e.getValue.unwrapped()))
+        case ConfigValueType.BOOLEAN =>
+          reader.option(e.getKey, Boolean.unbox(e.getValue.unwrapped()))
+        case ConfigValueType.STRING => reader.option(e.getKey, e.getValue.unwrapped().toString)
+      }
+    }
+    val df = reader.load(config.getString("path"))
     df.createOrReplaceTempView(config.getString("result_table_name"))
     env.getSparkSession.sql(config.getString("pre_sql"))
   }
