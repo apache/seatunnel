@@ -190,7 +190,7 @@ Collecting various logs from business services into Apache Kafka, some of the da
 
 For more use cases, please refer to: https://seatunnel.apache.org/blog
 
-# Code of conduct
+## Code of conduct
 
 This project adheres to the Contributor Covenant [code of conduct](https://www.apache.org/foundation/policies/conduct).
 By participating, you are expected to uphold this code. Please follow
@@ -211,12 +211,19 @@ Thanks to all developers!
 * Twitter: https://twitter.com/ASFSeaTunnel
 * [Bilibili](https://space.bilibili.com/1542095008) (for Chinese users)
 
-# Landscapes
+## Landscapes
 
 <p align="center">
 <br/><br/>
-<img src="https://landscape.cncf.io/images/left-logo.svg" width="150"/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200"/>
+<img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
 <br/><br/>
-SeaTunnel enriches the <a href="https://landscape.cncf.io/landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
+SeaTunnel enriches the <a href="https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
 
 </p >
+
+## Our Users
+Various companies and organizations use SeaTunnel for research, production and commercial products.
+Visit our [website](https://seatunnel.apache.org/user) to find the user page.
+
+## License
+[Apache 2.0 License.](LICENSE)
