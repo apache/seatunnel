@@ -21,7 +21,7 @@ import com.beust.jcommander.JCommander;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Collections;
+import java.util.Arrays;
 
 public class CommandSparkArgsTest {
 
@@ -36,6 +36,6 @@ public class CommandSparkArgsTest {
         Assert.assertEquals("app.conf", sparkArgs.getConfigFile());
         Assert.assertEquals("client", sparkArgs.getDeployMode());
         Assert.assertEquals("yarn", sparkArgs.getMaster());
-        Assert.assertEquals(Collections.singletonList("city=shijiazhuang"), sparkArgs.getVariables());
+        Assert.assertEquals(Arrays.asList("city=shijiazhuang", "name=Tom"), sparkArgs.getVariables());
     }
 }
