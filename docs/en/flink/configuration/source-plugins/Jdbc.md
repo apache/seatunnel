@@ -17,6 +17,7 @@ Read data through jdbc
 | query          | string | yes      | -             |
 | fetch_size     | int    | no       | -             |
 | common-options | string | no       | -             |
+| parallelism    | int    | no       | -             |
 
 ### driver [string]
 
@@ -41,6 +42,10 @@ Query statement
 ### fetch_size [int]
 
 fetch size
+
+### parallelism [int]
+
+The parallelism of an individual operator, for JdbcSource.
 
 ### common options [string]
 

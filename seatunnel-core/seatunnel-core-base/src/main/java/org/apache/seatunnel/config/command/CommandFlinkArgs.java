@@ -42,4 +42,7 @@ public class CommandFlinkArgs {
         return testConfig;
     }
 
+    public String getVariable() {
+        return variable;
+    }
 }

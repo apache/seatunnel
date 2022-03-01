@@ -18,6 +18,7 @@
 package org.apache.seatunnel.flink.source;
 
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BOOLEAN_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BYTE_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.DOUBLE_TYPE_INFO;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.JdbcInputFormat;
 import org.apache.flink.types.Row;
@@ -70,6 +72,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     private Set<String> fields;
 
     private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
+    private static final String PARALLELISM = "parallelism";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -79,11 +82,17 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         informationMapping.put("VARCHAR", STRING_TYPE_INFO);
         informationMapping.put("BOOLEAN", BOOLEAN_TYPE_INFO);
         informationMapping.put("TINYINT", BYTE_TYPE_INFO);
+        informationMapping.put("TINYINT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("SMALLINT", SHORT_TYPE_INFO);
+        informationMapping.put("SMALLINT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("INTEGER", INT_TYPE_INFO);
+        informationMapping.put("INTEGER UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("MEDIUMINT", INT_TYPE_INFO);
+        informationMapping.put("MEDIUMINT UNSIGNED", INT_TYPE_INFO);
         informationMapping.put("INT", INT_TYPE_INFO);
+        informationMapping.put("INT UNSIGNED", LONG_TYPE_INFO);
         informationMapping.put("BIGINT", LONG_TYPE_INFO);
+        informationMapping.put("BIGINT UNSIGNED", BIG_INT_TYPE_INFO);
         informationMapping.put("FLOAT", FLOAT_TYPE_INFO);
         informationMapping.put("DOUBLE", DOUBLE_TYPE_INFO);
         informationMapping.put("CHAR", STRING_TYPE_INFO);
@@ -91,6 +100,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         informationMapping.put("LONGTEXT", STRING_TYPE_INFO);
         informationMapping.put("DATE", SqlTimeTypeInfo.DATE);
         informationMapping.put("TIME", SqlTimeTypeInfo.TIME);
+        informationMapping.put("DATETIME", SqlTimeTypeInfo.TIMESTAMP);
         informationMapping.put("TIMESTAMP", SqlTimeTypeInfo.TIMESTAMP);
         informationMapping.put("DECIMAL", BIG_DEC_TYPE_INFO);
         informationMapping.put("BINARY", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
@@ -99,7 +109,12 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(jdbcInputFormat);
+        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(jdbcInputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
+        return dataSource;
     }
 
     @Override

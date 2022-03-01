@@ -42,7 +42,5 @@ public abstract class BaseSparkSink<OUT> implements BaseSink<SparkEnvironment> {
         return config;
     }
 
-    public abstract void prepare(SparkEnvironment prepareEnv);
-
     public abstract OUT output(Dataset<Row> data, SparkEnvironment env);
 }

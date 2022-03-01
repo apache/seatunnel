@@ -33,9 +33,8 @@ source {
       field_name = "name,age"
     }
 
-
   # If you would like to get more information about how to configure seatunnel and see full list of input plugins,
-  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
+  # please go to https://seatunnel.apache.org/docs/flink/configuration/source-plugins/Fake
 }
 
 transform {
@@ -44,13 +43,12 @@ transform {
     }
 
   # If you would like to get more information about how to configure seatunnel and see full list of filter plugins,
-  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
+  # please go to https://seatunnel.apache.org/docs/flink/configuration/transform-plugins/Sql
 }
 
 sink {
   ConsoleSink {}
 
-
   # If you would like to get more information about how to configure seatunnel and see full list of output plugins,
-  # please go to https://interestinglab.github.io/seatunnel/#/zh-cn/configuration/base
+  # please go to https://seatunnel.apache.org/docs/flink/configuration/sink-plugins/Console
 }
