@@ -26,10 +26,8 @@ import org.apache.spark.sql.{Dataset, Row, RowFactory, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.receiver.Receiver
+
 import java.security.SecureRandom
-
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-
 import scala.collection.JavaConversions._
 
 class FakeStream extends SparkStreamingSource[String] {

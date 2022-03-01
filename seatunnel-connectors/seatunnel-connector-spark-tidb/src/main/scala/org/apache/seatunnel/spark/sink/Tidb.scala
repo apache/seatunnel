@@ -42,7 +42,7 @@ class Tidb extends SparkBatchSink {
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
 
-      case Success(options) => {
+      case Success(options) =>
         val optionMap = options
           .entrySet()
           .foldRight(Map[String, String]())((entry, m) => {
@@ -50,8 +50,7 @@ class Tidb extends SparkBatchSink {
           })
 
         writer.options(optionMap)
-      }
-      case Failure(exception) => // do nothing
+      case Failure(_) => // do nothing
     }
 
     writer.save()
