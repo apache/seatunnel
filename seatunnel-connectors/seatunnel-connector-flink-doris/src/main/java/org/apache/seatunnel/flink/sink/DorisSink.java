@@ -51,7 +51,7 @@ public class DorisSink implements FlinkStreamSink<Row> {
     private int batchSize = DEFAULT_BATCH_SIZE;
     private long batchIntervalMs = DEFAULT_INTERVAL_MS;
     private int maxRetries = 1;
-    private Properties streamLoadProp = new Properties();
+    private final Properties streamLoadProp = new Properties();
 
     @Override
     public Config getConfig() {

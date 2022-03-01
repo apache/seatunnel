@@ -39,7 +39,9 @@ public class SeatunnelSql {
         CommandLineArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
         String configFilePath = flinkArgs.getConfigFile();
         String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
-        return new JobInfo(jobContent);
+        JobInfo jobInfo = new JobInfo(jobContent);
+        jobInfo.substitute(flinkArgs.getVariable());
+        return jobInfo;
     }
 
 }

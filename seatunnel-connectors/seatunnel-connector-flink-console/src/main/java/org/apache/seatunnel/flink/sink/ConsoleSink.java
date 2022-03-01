@@ -28,8 +28,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
-import java.io.IOException;
-
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSink<Row> {
 
     private static final long serialVersionUID = 3482649370594181723L;
@@ -65,16 +63,16 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSin
     }
 
     @Override
-    public void open(int taskNumber, int numTasks) throws IOException {
+    public void open(int taskNumber, int numTasks) {
 
     }
 
     @Override
-    public void writeRecord(Row record) throws IOException {
+    public void writeRecord(Row record) {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
 
     }
 }

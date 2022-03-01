@@ -62,10 +62,10 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     private final int batchSize;
     private final int maxRetries;
     private final long batchIntervalMs;
-    private final List batch = new ArrayList<>();
+    private final List<Object> batch = new ArrayList<>();
     private String fieldDelimiter;
     private String lineDelimiter;
-    private DorisStreamLoad dorisStreamLoad;
+    private final DorisStreamLoad dorisStreamLoad;
     private transient ScheduledExecutorService scheduler;
     private transient ScheduledFuture<?> scheduledFuture;
     private transient volatile Exception flushException;
@@ -176,7 +176,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     }
 
     @Override
-    public synchronized void close() throws IOException {
+    public synchronized void close() {
         if (!closed) {
             closed = true;
 
@@ -208,7 +208,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                 result = OBJECT_MAPPER.writeValueAsString(batch);
             }
         } else {
-            result = String.join(this.lineDelimiter, batch);
+            result = String.join(this.lineDelimiter, (CharSequence) batch);
         }
         for (int i = 0; i <= maxRetries; i++) {
             try {

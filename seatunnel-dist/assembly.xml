@@ -58,10 +58,12 @@
         <fileSet>
             <directory>../seatunnel-core/seatunnel-core-flink/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
             <directory>../seatunnel-core/seatunnel-core-spark/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
             <directory>../seatunnel-core/seatunnel-core-spark/target</directory>
@@ -91,6 +93,19 @@
             </includes>
             <fileMode>0755</fileMode>
         </fileSet>
-
+        <!--Licenses And NOTICE-->
+        <fileSet>
+            <directory>${basedir}/release-docs</directory>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        <!-- DISCLAIMER -->
+        <fileSet>
+            <directory>${basedir}/.././</directory>
+            <includes>
+                <include>DISCLAIMER</include>
+            </includes>
+            <outputDirectory>.</outputDirectory>
+        </fileSet>
+        
     </fileSets>
 </assembly>

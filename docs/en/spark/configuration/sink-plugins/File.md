@@ -4,7 +4,7 @@
 
 ## Description
 
-Output data to file
+Output data to local or hdfs file.
 
 ## Options
 
@@ -28,7 +28,7 @@ Partition data based on selected fields
 
 ### path [string]
 
-Output file path, starting with `file://`
+Output file path, starting with `file://` or  `hdfs://`
 
 ### path_time_format [string]
 

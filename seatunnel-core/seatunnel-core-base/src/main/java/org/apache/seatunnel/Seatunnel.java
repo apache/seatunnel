@@ -103,10 +103,11 @@ public class Seatunnel {
         execution.start(sources, transforms, sinks);
     }
 
+    @SafeVarargs
     private static void baseCheckConfig(List<? extends Plugin>... plugins) {
         for (List<? extends Plugin> pluginList : plugins) {
             for (Plugin plugin : pluginList) {
-                CheckResult checkResult = null;
+                CheckResult checkResult;
                 try {
                     checkResult = plugin.checkConfig();
                 } catch (Exception e) {
