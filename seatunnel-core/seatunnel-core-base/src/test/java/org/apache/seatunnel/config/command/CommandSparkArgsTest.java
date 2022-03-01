@@ -27,7 +27,7 @@ public class CommandSparkArgsTest {
 
     @Test
     public void testParseSparkArgs() {
-        String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=shijiazhuang"};
+        String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=shijiazhuang", "-i", "name=Tom"};
         CommandSparkArgs sparkArgs = new CommandSparkArgs();
         JCommander.newBuilder()
             .addObject(sparkArgs)
