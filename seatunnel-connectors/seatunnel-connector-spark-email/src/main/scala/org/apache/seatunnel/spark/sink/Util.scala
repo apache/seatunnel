@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.spark.sink
 
+import scala.language.higherKinds
 import scala.util.{Success, Try}
 
 object Utils {

@@ -49,7 +49,7 @@ class Jdbc extends SparkBatchSource {
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "jdbc.", false)) match {
 
-      case Success(options) => {
+      case Success(options) =>
         val optionMap = options
           .entrySet()
           .foldRight(Map[String, String]())((entry, m) => {
@@ -57,8 +57,7 @@ class Jdbc extends SparkBatchSource {
           })
 
         reader.options(optionMap)
-      }
-      case Failure(exception) => // do nothing
+      case Failure(_) => // do nothing
     }
 
     reader

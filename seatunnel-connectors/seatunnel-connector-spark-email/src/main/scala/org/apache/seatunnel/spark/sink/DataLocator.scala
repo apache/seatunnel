@@ -18,21 +18,21 @@ package org.apache.seatunnel.spark.sink
 
 import scala.collection.JavaConverters._
 import scala.util.Try
-
-import com.norbitltd.spoiwo.model.{Cell => WriteCell, CellDataFormat, CellRange, CellStyle, Row => WriteRow, Sheet => WriteSheet, Table, TableColumn}
+import com.norbitltd.spoiwo.model.{CellDataFormat, CellRange, CellStyle, Table, TableColumn, Cell => WriteCell, Row => WriteRow, Sheet => WriteSheet}
 import com.norbitltd.spoiwo.model.HasIndex._
 import org.apache.poi.ss.SpreadsheetVersion
 import org.apache.poi.ss.usermodel.{Cell, Sheet, Workbook}
 import org.apache.poi.ss.util.{AreaReference, CellReference}
 import org.apache.poi.xssf.usermodel.{XSSFTable, XSSFWorkbook}
-
 import Utils.MapIncluding
+
+import scala.util.matching.Regex
 
 trait DataLocator {
   def dateFormat: Option[String]
   def timestampFormat: Option[String]
-  val dateFrmt = dateFormat.getOrElse(ExcelFileSaver.DEFAULT_DATE_FORMAT)
-  val timestampFrmt = timestampFormat.getOrElse(ExcelFileSaver.DEFAULT_TIMESTAMP_FORMAT)
+  val dateFrmt: String = dateFormat.getOrElse(ExcelFileSaver.DEFAULT_DATE_FORMAT)
+  val timestampFrmt: String = timestampFormat.getOrElse(ExcelFileSaver.DEFAULT_TIMESTAMP_FORMAT)
   def readFrom(workbook: Workbook): Iterator[Seq[Cell]]
   def toSheet(
       header: Option[Seq[String]],
@@ -55,10 +55,10 @@ object DataLocator {
         SpreadsheetVersion.EXCEL2007)
     }.getOrElse(new AreaReference(address, SpreadsheetVersion.EXCEL2007))
 
-  val TableAddress = """(.*)\[(.*)\]""".r
-  val WithDataAddress =
+  val TableAddress: Regex = """(.*)\[(.*)\]""".r
+  val WithDataAddress: MapIncluding[String] =
     MapIncluding(Seq("dataAddress"), optionally = Seq("dateFormat", "timestampFormat"))
-  val WithoutDataAddress = MapIncluding(Seq(), optionally = Seq("dateFormat", "timestampFormat"))
+  val WithoutDataAddress: MapIncluding[String] = MapIncluding(Seq(), optionally = Seq("dateFormat", "timestampFormat"))
   def apply(parameters: Map[String, String]): DataLocator =
     parameters match {
       case WithDataAddress(Seq(TableAddress(_, _)), _) if parameters.contains("maxRowsInMemory") =>
@@ -149,9 +149,9 @@ class CellRangeAddressDataLocator(
   private val sheetName = Option(dataAddress.getFirstCell.getSheetName)
 
   def columnIndices(workbook: Workbook): Seq[Int] =
-    (dataAddress.getFirstCell.getCol to dataAddress.getLastCell.getCol)
+    dataAddress.getFirstCell.getCol to dataAddress.getLastCell.getCol
   def rowIndices(workbook: Workbook): Seq[Int] =
-    (dataAddress.getFirstCell.getRow to dataAddress.getLastCell.getRow)
+    dataAddress.getFirstCell.getRow to dataAddress.getLastCell.getRow
 
   override def readFrom(workbook: Workbook): Iterator[Seq[Cell]] =
     readFromSheet(workbook, sheetName)

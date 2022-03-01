@@ -47,7 +47,7 @@ class MongoDB extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    CheckConfigUtil.check(config, "writeconfig.uri", "writeconfig.database", "writeconfig.collection")
+    CheckConfigUtil.checkAllExists(config, "writeconfig.uri", "writeconfig.database", "writeconfig.collection")
   }
 
   override def output(df: Dataset[Row], env: SparkEnvironment): Unit = {

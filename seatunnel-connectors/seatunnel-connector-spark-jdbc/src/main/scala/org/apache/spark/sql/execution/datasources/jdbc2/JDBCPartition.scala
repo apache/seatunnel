@@ -101,9 +101,9 @@ object JDBCRDD extends Logging {
       case GreaterThanOrEqual(attr, value) => s"${quote(attr)} >= ${dialect.compileValue(value)}"
       case IsNull(attr) => s"${quote(attr)} IS NULL"
       case IsNotNull(attr) => s"${quote(attr)} IS NOT NULL"
-      case StringStartsWith(attr, value) => s"${quote(attr)} LIKE '${value}%'"
-      case StringEndsWith(attr, value) => s"${quote(attr)} LIKE '%${value}'"
-      case StringContains(attr, value) => s"${quote(attr)} LIKE '%${value}%'"
+      case StringStartsWith(attr, value) => s"${quote(attr)} LIKE '$value%'"
+      case StringEndsWith(attr, value) => s"${quote(attr)} LIKE '%$value'"
+      case StringContains(attr, value) => s"${quote(attr)} LIKE '%$value%'"
       case In(attr, value) if value.isEmpty =>
         s"CASE WHEN ${quote(attr)} IS NULL THEN NULL ELSE FALSE END"
       case In(attr, value) => s"${quote(attr)} IN (${dialect.compileValue(value)})"
@@ -258,7 +258,7 @@ private[jdbc2] class JDBCRDD(
       closed = true
     }
 
-    context.addTaskCompletionListener[Unit] { context => close() }
+    context.addTaskCompletionListener[Unit] { _ => close() }
 
     val inputMetrics = context.taskMetrics().inputMetrics
     val part = thePart.asInstanceOf[JDBCPartition]
