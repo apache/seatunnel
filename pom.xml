@@ -97,6 +97,7 @@
         <spark.binary.version>2.4</spark.binary.version>
         <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
         <flink.version>1.13.6</flink.version>
+        <flink.cdc.connectors.version>2.1.1</flink.cdc.connectors.version>
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
@@ -235,12 +236,14 @@
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
             </dependency>
+
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-optimizer_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
             </dependency>
+
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-clients_${scala.binary.version}</artifactId>
@@ -248,12 +251,17 @@
                 <scope>${flink.scope}</scope>
             </dependency>
 
+            <dependency>
+                <groupId>com.ververica</groupId>
+                <artifactId>flink-connector-mysql-cdc</artifactId>
+                <version>${flink.cdc.connectors.version}</version>
+            </dependency>
+
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>${mysql.version}</version>
-                <scope>test</scope>
             </dependency>
 
             <dependency>
