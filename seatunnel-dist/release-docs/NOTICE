@@ -137,7 +137,7 @@ The Apache Software Foundation (http://www.apache.org/).
 
 Apache Hadoop NOTICE
 
-========================================================================  
+========================================================================
 This product includes software developed by The Apache Software
 Foundation (http://www.apache.org/).
 
@@ -717,16 +717,16 @@ are met:
 1. Redistributions of source code must retain the above copyright
    notice, this list of conditions and the following disclaimer.
 
-2. The origin of this software must not be misrepresented; you must 
-   not claim that you wrote the original software.  If you use this 
-   software in a product, an acknowledgment in the product 
+2. The origin of this software must not be misrepresented; you must
+   not claim that you wrote the original software.  If you use this
+   software in a product, an acknowledgment in the product
    documentation would be appreciated but is not required.
 
 3. Altered source versions must be plainly marked as such, and must
    not be misrepresented as being the original software.
 
-4. The name of the author may not be used to endorse or promote 
-   products derived from this software without specific prior written 
+4. The name of the author may not be used to endorse or promote
+   products derived from this software without specific prior written
    permission.
 
 THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
@@ -758,7 +758,7 @@ The Apache Software Foundation (http://www.apache.org/).
 
 Apache Directory NOTICE
 
-========================================================================  
+========================================================================
 This product includes software developed by The Apache Software
 Foundation (http://www.apache.org/).
 
@@ -1931,7 +1931,7 @@ NUnit license acknowledgement:
 
 | Portions Copyright © 2002-2012 Charlie Poole or Copyright © 2002-2004 James
 | W. Newkirk, Michael C. Two, Alexei A. Vorontsov or Copyright © 2000-2002
-| Philip A. Craig 
+| Philip A. Craig
 
 Based upon the representations of upstream licensors, it is understood that
 portions of the mapreduce API included in the Java implementation are licensed
@@ -1973,11 +1973,11 @@ Apache Ivy includes the following in its NOTICE file:
 | and are licensed to the Apache Software Foundation under the
 | "Software Grant License Agreement"
 |
-| SSH and SFTP support is provided by the JCraft JSch package, 
+| SSH and SFTP support is provided by the JCraft JSch package,
 | which is open source software, available under
-| the terms of a BSD style license.  
+| the terms of a BSD style license.
 | The original software and related information is available
-| at http://www.jcraft.com/jsch/. 
+| at http://www.jcraft.com/jsch/.
 
 Apache Log4Net includes the following in its NOTICE file:
 
@@ -1990,9 +1990,9 @@ Apache Log4Net includes the following in its NOTICE file:
 csharp reflect serializers were contributed by Pitney Bowes Inc.
 
 | Copyright 2019 Pitney Bowes Inc.
-| Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. 
+| Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 | You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
-| Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, 
+| Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
 | WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 | See the License for the specific language governing permissions and limitations under the License.
 
@@ -2439,7 +2439,7 @@ the HTTP/2 HPACK algorithm written by Twitter. It can be obtained at:
     * license/LICENSE.hpack.txt (Apache License 2.0)
   * HOMEPAGE:
     * https://github.com/twitter/hpack
-    
+
 This product contains a modified version of 'HPACK', a Java implementation of
 the HTTP/2 HPACK algorithm written by Cory Benfield. It can be obtained at:
 
@@ -2731,13 +2731,13 @@ https://glassfish.dev.java.net/nonav/public/CDDL+GPL.html
 Oracle OpenJDK
 
 If ALPN is used to negotiate HTTP/2 connections, then the following
-artifacts may be included in the distribution or downloaded when ALPN 
-module is selected. 
+artifacts may be included in the distribution or downloaded when ALPN
+module is selected.
 
  * java.sun.security.ssl
 
 These artifacts replace/modify OpenJDK classes.  The modififications
-are hosted at github and both modified and original are under GPL v2 with 
+are hosted at github and both modified and original are under GPL v2 with
 classpath exceptions.
 http://openjdk.java.net/legal/gplv2+ce.html
 
@@ -2764,7 +2764,7 @@ org.apache.taglibs:taglibs-standard-impl
 ------
 MortBay
 
-The following artifacts are ASL2 licensed.  Based on selected classes from 
+The following artifacts are ASL2 licensed.  Based on selected classes from
 following Apache Tomcat jars, all ASL2 licensed.
 
 org.mortbay.jasper:apache-jsp
@@ -2841,13 +2841,13 @@ Jets3t NOTICE
    This product includes software developed by:
 
    The Apache Software Foundation (http://www.apache.org/).
-   
+
    The ExoLab Project (http://www.exolab.org/)
 
    Sun Microsystems (http://www.sun.com/)
-   
+
    Codehaus (http://castor.codehaus.org)
-   
+
    Tatu Saloranta (http://wiki.fasterxml.com/TatuSaloranta)
 
 =========================================================================
@@ -2855,7 +2855,7 @@ Jets3t NOTICE
 Jersey NOTICE
 
 =========================================================================
-# Notice for Jersey 
+# Notice for Jersey
 This content is produced and maintained by the Eclipse Jersey project.
 
 *  Project home: https://projects.eclipse.org/projects/ee4j.jersey
@@ -2904,7 +2904,7 @@ Bean Validation API 2.0.2
 * Copyright: 2009, Red Hat, Inc. and/or its affiliates, and individual contributors
 * by the @authors tag.
 
-Hibernate Validator CDI, 6.1.2.Final 
+Hibernate Validator CDI, 6.1.2.Final
 * License: Apache License, 2.0
 * Project: https://beanvalidation.org/
 * Repackaged in org.glassfish.jersey.server.validation.internal.hibernate
@@ -2971,11 +2971,11 @@ W3.org documents
 
 =========================================================================
 
-JCommander Notices 
+JCommander Notices
 
 =========================================================================
 
-JCommander Copyright Notices 
+JCommander Copyright Notices
 ============================
 
 Copyright 2010 Cedric Beust <cedric@beust.com>
@@ -3059,12 +3059,12 @@ This product includes software developed by Apache
  PureJavaCrc32C from apache-hadoop-common http://hadoop.apache.org/
  (Apache 2.0 license)
 
-This library containd statically linked libstdc++. This inclusion is allowed by 
-"GCC RUntime Library Exception" 
+This library containd statically linked libstdc++. This inclusion is allowed by
+"GCC RUntime Library Exception"
 http://gcc.gnu.org/onlinedocs/libstdc++/manual/license.html
 
 == Contributors ==
-  * Tatu Saloranta  
+  * Tatu Saloranta
     * Providing benchmark suite
   * Alec Wysoker
     * Performance and memory usage improvement
@@ -3072,7 +3072,7 @@ http://gcc.gnu.org/onlinedocs/libstdc++/manual/license.html
 
 ========================================================================
 
-Snappy Copyright Notices 
+Snappy Copyright Notices
 =========================
 
 * Copyright 2011 Dain Sundstrom <dain@iq80.com>
@@ -3131,7 +3131,7 @@ Aggregate Designer
 Copyright 2006 - 2013 Pentaho Corporation.  All rights reserved.
 Copyright 2000-2005, 2014-2016, 2021 Julian Hyde
 
-Snappy Copyright Notices 
+Snappy Copyright Notices
 ========================================================================
 
 * Copyright 2011 Dain Sundstrom <dain@iq80.com>
@@ -3249,7 +3249,7 @@ The Apache Software Foundation (http://www.apache.org/).
 
 Apache DataSketches Java NOTICE
 
-======================================================================== 
+========================================================================
 Apache DataSketches Java
 Copyright 2020 The Apache Software Foundation
 
@@ -3294,14 +3294,14 @@ and are placed here unaltered.
 
 (C) Copyright 1997,2004 International Business Machines Corporation.  All rights reserved.
 
-(C) Copyright IBM Corp. 2003. 
+(C) Copyright IBM Corp. 2003.
 
 
 =========================================================================
 
 
-The portion of the functionTests under 'nist' was originally 
-developed by the National Institute of Standards and Technology (NIST), 
+The portion of the functionTests under 'nist' was originally
+developed by the National Institute of Standards and Technology (NIST),
 an agency of the United States Department of Commerce, and adapted by
 International Business Machines Corporation in accordance with the NIST
 Software Acknowledgment and Redistribution document at
@@ -3373,13 +3373,13 @@ Some data files (under analysis/icu/src/data) are derived from Unicode data such
 as the Unicode Character Database. See http://unicode.org/copyright.html for more
 details.
 
-Brics Automaton (under core/src/java/org/apache/lucene/util/automaton) is 
+Brics Automaton (under core/src/java/org/apache/lucene/util/automaton) is
 BSD-licensed, created by Anders Møller. See http://www.brics.dk/automaton/
 
 The levenshtein automata tables (under core/src/java/org/apache/lucene/util/automaton) were
 automatically generated with the moman/finenight FSA library, created by
 Jean-Philippe Barrette-LaPierre. This library is available under an MIT license,
-see http://sites.google.com/site/rrettesite/moman and 
+see http://sites.google.com/site/rrettesite/moman and
 http://bitbucket.org/jpbarrette/moman/overview/
 
 The class org.apache.lucene.util.WeakIdentityMap was derived from
@@ -3433,7 +3433,7 @@ analysis/common/src/java/org/apache/lucene/analysis/pt/PortugueseLightStemmer.ja
 analysis/common/src/java/org/apache/lucene/analysis/ru/RussianLightStemmer.java
 analysis/common/src/java/org/apache/lucene/analysis/sv/SwedishLightStemmer.java
 
-The Stempel analyzer (stempel) includes BSD-licensed software developed 
+The Stempel analyzer (stempel) includes BSD-licensed software developed
 by the Egothor project http://egothor.sf.net/, created by Leo Galambos, Martin Kvapil,
 and Edmond Nolan.
 
@@ -3445,8 +3445,8 @@ See http://project.carrot2.org/license.html.
 The SmartChineseAnalyzer source code (smartcn) was
 provided by Xiaoping Gao and copyright 2009 by www.imdict.net.
 
-WordBreakTestUnicode_*.java (under modules/analysis/common/src/test/) 
-is derived from Unicode data such as the Unicode Character Database. 
+WordBreakTestUnicode_*.java (under modules/analysis/common/src/test/)
+is derived from Unicode data such as the Unicode Character Database.
 See http://unicode.org/copyright.html for more details.
 
 The Morfologik analyzer (morfologik) includes BSD-licensed software
@@ -3794,15 +3794,15 @@ Amazon Ion Java NOTICE
 =========================================================================
 
 Amazon Ion Java
-Copyright 2007-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+Copyright 2007-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 =========================================================================
 
-JCommander Copyright Notices 
+JCommander Copyright Notices
 
 =========================================================================
 
-JCommander Copyright Notices 
+JCommander Copyright Notices
 ============================
 
 Copyright 2010 Cedric Beust <cedric@beust.com>
@@ -4001,11 +4001,11 @@ limitations under the License.
 
 ADDITIONAL LICENSE INFORMATION:
 
-Hyperic SIGAR includes some third-party open source components 
-in its distribution. The list below identifies the community or 
+Hyperic SIGAR includes some third-party open source components
+in its distribution. The list below identifies the community or
 organization and links to their appropriate license terms.
 
-The Hyperic team would like to thank all the communities 
+The Hyperic team would like to thank all the communities
 of the projects listed below for their contributions.
 
 ----------------------------------------------------------
@@ -4029,7 +4029,7 @@ Information: http://apr.apache.org/
 License: http://www.apache.org/licenses/LICENSE-2.0
 
 ----------------------------------------------------------
-Components under BSD/MIT Style Licenses: 
+Components under BSD/MIT Style Licenses:
 ----------------------------------------------------------
 
 The following components are included with modification:
@@ -4109,15 +4109,29 @@ Apache XBean NOTICE
 
 =========================================================================
 	// ------------------------------------------------------------------
-	// NOTICE file corresponding to the section 4d of The Apache License,                                                                                               
-	// Version 2.0, in this case for Apache XBean                                                                                  
+	// NOTICE file corresponding to the section 4d of The Apache License,
+	// Version 2.0, in this case for Apache XBean
 	// ------------------------------------------------------------------
-	
+
 	Apache XBean
 	Copyright 2005-2009 The Apache Software Foundation
-	
+
 	This product includes software developed at
 	The Apache Software Foundation (http://www.apache.org/).
+=========================================================================
+
+
+Apache IoTDB NOTICE
+
+=========================================================================
+
+IoTDB Jdbc
+Copyright 2020 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+
 =========================================================================
 
 
