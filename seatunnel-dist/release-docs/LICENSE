@@ -329,7 +329,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Apache Hadoop YARN Client (org.apache.hadoop:hadoop-yarn-client:3.0.0 - no url defined)
      (Apache License, Version 2.0) Apache Hadoop YARN Common (org.apache.hadoop:hadoop-yarn-common:3.0.0 - no url defined)
      (Apache License, Version 2.0) Apache HttpAsyncClient (org.apache.httpcomponents:httpasyncclient:4.1.2 - http://hc.apache.org/httpcomponents-asyncclient)
-     (Apache License, Version 2.0) Apache HttpClient (org.apache.httpcomponents:httpclient:4.5.2 - http://hc.apache.org/httpcomponents-client)
+     (Apache License, Version 2.0) Apache HttpClient (org.apache.httpcomponents:httpclient:4.5.13 - http://hc.apache.org/httpcomponents-client)
      (Apache License, Version 2.0) Apache HttpClient Mime (org.apache.httpcomponents:httpmime:4.5.2 - http://hc.apache.org/httpcomponents-client)
      (Apache License, Version 2.0) Apache HttpCore (org.apache.httpcomponents:httpcore:4.4.10 - http://hc.apache.org/httpcomponents-core-ga)
      (Apache License, Version 2.0) Apache HttpCore NIO (org.apache.httpcomponents:httpcore-nio:4.4.4 - http://hc.apache.org/httpcomponents-core-ga)
