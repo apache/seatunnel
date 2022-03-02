@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.sql.job;
 
+import java.util.List;
+
 public class JobInfo {
 
     private static final String JOB_NAME = "default sql job";
@@ -44,8 +46,11 @@ public class JobInfo {
         return jobContent;
     }
 
-    public void substitute(String variable) {
-        if (variable != null) {
+    public void substitute(List<String> variables) {
+        if (variables == null) {
+            return;
+        }
+        for (String variable : variables) {
             String[] s = variable.split(DELIMITER);
             if (s.length == 2) {
                 jobContent = jobContent.replaceAll(String.format(VAR_REGEX, s[0].trim()), s[1].trim());
