@@ -741,6 +741,17 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Phoenix - Spark (org.apache.phoenix:phoenix-spark:5.0.0-HBase-2.0 - http://www.apache.org/phoenix/phoenix-spark/)
      (http://asm.ow2.org/license.html) (http://www.apache.org/licenses/LICENSE-2.0.txt) Apache XBean :: ASM 6 shaded (repackaged) (org.apache.xbean:xbean-asm6-shaded:4.8 - http://geronimo.apache.org/maven/xbean/4.8/xbean-asm6-shaded)
      (Apache License, Version 2.0) Apache Yetus - Audience Annotations (org.apache.yetus:audience-annotations:0.11.0 - https://yetus.apache.org/audience-annotations)
+     (Apache License, Version 2.0) Apache Iceberg - Core (org.apache.iceberg:iceberg-core:0.13.1 - https://iceberg.apache.org/iceberg-core)
+     (Apache License, Version 2.0) Apache Iceberg - Api (org.apache.iceberg:iceberg-api:0.13.1 - https://iceberg.apache.org/iceberg-api)
+     (Apache License, Version 2.0) Apache Iceberg - Common (org.apache.iceberg:iceberg-common:0.13.1 - https://iceberg.apache.org/iceberg-common)
+     (Apache License, Version 2.0) Apache Iceberg - Bundled Guava (org.apache.iceberg:iceberg-bundled-guava:0.13.1 - https://iceberg.apache.org/iceberg-bundled-guava)
+     (Apache License, Version 2.0) Apache Iceberg - Spark Runtime (org.apache.iceberg:iceberg-spark-runtime:0.13.1 - https://iceberg.apache.org/iceberg-spark-time)
+     (Apache License, Version 2.0) Caffeine cache (com.github.ben-manes.caffeine:caffeine:2.8.4 - https://github.com/ben-manes/caffeine)
+     (Apache 2.0) error-prone annotations (com.google.errorprone:error_prone_annotations:2.3.4 - https://errorprone.info/error_prone_annotations)
+     (Apache 2) org.roaringbitmap:RoaringBitmap (org.roaringbitmap:RoaringBitmap:0.9.22 - https://github.com/RoaringBitmap/RoaringBitmap)
+     (Apache 2) org.roaringbitmap:shims (org.roaringbitmap:shims:0.9.22 - https://github.com/RoaringBitmap/RoaringBitmap)
+     (Apache 2) org.roaringbitmap:RoaringBitmap (org.roaringbitmap:RoaringBitmap:0.5.11 - https://github.com/RoaringBitmap/RoaringBitmap)
+     (The Apache Software License, Version 2.0) Jackson-core (com.fasterxml.jackson.core:jackson-core:2.11.4 - https://github.com/FasterXML/jackson-core)
 
 
 ========================================================================
@@ -768,6 +779,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.16 - http://www.slf4j.org)
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.25 - http://www.slf4j.org)
      (MIT-License) spoiwo (com.norbitltd:spoiwo_2.11:1.8.0 - https://github.com/norbert-radyk/spoiwo/)
+     (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.4.0 - https://checkerframework.org)
 
 ========================================================================
 BSD licenses
