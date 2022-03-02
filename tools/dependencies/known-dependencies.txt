@@ -265,7 +265,7 @@ htrace-core-3.1.0-incubating.jar
 htrace-core4-4.1.0-incubating.jar
 htrace-core4-4.2.0-incubating.jar
 httpasyncclient-4.1.4.jar
-httpclient-4.5.2.jar
+httpclient-4.5.13.jar
 httpcore-4.4.4.jar
 httpcore-nio-4.4.4.jar
 httpmime-4.5.2.jar
