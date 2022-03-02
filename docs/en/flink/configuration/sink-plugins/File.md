@@ -12,6 +12,7 @@ Write data to the file system
 | -------------- | ------ | -------- | ------------- |
 | format         | string | yes      | -             |
 | path           | string | yes      | -             |
+| path_time_format | string | no       | yyyyMMddHHmmss |
 | write_mode     | string | no       | -             |
 | common-options | string | no       | -             |
 | parallelism    | int    | no       | -             |
