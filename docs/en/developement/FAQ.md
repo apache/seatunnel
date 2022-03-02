@@ -71,7 +71,7 @@ env {
 source {
   hdfs { ... }	
   elasticsearch { ... }
-  mysql {...}
+  jdbc {...}
 }
 
 transform {

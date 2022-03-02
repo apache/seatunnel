@@ -49,7 +49,7 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 
 ## Workflow of SeaTunnel
 
-![seatunnel-workflow.svg](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
 
 ```
 Source[Data Source Input] -> Transform[Data Processing] -> Sink[Result Output]
@@ -82,7 +82,6 @@ processing plug-in, because the whole system is easy to expand.
 |                          |Kafka           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Kafka.md)           |
 |                          |Console         |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Console.md)         |
 |                          |Kudu            |[doc](./docs/en/spark/configuration/source-plugins/Kudu.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Kudu.md)            |
-|                          |Mysql           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Mysql.md)           |
 |                          |Redis           |[doc](./docs/en/spark/configuration/source-plugins/Redis.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Redis.md)           |
 |Stream                    |FakeStream      |[doc](./docs/en/spark/configuration/source-plugins/FakeStream.md)   |                                                                     |
 |                          |KafkaStream     |[doc](./docs/en/spark/configuration/source-plugins/KafkaStream.md)  |                                                                     |
@@ -191,7 +190,7 @@ Collecting various logs from business services into Apache Kafka, some of the da
 
 For more use cases, please refer to: https://seatunnel.apache.org/blog
 
-# Code of conduct
+## Code of conduct
 
 This project adheres to the Contributor Covenant [code of conduct](https://www.apache.org/foundation/policies/conduct).
 By participating, you are expected to uphold this code. Please follow
@@ -212,12 +211,19 @@ Thanks to all developers!
 * Twitter: https://twitter.com/ASFSeaTunnel
 * [Bilibili](https://space.bilibili.com/1542095008) (for Chinese users)
 
-# Landscapes
+## Landscapes
 
 <p align="center">
 <br/><br/>
-<img src="https://landscape.cncf.io/images/left-logo.svg" width="150"/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200"/>
+<img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
 <br/><br/>
-SeaTunnel enriches the <a href="https://landscape.cncf.io/landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
+SeaTunnel enriches the <a href="https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
 
 </p >
+
+## Our Users
+Various companies and organizations use SeaTunnel for research, production and commercial products.
+Visit our [website](https://seatunnel.apache.org/user) to find the user page.
+
+## License
+[Apache 2.0 License.](LICENSE)

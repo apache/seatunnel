@@ -20,6 +20,7 @@ package org.apache.seatunnel.flink.sink;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.flink.api.common.io.FileOutputFormat;
+import org.apache.flink.api.common.typeinfo.AtomicType;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -98,7 +99,7 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
         for (String name : fieldNames) {
             Object field = record.getField(i);
             final TypeInformation type = rowTypeInfo.getTypeAt(i);
-            if (type.isBasicType()) {
+            if (type instanceof AtomicType) {
                 json.put(name, field);
             } else if (type instanceof ObjectArrayTypeInfo) {
                 ObjectArrayTypeInfo arrayTypeInfo = (ObjectArrayTypeInfo) type;
