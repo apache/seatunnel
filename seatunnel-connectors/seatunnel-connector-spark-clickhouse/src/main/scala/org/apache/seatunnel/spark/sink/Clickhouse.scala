@@ -161,11 +161,11 @@ class Clickhouse extends SparkBatchSink {
             s"not find field '${this.shardKey}' in table '${this.table}' as sharding key")
         } else {
           this.shardKeyType = this.tableSchema(this.shardKey)
-          if (this.config.hasPath("fields")) {
-            this.fields = config.getStringList("fields")
-            checkResult = acceptedClickHouseSchema()
-          }
         }
+      }
+      if (this.config.hasPath("fields")) {
+        this.fields = config.getStringList("fields")
+        checkResult = acceptedClickHouseSchema()
       }
     }
     checkResult
