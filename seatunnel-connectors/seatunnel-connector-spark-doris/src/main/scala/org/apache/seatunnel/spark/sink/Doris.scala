@@ -34,6 +34,8 @@ class Doris extends SparkBatchSink with Serializable {
   var column_separator: String = "\t"
   var propertiesMap = new mutable.HashMap[String, String]()
 
+  private val NULL_VALUE = "\\N"
+
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val user: String = config.getString(Config.USER)
     val password: String = config.getString(Config.PASSWORD)
@@ -46,7 +48,10 @@ class Doris extends SparkBatchSink with Serializable {
     val dataFrame = data.map(row => {
       val builder = new StringBuilder
       fields.foreach(f => {
-        val filedValue = row.getAs[Any](f.name)
+        var filedValue = row.getAs[Any](f.name)
+        if (filedValue == null) {
+          filedValue = NULL_VALUE
+        }
         builder.append(filedValue).append(column_separator)
       })
       builder.substring(0, builder.length - 1)
