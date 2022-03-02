@@ -18,38 +18,23 @@
 package org.apache.seatunnel.config.command;
 
 import com.beust.jcommander.JCommander;
+import org.junit.Assert;
+import org.junit.Test;
 
-public final class CommandLineUtils {
+import java.util.Arrays;
 
-    private CommandLineUtils() {
-    }
+public class CommandFlinkArgsTest {
 
-    public static CommandLineArgs parseSparkArgs(String[] args) {
-        CommandSparkArgs commandSparkArgs = new CommandSparkArgs();
+    @Test
+    public void testParseFlinkArgs() {
+        String[] args = {"-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202"};
+        CommandFlinkArgs flinkArgs = new CommandFlinkArgs();
         JCommander.newBuilder()
-            .addObject(commandSparkArgs)
+            .addObject(flinkArgs)
             .build()
             .parse(args);
-
-        return new CommandLineArgs(
-            commandSparkArgs.getDeployMode(),
-            commandSparkArgs.getConfigFile(),
-            commandSparkArgs.isTestConfig()
-        );
+        Assert.assertEquals("app.conf", flinkArgs.getConfigFile());
+        Assert.assertTrue(flinkArgs.isTestConfig());
+        Assert.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
     }
-
-    public static CommandLineArgs parseFlinkArgs(String[] args) {
-        CommandFlinkArgs commandFlinkArgs = new CommandFlinkArgs();
-        JCommander.newBuilder()
-            .addObject(commandFlinkArgs)
-            .build()
-            .parse(args);
-
-        return new CommandLineArgs(
-            commandFlinkArgs.getConfigFile(),
-            commandFlinkArgs.isTestConfig(),
-            commandFlinkArgs.getVariables()
-        );
-    }
-
 }
