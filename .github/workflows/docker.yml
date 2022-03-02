@@ -54,6 +54,7 @@ jobs:
           ./mvnw -B package \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
+                 -Dlicense.skipAddThirdParty=true \
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
