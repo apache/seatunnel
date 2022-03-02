@@ -27,7 +27,7 @@
         <artifactId>apache</artifactId>
         <version>25</version>
     </parent>
-    
+
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
@@ -54,7 +54,7 @@
         <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
-    
+
     <issueManagement>
         <system>GitHub</system>
         <url>https://github.com/apache/incubator-seatunnel/issues</url>
@@ -152,7 +152,6 @@
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
         <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <influxdb-java.version>2.22</influxdb-java.version>
-        <maven-exec-skip>true</maven-exec-skip>
         <scalastyle-maven-plugin.version>1.0.0</scalastyle-maven-plugin.version>
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
@@ -880,34 +879,6 @@
                         <addJavaLicenseAfterPackage>true</addJavaLicenseAfterPackage>
                     </configuration>
                 </plugin>
-
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>exec-maven-plugin</artifactId>
-                    <version>${exec-maven-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>license</id>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>exec</goal>
-                            </goals>
-                            <configuration>
-                                <executable>${project.basedir}/bin/license.py</executable>
-                                <workingDirectory>${project.basedir}</workingDirectory>
-                                <arguments>
-                                    <argument>${project.basedir}/seatunnel-dist/target/THIRD-PARTY.txt</argument>
-                                    <argument>${project.basedir}/seatunnel-dist/release-docs/LICENSE</argument>
-                                    <argument>true</argument>
-                                </arguments>
-                            </configuration>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <skip>${maven-exec-skip}</skip>
-                    </configuration>
-                </plugin>
-
             </plugins>
         </pluginManagement>
 
@@ -950,11 +921,6 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>license-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
