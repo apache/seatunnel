@@ -792,7 +792,6 @@
                         </execution>
                     </executions>
                 </plugin>
-                
 
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
@@ -804,21 +803,16 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>license-maven-plugin</artifactId>
                     <version>${maven-license-maven-plugin}</version>
-                    <executions>
-                        <execution>
-                            <id>download</id>
-                            <goals>
-                                <goal>download-licenses</goal>
-                            </goals>
-                        </execution>
-                    </executions>
                     <configuration>
                         <skip>true</skip>
                         <outputDirectory>${project.basedir}/seatunnel-dist/target/</outputDirectory>
                         <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
-                        <sortArtifactByName>true</sortArtifactByName>
+                        <sortArtifactByName>false</sortArtifactByName>
                         <useMissingFile>false</useMissingFile>
                         <addJavaLicenseAfterPackage>true</addJavaLicenseAfterPackage>
+                        <socketTimeout>30000</socketTimeout>
+                        <connectTimeout>30000</connectTimeout>
+                        <connectionRequestTimeout>30000</connectionRequestTimeout>
                     </configuration>
                 </plugin>
             </plugins>
