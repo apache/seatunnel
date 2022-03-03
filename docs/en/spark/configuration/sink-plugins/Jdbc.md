@@ -8,18 +8,20 @@ Support `Update` to output data to Relational database
 
 ## Options
 
-| name             | type   | required | default value |
-|------------------| ------ |----------|---------------|
-| driver           | string | yes      | -             |
-| url              | string | yes      | -             |
-| user             | string | yes      | -             |
-| password         | string | yes      | -             |
-| dbTable          | string | yes      | -             |
-| saveMode         | string | no       | error         |
-| useSsl           | string | no       | false         |
-| customUpdateStmt | string | no       | -             |
-| duplicateIncs    | string | no       | -             |
-| showSql          | string | no       | true          |
+| name             | type         | required | default value |
+|------------------| -------------|----------|---------------|
+| driver           | string       | yes      | -             |
+| url              | string       | yes      | -             |
+| user             | string       | yes      | -             |
+| password         | string       | yes      | -             |
+| dbTable          | string       | yes      | -             |
+| saveMode         | string       | no       | error         |
+| useSsl           | string       | no       | false         |
+| customUpdateStmt | string       | no       | -             |
+| duplicateIncs    | string       | no       | -             |
+| showSql          | string       | no       | true          |
+| preSqls          | List[String] | no       | empty         |
+| postSqls         | List[String] | no       | empty         |
 
 ### url [string]
 
@@ -60,6 +62,14 @@ Configure when `saveMode` is specified as `update` , and when the specified key 
 ### showSql
 
 Configure when `saveMode` is specified as `update` , whether to show sql
+
+### preSqls
+
+These sql can be executed before output.
+
+### postSqls
+
+These sql can be executed after output.
 
 ## Examples
 
