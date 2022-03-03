@@ -54,8 +54,6 @@ case class JdbcConfigs(config: Config) {
 
 object JdbcConfigs{
 
-  val DEFAULT_SQL_SEPARATOR = ";"
-
   val DRIVER: String = "driver"
 
   val URL: String = "url"
