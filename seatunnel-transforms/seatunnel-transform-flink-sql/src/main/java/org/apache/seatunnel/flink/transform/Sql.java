@@ -42,16 +42,26 @@ public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<
     private static final String SQL = "sql";
 
     @Override
-    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) throws Exception {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
-        Table table = tableEnvironment.sqlQuery(sql);
+        Table table = null;
+        try {
+            table = tableEnvironment.sqlQuery(sql);
+        } catch (Exception e) {
+            throw new Exception(sql,e.getCause());
+        }
         return TableUtil.tableToDataStream(tableEnvironment, table, false);
     }
 
     @Override
-    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
+    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) throws Exception {
         BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
-        Table table = tableEnvironment.sqlQuery(sql);
+        Table table = null;
+        try {
+            table = tableEnvironment.sqlQuery(sql);
+        } catch (Exception e) {
+            throw new Exception(sql,e.getCause());
+        }
         return TableUtil.tableToDataSet(tableEnvironment, table);
     }
 
