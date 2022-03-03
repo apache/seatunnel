@@ -64,7 +64,7 @@ public final class SparkStructTypeUtil {
     }
 
     private static DataType getType(String type) {
-        DataType dataType = DataTypes.NullType;
+        DataType dataType;
         switch (type.toLowerCase()) {
             case "string":
                 dataType = DataTypes.StringType;

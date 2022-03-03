@@ -4,7 +4,7 @@
 
 ## Description
 
-Output data to file
+Output data to local or hdfs file.
 
 ## Options
 
@@ -28,7 +28,9 @@ Partition data based on selected fields
 
 ### path [string]
 
-Output file path, starting with `file://`
+The file path is required. The `hdfs file` starts with `hdfs://` , and the `local file` starts with `file://`,
+we can add the variable `${now}` or `${uuid}` in the path, like `hdfs:///test_${uuid}_${now}.txt`, 
+`${now}` represents the current time, and its format can be defined by specifying the option `path_time_format`
 
 ### path_time_format [string]
 
