@@ -63,7 +63,7 @@ class Jdbc extends SparkBatchSink {
   private def executePreSql(): Unit = {
     val preSqls = jdbcConfigs.preSqls
     if (CollectionUtils.isNotEmpty(preSqls)) {
-      LOG.info(s"Starting to execute sqls: ${preSqls.mkString(";")}")
+      LOG.info(s"Starting to execute pre sqls: ${preSqls.mkString(";")}")
       executeSql(preSqls)
     }
   }
