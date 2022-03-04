@@ -18,17 +18,20 @@ package org.apache.seatunnel.spark
 
 object Config extends Serializable {
 
-  val PATH = "path"
-  val PARTITION_BY = "partition_by"
-  val SAVE_MODE = "save_mode"
-  val SERIALIZER = "serializer"
-  val PATH_TIME_FORMAT = "path_time_format"
-  val FORMAT = "format"
+  final val PATH = "path"
+  final val PARTITION_BY = "partition_by"
+  final val SAVE_MODE = "save_mode"
+  final val SERIALIZER = "serializer"
+  final val PATH_TIME_FORMAT = "path_time_format"
+  final val DEFAULT_TIME_FORMAT = "path_time_format"
+  final val FORMAT = "format"
+  final val SAVE_MODE_ERROR = "error"
+  final val OPTION_PREFIX = "options."
 
-  val TEXT = "text"
-  val PARQUET = "parquet"
-  val JSON = "json"
-  val ORC = "orc"
-  val CSV = "csv"
+  final val TEXT = "text"
+  final val PARQUET = "parquet"
+  final val JSON = "json"
+  final val ORC = "orc"
+  final val CSV = "csv"
 
 }
