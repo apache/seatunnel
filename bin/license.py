@@ -117,9 +117,6 @@ for _ in licenses:
     # Because the license of this project itself dose not need to be declared here
     if "org.apache.seatunnel" in _:
         continue
-    # Because the license is not in compliance, if you need to use MySQL, you can add it yourself
-    if "mysql-connector-java" in _:
-        continue
     if "Unknown license" in _:
         for k, v in dependency_licenses_map.items():
             if k in _:
