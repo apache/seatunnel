@@ -78,9 +78,9 @@ class Split extends BaseSparkTransform {
    */
   private def split(str: String, separator: String, fillLength: Int): Seq[String] = {
     val parts = str.split(separator).map(_.trim)
-    val filled = fillLength compare parts.size match {
+    val filled = fillLength compare parts.length match {
       case 0 => parts
-      case 1 => parts ++ Array.fill[String](fillLength - parts.size)("")
+      case 1 => parts ++ Array.fill[String](fillLength - parts.length)("")
       case -1 => parts.slice(0, fillLength)
     }
     filled.toSeq
