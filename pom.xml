@@ -813,6 +813,7 @@
                         <socketTimeout>30000</socketTimeout>
                         <connectTimeout>30000</connectTimeout>
                         <connectionRequestTimeout>30000</connectionRequestTimeout>
+                        <excludedScopes>test,provided</excludedScopes>
                     </configuration>
                 </plugin>
             </plugins>

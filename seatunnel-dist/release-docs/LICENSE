@@ -311,7 +311,6 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License) HttpClient (org.apache.httpcomponents:httpclient:4.2.5 - http://hc.apache.org/httpcomponents-client)
      (Apache License) HttpCore (org.apache.httpcomponents:httpcore:4.0.1 - http://hc.apache.org/httpcomponents-core/)
      (Apache License) HttpCore (org.apache.httpcomponents:httpcore:4.1.2 - http://hc.apache.org/httpcomponents-core-ga)
-     (Apache License) HttpCore (org.apache.httpcomponents:httpcore:4.2.4 - http://hc.apache.org/httpcomponents-core-ga)
      (Apache License, Version 1.1) ORO (oro:oro:2.0.8 - https://mvnrepository.com/artifact/oro/oro)
      (Apache License, Version 2) Neo4j Java Driver (org.neo4j.driver:neo4j-java-driver:4.3.4 - https://github.com/neo4j/neo4j-java-driver/neo4j-java-driver)
      (Apache License, Version 2.0) AWS Java SDK for AWS KMS (com.amazonaws:aws-java-sdk-kms:1.12.37 - https://aws.amazon.com/sdkforjava)
@@ -689,7 +688,6 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Flink : Connectors : Elasticsearch base (org.apache.flink:flink-connector-elasticsearch-base_2.11:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-elasticsearch-base_2.11)
      (The Apache Software License, Version 2.0) Flink : Connectors : File Sink Common (org.apache.flink:flink-file-sink-common:1.13.6 - https://flink.apache.org/flink-connectors/flink-file-sink-common)
      (The Apache Software License, Version 2.0) Flink : Connectors : Files (org.apache.flink:flink-connector-files:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-files)
-     (The Apache Software License, Version 2.0) Flink : Connectors : JDBC (org.apache.flink:flink-connector-jdbc_2.11:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-jdbc_2.11)
      (The Apache Software License, Version 2.0) Flink : Connectors : Kafka (org.apache.flink:flink-connector-kafka_2.11:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-kafka_2.11)
      (The Apache Software License, Version 2.0) Flink : Core (org.apache.flink:flink-core:1.13.6 - https://flink.apache.org/flink-core)
      (The Apache Software License, Version 2.0) Flink : FileSystems : Hadoop FS (org.apache.flink:flink-hadoop-fs:1.13.6 - https://flink.apache.org/flink-filesystems/flink-hadoop-fs)
@@ -760,7 +758,6 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.10.5 - http://github.com/FasterXML/jackson)
      (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.11.0 - http://github.com/FasterXML/jackson)
      (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.11.4 - http://github.com/FasterXML/jackson)
-     (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.6.0 - http://github.com/FasterXML/jackson)
      (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.6.7 - http://github.com/FasterXML/jackson)
      (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.7.8 - http://github.com/FasterXML/jackson)
      (The Apache Software License, Version 2.0) Jackson-annotations (com.fasterxml.jackson.core:jackson-annotations:2.9.2 - http://github.com/FasterXML/jackson)
@@ -880,7 +877,6 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (MIT License) SLF4J API Module (org.slf4j:slf4j-api:1.7.16 - http://www.slf4j.org)
      (MIT License) SLF4J API Module (org.slf4j:slf4j-api:1.7.25 - http://www.slf4j.org)
      (MIT License) SLF4J API Module (org.slf4j:slf4j-api:1.7.30 - http://www.slf4j.org)
-     (MIT License) SLF4J API Module (org.slf4j:slf4j-api:1.7.5 - http://www.slf4j.org)
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.10 - http://www.slf4j.org)
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.15 - http://www.slf4j.org)
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.16 - http://www.slf4j.org)
@@ -893,7 +889,6 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.10.0 - https://checkerframework.org)
      (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.4.0 - https://checkerframework.org)
      (The MIT License) JOpt Simple (net.sf.jopt-simple:jopt-simple:5.0.2 - http://pholser.github.io/jopt-simple)
-     (The MIT License) Project Lombok (org.projectlombok:lombok:1.18.0 - https://projectlombok.org)
 
 
 ========================================================================
@@ -905,7 +900,6 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
 
      (3-Clause BSD License) Kryo Shaded (com.esotericsoftware:kryo-shaded:4.0.2 - https://github.com/EsotericSoftware/kryo/kryo-shaded)
      (3-Clause BSD License) Protocol Buffers [Core] (com.google.protobuf:protobuf-java:3.17.1 - https://developers.google.com/protocol-buffers/protobuf-java/)
-     (3-Clause BSD License) Protocol Buffers [Core] (com.google.protobuf:protobuf-java:3.6.1 - https://developers.google.com/protocol-buffers/protobuf-java/)
      (BSD 2-Clause License) zstd-jni (com.github.luben:zstd-jni:1.3.2-2 - https://github.com/luben/zstd-jni)
      (BSD 2-Clause License) zstd-jni (com.github.luben:zstd-jni:1.3.3-1 - https://github.com/luben/zstd-jni)
      (BSD 2-Clause License) zstd-jni (com.github.luben:zstd-jni:1.4.3-1 - https://github.com/luben/zstd-jni)
@@ -935,7 +929,6 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (BSD) JLine (jline:jline:0.9.94 - http://jline.sourceforge.net)
      (BSD) ParaNamer Core (com.thoughtworks.paranamer:paranamer:2.3 - http://paranamer.codehaus.org/paranamer)
      (BSD) ParaNamer Core (com.thoughtworks.paranamer:paranamer:2.7 - http://paranamer.codehaus.org/paranamer)
-     (BSD) ParaNamer Core (com.thoughtworks.paranamer:paranamer:2.8 - https://github.com/paul-hammant/paranamer/paranamer)
      (BSD) asm (org.ow2.asm:asm:7.1 - http://asm.ow2.org/)
      (BSD) asm-analysis (org.ow2.asm:asm-analysis:7.1 - http://asm.ow2.org/)
      (BSD) asm-commons (org.ow2.asm:asm-commons:7.1 - http://asm.ow2.org/)
@@ -1034,7 +1027,6 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (EDL 1.0) JavaBeans Activation Framework API jar (jakarta.activation:jakarta.activation-api:1.2.1 - https://github.com/eclipse-ee4j/jaf/jakarta.activation-api)
      (Eclipse Distribution License - v 1.0) jakarta.xml.bind-api (jakarta.xml.bind:jakarta.xml.bind-api:2.3.2 - https://github.com/eclipse-ee4j/jaxb-api/jakarta.xml.bind-api)
      (Eclipse Public License 1.0) JUnit (junit:junit:4.12 - http://junit.org)
-     (Eclipse Public License 1.0) JUnit (junit:junit:4.13.2 - http://junit.org)
      (Eclipse Public License, Version 1.0) Aether API (org.eclipse.aether:aether-api:0.9.0.M2 - http://www.eclipse.org/aether/aether-api/)
      (Eclipse Public License, Version 1.0) Aether Connector File (org.eclipse.aether:aether-connector-file:0.9.0.M2 - http://www.eclipse.org/aether/aether-connector-file/)
      (Eclipse Public License, Version 1.0) Aether Implementation (org.eclipse.aether:aether-impl:0.9.0.M2 - http://www.eclipse.org/aether/aether-impl/)
