@@ -16,14 +16,15 @@
  */
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.Constants
-
 import scala.collection.JavaConversions._
+
+import org.apache.seatunnel.common.Constants
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
 
 class Split extends BaseSparkTransform {
@@ -33,27 +34,29 @@ class Split extends BaseSparkTransform {
     val keys = config.getStringList("fields")
 
     // https://stackoverflow.com/a/33345698/1145750
-    config.getString("target_field") match {
-      case Constants.ROW_ROOT => {
-        val func = udf((s: String) => {
-          split(s, config.getString("delimiter"), keys.size())
+    var func: UserDefinedFunction = null
+    val ds = config.getString("target_field") match {
+      case Constants.ROW_ROOT =>
+        func = udf((s: String) => {
+          split(s, config.getString("separator"), keys.size())
         })
         var filterDf = df.withColumn(Constants.ROW_TMP, func(col(srcField)))
         for (i <- 0 until keys.size()) {
           filterDf = filterDf.withColumn(keys.get(i), col(Constants.ROW_TMP)(i))
         }
         filterDf.drop(Constants.ROW_TMP)
-      }
-      case targetField: String => {
-        val func = udf((s: String) => {
-          val values = split(s, config.getString("delimiter"), keys.size)
+      case targetField: String =>
+        func = udf((s: String) => {
+          val values = split(s, config.getString("separator"), keys.size)
           val kvs = (keys zip values).toMap
           kvs
         })
-
         df.withColumn(targetField, func(col(srcField)))
-      }
     }
+    if (func != null) {
+      env.getSparkSession.udf.register("Split", func)
+    }
+    ds
   }
 
   override def checkConfig(): CheckResult = {
@@ -63,18 +66,18 @@ class Split extends BaseSparkTransform {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "delimiter" -> " ",
+        "separator" -> " ",
         "source_field" -> "raw_message",
         "target_field" -> Constants.ROW_ROOT))
     config = config.withFallback(defaultConfig)
   }
 
   /**
-   * Split string by delimiter, if size of splited parts is less than fillLength,
+   * Split string by separator, if size of splited parts is less than fillLength,
    * empty string is filled; if greater than fillLength, parts will be truncated.
    */
-  private def split(str: String, delimiter: String, fillLength: Int): Seq[String] = {
-    val parts = str.split(delimiter).map(_.trim)
+  private def split(str: String, separator: String, fillLength: Int): Seq[String] = {
+    val parts = str.split(separator).map(_.trim)
     val filled = fillLength compare parts.size match {
       case 0 => parts
       case 1 => parts ++ Array.fill[String](fillLength - parts.size)("")
