@@ -19,6 +19,8 @@ package org.apache.seatunnel.config.command;
 
 import com.beust.jcommander.Parameter;
 
+import java.util.List;
+
 public class CommandSparkArgs {
 
     @Parameter(names = {"-c", "--config"},
@@ -39,7 +41,7 @@ public class CommandSparkArgs {
 
     @Parameter(names = {"-i", "--variable"},
         description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private String variable = null;
+    private List<String> variables = null;
 
     @Parameter(names = {"-t", "--check"},
         description = "check config")
@@ -57,4 +59,11 @@ public class CommandSparkArgs {
         return testConfig;
     }
 
+    public String getMaster() {
+        return master;
+    }
+
+    public List<String> getVariables() {
+        return variables;
+    }
 }

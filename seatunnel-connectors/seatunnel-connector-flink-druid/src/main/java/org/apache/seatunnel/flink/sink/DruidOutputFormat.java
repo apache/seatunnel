@@ -102,7 +102,7 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
                 this.data.append(DEFAULT_FIELD_DELIMITER);
             }
             if (v != null) {
-                this.data.append(v.toString());
+                this.data.append(v);
             }
         }
         this.data.append(DEFAULT_LINE_DELIMITER);

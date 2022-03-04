@@ -19,6 +19,7 @@ package org.apache.seatunnel.flink.sink;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.utils.StringTemplate;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
@@ -52,7 +53,8 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     private static final String FORMAT = "format";
     private static final String WRITE_MODE = "write_mode";
     private static final String PARALLELISM = "parallelism";
-
+    private static final String PATH_TIME_FORMAT = "path_time_format";
+    private static final String DEFAULT_TIME_FORMAT = "yyyyMMddHHmmss";
     private Config config;
 
     private FileOutputFormat outputFormat;
@@ -81,8 +83,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
                 outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
                 break;
             case "csv":
-                CsvRowOutputFormat csvFormat = new CsvRowOutputFormat(filePath);
-                outputFormat = csvFormat;
+                outputFormat = new CsvRowOutputFormat(filePath);
                 break;
             case "text":
                 outputFormat = new TextOutputFormat(filePath);
@@ -122,7 +123,8 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        String path = config.getString(PATH);
+        String format = config.hasPath(PATH_TIME_FORMAT) ? config.getString(PATH_TIME_FORMAT) : DEFAULT_TIME_FORMAT;
+        String path = StringTemplate.substitute(config.getString(PATH), format);
         filePath = new Path(path);
     }
 }
