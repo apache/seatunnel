@@ -42,7 +42,7 @@ case class JdbcConfigs(config: Config) {
   }
   lazy val saveMode: String = config.getString(SAVE_MODE)
   lazy val dbTable: String = config.getString(DB_TABLE)
-  lazy val useSsl:String = config.getString(USE_SSL)
+  lazy val useSsl: String = config.getString(USE_SSL)
 
   // Custom mysql duplicate key update statement when saveMode is update
   lazy val customUpdateStmt: String = config.getString(CUSTOM_UPDATE_STMT)
@@ -72,7 +72,7 @@ object JdbcConfigs{
 
   val USE_SSL: String = "useSsl"
 
-  val CUSTOM_UPDATE_STMT: String= "customUpdateStmt"
+  val CUSTOM_UPDATE_STMT: String = "customUpdateStmt"
 
   val SHOW_SQL: String = "showSql"
 
