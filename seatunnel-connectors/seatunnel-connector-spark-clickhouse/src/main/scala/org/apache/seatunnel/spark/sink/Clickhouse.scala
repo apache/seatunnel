@@ -354,8 +354,22 @@ class Clickhouse extends SparkBatchSink {
         statement.setInt(index + 1, item.getAs[Int](fieldIndex))
       case "UInt32" | "UInt64" | "Int64" =>
         statement.setLong(index + 1, item.getAs[Long](fieldIndex))
-      case "Float32" => statement.setFloat(index + 1, item.getAs[Float](fieldIndex))
-      case "Float64" => statement.setDouble(index + 1, item.getAs[Double](fieldIndex))
+      case "Float32" =>
+        val value = item.get(fieldIndex)
+        value match {
+          case decimal: BigDecimal =>
+            statement.setFloat(index + 1, decimal.floatValue())
+          case _ =>
+            statement.setFloat(index + 1, value.asInstanceOf[Float])
+        }
+      case "Float64" =>
+        val value = item.get(fieldIndex)
+        value match {
+          case decimal: BigDecimal =>
+            statement.setDouble(index + 1, decimal.doubleValue())
+          case _ =>
+            statement.setDouble(index + 1, value.asInstanceOf[Double])
+        }
       case Clickhouse.arrayPattern(_) =>
         statement.setArray(index + 1, item.getAs[java.sql.Array](fieldIndex))
       case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
