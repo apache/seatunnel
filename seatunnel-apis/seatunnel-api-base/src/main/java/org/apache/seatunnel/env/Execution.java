@@ -40,6 +40,5 @@ public interface Execution<SR extends BaseSource, TF extends BaseTransform, SK e
 
     @Override
     default void prepare(Void prepareEnv) {
-        
     }
 }
