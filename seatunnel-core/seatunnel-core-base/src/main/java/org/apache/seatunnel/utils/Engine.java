@@ -20,7 +20,7 @@ package org.apache.seatunnel.utils;
 public enum Engine {
     SPARK("spark"), FLINK("flink"), NULL("");
 
-    private String engine;
+    private final String engine;
 
     Engine(String engine) {
         this.engine = engine;
