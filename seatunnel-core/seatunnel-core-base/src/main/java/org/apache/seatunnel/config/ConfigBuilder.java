@@ -102,10 +102,9 @@ public class ConfigBuilder {
         if (envConfig.hasPath("job.mode")) {
             jobMode = envConfig.getEnum(JobMode.class, "job.mode");
         } else {
-            //兼容以前逻辑
+            //Compatible with previous logic
             List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
-            jobMode = sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream")
-                    ? JobMode.STREAMING : JobMode.BATCH;
+            jobMode = sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream") ? JobMode.STREAMING : JobMode.BATCH;
         }
 
     }
@@ -229,7 +228,7 @@ public class ConfigBuilder {
             default:
                 throw new IllegalArgumentException("No suitable engine");
         }
-        LOGGER.info("current execution is [{}]",execution.getClass().getName());
+        LOGGER.info("current execution is [{}]", execution.getClass().getName());
         return execution;
     }
 

@@ -40,12 +40,11 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         this.environment = environment;
     }
 
-
     @Override
     public void start(List<SparkBatchSource> sources, List<BaseSparkTransform> transforms, List<SparkBatchSink> sinks) {
-        
+
         sources.forEach(source -> SparkEnvironment.registerInputTempView(source, environment));
-        
+
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform transform : transforms) {

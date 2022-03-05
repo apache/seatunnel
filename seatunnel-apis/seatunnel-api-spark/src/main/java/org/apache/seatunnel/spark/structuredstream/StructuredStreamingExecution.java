@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.spark.structuredstream;
 
-import java.util.stream.Collectors;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.BaseSparkTransform;
@@ -27,10 +25,11 @@ import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import java.util.List;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class StructuredStreamingExecution implements
         Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink> {
@@ -45,12 +44,12 @@ public class StructuredStreamingExecution implements
 
     @Override
     public void start(List<StructuredStreamingSource> sources, List<BaseSparkTransform> transforms,
-            List<StructuredStreamingSink> sinks) throws Exception {
+        List<StructuredStreamingSink> sinks) throws Exception {
 
         List<Dataset<Row>> datasetList = sources.stream().map(s ->
                 SparkEnvironment.registerInputTempView(s, sparkEnvironment)
         ).collect(Collectors.toList());
-        if (CollectionUtils.isNotEmpty(datasetList)) {
+        if (datasetList.size() > 0) {
             Dataset<Row> ds = datasetList.get(0);
             for (BaseSparkTransform tf : transforms) {
                 ds = SparkEnvironment.transformProcess(sparkEnvironment, tf, ds);
