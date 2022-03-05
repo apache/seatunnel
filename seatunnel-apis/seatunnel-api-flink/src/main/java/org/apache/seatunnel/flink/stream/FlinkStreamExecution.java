@@ -48,7 +48,8 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
     }
 
     @Override
-    public void start(List<FlinkStreamSource> sources, List<FlinkStreamTransform> transforms, List<FlinkStreamSink> sinks) throws Exception {
+    public void start(List<FlinkStreamSource> sources, List<FlinkStreamTransform> transforms,
+            List<FlinkStreamSink> sinks) throws Exception {
         List<DataStream> data = new ArrayList<>();
 
         for (FlinkStreamSource source : sources) {
@@ -125,5 +126,4 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
     public CheckResult checkConfig() {
         return CheckResult.success();
     }
-    
 }

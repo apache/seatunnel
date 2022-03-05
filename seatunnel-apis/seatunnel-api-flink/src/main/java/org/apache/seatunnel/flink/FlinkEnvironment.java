@@ -74,7 +74,7 @@ public class FlinkEnvironment implements RuntimeEnv {
     public CheckResult checkConfig() {
         return EnvironmentUtil.checkRestartStrategy(config);
     }
-    
+
     @Override
     public void prepare(JobMode jobMode) {
         this.jobMode = jobMode;
@@ -95,7 +95,7 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     public boolean isStreaming() {
-        return isStreaming;
+        return JobMode.STREAMING.equals(jobMode);
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
@@ -110,7 +110,8 @@ public class FlinkEnvironment implements RuntimeEnv {
         // use blink and streammode
         EnvironmentSettings.Builder envBuilder = EnvironmentSettings.newInstance()
                 .inStreamingMode();
-        if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink".equals(this.config.getString(ConfigKeyName.PLANNER))) {
+        if (this.config.hasPath(ConfigKeyName.PLANNER) && "blink"
+                .equals(this.config.getString(ConfigKeyName.PLANNER))) {
             envBuilder.useBlinkPlanner();
         } else {
             envBuilder.useOldPlanner();
@@ -119,7 +120,8 @@ public class FlinkEnvironment implements RuntimeEnv {
 
         tableEnvironment = StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
-        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
+        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME) && this.config
+                .hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
             long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
             long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
             config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
@@ -185,7 +187,9 @@ public class FlinkEnvironment implements RuntimeEnv {
                     environment.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
                     break;
                 default:
-                    LOGGER.warn("set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time", timeType);
+                    LOGGER.warn(
+                            "set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time",
+                            timeType);
                     break;
             }
         }
@@ -207,7 +211,9 @@ public class FlinkEnvironment implements RuntimeEnv {
                         checkpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE);
                         break;
                     default:
-                        LOGGER.warn("set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once", mode);
+                        LOGGER.warn(
+                                "set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once",
+                                mode);
                         break;
                 }
             }
@@ -239,9 +245,11 @@ public class FlinkEnvironment implements RuntimeEnv {
             if (config.hasPath(ConfigKeyName.CHECKPOINT_CLEANUP_MODE)) {
                 boolean cleanup = config.getBoolean(ConfigKeyName.CHECKPOINT_CLEANUP_MODE);
                 if (cleanup) {
-                    checkpointConfig.enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION);
+                    checkpointConfig.enableExternalizedCheckpoints(
+                            CheckpointConfig.ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION);
                 } else {
-                    checkpointConfig.enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+                    checkpointConfig.enableExternalizedCheckpoints(
+                            CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
 
                 }
             }

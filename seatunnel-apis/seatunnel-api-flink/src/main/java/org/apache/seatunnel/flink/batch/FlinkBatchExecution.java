@@ -49,7 +49,8 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     }
 
     @Override
-    public void start(List<FlinkBatchSource> sources, List<FlinkBatchTransform> transforms, List<FlinkBatchSink> sinks) throws Exception {
+    public void start(List<FlinkBatchSource> sources, List<FlinkBatchTransform> transforms, List<FlinkBatchSink> sinks)
+            throws Exception {
         List<DataSet> data = new ArrayList<>();
 
         for (FlinkBatchSource source : sources) {
@@ -127,5 +128,4 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     public CheckResult checkConfig() {
         return CheckResult.success();
     }
-    
 }

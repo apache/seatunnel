@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.spark.structuredstream;
 
-import java.util.ArrayList;
 import java.util.stream.Collectors;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -31,9 +30,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import java.util.List;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.streaming.DataStreamWriter;
-import org.apache.spark.sql.streaming.StreamingQuery;
-import org.apache.spark.sql.streaming.StreamingQueryException;
+
 
 public class StructuredStreamingExecution implements
         Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink> {
