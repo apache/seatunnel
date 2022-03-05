@@ -42,67 +42,21 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     public SparkBatchExecution(SparkEnvironment environment) {
         this.environment = environment;
     }
-
-    public static void registerTempView(String tableName, Dataset<Row> ds) {
-        ds.createOrReplaceTempView(tableName);
-    }
-
-    public static void registerInputTempView(BaseSparkSource<Dataset<Row>> source, SparkEnvironment environment) {
-        Config config = source.getConfig();
-        if (config.hasPath(RESULT_TABLE_NAME)) {
-            String tableName = config.getString(RESULT_TABLE_NAME);
-            registerTempView(tableName, source.getData(environment));
-        } else {
-            throw new ConfigRuntimeException("Plugin[" + source.getClass().getName() + "] " +
-                "must be registered as dataset/table, please set \"" + RESULT_TABLE_NAME + "\" config");
-        }
-    }
-
-    public static Dataset<Row> transformProcess(SparkEnvironment environment, BaseSparkTransform transform, Dataset<Row> ds) {
-        Dataset<Row> fromDs;
-        Config config = transform.getConfig();
-        if (config.hasPath(SOURCE_TABLE_NAME)) {
-            String sourceTableName = config.getString(SOURCE_TABLE_NAME);
-            fromDs = environment.getSparkSession().read().table(sourceTableName);
-        } else {
-            fromDs = ds;
-        }
-        return transform.process(fromDs, environment);
-    }
-
-    public static void registerTransformTempView(BaseSparkTransform transform, Dataset<Row> ds) {
-        Config config = transform.getConfig();
-        if (config.hasPath(RESULT_TABLE_NAME)) {
-            String resultTableName = config.getString(RESULT_TABLE_NAME);
-            registerTempView(resultTableName, ds);
-        }
-    }
-
-    public static void sinkProcess(SparkEnvironment environment, BaseSparkSink<?> sink, Dataset<Row> ds) {
-        Dataset<Row> fromDs;
-        Config config = sink.getConfig();
-        if (config.hasPath(SOURCE_TABLE_NAME)) {
-            String sourceTableName = config.getString(SOURCE_TABLE_NAME);
-            fromDs = environment.getSparkSession().read().table(sourceTableName);
-        } else {
-            fromDs = ds;
-        }
-        sink.output(fromDs, environment);
-    }
+    
 
     @Override
     public void start(List<SparkBatchSource> sources, List<BaseSparkTransform> transforms, List<SparkBatchSink> sinks) {
-        sources.forEach(source -> registerInputTempView(source, environment));
+        sources.forEach(source -> SparkEnvironment.registerInputTempView(source, environment));
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform transform : transforms) {
                 if (ds.takeAsList(1).size() > 0) {
-                    ds = transformProcess(environment, transform, ds);
-                    registerTransformTempView(transform, ds);
+                    ds = SparkEnvironment.transformProcess(environment, transform, ds);
+                    SparkEnvironment.registerTransformTempView(transform, ds);
                 }
             }
             for (SparkBatchSink sink : sinks) {
-                sinkProcess(environment, sink, ds);
+                SparkEnvironment.sinkProcess(environment, sink, ds);
             }
         }
     }
@@ -121,9 +75,6 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     public CheckResult checkConfig() {
         return CheckResult.success();
     }
-
-    @Override
-    public void prepare(Void prepareEnv) {
-
-    }
+    
 }
+

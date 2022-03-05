@@ -37,4 +37,9 @@ public interface Execution<SR extends BaseSource, TF extends BaseTransform, SK e
      * @param sinks      sink plugin list
      */
     void start(List<SR> sources, List<TF> transforms, List<SK> sinks) throws Exception;
+
+    @Override
+    default void prepare(Void prepareEnv) {
+        
+    }
 }

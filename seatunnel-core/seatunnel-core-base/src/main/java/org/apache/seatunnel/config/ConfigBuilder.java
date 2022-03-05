@@ -18,6 +18,7 @@
 package org.apache.seatunnel.config;
 
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
 import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
+import org.apache.seatunnel.spark.structuredstream.StructuredStreamingExecution;
 import org.apache.seatunnel.utils.Engine;
 import org.apache.seatunnel.utils.PluginType;
 
@@ -55,7 +57,7 @@ public class ConfigBuilder {
     private final Engine engine;
     private ConfigPackage configPackage;
     private final Config config;
-    private boolean streaming;
+    private JobMode jobMode;
     private Config envConfig;
     private final RuntimeEnv env;
 
@@ -96,10 +98,16 @@ public class ConfigBuilder {
         return env;
     }
 
-    private boolean checkIsStreaming() {
-        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+    private void setJobMode(Config envConfig) {
+        if (envConfig.hasPath("job.mode")) {
+            jobMode = envConfig.getEnum(JobMode.class, "job.mode");
+        } else {
+            //兼容以前逻辑
+            List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+            jobMode = sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream")
+                    ? JobMode.STREAMING : JobMode.BATCH;
+        }
 
-        return sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream");
     }
 
     /**
@@ -180,7 +188,7 @@ public class ConfigBuilder {
 
     private RuntimeEnv createEnv() {
         envConfig = config.getConfig("env");
-        streaming = checkIsStreaming();
+        setJobMode(envConfig);
         RuntimeEnv env = null;
         switch (engine) {
             case SPARK:
@@ -193,7 +201,7 @@ public class ConfigBuilder {
                 throw new IllegalArgumentException("Engine: " + engine + " is not supported");
         }
         env.setConfig(envConfig);
-        env.prepare(streaming);
+        env.prepare(jobMode);
         return env;
     }
 
@@ -202,23 +210,26 @@ public class ConfigBuilder {
         switch (engine) {
             case SPARK:
                 SparkEnvironment sparkEnvironment = (SparkEnvironment) env;
-                if (streaming) {
+                if (JobMode.STREAMING.equals(jobMode)) {
                     execution = new SparkStreamingExecution(sparkEnvironment);
+                } else if (JobMode.STRUCTURED_STREAMING.equals(jobMode)) {
+                    execution = new StructuredStreamingExecution(sparkEnvironment);
                 } else {
                     execution = new SparkBatchExecution(sparkEnvironment);
                 }
                 break;
             case FLINK:
                 FlinkEnvironment flinkEnvironment = (FlinkEnvironment) env;
-                if (streaming) {
+                if (JobMode.STREAMING.equals(jobMode)) {
                     execution = new FlinkStreamExecution(flinkEnvironment);
                 } else {
                     execution = new FlinkBatchExecution(flinkEnvironment);
                 }
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("No suitable engine");
         }
+        LOGGER.info("current execution is [{}]",execution.getClass().getName());
         return execution;
     }
 

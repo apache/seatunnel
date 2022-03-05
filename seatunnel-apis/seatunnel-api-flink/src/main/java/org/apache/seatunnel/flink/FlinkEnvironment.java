@@ -18,6 +18,7 @@
 package org.apache.seatunnel.flink;
 
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.util.ConfigKeyName;
 import org.apache.seatunnel.flink.util.EnvironmentUtil;
@@ -55,7 +56,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     private BatchTableEnvironment batchTableEnvironment;
 
-    private boolean isStreaming;
+    private JobMode jobMode;
 
     private String jobName = "seatunnel";
 
@@ -73,16 +74,16 @@ public class FlinkEnvironment implements RuntimeEnv {
     public CheckResult checkConfig() {
         return EnvironmentUtil.checkRestartStrategy(config);
     }
-
+    
     @Override
-    public void prepare(Boolean isStreaming) {
-        this.isStreaming = isStreaming;
-        if (isStreaming) {
+    public void prepare(JobMode jobMode) {
+        this.jobMode = jobMode;
+        if (JobMode.STREAMING.equals(jobMode)) {
             createStreamEnvironment();
             createStreamTableEnvironment();
         } else {
-            createExecutionEnvironment();
             createBatchTableEnvironment();
+            createExecutionEnvironment();
         }
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");

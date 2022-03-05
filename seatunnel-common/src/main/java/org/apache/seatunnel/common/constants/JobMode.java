@@ -15,14 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.env;
+package org.apache.seatunnel.common.constants;
 
-import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.plugin.Plugin;
-
-/**
- * engine related runtime environment
- */
-public interface RuntimeEnv extends Plugin<JobMode> {
-
+public enum JobMode {
+    BATCH,STREAMING,STRUCTURED_STREAMING
 }
