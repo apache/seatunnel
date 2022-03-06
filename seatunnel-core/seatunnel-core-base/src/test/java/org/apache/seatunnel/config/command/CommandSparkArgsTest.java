@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.config.command;
 
+import org.apache.seatunnel.common.config.DeployMode;
+
 import com.beust.jcommander.JCommander;
 import org.junit.Assert;
 import org.junit.Test;
@@ -34,7 +36,7 @@ public class CommandSparkArgsTest {
             .build()
             .parse(args);
         Assert.assertEquals("app.conf", sparkArgs.getConfigFile());
-        Assert.assertEquals("client", sparkArgs.getDeployMode());
+        Assert.assertEquals(DeployMode.CLIENT.getName(), sparkArgs.getDeployMode());
         Assert.assertEquals("yarn", sparkArgs.getMaster());
         Assert.assertEquals(Arrays.asList("city=shijiazhuang", "name=Tom"), sparkArgs.getVariables());
     }
