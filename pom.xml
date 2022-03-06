@@ -804,16 +804,7 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>license-maven-plugin</artifactId>
                     <version>${maven-license-maven-plugin}</version>
-                    <executions>
-                        <execution>
-                            <id>download</id>
-                            <goals>
-                                <goal>download-licenses</goal>
-                            </goals>
-                        </execution>
-                    </executions>
                     <configuration>
-                        <skip>true</skip>
                         <outputDirectory>${project.basedir}/seatunnel-dist/target/</outputDirectory>
                         <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
                         <sortArtifactByName>true</sortArtifactByName>
