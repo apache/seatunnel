@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.config.command;
 
+import org.apache.seatunnel.common.config.DeployMode;
+
 import java.util.List;
 
 public class CommandLineArgs {
 
-    private String deployMode = "client";
+    private String deployMode = DeployMode.CLIENT.getName();
     private final String configFile;
     private final boolean testConfig;
     private List<String> variables;
