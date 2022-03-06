@@ -111,7 +111,6 @@ private[sql] object JDBCRelation extends Logging {
         lowerBound <= upperBound,
         "Operation not allowed: the lower bound of partitioning column is larger than the upper " +
           s"bound. Lower bound: $lowerBound; Upper bound: $upperBound")
-
       val boundValueToString: Long => String =
         toBoundValueInWhereClause(_, partitioning.columnType, timeZoneId)
       val numPartitions =
