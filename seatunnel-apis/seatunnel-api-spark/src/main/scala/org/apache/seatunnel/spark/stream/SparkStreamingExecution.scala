@@ -78,5 +78,4 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
   override def getConfig: Config = config
 
   override def checkConfig(): CheckResult = CheckResult.success()
-  
 }
