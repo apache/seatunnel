@@ -792,7 +792,7 @@
                         </execution>
                     </executions>
                 </plugin>
-                
+
 
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
@@ -819,6 +819,22 @@
                         <sortArtifactByName>true</sortArtifactByName>
                         <useMissingFile>false</useMissingFile>
                         <addJavaLicenseAfterPackage>true</addJavaLicenseAfterPackage>
+                        <licenseMerges>
+                            <licenseMerge>The Apache Software License, Version 2.0
+                                |Apache Public License 2.0
+                                |APL2
+                                |Apache 2
+                                |Apache 2.0 License
+                                |Apache 2.0
+                                |Apache License (v2.0)
+                                |Apache License 2.0
+                                |Apache License Version 2
+                                |Apache License, Version 2
+                                |Apache License, Version 2.0
+                                |Apache v2
+                                |Apache-2.0
+                                |The Apache License, Version 2.0</licenseMerge>
+                        </licenseMerges>
                     </configuration>
                 </plugin>
             </plugins>
