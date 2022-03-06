@@ -107,6 +107,16 @@ licenses_map = {
     "Other License": []
 }
 
+# If the key in replace_map is occur in THIRD-PARTY.txt.
+# Will use the value.value to replace the value.key.
+# e.g. (Apache License, Version 2.0) (The Apache Software License, Version 2.0) Apache Commons Codec (commons-codec:commons-codec:1.10 - http://commons.apache.org/proper/commons-codec/) will
+#  return (Apache License, Version 2.0) Apache Commons Codec (commons-codec:commons-codec:1.10 - http://commons.apache.org/proper/commons-codec/)
+replace_map = {
+    "Apache Commons Codec": {
+        "(The Apache Software License, Version 2.0) ": ""
+    }
+}
+
 for _ in licenses:
     if "org.apache.seatunnel" in _:
         continue
@@ -120,6 +130,12 @@ for _ in licenses:
         continue
     if '(' not in _ or ')' not in _:
         continue
+
+    for replaceKey, replaceHolderMap in replace_map.items():
+        if replaceKey in _:
+            for replaceHolder, replaceTargetValue in replaceHolderMap.items():
+                _ = _.replace(replaceHolder, replaceTargetValue)
+
     # (Apache 2.0 License) Spark Project Tags (org.apache.spark:spark-tags_2.11:2.4.0 - http://spark.apache.org/)
     items = _.split(") ")
     if len(items) != 2:
