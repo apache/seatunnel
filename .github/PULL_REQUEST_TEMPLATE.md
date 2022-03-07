@@ -10,7 +10,7 @@ Feel free to ping committers for the review!
 
   - Make sure that the pull request corresponds to a [GITHUB issue](https://github.com/apache/incubator-seatunnel/issues).
 
-  - Name the pull request in the form "[SeaTunnel #XXXX] [component] Title of the pull request", where *SeaTunnel #XXXX* should be replaced by the actual issue number.
+  - Name the pull request in the form "[Feature] [component] Title of the pull request", where *Feature* can be replaced by `Hotfix`, `Bug`, etc.
 
   - Minor fixes should be named following this pattern: `[hotfix] [docs] Fix typo in README.md doc`.
 

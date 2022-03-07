@@ -46,6 +46,7 @@ import java.util.UUID;
 public class DorisStreamLoad implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DorisStreamLoad.class);
+    private static final long serialVersionUID = -595233501819950489L;
     private static final List<String> DORIS_SUCCESS_STATUS = Arrays.asList("Success", "Publish Timeout");
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String LOAD_URL_PATTERN = "http://%s/api/%s/%s/_stream_load?";

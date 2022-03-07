@@ -19,11 +19,17 @@ on:
   push:
   pull_request:
     branches: [dev]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JAVA_TOOL_OPTIONS: -Xmx2G -Xms2G -Dhttp.keepAlive=false -Dmaven.test.skip=true -Dcheckstyle.skip=true -Dlicense.skipAddThirdParty=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.count=3 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
 
     strategy:
       fail-fast: false
@@ -40,10 +46,13 @@ jobs:
         with:
           java-version:  8
           distribution: 'adopt'
-      - uses: actions/cache@v2
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v1
         with:

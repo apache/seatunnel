@@ -37,6 +37,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
@@ -53,6 +54,7 @@ import java.util.List;
 
 public class DruidSource implements FlinkBatchSource<Row> {
 
+    private static final long serialVersionUID = 8152628883440481281L;
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidSource.class);
 
     private Config config;
@@ -63,6 +65,7 @@ public class DruidSource implements FlinkBatchSource<Row> {
     private static final String START_TIMESTAMP = "start_date";
     private static final String END_TIMESTAMP = "end_date";
     private static final String COLUMNS = "columns";
+    private static final String PARALLELISM = "parallelism";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -85,7 +88,12 @@ public class DruidSource implements FlinkBatchSource<Row> {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(druidInputFormat);
+        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(druidInputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return dataSource.setParallelism(parallelism);
+        }
+        return dataSource;
     }
 
     @Override

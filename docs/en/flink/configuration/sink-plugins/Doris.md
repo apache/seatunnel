@@ -1,4 +1,6 @@
-# Sink plugin: Doris [Flink]
+# Doris
+
+> Sink plugin: Doris [Flink]
 
 ### Description
 
@@ -17,6 +19,7 @@ Write Data to a Doris Table.
 | interval	 | int | no |1000 | Flink |
 | max_retries	 | int | no | 1 | Flink|
 | doris.*	 | - | no | - | Flink  |
+| parallelism | int | no  | - |Flink|
 
 ##### fenodes [string]
 
@@ -54,6 +57,10 @@ Number of retries after writing Doris failed
 
 The doris stream load parameters.you can use 'doris.' prefix + stream_load properties. eg:doris.column_separator' = ','
 [More Doris stream_load Configurations](https://doris.apache.org/administrator-guide/load-data/stream-load-manual.html)
+
+### parallelism [Int]
+
+The parallelism of an individual operator, for DorisSink
 
 ### Examples
 

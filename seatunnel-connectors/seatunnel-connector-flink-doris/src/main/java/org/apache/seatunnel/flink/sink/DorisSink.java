@@ -31,18 +31,22 @@ import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.BatchTableEnvironment;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nullable;
 
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
+    private static final long serialVersionUID = 4747849769146047770L;
     private static final int DEFAULT_BATCH_SIZE = 100;
     private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
     private String fenodes;
@@ -53,7 +57,7 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
     private int batchSize = DEFAULT_BATCH_SIZE;
     private long batchIntervalMs = DEFAULT_INTERVAL_MS;
     private int maxRetries = 1;
-    private Properties streamLoadProp = new Properties();
+    private final Properties streamLoadProp = new Properties();
 
     @Override
     public Config getConfig() {
@@ -102,17 +106,27 @@ public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row,
         String[] fieldNames = table.getSchema().getFieldNames();
 
         DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(fenodes, dbName, tableName, username, password, streamLoadProp);
-        return dataSet.output(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
+        DataSink<Row> rowDataSink = dataSet.output(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            return rowDataSink.setParallelism(parallelism);
+        }
+        return rowDataSink;
     }
 
     @Override
+    @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
         String[] fieldNames = table.getSchema().getFieldNames();
 
         DorisStreamLoad dorisStreamLoad = new DorisStreamLoad(fenodes, dbName, tableName, username, password, streamLoadProp);
-        dataStream.addSink(new DorisSinkFunction<>(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries)));
+        DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new DorisSinkFunction<>(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries)));
+        if (config.hasPath(PARALLELISM)) {
+            int parallelism = config.getInt(PARALLELISM);
+            rowDataStreamSink.setParallelism(parallelism);
+        }
         return null;
     }
 }

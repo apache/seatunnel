@@ -35,8 +35,8 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableConfig;
-import org.apache.flink.table.api.java.BatchTableEnvironment;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,8 +81,8 @@ public class FlinkEnvironment implements RuntimeEnv {
             createStreamEnvironment();
             createStreamTableEnvironment();
         } else {
-            createBatchTableEnvironment();
             createExecutionEnvironment();
+            createBatchTableEnvironment();
         }
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");

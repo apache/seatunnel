@@ -1,8 +1,10 @@
-# Source plugin : KafkaStream [Spark]
+# KafkaStream
+
+> Source plugin : KafkaStream [Spark]
 
 ## Description
 
-To consumer data from `Kafka` , the supported `Kafka version >= 0.10.0` .
+To consume data from `Kafka` , the supported `Kafka version >= 0.10.0` .
 
 ## Options
 

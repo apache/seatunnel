@@ -1,4 +1,6 @@
-# Sink plugin: TiDB
+# TiDb
+
+> Sink plugin: TiDb [Spark]
 
 ### Description
 

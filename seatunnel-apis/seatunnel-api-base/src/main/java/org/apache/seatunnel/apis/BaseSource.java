@@ -20,6 +20,9 @@ package org.apache.seatunnel.apis;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
 
+/**
+ * a base interface indicates a source plugin which will read data from other system.
+ */
 public interface BaseSource<T extends RuntimeEnv> extends Plugin<T> {
 
 }

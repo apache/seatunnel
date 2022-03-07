@@ -27,7 +27,10 @@ import org.apache.spark.sql.types.StructType;
 import java.util.List;
 import java.util.Map;
 
-public class SparkStructTypeUtil {
+public final class SparkStructTypeUtil {
+
+    private SparkStructTypeUtil() {
+    }
 
     public static StructType getStructType(StructType schema, JSONObject json) {
         StructType newSchema = schema.copy(schema.fields());
@@ -61,7 +64,7 @@ public class SparkStructTypeUtil {
     }
 
     private static DataType getType(String type) {
-        DataType dataType = DataTypes.NullType;
+        DataType dataType;
         switch (type.toLowerCase()) {
             case "string":
                 dataType = DataTypes.StringType;

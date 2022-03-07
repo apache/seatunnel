@@ -36,9 +36,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-public class CompressionUtils {
+public final class CompressionUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CompressionUtils.class);
+
+    private CompressionUtils() {
+    }
 
     /**
      * Untar an input file into an output file.
@@ -48,12 +51,11 @@ public class CompressionUtils {
      *
      * @param inputFile the input .tar file
      * @param outputDir the output directory file.
-     * @return The {@link List} of {@link File}s with the untared content.
      * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
      * @throws ArchiveException      a rchive exception
      */
-    public static List<File> unTar(final File inputFile, final File outputDir) throws FileNotFoundException, IOException, ArchiveException {
+    public static void unTar(final File inputFile, final File outputDir) throws FileNotFoundException, IOException, ArchiveException {
 
         LOGGER.info(String.format("Untaring %s to dir %s.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath()));
 
@@ -80,8 +82,6 @@ public class CompressionUtils {
             untaredFiles.add(outputFile);
         }
         debInputStream.close();
-
-        return untaredFiles;
     }
 
     /**

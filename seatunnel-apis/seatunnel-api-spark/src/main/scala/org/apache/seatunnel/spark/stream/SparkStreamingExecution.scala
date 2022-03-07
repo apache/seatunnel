@@ -19,12 +19,12 @@ package org.apache.seatunnel.spark.stream
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
+import org.apache.seatunnel.plugin.Plugin
 import org.apache.seatunnel.spark.batch.SparkBatchExecution
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
+
 import java.util.{List => JList}
-
-
 import scala.collection.JavaConversions._
 
 class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
@@ -44,9 +44,9 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
       sparkEnvironment,
       dataset => {
         val conf = source.getConfig
-        if (conf.hasPath(SparkBatchExecution.resultTableName)) {
+        if (conf.hasPath(Plugin.RESULT_TABLE_NAME)) {
           SparkBatchExecution.registerTempView(
-            conf.getString(SparkBatchExecution.resultTableName),
+            conf.getString(Plugin.RESULT_TABLE_NAME),
             dataset)
         }
         var ds = dataset

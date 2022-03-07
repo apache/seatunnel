@@ -33,7 +33,7 @@ import com.alibaba.fastjson.parser.Feature;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.java.StreamTableEnvironment;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.descriptors.FormatDescriptor;
 import org.apache.flink.table.descriptors.Kafka;
 import org.apache.flink.table.descriptors.Rowtime;
@@ -47,6 +47,7 @@ import java.util.Properties;
 
 public class KafkaTableStream implements FlinkStreamSource<Row> {
 
+    private static final long serialVersionUID = 5287018194573371428L;
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTableStream.class);
 
     private Config config;
@@ -117,7 +118,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
                 .withFormat(setFormat())
                 .withSchema(getSchema())
                 .inAppendMode()
-                .registerTableSource(tableName);
+                .createTemporaryTable(tableName);
         Table table = tableEnvironment.scan(tableName);
         return TableUtil.tableToDataStream(tableEnvironment, table, true);
     }

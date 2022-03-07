@@ -1,4 +1,6 @@
-# Sink Plugin
+# Common Options
+
+> Sink Common Options [Spark]
 
 ## Sink Plugin common parameters
 

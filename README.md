@@ -3,6 +3,8 @@
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
 [![Backend Workflow](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml/badge.svg?branch=dev)](https://github.com/apache/incubator-seatunnel/actions/workflows/backend.yml)
+[![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://join.slack.com/t/apacheseatunnel/shared_invite/zt-123jmewxe-RjB_DW3M3gV~xL91pZ0oVQ)
+[![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
 ---
 [![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
@@ -47,9 +49,11 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 
 ## Workflow of SeaTunnel
 
-![seatunnel-workflow.svg](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
 
-Input[Data Source Input] -> Filter[Data Processing] -> Output[Result Output]
+```
+Source[Data Source Input] -> Transform[Data Processing] -> Sink[Result Output]
+```
 
 The data processing pipeline is constituted by multiple filters to meet a variety of data processing needs. If you are
 accustomed to SQL, you can also directly construct a data processing pipeline by SQL, which is simple and efficient.
@@ -58,12 +62,66 @@ processing plug-in, because the whole system is easy to expand.
 
 ## Plugins supported by SeaTunnel
 
-- Input plugin Fake, File, Hdfs, Kafka, Druid, S3, Socket, self-developed Input plugin
+| <div style="width: 130pt">Spark Connector Plugins | <div style="width: 80pt">Database Type | <div style="width: 50pt">Source | <div style="width: 50pt">Sink                        |
+|:------------------------:|:--------------:|:------------------------------------------------------------------:|:-------------------------------------------------------------------:|
+|Batch                     |Fake            |[doc](./docs/en/spark/configuration/source-plugins/Fake.md)         |                                                                     |
+|                          |ElasticSearch   |[doc](./docs/en/spark/configuration/source-plugins/Elasticsearch.md)|[doc](./docs/en/spark/configuration/sink-plugins/Elasticsearch.md)   |
+|                          |File            |[doc](./docs/en/spark/configuration/source-plugins/File.md)         |[doc](./docs/en/spark/configuration/sink-plugins/File.md)            |
+|                          |Hive            |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)         |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)          |
+|                          |Hudi            |[doc](./docs/en/spark/configuration/source-plugins/Hudi.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Hudi.md)            |
+|                          |Jdbc            |[doc](./docs/en/spark/configuration/source-plugins/Jdbc.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Jdbc.md)            |
+|                          |MongoDB         |[doc](./docs/en/spark/configuration/source-plugins/MongoDB.md)      |[doc](./docs/en/spark/configuration/sink-plugins/MongoDB.md)         |
+|                          |neo4j           |[doc](./docs/en/spark/configuration/source-plugins/neo4j.md)        |                                                                     |
+|                          |Phoenix         |[doc](./docs/en/spark/configuration/source-plugins/Phoenix.md)      |[doc](./docs/en/spark/configuration/sink-plugins/Phoenix.md)         |
+|                          |Redis           |[doc](./docs/en/spark/configuration/source-plugins/Redis.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Redis.md)           |
+|                          |Tidb            |[doc](./docs/en/spark/configuration/source-plugins/Tidb.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Tidb.md)            |
+|                          |Clickhouse      |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Clickhouse.md)      |  
+|                          |Doris           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Doris.md)           |
+|                          |Email           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Email.md)           |
+|                          |Hbase           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Hbase.md)           |
+|                          |Kafka           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Kafka.md)           |
+|                          |Console         |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Console.md)         |
+|                          |Kudu            |[doc](./docs/en/spark/configuration/source-plugins/Kudu.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Kudu.md)            |
+|                          |Redis           |[doc](./docs/en/spark/configuration/source-plugins/Redis.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Redis.md)           |
+|Stream                    |FakeStream      |[doc](./docs/en/spark/configuration/source-plugins/FakeStream.md)   |                                                                     |
+|                          |KafkaStream     |[doc](./docs/en/spark/configuration/source-plugins/KafkaStream.md)  |                                                                     |
+|                          |SocketStream    |[doc](./docs/en/spark/configuration/source-plugins/SocketStream.md) |                                                                     |
 
-- Filter plugin Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace,
-  Sample, Split, Sql, Table, Truncate, Uppercase, Uuid, Self-developed Filter plugin
+| <div style="width: 130pt">Flink Connector Plugins | <div style="width: 80pt">Database Type  | <div style="width: 50pt">Source | <div style="width: 50pt">Sink                                                                |
+|:------------------------:|:--------------:|:------------------------------------------------------------------:|:-------------------------------------------------------------------:|
+|                          |Druid           |[doc](./docs/en/flink/configuration/source-plugins/Druid.md)        |[doc](./docs/en/flink/configuration/sink-plugins/Druid.md)           |
+|                          |Fake            |[doc](./docs/en/flink/configuration/source-plugins/Fake.md)         |                                                                     |
+|                          |File            |[doc](./docs/en/flink/configuration/source-plugins/File.md)         |[doc](./docs/en/flink/configuration/sink-plugins/File.md)            |
+|                          |InfluxDb        |[doc](./docs/en/flink/configuration/source-plugins/InfluxDb.md)     |[doc](./docs/en/flink/configuration/sink-plugins/InfluxDb.md)        |
+|                          |Jdbc            |[doc](./docs/en/flink/configuration/source-plugins/Jdbc.md)         |[doc](./docs/en/flink/configuration/sink-plugins/Jdbc.md)            |
+|                          |Kafka           |[doc](./docs/en/flink/configuration/source-plugins/Kafka.md)        |[doc](./docs/en/flink/configuration/sink-plugins/Kafka.md)           |
+|                          |Socket          |[doc](./docs/en/flink/configuration/source-plugins/Socket.md)       |                                                                     |
+|                          |Console         |                                                                    |[doc](./docs/en/flink/configuration/sink-plugins/Console.md)         |
+|                          |Doris           |                                                                    |[doc](./docs/en/flink/configuration/sink-plugins/Doris.md)           |
+|                          |ElasticSearch   |                                                                    |[doc](./docs/en/flink/configuration/sink-plugins/Elasticsearch.md)   |
 
-- Output plugin Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, Mysql, S3, Stdout, self-developed Output plugin
+|<div style="width: 130pt">Transform Plugins| <div style="width: 100pt">Spark                                    | <div style="width: 100pt">Flink                                     |
+|:-----------------------------------------:|:------------------------------------------------------------------:|:-------------------------------------------------------------------:|
+|Add                                        |                                                                    |                                                                     |
+|CheckSum                                   |                                                                    |                                                                     |
+|Convert                                    |                                                                    |                                                                     |
+|Date                                       |                                                                    |                                                                     |
+|Drop                                       |                                                                    |                                                                     |
+|Grok                                       |                                                                    |                                                                     |
+|Json                                       |[doc](./docs/en/spark/configuration/transform-plugins/Json.md)      |                                                                     |
+|Kv                                         |                                                                    |                                                                     |
+|Lowercase                                  |                                                                    |                                                                     |
+|Remove                                     |                                                                    |                                                                     |
+|Rename                                     |                                                                    |                                                                     |
+|Repartition                                |                                                                    |                                                                     |
+|Replace                                    |                                                                    |                                                                     |
+|Sample                                     |                                                                    |                                                                     |
+|Split                                      |[doc](./docs/en/spark/configuration/transform-plugins/Split.md)     |[doc](./docs/en/flink/configuration/transform-plugins/Split.md)      |
+|Sql                                        |[doc](./docs/en/spark/configuration/transform-plugins/Sql.md)       |[doc](./docs/en/flink/configuration/transform-plugins/Sql.md)        |
+|Table                                      |                                                                    |                                                                     |
+|Truncate                                   |                                                                    |                                                                     |
+|Uppercase                                  |                                                                    |                                                                     |
+|Uuid                                       |                                                                    |                                                                     |
 
 ## Environmental dependency
 
@@ -84,9 +142,14 @@ Download address for run-directly software package :https://github.com/apache/in
 
 ## Quick start
 
-Quick start: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/v1/quick-start
+**Spark**
+https://seatunnel.apache.org/docs/spark/quick-start
 
-Detailed documentation on SeaTunnel:https://interestinglab.github.io/seatunnel-docs/#/
+**Flink**
+https://seatunnel.apache.org/docs/flink/quick-start
+
+Detailed documentation on SeaTunnel
+https://seatunnel.apache.org/docs/introduction
 
 ## Application practice cases
 
@@ -125,9 +188,9 @@ volume average daily, and later writing the data to Clickhouse.
 
 Collecting various logs from business services into Apache Kafka, some of the data in Apache Kafka is consumed and extracted through Seatunnel, and then store into Clickhouse. 
 
-For more use cases, please refer to: https://interestinglab.github.io/seatunnel-docs/#/zh-cn/case_study/
+For more use cases, please refer to: https://seatunnel.apache.org/blog
 
-# Code of conduct
+## Code of conduct
 
 This project adheres to the Contributor Covenant [code of conduct](https://www.apache.org/foundation/policies/conduct).
 By participating, you are expected to uphold this code. Please follow
@@ -144,16 +207,23 @@ Thanks to all developers!
 
 * Mail list: **dev@seatunnel.apache.org**. Mail to `dev-subscribe@seatunnel.apache.org`, follow the reply to subscribe
   the mail list.
-* Slack: https://join.slack.com/t/apacheseatunnel/shared_invite/zt-10u1eujlc-g4E~ppbinD0oKpGeoo_dAw
+* Slack: https://join.slack.com/t/apacheseatunnel/shared_invite/zt-123jmewxe-RjB_DW3M3gV~xL91pZ0oVQ
 * Twitter: https://twitter.com/ASFSeaTunnel
-* [bilibili](https://space.bilibili.com/1542095008) (for china users)
+* [Bilibili](https://space.bilibili.com/1542095008) (for Chinese users)
 
-# Landscapes
+## Landscapes
 
 <p align="center">
 <br/><br/>
-<img src="https://landscape.cncf.io/images/left-logo.svg" width="150"/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200"/>
+<img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
 <br/><br/>
-SeaTunnel enriches the <a href="https://landscape.cncf.io/landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
+SeaTunnel enriches the <a href="https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
 
 </p >
+
+## Our Users
+Various companies and organizations use SeaTunnel for research, production and commercial products.
+Visit our [website](https://seatunnel.apache.org/user) to find the user page.
+
+## License
+[Apache 2.0 License.](LICENSE)

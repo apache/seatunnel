@@ -1,4 +1,6 @@
-# Source plugin: Druid
+# Druid
+
+> Source plugin: Druid [Flink]
 
 ## Description
 
@@ -13,6 +15,7 @@ Read data from Apache Druid.
 | start_date | `String`       | no       | -             |
 | end_date   | `String`       | no       | -             |
 | columns    | `List<String>` | no       | `*`           |
+| parallelism      | `Int`    | no       | -             |
 
 ### jdbc_url [`String`]
 
@@ -37,6 +40,10 @@ These columns that you want to query of DataSource.
 ### common options [string]
 
 Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) for details
+
+### parallelism [`Int`]
+
+The parallelism of an individual operator, for DruidSource
 
 ## Example
 

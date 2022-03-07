@@ -1,4 +1,6 @@
-# Sink plugin: Redis [Spark]
+# Redis
+
+> Sink plugin: Redis [Spark]
 
 ## Description
 

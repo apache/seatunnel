@@ -1,4 +1,6 @@
-# Full configuration file example [Flink]
+# Config Examples
+
+> Full configuration file example [Flink]
 
 An example is as follows:
 
@@ -24,7 +26,7 @@ source {
     }
 
     # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-    # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/configuration/base
+    # please go to https://seatunnel.apache.org/docs/flink/configuration/source-plugins/Fake
 }
 
 transform {
@@ -33,13 +35,15 @@ transform {
     }
 
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/configuration/base
+    # please go to https://seatunnel.apache.org/docs/flink/configuration/transform-plugins/Sql
 }
 
 sink {
     ConsoleSink {}
 
     # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-    # please go to https://interestinglab.github.io/seatunnel-docs/#/zh-cn/configuration/base
+    # please go to https://seatunnel.apache.org/docs/flink/configuration/sink-plugins/Console
 }
 ```
+
+If you want to know the details of this format configuration, Please see [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md).

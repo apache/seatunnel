@@ -24,9 +24,8 @@ import org.apache.seatunnel.config.command.CommandLineUtils;
 
 public class SeatunnelSpark {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         CommandLineArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
         Seatunnel.run(sparkArgs, SPARK);
     }
-
 }

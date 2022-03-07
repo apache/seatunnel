@@ -1,4 +1,6 @@
-# Sink plugin : MongoDB [Spark]
+# MongoDB
+
+> Sink plugin : MongoDB [Spark]
 
 ## Description
 

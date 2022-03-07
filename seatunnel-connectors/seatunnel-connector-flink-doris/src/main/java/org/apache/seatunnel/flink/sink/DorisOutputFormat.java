@@ -44,6 +44,7 @@ import java.util.regex.Pattern;
  **/
 public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DorisOutputFormat.class);
+    private static final long serialVersionUID = -4514164348993670086L;
     private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String FIELD_DELIMITER_KEY = "column_separator";
@@ -61,10 +62,10 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     private final int batchSize;
     private final int maxRetries;
     private final long batchIntervalMs;
-    private final List batch = new ArrayList<>();
+    private final List<Object> batch = new ArrayList<>();
     private String fieldDelimiter;
     private String lineDelimiter;
-    private DorisStreamLoad dorisStreamLoad;
+    private final DorisStreamLoad dorisStreamLoad;
     private transient ScheduledExecutorService scheduler;
     private transient ScheduledFuture<?> scheduledFuture;
     private transient volatile Exception flushException;
@@ -175,7 +176,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
     }
 
     @Override
-    public synchronized void close() throws IOException {
+    public synchronized void close() {
         if (!closed) {
             closed = true;
 
@@ -207,7 +208,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                 result = OBJECT_MAPPER.writeValueAsString(batch);
             }
         } else {
-            result = String.join(this.lineDelimiter, batch);
+            result = String.join(this.lineDelimiter, (CharSequence) batch);
         }
         for (int i = 0; i <= maxRetries; i++) {
             try {

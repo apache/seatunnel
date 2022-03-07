@@ -1,4 +1,6 @@
-# Sink plugin : Console [Spark]
+# Console
+
+> Sink plugin : Console [Spark]
 
 ## Description
 

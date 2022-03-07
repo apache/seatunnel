@@ -1,8 +1,10 @@
-# Source plugin : Kafka [Flink]
+# Kafka
+
+> Source plugin : Kafka [Flink]
 
 ## Description
 
-To consumer data from `Kafka` , the supported `Kafka version >= 0.10.0` .
+To consume data from `Kafka` , the supported `Kafka version >= 0.10.0` .
 
 ## Options
 

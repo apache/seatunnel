@@ -22,6 +22,9 @@ on:
   pull_request:
     branches:
       - dev
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -30,6 +33,7 @@ concurrency:
 jobs:
   check-license:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
       - name: Check License Header
@@ -37,6 +41,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       MAVEN_OPTS: -Xmx2G -Xms2G
     steps:
@@ -46,24 +51,29 @@ jobs:
         with:
           java-version:  8
           distribution: 'adopt'
-      - uses: actions/cache@v2
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Check Style
         run: |
-          ./mvnw -T 2C -B checkstyle:check
+          ./mvnw -T 2C -B checkstyle:check --no-snapshot-updates
       - name: Build and Package
         run: |
           ./mvnw -B install scalastyle:check \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
+                 -Dlicense.skipAddThirdParty=true \
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.http.retryHandler.count=3 \
-                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
+                 --no-snapshot-updates
       - name: Check dependency license
         run: bash ./tools/dependencies/checkLicense.sh
       - name: Run Unit tests
         run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true
+          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true --no-snapshot-updates

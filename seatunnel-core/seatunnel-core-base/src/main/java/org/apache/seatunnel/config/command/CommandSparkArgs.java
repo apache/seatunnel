@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.config.command;
 
+import org.apache.seatunnel.common.config.DeployMode;
+
 import com.beust.jcommander.Parameter;
+
+import java.util.List;
 
 public class CommandSparkArgs {
 
@@ -30,7 +34,7 @@ public class CommandSparkArgs {
         description = "spark deploy mode",
         required = true,
         validateWith = org.apache.seatunnel.config.command.DeployModeValidator.class)
-    private String deployMode = "client";
+    private String deployMode = DeployMode.CLIENT.getName();
 
     @Parameter(names = {"-m", "--master"},
         description = "spark master",
@@ -39,7 +43,7 @@ public class CommandSparkArgs {
 
     @Parameter(names = {"-i", "--variable"},
         description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private String variable = null;
+    private List<String> variables = null;
 
     @Parameter(names = {"-t", "--check"},
         description = "check config")
@@ -57,4 +61,11 @@ public class CommandSparkArgs {
         return testConfig;
     }
 
+    public String getMaster() {
+        return master;
+    }
+
+    public List<String> getVariables() {
+        return variables;
+    }
 }

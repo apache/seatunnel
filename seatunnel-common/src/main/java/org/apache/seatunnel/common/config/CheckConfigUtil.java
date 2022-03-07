@@ -24,7 +24,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class CheckConfigUtil {
+public final class CheckConfigUtil {
+
+    private CheckConfigUtil() {
+    }
 
     /**
      * please using {@link #checkAllExists} instead, since 2.0.5
@@ -36,7 +39,7 @@ public class CheckConfigUtil {
 
     public static CheckResult checkAllExists(Config config, String... params) {
         List<String> missingParams = Arrays.stream(params)
-                .filter(param -> !config.hasPath(param) || config.getAnyRef(param) == null)
+                .filter(param -> !isValidParam(config, param))
                 .collect(Collectors.toList());
 
         if (missingParams.size() > 0) {
@@ -56,9 +59,9 @@ public class CheckConfigUtil {
             return CheckResult.success();
         }
 
-        List<String> missingParams = new LinkedList();
+        List<String> missingParams = new LinkedList<>();
         for (String param : params) {
-            if (!config.hasPath(param) || config.getAnyRef(param) == null) {
+            if (!isValidParam(config, param)) {
                 missingParams.add(param);
             }
         }
@@ -70,6 +73,16 @@ public class CheckConfigUtil {
         } else {
             return CheckResult.success();
         }
+    }
+
+    public static boolean isValidParam(Config config, String param) {
+        boolean isValidParam = true;
+        if (!config.hasPath(param)) {
+            isValidParam = false;
+        } else if (config.getAnyRef(param) instanceof List) {
+            isValidParam = !((List<?>) config.getAnyRef(param)).isEmpty();
+        }
+        return isValidParam;
     }
 
     /**

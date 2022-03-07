@@ -1,4 +1,6 @@
-# Source plugin: Redis [Spark]
+# Redis
+
+> Source plugin: Redis [Spark]
 
 ## Description
 

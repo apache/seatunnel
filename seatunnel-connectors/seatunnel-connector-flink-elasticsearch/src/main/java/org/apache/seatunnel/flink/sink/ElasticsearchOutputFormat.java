@@ -41,6 +41,7 @@ import java.util.List;
 
 public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
+    private static final long serialVersionUID = 2048590860723433896L;
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchOutputFormat.class);
 
     private Config config;
@@ -82,12 +83,15 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
         }
 
         BulkProcessor.Builder bulkProcessorBuilder = BulkProcessor.builder(transportClient, new BulkProcessor.Listener() {
+            @Override
             public void beforeBulk(long executionId, BulkRequest request) {
             }
 
+            @Override
             public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
             }
 
+            @Override
             public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
             }
         });

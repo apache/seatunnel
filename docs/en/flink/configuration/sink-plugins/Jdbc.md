@@ -1,4 +1,6 @@
-# Sink plugin : JDBC [Flink]
+# Jdbc
+
+> Sink plugin : Jdbc [Flink]
 
 ## Description
 
@@ -16,6 +18,7 @@ Write data through jdbc
 | batch_size        | int    | no       | -             |
 | source_table_name | string | yes      | -             |
 | common-options    | string | no       | -             |
+| parallelism       | int    | no       | -             |
 
 ### driver [string]
 
@@ -40,6 +43,10 @@ Insert statement
 ### batch_size [int]
 
 Number of writes per batch
+
+### parallelism [int]
+
+The parallelism of an individual operator, for JdbcSink.
 
 ### common options [string]
 

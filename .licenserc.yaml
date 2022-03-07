@@ -36,7 +36,7 @@ header:
     - '**/.gitignore'
     - '**/LICENSE'
     - '**/NOTICE'
-    - '**/META-INF/services/**'
     - '**/.gitkeep'
+    - '**/com/typesafe/config/**'
 
   comment: on-failure
