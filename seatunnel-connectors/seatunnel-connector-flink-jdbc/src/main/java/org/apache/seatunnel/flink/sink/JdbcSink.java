@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.flink.sink;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
-import org.apache.flink.connector.jdbc.JdbcOutputFormat;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -29,8 +26,11 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
+import org.apache.flink.connector.jdbc.JdbcOutputFormat;
 import org.apache.flink.connector.jdbc.utils.JdbcTypeUtil;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
