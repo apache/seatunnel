@@ -21,11 +21,12 @@ import java.util
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
-import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
 import org.apache.seatunnel.common.utils.StringTemplate
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
-import org.apache.seatunnel.spark.Config.{CSV, JSON, ORC, PARQUET, PARTITION_BY, PATH, PATH_TIME_FORMAT, SAVE_MODE, SERIALIZER, TEXT}
+import org.apache.seatunnel.spark.Config._
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -40,33 +41,24 @@ class File extends SparkBatchSink {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         PARTITION_BY -> util.Arrays.asList(),
-        SAVE_MODE -> "error", // allowed values: overwrite, append, ignore, error
-        SERIALIZER -> "json", // allowed values: csv, json, parquet, text
-        PATH_TIME_FORMAT -> "yyyyMMddHHmmss" // if variable 'now' is used in path, this option specifies its time_format
+        SAVE_MODE -> SAVE_MODE_ERROR, // allowed values: overwrite, append, ignore, error
+        SERIALIZER -> JSON, // allowed values: csv, json, parquet, text
+        PATH_TIME_FORMAT -> DEFAULT_TIME_FORMAT // if variable 'now' is used in path, this option specifies its time_format
       ))
     config = config.withFallback(defaultConfig)
   }
 
   override def output(ds: Dataset[Row], env: SparkEnvironment): Unit = {
-    var writer = ds.write.mode(config.getString(SAVE_MODE))
-    writer = if (config.getStringList(PARTITION_BY).isEmpty) {
-      writer
-    } else {
-      val partitionKeys = config.getStringList(PARTITION_BY)
-      writer.partitionBy(partitionKeys: _*)
+    val writer = ds.write.mode(config.getString(SAVE_MODE))
+    if (config.getStringList(PARTITION_BY).nonEmpty) {
+      writer.partitionBy(config.getStringList(PARTITION_BY): _*)
     }
 
-    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
-
-      case Success(options) =>
-        val optionMap = options
-          .entrySet()
-          .foldRight(Map[String, String]())((entry, m) => {
-            m + (entry.getKey -> entry.getValue.unwrapped().toString)
-          })
-
-        writer.options(optionMap)
-      case Failure(_) => // do nothing
+    Try(extractSubConfigThrowable(config, OPTION_PREFIX, false)) match {
+      case Success(options) => options.entrySet().foreach(e => {
+          writer.option(e.getKey, String.valueOf(e.getValue.unwrapped()))
+        })
+      case Failure(_) =>
     }
 
     val path = StringTemplate.substitute(config.getString(PATH), config.getString(PATH_TIME_FORMAT))
