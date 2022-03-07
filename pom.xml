@@ -636,20 +636,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>${maven-assembly-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>single</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <attach>false</attach>
-                        <descriptors>
-                            <descriptor>assembly.xml</descriptor>
-                        </descriptors>
-                    </configuration>
                 </plugin>
 
                 <!-- checkstyle (Start) -->
@@ -813,7 +799,6 @@
                         </execution>
                     </executions>
                     <configuration>
-                        <skip>true</skip>
                         <outputDirectory>${project.basedir}/seatunnel-dist/target/</outputDirectory>
                         <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
                         <sortArtifactByName>true</sortArtifactByName>
