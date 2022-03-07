@@ -52,7 +52,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private Config config;
 
-    private Properties kafkaParams = new Properties();
+    private final Properties kafkaParams = new Properties();
     private String topic;
     private Object schemaInfo;
     private String rowTimeField;
@@ -69,7 +69,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private static final String GROUP_ID = "group.id";
     private static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
     private static final String OFFSET_RESET = "offset.reset";
-    private static final int DEFAULT_INITIAL_CAPACITY = 16;
+
 
     @Override
     public void setConfig(Config config) {
@@ -150,7 +150,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
                     break;
                 case "specific":
                     String offset = config.getString("offset.reset.specific");
-                    HashMap<Integer, Long> map = new HashMap<>(DEFAULT_INITIAL_CAPACITY);
+                    HashMap<Integer, Long> map = new HashMap<>();
                     JSONObject.parseObject(offset).forEach((k, v) -> map.put(Integer.valueOf(k), Long.valueOf(v.toString())));
                     kafka.startFromSpecificOffsets(map);
                     break;
