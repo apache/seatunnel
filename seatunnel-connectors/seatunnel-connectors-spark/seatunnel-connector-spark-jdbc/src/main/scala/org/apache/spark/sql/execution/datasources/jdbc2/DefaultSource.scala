@@ -102,6 +102,6 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider
       conn.close()
     }
 
-    createRelation(sqlContext, parameters)
+    JDBCRelation(Array.empty, new JDBCOptions(parameters))(sqlContext.sparkSession)
   }
 }
