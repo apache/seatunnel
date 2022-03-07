@@ -66,6 +66,7 @@ jobs:
           ./mvnw -B install scalastyle:check \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
+                 -Dlicense.skipAddThirdParty=true \
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.http.retryHandler.count=3 \
