@@ -19,38 +19,31 @@ package org.apache.seatunnel.spark.source
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
-import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-import org.apache.seatunnel.spark.Config.{CSV, FORMAT, JSON, ORC, PARQUET, PATH, TEXT}
+import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
+import org.apache.seatunnel.spark.Config._
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
-import org.apache.spark.sql.{Dataset, Row, SparkSession}
+import org.apache.spark.sql.{Dataset, Row}
 
 class File extends SparkBatchSource {
 
   override def prepare(env: SparkEnvironment): Unit = {}
 
-  override def getData(env: SparkEnvironment): Dataset[Row] = {
-    fileReader(env.getSparkSession, config.getString(PATH))
-  }
-
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, PATH)
+    checkAllExists(config, PATH, FORMAT)
   }
 
-  protected def fileReader(spark: SparkSession, path: String): Dataset[Row] = {
+  override def getData(env: SparkEnvironment): Dataset[Row] = {
+    val path = config.getString(PATH)
     val format = config.getString(FORMAT)
-    var reader = spark.read.format(format)
+    val reader = env.getSparkSession.read.format(format)
 
-    Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
-      case Success(options) =>
-        val optionMap = options
-          .entrySet()
-          .foldRight(Map[String, String]())((entry, m) => {
-            m + (entry.getKey -> entry.getValue.unwrapped().toString)
-          })
-
-        reader = reader.options(optionMap)
+    Try(extractSubConfigThrowable(config, OPTION_PREFIX, false)) match {
+      case Success(options) => options.entrySet().foreach(e => {
+          reader.option(e.getKey, String.valueOf(e.getValue.unwrapped()))
+        })
       case Failure(_) =>
     }
 
