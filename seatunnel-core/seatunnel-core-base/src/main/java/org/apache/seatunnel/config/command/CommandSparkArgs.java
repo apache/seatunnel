@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.config.command;
 
+import org.apache.seatunnel.common.config.DeployMode;
+
 import com.beust.jcommander.Parameter;
 
 import java.util.List;
@@ -32,7 +34,7 @@ public class CommandSparkArgs {
         description = "spark deploy mode",
         required = true,
         validateWith = org.apache.seatunnel.config.command.DeployModeValidator.class)
-    private String deployMode = "client";
+    private String deployMode = DeployMode.CLIENT.getName();
 
     @Parameter(names = {"-m", "--master"},
         description = "spark master",

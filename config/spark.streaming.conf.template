@@ -16,7 +16,7 @@
 #
 
 ######
-###### This config file is a demonstration of batch processing in seatunnel config
+###### This config file is a demonstration of stream processing in seatunnel config
 ######
 
 env {
