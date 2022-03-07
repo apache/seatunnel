@@ -44,11 +44,11 @@ licenses_keyword_map = {
     "BSD License": ["BSD"],
     "CC0-1.0 License": ["CC0"],
     "CDDL License": ["CDDL"],
-    "Eclipse Public License": ["Eclipse"],
+    "Eclipse Public License": ["Eclipse", "EDL"],
     "Public Domain License": ["Public Domain"],
     "Mozilla Public License Version 2.0": ["Mozilla Public License"],
     "Go License": ["The Go license"],
-    "Unicode License": ["Unicode/ICU License"]
+    "Unicode/ICU License": ["Unicode License", "ICU", "Unicode/ICU License"]
 }
 dependency_licenses_map = {
     "commons-beanutils:commons-beanutils:1.7.0": "(Apache License, Version 2.0) Apache Commons BeanUtils (commons-beanutils:commons-beanutils:1.7.0 - https://commons.apache.org/proper/commons-beanutils/)",
@@ -58,7 +58,13 @@ dependency_licenses_map = {
     "javax.servlet.jsp:jsp-api:2.1": "(CDDL + GPLv2 with classpath exception) Java Servlet API (javax.servlet.jsp:jsp-api:2.1 - https://javaee.github.io/javaee-jsp-api)",
     "javax.servlet:servlet-api:2.5": "(CDDL + GPLv2 with classpath exception) Java Servlet API (javax.servlet:servlet-api:2.5 - http://servlet-spec.java.net)",
     "oro:oro:2.0.8": "(Apache License, Version 1.1) ORO (oro:oro:2.0.8 - https://mvnrepository.com/artifact/oro/oro)",
-    "org.hyperic:sigar:1.6.5.132": "(Apache License, Version 2.0) Sigar (org.hyperic:sigar:1.6.5.132 - https://github.com/hyperic/sigar)"
+    "org.hyperic:sigar:1.6.5.132": "(Apache License, Version 2.0) Sigar (org.hyperic:sigar:1.6.5.132 - https://github.com/hyperic/sigar)",
+    "asm:asm:3.1": "(BSD License) ASM (asm:asm:3.1 - https://asm.ow2.io/license.html)",
+    "com.ibm.icu:icu4j:55.1": "(Unicode/ICU License) ICU4J (com.ibm.icu:icu4j:55.1 - http://icu-project.org/)",
+    "jakarta.activation:jakarta.activation-api:1.2.1": "(EDL 1.0) Jakarta Activation API (jakarta.activation:jakarta.activation-api:1.2.1 - https://github.com/eclipse-ee4j/jaf)",
+    "org.apache.zookeeper:zookeeper:3.3.1": "(Apache License, Version 2.0) Apache ZooKeeper - Server (org.apache.zookeeper:zookeeper:3.3.1 - http://zookeeper.apache.org/zookeeper)",
+    "org.apache.zookeeper:zookeeper:3.4.6": "(Apache License, Version 2.0) Apache ZooKeeper - Server (org.apache.zookeeper:zookeeper:3.4.6 - http://zookeeper.apache.org/zookeeper)",
+    "org.codehaus.jettison:jettison:1.1": "(Apache License, Version 2.0) Jettison (org.codehaus.jettison:jettison:1.1 - https://github.com/jettison-json/jettison)"
 }
 licenses_describe_map = {
     "Apache 2.0 License":
@@ -86,7 +92,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
     "Mozilla Public License Version 2.0": """The following components are provided under the Mozilla Public License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 """,
-    "Unicode License": """The following components are provided under the Unicode License. See project link for details.
+    "Unicode/ICU License": """The following components are provided under the Unicode/ICU License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 """,
     "Go License": """The following components are provided under the Go License. See project link for details.
@@ -102,12 +108,13 @@ licenses_map = {
     "Eclipse Public License": [],
     "Public Domain License": [],
     "Mozilla Public License Version 2.0": [],
-    "Unicode License": [],
+    "Unicode/ICU License": [],
     "Go License": [],
     "Other License": []
 }
 
 for _ in licenses:
+    # Because the license of this project itself dose not need to be declared here
     if "org.apache.seatunnel" in _:
         continue
     if "Unknown license" in _:
