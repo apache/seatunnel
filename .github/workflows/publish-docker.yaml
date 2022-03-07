@@ -68,6 +68,7 @@ jobs:
           -Dmaven.test.skip \
           -Dmaven.javadoc.skip \
           -Dmaven.checkstyle.skip \
+          -Dlicense.skipAddThirdParty=true \
           -Dmaven.deploy.skip \
           -Ddocker.tag=${{ github.sha }} \
           -Ddocker.hub=${{ env.HUB }} \
