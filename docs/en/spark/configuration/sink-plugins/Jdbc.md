@@ -61,10 +61,6 @@ Configure when `saveMode` is specified as `update` , and when the specified key 
 
 Configure when `saveMode` is specified as `update` , whether to show sql
 
-### truncate
-
-Configure when `saveMode` is `overwrite`, whether to truncate table when truncate is true, otherwise to drop table.
-
 ## Examples
 
 ```bash
