@@ -14,24 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-object Config extends Serializable {
+package org.apache.seatunnel.common.config;
 
-  final val PATH = "path"
-  final val PARTITION_BY = "partition_by"
-  final val SAVE_MODE = "save_mode"
-  final val SERIALIZER = "serializer"
-  final val PATH_TIME_FORMAT = "path_time_format"
-  final val DEFAULT_TIME_FORMAT = "path_time_format"
-  final val FORMAT = "format"
-  final val SAVE_MODE_ERROR = "error"
-  final val OPTION_PREFIX = "options."
+public enum DeployMode {
+    CLIENT("client"),
+    CLUSTER("cluster"),
+    ;
 
-  final val TEXT = "text"
-  final val PARQUET = "parquet"
-  final val JSON = "json"
-  final val ORC = "orc"
-  final val CSV = "csv"
+    private final String name;
+
+    DeployMode(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
 
 }
