@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.spark;
+package org.apache.seatunnel.command;
 
-import org.apache.seatunnel.Seatunnel;
-import org.apache.seatunnel.command.SparkCommandArgs;
+import org.apache.seatunnel.common.config.Common;
 
-public class LocalSparkExample {
+import com.beust.jcommander.IParameterValidator;
+import com.beust.jcommander.ParameterException;
 
-    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-spark-examples/src/main/resources/examples/";
-
-    public static void main(String[] args) {
-        String configFile = getTestConfigFile("spark.batch.conf");
-        SparkCommandArgs sparkArgs = new SparkCommandArgs();
-        sparkArgs.setConfigFile(configFile);
-        sparkArgs.setCheckConfig(false);
-        sparkArgs.setVariables(null);
-        Seatunnel.run(sparkArgs);
-    }
-
-    public static String getTestConfigFile(String configFile) {
-        return System.getProperty("user.dir") + TEST_RESOURCE_DIR + configFile;
+public class DeployModeValidator implements IParameterValidator {
+    @Override
+    public void validate(String name, String value)
+        throws ParameterException {
+        if (!Common.isModeAllowed(value)) {
+            throw new ParameterException("deploy-mode: " + value + " is not allowed.");
+        }
     }
 }

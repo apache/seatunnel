@@ -15,31 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.config.command;
+package org.apache.seatunnel.command;
 
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.config.EngineType;
 
 import com.beust.jcommander.Parameter;
 
 import java.util.List;
 
-public class CommandSparkArgs {
+public class FlinkCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-c", "--config"},
         description = "config file",
         required = true)
     private String configFile = "application.conf";
-
-    @Parameter(names = {"-e", "--deploy-mode"},
-        description = "spark deploy mode",
-        required = true,
-        validateWith = org.apache.seatunnel.config.command.DeployModeValidator.class)
-    private String deployMode = DeployMode.CLIENT.getName();
-
-    @Parameter(names = {"-m", "--master"},
-        description = "spark master",
-        required = true)
-    private String master = null;
 
     @Parameter(names = {"-i", "--variable"},
         description = "variable substitution, such as -i city=beijing, or -i date=20190318")
@@ -47,25 +37,39 @@ public class CommandSparkArgs {
 
     @Parameter(names = {"-t", "--check"},
         description = "check config")
-    private boolean testConfig = false;
+    private boolean checkConfig = false;
 
     public String getConfigFile() {
         return configFile;
     }
 
-    public String getDeployMode() {
-        return deployMode;
-    }
-
-    public boolean isTestConfig() {
-        return testConfig;
-    }
-
-    public String getMaster() {
-        return master;
+    public boolean isCheckConfig() {
+        return checkConfig;
     }
 
     public List<String> getVariables() {
         return variables;
+    }
+
+    @Override
+    public EngineType getEngineType() {
+        return EngineType.FLINK;
+    }
+
+    @Override
+    public DeployMode getDeployMode() {
+        return DeployMode.CLIENT;
+    }
+
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
+    }
+
+    public void setVariables(List<String> variables) {
+        this.variables = variables;
+    }
+
+    public void setCheckConfig(boolean checkConfig) {
+        this.checkConfig = checkConfig;
     }
 }

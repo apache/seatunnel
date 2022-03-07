@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.config.command;
+package org.apache.seatunnel.utils;
+
+import org.apache.seatunnel.command.FlinkCommandArgs;
+import org.apache.seatunnel.command.SparkCommandArgs;
 
 import com.beust.jcommander.JCommander;
 
@@ -24,32 +27,22 @@ public final class CommandLineUtils {
     private CommandLineUtils() {
     }
 
-    public static CommandLineArgs parseSparkArgs(String[] args) {
-        CommandSparkArgs commandSparkArgs = new CommandSparkArgs();
+    public static SparkCommandArgs parseSparkArgs(String[] args) {
+        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
         JCommander.newBuilder()
-            .addObject(commandSparkArgs)
+            .addObject(sparkCommandArgs)
             .build()
             .parse(args);
-
-        return new CommandLineArgs(
-            commandSparkArgs.getDeployMode(),
-            commandSparkArgs.getConfigFile(),
-            commandSparkArgs.isTestConfig()
-        );
+        return sparkCommandArgs;
     }
 
-    public static CommandLineArgs parseFlinkArgs(String[] args) {
-        CommandFlinkArgs commandFlinkArgs = new CommandFlinkArgs();
+    public static FlinkCommandArgs parseFlinkArgs(String[] args) {
+        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         JCommander.newBuilder()
-            .addObject(commandFlinkArgs)
+            .addObject(flinkCommandArgs)
             .build()
             .parse(args);
-
-        return new CommandLineArgs(
-            commandFlinkArgs.getConfigFile(),
-            commandFlinkArgs.isTestConfig(),
-            commandFlinkArgs.getVariables()
-        );
+        return flinkCommandArgs;
     }
 
 }

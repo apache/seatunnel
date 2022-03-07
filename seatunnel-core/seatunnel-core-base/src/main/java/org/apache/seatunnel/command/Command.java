@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.config.command;
+package org.apache.seatunnel.command;
 
-import com.beust.jcommander.JCommander;
-import org.junit.Assert;
-import org.junit.Test;
+/**
+ * Command interface.
+ *
+ * @param <T> args type
+ */
+@FunctionalInterface
+public interface Command<T extends CommandArgs> {
 
-import java.util.Arrays;
+    /**
+     * Execute command
+     *
+     * @param commandArgs args
+     */
+    void execute(T commandArgs);
 
-public class CommandFlinkArgsTest {
-
-    @Test
-    public void testParseFlinkArgs() {
-        String[] args = {"-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202"};
-        CommandFlinkArgs flinkArgs = new CommandFlinkArgs();
-        JCommander.newBuilder()
-            .addObject(flinkArgs)
-            .build()
-            .parse(args);
-        Assert.assertEquals("app.conf", flinkArgs.getConfigFile());
-        Assert.assertTrue(flinkArgs.isTestConfig());
-        Assert.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
-    }
 }

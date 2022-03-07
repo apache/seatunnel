@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.utils;
+package org.apache.seatunnel.command;
 
-public enum Engine {
-    SPARK("spark"), FLINK("flink"), NULL("");
+import com.beust.jcommander.JCommander;
+import org.junit.Assert;
+import org.junit.Test;
 
-    private String engine;
+import java.util.Arrays;
 
-    Engine(String engine) {
-        this.engine = engine;
-    }
+public class FlinkCommandArgsTest {
 
-    public String getEngine() {
-        return engine;
+    @Test
+    public void testParseFlinkArgs() {
+        String[] args = {"-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202"};
+        FlinkCommandArgs flinkArgs = new FlinkCommandArgs();
+        JCommander.newBuilder()
+            .addObject(flinkArgs)
+            .build()
+            .parse(args);
+        Assert.assertEquals("app.conf", flinkArgs.getConfigFile());
+        Assert.assertTrue(flinkArgs.isCheckConfig());
+        Assert.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
     }
 }
