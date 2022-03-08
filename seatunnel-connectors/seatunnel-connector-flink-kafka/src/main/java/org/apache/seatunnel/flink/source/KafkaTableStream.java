@@ -52,7 +52,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
 
     private Config config;
 
-    private Properties kafkaParams = new Properties();
+    private final Properties kafkaParams = new Properties();
     private String topic;
     private Object schemaInfo;
     private String rowTimeField;

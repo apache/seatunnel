@@ -28,6 +28,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
@@ -38,14 +39,17 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     private static final long serialVersionUID = -3026082767246767679L;
     private volatile boolean running = true;
+    private static final String PARALLELISM = "parallelism";
 
     private Config config;
 
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
-        return env.getStreamExecutionEnvironment()
-                .addSource(this)
-                .returns(new RowTypeInfo(STRING_TYPE_INFO, LONG_TYPE_INFO));
+        DataStreamSource<Row> source = env.getStreamExecutionEnvironment().addSource(this);
+        if (config.hasPath(PARALLELISM)) {
+            source = source.setParallelism(config.getInt(PARALLELISM));
+        }
+        return source.returns(new RowTypeInfo(STRING_TYPE_INFO, LONG_TYPE_INFO));
     }
 
     @Override
