@@ -604,7 +604,6 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Apache Iceberg (org.apache.iceberg:iceberg-bundled-guava:0.13.1 - https://iceberg.apache.org)
      (The Apache Software License, Version 2.0) Apache Iceberg (org.apache.iceberg:iceberg-common:0.13.1 - https://iceberg.apache.org)
      (The Apache Software License, Version 2.0) Apache Iceberg (org.apache.iceberg:iceberg-core:0.13.1 - https://iceberg.apache.org)
-     (The Apache Software License, Version 2.0) Apache Iceberg (org.apache.iceberg:iceberg-spark-runtime:0.13.1 - https://iceberg.apache.org)
      (The Apache Software License, Version 2.0) Apache Ivy (org.apache.ivy:ivy:2.4.0 - http://ant.apache.org/ivy/)
      (The Apache Software License, Version 2.0) Apache Kafka (org.apache.kafka:kafka-clients:2.0.0 - http://kafka.apache.org)
      (The Apache Software License, Version 2.0) Apache Kafka (org.apache.kafka:kafka-clients:2.4.1 - https://kafka.apache.org)
