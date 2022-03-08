@@ -48,7 +48,7 @@ public final class CommandLineUtils {
         return new CommandLineArgs(
             commandFlinkArgs.getConfigFile(),
             commandFlinkArgs.isTestConfig(),
-            commandFlinkArgs.getVariable()
+            commandFlinkArgs.getVariables()
         );
     }
 

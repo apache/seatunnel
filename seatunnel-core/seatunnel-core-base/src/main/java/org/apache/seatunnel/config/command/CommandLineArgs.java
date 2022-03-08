@@ -17,17 +17,21 @@
 
 package org.apache.seatunnel.config.command;
 
+import org.apache.seatunnel.common.config.DeployMode;
+
+import java.util.List;
+
 public class CommandLineArgs {
 
-    private String deployMode = "client";
+    private String deployMode = DeployMode.CLIENT.getName();
     private final String configFile;
     private final boolean testConfig;
-    private String variable;
+    private List<String> variables;
 
-    public CommandLineArgs(String configFile, boolean testConfig, String variable) {
+    public CommandLineArgs(String configFile, boolean testConfig, List<String> variables) {
         this.configFile = configFile;
         this.testConfig = testConfig;
-        this.variable = variable;
+        this.variables = variables;
     }
 
     public CommandLineArgs(String deployMode, String configFile, boolean testConfig) {
@@ -48,8 +52,8 @@ public class CommandLineArgs {
         return testConfig;
     }
 
-    public String getVariable() {
-        return variable;
+    public List<String> getVariables() {
+        return variables;
     }
 
 }

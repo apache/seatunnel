@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.spark.sink
 
 import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
@@ -21,72 +22,65 @@ import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.seatunnel.spark.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT, HASH_NAME, HOST, LIST_NAME, PORT, SET_NAME, TIMEOUT, ZSET_NAME}
+import org.apache.seatunnel.spark.common.RedisDataType
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable
 
 class Redis extends SparkBatchSink with Logging {
 
-  val redisConfig: mutable.Map[String, String] = mutable.Map()
-  val redisPrefix = "redis"
-  var redisSaveType: RedisSaveType.Value = _
-  val redisHost = "redis_host"
-  val redisPort = "redis_port"
-  val redisAuth = "redis_auth"
-  val redisDb = "redis_db"
-  val redisTimeout = "redis_timeout"
-  val REDIS_SAVE_TYPE = "redis_save_type"
-  val HASH_NAME = "redis_hash_name"
-  val SET_NAME = "redis_set_name"
-  val ZSET_NAME = "redis_zset_name"
-  val LIST_NAME = "redis_list_name"
+  var redisDataType: RedisDataType.Value = _
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
     val redisConfigs = new RedisConfig(RedisEndpoint(
-      host = config.getString(redisHost),
-      port = config.getInt(redisPort),
-      auth = config.getString(redisAuth),
-      dbNum = config.getInt(redisDb),
-      timeout = config.getInt(redisTimeout))
-    )
+      host = config.getString(HOST),
+      port = config.getInt(PORT),
+      auth = config.getString(AUTH),
+      dbNum = config.getInt(DB_NUM),
+      timeout = config.getInt(TIMEOUT)
+    ))
 
+    redisDataType = RedisDataType.withName(config.getString(DATA_TYPE))
     implicit val sc: SparkContext = env.getSparkSession.sparkContext
-    redisSaveType match {
-      case RedisSaveType.KV => dealWithKV(data)(sc = sc, redisConfig = redisConfigs)
-      case RedisSaveType.HASH => dealWithHASH(data, redisConfig(HASH_NAME))(sc = sc, redisConfig = redisConfigs)
-      case RedisSaveType.SET => dealWithSet(data, redisConfig(SET_NAME))(sc = sc, redisConfig = redisConfigs)
-      case RedisSaveType.ZSET => dealWithZSet(data, redisConfig(ZSET_NAME))(sc = sc, redisConfig = redisConfigs)
-      case RedisSaveType.LIST => dealWithList(data, redisConfig(LIST_NAME))(sc = sc, redisConfig = redisConfigs)
+
+    redisDataType match {
+      case RedisDataType.KV => dealWithKV(data)(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.HASH => dealWithHASH(data, config.getString(HASH_NAME))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.SET => dealWithSet(data, config.getString(SET_NAME))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.ZSET => dealWithZSet(data, config.getString(ZSET_NAME))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.LIST => dealWithList(data, config.getString(LIST_NAME))(sc = sc, redisConfig = redisConfigs)
     }
   }
 
   override def checkConfig(): CheckResult = {
-    CheckConfigUtil.checkAllExists(config, "redis_host", "redis_port", "redis_save_type")
+    CheckConfigUtil.checkAllExists(config, HOST, PORT)
 
-    val saveTypeList = List("KV", "HASH", "SET", "ZSET", "LIST")
-    val saveType = config.getString("redis_save_type")
-
-    val bool = saveTypeList.contains(saveType.toUpperCase)
-    if (bool) {
-      redisSaveType = RedisSaveType.withName(config.getString("redis_save_type"))
-      CheckResult.success()
+    val dataType = config.getString(DATA_TYPE)
+    if (dataType != null) {
+      val dataTypeList = List("KV", "HASH", "SET", "ZSET", "LIST")
+      val bool = dataTypeList.contains(dataType.toUpperCase)
+      if (!bool) {
+        CheckResult.error("Unknown redis config. data_type must be in [KV HASH SET ZSET LIST]")
+      } else {
+        CheckResult.success()
+      }
     } else {
-      CheckResult.error("Unknown redis config. redis_save_type must be in [KV HASH SET ZSET LIST]")
+      CheckResult.success()
     }
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        redisHost -> "localhost",
-        redisPort -> 6379,
-        redisAuth -> null,
-        redisDb -> 0,
-        redisTimeout -> 2000)
-    )
+        HOST -> DEFAULT_HOST,
+        PORT -> DEFAULT_PORT,
+        AUTH -> DEFAULT_AUTH,
+        DB_NUM -> DEFAULT_DB_NUM,
+        TIMEOUT -> DEFAULT_TIMEOUT
+      ))
     config = config.withFallback(defaultConfig)
   }
 

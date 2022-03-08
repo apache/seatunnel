@@ -55,8 +55,13 @@
         <dependency>
             <groupId>com.pingcap.tispark</groupId>
             <artifactId>tispark-assembly</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>mysql</groupId>
+                    <artifactId>mysql-connector-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-
     </dependencies>
 
 </project>

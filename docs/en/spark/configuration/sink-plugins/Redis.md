@@ -8,67 +8,68 @@ Write Rows to a Redis.
 
 ## Options
 
-| name                                       | type   | required | default value |
-|--------------------------------------------|--------|----------|---------------| 
-| [redis_host](#redis_host-string)           | string | yes      | "localhost"   |
-| [redis_port](#redis_port-string)           | string | yes      | "6379"        | 
-| [redis_auth](#redis_auth-string)           | string | no       | -             | 
-| [redis_db](#redis_db-int)                  | int    | no       | 0             | 
-| [redis_timeout](#redis_timeout-int)        | int    | no       | 2000          | 
-| [redis_save_type](#redis_save_type-string) | string | yes      | -             | 
-| [redis_hash_name](#redis_hash_name-string) | string | no       | -             |
-| [redis_list_name](#redis_list_name-string) | string | no       | -             | 
-| [redis_zset_name](#redis_zset_name-string) | string | no       | -             | 
-| [redis_set_name](#redis_set_name-string)   | string | no       | -             |
+| name      | type   | required  | default value |
+|-----------|--------|-----------|---------------|
+| host      | string | yes       | "localhost"   |
+| port      | int    | yes       | 6379          |
+| auth      | string | no        |               |
+| db_num    | int    | no        | 0             |
+| data_type | string | no        | "KV"          |
+| hash_name | string | no        |               |
+| list_name | string | no        |               |
+| set_name  | string | no        |               |
+| zset_name | string | no        |               |
+| timeout   | int    | no        | 2000          |
 
-### redis_host [string]
+### host [string]
 
-redis host
+Redis server address, default `"localhost"`
 
-### redis_port [string]
+### port [int]
 
-redis port
+Redis service port, default `6379`
 
-### redis_auth [string]
+### auth [string]
 
-redis password
+Redis authentication password
 
-### redis_db [int]
+### db_num [int]
 
-redis database
+Redis database index ID. It is connected to db `0` by default
 
 ### redis_timeout [int]
 
-redis timeout
+Redis timeout
 
-### redis_save_type [string]
+### data_type [string]
 
-redis save type eg: KV HASH LIST SET ZSET
+Redis data type eg: `KV HASH LIST SET ZSET`
 
-### redis_hash_name [string]
+### hash_name [string]
 
-if redis save type is HASH must config hash name 
+if redis data type is HASH must config hash name 
 
-### redis_list_name [string]
+### list_name [string]
 
-if redis save type is list must config list name
+if redis data type is LIST must config list name
 
-### redis_zset_name [string]
+### zset_name [string]
 
-if redis save type is zset must config zset name
+if redis data type is ZSET must config zset name
 
-### redis_set_name [string]
+### set_name [string]
 
-if redis save type is set must config set name
+if redis data type is SET must config set name
 
 ## Examples
 
 ```bash
-Redis {
-  redis_host = "localhost"
-  redis_port = 6379
-  redis_auth = "myPassword"
-  redis_save_type = "HASH"
-  redis_hash_name = "test"
+redis {
+  host = "localhost"
+  port = 6379
+  auth = "myPassword"
+  db_num = 1
+  data_type = "HASH"
+  hash_name = "test"
 }
 ```
