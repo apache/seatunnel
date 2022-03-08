@@ -14,37 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.source
+package org.apache.seatunnel.spark.sink
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType
 import org.apache.seatunnel.spark.SparkEnvironment
-import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
-
 import scala.collection.JavaConversions._
 
-class Iceberg extends SparkBatchSource {
-  override def getData(env: SparkEnvironment): Dataset[Row] = {
-    val reader = env.getSparkSession.read.format("iceberg")
+class Iceberg extends SparkBatchSink {
+
+  override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
+    val writer = data.write.format("iceberg")
     for (e <- config.entrySet()) {
       e.getValue.valueType match {
         case ConfigValueType.NUMBER =>
-          reader.option(e.getKey, config.getLong(e.getKey))
+          writer.option(e.getKey, config.getLong(e.getKey))
         case ConfigValueType.BOOLEAN =>
-          reader.option(e.getKey, config.getBoolean(e.getKey))
+          writer.option(e.getKey, config.getBoolean(e.getKey))
         case ConfigValueType.STRING =>
-          reader.option(e.getKey, config.getString(e.getKey))
+          writer.option(e.getKey, config.getString(e.getKey))
       }
     }
-    val df = reader.load(config.getString("path"))
-    df.createOrReplaceTempView(config.getString("result_table_name"))
-    env.getSparkSession.sql(config.getString("pre_sql"))
+    writer.mode(config.getString("saveMode"))
+      .save(config.getString("path"))
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "path", "pre_sql")
+    checkAllExists(config, "path", "saveMode")
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {}
