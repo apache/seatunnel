@@ -70,7 +70,6 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
     private static final String OFFSET_RESET = "offset.reset";
 
-
     @Override
     public void setConfig(Config config) {
         this.config = config;
