@@ -4,19 +4,19 @@
 
 ## Description
 
-Split string according to `delimiter`
+Split string according to `separator`
 
 ## Options
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- | ------------- |
-| delimiter      | string | no       | " "(空格)       |
+| separator      | string | no       | " "      |
 | fields         | array  | yes      | -             |
 | source_field   | string | no       | raw_message   |
 | target_field   | string | no       | *root*        |
 | common-options | string | no       | -             |
 
-### delimiter [string]
+### separator [string]
 
 Separator, the input string is separated according to the separator. The default separator is a space `(" ")` .
 
@@ -37,24 +37,34 @@ The source field of the string before being split, if not configured, the defaul
 Transform plugin common parameters, please refer to [Transform Plugin](./transform-plugin.md) for details
 
 ## Examples
+- Split the `message` field in the source data according to `&`, you can use `field1` or `field2` as the key to get the corresponding value
 
 ```bash
 split {
     source_field = "message"
-    delimiter = "&"
+    separator = "&"
     fields = ["field1", "field2"]
 }
 ```
-
-> Split the `message` field in the source data according to `&`, you can use `field1` or `field2` as the key to get the corresponding value
+- Split the `message` field in the source data according to `,` , the split field is `info` , you can use `info.field1` or `info.field2` as the key to get the corresponding value
 
 ```bash
 split {
     source_field = "message"
     target_field = "info"
-    delimiter = ","
+    separator = ","
     fields = ["field1", "field2"]
 }
 ```
-
-> Split the `message` field in the source data according to `,` , the split field is `info` , you can use `info.field1` or `info.field2` as the key to get the corresponding value
+- Use `Split` as udf in sql.
+```bash
+  # This just created a udf called split
+  Split{
+    separator = "#"
+    fields = ["name","age"]
+  }
+  # Use the split function (confirm that the fake table exists)
+  sql {
+    sql = "select * from (select raw_message,split(raw_message) as info_row from fake) t1"
+  }
+```
