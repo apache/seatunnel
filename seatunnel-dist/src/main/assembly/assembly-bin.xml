@@ -38,8 +38,7 @@
             </excludes>
 
             <includes>
-                <include>README.MD</include>
-                <include>LICENSE</include>
+                <include>README.md</include>
                 <include>bin/**</include>
                 <include>plugins/**</include>
                 <include>config/**</include>
@@ -95,7 +94,7 @@
         </fileSet>
         <!--Licenses And NOTICE-->
         <fileSet>
-            <directory>${basedir}/release-docs</directory>
+            <directory>release-docs</directory>
             <outputDirectory>.</outputDirectory>
         </fileSet>
         <!-- DISCLAIMER -->
