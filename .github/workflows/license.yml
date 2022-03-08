@@ -61,4 +61,4 @@ jobs:
           ./mvnw clean license:aggregate-add-third-party -DskipTests -Dcheckstyle.skip -U
       - name: Check LICENSE file
         run: |
-          python3 bin/license.py seatunnel-dist/target/THIRD-PARTY.txt seatunnel-dist/release-docs/LICENSE true
+          python3 tools/dependencies/license.py seatunnel-dist/target/THIRD-PARTY.txt seatunnel-dist/release-docs/LICENSE true
