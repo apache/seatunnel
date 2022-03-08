@@ -19,7 +19,7 @@ package org.apache.seatunnel.flink.sink;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.utils.StringTemplate;
+import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
@@ -93,7 +93,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataStream.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
-        indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
+        indexName = VariablesSubstitute.substitute(config.getString("index"), config.getString("index_time_format"));
         ElasticsearchSink.Builder<Row> esSinkBuilder = new ElasticsearchSink.Builder<>(
                 httpHosts,
                 new ElasticsearchSinkFunction<Row>() {
@@ -133,7 +133,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
-        indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
+        indexName = VariablesSubstitute.substitute(config.getString("index"), config.getString("index_time_format"));
         DataSink<Row> dataSink = dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
             @Override
             public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {

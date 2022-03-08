@@ -17,12 +17,15 @@
 
 package org.apache.seatunnel.core.sql.job;
 
+import org.apache.seatunnel.common.utils.VariablesSubstitute;
+
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class JobInfo {
 
     private static final String JOB_NAME = "default sql job";
-    private static final String VAR_REGEX = "\\$\\{%s}";
     private static final String DELIMITER = "=";
 
     private final String jobName;
@@ -47,15 +50,9 @@ public class JobInfo {
     }
 
     public void substitute(List<String> variables) {
-        if (variables == null) {
-            return;
-        }
-        for (String variable : variables) {
-            String[] s = variable.split(DELIMITER);
-            if (s.length == 2) {
-                jobContent = jobContent.replaceAll(String.format(VAR_REGEX, s[0].trim()), s[1].trim());
-            }
-        }
+        Map<String, String> substituteMap = variables.stream()
+                .filter(v -> v.contains(DELIMITER))
+                .collect(Collectors.toMap(v -> v.split(DELIMITER)[0], v -> v.split(DELIMITER)[1]));
+        jobContent = VariablesSubstitute.substitute(jobContent, substituteMap);
     }
-
 }

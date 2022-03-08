@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.sink
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.common.utils.StringTemplate
+import org.apache.seatunnel.common.utils.VariablesSubstitute
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
@@ -37,7 +37,7 @@ class Elasticsearch extends SparkBatchSink {
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
     val index =
-      StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
+      VariablesSubstitute.substitute(config.getString("index"), config.getString("index_time_format"))
     df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
   }
 

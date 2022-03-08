@@ -37,7 +37,7 @@ CREATE TABLE ${table_name} (
   'fields.f_uid.max'='1000'
 );
 
-CREATE TABLE print_table (
+CREATE TABLE ${table_name2} (
   type INT,
   uid INT,
   lstmt TIMESTAMP
@@ -46,4 +46,4 @@ CREATE TABLE print_table (
   'sink.parallelism' = '1'
 );
 
-INSERT INTO print_table SELECT * FROM ${table_name} where f_type = 1;
+INSERT INTO ${table_name2} SELECT * FROM ${table_name} where f_type = 1;
