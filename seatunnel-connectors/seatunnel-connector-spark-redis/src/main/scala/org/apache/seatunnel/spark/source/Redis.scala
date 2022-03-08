@@ -17,35 +17,25 @@
 
 package org.apache.seatunnel.spark.source
 
-import com.redislabs.provider.redis.{toRedisContext, RedisConfig, RedisEndpoint}
-import org.apache.seatunnel.common.config.CheckResult
+import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
+import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.seatunnel.spark.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PARTITION_NUM, DEFAULT_PORT, DEFAULT_TIMEOUT, HOST, KEYS_OR_KEY_PATTERN, PARTITION_NUM, PORT, RESULT_TABLE_NAME, TIMEOUT}
+import org.apache.seatunnel.spark.common.RedisDataType
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
 
+import scala.collection.JavaConversions._
+
 class Redis extends SparkBatchSource {
-  val defaultPort: Int = 6379
-  val defaultDb: Int = 0
-  val defaultTimeout: Int = 2000
-  val defaultPartition: Int = 3
+
+  var redisDataType: RedisDataType.Value = _
 
   override def checkConfig(): CheckResult = {
-    val hasTableName = config.hasPath("result_table_name") || config.hasPath("table_name")
-    val hasRedisHost = config.hasPath("host")
-    val hasKeys = config.hasPath("key_pattern")
-    val hasRedisPassword = config.hasPath("auth")
-
-    config match {
-      case _ if !hasTableName =>
-        CheckResult.error("please specify [result_table_name] as non-empty string")
-      case _ if !hasRedisHost => CheckResult.error("please specify [host] as non-empty string")
-      case _ if !hasRedisPassword =>
-        CheckResult.error("please specify [auth] as non-empty string")
-      case _ if !hasKeys =>
-        CheckResult.error(
-          "please specify [key_pattern] as non-empty string, multiple key patterns separated by ','")
-      case _ => CheckResult.success()
-    }
+    CheckConfigUtil.checkAllExists(config, HOST, KEYS_OR_KEY_PATTERN, RESULT_TABLE_NAME)
   }
 
   /**
@@ -53,7 +43,19 @@ class Redis extends SparkBatchSource {
    *
    * @param env Spark environment
    */
-  override def prepare(env: SparkEnvironment): Unit = {}
+  override def prepare(env: SparkEnvironment): Unit = {
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        HOST -> DEFAULT_HOST,
+        PORT -> DEFAULT_PORT,
+        AUTH -> DEFAULT_AUTH,
+        DB_NUM -> DEFAULT_DB_NUM,
+        DATA_TYPE -> DEFAULT_DATA_TYPE,
+        PARTITION_NUM -> DEFAULT_PARTITION_NUM,
+        TIMEOUT -> DEFAULT_TIMEOUT
+      ))
+    config = config.withFallback(defaultConfig)
+  }
 
   /**
    * Read the data in redis and convert it into dataframe
@@ -62,52 +64,64 @@ class Redis extends SparkBatchSource {
    * @return Return the input dataset
    */
   override def getData(env: SparkEnvironment): Dataset[Row] = {
-    val spark = env.getSparkSession
-
-    var regTable = ""
-    if (config.hasPath("result_table_name")) {
-      regTable = config.getString("result_table_name")
-    } else {
-      regTable = config.getString("table_name")
-    }
-
-    val auth = config.getString("auth")
-
-    val host = config.getString("host")
-
-    var port = defaultPort
-    if (config.hasPath("port")) {
-      port = config.getInt("port")
-    }
-
-    var timeout = defaultTimeout
-    if (config.hasPath("timeout")) {
-      timeout = config.getInt("timeout")
-    }
-
-    val keyPattern = config.getString("key_pattern")
-
-    var partition = defaultPartition
-    if (config.hasPath("partition")) {
-      partition = config.getInt("partition")
-    }
-
-    var dbNum = defaultDb
-    if (config.hasPath("db_num")) {
-      dbNum = config.getInt("db_num")
-    }
-
     // Get data from redis through keys and combine it into a dataset
-    val redisConfig = new RedisConfig(RedisEndpoint(
-      host = host,
-      port = port,
-      auth = auth,
-      dbNum = dbNum,
-      timeout = timeout))
-    val stringRDD = spark.sparkContext.fromRedisKV(keyPattern, partition)(redisConfig = redisConfig)
+    val redisConfigs = new RedisConfig(RedisEndpoint(
+      host = config.getString(HOST),
+      port = config.getInt(PORT),
+      auth = config.getString(AUTH),
+      dbNum = config.getInt(DB_NUM),
+      timeout = config.getInt(TIMEOUT)
+    ))
+
+    redisDataType = RedisDataType.withName(config.getString(DATA_TYPE).toUpperCase)
+    val keysOrKeyPattern = config.getString(KEYS_OR_KEY_PATTERN)
+    val partitionNum = config.getInt(PARTITION_NUM)
+
+    val spark = env.getSparkSession
+    implicit val sc: SparkContext = spark.sparkContext
     import spark.implicits._
-    val ds = stringRDD.toDF("raw_key", "raw_message")
-    ds.createOrReplaceTempView(s"$regTable")
+
+    var ds = spark.emptyDataFrame
+    redisDataType match {
+      case RedisDataType.KV =>
+        val resultRDD = dealWithKV(keysOrKeyPattern, partitionNum)(sc = sc, redisConfig = redisConfigs)
+        ds = resultRDD.toDF("raw_key", "raw_message")
+      case RedisDataType.HASH =>
+        val resultRDD = dealWithHASH(keysOrKeyPattern, partitionNum)(sc = sc, redisConfig = redisConfigs)
+        ds = resultRDD.toDF("raw_key", "raw_message")
+      case RedisDataType.SET =>
+        val resultRDD = dealWithSet(keysOrKeyPattern, partitionNum)(sc = sc, redisConfig = redisConfigs)
+        ds = resultRDD.toDF("raw_message")
+      case RedisDataType.ZSET =>
+        val resultRDD = dealWithZSet(keysOrKeyPattern, partitionNum)(sc = sc, redisConfig = redisConfigs)
+        ds = resultRDD.toDF("raw_message")
+      case RedisDataType.LIST =>
+        val resultRDD = dealWithList(keysOrKeyPattern, partitionNum)(sc = sc, redisConfig = redisConfigs)
+        ds = resultRDD.toDF("raw_message")
+    }
+
+    ds.createOrReplaceTempView(config.getString(RESULT_TABLE_NAME))
     ds
   }
+
+  def dealWithKV(keysOrKeyPattern: String, partitionNum: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): RDD[(String, String)] = {
+    sc.fromRedisKV(keysOrKeyPattern, partitionNum)(redisConfig = redisConfig)
+  }
+
+  def dealWithHASH(keysOrKeyPattern: String, partitionNum: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): RDD[(String, String)] = {
+    sc.fromRedisHash(keysOrKeyPattern, partitionNum)(redisConfig = redisConfig)
+  }
+
+  def dealWithList(keysOrKeyPattern: String, partitionNum: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): RDD[String] = {
+    sc.fromRedisList(keysOrKeyPattern, partitionNum)(redisConfig = redisConfig)
+  }
+
+  def dealWithSet(keysOrKeyPattern: String, partitionNum: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): RDD[String] = {
+    sc.fromRedisSet(keysOrKeyPattern, partitionNum)(redisConfig = redisConfig)
+  }
+
+  def dealWithZSet(keysOrKeyPattern: String, partitionNum: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): RDD[String] = {
+    sc.fromRedisZSet(keysOrKeyPattern, partitionNum)(redisConfig = redisConfig)
+  }
+
 }

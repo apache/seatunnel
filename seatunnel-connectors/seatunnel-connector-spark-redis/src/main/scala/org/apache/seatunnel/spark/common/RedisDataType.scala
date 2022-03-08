@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spark.sink
+package org.apache.seatunnel.spark.common
 
-object RedisSaveType extends Enumeration {
-  def RedisSaveType: Value = Value
+object RedisDataType extends Enumeration {
+  def RedisDataType: Value = Value
 
   val KV: Value = Value("KV")
   val HASH: Value = Value("HASH")
