@@ -356,3 +356,7 @@ Scala, maven, sbt, gradle, whatever you want. This is also the way we recommend 
 Run `mvn install` first.
 
 Because in the `seatunnel-config/seatunnel-config-base` subproject, package `com.typesafe.config` has been relocated to `org.apache.seatunnel.shade.com.typesafe.config` and install to maven local repository in subproject `seatunnel-config/seatunnel-config-shade` .
+
+**FAQ 24.** Build project with `mvn clean`、`mvn install`、`mvn package` succeeded, run has exception "class not found `org.apache.flink.client.program.ProgramInvocationException: The main method caused an error: Was passed main parameter '/opt/module/apache-seatunnel-incubating-2.0.5-SNAPSHOT/lib/seatunnel-core-flink.jar' but no main parameter was defined in your arg class"
+
+Packaging with this command can solve the problem： `mvn clean package -DskipTests`
