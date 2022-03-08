@@ -17,7 +17,7 @@
 package org.apache.seatunnel.spark.sink
 
 import java.math.BigDecimal
-import java.sql.PreparedStatement
+import java.sql.{Date, PreparedStatement, Timestamp}
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Properties
@@ -176,6 +176,8 @@ class Clickhouse extends SparkBatchSink {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
         statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
+      case Clickhouse.datetime64Pattern(_) =>
+        statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
       case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
         statement.setInt(index + 1, 0)
       case "UInt64" | "Int64" =>
@@ -199,6 +201,7 @@ class Clickhouse extends SparkBatchSink {
       case "String" =>
         statement.setNull(index + 1, java.sql.Types.VARCHAR)
       case "DateTime" => statement.setNull(index + 1, java.sql.Types.DATE)
+      case Clickhouse.datetime64Pattern(_) => statement.setNull(index + 1, java.sql.Types.TIMESTAMP)
       case "Date" => statement.setNull(index + 1, java.sql.Types.TIME)
       case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
         statement.setNull(index + 1, java.sql.Types.INTEGER)
@@ -216,8 +219,12 @@ class Clickhouse extends SparkBatchSink {
       item: Row,
       statement: PreparedStatement): Unit = {
     fieldType match {
-      case "DateTime" | "Date" | "String" =>
+      case "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
+      case "Date" =>
+        statement.setDate(index + 1, item.getAs[Date](fieldIndex))
+      case "DateTime" | Clickhouse.datetime64Pattern(_) =>
+        statement.setTimestamp(index + 1, item.getAs[Timestamp](fieldIndex))
       case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
         statement.setInt(index + 1, item.getAs[Int](fieldIndex))
       case "UInt32" | "UInt64" | "Int64" =>
@@ -249,7 +256,7 @@ class Clickhouse extends SparkBatchSink {
           renderDefaultStatement(i, fieldType, statement)
         } else {
           fieldType match {
-            case "String" | "DateTime" | "Date" | Clickhouse.arrayPattern(_) =>
+            case "String" | "DateTime" | Clickhouse.datetime64Pattern(_) | "Date" | Clickhouse.arrayPattern(_) =>
               renderBaseTypeStatement(i, fieldIndex, fieldType, item, statement)
             case Clickhouse.floatPattern(_) | Clickhouse.intPattern(_) | Clickhouse.uintPattern(
                   _) =>
@@ -302,6 +309,7 @@ object Clickhouse {
   val uintPattern: Regex = "(UInt.*)".r
   val floatPattern: Regex = "(Float.*)".r
   val decimalPattern: Regex = "(Decimal.*)".r
+  val datetime64Pattern: Regex = "(DateTime64\\(.*\\))".r
 
   /**
    * Seatunnel support this clickhouse data type or not.
@@ -313,7 +321,7 @@ object Clickhouse {
     dataType match {
       case "Date" | "DateTime" | "String" =>
         true
-      case nullablePattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) =>
+      case nullablePattern(_) | floatPattern(_) | intPattern(_) | uintPattern(_) | datetime64Pattern(_) =>
         true
       case arrayPattern(_) =>
         true
@@ -330,6 +338,9 @@ object Clickhouse {
     fieldType match {
       case "DateTime" =>
         val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        dateFormat.format(System.currentTimeMillis())
+      case datetime64Pattern(_) =>
+        val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
         dateFormat.format(System.currentTimeMillis())
       case "Date" =>
         val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
