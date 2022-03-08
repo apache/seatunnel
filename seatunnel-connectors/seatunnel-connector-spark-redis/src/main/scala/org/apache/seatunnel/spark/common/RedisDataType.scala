@@ -14,24 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-object Config extends Serializable {
+package org.apache.seatunnel.spark.common
 
-  final val PATH = "path"
-  final val PARTITION_BY = "partition_by"
-  final val SAVE_MODE = "save_mode"
-  final val SERIALIZER = "serializer"
-  final val PATH_TIME_FORMAT = "path_time_format"
-  final val DEFAULT_TIME_FORMAT = "path_time_format"
-  final val FORMAT = "format"
-  final val SAVE_MODE_ERROR = "error"
-  final val OPTION_PREFIX = "options."
+object RedisDataType extends Enumeration {
+  def RedisDataType: Value = Value
 
-  final val TEXT = "text"
-  final val PARQUET = "parquet"
-  final val JSON = "json"
-  final val ORC = "orc"
-  final val CSV = "csv"
-
+  val KV: Value = Value("KV")
+  val HASH: Value = Value("HASH")
+  val LIST: Value = Value("LIST")
+  val SET: Value = Value("SET")
+  val ZSET: Value = Value("ZSET")
 }

@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spark.sink
+package org.apache.seatunnel.common.config;
 
-object RedisSaveType extends Enumeration {
-  def RedisSaveType: Value = Value
+public enum DeployMode {
+    CLIENT("client"),
+    CLUSTER("cluster"),
+    ;
 
-  val KV: Value = Value("KV")
-  val HASH: Value = Value("HASH")
-  val LIST: Value = Value("LIST")
-  val SET: Value = Value("SET")
-  val ZSET: Value = Value("ZSET")
+    private final String name;
+
+    DeployMode(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+
 }

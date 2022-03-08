@@ -1,21 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-
     Licensed to the Apache Software Foundation (ASF) under one or more
     contributor license agreements.  See the NOTICE file distributed with
     this work for additional information regarding copyright ownership.
     The ASF licenses this file to You under the Apache License, Version 2.0
     (the "License"); you may not use this file except in compliance with
     the License.  You may obtain a copy of the License at
-
        http://www.apache.org/licenses/LICENSE-2.0
-
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -27,7 +23,7 @@
         <artifactId>apache</artifactId>
         <version>25</version>
     </parent>
-    
+
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
@@ -54,7 +50,7 @@
         <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
-    
+
     <issueManagement>
         <system>GitHub</system>
         <url>https://github.com/apache/incubator-seatunnel/issues</url>
@@ -134,7 +130,7 @@
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
-        <httpclient.version>4.5.2</httpclient.version>
+        <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <httpcore-nio.version>4.4.4</httpcore-nio.version>
         <httpasyncclient.version>4.1.4</httpasyncclient.version>
@@ -149,6 +145,7 @@
         <config.version>1.3.3</config.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
+        <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <influxdb-java.version>2.22</influxdb-java.version>
         <scalastyle-maven-plugin.version>1.0.0</scalastyle-maven-plugin.version>
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
@@ -635,20 +632,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>${maven-assembly-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>single</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <attach>false</attach>
-                        <descriptors>
-                            <descriptor>assembly.xml</descriptor>
-                        </descriptors>
-                    </configuration>
                 </plugin>
 
                 <!-- checkstyle (Start) -->
@@ -791,12 +774,29 @@
                         </execution>
                     </executions>
                 </plugin>
-                
+
 
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
                     <version>${maven-helper-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <version>${maven-license-maven-plugin}</version>
+                    <configuration>
+                        <outputDirectory>${project.basedir}/seatunnel-dist/target/</outputDirectory>
+                        <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
+                        <sortArtifactByName>false</sortArtifactByName>
+                        <useMissingFile>false</useMissingFile>
+                        <addJavaLicenseAfterPackage>true</addJavaLicenseAfterPackage>
+                        <socketTimeout>30000</socketTimeout>
+                        <connectTimeout>30000</connectTimeout>
+                        <connectionRequestTimeout>30000</connectionRequestTimeout>
+                        <excludedScopes>test,provided</excludedScopes>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -854,6 +854,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

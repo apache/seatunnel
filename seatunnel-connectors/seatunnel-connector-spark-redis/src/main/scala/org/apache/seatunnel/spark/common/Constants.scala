@@ -14,24 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
 
-object Config extends Serializable {
+package org.apache.seatunnel.spark.common
 
-  final val PATH = "path"
-  final val PARTITION_BY = "partition_by"
-  final val SAVE_MODE = "save_mode"
-  final val SERIALIZER = "serializer"
-  final val PATH_TIME_FORMAT = "path_time_format"
-  final val DEFAULT_TIME_FORMAT = "path_time_format"
-  final val FORMAT = "format"
-  final val SAVE_MODE_ERROR = "error"
-  final val OPTION_PREFIX = "options."
+object Constants extends Serializable {
 
-  final val TEXT = "text"
-  final val PARQUET = "parquet"
-  final val JSON = "json"
-  final val ORC = "orc"
-  final val CSV = "csv"
+  final val HOST = "host"
+  final val PORT = "port"
+  final val AUTH = "auth"
+  final val DB_NUM = "db_num"
+  final val KEYS_OR_KEY_PATTERN = "keys_or_key_pattern"
+  final val PARTITION_NUM = "partition_num"
+  final val TIMEOUT = "timeout"
+  final val DATA_TYPE = "data_type"
+  final val HASH_NAME = "hash_name"
+  final val SET_NAME = "set_name"
+  final val ZSET_NAME = "zset_name"
+  final val LIST_NAME = "list_name"
+  final val RESULT_TABLE_NAME = "result_table_name"
+
+  final val DEFAULT_HOST = "localhost"
+  final val DEFAULT_PORT = 6379
+  final val DEFAULT_AUTH = null
+  final val DEFAULT_DB_NUM = 0
+  final val DEFAULT_DATA_TYPE = "KV"
+  final val DEFAULT_PARTITION_NUM = 3
+  final val DEFAULT_TIMEOUT = 2000
 
 }

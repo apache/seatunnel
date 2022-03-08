@@ -42,7 +42,7 @@ public class SqlVariableSubstitutionTest {
         JobInfo jobInfo = new JobInfo(jobContent);
         Assert.assertFalse(jobInfo.getJobContent().contains("events"));
 
-        jobInfo.substitute(flinkArgs.getVariable());
+        jobInfo.substitute(flinkArgs.getVariables());
         Assert.assertTrue(jobInfo.getJobContent().contains("events"));
     }
 

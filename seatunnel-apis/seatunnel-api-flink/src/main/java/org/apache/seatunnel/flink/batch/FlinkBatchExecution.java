@@ -67,6 +67,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             }
             input = transform.processBatch(flinkEnvironment, dataSet);
             registerResultTable(transform, input);
+            transform.registerFunction(flinkEnvironment);
         }
 
         for (FlinkBatchSink sink : sinks) {
