@@ -181,7 +181,7 @@ object JdbcUtils extends Logging {
         val sql =
           s"INSERT INTO $table ($columns) VALUES ($placeholders) ON DUPLICATE KEY UPDATE $duplicateSetting"
         if (props.getProperty("showSql", "false").equals("true")) {
-          println(s"${JDBCSaveMode.Update} => sql => $sql")
+          logInfo(s"${JDBCSaveMode.Update} => sql => $sql")
         }
         // scalastyle:on
         sql
