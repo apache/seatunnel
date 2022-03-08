@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.sql.splitter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -31,6 +32,8 @@ public class SqlStatementSplitter {
     private static final String SEMICOLON = ";";
     private static final String LINE_SEPARATOR = "\n";
     private static final String EMPTY_STR = "";
+    private static final Pattern NORMALIZE_LINE_COMPILE = Pattern.compile(BEGINNING_COMMENT_MASK);
+    private static final Pattern STATEMENT_COMPILE = Pattern.compile(COMMENT_MASK);
 
     public static List<String> normalizeStatements(String content) {
         List<String> normalizedStatements = new ArrayList<>();
@@ -73,11 +76,11 @@ public class SqlStatementSplitter {
      */
     private static String normalizeLine(List<String> buffer) {
         return buffer.stream()
-                     .map(statementLine -> statementLine.replaceAll(BEGINNING_COMMENT_MASK, EMPTY_STR))
+                     .map(statementLine -> NORMALIZE_LINE_COMPILE.matcher(statementLine).replaceAll(EMPTY_STR))
                      .collect(Collectors.joining(LINE_SEPARATOR));
     }
 
     private static boolean isEndOfStatement(String line) {
-        return line.replaceAll(COMMENT_MASK, EMPTY_STR).trim().endsWith(SEMICOLON);
+        return STATEMENT_COMPILE.matcher(line).replaceAll(EMPTY_STR).trim().endsWith(SEMICOLON);
     }
 }
