@@ -510,6 +510,7 @@
                 <groupId>org.apache.iceberg</groupId>
                 <artifactId>iceberg-spark-runtime</artifactId>
                 <version>${iceberg.version}</version>
+                <scope>provided</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
