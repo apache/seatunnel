@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.ConfigBuilder;
 import org.apache.seatunnel.config.command.CommandLineArgs;
 import org.apache.seatunnel.env.Execution;
@@ -50,10 +51,13 @@ public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
     public static void run(CommandLineArgs commandLineArgs, Engine engine) throws Exception {
-        Common.setDeployMode(commandLineArgs.getDeployMode());
+        if (!Common.setDeployMode(commandLineArgs.getDeployMode())) {
+            throw new IllegalArgumentException(
+                String.format("Deploy mode: %s is Illegal", commandLineArgs.getDeployMode()));
+        }
+
         String configFilePath = getConfigFilePath(commandLineArgs, engine);
-        boolean testConfig = commandLineArgs.isTestConfig();
-        if (testConfig) {
+        if (commandLineArgs.isTestConfig()) {
             new ConfigBuilder(configFilePath, engine).checkConfig();
             LOGGER.info("config OK !");
         } else {
@@ -77,7 +81,7 @@ public class Seatunnel {
                 break;
             case SPARK:
                 final Optional<String> mode = Common.getDeployMode();
-                if (mode.isPresent() && "cluster".equals(mode.get())) {
+                if (mode.isPresent() && DeployMode.CLUSTER.getName().equals(mode.get())) {
                     path = Paths.get(cmdArgs.getConfigFile()).getFileName().toString();
                 } else {
                     path = cmdArgs.getConfigFile();
@@ -124,7 +128,7 @@ public class Seatunnel {
 
     private static void deployModeCheck() {
         final Optional<String> mode = Common.getDeployMode();
-        if (mode.isPresent() && "cluster".equals(mode.get())) {
+        if (mode.isPresent() && DeployMode.CLUSTER.getName().equals(mode.get())) {
 
             LOGGER.info("preparing cluster mode work dir files...");
             File workDir = new File(".");

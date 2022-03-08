@@ -16,7 +16,7 @@ If you have any new Jar binary package adding in you PR, you need to follow the 
    # First, generate the seatunnel-dist/target/THIRD-PARTY.txt temporary file
    ./mvnw license:aggregate-add-third-party -DskipTests -Dcheckstyle.skip
    # Second, run the script to assist the inspection
-   python3 bin/license.py seatunnel-dist/target/THIRD-PARTY.txt seatunnel-dist/release-docs/LICENSE true
+   python3 tools/dependencies/license.py seatunnel-dist/target/THIRD-PARTY.txt seatunnel-dist/release-docs/LICENSE true
    ```
 
 4. Add the corresponding statement in `seatunnel-dist/release-docs/NOTICE`
