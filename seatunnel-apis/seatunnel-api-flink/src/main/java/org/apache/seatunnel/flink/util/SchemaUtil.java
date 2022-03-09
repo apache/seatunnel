@@ -143,8 +143,8 @@ public final class SchemaUtil {
         }
     }
 
-    public static TypeInformation[] getCsvType(List<Map<String, String>> schemaList) {
-        TypeInformation[] typeInformation = new TypeInformation[schemaList.size()];
+    public static TypeInformation<?>[] getCsvType(List<Map<String, String>> schemaList) {
+        TypeInformation<?>[] typeInformation = new TypeInformation[schemaList.size()];
         int i = 0;
         for (Map<String, String> map : schemaList) {
             String type = map.get("type").toUpperCase();

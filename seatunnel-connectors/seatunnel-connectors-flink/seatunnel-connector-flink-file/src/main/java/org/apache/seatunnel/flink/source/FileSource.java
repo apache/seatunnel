@@ -17,15 +17,8 @@
 
 package org.apache.seatunnel.flink.source;
 
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
-import org.apache.seatunnel.flink.util.SchemaUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.TypeReference;
 import org.apache.avro.Schema;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -37,8 +30,15 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetRowInputFormat;
 import org.apache.flink.orc.OrcRowInputFormat;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.Preconditions;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.util.SchemaUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +50,7 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     private Config config;
 
-    private InputFormat inputFormat;
+    private InputFormat<Row, ?> inputFormat;
 
     private static final String PATH = "path";
     private static final String SOURCE_FORMAT = "format.type";
@@ -59,7 +59,7 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        DataSource dataSource = env.getBatchEnvironment().createInput(inputFormat);
+        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(inputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSource.setParallelism(parallelism);
@@ -84,16 +84,15 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        String path = config.getString(PATH);
-        String format = config.getString(SOURCE_FORMAT);
+        String path = checkNotNull(config.getString(PATH), PATH);
+        String format = checkNotNull(config.getString(SOURCE_FORMAT), SOURCE_FORMAT);
         String schemaContent = config.getString(SCHEMA);
         Path filePath = new Path(path);
         switch (format) {
             case "json":
-                Object jsonSchemaInfo = JSONObject.parse(schemaContent);
-                RowTypeInfo jsonInfo = SchemaUtil.getTypeInformation((JSONObject) jsonSchemaInfo);
-                JsonRowInputFormat jsonInputFormat = new JsonRowInputFormat(filePath, null, jsonInfo);
-                inputFormat = jsonInputFormat;
+                JSONObject jsonSchemaInfo = JSONObject.parseObject(schemaContent);
+                RowTypeInfo jsonInfo = SchemaUtil.getTypeInformation(jsonSchemaInfo);
+                inputFormat = new JsonRowInputFormat(filePath, null, jsonInfo);
                 break;
             case "parquet":
                 final Schema parse = new Schema.Parser().parse(schemaContent);
@@ -101,22 +100,25 @@ public class FileSource implements FlinkBatchSource<Row> {
                 inputFormat = new ParquetRowInputFormat(filePath, messageType);
                 break;
             case "orc":
-                OrcRowInputFormat orcRowInputFormat = new OrcRowInputFormat(path, schemaContent, null, DEFAULT_BATCH_SIZE);
-                this.inputFormat = orcRowInputFormat;
+                this.inputFormat = new OrcRowInputFormat(path, schemaContent, null, DEFAULT_BATCH_SIZE);
                 break;
             case "csv":
-                Object csvSchemaInfo = JSONObject.parse(schemaContent);
-                TypeInformation[] csvType = SchemaUtil.getCsvType((List<Map<String, String>>) csvSchemaInfo);
-                RowCsvInputFormat rowCsvInputFormat = new RowCsvInputFormat(filePath, csvType, true);
-                this.inputFormat = rowCsvInputFormat;
+                List<Map<String, String>> csvSchemaInfo = JSONObject
+                        .parseObject(schemaContent, new TypeReference<List<Map<String, String>>>() {
+                        });
+                TypeInformation<?>[] csvType = SchemaUtil.getCsvType(csvSchemaInfo);
+                this.inputFormat = new RowCsvInputFormat(filePath, csvType, true);
                 break;
             case "text":
-                TextRowInputFormat textInputFormat = new TextRowInputFormat(filePath);
-                inputFormat = textInputFormat;
+                inputFormat = new TextRowInputFormat(filePath);
                 break;
             default:
-                break;
+                throw new RuntimeException("Format '" + format + "' is not supported");
         }
 
+    }
+
+    private <T> T checkNotNull(T obj, String fieldName) {
+        return Preconditions.checkNotNull(obj, fieldName + " cannot be empty");
     }
 }
