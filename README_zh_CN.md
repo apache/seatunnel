@@ -1,4 +1,4 @@
-# SeaTunnel
+# Apache SeaTunnel (Incubating)
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
