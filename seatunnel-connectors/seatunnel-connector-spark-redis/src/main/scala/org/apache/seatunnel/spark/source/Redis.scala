@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
-import org.apache.seatunnel.spark.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PARTITION_NUM, DEFAULT_PORT, DEFAULT_TIMEOUT, HOST, KEYS_OR_KEY_PATTERN, PARTITION_NUM, PORT, RESULT_TABLE_NAME, TIMEOUT}
+import org.apache.seatunnel.spark.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PARTITION_NUM, DEFAULT_PORT, DEFAULT_TIMEOUT, HOST, KEYS_OR_KEY_PATTERN, PARTITION_NUM, PORT, TIMEOUT}
 import org.apache.seatunnel.spark.common.RedisDataType
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -35,7 +35,7 @@ class Redis extends SparkBatchSource {
   var redisDataType: RedisDataType.Value = _
 
   override def checkConfig(): CheckResult = {
-    CheckConfigUtil.checkAllExists(config, HOST, KEYS_OR_KEY_PATTERN, RESULT_TABLE_NAME)
+    CheckConfigUtil.checkAllExists(config, HOST, KEYS_OR_KEY_PATTERN)
   }
 
   /**
@@ -100,7 +100,6 @@ class Redis extends SparkBatchSource {
         ds = resultRDD.toDF("raw_message")
     }
 
-    ds.createOrReplaceTempView(config.getString(RESULT_TABLE_NAME))
     ds
   }
 
