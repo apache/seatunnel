@@ -31,7 +31,6 @@ object Constants extends Serializable {
   final val SET_NAME = "set_name"
   final val ZSET_NAME = "zset_name"
   final val LIST_NAME = "list_name"
-  final val RESULT_TABLE_NAME = "result_table_name"
 
   final val DEFAULT_HOST = "localhost"
   final val DEFAULT_PORT = 6379
