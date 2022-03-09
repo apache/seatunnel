@@ -55,6 +55,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.atomic.LongAdder;
 
 public class DruidOutputFormat extends RichOutputFormat<Row> {
 
@@ -64,25 +65,29 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
     private static final String DEFAULT_TIMESTAMP_COLUMN = "timestamp";
     private static final String DEFAULT_TIMESTAMP_FORMAT = "auto";
     private static final DateTime DEFAULT_TIMESTAMP_MISSING_VALUE = null;
+    private static final long DEFAULT_BATCH_SIZE = 1024;
 
-    private final transient StringBuffer data;
+    private final StringBuffer data = new StringBuffer();
+    private final LongAdder counter = new LongAdder();
     private final String coordinatorURL;
     private final String datasource;
     private final String timestampColumn;
     private final String timestampFormat;
     private final DateTime timestampMissingValue;
+    private final long batchSize;
 
     public DruidOutputFormat(String coordinatorURL,
                              String datasource,
                              String timestampColumn,
                              String timestampFormat,
-                             String timestampMissingValue) {
-        this.data = new StringBuffer();
+                             String timestampMissingValue,
+                             Long batchSize) {
         this.coordinatorURL = coordinatorURL;
         this.datasource = datasource;
         this.timestampColumn = timestampColumn == null ? DEFAULT_TIMESTAMP_COLUMN : timestampColumn;
         this.timestampFormat = timestampFormat == null ? DEFAULT_TIMESTAMP_FORMAT : timestampFormat;
         this.timestampMissingValue = timestampMissingValue == null ? DEFAULT_TIMESTAMP_MISSING_VALUE : DateTimes.of(timestampMissingValue);
+        this.batchSize = batchSize == null ? DEFAULT_BATCH_SIZE : batchSize;
     }
 
     @Override
@@ -103,13 +108,25 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
             }
             if (v != null) {
                 this.data.append(v);
+                this.counter.increment();
             }
         }
         this.data.append(DEFAULT_LINE_DELIMITER);
+        if (this.counter.longValue() >= this.batchSize) {
+            try {
+                flush();
+            } catch (IOException e) {
+                throw new RuntimeException("The flush opeartion in Druid Sink is failing.", e);
+            }
+        }
     }
 
     @Override
     public void close() throws IOException {
+        flush();
+    }
+
+    private void flush() throws IOException {
         ParallelIndexIOConfig ioConfig = parallelIndexIOConfig();
         ParallelIndexTuningConfig tuningConfig = tuningConfig();
         ParallelIndexSupervisorTask indexTask = parallelIndexSupervisorTask(ioConfig, tuningConfig);
@@ -128,6 +145,9 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
         jsonObject.remove("resource");
         JSONObject spec = jsonObject.getJSONObject("spec");
         spec.remove("tuningConfig");
+        JSONObject dataSchema = spec.getJSONObject("dataSchema");
+        JSONObject granularitySpec = dataSchema.getJSONObject("granularitySpec");
+        granularitySpec.remove("intervals");
         jsonObject.put("spec", spec);
         taskJSON = jsonObject.toJSONString();
 
@@ -149,6 +169,9 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
             }
             LOGGER.info("Druid write task has been sent, and the response is {}", response.toString());
         }
+
+        this.data.setLength(0);
+        this.counter.reset();
     }
 
     private ParallelIndexSupervisorTask parallelIndexSupervisorTask(ParallelIndexIOConfig ioConfig, ParallelIndexTuningConfig tuningConfig) {

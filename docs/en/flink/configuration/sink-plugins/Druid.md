@@ -15,6 +15,7 @@ Write data to Apache Druid.
 | timestamp_column        | `String` | no       | timestamp     |
 | timestamp_format        | `String` | no       | auto          |
 | timestamp_missing_value | `String` | no       | -             |
+| batch_size              | `Long`   | no       | 1024          |
 | parallelism             | `Int`    | no       | -             |
 
 ### coordinator_url [`String`]
@@ -57,9 +58,13 @@ The timestamp format in Apache Druid, the default value is `auto`, it could be:
 
 The timestamp missing value in Apache Druid, which is used for input records that have a null or missing timestamp. The value of `timestamp_missing_value` should be in ISO 8601 format, for example `"2022-02-02T02:02:02.222"`.
 
+### batch_size [`Long`]
+
+The size of batch.
+
 ### parallelism [`Int`]
 
-The parallelism of an individual operator, for DruidSink
+The parallelism of an individual operator.
 
 ## Example
 
@@ -69,6 +74,16 @@ The parallelism of an individual operator, for DruidSink
 DruidSink {
   coordinator_url = "http://localhost:8081/"
   datasource = "wikipedia"
+}
+```
+
+### Batch Mode
+
+```hocon
+DruidSink {
+  coordinator_url = "http://localhost:8081/"
+  datasource = "wikipedia"
+  batch_size = 5000000
 }
 ```
 
