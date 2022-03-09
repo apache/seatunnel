@@ -1,5 +1,7 @@
 HdrHistogram-2.1.9.jar
+RoaringBitmap-0.5.11.jar
 RoaringBitmap-0.9.0.jar
+RoaringBitmap-0.9.22.jar
 SparseBitSet-1.2.jar
 accessors-smart-1.2.jar
 activation-1.1.1.jar
@@ -48,10 +50,12 @@ aws-java-sdk-ec2-1.12.37.jar
 aws-java-sdk-kms-1.12.37.jar
 aws-java-sdk-s3-1.12.37.jar
 caffeine-2.8.0.jar
+caffeine-2.8.4.jar
 calcite-core-1.29.0.jar
 calcite-druid-1.29.0.jar
 calcite-linq4j-1.29.0.jar
 checker-qual-3.10.0.jar
+checker-qual-3.4.0.jar
 chill-java-0.9.3.jar
 chill_2.11-0.9.3.jar
 classmate-1.1.0.jar
@@ -146,6 +150,7 @@ elasticsearch-rest-high-level-client-6.3.1.jar
 elasticsearch-secure-sm-6.3.1.jar
 elasticsearch-spark-20_2.11-6.8.3.jar
 elasticsearch-x-content-6.3.1.jar
+error_prone_annotations-2.3.4.jar
 error_prone_annotations-2.8.0.jar
 esri-geometry-api-2.2.0.jar
 extendedset-0.22.1.jar
@@ -272,6 +277,10 @@ httpcore-nio-4.4.4.jar
 httpmime-4.5.2.jar
 hudi-spark-bundle_2.11-0.10.0.jar
 i18n-util-1.0.4.jar
+iceberg-api-0.13.1.jar
+iceberg-bundled-guava-0.13.1.jar
+iceberg-common-0.13.1.jar
+iceberg-core-0.13.1.jar
 icu4j-55.1.jar
 icu4j-60.2.jar
 icu4j-charset-60.2.jar
@@ -285,6 +294,7 @@ jackson-annotations-2.6.7.jar
 jackson-annotations-2.7.0.jar
 jackson-core-2.10.5.jar
 jackson-core-2.11.0.jar
+jackson-core-2.11.4.jar
 jackson-core-2.6.7.jar
 jackson-core-2.7.3.jar
 jackson-core-asl-1.9.13.jar
@@ -582,6 +592,7 @@ scalaj-http_2.11-2.3.0.jar
 scalap-2.11.12.jar
 servlet-api-2.5.jar
 shims-0.9.0.jar
+shims-0.9.22.jar
 sigar-1.6.5.132.jar
 sketches-core-0.9.0.jar
 slf4j-api-1.7.15.jar
@@ -653,14 +664,3 @@ zookeeper-3.5.9.jar
 zookeeper-jute-3.5.9.jar
 zstd-jni-1.3.3-1.jar
 zstd-jni-1.4.3-1.jar
-iceberg-core-0.13.1.jar
-iceberg-api-0.13.1.jar
-iceberg-common-0.13.1.jar
-iceberg-bundled-guava-0.13.1.jar
-caffeine-2.8.4.jar
-checker-qual-3.4.0.jar
-error_prone_annotations-2.3.4.jar
-RoaringBitmap-0.9.22.jar
-RoaringBitmap-0.5.11.jar
-jackson-core-2.11.4.jar
-shims-0.9.22.jar
