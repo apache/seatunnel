@@ -19,7 +19,7 @@ package org.apache.seatunnel.flink.sink;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.utils.VariablesSubstitute;
+import org.apache.seatunnel.common.utils.StringTemplate;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
@@ -124,7 +124,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     @Override
     public void prepare(FlinkEnvironment env) {
         String format = config.hasPath(PATH_TIME_FORMAT) ? config.getString(PATH_TIME_FORMAT) : DEFAULT_TIME_FORMAT;
-        String path = VariablesSubstitute.substitute(config.getString(PATH), format);
+        String path = StringTemplate.substitute(config.getString(PATH), format);
         filePath = new Path(path);
     }
 }
