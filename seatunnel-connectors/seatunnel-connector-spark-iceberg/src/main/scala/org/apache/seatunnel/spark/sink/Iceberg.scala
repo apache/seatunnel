@@ -18,10 +18,11 @@ package org.apache.seatunnel.spark.sink
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType
+import org.apache.seatunnel.shade.com.typesafe.config.{ConfigFactory, ConfigValueType}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
+
 import scala.collection.JavaConversions._
 
 class Iceberg extends SparkBatchSink {
@@ -43,8 +44,13 @@ class Iceberg extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "path", "saveMode")
+    checkAllExists(config, "path")
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {}
+  override def prepare(prepareEnv: SparkEnvironment): Unit = {
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        "saveMode" -> "append"))
+    config = config.withFallback(defaultConfig)
+  }
 }
