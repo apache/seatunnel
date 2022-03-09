@@ -17,6 +17,15 @@
 
 package org.apache.seatunnel.flink.source;
 
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.enums.FormatType;
+import org.apache.seatunnel.flink.util.SchemaUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
 import org.apache.avro.Schema;
@@ -30,15 +39,8 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetRowInputFormat;
 import org.apache.flink.orc.OrcRowInputFormat;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.Preconditions;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.schema.MessageType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
-import org.apache.seatunnel.flink.util.SchemaUtil;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
@@ -84,41 +86,36 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        String path = checkNotNull(config.getString(PATH), PATH);
-        String format = checkNotNull(config.getString(SOURCE_FORMAT), SOURCE_FORMAT);
-        String schemaContent = config.getString(SCHEMA);
+        String path = config.getString(PATH);
+        FormatType format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
         Path filePath = new Path(path);
         switch (format) {
-            case "json":
-                JSONObject jsonSchemaInfo = JSONObject.parseObject(schemaContent);
+            case JSON:
+                JSONObject jsonSchemaInfo = JSONObject.parseObject(config.getString(SCHEMA));
                 RowTypeInfo jsonInfo = SchemaUtil.getTypeInformation(jsonSchemaInfo);
                 inputFormat = new JsonRowInputFormat(filePath, null, jsonInfo);
                 break;
-            case "parquet":
-                final Schema parse = new Schema.Parser().parse(schemaContent);
+            case PARQUET:
+                final Schema parse = new Schema.Parser().parse(config.getString(SCHEMA));
                 final MessageType messageType = new AvroSchemaConverter().convert(parse);
                 inputFormat = new ParquetRowInputFormat(filePath, messageType);
                 break;
-            case "orc":
-                this.inputFormat = new OrcRowInputFormat(path, schemaContent, null, DEFAULT_BATCH_SIZE);
+            case ORC:
+                this.inputFormat = new OrcRowInputFormat(path, config.getString(SCHEMA), null, DEFAULT_BATCH_SIZE);
                 break;
-            case "csv":
-                List<Map<String, String>> csvSchemaInfo = JSONObject
-                        .parseObject(schemaContent, new TypeReference<List<Map<String, String>>>() {
+            case CSV:
+                List<Map<String, String>> csvSchemaInfo = JSONObject.parseObject(config.getString(SCHEMA),
+                        new TypeReference<List<Map<String, String>>>() {
                         });
                 TypeInformation<?>[] csvType = SchemaUtil.getCsvType(csvSchemaInfo);
                 this.inputFormat = new RowCsvInputFormat(filePath, csvType, true);
                 break;
-            case "text":
+            case TEXT:
                 inputFormat = new TextRowInputFormat(filePath);
                 break;
             default:
                 throw new RuntimeException("Format '" + format + "' is not supported");
         }
 
-    }
-
-    private <T> T checkNotNull(T obj, String fieldName) {
-        return Preconditions.checkNotNull(obj, fieldName + " cannot be empty");
     }
 }

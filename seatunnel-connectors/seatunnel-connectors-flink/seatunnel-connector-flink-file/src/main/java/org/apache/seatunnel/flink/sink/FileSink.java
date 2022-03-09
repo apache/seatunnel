@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.StringTemplate;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
+import org.apache.seatunnel.flink.enums.FormatType;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -57,7 +58,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
     private static final String DEFAULT_TIME_FORMAT = "yyyyMMddHHmmss";
     private Config config;
 
-    private FileOutputFormat outputFormat;
+    private FileOutputFormat<Row> outputFormat;
 
     private Path filePath;
 
@@ -76,17 +77,17 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        String format = config.getString(FORMAT);
+        FormatType format = FormatType.from(config.getString(FORMAT).trim().toLowerCase());
         switch (format) {
-            case "json":
+            case JSON:
                 RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
                 outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
                 break;
-            case "csv":
+            case CSV:
                 outputFormat = new CsvRowOutputFormat(filePath);
                 break;
-            case "text":
-                outputFormat = new TextOutputFormat(filePath);
+            case TEXT:
+                outputFormat = new TextOutputFormat<Row>(filePath);
                 break;
             default:
                 LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
@@ -98,7 +99,7 @@ public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
             outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
         }
 
-        DataSink dataSink = dataSet.output(outputFormat);
+        DataSink<Row> dataSink = dataSet.output(outputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSink.setParallelism(parallelism);
