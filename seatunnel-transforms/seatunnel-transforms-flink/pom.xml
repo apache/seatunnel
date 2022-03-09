@@ -22,17 +22,19 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
+        <artifactId>seatunnel-transforms</artifactId>
         <version>2.0.5-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connectors</artifactId>
+    <artifactId>seatunnel-transforms-flink</artifactId>
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-connectors-flink</module>
-        <module>seatunnel-connectors-spark</module>
+        <module>seatunnel-transform-flink-table2datastream</module>
+        <module>seatunnel-transform-flink-datastream2table</module>
+        <module>seatunnel-transform-flink-sql</module>
+        <module>seatunnel-transform-flink-split</module>
     </modules>
 
 </project>
