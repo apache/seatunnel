@@ -74,3 +74,18 @@ jdbc {
     customUpdateStmt = "INSERT INTO table (column1, column2, created, modified, yn) values(?, ?, now(), now(), 1) ON DUPLICATE KEY UPDATE column1 = IFNULL(VALUES (column1), column1), column2 = IFNULL(VALUES (column2), column2)"
 }
 ```
+> Insert data through JDBC
+```bash
+jdbc {
+    saveMode = "update",
+    truncate = "true",
+    url = "jdbc:mysql://ip:3306/database",
+    user = "userName",
+    password = "***********",
+    dbTable = "tableName",
+    customUpdateStmt = "INSERT INTO table (column1, column2, created, modified, yn) values(?, ?, now(), now(), 1) ON DUPLICATE KEY UPDATE column1 = IFNULL(VALUES (column1), column1), column2 = IFNULL(VALUES (column2), column2)"
+    jdbc.connect_timeout = 10000
+    jdbc.socket_timeout = 10000
+}
+```
+> Timeout config
