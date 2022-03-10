@@ -34,35 +34,51 @@
 
     <artifactId>seatunnel-dist</artifactId>
     <packaging>pom</packaging>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+        </profile>
+    </profiles>
+    
     <build>
-        <resources>
-            <resource>
-                <directory>../bin/</directory>
-                <includes>
-                    <include>**/*.*</include>
-                </includes>
-            </resource>
-        </resources>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
                     <execution>
+                        <id>bin</id>
                         <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
+
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/main/assembly/assembly-bin.xml</descriptor>
+                            </descriptors>
+                            <appendAssemblyId>true</appendAssemblyId>
+                        </configuration>
                     </execution>
+
+                    <execution>
+                        <id>src</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/main/assembly/assembly-src.xml</descriptor>
+                            </descriptors>
+                            <appendAssemblyId>true</appendAssemblyId>
+                        </configuration>
+                    </execution>
+
                 </executions>
-                <configuration>
-                    <attach>false</attach>
-                    <descriptors>
-                        <descriptor>assembly.xml</descriptor>
-                    </descriptors>
-                </configuration>
             </plugin>
         </plugins>
         <finalName>apache-seatunnel-incubating-${project.version}</finalName>
     </build>
+    
 </project>
