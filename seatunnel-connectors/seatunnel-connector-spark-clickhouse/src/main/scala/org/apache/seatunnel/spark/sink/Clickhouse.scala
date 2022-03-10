@@ -26,7 +26,7 @@ import java.util
 import java.util.{Objects, Properties}
 import scala.collection.JavaConversions._
 import scala.collection.immutable.HashMap
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
@@ -34,16 +34,16 @@ import org.apache.seatunnel.common.config.TypesafeConfigUtils.{extractSubConfig,
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.seatunnel.spark.sink.Clickhouse.{DistributedEngine, Shard}
+import org.apache.seatunnel.spark.sink.Clickhouse.{Shard, acceptedClickHouseSchema, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClusterShardList, getRowShard}
 import org.apache.spark.sql.{Dataset, Row}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 
 import java.nio.ByteBuffer
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-
 import scala.annotation.tailrec
 
 class Clickhouse extends SparkBatchSink {
@@ -59,7 +59,7 @@ class Clickhouse extends SparkBatchSink {
 
   // used for split mode
   private var splitMode: Boolean = false
-  private val random = new Random()
+  private val random = ThreadLocalRandom.current()
   private var shardKey: String = ""
   private var shardKeyType: String = _
   private var shardTable: String = _
@@ -89,7 +89,8 @@ class Clickhouse extends SparkBatchSink {
 
       val lengthMap = statementMap.map(s => (s._1, new AtomicLong(0)))
       for (item <- iter) {
-        val shard = getRowShard(hashInstance, item)
+        val shard = getRowShard(this.splitMode, this.shards, this.shardKey, this.shardKeyType, this
+          .shardWeightCount, this.random, hashInstance, item)
         val statement = statementMap(shard)
         renderStatement(fields, item, dfFields, statement)
         statement.addBatch()
@@ -135,7 +136,7 @@ class Clickhouse extends SparkBatchSink {
         val tableName = config.getString("table")
         val localTable = getClickHouseDistributedTable(conn, database, tableName)
         if (Objects.isNull(localTable)) {
-          CheckResult.error(s"split mode only support table which engine is 'Distributed' at now")
+          CheckResult.error(s"split mode only support table which engine is '$distributedEngine' at now")
         } else {
           this.shardTable = localTable.table
           val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hostAndPort(1))
@@ -165,7 +166,7 @@ class Clickhouse extends SparkBatchSink {
       }
       if (this.config.hasPath("fields")) {
         this.fields = config.getStringList("fields")
-        checkResult = acceptedClickHouseSchema()
+        checkResult = acceptedClickHouseSchema(this.fields.toList, this.tableSchema, this.table)
       }
     }
     checkResult
@@ -186,78 +187,6 @@ class Clickhouse extends SparkBatchSink {
     retryCodes = config.getIntList("retry_codes")
   }
 
-  private def getClickHouseSchema(
-                                   conn: ClickHouseConnectionImpl,
-                                   table: String): Map[String, String] = {
-    val sql = String.format("desc %s", table)
-    val resultSet = conn.createStatement.executeQuery(sql)
-    var schema = new HashMap[String, String]()
-    while (resultSet.next()) {
-      schema += (resultSet.getString(1) -> resultSet.getString(2))
-    }
-    schema
-  }
-
-  private def getClusterShardList(conn: ClickHouseConnectionImpl, clusterName: String,
-                                  database: String, port: String): ListBuffer[Shard] = {
-    val rs = conn.createStatement().executeQuery(
-      s"select shard_num,shard_weight,replica_num,host_name,host_address," +
-        s"port from system.clusters where cluster = '$clusterName'")
-    // TODO The port will be used for data communication of the tcp protocol in the future
-    // port is tcp protocol, need http protocol port at now
-    val nodeList = mutable.ListBuffer[Shard]()
-    while (rs.next()) {
-      nodeList += new Shard(rs.getInt(1), rs.getInt(2),
-        rs.getInt(3), rs.getString(4), rs.getString(5),
-        port, database)
-    }
-    nodeList
-  }
-
-  private def getClickHouseDistributedTable(conn: ClickHouseConnectionImpl, database: String, table: String):
-  DistributedEngine = {
-    val rs = conn.createStatement().executeQuery(
-      s"select engine_full from system.tables where " +
-        s"database = '$database' and name = '$table' and engine = 'Distributed'")
-    if (rs.next()) {
-      // engineFull field will be like : Distributed(cluster, database, table[, sharding_key[, policy_name]])
-      val engineFull = rs.getString(1)
-      val infos = engineFull.substring(12).split(",").map(s => s.replaceAll("'", ""))
-      new DistributedEngine(infos(0), infos(1).trim, infos(2).replaceAll("\\)", "").trim)
-    } else {
-      null
-    }
-  }
-
-  private def getRowShard(hashInstance: XXHash64, row: Row): Shard = {
-    if (splitMode) {
-      if (StringUtils.isEmpty(this.shardKey) || row.schema.fieldNames.indexOf(this.shardKey) == -1) {
-        this.shards.lowerEntry(this.random.nextInt(this.shardWeightCount) + 1).getValue
-      } else {
-        val fieldIndex = row.fieldIndex(this.shardKey)
-        if (row.isNullAt(fieldIndex)) {
-          this.shards.lowerEntry(this.random.nextInt(this.shardWeightCount) + 1).getValue
-        } else {
-          var offset = 0
-          this.shardKeyType match {
-            case Clickhouse.floatPattern(_) =>
-              offset = row.getFloat(fieldIndex).toInt % this.shardWeightCount
-            case Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
-              offset = row.getInt(fieldIndex) % this.shardWeightCount
-            case Clickhouse.decimalPattern(_) =>
-              offset = row.getDecimal(fieldIndex).toBigInteger.mod(BigInteger.valueOf(this
-                .shardWeightCount)).intValue()
-            case _ =>
-              offset = (hashInstance.hash(ByteBuffer.wrap(row.getString(fieldIndex).getBytes), 0) & Long.MaxValue %
-                this.shardWeightCount).toInt
-          }
-          this.shards.lowerEntry(offset + 1).getValue
-        }
-      }
-    } else {
-      this.shards.head._2
-    }
-  }
 
   private def initPrepareSQL(): String = {
 
@@ -275,31 +204,6 @@ class Clickhouse extends SparkBatchSink {
     sql
   }
 
-  private def acceptedClickHouseSchema(): CheckResult = {
-    val nonExistsFields = fields
-      .map(field => (field, tableSchema.contains(field)))
-      .filter { case (_, exist) => !exist }
-
-    if (nonExistsFields.nonEmpty) {
-      CheckResult.error(
-        "field " + nonExistsFields
-          .map(option => "[" + option + "]")
-          .mkString(", ") + " not exist in table " + this.table)
-    } else {
-      val nonSupportedType = fields
-        .map(field => (tableSchema(field), Clickhouse.supportOrNot(tableSchema(field))))
-        .filter { case (_, exist) => !exist }
-      if (nonSupportedType.nonEmpty) {
-        CheckResult.error(
-          "clickHouse data type " + nonSupportedType
-            .map(option => "[" + option + "]")
-            .mkString(", ") + " not support in current version.")
-      } else {
-        CheckResult.success()
-      }
-    }
-  }
-
   @tailrec
   private def renderDefaultStatement(
                                       index: Int,
@@ -307,6 +211,8 @@ class Clickhouse extends SparkBatchSink {
                                       statement: PreparedStatement): Unit = {
     fieldType match {
       case "DateTime" | "Date" | "String" =>
+        statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
+      case Clickhouse.datetime64Pattern(_) =>
         statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
       case Clickhouse.datetime64Pattern(_) =>
         statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
@@ -455,6 +361,7 @@ object Clickhouse {
   val floatPattern: Regex = "(Float.*)".r
   val decimalPattern: Regex = "(Decimal.*)".r
   val datetime64Pattern: Regex = "(DateTime64\\(.*\\))".r
+  val distributedEngine = "Distributed"
 
   /**
    * Seatunnel support this clickhouse data type or not.
@@ -477,6 +384,107 @@ object Clickhouse {
       case _ =>
         false
     }
+  }
+
+  def getClusterShardList(conn: ClickHouseConnectionImpl, clusterName: String,
+                          database: String, port: String): ListBuffer[Shard] = {
+    val rs = conn.createStatement().executeQuery(
+      s"select shard_num,shard_weight,replica_num,host_name,host_address," +
+        s"port from system.clusters where cluster = '$clusterName'")
+    // TODO The port will be used for data communication of the tcp protocol in the future
+    // port is tcp protocol, need http protocol port at now
+    val nodeList = mutable.ListBuffer[Shard]()
+    while (rs.next()) {
+      nodeList += new Shard(rs.getInt(1), rs.getInt(2),
+        rs.getInt(3), rs.getString(4), rs.getString(5),
+        port, database)
+    }
+    nodeList
+  }
+
+  def getClickHouseDistributedTable(conn: ClickHouseConnectionImpl, database: String, table: String):
+  DistributedEngine = {
+    val rs = conn.createStatement().executeQuery(
+      s"select engine_full from system.tables where " +
+        s"database = '$database' and name = '$table' and engine = '$distributedEngine'")
+    if (rs.next()) {
+      // engineFull field will be like : Distributed(cluster, database, table[, sharding_key[, policy_name]])
+      val engineFull = rs.getString(1)
+      val infos = engineFull.substring(12).split(",").map(s => s.replaceAll("'", ""))
+      new DistributedEngine(infos(0), infos(1).trim, infos(2).replaceAll("\\)", "").trim)
+    } else {
+      null
+    }
+  }
+
+  def getRowShard(splitMode: Boolean, shards: util.TreeMap[Int, Shard], shardKey: String, shardKeyType: String,
+                  shardWeightCount: Int, random: ThreadLocalRandom, hashInstance: XXHash64,
+                  row: Row): Shard = {
+    if (splitMode) {
+      if (StringUtils.isEmpty(shardKey) || row.schema.fieldNames.indexOf(shardKey) == -1) {
+        shards.lowerEntry(random.nextInt(shardWeightCount) + 1).getValue
+      } else {
+        val fieldIndex = row.fieldIndex(shardKey)
+        if (row.isNullAt(fieldIndex)) {
+          shards.lowerEntry(random.nextInt(shardWeightCount) + 1).getValue
+        } else {
+          var offset = 0
+          shardKeyType match {
+            case Clickhouse.floatPattern(_) =>
+              offset = row.getFloat(fieldIndex).toInt % shardWeightCount
+            case Clickhouse.intPattern(_) | Clickhouse.uintPattern(_) =>
+              offset = row.getInt(fieldIndex) % shardWeightCount
+            case Clickhouse.decimalPattern(_) =>
+              offset = row.getDecimal(fieldIndex).toBigInteger.mod(BigInteger.valueOf(shardWeightCount)).intValue()
+            case _ =>
+              offset = (hashInstance.hash(ByteBuffer.wrap(row.getString(fieldIndex).getBytes), 0) & Long.MaxValue %
+                shardWeightCount).toInt
+          }
+          shards.lowerEntry(offset + 1).getValue
+        }
+      }
+    } else {
+      shards.head._2
+    }
+  }
+
+
+  def acceptedClickHouseSchema(fields: List[String], tableSchema: Map[String, String], table: String)
+  : CheckResult = {
+    val nonExistsFields = fields
+      .map(field => (field, tableSchema.contains(field)))
+      .filter { case (_, exist) => !exist }
+
+    if (nonExistsFields.nonEmpty) {
+      CheckResult.error(
+        "field " + nonExistsFields
+          .map(option => "[" + option + "]")
+          .mkString(", ") + " not exist in table " + table)
+    } else {
+      val nonSupportedType = fields
+        .map(field => (tableSchema(field), Clickhouse.supportOrNot(tableSchema(field))))
+        .filter { case (_, exist) => !exist }
+      if (nonSupportedType.nonEmpty) {
+        CheckResult.error(
+          "clickHouse data type " + nonSupportedType
+            .map(option => "[" + option + "]")
+            .mkString(", ") + " not support in current version.")
+      } else {
+        CheckResult.success()
+      }
+    }
+  }
+
+  def getClickHouseSchema(
+                           conn: ClickHouseConnectionImpl,
+                           table: String): Map[String, String] = {
+    val sql = String.format("desc %s", table)
+    val resultSet = conn.createStatement.executeQuery(sql)
+    var schema = new HashMap[String, String]()
+    while (resultSet.next()) {
+      schema += (resultSet.getString(1) -> resultSet.getString(2))
+    }
+    schema
   }
 
   private[seatunnel] def renderStringDefault(fieldType: String): String = {
