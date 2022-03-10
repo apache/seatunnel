@@ -21,7 +21,9 @@ Read data through jdbc
 
 ### driver [string]
 
-Driver name, such as `com.mysql.jdbc.Driver`
+Driver name, such as `com.mysql.cj.jdbc.Driver`.
+
+Warn: for license compliance, you have to provide MySQL JDBC driver yourself.
 
 ### url [string]
 
