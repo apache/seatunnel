@@ -66,7 +66,6 @@ Configure when `saveMode` is specified as `update` , whether to show sql
 ```bash
 jdbc {
     saveMode = "update",
-    truncate = "true",
     url = "jdbc:mysql://ip:3306/database",
     user = "userName",
     password = "***********",
