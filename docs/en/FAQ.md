@@ -1,8 +1,12 @@
 # FAQ
 
-**FAQ 1.** I encounter a problem when using SeaTunnel and I cannot solve it by myself. What should I do?Firstly search in [Issue list](https://github.com/apache/incubator-seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got the answer. If you still cannot find the answer, you can contact community members for help in[ these ways](https://github.com/apache/incubator-seatunnel#contact-us) .
+## I have a question, but I can not solve it by myself
 
-**FAQ 2.** How to declare a variable in SeaTunnel's configuration, and then dynamically replace the value of the variable at runtime?
+I encounter a problem when using SeaTunnel and I cannot solve it by myself. What should I do? Firstly search in [Issue list](https://github.com/apache/incubator-seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got the answer. If you still cannot find the answer, you can contact community members for help in[ these ways](https://github.com/apache/incubator-seatunnel#contact-us) .
+
+## how to declare variable
+
+If you want to know how to declare a variable in SeaTunnel's configuration, and then dynamically replace the value of the variable at runtime?
 
 Since `v1.2.4` SeaTunnel supports variables substitution in the configuration. This feature is often used for timing or non-timing offline processing to replace variables such as time and date. The usage is as follows:
 
@@ -31,7 +35,7 @@ Taking Spark Local mode as an example, the startup command is as follows:
 
 You can use the parameter `-i` or `--variable` followed with `key=value` to specify the value of the variable, where the key needs to be same as the variable name in the configuration.
 
-**FAQ 3.** How to write a configuration item into multi-line text in the configuration file?
+## How to write a configuration item into multi-line text in the configuration file?
 
 When a configured text is very long and you want to wrap it, you can use three double quotes to indicate it:
 
@@ -41,7 +45,7 @@ var = """
 """
 ```
 
-**FAQ 4.** How to implement variable substitution for multi-line text?
+## How to implement variable substitution for multi-line text?
 
 It is a little troublesome to do variable substitution in multi-line text, because the variable cannot be included in three double quotation marks:
 
@@ -53,15 +57,15 @@ your string 1
 
 refer to: [lightbend/config#456](https://github.com/lightbend/config/issues/456)
 
-**FAQ 5.** Is SeaTunnel supportted in Azkaban, Oozie, DolphinScheduler?
+## Is SeaTunnel supportted in Azkaban, Oozie, DolphinScheduler?
 
 Of course, please see the screenshot below:
 
-![workflow.png](../images/workflow.png)
+![workflow.png](images/workflow.png)
 
-![azkaban.png](../images/azkaban.png)
+![azkaban.png](images/azkaban.png)
 
-**FAQ 6.** Does SeaTunnel have a case of configuring multiple sources, such as configuring  elasticsearch and hdfs in source at the same time?
+## Does SeaTunnel have a case of configuring multiple sources, such as configuring  elasticsearch and hdfs in source at the same time?
 
 ```
 env {
@@ -88,11 +92,11 @@ sink {
 }
 ```
 
-**FAQ 7.** Are there any HBase plugins?
+## Are there any HBase plugins?
 
 There is hbase input plugin, download it from here: https://github.com/garyelephant/waterdrop-input-hbase
 
-**FAQ 8.** How to use SeaTunnel to write data to Hive?
+## How to use SeaTunnel to write data to Hive?
 
 ```
 env {
@@ -115,7 +119,7 @@ sink {
 
 In addition, SeaTunnel has implemented `Hive` output plugin after `1.5.7` in `1.x` branch; in `2.x` branch, the Hive plugin of the Spark engine has been supported after version `2.0.5`: https://github.com/apache/incubator-seatunnel/issues/910.
 
-**FAQ 9.** How does SeaTunnel write multiple instances of ClickHouse to achieve load balancing?
+## How does SeaTunnel write multiple instances of ClickHouse to achieve load balancing?
 
 1. Write distributed tables directly (not recommended)
 
@@ -163,7 +167,7 @@ In addition, SeaTunnel has implemented `Hive` output plugin after `1.5.7` in `1.
    }
    ```
 
-**FAQ 10.** How to solve OOM when SeaTunnel consumes Kafka?
+## How to solve OOM when SeaTunnel consumes Kafka?
 
 In most cases, OOM is caused by the fact that there is no rate limit for consumption. The solution is as follows:
 
@@ -183,15 +187,13 @@ The following conclusions can be drawn:
 
 3. In general, both M and N are determined, and the conclusion can be drawn from 2: The size of `spark.streaming.kafka.maxRatePerPartition` is positively correlated with the size of `spark.executor.cores` * `spark.executor.instances`, and it can be increased while increasing the resource `maxRatePerPartition` to speed up consumption.
 
-![kafka](../images/kafka.png)
+![kafka](images/kafka.png)
 
-**FAQ 11.** How to solve the Error `Exception in thread "main" java.lang.NoSuchFieldError: INSTANCE`?
+## How to solve the Error `Exception in thread "main" java.lang.NoSuchFieldError: INSTANCE`?
 
 The reason is that the version of httpclient.jar that comes with the CDH version of Spark is lower, and The httpclient version where ClickHouse JDBC is based on is 4.5.2, and the package version conflicts. The solution is to replace the jar package that comes with CDH with httpclient-4.5.2 version.
 
-**FAQ 12.** The default JDK of my Spark cluster is JDK7. After I install JDK8, how can I specify the
-
-SeaTunnel starts with JDK8?
+## The default JDK of my Spark cluster is JDK7. After I install JDK8, how can I specify the SeaTunnel starts with JDK8?
 
 In SeaTunnel's config file, specify the following configuration:
 
@@ -204,7 +206,7 @@ spark {
 }
 ```
 
-**FAQ 13.** How to specify a different JDK version for SeaTunnel on Yarn?
+## How to specify a different JDK version for SeaTunnel on Yarn?
 
 For example, if you want to set the JDK version to JDK8, there are two cases:
 
@@ -222,11 +224,11 @@ For example, if you want to set the JDK version to JDK8, there are two cases:
 - Yarn cluster does not deploy JDK8. At this time, when you start SeaTunnel attached with JDK8.For detailed operations, see the link below:
   https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
 
-**FAQ 14.** What should I do if OOM always appears when running SeaTunnel in Spark local[*] mode?
+## What should I do if OOM always appears when running SeaTunnel in Spark local[*] mode?
 
 If you run in local mode, you need to modify the start-seatunnel.sh startup script after  spark-submit, add a parameter `--driver-memory 4g` . Under normal circumstances, the local mode is not used in the production environment. Therefore, this parameter generally does not need to be set during On Yarn. See: [Application Properties](https://spark.apache.org/docs/latest/configuration.html#application-properties) for details .
 
-**FAQ 15.** Where can the self-written plugins or third-party jdbc.jar be placed to be loaded by SeaTunnel?
+## Where can the self-written plugins or third-party jdbc.jar be placed to be loaded by SeaTunnel?
 
 Place the Jar package under the specified structure of the plugins directory:
 
@@ -238,7 +240,7 @@ cp third-part.jar plugins/my_plugins/lib
 
 `my_plugins` can be any string.
 
-**FAQ 16.** How to configure logging related parameters in SeaTunnel-v1(Spark)?
+## How to configure logging related parameters in SeaTunnel-v1(Spark)?
 
 There are 3 ways to configure Logging related parameters (such as Log Level):
 
@@ -302,7 +304,7 @@ https://medium.com/@iacomini.riccardo/spark-logging-configuration-in-yarn-faf5ba
 
 https://stackoverflow.com/questions/27781187/how-to-stop-info-messages-displaying-on-spark-console
 
-**FAQ 17.** Error when writing to ClickHouse: ClassCastException
+## Error when writing to ClickHouse: ClassCastException
 
 In SeaTunnel, the data type will not be actively converted. After the Input reads the data, the corresponding
 
@@ -317,11 +319,11 @@ Detailed data type conversion reference: [ClickHouse Data Type Check List](https
 
 Refer to issue:[#488](https://github.com/apache/incubator-seatunnel/issues/488) [#382](https://github.com/apache/incubator-seatunnel/issues/382)
 
-**FAQ 18.** How does SeaTunnel access kerberos-authenticated HDFS, YARN, Hive and other resources?
+## How does SeaTunnel access kerberos-authenticated HDFS, YARN, Hive and other resources?
 
 Please refer to: [#590](https://github.com/apache/incubator-seatunnel/issues/590)
 
-**FAQ 19.** How to troubleshoot NoClassDefFoundError, ClassNotFoundException and other issues?
+## How to troubleshoot NoClassDefFoundError, ClassNotFoundException and other issues?
 
 There is a high probability that there are multiple different versions of the corresponding Jar package class loaded in the Java classpath, because of the conflict of the load order, instead of really missing this Jar, please modify this SeaTunnel startup command, add the following parameters to the spark-submit submission place, and debug in detail through the output log.
 
@@ -333,17 +335,17 @@ spark-submit --verbose
     ...
 ```
 
-**FAQ 20.** How to use SeaTunnel to synchronize data across HDFS clusters?
+## How to use SeaTunnel to synchronize data across HDFS clusters?
 
 Just configure hdfs-site.xml properly, refer to: https://www.cnblogs.com/suanec/p/7828139.html
 
 There is an article on how to modify the spark code to complete the configuration(SeaTunnel does not need to do this): https://www.jianshu.com/p/3e84c4c97610
 
-**FAQ 21.** I want to learn the source code of SeaTunnel, where should I start?
+## I want to learn the source code of SeaTunnel, where should I start?
 
 SeaTunnel has a completely abstract and structured code implementation, and many people have chosen  SeaTunnel As a way to learn Spark, you can learn the source code from the main program entry: [Seatunnel.java](https://github.com/apache/incubator-seatunnel/blob/72b57b22688f17376fe7e5cf522b4bdd3f62cce0/seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/Seatunnel.java)
 
-**FAQ 22.** When SeaTunnel developers develop their own plugins, do they need to understand the SeaTunnel code? Should these code integrated into the SeaTunnel project?
+## When SeaTunnel developers develop their own plugins, do they need to understand the SeaTunnel code? Should these code integrated into the SeaTunnel project?
 
 The plug-in developed by the developer has nothing to do with the SeaTunnel project and does not need to write your plug-in code
 
@@ -351,7 +353,7 @@ The plugin can be completely independent with SeaTunnel project, in which you ca
 
 Scala, maven, sbt, gradle, whatever you want. This is also the way we recommend developers to develop plugins.
 
-**FAQ 23.** Import project, compiler has exception "class not found `org.apache.seatunnel.shade.com.typesafe.config.Config`"
+## Import project, compiler has exception "class not found `org.apache.seatunnel.shade.com.typesafe.config.Config`"
 
 Run `mvn install` first.
 
