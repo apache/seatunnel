@@ -21,11 +21,13 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.enums.FormatType;
 import org.apache.seatunnel.flink.util.SchemaUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.TypeReference;
 import org.apache.avro.Schema;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -50,7 +52,7 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     private Config config;
 
-    private InputFormat inputFormat;
+    private InputFormat<Row, ?> inputFormat;
 
     private static final String PATH = "path";
     private static final String SOURCE_FORMAT = "format.type";
@@ -59,7 +61,7 @@ public class FileSource implements FlinkBatchSource<Row> {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        DataSource dataSource = env.getBatchEnvironment().createInput(inputFormat);
+        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(inputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSource.setParallelism(parallelism);
@@ -85,37 +87,34 @@ public class FileSource implements FlinkBatchSource<Row> {
     @Override
     public void prepare(FlinkEnvironment env) {
         String path = config.getString(PATH);
-        String format = config.getString(SOURCE_FORMAT);
-        String schemaContent = config.getString(SCHEMA);
+        FormatType format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
         Path filePath = new Path(path);
         switch (format) {
-            case "json":
-                Object jsonSchemaInfo = JSONObject.parse(schemaContent);
-                RowTypeInfo jsonInfo = SchemaUtil.getTypeInformation((JSONObject) jsonSchemaInfo);
-                JsonRowInputFormat jsonInputFormat = new JsonRowInputFormat(filePath, null, jsonInfo);
-                inputFormat = jsonInputFormat;
+            case JSON:
+                JSONObject jsonSchemaInfo = JSONObject.parseObject(config.getString(SCHEMA));
+                RowTypeInfo jsonInfo = SchemaUtil.getTypeInformation(jsonSchemaInfo);
+                inputFormat = new JsonRowInputFormat(filePath, null, jsonInfo);
                 break;
-            case "parquet":
-                final Schema parse = new Schema.Parser().parse(schemaContent);
+            case PARQUET:
+                final Schema parse = new Schema.Parser().parse(config.getString(SCHEMA));
                 final MessageType messageType = new AvroSchemaConverter().convert(parse);
                 inputFormat = new ParquetRowInputFormat(filePath, messageType);
                 break;
-            case "orc":
-                OrcRowInputFormat orcRowInputFormat = new OrcRowInputFormat(path, schemaContent, null, DEFAULT_BATCH_SIZE);
-                this.inputFormat = orcRowInputFormat;
+            case ORC:
+                this.inputFormat = new OrcRowInputFormat(path, config.getString(SCHEMA), null, DEFAULT_BATCH_SIZE);
                 break;
-            case "csv":
-                Object csvSchemaInfo = JSONObject.parse(schemaContent);
-                TypeInformation[] csvType = SchemaUtil.getCsvType((List<Map<String, String>>) csvSchemaInfo);
-                RowCsvInputFormat rowCsvInputFormat = new RowCsvInputFormat(filePath, csvType, true);
-                this.inputFormat = rowCsvInputFormat;
+            case CSV:
+                List<Map<String, String>> csvSchemaInfo = JSONObject.parseObject(config.getString(SCHEMA),
+                        new TypeReference<List<Map<String, String>>>() {
+                        });
+                TypeInformation<?>[] csvType = SchemaUtil.getCsvType(csvSchemaInfo);
+                this.inputFormat = new RowCsvInputFormat(filePath, csvType, true);
                 break;
-            case "text":
-                TextRowInputFormat textInputFormat = new TextRowInputFormat(filePath);
-                inputFormat = textInputFormat;
+            case TEXT:
+                inputFormat = new TextRowInputFormat(filePath);
                 break;
             default:
-                break;
+                throw new RuntimeException("Format '" + format + "' is not supported");
         }
 
     }

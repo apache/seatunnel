@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.enums.FormatType;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.flink.util.SchemaUtil;
 import org.apache.seatunnel.flink.util.TableUtil;
@@ -47,7 +48,7 @@ import java.util.Properties;
 
 public class KafkaTableStream implements FlinkStreamSource<Row> {
 
-    private static final long serialVersionUID = 5287018194573371428L;
+    private static final long   serialVersionUID = 5287018194573371428L;
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTableStream.class);
 
     private Config config;
@@ -59,7 +60,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
     private String tableName;
     private final String consumerPrefix = "consumer.";
     private long watermark;
-    private String format;
+    private FormatType format;
 
     private static final String TOPICS = "topics";
     private static final String ROWTIME_FIELD = "rowtime.field";
@@ -106,7 +107,7 @@ public class KafkaTableStream implements FlinkStreamSource<Row> {
             }
         }
         String schemaContent = config.getString(SCHEMA);
-        format = config.getString(SOURCE_FORMAT);
+        format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
         schemaInfo = JSONObject.parse(schemaContent, Feature.OrderedField);
     }
 
