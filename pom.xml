@@ -45,8 +45,8 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git@github.com:apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:git@github.com:apache/incubator-seatunnel.git</developerConnection>
+        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
         <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
@@ -510,6 +510,7 @@
                 <groupId>org.apache.iceberg</groupId>
                 <artifactId>iceberg-spark-runtime</artifactId>
                 <version>${iceberg.version}</version>
+                <scope>provided</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -632,20 +633,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>${maven-assembly-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>single</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <attach>false</attach>
-                        <descriptors>
-                            <descriptor>assembly.xml</descriptor>
-                        </descriptors>
-                    </configuration>
                 </plugin>
 
                 <!-- checkstyle (Start) -->
@@ -801,7 +788,6 @@
                     <artifactId>license-maven-plugin</artifactId>
                     <version>${maven-license-maven-plugin}</version>
                     <configuration>
-                        <skip>true</skip>
                         <outputDirectory>${project.basedir}/seatunnel-dist/target/</outputDirectory>
                         <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
                         <sortArtifactByName>false</sortArtifactByName>

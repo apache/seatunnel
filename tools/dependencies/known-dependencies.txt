@@ -657,7 +657,6 @@ iceberg-core-0.13.1.jar
 iceberg-api-0.13.1.jar
 iceberg-common-0.13.1.jar
 iceberg-bundled-guava-0.13.1.jar
-iceberg-spark-runtime-0.13.1.jar
 caffeine-2.8.4.jar
 checker-qual-3.4.0.jar
 error_prone_annotations-2.3.4.jar
