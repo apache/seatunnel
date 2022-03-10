@@ -36,7 +36,6 @@ class Kudu extends SparkBatchSource {
       "kudu.table" -> config.getString("kudu_table"))
 
     val ds = env.getSparkSession.read
-      .format("org.apache.kudu.spark.kudu")
       .options(mapConf)
       .kudu
     ds
