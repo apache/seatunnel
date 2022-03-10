@@ -102,6 +102,9 @@ class DefaultSource extends CreatableRelationProvider with RelationProvider
       conn.close()
     }
 
-    createRelation(sqlContext, parameters)
+    // In fact, the instance of BaseRelation that is returned
+    // by org.apache.spark.sql.execution.datasources.jdbc2.DefaultSource.createRelation
+    // will not be used, so return empty to prevent some bug from createRelation.
+    JDBCRelation(Array.empty, new JDBCOptions(parameters))(sqlContext.sparkSession)
   }
 }
