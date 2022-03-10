@@ -31,13 +31,8 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-transform-flink-table2datastream</module>
-        <module>seatunnel-transform-flink-datastream2table</module>
-        <module>seatunnel-transform-flink-sql</module>
-        <module>seatunnel-transform-flink-split</module>
-        <module>seatunnel-transform-spark-json</module>
-        <module>seatunnel-transform-spark-split</module>
-        <module>seatunnel-transform-spark-sql</module>
+        <module>seatunnel-transforms-flink</module>
+        <module>seatunnel-transforms-spark</module>
     </modules>
 
 </project>

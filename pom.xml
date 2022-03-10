@@ -45,8 +45,8 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git@github.com:apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:git@github.com:apache/incubator-seatunnel.git</developerConnection>
+        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
         <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
@@ -510,6 +510,7 @@
                 <groupId>org.apache.iceberg</groupId>
                 <artifactId>iceberg-spark-runtime</artifactId>
                 <version>${iceberg.version}</version>
+                <scope>provided</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

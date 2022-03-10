@@ -59,7 +59,7 @@ The parallelism of an individual operator, for FileSource
 ```bash
   FileSource{
     path = "hdfs://localhost:9000/input/"
-    source_format = "json"
+    format.type = "json"
     schema = "{\"data\":[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}],\"db\":\"string\",\"q\":{\"s\":\"string\"}}"
     result_table_name = "test"
   }
