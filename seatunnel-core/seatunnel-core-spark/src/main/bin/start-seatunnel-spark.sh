@@ -92,6 +92,9 @@ if [ -z ${MASTER} ] || [ -z ${DEPLOY_MODE} ] || [ -z ${CONFIG_FILE} ]; then
   echo "Error: The following options are required: [-e | --deploy-mode], [-m | --master], [-c | --config]"
   usage
   exit -1
+elif [ ! -f ${CONFIG_FILE} ];then
+  echo "Error: Config file ${CONFIG_FILE} does not exists! Please check it."
+  exit -1
 fi
 
 # set positional arguments in their proper place
