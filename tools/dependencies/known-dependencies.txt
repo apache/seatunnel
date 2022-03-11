@@ -558,7 +558,6 @@ plexus-utils-3.1.0.jar
 poi-4.1.2.jar
 poi-ooxml-4.1.2.jar
 poi-ooxml-schemas-4.1.2.jar
-postgresql-42.3.3.jar
 protobuf-java-2.5.0.jar
 protobuf-java-3.17.1.jar
 rank-eval-client-6.3.1.jar
