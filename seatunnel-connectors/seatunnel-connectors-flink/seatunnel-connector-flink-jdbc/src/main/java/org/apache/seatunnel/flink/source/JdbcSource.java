@@ -17,31 +17,22 @@
 
 package org.apache.seatunnel.flink.source;
 
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BOOLEAN_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BYTE_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.DOUBLE_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.FLOAT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
-
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.jdbc.input.DefaultTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.JdbcInputFormat;
+import org.apache.seatunnel.flink.jdbc.input.MysqlTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.PostgresTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.TypeInformationMap;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
-import org.apache.flink.connector.jdbc.JdbcInputFormat;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,9 +41,9 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -61,6 +52,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     private static final long serialVersionUID = -3349505356339446415L;
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSource.class);
+    private static final int DEFAULT_FETCH_SIZE = 10000;
 
     private Config config;
     private String tableName;
@@ -68,44 +60,13 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     private String dbUrl;
     private String username;
     private String password;
-    private int fetchSize = Integer.MIN_VALUE;
+    private int fetchSize = DEFAULT_FETCH_SIZE;
     private Set<String> fields;
 
     private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
     private static final String PARALLELISM = "parallelism";
 
-    private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
-
     private JdbcInputFormat jdbcInputFormat;
-
-    {
-        informationMapping.put("VARCHAR", STRING_TYPE_INFO);
-        informationMapping.put("BOOLEAN", BOOLEAN_TYPE_INFO);
-        informationMapping.put("TINYINT", BYTE_TYPE_INFO);
-        informationMapping.put("TINYINT UNSIGNED", INT_TYPE_INFO);
-        informationMapping.put("SMALLINT", SHORT_TYPE_INFO);
-        informationMapping.put("SMALLINT UNSIGNED", INT_TYPE_INFO);
-        informationMapping.put("INTEGER", INT_TYPE_INFO);
-        informationMapping.put("INTEGER UNSIGNED", INT_TYPE_INFO);
-        informationMapping.put("MEDIUMINT", INT_TYPE_INFO);
-        informationMapping.put("MEDIUMINT UNSIGNED", INT_TYPE_INFO);
-        informationMapping.put("INT", INT_TYPE_INFO);
-        informationMapping.put("INT UNSIGNED", LONG_TYPE_INFO);
-        informationMapping.put("BIGINT", LONG_TYPE_INFO);
-        informationMapping.put("BIGINT UNSIGNED", BIG_INT_TYPE_INFO);
-        informationMapping.put("FLOAT", FLOAT_TYPE_INFO);
-        informationMapping.put("DOUBLE", DOUBLE_TYPE_INFO);
-        informationMapping.put("CHAR", STRING_TYPE_INFO);
-        informationMapping.put("TEXT", STRING_TYPE_INFO);
-        informationMapping.put("LONGTEXT", STRING_TYPE_INFO);
-        informationMapping.put("DATE", SqlTimeTypeInfo.DATE);
-        informationMapping.put("TIME", SqlTimeTypeInfo.TIME);
-        informationMapping.put("DATETIME", SqlTimeTypeInfo.TIMESTAMP);
-        informationMapping.put("TIMESTAMP", SqlTimeTypeInfo.TIMESTAMP);
-        informationMapping.put("DECIMAL", BIG_DEC_TYPE_INFO);
-        informationMapping.put("BINARY", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
-
-    }
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
@@ -142,9 +103,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         if (matcher.find()) {
             String var = matcher.group(1);
             tableName = matcher.group(2);
-            if ("*".equals(var.trim())) {
-                //do nothing
-            } else {
+            if (!"*".equals(var.trim())) {
                 LinkedHashSet<String> vars = new LinkedHashSet<>();
                 String[] split = var.split(",");
                 for (String s : split) {
@@ -160,22 +119,15 @@ public class JdbcSource implements FlinkBatchSource<Row> {
             fetchSize = config.getInt("fetch_size");
         }
 
-        jdbcInputFormat = JdbcInputFormat.buildJdbcInputFormat()
-                .setDrivername(driverName)
-                .setDBUrl(dbUrl)
-                .setUsername(username)
-                .setPassword(password)
-                .setQuery(query)
-                .setFetchSize(fetchSize)
-                .setRowTypeInfo(getRowTypeInfo())
-                .finish();
+        jdbcInputFormat = JdbcInputFormat.buildFlinkJdbcInputFormat().setDrivername(driverName).setDBUrl(dbUrl).setUsername(username).setPassword(password).setQuery(query).setFetchSize(fetchSize).setRowTypeInfo(getRowTypeInfo()).finish();
     }
 
     private RowTypeInfo getRowTypeInfo() {
-        HashMap<String, TypeInformation> map = new LinkedHashMap<>();
+        Map<String, TypeInformation<?>> map = new LinkedHashMap<>();
 
         try {
             Class.forName(driverName);
+            TypeInformationMap informationMapping = getTypeInformationMap(driverName);
             Connection connection = DriverManager.getConnection(dbUrl, username, password);
             DatabaseMetaData metaData = connection.getMetaData();
             ResultSet columns = metaData.getColumns(connection.getCatalog(), connection.getSchema(), tableName, "%");
@@ -183,7 +135,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
                 String columnName = columns.getString("COLUMN_NAME");
                 String dataTypeName = columns.getString("TYPE_NAME");
                 if (fields == null || fields.contains(columnName)) {
-                    map.put(columnName, informationMapping.get(dataTypeName));
+                    map.put(columnName, informationMapping.getInformation(dataTypeName));
                 }
             }
             connection.close();
@@ -208,6 +160,17 @@ public class JdbcSource implements FlinkBatchSource<Row> {
             i++;
         }
         return new RowTypeInfo(typeInformation, names);
+    }
+
+    private TypeInformationMap getTypeInformationMap(String driverName) {
+        driverName = driverName.toLowerCase();
+        if (driverName.contains("mysql")) {
+            return new MysqlTypeInformationMap();
+        } else if (driverName.contains("postgresql")) {
+            return new PostgresTypeInformationMap();
+        } else {
+            return new DefaultTypeInformationMap();
+        }
     }
 
 }
