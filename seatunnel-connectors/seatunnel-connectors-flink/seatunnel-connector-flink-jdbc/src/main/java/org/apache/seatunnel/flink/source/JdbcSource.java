@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.flink.source;
 
+import static org.apache.seatunnel.flink.Config.DRIVER;
+import static org.apache.seatunnel.flink.Config.PARALLELISM;
+import static org.apache.seatunnel.flink.Config.PASSWORD;
+import static org.apache.seatunnel.flink.Config.QUERY;
+import static org.apache.seatunnel.flink.Config.SOURCE_FETCH_SIZE;
+import static org.apache.seatunnel.flink.Config.URL;
+import static org.apache.seatunnel.flink.Config.USERNAME;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BOOLEAN_TYPE_INFO;
@@ -72,7 +79,6 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     private Set<String> fields;
 
     private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
-    private static final String PARALLELISM = "parallelism";
 
     private HashMap<String, TypeInformation> informationMapping = new HashMap<>();
 
@@ -129,15 +135,15 @@ public class JdbcSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, "driver", "url", "username", "query");
+        return CheckConfigUtil.checkAllExists(config, DRIVER, URL, USERNAME, QUERY);
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        driverName = config.getString("driver");
-        dbUrl = config.getString("url");
-        username = config.getString("username");
-        String query = config.getString("query");
+        driverName = config.getString(DRIVER);
+        dbUrl = config.getString(URL);
+        username = config.getString(USERNAME);
+        String query = config.getString(QUERY);
         Matcher matcher = COMPILE.matcher(query);
         if (matcher.find()) {
             String var = matcher.group(1);
@@ -153,11 +159,11 @@ public class JdbcSource implements FlinkBatchSource<Row> {
                 fields = vars;
             }
         }
-        if (config.hasPath("password")) {
-            password = config.getString("password");
+        if (config.hasPath(PASSWORD)) {
+            password = config.getString(PASSWORD);
         }
-        if (config.hasPath("fetch_size")) {
-            fetchSize = config.getInt("fetch_size");
+        if (config.hasPath(SOURCE_FETCH_SIZE)) {
+            fetchSize = config.getInt(SOURCE_FETCH_SIZE);
         }
 
         jdbcInputFormat = JdbcInputFormat.buildJdbcInputFormat()

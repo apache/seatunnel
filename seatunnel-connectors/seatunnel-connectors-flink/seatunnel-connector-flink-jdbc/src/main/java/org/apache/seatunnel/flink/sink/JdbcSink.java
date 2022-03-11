@@ -17,6 +17,15 @@
 
 package org.apache.seatunnel.flink.sink;
 
+import static org.apache.seatunnel.flink.Config.DRIVER;
+import static org.apache.seatunnel.flink.Config.PASSWORD;
+import static org.apache.seatunnel.flink.Config.QUERY;
+import static org.apache.seatunnel.flink.Config.SINK_BATCH_INTERVAL;
+import static org.apache.seatunnel.flink.Config.SINK_BATCH_MAX_RETRIES;
+import static org.apache.seatunnel.flink.Config.SINK_BATCH_SIZE;
+import static org.apache.seatunnel.flink.Config.URL;
+import static org.apache.seatunnel.flink.Config.USERNAME;
+
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -73,26 +82,26 @@ public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, 
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, "driver", "url", "username", "query");
+        return CheckConfigUtil.checkAllExists(config, DRIVER, URL, USERNAME, QUERY);
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        driverName = config.getString("driver");
-        dbUrl = config.getString("url");
-        username = config.getString("username");
-        query = config.getString("query");
-        if (config.hasPath("password")) {
-            password = config.getString("password");
+        driverName = config.getString(DRIVER);
+        dbUrl = config.getString(URL);
+        username = config.getString(USERNAME);
+        query = config.getString(QUERY);
+        if (config.hasPath(PASSWORD)) {
+            password = config.getString(PASSWORD);
         }
-        if (config.hasPath("batch_size")) {
-            batchSize = config.getInt("batch_size");
+        if (config.hasPath(SINK_BATCH_SIZE)) {
+            batchSize = config.getInt(SINK_BATCH_SIZE);
         }
-        if (config.hasPath("batch_interval")) {
-            batchIntervalMs = config.getLong("batch_interval");
+        if (config.hasPath(SINK_BATCH_INTERVAL)) {
+            batchIntervalMs = config.getLong(SINK_BATCH_INTERVAL);
         }
-        if (config.hasPath("batch_max_retries")) {
-            maxRetries = config.getInt("batch_max_retries");
+        if (config.hasPath(SINK_BATCH_MAX_RETRIES)) {
+            maxRetries = config.getInt(SINK_BATCH_MAX_RETRIES);
         }
     }
 
