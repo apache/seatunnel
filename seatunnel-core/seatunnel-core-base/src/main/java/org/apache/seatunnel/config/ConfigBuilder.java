@@ -57,6 +57,7 @@ public class ConfigBuilder {
     private final Config config;
     private boolean streaming;
     private Config envConfig;
+    private boolean enableHive;
     private final RuntimeEnv env;
 
     public ConfigBuilder(String configFile, Engine engine) {
@@ -77,11 +78,7 @@ public class ConfigBuilder {
 
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
-        Config config = ConfigFactory
-                .parseFile(new File(configFile))
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config config = ConfigFactory.parseFile(new File(configFile)).resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true)).resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
         LOGGER.info("parsed config file: {}", config.root().render(options));
@@ -100,6 +97,22 @@ public class ConfigBuilder {
         List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
 
         return sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream");
+    }
+
+    private boolean checkIsContainHive() {
+        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+        for (Config c : sourceConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        List<? extends Config> sinkConfigList = config.getConfigList(PluginType.SINK.getType());
+        for (Config c : sinkConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -181,10 +194,11 @@ public class ConfigBuilder {
     private RuntimeEnv createEnv() {
         envConfig = config.getConfig("env");
         streaming = checkIsStreaming();
+        enableHive = checkIsContainHive();
         RuntimeEnv env = null;
         switch (engine) {
             case SPARK:
-                env = new SparkEnvironment();
+                env = new SparkEnvironment().setEnableHive(enableHive);
                 break;
             case FLINK:
                 env = new FlinkEnvironment();
