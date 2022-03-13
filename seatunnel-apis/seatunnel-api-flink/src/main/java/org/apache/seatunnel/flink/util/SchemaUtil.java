@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.flink.util;
 
+import org.apache.seatunnel.flink.enums.FormatType;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
@@ -52,35 +54,35 @@ public final class SchemaUtil {
     private SchemaUtil() {
     }
 
-    public static void setSchema(Schema schema, Object info, String format) {
+    public static void setSchema(Schema schema, Object info, FormatType format) {
 
-        switch (format.toLowerCase()) {
-            case "json":
+        switch (format) {
+            case JSON:
                 getJsonSchema(schema, (JSONObject) info);
                 break;
-            case "csv":
+            case CSV:
                 getCsvSchema(schema, (List<Map<String, String>>) info);
                 break;
-            case "orc":
+            case ORC:
                 getOrcSchema(schema, (JSONObject) info);
                 break;
-            case "avro":
+            case AVRO:
                 getAvroSchema(schema, (JSONObject) info);
                 break;
-            case "parquet":
+            case PARQUET:
                 getParquetSchema(schema, (JSONObject) info);
                 break;
             default:
         }
     }
 
-    public static FormatDescriptor setFormat(String format, Config config) throws Exception {
+    public static FormatDescriptor setFormat(FormatType format, Config config) throws Exception {
         FormatDescriptor formatDescriptor = null;
-        switch (format.toLowerCase().trim()) {
-            case "json":
+        switch (format) {
+            case JSON:
                 formatDescriptor = new Json().failOnMissingField(false).deriveSchema();
                 break;
-            case "csv":
+            case CSV:
                 Csv csv = new Csv().deriveSchema();
                 Field interPro = csv.getClass().getDeclaredField("internalProperties");
                 interPro.setAccessible(true);
@@ -97,11 +99,11 @@ public final class SchemaUtil {
                 }
                 formatDescriptor = csv;
                 break;
-            case "avro":
+            case AVRO:
                 formatDescriptor = new Avro().avroSchema(config.getString("schema"));
                 break;
-            case "orc":
-            case "parquet":
+            case ORC:
+            case PARQUET:
             default:
                 break;
         }
@@ -143,8 +145,8 @@ public final class SchemaUtil {
         }
     }
 
-    public static TypeInformation[] getCsvType(List<Map<String, String>> schemaList) {
-        TypeInformation[] typeInformation = new TypeInformation[schemaList.size()];
+    public static TypeInformation<?>[] getCsvType(List<Map<String, String>> schemaList) {
+        TypeInformation<?>[] typeInformation = new TypeInformation[schemaList.size()];
         int i = 0;
         for (Map<String, String> map : schemaList) {
             String type = map.get("type").toUpperCase();
@@ -186,7 +188,7 @@ public final class SchemaUtil {
     public static RowTypeInfo getTypeInformation(JSONObject json) {
         int size = json.size();
         String[] fields = new String[size];
-        TypeInformation[] informations = new TypeInformation[size];
+        TypeInformation<?>[] informations = new TypeInformation[size];
         int i = 0;
         for (Map.Entry<String, Object> entry : json.entrySet()) {
             String key = entry.getKey();
