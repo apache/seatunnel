@@ -15,36 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.config.command;
+package org.apache.seatunnel.config;
 
-import com.beust.jcommander.Parameter;
+public enum EngineType {
+    SPARK("spark"),
+    FLINK("flink"),
+    ;
 
-import java.util.List;
+    private final String engine;
 
-public class CommandFlinkArgs {
-
-    @Parameter(names = {"-c", "--config"},
-        description = "config file",
-        required = true)
-    private String configFile = "application.conf";
-
-    @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = null;
-
-    @Parameter(names = {"-t", "--check"},
-        description = "check config")
-    private boolean testConfig = false;
-
-    public String getConfigFile() {
-        return configFile;
+    EngineType(String engine) {
+        this.engine = engine;
     }
 
-    public boolean isTestConfig() {
-        return testConfig;
-    }
-
-    public List<String> getVariables() {
-        return variables;
+    public String getEngine() {
+        return engine;
     }
 }

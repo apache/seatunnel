@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.utils;
+package org.apache.seatunnel.command.flink;
 
-public enum PluginType {
-    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
+import org.apache.seatunnel.command.Command;
+import org.apache.seatunnel.command.CommandBuilder;
+import org.apache.seatunnel.command.FlinkCommandArgs;
 
-    private String type;
+public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
 
-    PluginType(String type) {
-        this.type = type;
-    }
-
-    public String getType() {
-        return type;
+    @Override
+    public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
+        return commandArgs.isCheckConfig() ? new FlinkConfValidateCommand() : new FlinkTaskExecuteCommand();
     }
 }
