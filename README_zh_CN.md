@@ -1,4 +1,4 @@
-# SeaTunnel
+# Apache SeaTunnel (Incubating)
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
@@ -64,7 +64,7 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 |Batch                     |Fake            |[doc](./docs/en/spark/configuration/source-plugins/Fake.md)         |                                                                     |
 |                          |ElasticSearch   |[doc](./docs/en/spark/configuration/source-plugins/Elasticsearch.md)|[doc](./docs/en/spark/configuration/sink-plugins/Elasticsearch.md)   |
 |                          |File            |[doc](./docs/en/spark/configuration/source-plugins/File.md)         |[doc](./docs/en/spark/configuration/sink-plugins/File.md)            |
-|                          |Hive            |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)         |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)          |
+|                          |Hive            |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Hive.md)          |
 |                          |Hudi            |[doc](./docs/en/spark/configuration/source-plugins/Hudi.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Hudi.md)            |
 |                          |Jdbc            |[doc](./docs/en/spark/configuration/source-plugins/Jdbc.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Jdbc.md)            |
 |                          |MongoDB         |[doc](./docs/en/spark/configuration/source-plugins/MongoDB.md)      |[doc](./docs/en/spark/configuration/sink-plugins/MongoDB.md)         |
@@ -75,7 +75,7 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 |                          |Clickhouse      |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Clickhouse.md)      |  
 |                          |Doris           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Doris.md)           |
 |                          |Email           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Email.md)           |
-|                          |Hbase           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Hbase.md)           |
+|                          |Hbase           |[doc](./docs/en/spark/configuration/source-plugins/Hbase.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Hbase.md)           |
 |                          |Kafka           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Kafka.md)           |
 |                          |Console         |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Console.md)         |
 |                          |Kudu            |[doc](./docs/en/spark/configuration/source-plugins/Kudu.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Kudu.md)            |

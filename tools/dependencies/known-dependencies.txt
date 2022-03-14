@@ -160,6 +160,7 @@ flink-avro-1.13.6.jar
 flink-connector-base-1.13.6.jar
 flink-connector-elasticsearch-base_2.11-1.13.6.jar
 flink-connector-elasticsearch6_2.11-1.13.6.jar
+flink-connector-jdbc_2.11-1.13.6.jar
 flink-connector-kafka_2.11-1.13.6.jar
 flink-csv-1.13.6.jar
 flink-json-1.13.6.jar
@@ -657,7 +658,6 @@ iceberg-core-0.13.1.jar
 iceberg-api-0.13.1.jar
 iceberg-common-0.13.1.jar
 iceberg-bundled-guava-0.13.1.jar
-iceberg-spark-runtime-0.13.1.jar
 caffeine-2.8.4.jar
 checker-qual-3.4.0.jar
 error_prone_annotations-2.3.4.jar

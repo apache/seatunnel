@@ -53,7 +53,7 @@ public final class CompressionUtils {
      * @param outputDir the output directory file.
      * @throws IOException           io exception
      * @throws FileNotFoundException file not found exception
-     * @throws ArchiveException      a rchive exception
+     * @throws ArchiveException      archive exception
      */
     public static void unTar(final File inputFile, final File outputDir) throws FileNotFoundException, IOException, ArchiveException {
 
