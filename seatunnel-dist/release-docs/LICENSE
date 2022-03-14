@@ -687,6 +687,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Flink : Connectors : Elasticsearch base (org.apache.flink:flink-connector-elasticsearch-base_2.11:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-elasticsearch-base_2.11)
      (The Apache Software License, Version 2.0) Flink : Connectors : File Sink Common (org.apache.flink:flink-file-sink-common:1.13.6 - https://flink.apache.org/flink-connectors/flink-file-sink-common)
      (The Apache Software License, Version 2.0) Flink : Connectors : Files (org.apache.flink:flink-connector-files:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-files)
+     (The Apache Software License, Version 2.0) Flink : Connectors : JDBC (org.apache.flink:flink-connector-jdbc_2.11:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-jdbc_2.11)
      (The Apache Software License, Version 2.0) Flink : Connectors : Kafka (org.apache.flink:flink-connector-kafka_2.11:1.13.6 - https://flink.apache.org/flink-connectors/flink-connector-kafka_2.11)
      (The Apache Software License, Version 2.0) Flink : Core (org.apache.flink:flink-core:1.13.6 - https://flink.apache.org/flink-core)
      (The Apache Software License, Version 2.0) Flink : FileSystems : Hadoop FS (org.apache.flink:flink-hadoop-fs:1.13.6 - https://flink.apache.org/flink-filesystems/flink-hadoop-fs)

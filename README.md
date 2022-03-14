@@ -67,7 +67,7 @@ processing plug-in, because the whole system is easy to expand.
 |Batch                     |Fake            |[doc](./docs/en/spark/configuration/source-plugins/Fake.md)         |                                                                     |
 |                          |ElasticSearch   |[doc](./docs/en/spark/configuration/source-plugins/Elasticsearch.md)|[doc](./docs/en/spark/configuration/sink-plugins/Elasticsearch.md)   |
 |                          |File            |[doc](./docs/en/spark/configuration/source-plugins/File.md)         |[doc](./docs/en/spark/configuration/sink-plugins/File.md)            |
-|                          |Hive            |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)         |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)          |
+|                          |Hive            |[doc](./docs/en/spark/configuration/source-plugins/Hive.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Hive.md)          |
 |                          |Hudi            |[doc](./docs/en/spark/configuration/source-plugins/Hudi.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Hudi.md)            |
 |                          |Jdbc            |[doc](./docs/en/spark/configuration/source-plugins/Jdbc.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Jdbc.md)            |
 |                          |MongoDB         |[doc](./docs/en/spark/configuration/source-plugins/MongoDB.md)      |[doc](./docs/en/spark/configuration/sink-plugins/MongoDB.md)         |

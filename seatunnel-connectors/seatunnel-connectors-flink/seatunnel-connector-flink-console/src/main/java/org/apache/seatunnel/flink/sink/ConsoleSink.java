@@ -31,14 +31,23 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink<Row, Row>, FlinkStreamSink<Row, Row> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSink.class);
 
     private static final long serialVersionUID = 3482649370594181723L;
     private Config config;
 
     @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> rowDataSet) {
+        try {
+            rowDataSet.print();
+        } catch (Exception e) {
+            LOGGER.error("Failed to print result! ", e);
+        }
         return rowDataSet.output(this);
     }
 

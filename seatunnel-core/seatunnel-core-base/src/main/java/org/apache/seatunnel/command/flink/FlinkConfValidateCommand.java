@@ -15,19 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.config.command;
+package org.apache.seatunnel.command.flink;
 
-import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.command.Command;
+import org.apache.seatunnel.command.FlinkCommandArgs;
+import org.apache.seatunnel.config.ConfigBuilder;
 
-import com.beust.jcommander.IParameterValidator;
-import com.beust.jcommander.ParameterException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class DeployModeValidator implements IParameterValidator {
+/**
+ * Used to check the Flink conf is validated.
+ */
+public class FlinkConfValidateCommand implements Command<FlinkCommandArgs> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkConfValidateCommand.class);
+
     @Override
-    public void validate(String name, String value)
-        throws ParameterException {
-        if (!Common.isModeAllowed(value)) {
-            throw new ParameterException("deploy-mode: " + value + " is not allowed.");
-        }
+    public void execute(FlinkCommandArgs flinkCommandArgs) {
+        String configPath = flinkCommandArgs.getConfigFile();
+        new ConfigBuilder(configPath, flinkCommandArgs.getEngineType()).checkConfig();
+        LOGGER.info("config OK !");
     }
 }
