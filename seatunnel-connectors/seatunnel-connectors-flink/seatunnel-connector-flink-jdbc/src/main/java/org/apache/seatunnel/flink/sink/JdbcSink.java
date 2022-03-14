@@ -17,16 +17,29 @@
 
 package org.apache.seatunnel.flink.sink;
 
+import static org.apache.seatunnel.flink.Config.DRIVER;
+import static org.apache.seatunnel.flink.Config.PASSWORD;
+import static org.apache.seatunnel.flink.Config.QUERY;
+import static org.apache.seatunnel.flink.Config.SINK_BATCH_INTERVAL;
+import static org.apache.seatunnel.flink.Config.SINK_BATCH_MAX_RETRIES;
+import static org.apache.seatunnel.flink.Config.SINK_BATCH_SIZE;
+import static org.apache.seatunnel.flink.Config.URL;
+import static org.apache.seatunnel.flink.Config.USERNAME;
+
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
+import org.apache.flink.connector.jdbc.JdbcOutputFormat;
 import org.apache.flink.connector.jdbc.utils.JdbcTypeUtil;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -39,7 +52,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
-public class JdbcSink implements FlinkStreamSink<Row, Row> {
+public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
 
     private static final long serialVersionUID = 3677571223952518115L;
     private static final int DEFAULT_BATCH_SIZE = 5000;
@@ -69,26 +82,26 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, "driver", "url", "username", "query");
+        return CheckConfigUtil.checkAllExists(config, DRIVER, URL, USERNAME, QUERY);
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        driverName = config.getString("driver");
-        dbUrl = config.getString("url");
-        username = config.getString("username");
-        query = config.getString("query");
-        if (config.hasPath("password")) {
-            password = config.getString("password");
+        driverName = config.getString(DRIVER);
+        dbUrl = config.getString(URL);
+        username = config.getString(USERNAME);
+        query = config.getString(QUERY);
+        if (config.hasPath(PASSWORD)) {
+            password = config.getString(PASSWORD);
         }
-        if (config.hasPath("batch_size")) {
-            batchSize = config.getInt("batch_size");
+        if (config.hasPath(SINK_BATCH_SIZE)) {
+            batchSize = config.getInt(SINK_BATCH_SIZE);
         }
-        if (config.hasPath("batch_interval")) {
-            batchIntervalMs = config.getLong("batch_interval");
+        if (config.hasPath(SINK_BATCH_INTERVAL)) {
+            batchIntervalMs = config.getLong(SINK_BATCH_INTERVAL);
         }
-        if (config.hasPath("batch_max_retries")) {
-            maxRetries = config.getInt("batch_max_retries");
+        if (config.hasPath(SINK_BATCH_MAX_RETRIES)) {
+            maxRetries = config.getInt(SINK_BATCH_MAX_RETRIES);
         }
     }
 
@@ -120,4 +133,22 @@ public class JdbcSink implements FlinkStreamSink<Row, Row> {
         return dataStream.addSink(sink);
     }
 
+    @Nullable
+    @Override
+    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+        Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
+        TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
+        int[] types = Arrays.stream(fieldTypes).mapToInt(JdbcTypeUtil::typeInformationToSqlType).toArray();
+
+        JdbcOutputFormat format = JdbcOutputFormat.buildJdbcOutputFormat()
+                .setDrivername(driverName)
+                .setDBUrl(dbUrl)
+                .setUsername(username)
+                .setPassword(password)
+                .setQuery(query)
+                .setBatchSize(batchSize)
+                .setSqlTypes(types)
+                .finish();
+        return dataSet.output(format);
+    }
 }

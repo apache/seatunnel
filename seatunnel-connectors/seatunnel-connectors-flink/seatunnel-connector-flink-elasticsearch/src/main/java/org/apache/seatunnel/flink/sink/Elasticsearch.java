@@ -17,6 +17,15 @@
 
 package org.apache.seatunnel.flink.sink;
 
+import static org.apache.seatunnel.Config.DEFAULT_INDEX;
+import static org.apache.seatunnel.Config.DEFAULT_INDEX_TIME_FORMAT;
+import static org.apache.seatunnel.Config.DEFAULT_INDEX_TYPE;
+import static org.apache.seatunnel.Config.HOSTS;
+import static org.apache.seatunnel.Config.INDEX;
+import static org.apache.seatunnel.Config.INDEX_TIME_FORMAT;
+import static org.apache.seatunnel.Config.INDEX_TYPE;
+import static org.apache.seatunnel.Config.PARALLELISM;
+
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.StringTemplate;
@@ -50,7 +59,6 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     private static final long serialVersionUID = 8445868321245456793L;
     private static final int DEFAULT_CONFIG_SIZE = 3;
-    private static final String PARALLELISM = "parallelism";
 
     private Config config;
     private String indexName;
@@ -67,16 +75,16 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, "hosts");
+        return CheckConfigUtil.checkAllExists(config, HOSTS);
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
         Config defaultConfig = ConfigFactory.parseMap(new HashMap<String, String>(DEFAULT_CONFIG_SIZE) {
             {
-                put("index", "seatunnel");
-                put("index_type", "log");
-                put("index_time_format", "yyyy.MM.dd");
+                put(INDEX, DEFAULT_INDEX);
+                put(INDEX_TYPE, DEFAULT_INDEX_TYPE);
+                put(INDEX_TIME_FORMAT, DEFAULT_INDEX_TIME_FORMAT);
             }
         });
         config = config.withFallback(defaultConfig);
@@ -86,14 +94,14 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
 
         List<HttpHost> httpHosts = new ArrayList<>();
-        List<String> hosts = config.getStringList("hosts");
+        List<String> hosts = config.getStringList(HOSTS);
         for (String host : hosts) {
             httpHosts.add(new HttpHost(host.split(":")[0], Integer.parseInt(host.split(":")[1]), "http"));
         }
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataStream.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
-        indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
+        indexName = StringTemplate.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT));
         ElasticsearchSink.Builder<Row> esSinkBuilder = new ElasticsearchSink.Builder<>(
                 httpHosts,
                 new ElasticsearchSinkFunction<Row>() {
@@ -106,7 +114,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
                         return Requests.indexRequest()
                                 .index(indexName)
-                                .type(config.getString("index_type"))
+                                .type(config.getString(INDEX_TYPE))
                                 .source(json);
                     }
 
@@ -133,7 +141,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
-        indexName = StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"));
+        indexName = StringTemplate.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT));
         DataSink<Row> dataSink = dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
             @Override
             public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {
@@ -149,7 +157,7 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
                 return Requests.indexRequest()
                         .index(indexName)
-                        .type(config.getString("index_type"))
+                        .type(config.getString(INDEX_TYPE))
                         .source(json);
             }
         }));
