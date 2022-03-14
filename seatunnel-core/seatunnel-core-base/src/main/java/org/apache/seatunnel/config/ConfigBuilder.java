@@ -27,8 +27,6 @@ import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
 import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
-import org.apache.seatunnel.utils.Engine;
-import org.apache.seatunnel.utils.PluginType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -52,14 +50,14 @@ public class ConfigBuilder {
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
     private final String configFile;
-    private final Engine engine;
+    private final EngineType engine;
     private ConfigPackage configPackage;
     private final Config config;
     private boolean streaming;
     private Config envConfig;
     private final RuntimeEnv env;
 
-    public ConfigBuilder(String configFile, Engine engine) {
+    public ConfigBuilder(String configFile, EngineType engine) {
         this.configFile = configFile;
         this.engine = engine;
         this.config = load();

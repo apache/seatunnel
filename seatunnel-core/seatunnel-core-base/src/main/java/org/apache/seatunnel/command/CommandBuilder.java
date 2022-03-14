@@ -15,25 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.spark;
+package org.apache.seatunnel.command;
 
-import org.apache.seatunnel.Seatunnel;
-import org.apache.seatunnel.command.SparkCommandArgs;
-
-public class LocalSparkExample {
-
-    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-spark-examples/src/main/resources/examples/";
-
-    public static void main(String[] args) {
-        String configFile = getTestConfigFile("spark.batch.conf");
-        SparkCommandArgs sparkArgs = new SparkCommandArgs();
-        sparkArgs.setConfigFile(configFile);
-        sparkArgs.setCheckConfig(false);
-        sparkArgs.setVariables(null);
-        Seatunnel.run(sparkArgs);
-    }
-
-    public static String getTestConfigFile(String configFile) {
-        return System.getProperty("user.dir") + TEST_RESOURCE_DIR + configFile;
-    }
+@FunctionalInterface
+public interface CommandBuilder<T extends CommandArgs> {
+    Command<T> buildCommand(T commandArgs);
 }
