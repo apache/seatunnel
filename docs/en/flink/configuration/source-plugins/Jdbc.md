@@ -21,7 +21,9 @@ Read data through jdbc
 
 ### driver [string]
 
-Driver name, such as `com.mysql.jdbc.Driver`
+Driver name, such as `com.mysql.cj.jdbc.Driver` for MySQL.
+
+Warn: for license compliance, you have to provide MySQL JDBC driver yourself, e.g. copy `mysql-connector-java-xxx.jar` to `$FLINK_HOME/lib` for Standalone.
 
 ### url [string]
 
