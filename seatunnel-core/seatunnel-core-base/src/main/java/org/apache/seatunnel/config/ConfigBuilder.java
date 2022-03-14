@@ -78,7 +78,11 @@ public class ConfigBuilder {
 
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
-        Config config = ConfigFactory.parseFile(new File(configFile)).resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true)).resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config config = ConfigFactory
+                .parseFile(new File(configFile))
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(ConfigFactory.systemProperties(),
+                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         ConfigRenderOptions options = ConfigRenderOptions.concise().setFormatted(true);
         LOGGER.info("parsed config file: {}", config.root().render(options));
