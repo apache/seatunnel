@@ -17,13 +17,49 @@
 
 package org.apache.seatunnel;
 
-import org.apache.seatunnel.command.SparkCommandArgs;
-import org.apache.seatunnel.utils.CommandLineUtils;
+/**
+ * ElasticSearch sink configuration options
+ */
+public interface Config {
 
-public class SeatunnelSpark {
+    /**
+     * Parallelism of sink
+     */
+    String PARALLELISM = "parallelism";
 
-    public static void main(String[] args) throws Exception {
-        SparkCommandArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Seatunnel.run(sparkArgs);
-    }
+    /**
+     * ElasticSearch index
+     */
+    String INDEX = "index";
+
+    /**
+     * ElasticSearch index type
+     */
+    String INDEX_TYPE = "index_type";
+
+    /**
+     * ElasticSearch index time format
+     */
+    String INDEX_TIME_FORMAT = "index_time_format";
+
+    /**
+     * ElasticSearch hosts (separated by commma)
+     */
+    String HOSTS = "hosts";
+
+    /**
+     * Default index type
+     */
+    String DEFAULT_INDEX_TYPE = "log";
+
+    /**
+     * Default index name
+     */
+    String DEFAULT_INDEX = "seatunnel";
+
+    /**
+     * Default index time format
+     */
+    String DEFAULT_INDEX_TIME_FORMAT = "yyyy.MM.dd";
+
 }
