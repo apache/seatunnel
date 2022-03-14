@@ -131,7 +131,7 @@ class Clickhouse extends SparkBatchSink {
       val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
       val hostAndPort = host.split(":")
       this.table = config.getString("table")
-      this.tableSchema = getClickHouseSchema(conn, this.table)
+      this.tableSchema = getClickHouseSchema(conn, this.table).toMap
       if (splitMode) {
         val tableName = config.getString("table")
         val localTable = getClickHouseDistributedTable(conn, database, tableName)
@@ -477,12 +477,12 @@ object Clickhouse {
 
   def getClickHouseSchema(
                            conn: ClickHouseConnectionImpl,
-                           table: String): Map[String, String] = {
+                           table: String): util.LinkedHashMap[String, String] = {
     val sql = String.format("desc %s", table)
     val resultSet = conn.createStatement.executeQuery(sql)
-    var schema = new HashMap[String, String]()
+    val schema = new util.LinkedHashMap[String, String]()
     while (resultSet.next()) {
-      schema += (resultSet.getString(1) -> resultSet.getString(2))
+      schema.put(resultSet.getString(1), resultSet.getString(2))
     }
     schema
   }
