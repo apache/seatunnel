@@ -10,9 +10,14 @@
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- | ------------- |
-| common-options | string | no       | -             |
+| parallelism    | `Int`  | no       | -             |
+| common-options |`string`| no       | -             |
 
-### common options [string]
+### parallelism [`Int`]
+
+The parallelism of an individual operator, for Fake Source
+
+### common options [`string`]
 
 Source plugin common parameters, please refer to [Source Plugin](./source-plugin.md) for details
 

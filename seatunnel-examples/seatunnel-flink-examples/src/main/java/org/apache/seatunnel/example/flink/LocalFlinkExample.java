@@ -17,19 +17,20 @@
 
 package org.apache.seatunnel.example.flink;
 
-import static org.apache.seatunnel.utils.Engine.FLINK;
-
 import org.apache.seatunnel.Seatunnel;
-import org.apache.seatunnel.config.command.CommandLineArgs;
+import org.apache.seatunnel.command.FlinkCommandArgs;
 
 public class LocalFlinkExample {
 
     public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-flink-examples/src/main/resources/examples/";
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         String configFile = getTestConfigFile("fake_to_console.conf");
-        CommandLineArgs flinkArgs = new CommandLineArgs(configFile, false, null);
-        Seatunnel.run(flinkArgs, FLINK);
+        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
+        flinkCommandArgs.setConfigFile(configFile);
+        flinkCommandArgs.setCheckConfig(false);
+        flinkCommandArgs.setVariables(null);
+        Seatunnel.run(flinkCommandArgs);
     }
 
     public static String getTestConfigFile(String configFile) {
