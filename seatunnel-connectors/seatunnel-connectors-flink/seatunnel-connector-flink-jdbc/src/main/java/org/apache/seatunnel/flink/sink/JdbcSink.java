@@ -52,7 +52,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
-public class JdbcSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
     private static final long serialVersionUID = 3677571223952518115L;
     private static final int DEFAULT_BATCH_SIZE = 5000;

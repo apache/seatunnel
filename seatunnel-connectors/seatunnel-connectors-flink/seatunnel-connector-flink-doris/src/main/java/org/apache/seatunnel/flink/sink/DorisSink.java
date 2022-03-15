@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-public class DorisSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
 
     private static final long serialVersionUID = 4747849769146047770L;
     private static final int DEFAULT_BATCH_SIZE = 100;

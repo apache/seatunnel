@@ -28,7 +28,7 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.types.Row;
 
-public class DruidSink implements FlinkBatchSink<Row, Row> {
+public class DruidSink implements FlinkBatchSink {
 
     private static final long serialVersionUID = -2967782261362988646L;
     private static final String COORDINATOR_URL = "coordinator_url";
