@@ -76,7 +76,7 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         FormatType format = FormatType.from(config.getString(FORMAT).trim().toLowerCase());
         switch (format) {
             case JSON:
@@ -102,9 +102,8 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
         DataSink<Row> dataSink = dataSet.output(outputFormat);
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            dataSink.setParallelism(parallelism);
         }
-        return dataSink;
     }
 
     @Override

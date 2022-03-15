@@ -99,7 +99,7 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         batchIntervalMs = 0;
         BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
         Table table = tableEnvironment.fromDataSet(dataSet);
@@ -109,9 +109,8 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
         DataSink<Row> rowDataSink = dataSet.output(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return rowDataSink.setParallelism(parallelism);
+            rowDataSink.setParallelism(parallelism);
         }
-        return rowDataSink;
     }
 
     @Override

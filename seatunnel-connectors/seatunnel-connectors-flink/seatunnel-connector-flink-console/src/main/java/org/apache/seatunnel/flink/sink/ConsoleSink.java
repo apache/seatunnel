@@ -26,7 +26,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
@@ -42,13 +41,13 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
     private Config config;
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> rowDataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> rowDataSet) {
         try {
             rowDataSet.print();
         } catch (Exception e) {
             LOGGER.error("Failed to print result! ", e);
         }
-        return rowDataSet.output(this);
+        rowDataSet.output(this);
     }
 
     @Override

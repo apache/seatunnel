@@ -36,7 +36,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
 import org.apache.flink.connector.jdbc.JdbcOutputFormat;
@@ -133,9 +132,8 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
         return dataStream.addSink(sink);
     }
 
-    @Nullable
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
         TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
         int[] types = Arrays.stream(fieldTypes).mapToInt(JdbcTypeUtil::typeInformationToSqlType).toArray();
@@ -149,6 +147,6 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
                 .setBatchSize(batchSize)
                 .setSqlTypes(types)
                 .finish();
-        return dataSet.output(format);
+        dataSet.output(format);
     }
 }
