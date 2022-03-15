@@ -17,14 +17,17 @@
 
 package org.apache.seatunnel.spark.sink
 
+import com.jcraft.jsch.JSch
 import net.jpountz.xxhash.XXHashFactory
 import org.apache.commons.lang3.StringUtils
+import org.apache.ivy.plugins.repository.ssh.Scp
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.seatunnel.spark.sink.Clickhouse._
 import org.apache.seatunnel.spark.sink.ClickhouseFile.{CLICKHOUSE_FILE_PREFIX, LOGGER, Table, UUID_LENGTH, getClickhouseTableInfo}
+import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.{Dataset, Encoders, Row}
 import org.slf4j.LoggerFactory
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
@@ -49,6 +52,7 @@ class ClickhouseFile extends SparkBatchSink {
   private var fields: List[String] = _
   private var nodePass: Map[String, String] = _
   private val random = ThreadLocalRandom.current()
+  private var freePass: Boolean = false
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
 
@@ -58,13 +62,16 @@ class ClickhouseFile extends SparkBatchSink {
 
     val session = env.getSparkSession
     import session.implicits._
+    val encoder = Encoders.tuple(
+      ExpressionEncoder[Shard],
+      RowEncoder(data.schema))
     data.map(item => {
       val hashInstance = XXHashFactory.fastestInstance().hash64()
       val shard = getRowShard(distributedEngine.equals(this.table.engine), this.table.shards,
         this.table.shardKey, this.table.shardKeyType, this.table.shardWeightCount, this.random,
         hashInstance, item)
       (shard, item)
-    }).groupByKey(si => si._1)(Encoders.kryo).mapGroups((shard, rows) => {
+    })(encoder).groupByKey(si => si._1).mapGroups((shard, rows) => {
       // call clickhouse local
       val paths = generateClickhouseFile(rows)
       // move file
@@ -73,7 +80,7 @@ class ClickhouseFile extends SparkBatchSink {
       attachClickhouseFile(shard, paths)
       // return result
       ""
-    })
+    }).foreach(s => println(s))
 
   }
 
@@ -86,18 +93,33 @@ class ClickhouseFile extends SparkBatchSink {
       if (this.fields.contains(kv.getKey)) {
         kv.getKey
       } else {
-        // TODO add default value
-        ""
+        val v = getDefaultValue(kv.getValue)
+        if (v == null) {
+          "null"
+        } else if (v.isInstanceOf[Integer]) {
+          v.toString
+        } else {
+          s"'${v.toString}'"
+        }
       }
     }
 
     val uuid = UUID.randomUUID().toString.substring(0, UUID_LENGTH)
-    val command = s"echo -e \"$data\"" #| s"$clickhouseLocalPath -S " +
-      s"\"${fields.map(f => s"$f ${this.table.tableSchema.get(f)}")}\" " +
-      s"-N \"temp_table$uuid\" -q \"${this.table.localCreateTableDDL}; " +
-      s"INSERT INTO TABLE ${this.table.name} " +
-      s"SELECT ${this.table.tableSchema.entrySet.map(getValue).mkString(",")} FROM temp_table$uuid;\" " +
-      s"--path $CLICKHOUSE_FILE_PREFIX/$uuid"
+
+
+    val command = Process(Seq(s"echo", "-e", s"'$data'", "|", clickhouseLocalPath, "-S",
+      s"'${fields.map(f => s"$f ${this.table.tableSchema.get(f)}").mkString(",")}'", "-N",
+      s"'temp_table$uuid'", "-q", "\"", s"${this.table.localCreateTableDDL}; ",
+      s"INSERT INTO TABLE ${this.table.name} ", "SELECT", s"${
+        this.table.tableSchema.entrySet.map(getValue)
+          .mkString(",")
+      }", "FROM", s"temp_table$uuid;", "\"", "--path", s"$CLICKHOUSE_FILE_PREFIX/$uuid"))
+    //    val command = s"echo -e '$data''" #| s"$clickhouseLocalPath -S " +
+    //      s"'${fields.map(f => s"$f ${this.table.tableSchema.get(f)}")}' " +
+    //      s"-N 'temp_table${uuid}' -q \"${this.table.localCreateTableDDL}; " +
+    //      s"INSERT INTO TABLE ${this.table.name} " +
+    //      s"SELECT ${this.table.tableSchema.entrySet.map(getValue).mkString(",")} FROM temp_table$uuid; \"" +
+    //      s"--path $CLICKHOUSE_FILE_PREFIX/$uuid"
     LOGGER.info(command.lineStream.mkString("\n"))
 
     s"ls -d $CLICKHOUSE_FILE_PREFIX/$uuid/".lineStream.filter(s => !s.equals("detached")).toList
@@ -105,8 +127,14 @@ class ClickhouseFile extends SparkBatchSink {
 
   private def moveFileToServer(shard: Shard, paths: List[String]): Unit = {
     paths.foreach(path => {
-      s"scp -r $path root@${shard.hostAddress}:${this.table.dataPaths}/detached/".lineStream
-      // TODO add password
+      val jsch = new JSch()
+      val session = jsch.getSession("root", shard.hostAddress)
+      if (!this.freePass) {
+        session.setPassword(nodePass(shard.hostAddress))
+      }
+      // TODO override Scp to support zero copy
+      val scp = new Scp(session)
+      scp.put(path, null, s"${this.table.dataPaths}/detached/", null)
     })
   }
 
@@ -128,13 +156,11 @@ class ClickhouseFile extends SparkBatchSink {
       properties.put("user", config.getString("username"))
       properties.put("password", config.getString("password"))
       val host = config.getString("host")
-      val globalJdbc = String.format("jdbc:clickhouse://%s/", host)
-      val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(globalJdbc, properties)
-      val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
-
-      // 1. 获取create table 的信息
       val database = config.getString("database")
       val table = config.getString("table")
+      val conn = getClickhouseConnection(host, database, properties)
+
+      // 1. 获取create table 的信息
       val (result, tableInfo) = getClickhouseTableInfo(conn, database, table)
       if (!Objects.isNull(result)) {
         checkResult = result
@@ -143,15 +169,23 @@ class ClickhouseFile extends SparkBatchSink {
         // 2. 获取table对应的node信息
         tableInfo.initTableInfo(host, conn)
         // 检查是否包含这些node的访问权限
-        val nodePass = config.getObjectList("node_pass")
-        val nodePassMap = mutable.Map[String, String]()
-        nodePass.foreach(np => {
-          val address = np.get("node_address").toString
-          val password = np.get("password").toString
-          nodePassMap(address) = password
-        })
-        this.nodePass = nodePassMap.toMap
-        checkResult = checkNodePass(this.nodePass, tableInfo.shards.values().toList)
+        if (config.hasPath("node_free_password") && config.getBoolean("node_free_password")) {
+          this.freePass = true
+        } else if (config.hasPath("node_pass")) {
+          val nodePass = config.getObjectList("node_pass")
+          val nodePassMap = mutable.Map[String, String]()
+          nodePass.foreach(np => {
+            val address = np.toConfig.getString("node_address")
+            val password = np.toConfig.getString("password")
+            nodePassMap(address) = password
+          })
+          this.nodePass = nodePassMap.toMap
+          checkResult = checkNodePass(this.nodePass, tableInfo.shards.values().toList)
+        } else {
+          checkResult = CheckResult.error("if clickhouse node is free password to spark node, " +
+            "make config 'node_free_password' set true. Otherwise need provide clickhouse node password for" +
+            " root user, location at node_pass config.")
+        }
         if (checkResult.isSuccess) {
           // 3. 检查分片方式 相同分片的数据一定要生成在一起
           if (config.hasPath("sharding_key") && StringUtils.isNotEmpty(config.getString("sharding_key"))) {
@@ -177,11 +211,8 @@ class ClickhouseFile extends SparkBatchSink {
     if (noPassShard.nonEmpty) {
       CheckResult.error(s"can't find node ${
         String.join(",", JavaConversions.asJavaIterable(noPassShard.map(s => s.hostAddress)))
-      } password in node_address config"
-      )
-    }
-
-    else {
+      } password in node_address config")
+    } else {
       CheckResult.success()
     }
   }
@@ -223,8 +254,7 @@ object ClickhouseFile {
           this.shardWeightCount = weight
           this.localCreateTableDDL = getClickhouseTableInfo(conn, localTable.database, localTable.table)._2.createTableDDL
         } else {
-          this.shards.put(0, new Shard(1, 1, 1, hostAndPort(0),
-            hostAndPort(0), hostAndPort(1), database))
+          this.shards.put(0, Shard(1, 1, 1, hostAndPort(0), hostAndPort(0), hostAndPort(1), database))
         }
       }
     }

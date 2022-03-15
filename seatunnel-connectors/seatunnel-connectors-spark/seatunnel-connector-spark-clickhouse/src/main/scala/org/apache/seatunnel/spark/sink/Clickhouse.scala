@@ -18,9 +18,9 @@ package org.apache.seatunnel.spark.sink
 
 import net.jpountz.xxhash.{XXHash64, XXHashFactory}
 import org.apache.commons.lang3.StringUtils
+
 import java.math.{BigDecimal, BigInteger}
 import java.sql.{Date, PreparedStatement, Timestamp}
-
 import java.text.SimpleDateFormat
 import java.util
 import java.util.{Objects, Properties}
@@ -34,9 +34,9 @@ import org.apache.seatunnel.common.config.TypesafeConfigUtils.{extractSubConfig,
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.seatunnel.spark.sink.Clickhouse.{Shard, acceptedClickHouseSchema, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClusterShardList, getRowShard}
+import org.apache.seatunnel.spark.sink.Clickhouse.{Shard, acceptedClickHouseSchema, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList, getDefaultValue, getRowShard}
 import org.apache.spark.sql.{Dataset, Row}
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatementImpl}
 import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
 
 import java.nio.ByteBuffer
@@ -81,7 +81,7 @@ class Clickhouse extends SparkBatchSink {
       val statementMap = this.shards.map(s => {
         val executorBalanced = new BalancedClickhouseDataSource(s._2.jdbc, this.properties)
         val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
-        (s._2, executorConn.prepareStatement(this.initSQL))
+        (s._2, executorConn.prepareStatement(this.initSQL).asInstanceOf[ClickHousePreparedStatementImpl])
       }).toMap
 
       // hashInstance cannot be serialized, can only be created in a partition
@@ -125,10 +125,7 @@ class Clickhouse extends SparkBatchSink {
       }
       val database = config.getString("database")
       val host = config.getString("host")
-      val globalJdbc = String.format("jdbc:clickhouse://%s/%s", host, database)
-      val balanced: BalancedClickhouseDataSource =
-        new BalancedClickhouseDataSource(globalJdbc, properties)
-      val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
+      val conn = getClickhouseConnection(host, database, properties)
       val hostAndPort = host.split(":")
       this.table = config.getString("table")
       this.tableSchema = getClickHouseSchema(conn, this.table).toMap
@@ -152,8 +149,7 @@ class Clickhouse extends SparkBatchSink {
         }
       } else {
         // only one connection
-        this.shards(0) = new Shard(1, 1, 1, hostAndPort(0),
-          hostAndPort(0), hostAndPort(1), database)
+        this.shards(0) = Shard(1, 1, 1, hostAndPort(0), hostAndPort(0), hostAndPort(1), database)
       }
 
       if (StringUtils.isNotEmpty(this.shardKey)) {
@@ -204,50 +200,11 @@ class Clickhouse extends SparkBatchSink {
     sql
   }
 
-  @tailrec
   private def renderDefaultStatement(
                                       index: Int,
                                       fieldType: String,
-                                      statement: PreparedStatement): Unit = {
-    fieldType match {
-      case "DateTime" | "Date" | "String" =>
-        statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
-      case Clickhouse.datetime64Pattern(_) =>
-        statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
-      case Clickhouse.datetime64Pattern(_) =>
-        statement.setString(index + 1, Clickhouse.renderStringDefault(fieldType))
-      case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
-        statement.setInt(index + 1, 0)
-      case "UInt64" | "Int64" =>
-        statement.setLong(index + 1, 0)
-      case "Float32" => statement.setFloat(index + 1, 0)
-      case "Float64" => statement.setDouble(index + 1, 0)
-      case Clickhouse.lowCardinalityPattern(lowCardinalityType) =>
-        renderDefaultStatement(index, lowCardinalityType, statement)
-      case Clickhouse.arrayPattern(_) => statement.setNull(index, java.sql.Types.ARRAY)
-      case Clickhouse.nullablePattern(nullFieldType) =>
-        renderNullStatement(index, nullFieldType, statement)
-      case _ => statement.setString(index + 1, "")
-    }
-  }
-
-  private def renderNullStatement(
-                                   index: Int,
-                                   fieldType: String,
-                                   statement: PreparedStatement): Unit = {
-    fieldType match {
-      case "String" =>
-        statement.setNull(index + 1, java.sql.Types.VARCHAR)
-      case "DateTime" => statement.setNull(index + 1, java.sql.Types.DATE)
-      case Clickhouse.datetime64Pattern(_) => statement.setNull(index + 1, java.sql.Types.TIMESTAMP)
-      case "Date" => statement.setNull(index + 1, java.sql.Types.TIME)
-      case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" =>
-        statement.setNull(index + 1, java.sql.Types.INTEGER)
-      case "UInt64" | "Int64" =>
-        statement.setNull(index + 1, java.sql.Types.BIGINT)
-      case "Float32" => statement.setNull(index + 1, java.sql.Types.FLOAT)
-      case "Float64" => statement.setNull(index + 1, java.sql.Types.DOUBLE)
-    }
+                                      statement: ClickHousePreparedStatementImpl): Unit = {
+    statement.setObject(index + 1, getDefaultValue(fieldType))
   }
 
   private def renderBaseTypeStatement(
@@ -255,7 +212,7 @@ class Clickhouse extends SparkBatchSink {
                                        fieldIndex: Int,
                                        fieldType: String,
                                        item: Row,
-                                       statement: PreparedStatement): Unit = {
+                                       statement: ClickHousePreparedStatementImpl): Unit = {
     fieldType match {
       case "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
@@ -294,7 +251,7 @@ class Clickhouse extends SparkBatchSink {
                                fields: util.List[String],
                                item: Row,
                                dsFields: Array[String],
-                               statement: PreparedStatement): Unit = {
+                               statement: ClickHousePreparedStatementImpl): Unit = {
     for (i <- 0 until fields.size()) {
       val field = fields.get(i)
       val fieldType = tableSchema(field)
@@ -395,7 +352,7 @@ object Clickhouse {
     // port is tcp protocol, need http protocol port at now
     val nodeList = mutable.ListBuffer[Shard]()
     while (rs.next()) {
-      nodeList += new Shard(rs.getInt(1), rs.getInt(2),
+      nodeList += Shard(rs.getInt(1), rs.getInt(2),
         rs.getInt(3), rs.getString(4), rs.getString(5),
         port, database)
     }
@@ -411,7 +368,7 @@ object Clickhouse {
       // engineFull field will be like : Distributed(cluster, database, table[, sharding_key[, policy_name]])
       val engineFull = rs.getString(1)
       val infos = engineFull.substring(12).split(",").map(s => s.replaceAll("'", ""))
-      new DistributedEngine(infos(0), infos(1).trim, infos(2).replaceAll("\\)", "").trim)
+      DistributedEngine(infos(0), infos(1).trim, infos(2).replaceAll("\\)", "").trim)
     } else {
       null
     }
@@ -487,6 +444,33 @@ object Clickhouse {
     schema
   }
 
+  @tailrec
+  def getDefaultValue(fieldType: String): Object = {
+    fieldType match {
+      case "DateTime" | "Date" | "String" =>
+        Clickhouse.renderStringDefault(fieldType)
+      case Clickhouse.datetime64Pattern(_) =>
+        Clickhouse.renderStringDefault(fieldType)
+      case Clickhouse.datetime64Pattern(_) =>
+        Clickhouse.renderStringDefault(fieldType)
+      case "Int8" | "UInt8" | "Int16" | "Int32" | "UInt32" | "UInt16" | "UInt64" |
+           "Int64" | "Float32" | "Float64" =>
+        new Integer(0)
+      case Clickhouse.lowCardinalityPattern(lowCardinalityType) =>
+        getDefaultValue(lowCardinalityType)
+      case Clickhouse.arrayPattern(_) | Clickhouse.nullablePattern(_) =>
+        null
+      case _ => ""
+    }
+  }
+
+
+  def getClickhouseConnection(host: String, database: String, properties: Properties): ClickHouseConnectionImpl = {
+    val globalJdbc = String.format("jdbc:clickhouse://%s/%s", host, database)
+    val balanced: BalancedClickhouseDataSource = new BalancedClickhouseDataSource(globalJdbc, properties)
+    balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
+  }
+
   private[seatunnel] def renderStringDefault(fieldType: String): String = {
     fieldType match {
       case "DateTime" =>
@@ -503,13 +487,12 @@ object Clickhouse {
     }
   }
 
-  class DistributedEngine(val clusterName: String, val database: String,
-                          val table: String) {
+  case class DistributedEngine(clusterName: String, database: String, table: String) {
   }
 
-  class Shard(val shardNum: Int, val shardWeight: Int, val replicaNum: Int,
-              val hostname: String, val hostAddress: String, val port: String,
-              val database: String) extends Serializable {
+  case class Shard(shardNum: Int, shardWeight: Int, replicaNum: Int,
+                   hostname: String, hostAddress: String, port: String,
+                   database: String) extends Serializable {
     val jdbc = s"jdbc:clickhouse://$hostAddress:$port/$database"
   }
 }
