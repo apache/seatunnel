@@ -46,7 +46,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Properties;
 
-public class KafkaTableStream implements FlinkStreamSource<Row> {
+public class KafkaTableStream implements FlinkStreamSource {
 
     private static final long   serialVersionUID = 5287018194573371428L;
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTableStream.class);

@@ -34,7 +34,7 @@ import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-public class TableToDataStream implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
+public class TableToDataStream implements FlinkStreamTransform, FlinkBatchTransform {
 
     private static final long serialVersionUID = 4556842426965038124L;
     private Config config;

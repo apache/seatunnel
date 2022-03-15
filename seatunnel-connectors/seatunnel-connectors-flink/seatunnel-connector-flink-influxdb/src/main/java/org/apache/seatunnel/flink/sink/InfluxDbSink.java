@@ -30,7 +30,7 @@ import org.apache.flink.types.Row;
 
 import java.util.List;
 
-public class InfluxDbSink implements FlinkBatchSink<Row, Row> {
+public class InfluxDbSink implements FlinkBatchSink {
 
     private static final long serialVersionUID = 7358988750295693096L;
     private static final String SERVER_URL = "server_url";
