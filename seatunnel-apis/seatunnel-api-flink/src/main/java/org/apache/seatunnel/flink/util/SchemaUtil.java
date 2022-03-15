@@ -155,7 +155,6 @@ public final class SchemaUtil {
         return typeInformation;
     }
 
-
     /**
      * todo
      *
@@ -165,7 +164,6 @@ public final class SchemaUtil {
     private static void getOrcSchema(Schema schema, JSONObject json) {
 
     }
-
 
     /**
      * todo

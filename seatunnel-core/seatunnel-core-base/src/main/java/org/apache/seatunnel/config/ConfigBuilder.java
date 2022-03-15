@@ -165,7 +165,6 @@ public class ConfigBuilder {
         throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
     }
 
-
     /**
      * check if config is valid.
      **/
