@@ -21,12 +21,13 @@ import org.apache.seatunnel.flink.BaseFlinkTransform;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.types.Row;
 
 /**
  * a FlinkBatchTransform plugin will do transformations to Flink DataSet.
  */
-public interface FlinkBatchTransform<IN, OUT> extends BaseFlinkTransform {
+public interface FlinkBatchTransform extends BaseFlinkTransform {
 
-    DataSet<OUT> processBatch(FlinkEnvironment env, DataSet<IN> data);
+    DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data);
 
 }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.command.FlinkCommandArgs;
 import org.apache.seatunnel.config.ConfigBuilder;
 import org.apache.seatunnel.config.PluginType;
 import org.apache.seatunnel.env.Execution;
+import org.apache.seatunnel.env.RuntimeEnv;
 
 import java.util.List;
 
@@ -37,9 +38,9 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
     public void execute(FlinkCommandArgs flinkCommandArgs) {
         ConfigBuilder configBuilder = new ConfigBuilder(flinkCommandArgs.getConfigFile(), flinkCommandArgs.getEngineType());
 
-        List<BaseSource> sources = configBuilder.createPlugins(PluginType.SOURCE);
-        List<BaseTransform> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
-        List<BaseSink> sinks = configBuilder.createPlugins(PluginType.SINK);
+        List<BaseSource<RuntimeEnv>> sources = configBuilder.createPlugins(PluginType.SOURCE);
+        List<BaseTransform<RuntimeEnv>> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
+        List<BaseSink<RuntimeEnv>> sinks = configBuilder.createPlugins(PluginType.SINK);
         Execution execution = configBuilder.createExecution();
         baseCheckConfig(sources, transforms, sinks);
         prepare(configBuilder.getEnv(), sources, transforms, sinks);

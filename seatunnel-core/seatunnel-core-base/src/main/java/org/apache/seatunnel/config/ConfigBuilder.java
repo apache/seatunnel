@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.apis.BaseSink;
+import org.apache.seatunnel.apis.BaseSource;
+import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.env.RuntimeEnv;
@@ -159,7 +162,7 @@ public class ConfigBuilder {
         this.createPlugins(PluginType.SINK);
     }
 
-    public <T extends Plugin<?>> List<T> createPlugins(PluginType type) {
+    public <T extends Plugin<? extends RuntimeEnv>> List<T> createPlugins(PluginType type) {
         Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
         List<? extends Config> configList = config.getConfigList(type.getType());
@@ -195,8 +198,14 @@ public class ConfigBuilder {
         return env;
     }
 
-    public Execution createExecution() {
-        Execution execution = null;
+    public Execution<
+        ? extends BaseSource<? extends RuntimeEnv>,
+        ? extends BaseTransform<? extends RuntimeEnv>,
+        ? extends BaseSink<? extends RuntimeEnv>> createExecution() {
+        Execution<
+            ? extends BaseSource<? extends RuntimeEnv>,
+            ? extends BaseTransform<? extends RuntimeEnv>,
+            ? extends BaseSink<? extends RuntimeEnv>> execution = null;
         switch (engine) {
             case SPARK:
                 SparkEnvironment sparkEnvironment = (SparkEnvironment) env;

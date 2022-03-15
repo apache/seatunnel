@@ -52,7 +52,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public class DruidSource implements FlinkBatchSource<Row> {
+public class DruidSource implements FlinkBatchSource {
 
     private static final long serialVersionUID = 8152628883440481281L;
     private static final Logger LOGGER = LoggerFactory.getLogger(DruidSource.class);

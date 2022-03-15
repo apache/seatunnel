@@ -34,7 +34,7 @@ import org.apache.flink.types.Row;
 
 import java.util.List;
 
-public class Split implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
+public class Split implements FlinkStreamTransform, FlinkBatchTransform {
 
     private Config config;
 
