@@ -36,16 +36,19 @@ class Sleep extends BaseSparkTransform {
 
   override def checkConfig(): CheckResult = {
     val result = CheckConfigUtil.checkAllExists(config, KEY_TIMEOUT)
-    if (!result.isSuccess) {
-      return result
+    result.isSuccess match {
+      case true =>
+        config.hasPath(KEY_TIMEUNIT) match {
+          case true =>
+            val timeunit = config.getString(KEY_TIMEUNIT)
+            VALID_TIMEUNITS.contains(timeunit) match {
+              case true => result
+              case false => CheckResult.error(s"TimeUnit '$timeunit' is invalid!")
+            }
+          case false => result
+        }
+      case false => result
     }
-    if (config.hasPath(KEY_TIMEUNIT)) {
-      val timeunit = config.getString(KEY_TIMEUNIT)
-      if (!VALID_TIMEUNITS.contains(timeunit)) {
-        return CheckResult.error(s"TimeUnit '$timeunit' is invalid!")
-      }
-    }
-    CheckResult.success()
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {}
