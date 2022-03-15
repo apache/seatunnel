@@ -41,7 +41,7 @@ import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class FlinkEnvironment implements RuntimeEnv {
+public class FlinkEnvironment implements RuntimeEnv<FlinkEnvironment> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkEnvironment.class);
 
@@ -75,8 +75,8 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void prepare(Boolean isStreaming) {
-        this.isStreaming = isStreaming;
+    public void prepare(FlinkEnvironment flinkEnvironment) {
+        this.isStreaming = flinkEnvironment.isStreaming();
         if (isStreaming) {
             createStreamEnvironment();
             createStreamTableEnvironment();
@@ -95,6 +95,11 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     public boolean isStreaming() {
         return isStreaming;
+    }
+
+    public FlinkEnvironment setStreaming(boolean isStreaming) {
+        this.isStreaming = isStreaming;
+        return this;
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {

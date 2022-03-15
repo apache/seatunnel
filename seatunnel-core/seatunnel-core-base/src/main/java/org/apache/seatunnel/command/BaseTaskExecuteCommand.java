@@ -45,7 +45,7 @@ import java.util.Optional;
  *
  * @param <T> command args.
  */
-public abstract class BaseTaskExecuteCommand<T extends CommandArgs> implements Command<T> {
+public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends RuntimeEnv<E>> implements Command<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BaseTaskExecuteCommand.class);
 
@@ -54,7 +54,8 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs> implements C
      *
      * @param plugins plugin list.
      */
-    protected void baseCheckConfig(List<? extends Plugin>... plugins) {
+    @SafeVarargs
+    protected final void baseCheckConfig(List<? extends Plugin<E>>... plugins) {
         pluginCheck(plugins);
         deployModeCheck();
     }
@@ -62,11 +63,12 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs> implements C
     /**
      * Execute prepare method defined in {@link Plugin}.
      *
-     * @param env runtimeEnv
+     * @param env     runtimeEnv
      * @param plugins plugin list
      */
-    protected void prepare(RuntimeEnv env, List<? extends Plugin>... plugins) {
-        for (List<? extends Plugin> pluginList : plugins) {
+    @SafeVarargs
+    protected final void prepare(E env, List<? extends Plugin<E>>... plugins) {
+        for (List<? extends Plugin<E>> pluginList : plugins) {
             pluginList.forEach(plugin -> plugin.prepare(env));
         }
     }
@@ -86,9 +88,9 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs> implements C
      *
      * @param plugins plugin list
      */
-    private void pluginCheck(List<? extends Plugin>... plugins) {
-        for (List<? extends Plugin> pluginList : plugins) {
-            for (Plugin plugin : pluginList) {
+    private void pluginCheck(List<? extends Plugin<E>>... plugins) {
+        for (List<? extends Plugin<E>> pluginList : plugins) {
+            for (Plugin<E> plugin : pluginList) {
                 CheckResult checkResult;
                 try {
                     checkResult = plugin.checkConfig();

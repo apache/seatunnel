@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink> {
+public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink, FlinkEnvironment> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkStreamExecution.class);
 
@@ -121,6 +121,6 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
     }
 
     @Override
-    public void prepare(Void prepareEnv) {
+    public void prepare(FlinkEnvironment prepareEnv) {
     }
 }

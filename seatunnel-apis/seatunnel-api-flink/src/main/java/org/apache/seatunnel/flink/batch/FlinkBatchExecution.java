@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink> {
+public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBatchTransform, FlinkBatchSink, FlinkEnvironment> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkBatchExecution.class);
 
@@ -82,13 +82,13 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
         }
     }
 
-    private void registerResultTable(Config sourceConfig, DataSet<Row> dataSet) {
-        if (sourceConfig.hasPath(RESULT_TABLE_NAME)) {
-            String name = sourceConfig.getString(RESULT_TABLE_NAME);
+    private void registerResultTable(Config pluginConfig, DataSet<Row> dataSet) {
+        if (pluginConfig.hasPath(RESULT_TABLE_NAME)) {
+            String name = pluginConfig.getString(RESULT_TABLE_NAME);
             BatchTableEnvironment tableEnvironment = flinkEnvironment.getBatchTableEnvironment();
             if (!TableUtil.tableExists(tableEnvironment, name)) {
-                if (sourceConfig.hasPath("field_name")) {
-                    String fieldName = sourceConfig.getString("field_name");
+                if (pluginConfig.hasPath("field_name")) {
+                    String fieldName = pluginConfig.getString("field_name");
                     tableEnvironment.registerDataSet(name, dataSet, fieldName);
                 } else {
                     tableEnvironment.registerDataSet(name, dataSet);
@@ -122,6 +122,6 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     }
 
     @Override
-    public void prepare(Void prepareEnv) {
+    public void prepare(FlinkEnvironment prepareEnv) {
     }
 }

@@ -61,9 +61,8 @@ public class FileSourceTest {
     private FlinkEnvironment createFlinkStreamEnvironment(String configFile) {
         Config rootConfig = getRootConfig(configFile);
 
-        FlinkEnvironment flinkEnvironment = new FlinkEnvironment();
+        FlinkEnvironment flinkEnvironment = new FlinkEnvironment().setStreaming(false);
         flinkEnvironment.setConfig(rootConfig);
-        flinkEnvironment.prepare(false);
         return flinkEnvironment;
     }
 

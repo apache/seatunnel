@@ -28,7 +28,7 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.streaming.Seconds;
 import org.apache.spark.streaming.StreamingContext;
 
-public class SparkEnvironment implements RuntimeEnv {
+public class SparkEnvironment implements RuntimeEnv<SparkEnvironment> {
 
     private static final long DEFAULT_SPARK_STREAMING_DURATION = 5;
 
@@ -61,7 +61,7 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void prepare(Boolean prepareEnv) {
+    public void prepare(SparkEnvironment prepareEnv) {
         SparkConf sparkConf = createSparkConf();
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
