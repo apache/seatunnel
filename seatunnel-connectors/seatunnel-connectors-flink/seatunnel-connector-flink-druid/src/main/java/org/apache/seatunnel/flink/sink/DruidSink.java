@@ -33,7 +33,7 @@ import org.apache.flink.types.Row;
 
 import javax.annotation.Nullable;
 
-public class DruidSink implements FlinkBatchSink<Row, Row>, FlinkStreamSink<Row, Row> {
+public class DruidSink implements FlinkBatchSink, FlinkStreamSink {
 
     private static final long serialVersionUID = -2967782261362988646L;
     private static final String COORDINATOR_URL = "coordinator_url";

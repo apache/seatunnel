@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.apis.BaseSink;
+import org.apache.seatunnel.apis.BaseSource;
+import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.env.RuntimeEnv;
@@ -55,6 +58,7 @@ public class ConfigBuilder {
     private final Config config;
     private boolean streaming;
     private Config envConfig;
+    private boolean enableHive;
     private final RuntimeEnv env;
 
     public ConfigBuilder(String configFile, EngineType engine) {
@@ -98,6 +102,22 @@ public class ConfigBuilder {
         List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
 
         return sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream");
+    }
+
+    private boolean checkIsContainHive() {
+        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+        for (Config c : sourceConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        List<? extends Config> sinkConfigList = config.getConfigList(PluginType.SINK.getType());
+        for (Config c : sinkConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -148,7 +168,6 @@ public class ConfigBuilder {
         throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
     }
 
-
     /**
      * check if config is valid.
      **/
@@ -159,7 +178,7 @@ public class ConfigBuilder {
         this.createPlugins(PluginType.SINK);
     }
 
-    public <T extends Plugin<?>> List<T> createPlugins(PluginType type) {
+    public <T extends Plugin<? extends RuntimeEnv>> List<T> createPlugins(PluginType type) {
         Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
         List<? extends Config> configList = config.getConfigList(type.getType());
@@ -179,10 +198,11 @@ public class ConfigBuilder {
     private RuntimeEnv createEnv() {
         envConfig = config.getConfig("env");
         streaming = checkIsStreaming();
+        enableHive = checkIsContainHive();
         RuntimeEnv env = null;
         switch (engine) {
             case SPARK:
-                env = new SparkEnvironment();
+                env = new SparkEnvironment().setEnableHive(enableHive);
                 break;
             case FLINK:
                 env = new FlinkEnvironment();
@@ -195,8 +215,14 @@ public class ConfigBuilder {
         return env;
     }
 
-    public Execution createExecution() {
-        Execution execution = null;
+    public Execution<
+        ? extends BaseSource<? extends RuntimeEnv>,
+        ? extends BaseTransform<? extends RuntimeEnv>,
+        ? extends BaseSink<? extends RuntimeEnv>> createExecution() {
+        Execution<
+            ? extends BaseSource<? extends RuntimeEnv>,
+            ? extends BaseTransform<? extends RuntimeEnv>,
+            ? extends BaseSink<? extends RuntimeEnv>> execution = null;
         switch (engine) {
             case SPARK:
                 SparkEnvironment sparkEnvironment = (SparkEnvironment) env;

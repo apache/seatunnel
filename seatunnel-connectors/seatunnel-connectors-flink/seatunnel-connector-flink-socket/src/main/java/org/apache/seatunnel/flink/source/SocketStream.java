@@ -30,7 +30,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.types.Row;
 
-public class SocketStream implements FlinkStreamSource<Row> {
+public class SocketStream implements FlinkStreamSource {
 
     private static final long serialVersionUID = 986629276153771291L;
     private Config config;

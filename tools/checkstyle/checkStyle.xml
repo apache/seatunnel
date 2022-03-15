@@ -80,6 +80,11 @@
         <property name="max" value="3000"/>
     </module>
 
+    <module name="LineLength">
+        <property name="max" value="500"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+    
     <module name="TreeWalker">
         <module name="ImportOrder">
             <property name="severity" value="error"/>
@@ -91,12 +96,7 @@
             <property name="tokens" value="STATIC_IMPORT, IMPORT"/>
             <message key="import.ordering" value="Import {0} appears after other imports that it should precede"/>
         </module>
-
-        <module name="LineLength">
-            <property name="max" value="500"/>
-            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
-        </module>
-
+        
         <!-- Prohibit T.getT() methods for standard boxed types -->
         <module name="Regexp">
             <property name="format" value="Boolean\.getBoolean"/>

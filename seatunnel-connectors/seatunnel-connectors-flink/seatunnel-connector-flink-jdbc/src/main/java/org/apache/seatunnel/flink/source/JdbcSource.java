@@ -56,7 +56,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class JdbcSource implements FlinkBatchSource<Row> {
+public class JdbcSource implements FlinkBatchSource {
 
     private static final long serialVersionUID = -3349505356339446415L;
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSource.class);
