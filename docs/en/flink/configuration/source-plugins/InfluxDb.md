@@ -31,9 +31,9 @@ The username of InfluxDB Server.
 
 The password of InfluxDB Server.
 
-### datasource [`String`]
+### database [`String`]
 
-The DataSource name in InfluxDB.
+The database name in InfluxDB.
 
 ### measurement [`String`]
 
