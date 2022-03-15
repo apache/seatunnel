@@ -41,7 +41,7 @@ import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class FlinkEnvironment implements RuntimeEnv<FlinkEnvironment> {
+public class FlinkEnvironment implements RuntimeEnv {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkEnvironment.class);
 
@@ -60,8 +60,9 @@ public class FlinkEnvironment implements RuntimeEnv<FlinkEnvironment> {
     private String jobName = "seatunnel";
 
     @Override
-    public void setConfig(Config config) {
+    public FlinkEnvironment setConfig(Config config) {
         this.config = config;
+        return this;
     }
 
     @Override
@@ -75,8 +76,7 @@ public class FlinkEnvironment implements RuntimeEnv<FlinkEnvironment> {
     }
 
     @Override
-    public void prepare(FlinkEnvironment flinkEnvironment) {
-        this.isStreaming = flinkEnvironment.isStreaming();
+    public FlinkEnvironment prepare() {
         if (isStreaming) {
             createStreamEnvironment();
             createStreamTableEnvironment();
@@ -87,6 +87,7 @@ public class FlinkEnvironment implements RuntimeEnv<FlinkEnvironment> {
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
+        return this;
     }
 
     public String getJobName() {

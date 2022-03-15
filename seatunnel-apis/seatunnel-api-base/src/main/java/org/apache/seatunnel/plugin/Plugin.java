@@ -27,7 +27,7 @@ import java.io.Serializable;
 /**
  * a base interface indicates belonging to SeaTunnel.
  */
-public interface Plugin<T extends RuntimeEnv<T>> extends Serializable {
+public interface Plugin<T extends RuntimeEnv> extends Serializable {
     String RESULT_TABLE_NAME = "result_table_name";
     String SOURCE_TABLE_NAME = "source_table_name";
 

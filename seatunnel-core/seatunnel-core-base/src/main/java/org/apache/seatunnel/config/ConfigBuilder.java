@@ -47,7 +47,7 @@ import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
-public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv<ENVIRONMENT>> {
+public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
@@ -210,8 +210,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv<ENVIRONMENT>> {
             default:
                 throw new IllegalArgumentException("Engine: " + engine + " is not supported");
         }
-        env.setConfig(envConfig);
-        env.prepare(env);
+        env.setConfig(envConfig).prepare();
         return env;
     }
 

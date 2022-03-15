@@ -23,6 +23,6 @@ import org.apache.seatunnel.plugin.Plugin;
 /**
  * a base interface indicates a transform plugin which will do transformations on data.
  */
-public interface BaseTransform<T extends RuntimeEnv<T>> extends Plugin<T> {
+public interface BaseTransform<T extends RuntimeEnv> extends Plugin<T> {
 
 }
