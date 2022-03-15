@@ -21,25 +21,13 @@ import java.util.List;
 
 public class JobInfo {
 
-    private static final String JOB_NAME = "default sql job";
     private static final String VAR_REGEX = "\\$\\{%s}";
     private static final String DELIMITER = "=";
 
-    private final String jobName;
     private String jobContent;
 
     public JobInfo(String jobContent) {
-        this.jobName = JOB_NAME;
         this.jobContent = jobContent;
-    }
-
-    public JobInfo(String jobName, String jobContent) {
-        this.jobName = jobName;
-        this.jobContent = jobContent;
-    }
-
-    public String getJobName() {
-        return jobName;
     }
 
     public String getJobContent() {
