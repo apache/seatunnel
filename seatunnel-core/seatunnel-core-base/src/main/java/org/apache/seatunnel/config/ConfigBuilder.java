@@ -47,7 +47,7 @@ import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
-public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
+public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv<ENVIRONMENT>> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
@@ -59,7 +59,7 @@ public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
     private boolean streaming;
     private Config envConfig;
     private boolean enableHive;
-    private final Env env;
+    private final ENVIRONMENT env;
 
     public ConfigBuilder(String configFile, EngineType engine) {
         this.configFile = configFile;
@@ -94,7 +94,7 @@ public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
         return envConfig;
     }
 
-    public Env getEnv() {
+    public ENVIRONMENT getEnv() {
         return env;
     }
 
@@ -123,7 +123,7 @@ public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
     /**
      * create plugin class instance, ignore case.
      **/
-    private <T extends Plugin<Env>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
+    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
         if (name.split("\\.").length != 1) {
             // canonical class name
             return (T) Class.forName(name).newInstance();
@@ -178,7 +178,7 @@ public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
         this.createPlugins(PluginType.SINK);
     }
 
-    public <T extends Plugin<Env>> List<T> createPlugins(PluginType type) {
+    public <T extends Plugin<ENVIRONMENT>> List<T> createPlugins(PluginType type) {
         Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
         List<? extends Config> configList = config.getConfigList(type.getType());
@@ -195,17 +195,17 @@ public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
         return basePluginList;
     }
 
-    private Env createEnv() {
+    private ENVIRONMENT createEnv() {
         envConfig = config.getConfig("env");
         streaming = checkIsStreaming();
         enableHive = checkIsContainHive();
-        Env env;
+        ENVIRONMENT env;
         switch (engine) {
             case SPARK:
-                env = (Env) new SparkEnvironment().setEnableHive(enableHive);
+                env = (ENVIRONMENT) new SparkEnvironment().setEnableHive(enableHive);
                 break;
             case FLINK:
-                env = (Env) new FlinkEnvironment().setStreaming(streaming);
+                env = (ENVIRONMENT) new FlinkEnvironment().setStreaming(streaming);
                 break;
             default:
                 throw new IllegalArgumentException("Engine: " + engine + " is not supported");
@@ -215,7 +215,7 @@ public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
         return env;
     }
 
-    public Execution<BaseSource<Env>, BaseTransform<Env>, BaseSink<Env>, Env> createExecution() {
+    public Execution<BaseSource<ENVIRONMENT>, BaseTransform<ENVIRONMENT>, BaseSink<ENVIRONMENT>, ENVIRONMENT> createExecution() {
         Execution execution = null;
         switch (engine) {
             case SPARK:
@@ -237,7 +237,7 @@ public class ConfigBuilder<Env extends RuntimeEnv<Env>> {
             default:
                 break;
         }
-        return (Execution<BaseSource<Env>, BaseTransform<Env>, BaseSink<Env>, Env>) execution;
+        return (Execution<BaseSource<ENVIRONMENT>, BaseTransform<ENVIRONMENT>, BaseSink<ENVIRONMENT>, ENVIRONMENT>) execution;
     }
 
 }
