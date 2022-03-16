@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.spark.sink
 
-import scala.collection.JavaConversions._
 import org.apache.kudu.spark.kudu._
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
@@ -25,6 +24,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
+
+import scala.collection.JavaConversions._
 
 class Kudu extends SparkBatchSink {
 
