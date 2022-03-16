@@ -61,10 +61,10 @@ public class FileSourceTest {
     private FlinkEnvironment createFlinkStreamEnvironment(String configFile) {
         Config rootConfig = getRootConfig(configFile);
 
-        FlinkEnvironment flinkEnvironment = new FlinkEnvironment();
-        flinkEnvironment.setConfig(rootConfig);
-        flinkEnvironment.prepare(false);
-        return flinkEnvironment;
+        return new FlinkEnvironment()
+            .setStreaming(false)
+            .setConfig(rootConfig)
+            .prepare();
     }
 
     private FileSource createFileSource(String configFile, FlinkEnvironment flinkEnvironment) {

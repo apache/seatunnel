@@ -46,8 +46,9 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void setConfig(Config config) {
+    public SparkEnvironment setConfig(Config config) {
         this.config = config;
+        return this;
     }
 
     @Override
@@ -61,7 +62,7 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void prepare(Boolean prepareEnv) {
+    public SparkEnvironment prepare() {
         SparkConf sparkConf = createSparkConf();
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
@@ -69,6 +70,7 @@ public class SparkEnvironment implements RuntimeEnv {
         }
         this.sparkSession = builder.getOrCreate();
         createStreamingContext();
+        return this;
     }
 
     public SparkSession getSparkSession() {

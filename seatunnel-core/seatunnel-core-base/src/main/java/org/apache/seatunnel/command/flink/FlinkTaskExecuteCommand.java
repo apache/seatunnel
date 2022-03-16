@@ -25,23 +25,26 @@ import org.apache.seatunnel.command.FlinkCommandArgs;
 import org.apache.seatunnel.config.ConfigBuilder;
 import org.apache.seatunnel.config.PluginType;
 import org.apache.seatunnel.env.Execution;
-import org.apache.seatunnel.env.RuntimeEnv;
+import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import java.util.List;
 
 /**
  * Used to execute Flink Job.
  */
-public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs> {
+public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs, FlinkEnvironment> {
 
     @Override
     public void execute(FlinkCommandArgs flinkCommandArgs) {
-        ConfigBuilder configBuilder = new ConfigBuilder(flinkCommandArgs.getConfigFile(), flinkCommandArgs.getEngineType());
+        ConfigBuilder<FlinkEnvironment> configBuilder = new ConfigBuilder<>(flinkCommandArgs.getConfigFile(), flinkCommandArgs.getEngineType());
 
-        List<BaseSource<RuntimeEnv>> sources = configBuilder.createPlugins(PluginType.SOURCE);
-        List<BaseTransform<RuntimeEnv>> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
-        List<BaseSink<RuntimeEnv>> sinks = configBuilder.createPlugins(PluginType.SINK);
-        Execution execution = configBuilder.createExecution();
+        List<BaseSource<FlinkEnvironment>> sources = configBuilder.createPlugins(PluginType.SOURCE);
+        List<BaseTransform<FlinkEnvironment>> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
+        List<BaseSink<FlinkEnvironment>> sinks = configBuilder.createPlugins(PluginType.SINK);
+
+        Execution<BaseSource<FlinkEnvironment>, BaseTransform<FlinkEnvironment>, BaseSink<FlinkEnvironment>, FlinkEnvironment>
+            execution = configBuilder.createExecution();
+
         baseCheckConfig(sources, transforms, sinks);
         prepare(configBuilder.getEnv(), sources, transforms, sinks);
         showAsciiLogo();

@@ -20,6 +20,7 @@ package org.apache.seatunnel.command.flink;
 import org.apache.seatunnel.command.Command;
 import org.apache.seatunnel.command.FlinkCommandArgs;
 import org.apache.seatunnel.config.ConfigBuilder;
+import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +35,7 @@ public class FlinkConfValidateCommand implements Command<FlinkCommandArgs> {
     @Override
     public void execute(FlinkCommandArgs flinkCommandArgs) {
         String configPath = flinkCommandArgs.getConfigFile();
-        new ConfigBuilder(configPath, flinkCommandArgs.getEngineType()).checkConfig();
+        new ConfigBuilder<FlinkEnvironment>(configPath, flinkCommandArgs.getEngineType()).checkConfig();
         LOGGER.info("config OK !");
     }
 }
