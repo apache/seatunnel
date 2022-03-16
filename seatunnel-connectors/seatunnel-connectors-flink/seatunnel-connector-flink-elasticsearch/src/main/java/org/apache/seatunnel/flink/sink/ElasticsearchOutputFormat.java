@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.flink.sink;
 
+import static org.apache.seatunnel.Config.HOSTS;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.io.RichOutputFormat;
@@ -61,7 +63,7 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
     @Override
     public void configure(Configuration configuration) {
-        List<String> hosts = config.getStringList("hosts");
+        List<String> hosts = config.getStringList(HOSTS);
         Settings.Builder settings = Settings.builder();
 
         config.entrySet().forEach(entry -> {

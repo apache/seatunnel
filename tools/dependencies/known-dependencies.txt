@@ -160,6 +160,7 @@ flink-avro-1.13.6.jar
 flink-connector-base-1.13.6.jar
 flink-connector-elasticsearch-base_2.11-1.13.6.jar
 flink-connector-elasticsearch6_2.11-1.13.6.jar
+flink-connector-jdbc_2.11-1.13.6.jar
 flink-connector-kafka_2.11-1.13.6.jar
 flink-csv-1.13.6.jar
 flink-json-1.13.6.jar

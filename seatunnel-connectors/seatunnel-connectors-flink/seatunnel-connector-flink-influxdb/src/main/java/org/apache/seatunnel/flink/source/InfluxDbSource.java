@@ -42,7 +42,7 @@ import org.apache.flink.types.Row;
 import java.util.HashMap;
 import java.util.List;
 
-public class InfluxDbSource implements FlinkBatchSource<Row> {
+public class InfluxDbSource implements FlinkBatchSource {
 
     private Config config;
     private InfluxDbInputFormat influxDbInputFormat;

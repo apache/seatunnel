@@ -17,10 +17,17 @@
 
 package org.apache.seatunnel.common.config;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
 public enum DeployMode {
     CLIENT("client"),
     CLUSTER("cluster"),
     ;
+
+    private static final Map<String, DeployMode> NAME_MAP = Arrays.stream(DeployMode.values())
+        .collect(HashMap::new, (map, deployMode) -> map.put(deployMode.getName(), deployMode), Map::putAll);
 
     private final String name;
 
@@ -30,6 +37,10 @@ public enum DeployMode {
 
     public String getName() {
         return name;
+    }
+
+    public static DeployMode from(String name) {
+        return NAME_MAP.get(name);
     }
 
 }

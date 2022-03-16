@@ -104,59 +104,58 @@ private[sql] object JDBCRelation extends Logging {
     if (partitioning == null || partitioning.numPartitions <= 1 ||
       partitioning.lowerBound == partitioning.upperBound) {
       Array[Partition](JDBCPartition(null, 0))
-    }
-
-    val lowerBound = partitioning.lowerBound
-    val upperBound = partitioning.upperBound
-    require(
-      lowerBound <= upperBound,
-      "Operation not allowed: the lower bound of partitioning column is larger than the upper " +
-        s"bound. Lower bound: $lowerBound; Upper bound: $upperBound")
-
-    val boundValueToString: Long => String =
-      toBoundValueInWhereClause(_, partitioning.columnType, timeZoneId)
-    val numPartitions =
-      if ((upperBound - lowerBound) >= partitioning.numPartitions || /* check for overflow */
-        (upperBound - lowerBound) < 0) {
-        partitioning.numPartitions
-      } else {
-        logWarning("The number of partitions is reduced because the specified number of " +
-          "partitions is less than the difference between upper bound and lower bound. " +
-          s"Updated number of partitions: ${upperBound - lowerBound}; Input number of " +
-          s"partitions: ${partitioning.numPartitions}; " +
-          s"Lower bound: ${boundValueToString(lowerBound)}; " +
-          s"Upper bound: ${boundValueToString(upperBound)}.")
-        upperBound - lowerBound
-      }
-    // Overflow and silliness can happen if you subtract then divide.
-    // Here we get a little roundoff, but that's (hopefully) OK.
-    val stride: Long = upperBound / numPartitions - lowerBound / numPartitions
-
-    var i: Int = 0
-    val column = partitioning.column
-    var currentValue = lowerBound
-    val ans = new ArrayBuffer[Partition]()
-    while (i < numPartitions) {
-      val lBoundValue = boundValueToString(currentValue)
-      val lBound = if (i != 0) s"$column >= $lBoundValue" else null
-      currentValue += stride
-      val uBoundValue = boundValueToString(currentValue)
-      val uBound = if (i != numPartitions - 1) s"$column < $uBoundValue" else null
-      val whereClause =
-        if (uBound == null) {
-          lBound
-        } else if (lBound == null) {
-          s"$uBound or $column is null"
+    } else {
+      val lowerBound = partitioning.lowerBound
+      val upperBound = partitioning.upperBound
+      require(
+        lowerBound <= upperBound,
+        "Operation not allowed: the lower bound of partitioning column is larger than the upper " +
+          s"bound. Lower bound: $lowerBound; Upper bound: $upperBound")
+      val boundValueToString: Long => String =
+        toBoundValueInWhereClause(_, partitioning.columnType, timeZoneId)
+      val numPartitions =
+        if ((upperBound - lowerBound) >= partitioning.numPartitions || /* check for overflow */
+          (upperBound - lowerBound) < 0) {
+          partitioning.numPartitions
         } else {
-          s"$lBound AND $uBound"
+          logWarning("The number of partitions is reduced because the specified number of " +
+            "partitions is less than the difference between upper bound and lower bound. " +
+            s"Updated number of partitions: ${upperBound - lowerBound}; Input number of " +
+            s"partitions: ${partitioning.numPartitions}; " +
+            s"Lower bound: ${boundValueToString(lowerBound)}; " +
+            s"Upper bound: ${boundValueToString(upperBound)}.")
+          upperBound - lowerBound
         }
-      ans += JDBCPartition(whereClause, i)
-      i = i + 1
+      // Overflow and silliness can happen if you subtract then divide.
+      // Here we get a little roundoff, but that's (hopefully) OK.
+      val stride: Long = upperBound / numPartitions - lowerBound / numPartitions
+
+      var i: Int = 0
+      val column = partitioning.column
+      var currentValue = lowerBound
+      val ans = new ArrayBuffer[Partition]()
+      while (i < numPartitions) {
+        val lBoundValue = boundValueToString(currentValue)
+        val lBound = if (i != 0) s"$column >= $lBoundValue" else null
+        currentValue += stride
+        val uBoundValue = boundValueToString(currentValue)
+        val uBound = if (i != numPartitions - 1) s"$column < $uBoundValue" else null
+        val whereClause =
+          if (uBound == null) {
+            lBound
+          } else if (lBound == null) {
+            s"$uBound or $column is null"
+          } else {
+            s"$lBound AND $uBound"
+          }
+        ans += JDBCPartition(whereClause, i)
+        i = i + 1
+      }
+      val partitions = ans.toArray
+      logInfo(s"Number of partitions: $numPartitions, WHERE clauses of these partitions: " +
+        partitions.map(_.asInstanceOf[JDBCPartition].whereClause).mkString(", "))
+      partitions
     }
-    val partitions = ans.toArray
-    logInfo(s"Number of partitions: $numPartitions, WHERE clauses of these partitions: " +
-      partitions.map(_.asInstanceOf[JDBCPartition].whereClause).mkString(", "))
-    partitions
   }
 
   // Verify column name and type based on the JDBC resolved schema

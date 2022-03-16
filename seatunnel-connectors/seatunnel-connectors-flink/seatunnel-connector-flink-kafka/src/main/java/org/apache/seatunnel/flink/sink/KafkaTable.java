@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
 
 import java.util.Properties;
 
-public class KafkaTable implements FlinkStreamSink<Row, Row> {
+public class KafkaTable implements FlinkStreamSink {
 
     private static final long serialVersionUID = 3980751499724935230L;
     private Config config;

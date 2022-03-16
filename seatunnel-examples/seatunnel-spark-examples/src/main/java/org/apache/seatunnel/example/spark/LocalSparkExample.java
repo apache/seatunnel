@@ -17,19 +17,20 @@
 
 package org.apache.seatunnel.example.spark;
 
-import static org.apache.seatunnel.utils.Engine.SPARK;
-
 import org.apache.seatunnel.Seatunnel;
-import org.apache.seatunnel.config.command.CommandLineArgs;
+import org.apache.seatunnel.command.SparkCommandArgs;
 
 public class LocalSparkExample {
 
     public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-spark-examples/src/main/resources/examples/";
 
-    public static void main(String[] args) throws Exception {
-        String configFile = getTestConfigFile("spark.batch.conf.template");
-        CommandLineArgs sparkArgs = new CommandLineArgs(configFile, false, null);
-        Seatunnel.run(sparkArgs, SPARK);
+    public static void main(String[] args) {
+        String configFile = getTestConfigFile("spark.batch.conf");
+        SparkCommandArgs sparkArgs = new SparkCommandArgs();
+        sparkArgs.setConfigFile(configFile);
+        sparkArgs.setCheckConfig(false);
+        sparkArgs.setVariables(null);
+        Seatunnel.run(sparkArgs);
     }
 
     public static String getTestConfigFile(String configFile) {
