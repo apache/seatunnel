@@ -21,6 +21,7 @@ import org.apache.seatunnel.command.Command;
 import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.ConfigBuilder;
+import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,7 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
         } else {
             confPath = sparkCommandArgs.getConfigFile();
         }
-        new ConfigBuilder(confPath, sparkCommandArgs.getEngineType()).checkConfig();
+        new ConfigBuilder<SparkEnvironment>(confPath, sparkCommandArgs.getEngineType()).checkConfig();
         LOGGER.info("config OK !");
     }
 

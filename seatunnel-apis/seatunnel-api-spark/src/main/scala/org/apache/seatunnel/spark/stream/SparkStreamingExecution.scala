@@ -17,9 +17,9 @@
 package org.apache.seatunnel.spark.stream
 
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.plugin.Plugin
+import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
 import org.apache.seatunnel.spark.batch.SparkBatchExecution
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
@@ -28,7 +28,7 @@ import java.util.{List => JList}
 import scala.collection.JavaConversions._
 
 class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
-  extends Execution[BaseSparkSource[_], BaseSparkTransform, BaseSparkSink[_]] {
+  extends Execution[BaseSparkSource[_], BaseSparkTransform, BaseSparkSink[_], SparkEnvironment] {
 
   private var config = ConfigFactory.empty()
 
@@ -79,5 +79,5 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
 
   override def checkConfig(): CheckResult = CheckResult.success()
 
-  override def prepare(void: Void): Unit = {}
+  override def prepare(void: SparkEnvironment): Unit = {}
 }
