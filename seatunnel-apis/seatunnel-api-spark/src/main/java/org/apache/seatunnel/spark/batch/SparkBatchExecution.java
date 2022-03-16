@@ -33,7 +33,7 @@ import org.apache.spark.sql.Row;
 
 import java.util.List;
 
-public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSparkTransform, SparkBatchSink> {
+public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSparkTransform, SparkBatchSink, SparkEnvironment> {
 
     private final SparkEnvironment environment;
 
@@ -123,7 +123,7 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     }
 
     @Override
-    public void prepare(Void prepareEnv) {
+    public void prepare(SparkEnvironment prepareEnv) {
 
     }
 }

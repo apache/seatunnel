@@ -17,11 +17,21 @@
 
 package org.apache.seatunnel.env;
 
-import org.apache.seatunnel.plugin.Plugin;
+import org.apache.seatunnel.common.config.CheckResult;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 /**
  * engine related runtime environment
  */
-public interface RuntimeEnv extends Plugin<Boolean> {
+public interface RuntimeEnv {
+
+    RuntimeEnv setConfig(Config config);
+
+    Config getConfig();
+
+    CheckResult checkConfig();
+
+    RuntimeEnv prepare();
 
 }

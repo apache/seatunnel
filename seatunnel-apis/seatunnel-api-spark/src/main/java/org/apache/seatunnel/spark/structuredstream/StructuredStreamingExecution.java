@@ -27,7 +27,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import java.util.List;
 
-public class StructuredStreamingExecution implements Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink> {
+public class StructuredStreamingExecution implements Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink, SparkEnvironment> {
 
     private final SparkEnvironment sparkEnvironment;
 
@@ -58,7 +58,7 @@ public class StructuredStreamingExecution implements Execution<StructuredStreami
     }
 
     @Override
-    public void prepare(Void prepareEnv) {
+    public void prepare(SparkEnvironment prepareEnv) {
 
     }
 }

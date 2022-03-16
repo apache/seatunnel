@@ -28,9 +28,10 @@ import java.util.List;
  * the SeaTunnel job's execution context
  */
 public interface Execution<
-    SR extends BaseSource<? extends RuntimeEnv>,
-    TF extends BaseTransform<? extends RuntimeEnv>,
-    SK extends BaseSink<? extends RuntimeEnv>> extends Plugin<Void> {
+    SR extends BaseSource<RE>,
+    TF extends BaseTransform<RE>,
+    SK extends BaseSink<RE>,
+    RE extends RuntimeEnv> extends Plugin<RE> {
 
     /**
      * start to execute the SeaTunnel job
