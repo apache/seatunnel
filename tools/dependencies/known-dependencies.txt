@@ -63,6 +63,7 @@ commons-cli-1.2.jar
 commons-cli-1.3.1.jar
 commons-cli-1.4.jar
 commons-codec-1.10.jar
+commons-codec-1.11.jar
 commons-codec-1.13.jar
 commons-codec-1.7.jar
 commons-codec-1.9.jar
@@ -159,6 +160,7 @@ flink-avro-1.13.6.jar
 flink-connector-base-1.13.6.jar
 flink-connector-elasticsearch-base_2.11-1.13.6.jar
 flink-connector-elasticsearch6_2.11-1.13.6.jar
+flink-connector-jdbc_2.11-1.13.6.jar
 flink-connector-kafka_2.11-1.13.6.jar
 flink-csv-1.13.6.jar
 flink-json-1.13.6.jar
@@ -265,7 +267,7 @@ htrace-core-3.1.0-incubating.jar
 htrace-core4-4.1.0-incubating.jar
 htrace-core4-4.2.0-incubating.jar
 httpasyncclient-4.1.4.jar
-httpclient-4.5.2.jar
+httpclient-4.5.13.jar
 httpcore-4.4.4.jar
 httpcore-nio-4.4.4.jar
 httpmime-4.5.2.jar
@@ -651,3 +653,14 @@ zookeeper-3.5.9.jar
 zookeeper-jute-3.5.9.jar
 zstd-jni-1.3.3-1.jar
 zstd-jni-1.4.3-1.jar
+iceberg-core-0.13.1.jar
+iceberg-api-0.13.1.jar
+iceberg-common-0.13.1.jar
+iceberg-bundled-guava-0.13.1.jar
+caffeine-2.8.4.jar
+checker-qual-3.4.0.jar
+error_prone_annotations-2.3.4.jar
+RoaringBitmap-0.9.22.jar
+RoaringBitmap-0.5.11.jar
+jackson-core-2.11.4.jar
+shims-0.9.22.jar

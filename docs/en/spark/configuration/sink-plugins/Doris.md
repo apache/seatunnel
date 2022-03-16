@@ -1,6 +1,6 @@
-# Doirs
+# Doris
 
-> Sink plugin: Doirs [Spark]
+> Sink plugin: Doris [Spark]
 
 ### Description:
 Use Spark Batch Engine ETL Data to Doris.
