@@ -20,10 +20,8 @@ package org.apache.seatunnel.common.utils;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
 import java.util.HashMap;
 
 public class VariablesSubstituteTest {
