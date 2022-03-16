@@ -21,6 +21,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.HashMap;
 
@@ -29,8 +31,8 @@ public class VariablesSubstituteTest {
     @Test
     public void testSubstitute() {
         String timeFormat = "yyyyMMddHHmmss";
-        final SimpleDateFormat sdf = new SimpleDateFormat(timeFormat);
-        final String formattedDate = sdf.format(new Date());
+        DateTimeFormatter df = DateTimeFormatter.ofPattern(timeFormat);
+        String formattedDate = df.format(ZonedDateTime.now());
         String path = "data_${now}_${uuid}.parquet";
         String newPath = VariablesSubstitute.substitute(path, timeFormat);
         Assert.assertTrue(newPath.contains(formattedDate));

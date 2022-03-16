@@ -19,8 +19,8 @@ package org.apache.seatunnel.common.utils;
 
 import org.apache.commons.lang3.text.StrSubstitutor;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -30,20 +30,30 @@ public final class VariablesSubstitute {
     private VariablesSubstitute() {
     }
 
-    public static String substitute(String str, String timeFormat) {
-        final SimpleDateFormat sdf = new SimpleDateFormat(timeFormat);
-        final String formattedDate = sdf.format(new Date());
+    /**
+     * @param text       raw string
+     * @param timeFormat example : "yyyy-MM-dd HH:mm:ss"
+     * @return replaced text
+     */
+    public static String substitute(String text, String timeFormat) {
+        DateTimeFormatter df = DateTimeFormatter.ofPattern(timeFormat);
+        final String formattedDate = df.format(ZonedDateTime.now());
 
         final Map<String, String> valuesMap = new HashMap<>(3);
         valuesMap.put("uuid", UUID.randomUUID().toString());
         valuesMap.put("now", formattedDate);
         valuesMap.put(timeFormat, formattedDate);
-        return substitute(str, valuesMap);
+        return substitute(text, valuesMap);
     }
 
-    public static String substitute(String str, Map<String, String> valuesMap) {
+    /**
+     * @param text       raw string
+     * @param valuesMap  key is variable name, value is substituted string.
+     * @return replaced text
+     */
+    public static String substitute(String text, Map<String, String> valuesMap) {
         final StrSubstitutor sub = new StrSubstitutor(valuesMap);
-        return sub.replace(str);
+        return sub.replace(text);
     }
 }
 
