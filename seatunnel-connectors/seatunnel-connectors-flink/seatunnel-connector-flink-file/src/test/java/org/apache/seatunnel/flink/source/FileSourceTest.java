@@ -23,7 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import org.apache.flink.api.java.DataSet;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 import org.junit.Assert;
 import org.junit.Test;
@@ -44,7 +44,7 @@ public class FileSourceTest {
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
         FileSource fileSource = createFileSource(configFile, flinkEnvironment);
-        DataSet<Row> data = fileSource.getData(flinkEnvironment);
+        DataStream<Row> data = fileSource.getData(flinkEnvironment);
         Assert.assertNotNull(data);
     }
 
@@ -54,7 +54,7 @@ public class FileSourceTest {
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
         FileSource fileSource = createFileSource(configFile, flinkEnvironment);
-        DataSet<Row> data = fileSource.getData(flinkEnvironment);
+        DataStream<Row> data = fileSource.getData(flinkEnvironment);
         Assert.assertNotNull(data);
     }
 

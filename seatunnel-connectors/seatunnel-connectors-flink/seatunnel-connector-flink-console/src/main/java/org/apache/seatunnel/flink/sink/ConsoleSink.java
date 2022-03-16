@@ -28,7 +28,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
-public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSink<Row> {
+public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSink {
 
     private static final long serialVersionUID = 3482649370594181723L;
     private Config config;

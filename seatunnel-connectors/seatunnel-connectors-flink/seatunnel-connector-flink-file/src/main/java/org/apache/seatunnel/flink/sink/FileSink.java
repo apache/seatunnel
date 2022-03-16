@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.utils.StringTemplate;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.enums.FormatType;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -56,8 +57,7 @@ public class FileSink implements FlinkStreamSink {
 
     @Override
     public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
-
-        String format = config.getString(FORMAT);
+        FormatType format = FormatType.from(config.getString(FORMAT).trim().toLowerCase());
         switch (format) {
             case JSON:
                 RowTypeInfo rowTypeInfo = (RowTypeInfo) dataStream.getType();
@@ -67,7 +67,7 @@ public class FileSink implements FlinkStreamSink {
                 outputFormat = new CsvRowOutputFormat(filePath);
                 break;
             case TEXT:
-                outputFormat = new TextOutputFormat<Row>(filePath);
+                outputFormat = new TextOutputFormat<>(filePath);
                 break;
             default:
                 LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
@@ -77,7 +77,7 @@ public class FileSink implements FlinkStreamSink {
             String mode = config.getString(WRITE_MODE);
             outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
         }
-        DataStreamSink rowDataStreamSink = dataStream.addSink(new FileSinkFunction<>(outputFormat));
+        DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new FileSinkFunction<>(outputFormat));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             rowDataStreamSink.setParallelism(parallelism);
