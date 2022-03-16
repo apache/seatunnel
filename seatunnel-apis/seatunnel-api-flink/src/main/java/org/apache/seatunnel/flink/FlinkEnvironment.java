@@ -55,8 +55,9 @@ public class FlinkEnvironment implements RuntimeEnv {
     private String jobName = "seatunnel";
 
     @Override
-    public void setConfig(Config config) {
+    public FlinkEnvironment setConfig(Config config) {
         this.config = config;
+        return this;
     }
 
     @Override
@@ -70,13 +71,13 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void prepare(Boolean isStreaming) {
-        this.isStreaming = isStreaming;
+    public FlinkEnvironment prepare() {
         createStreamEnvironment();
         createStreamTableEnvironment();
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
+        return this;
     }
 
     public String getJobName() {
@@ -85,6 +86,11 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     public boolean isStreaming() {
         return isStreaming;
+    }
+
+    public FlinkEnvironment setStreaming(boolean isStreaming) {
+        this.isStreaming = isStreaming;
+        return this;
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
