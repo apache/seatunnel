@@ -17,9 +17,9 @@
 package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
-
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
+import org.apache.seatunnel.spark.Config.{HOSTS, INDEX}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
@@ -44,7 +44,7 @@ class Elasticsearch extends SparkBatchSource {
         })
     }
 
-    esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
+    esCfg += ("es.nodes" -> config.getStringList(HOSTS).mkString(","))
 
     LOGGER.info("Input ElasticSearch Params:")
     for (entry <- esCfg) {
@@ -54,7 +54,7 @@ class Elasticsearch extends SparkBatchSource {
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
-    val index = config.getString("index")
+    val index = config.getString(INDEX)
 
     env.getSparkSession.read
       .format("org.elasticsearch.spark.sql")
@@ -63,7 +63,7 @@ class Elasticsearch extends SparkBatchSource {
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "hosts", "index")
+    checkAllExists(config, HOSTS, INDEX)
   }
 
 }
