@@ -20,6 +20,7 @@ import java.util
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
+
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
