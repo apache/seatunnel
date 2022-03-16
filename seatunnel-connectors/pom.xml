@@ -31,35 +31,8 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-connector-spark-doris</module>
-        <module>seatunnel-connector-spark-file</module>
-        <module>seatunnel-connector-spark-kafka</module>
-        <module>seatunnel-connector-spark-socket</module>
-        <module>seatunnel-connector-spark-redis</module>
-        <module>seatunnel-connector-spark-phoenix</module>
-        <module>seatunnel-connector-spark-mongodb</module>
-        <module>seatunnel-connector-spark-kudu</module>
-        <module>seatunnel-connector-spark-jdbc</module>
-        <module>seatunnel-connector-spark-hive</module>
-        <module>seatunnel-connector-spark-fake</module>
-        <module>seatunnel-connector-spark-elasticsearch</module>
-        <module>seatunnel-connector-spark-hudi</module>
-        <module>seatunnel-connector-spark-hbase</module>
-        <module>seatunnel-connector-spark-console</module>
-        <module>seatunnel-connector-spark-clickhouse</module>
-        <module>seatunnel-connector-spark-email</module>
-        <module>seatunnel-connector-spark-tidb</module>
-        <module>seatunnel-connector-spark-neo4j</module>
-        <module>seatunnel-connector-flink-console</module>
-        <module>seatunnel-connector-flink-druid</module>
-        <module>seatunnel-connector-flink-elasticsearch</module>
-        <module>seatunnel-connector-flink-file</module>
-        <module>seatunnel-connector-flink-jdbc</module>
-        <module>seatunnel-connector-flink-kafka</module>
-        <module>seatunnel-connector-flink-fake</module>
-        <module>seatunnel-connector-flink-socket</module>
-        <module>seatunnel-connector-flink-doris</module>
-        <module>seatunnel-connector-flink-influxdb</module>
+        <module>seatunnel-connectors-flink</module>
+        <module>seatunnel-connectors-spark</module>
     </modules>
 
 </project>

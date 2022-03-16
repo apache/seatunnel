@@ -8,40 +8,49 @@ Read data from Redis.
 
 ## Options
 
-| name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
-| host           | string | yes      | -             |
-| port           | int    | no       | 6379          |
-| key_pattern    | string | yes      | -             |
-| partition      | int    | no       | 3             |
-| db_num         | int    | no       | 0             |
-| auth           | string | no       | -             |
-| timeout        | int    | no       | 2000          |
-| common-options | string | yes      | -             |
+| name                | type     | required | default value |
+|---------------------|----------|----------|---------------|
+| host                | string   | yes      | "localhost"   |
+| port                | int      | yes      | 6379          |
+| auth                | string   | no       |               |
+| db_num              | int      | no       | 0             |
+| keys_or_key_pattern | string   | yes      |               |
+| partition_num       | int      | no       | 3             |
+| data_type           | string   | no       | "KV"          |
+| timeout             | int      | no       | 2000          |
+| common-options      | string   | yes      |               |
 
 ### host [string]
 
-Redis server address
+Redis server address, default `"localhost"`
 
 ### port [int]
 
-Redis service port, default 6379
-
-### key_pattern [string]
-
-Redis Key, support fuzzy matching
-
-### partition [int]
-
-Number of Redis shards. The default is 3
-
-### db_num [int]
-
-Redis database index ID. It is connected to db0 by default
+Redis service port, default `6379`
 
 ### auth [string]
 
 Redis authentication password
+
+### db_num [int]
+
+Redis database index ID. It is connected to db `0` by default
+
+### keys_or_key_pattern [string]
+
+Redis Key, support fuzzy matching
+
+### partition_num [int]
+
+Number of Redis shards. The default is `3`
+
+### data_type [string]
+
+Redis data type eg: `KV HASH LIST SET ZSET`
+
+### timeout [int]
+
+Redis timeout
 
 ### common options [string]
 
@@ -50,13 +59,15 @@ Source Plugin common parameters, refer to [Source Plugin](./source-plugin.md) fo
 ## Example
 
 ```bash
-Redis {
-    host = "192.168.1.100"
-    port = 6379
-    key_pattern = "*keys*"
-    partition = 20
-    db_num = 2
-    result_table_name = "reids_result_table"
+redis {
+  host = "localhost"
+  port = 6379
+  auth = "myPassword"
+  db_num = 1
+  keys_or_key_pattern = "*"
+  partition_num = 20
+  data_type = "HASH"
+  result_table_name = "hash_result_table"
 }
 ```
 

@@ -21,11 +21,12 @@ import org.apache.seatunnel.flink.BaseFlinkTransform;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.types.Row;
 
 /**
  * a FlinkBatchTransform plugin will do transformations to Flink DataStream.
  */
-public interface FlinkStreamTransform<IN, OUT> extends BaseFlinkTransform {
+public interface FlinkStreamTransform extends BaseFlinkTransform {
 
-    DataStream<OUT> processStream(FlinkEnvironment env, DataStream<IN> dataStream);
+    DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream);
 }

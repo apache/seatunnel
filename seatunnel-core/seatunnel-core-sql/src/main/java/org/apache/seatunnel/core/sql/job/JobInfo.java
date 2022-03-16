@@ -17,35 +17,28 @@
 
 package org.apache.seatunnel.core.sql.job;
 
+import java.util.List;
+
 public class JobInfo {
 
-    private static final String JOB_NAME = "default sql job";
     private static final String VAR_REGEX = "\\$\\{%s}";
     private static final String DELIMITER = "=";
 
-    private final String jobName;
     private String jobContent;
 
     public JobInfo(String jobContent) {
-        this.jobName = JOB_NAME;
         this.jobContent = jobContent;
-    }
-
-    public JobInfo(String jobName, String jobContent) {
-        this.jobName = jobName;
-        this.jobContent = jobContent;
-    }
-
-    public String getJobName() {
-        return jobName;
     }
 
     public String getJobContent() {
         return jobContent;
     }
 
-    public void substitute(String variable) {
-        if (variable != null) {
+    public void substitute(List<String> variables) {
+        if (variables == null) {
+            return;
+        }
+        for (String variable : variables) {
             String[] s = variable.split(DELIMITER);
             if (s.length == 2) {
                 jobContent = jobContent.replaceAll(String.format(VAR_REGEX, s[0].trim()), s[1].trim());

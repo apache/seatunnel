@@ -21,12 +21,12 @@ import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.types.Row;
 
 /**
  * a FlinkStreamSource plugin will read data from other system using Flink DataStream API.
  */
-public interface FlinkStreamSource<T> extends BaseFlinkSource {
+public interface FlinkStreamSource extends BaseFlinkSource<DataStream<Row>> {
 
-    DataStream<T> getData(FlinkEnvironment env);
-
+    DataStream<Row> getData(FlinkEnvironment env);
 }
