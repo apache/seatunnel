@@ -22,5 +22,7 @@ import org.apache.seatunnel.apis.BaseSource;
 /**
  * a base interface indicates a source plugin running on Flink.
  */
-public interface BaseFlinkSource extends BaseSource<FlinkEnvironment> {
+public interface BaseFlinkSource<OUT> extends BaseSource<FlinkEnvironment> {
+
+    OUT getData(FlinkEnvironment env);
 }

@@ -33,7 +33,7 @@ import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
+public class Sql implements FlinkStreamTransform, FlinkBatchTransform {
 
     private String sql;
 

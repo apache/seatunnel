@@ -20,6 +20,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.utils.StringTemplate
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
+import org.apache.seatunnel.spark.Config.{HOSTS, INDEX, INDEX_TYPE, INDEX_TIME_FORMAT, DEFAULT_INDEX_TIME_FORMAT, DEFAULT_INDEX, DEFAULT_INDEX_TYPE}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -37,20 +38,20 @@ class Elasticsearch extends SparkBatchSink {
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
     val index =
-      StringTemplate.substitute(config.getString("index"), config.getString("index_time_format"))
-    df.saveToEs(index + "/" + config.getString("index_type"), this.esCfg)
+      StringTemplate.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT))
+    df.saveToEs(index + "/" + config.getString(INDEX_TYPE), this.esCfg)
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "hosts")
+    checkAllExists(config, HOSTS)
   }
 
   override def prepare(environment: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "index" -> "seatunnel",
-        "index_type" -> "_doc",
-        "index_time_format" -> "yyyy.MM.dd"))
+        INDEX -> DEFAULT_INDEX,
+        INDEX_TYPE -> DEFAULT_INDEX_TYPE,
+        INDEX_TIME_FORMAT -> DEFAULT_INDEX_TIME_FORMAT))
     config = config.withFallback(defaultConfig)
 
     config
@@ -64,7 +65,7 @@ class Elasticsearch extends SparkBatchSink {
         }
       })
 
-    esCfg += ("es.nodes" -> config.getStringList("hosts").mkString(","))
+    esCfg += ("es.nodes" -> config.getStringList(HOSTS).mkString(","))
 
     LOGGER.info("Output ElasticSearch Params:")
     for (entry <- esCfg) {

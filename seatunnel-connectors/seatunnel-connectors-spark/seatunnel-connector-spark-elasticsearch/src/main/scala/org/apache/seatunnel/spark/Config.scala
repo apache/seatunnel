@@ -14,19 +14,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.seatunnel.flink.stream;
-
-import org.apache.seatunnel.flink.BaseFlinkSource;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
+package org.apache.seatunnel.spark
 
 /**
- * a FlinkStreamSource plugin will read data from other system using Flink DataStream API.
+ * Configurations for ElasticSearch source and sink
  */
-public interface FlinkStreamSource extends BaseFlinkSource<DataStream<Row>> {
+object Config extends Serializable {
+  /**
+   * Elastic search hosts configuration
+   */
+  val HOSTS = "hosts"
 
-    DataStream<Row> getData(FlinkEnvironment env);
+  /**
+   * Elastic search index configuration
+   */
+  val INDEX = "index"
+
+  /**
+   * Elastic search index time format configuration
+   */
+  val INDEX_TIME_FORMAT = "index_time_format"
+
+  /**
+   * Elastic search index type configuration
+   */
+  val INDEX_TYPE = "index_type"
+
+  /**
+   * Elastic search default index
+   */
+  val DEFAULT_INDEX = "seatunnel"
+
+  /**
+   * Elastic search default index type
+   */
+  val DEFAULT_INDEX_TYPE = "_doc"
+
+  /**
+   * Elastic search default index time format
+   */
+  val DEFAULT_INDEX_TIME_FORMAT = "yyyy.MM.dd"
 }

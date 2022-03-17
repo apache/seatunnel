@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
 
-public class FileSink implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class FileSink implements FlinkStreamSink, FlinkBatchSink {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSink.class);
 
