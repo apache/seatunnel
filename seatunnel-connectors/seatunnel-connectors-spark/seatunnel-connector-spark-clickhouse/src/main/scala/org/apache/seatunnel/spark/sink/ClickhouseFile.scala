@@ -124,6 +124,7 @@ class ClickhouseFile extends SparkBatchSink {
       this.table.tableSchema.entrySet.map(getValue).mkString(","), uuid))
     exec.append("--path")
     exec.append(targetPath)
+    // TODO change data stream for echo, change it to local file
     val command = Process(Seq("echo", data)) #| exec
     LOGGER.info(command.lineStream.mkString("\n"))
 
@@ -132,8 +133,6 @@ class ClickhouseFile extends SparkBatchSink {
   }
 
   private def moveFileToServer(shard: Shard, paths: List[String]): Unit = {
-
-    //    paths.foreach(path => changeFolderPermissions(path))
 
     var fileTransfer: FileTransfer = null
     if (this.copyFileMethod == SCP) {
