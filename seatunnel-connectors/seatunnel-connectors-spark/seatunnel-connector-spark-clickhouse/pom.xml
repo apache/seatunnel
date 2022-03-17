@@ -51,8 +51,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.jcraft</groupId>
-            <artifactId>jsch</artifactId>
+            <groupId>org.apache.sshd</groupId>
+            <artifactId>sshd-scp</artifactId>
         </dependency>
 
     </dependencies>
