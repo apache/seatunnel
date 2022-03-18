@@ -69,7 +69,7 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
 
     @Override
     public CheckResult checkConfig() {
-        if (!config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1)) {
+        if (config.hasPath("limit") && config.getInt("limit") >= -1) {
             limit = config.getInt("limit");
         }
         return CheckResult.success();

@@ -17,23 +17,24 @@
 
 package org.apache.seatunnel.flink.source;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.table.api.DataTypes;
-import org.apache.flink.types.Row;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.types.Row;
+
 import java.util.Arrays;
-import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 public class FakeSource implements FlinkBatchSource {
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
     private Config config;
-
 
     @Override
     public void setConfig(Config config) {
@@ -57,10 +58,11 @@ public class FakeSource implements FlinkBatchSource {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
+        Random random = new Random();
         return env.getBatchTableEnvironment().toDataSet(
                 env.getBatchTableEnvironment().fromValues(
                         DataTypes.ROW(DataTypes.FIELD("name", DataTypes.STRING()),
                                 DataTypes.FIELD("age", DataTypes.INT())),
-                        Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, 10)).collect(Collectors.toList())), Row.class);
+                        Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt())).collect(Collectors.toList())), Row.class);
     }
 }
