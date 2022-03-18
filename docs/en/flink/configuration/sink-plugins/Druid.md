@@ -51,7 +51,7 @@ The timestamp format in Apache Druid, the default value is `auto`, it could be:
 - `auto`
   - automatically detects ISO (either 'T' or space separator) or millis format
 
-- any [Joda DateTimeFormat](http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html) string
+- any [Joda DateTimeFormat](https://www.joda.org/joda-time/apidocs/index.html) string
 
 ### timestamp_missing_value [`String`]
 
