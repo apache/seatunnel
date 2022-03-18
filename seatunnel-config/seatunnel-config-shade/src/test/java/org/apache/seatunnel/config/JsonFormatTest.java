@@ -38,10 +38,10 @@ public class JsonFormatTest {
 
     @Test
     public void testJsonFormat() {
-        File fileFromResources = FileUtils.getFileFromResources("seatunnel/spark.batch.json");
+        File file = FileUtils.getFileFromResources("seatunnel/spark.batch.json");
         StringBuilder jsonString = new StringBuilder();
         try {
-            InputStream inputStream = new FileInputStream(fileFromResources);
+            InputStream inputStream = new FileInputStream(file);
             BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
             String line;
             while ((line = br.readLine()) != null) {
@@ -52,7 +52,7 @@ public class JsonFormatTest {
         }
 
         Config config = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("seatunnel/spark.batch.json"))
+                .parseFile(file)
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
