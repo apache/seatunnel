@@ -27,7 +27,8 @@ import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.seatunnel.spark.sink.Clickhouse._
-import org.apache.seatunnel.spark.sink.ClickhouseFile.{CLICKHOUSE_FILE_PREFIX, LOGGER, Table, UUID_LENGTH, getClickhouseTableInfo}
+import org.apache.seatunnel.spark.sink.ClickhouseFile.{CLICKHOUSE_FILE_PREFIX, LOGGER, UUID_LENGTH, getClickhouseTableInfo}
+import org.apache.seatunnel.spark.sink.clickhouse.Table
 import org.apache.seatunnel.spark.sink.clickhouse.filetransfer.{FileTransfer, ScpFileTransfer}
 import org.apache.seatunnel.spark.sink.clickhouse.filetransfer.TransferMethod.{RSYNC, SCP, TransferMethod, getCopyMethod}
 import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
@@ -120,7 +121,7 @@ class ClickhouseFile extends SparkBatchSink {
     exec.append("temp_table" + uuid)
     exec.append("-q")
     exec.append(java.lang.String.format("%s; INSERT INTO TABLE %s SELECT %s FROM temp_table%s;", this.table.getCreateDDLNoDatabase
-      .replaceAll("`", ""), this.table.name,
+      .replaceAll("`", ""), this.table.getLocalTableName,
       this.table.tableSchema.entrySet.map(getValue).mkString(","), uuid))
     exec.append("--path")
     exec.append(targetPath)
@@ -128,7 +129,7 @@ class ClickhouseFile extends SparkBatchSink {
     val command = Process(Seq("echo", data)) #| exec
     LOGGER.info(command.lineStream.mkString("\n"))
 
-    new File(targetPath + "/data/_local/" + this.table.name).listFiles().filter(f => f.isDirectory).
+    new File(targetPath + "/data/_local/" + this.table.getLocalTableName).listFiles().filter(f => f.isDirectory).
       filterNot(f => f.getName.equals("detached")).map(f => f.getAbsolutePath).toList
   }
 
@@ -150,7 +151,7 @@ class ClickhouseFile extends SparkBatchSink {
       throw new UnsupportedOperationException(s"unknown copy file method: '$copyFileMethod', please use " +
         s"scp/rsync instead")
     }
-    fileTransfer.transferAndChown(paths, s"${this.table.dataPaths.head}detached/")
+    fileTransfer.transferAndChown(paths, s"${this.table.getLocalDataPath(shard).head}detached/")
 
     fileTransfer.close()
   }
@@ -161,7 +162,7 @@ class ClickhouseFile extends SparkBatchSink {
         s"jdbc:clickhouse://${shard.hostAddress}:${shard.port}/${shard.database}", properties)
     val conn = balanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
     paths.map(path => fromPathGetPart(path)).foreach(part => {
-      conn.createStatement().execute(s"ALTER TABLE ${this.table.shardTable} ATTACH PART '$part'")
+      conn.createStatement().execute(s"ALTER TABLE ${this.table.getLocalTableName} ATTACH PART '$part'")
     })
   }
 
@@ -200,6 +201,7 @@ class ClickhouseFile extends SparkBatchSink {
       } else {
         this.table = tableInfo
         tableInfo.initTableInfo(host, conn)
+        tableInfo.initShardDataPath(config.getString("username"), config.getString("password"))
         // check config of node password whether completed or not
         if (config.hasPath("node_free_password") && config.getBoolean("node_free_password")) {
           this.freePass = true
@@ -262,58 +264,7 @@ object ClickhouseFile {
   private val OBJECT_MAPPER = new ObjectMapper()
   OBJECT_MAPPER.registerModule(DefaultScalaModule)
 
-  class Table(val name: String, val database: String, val engine: String, val createTableDDL: String, val
-  engineFull: String, val dataPaths: List[String]) extends Serializable {
-
-    var shards = new util.TreeMap[Int, Shard]()
-    var shardTable: String = name
-    var shardWeightCount: Int = 0
-    var shardKey: String = _
-    var tableSchema: util.LinkedHashMap[String, String] = new util.LinkedHashMap[String, String]()
-    var shardKeyType: String = _
-    var localCreateTableDDL: String = createTableDDL
-
-    def initTableInfo(host: String, conn: ClickHouseConnectionImpl): Unit = {
-      if (shards.size() == 0) {
-        val hostAndPort = host.split(":")
-        if (distributedEngine.equals(this.engine)) {
-          val localTable = getClickHouseDistributedTable(conn, database, name)
-          this.shardTable = localTable.table
-          val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hostAndPort(1))
-          var weight = 0
-          for (elem <- shardList) {
-            this.shards.put(weight, elem)
-            weight += elem.shardWeight
-          }
-          this.shardWeightCount = weight
-          this.localCreateTableDDL = getClickhouseTableInfo(conn, localTable.database, localTable.table)._2.createTableDDL
-        } else {
-          this.shards.put(0, Shard(1, 1, 1, hostAndPort(0), hostAndPort(0), hostAndPort(1), database))
-        }
-      }
-    }
-
-    def getCreateDDLNoDatabase: String = {
-      this.localCreateTableDDL.replace(this.database + ".", "")
-    }
-
-    def prepareShardInfo(conn: ClickHouseConnectionImpl): CheckResult = {
-      this.tableSchema = getClickHouseSchema(conn, name)
-      if (StringUtils.isNotEmpty(this.shardKey)) {
-        if (!this.tableSchema.containsKey(this.shardKey)) {
-          CheckResult.error(
-            s"not find field '${this.shardKey}' in table '${this.name}' as sharding key")
-        } else {
-          this.shardKeyType = this.tableSchema.get(this.shardKey)
-          CheckResult.success()
-        }
-      } else {
-        CheckResult.success()
-      }
-    }
-  }
-
-  private def getClickhouseTableInfo(conn: ClickHouseConnectionImpl, database: String, table: String):
+  def getClickhouseTableInfo(conn: ClickHouseConnectionImpl, database: String, table: String):
   (CheckResult, Table) = {
     val sql = s"select engine,create_table_query,engine_full,data_paths from system.tables where database " +
       s"= '$database' and name = '$table'"
