@@ -9,8 +9,13 @@ Used for functional testing and debugging, the results will be output in the std
 ## Options
 
 | name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
+|----------------|--------| -------- |---------------|
+| limit          | int    | no       | INT_MAX       |
 | common-options | string | no       | -             |
+
+### limit [int]
+
+limit console result lines
 
 ### common options [string]
 
