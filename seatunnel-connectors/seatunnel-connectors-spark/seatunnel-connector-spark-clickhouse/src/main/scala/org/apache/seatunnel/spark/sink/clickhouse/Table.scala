@@ -10,9 +10,9 @@ import java.util
 import java.util.Properties
 import scala.collection.JavaConversions
 
-class Table(val name: String, val database: String, val engine: String, val createTableDDL: String, val
-engineFull: String, val dataPaths: List[String]) extends Serializable {
-  // TODO 不同的表有不同的dataPaths
+class Table(val name: String, val database: String, val engine: String, val createTableDDL: String,
+            val engineFull: String, val dataPaths: List[String]) extends Serializable {
+
   var shards = new util.TreeMap[Int, Shard]()
   private var localTable: String = _
   var shardWeightCount: Int = 0
