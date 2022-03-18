@@ -41,10 +41,6 @@ class SocketStream extends SparkStreamingSource[String] {
     env.getStreamingContext.socketTextStream(config.getString("host"), config.getInt("port"))
   }
 
-  override def checkConfig(): CheckResult = {
-    CheckResult.success()
-  }
-
   override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[String]): Dataset[Row] = {
     val rowsRDD = rdd.map(element => {
       RowFactory.create(element)

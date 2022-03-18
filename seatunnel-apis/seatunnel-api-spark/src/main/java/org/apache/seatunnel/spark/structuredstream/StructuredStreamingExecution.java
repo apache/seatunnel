@@ -52,13 +52,4 @@ public class StructuredStreamingExecution implements Execution<StructuredStreami
         return this.config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(SparkEnvironment prepareEnv) {
-
-    }
 }

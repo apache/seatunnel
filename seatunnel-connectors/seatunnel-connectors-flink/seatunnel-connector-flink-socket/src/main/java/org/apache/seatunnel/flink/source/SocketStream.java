@@ -64,11 +64,6 @@ public class SocketStream implements FlinkStreamSource {
     }
 
     @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
     public void prepare(FlinkEnvironment prepareEnv) {
         if (config.hasPath(HOST)) {
             host = config.getString(HOST);

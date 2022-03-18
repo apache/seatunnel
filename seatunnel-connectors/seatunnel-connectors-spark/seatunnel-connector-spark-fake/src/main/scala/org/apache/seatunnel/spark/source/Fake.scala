@@ -25,8 +25,6 @@ import org.apache.spark.sql.{Dataset, Row, RowFactory}
 
 class Fake extends SparkBatchSource {
 
-  override def prepare(env: SparkEnvironment): Unit = {}
-
   override def getData(env: SparkEnvironment): Dataset[Row] = {
 
     val s = Seq(
@@ -40,7 +38,4 @@ class Fake extends SparkBatchSource {
     env.getSparkSession.createDataset(s)(RowEncoder(schema))
   }
 
-  override def checkConfig(): CheckResult = {
-    CheckResult.success()
-  }
 }

@@ -63,8 +63,4 @@ public class DataStreamToTable implements FlinkStreamTransform, FlinkBatchTransf
     public CheckResult checkConfig() {
         return CheckConfigUtil.checkAllExists(config, Plugin.RESULT_TABLE_NAME);
     }
-
-    @Override
-    public void prepare(FlinkEnvironment env) {
-    }
 }

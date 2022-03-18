@@ -117,13 +117,4 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         return this.config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(SparkEnvironment prepareEnv) {
-
-    }
 }

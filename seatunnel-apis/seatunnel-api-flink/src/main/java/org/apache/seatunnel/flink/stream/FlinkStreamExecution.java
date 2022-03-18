@@ -115,12 +115,4 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         return config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(FlinkEnvironment prepareEnv) {
-    }
 }

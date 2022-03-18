@@ -24,8 +24,6 @@ import org.apache.spark.sql.{Dataset, Row}
 
 class Hive extends SparkBatchSource {
 
-  override def prepare(env: SparkEnvironment): Unit = {}
-
   override def checkConfig(): CheckResult = {
     checkAllExists(config, "pre_sql")
   }

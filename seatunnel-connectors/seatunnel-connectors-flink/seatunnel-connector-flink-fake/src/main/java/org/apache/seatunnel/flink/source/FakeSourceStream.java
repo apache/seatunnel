@@ -62,15 +62,6 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
         return config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(FlinkEnvironment env) {
-    }
-
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
 
     @Override

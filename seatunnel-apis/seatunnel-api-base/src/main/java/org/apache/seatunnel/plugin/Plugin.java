@@ -35,8 +35,11 @@ public interface Plugin<T extends RuntimeEnv> extends Serializable {
 
     Config getConfig();
 
-    CheckResult checkConfig();
+    default CheckResult checkConfig() {
+        return CheckResult.success();
+    }
 
-    void prepare(T prepareEnv);
+    default void prepare(T prepareEnv) {
+    }
 
 }
