@@ -138,7 +138,7 @@ and Flink.
 
 ## Downloads
 
-Download address for run-directly software package :https://github.com/apache/incubator-seatunnel/releases
+Download address for run-directly software package : https://seatunnel.apache.org/download
 
 ## Quick start
 
