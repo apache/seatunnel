@@ -10,7 +10,7 @@
 
 ### 第二布: 下载 Seatunnel
 
-通过[Seatunnel安装包下载]((https://seatunnel.apache.org/download)) 下载最新版本 `seatunnel-<version>-bin.tar.gz`
+通过[Seatunnel安装包下载](https://seatunnel.apache.org/download) 下载最新版本 `seatunnel-<version>-bin.tar.gz`
 
 或者下载指定的版本 (以`2.1.0`为例):
 
