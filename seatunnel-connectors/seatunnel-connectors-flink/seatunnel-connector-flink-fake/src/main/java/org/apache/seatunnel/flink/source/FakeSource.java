@@ -35,6 +35,7 @@ public class FakeSource implements FlinkBatchSource {
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
     private Config config;
+    private static final int AGE_LIMIT = 100;
 
     @Override
     public void setConfig(Config config) {
@@ -63,6 +64,7 @@ public class FakeSource implements FlinkBatchSource {
                 env.getBatchTableEnvironment().fromValues(
                         DataTypes.ROW(DataTypes.FIELD("name", DataTypes.STRING()),
                                 DataTypes.FIELD("age", DataTypes.INT())),
-                        Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt())).collect(Collectors.toList())), Row.class);
+                        Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt(AGE_LIMIT)))
+                                .collect(Collectors.toList())), Row.class);
     }
 }
