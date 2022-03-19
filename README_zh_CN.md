@@ -133,7 +133,7 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 
 ## 下载
 
-可以直接运行的软件包下载地址：https://github.com/apache/incubator-seatunnel/releases
+可以直接运行的软件包下载地址：https://seatunnel.apache.org/zh-CN/download/
 
 ## 快速入门
 
