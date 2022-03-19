@@ -10,18 +10,18 @@
 
 ### 第二布: 下载 Seatunnel
 
-通过[Seatunnel安装包下载](https://github.com/apache/incubator-seatunnel/releases) 下载最新版本 `seatunnel-<version>.zip`
+通过[Seatunnel安装包下载]((https://seatunnel.apache.org/download)) 下载最新版本 `seatunnel-<version>-bin.tar.gz`
 
-或者下载指定的版本 (以`2.0.4`为例):
+或者下载指定的版本 (以`2.1.0`为例):
 
 ```bash
-wget https://github.com/apache/incubator-seatunnel/releases/download/v2.0.4/waterdrop-dist-2.0.4-2.11.8-release.zip -O seatunnel-2.0.4.zip
+wget https://downloads.apache.org/incubator/seatunnel/2.1.0/apache-seatunnel-incubating-2.1.0-bin.tar.gz -O seatunnel-2.1.0.tar.gz
 ```
 
 下载完成后解压:
 
 ```bash
-unzip seatunnel-<version>.zip
+tar -xvzf seatunnel-<version>.tar.gz
 ln -s seatunnel-<version> seatunnel
 ```
 
