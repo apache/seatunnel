@@ -10,7 +10,7 @@ Please [download Spark](https://spark.apache.org/downloads.html) first, please c
 
 ### Step 2: Download seatunnel
 
-Enter the [seatunnel installation package download page](https://seatunnel.apache.org/download) and download the latest version of `seatunnel-<version>.zip`
+Enter the [seatunnel installation package download page](https://seatunnel.apache.org/download) and download the latest version of `seatunnel-<version>-bin.tar.gz`
 
 Or download the specified version directly (take 2.1.0 as an example):
 

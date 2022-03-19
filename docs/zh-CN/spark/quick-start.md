@@ -21,7 +21,7 @@ wget https://downloads.apache.org/incubator/seatunnel/2.1.0/apache-seatunnel-inc
 下载完成后解压:
 
 ```bash
-unzip seatunnel-<version>.tar.gz
+tar -xvzf seatunnel-<version>.tar.gz
 ln -s seatunnel-<version> seatunnel
 ```
 
