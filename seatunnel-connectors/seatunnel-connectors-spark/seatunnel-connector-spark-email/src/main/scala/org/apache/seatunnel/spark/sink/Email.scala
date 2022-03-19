@@ -98,8 +98,6 @@ class Email extends SparkBatchSink {
     CheckConfigUtil.checkAllExists(config, "from", "to", "host", "port", "password")
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {}
-
   def createMailer(
       host: String,
       port: Int,

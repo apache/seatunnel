@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.spark.stream
 
-import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.plugin.Plugin
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
@@ -75,7 +74,4 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
 
   override def getConfig: Config = config
 
-  override def checkConfig(): CheckResult = CheckResult.success()
-
-  override def prepare(void: SparkEnvironment): Unit = {}
 }

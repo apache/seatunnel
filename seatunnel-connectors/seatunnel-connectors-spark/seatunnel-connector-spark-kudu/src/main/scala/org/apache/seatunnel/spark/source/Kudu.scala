@@ -41,5 +41,4 @@ class Kudu extends SparkBatchSource {
     ds
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {}
 }

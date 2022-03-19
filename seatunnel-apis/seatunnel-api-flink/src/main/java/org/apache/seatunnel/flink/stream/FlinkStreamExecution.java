@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.stream;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
@@ -115,12 +114,4 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         return config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(FlinkEnvironment prepareEnv) {
-    }
 }

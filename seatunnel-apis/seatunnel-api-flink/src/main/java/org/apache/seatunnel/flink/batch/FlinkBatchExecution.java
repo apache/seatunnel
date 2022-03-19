@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.batch;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
@@ -116,12 +115,4 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
         return config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(FlinkEnvironment prepareEnv) {
-    }
 }
