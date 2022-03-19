@@ -1,6 +1,7 @@
 # Fake
 
-> Source plugin : Fake [Flink]
+> Source plugin : FakeSource [Flink]  
+> Source plugin : FakeSourceStream [Flink]
 
 ## Description
 
@@ -15,7 +16,7 @@
 
 ### parallelism [`Int`]
 
-The parallelism of an individual operator, for Fake Source
+The parallelism of an individual operator, for Fake Source Stream
 
 ### common options [`string`]
 
@@ -26,6 +27,15 @@ Source plugin common parameters, please refer to [Source Plugin](./source-plugin
 ```bash
 source {
     FakeSourceStream {
+      result_table_name = "fake"
+      field_name = "name,age"
+    }
+}
+```
+
+```bash
+source {
+    FakeSource {
       result_table_name = "fake"
       field_name = "name,age"
     }
