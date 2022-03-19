@@ -27,8 +27,6 @@ import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
 
 class Jdbc extends SparkBatchSource {
 
-  override def prepare(env: SparkEnvironment): Unit = {}
-
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     jdbcReader(env.getSparkSession, config.getString("driver")).load()
   }

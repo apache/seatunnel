@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.spark.batch;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.BaseSparkSink;
@@ -115,13 +114,4 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         return this.config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(SparkEnvironment prepareEnv) {
-
-    }
 }
