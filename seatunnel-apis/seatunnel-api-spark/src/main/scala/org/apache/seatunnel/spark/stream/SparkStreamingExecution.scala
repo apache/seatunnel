@@ -50,10 +50,8 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
         }
         var ds = dataset
         for (tf <- transforms) {
-          if (ds.take(1).length > 0) {
-            ds = SparkBatchExecution.transformProcess(sparkEnvironment, tf, ds)
-            SparkBatchExecution.registerTransformTempView(tf, ds)
-          }
+          ds = SparkBatchExecution.transformProcess(sparkEnvironment, tf, ds)
+          SparkBatchExecution.registerTransformTempView(tf, ds)
         }
 
         source.beforeOutput()

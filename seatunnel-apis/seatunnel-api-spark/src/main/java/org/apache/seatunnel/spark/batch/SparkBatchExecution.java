@@ -95,10 +95,8 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform transform : transforms) {
-                if (ds.takeAsList(1).size() > 0) {
-                    ds = transformProcess(environment, transform, ds);
-                    registerTransformTempView(transform, ds);
-                }
+                ds = transformProcess(environment, transform, ds);
+                registerTransformTempView(transform, ds);
             }
             for (SparkBatchSink sink : sinks) {
                 sinkProcess(environment, sink, ds);
