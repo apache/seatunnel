@@ -22,10 +22,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.util.Map;
 
 public class ExposeSparkConf {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExposeSparkConf.class);
 
     public static void main(String[] args) throws Exception {
         Config appConfig = ConfigFactory.parseFile(new File(args[0]))
@@ -38,6 +43,6 @@ public class ExposeSparkConf {
             stringBuilder.append(conf);
         }
 
-        System.out.print(stringBuilder.toString());
+        LOGGER.info(stringBuilder.toString());
     }
 }
