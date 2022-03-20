@@ -71,7 +71,7 @@ public class JdbcSource implements FlinkBatchSource {
     private int fetchSize = DEFAULT_FETCH_SIZE;
     private Set<String> fields;
 
-    private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
+    private static final Pattern COMPILE = Pattern.compile("[\\s]*select[\\s]*(.*)from[\\s]*([\\S]+).*");
 
     private JdbcInputFormat jdbcInputFormat;
 
@@ -126,7 +126,10 @@ public class JdbcSource implements FlinkBatchSource {
             fetchSize = config.getInt(SOURCE_FETCH_SIZE);
         }
 
-        jdbcInputFormat = JdbcInputFormat.buildFlinkJdbcInputFormat().setDrivername(driverName).setDBUrl(dbUrl).setUsername(username).setPassword(password).setQuery(query).setFetchSize(fetchSize).setRowTypeInfo(getRowTypeInfo()).finish();
+        jdbcInputFormat = JdbcInputFormat.buildFlinkJdbcInputFormat()
+                .setDrivername(driverName).setDBUrl(dbUrl).setUsername(username)
+                .setPassword(password).setQuery(query).setFetchSize(fetchSize)
+                .setRowTypeInfo(getRowTypeInfo()).finish();
     }
 
     private RowTypeInfo getRowTypeInfo() {
