@@ -123,7 +123,8 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     /**
      * create plugin class instance, ignore case.
      **/
-    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
+    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(Config config, PluginType pluginType) throws Exception {
+        String name = config.getString(PLUGIN_NAME_KEY);
         if (name.split("\\.").length != 1) {
             // canonical class name
             return (T) Class.forName(name).newInstance();
@@ -157,6 +158,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
                 String serviceClassName = serviceClass.getName();
                 String clsNameToLower = serviceClassName.toLowerCase();
                 if (clsNameToLower.equals(canonicalName.toLowerCase())) {
+                    plugin.setConfig(config);
                     return plugin;
                 }
             } catch (ServiceConfigurationError e) {
@@ -182,16 +184,13 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
         List<? extends Config> configList = config.getConfigList(type.getType());
-        configList.forEach(plugin -> {
+        configList.forEach(config -> {
             try {
-                T t = createPluginInstanceIgnoreCase(plugin.getString(PLUGIN_NAME_KEY), type);
-                t.setConfig(plugin);
-                basePluginList.add(t);
+                basePluginList.add(createPluginInstanceIgnoreCase(config, type));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         });
-
         return basePluginList;
     }
 
