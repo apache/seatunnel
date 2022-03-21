@@ -17,34 +17,18 @@
 
 package org.apache.seatunnel.plugin;
 
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.env.RuntimeEnv;
+public interface LifeCycle<T> {
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+    /**
+     * Open method.
+     *
+     * @param env envType
+     */
+    void open(T env);
 
-import java.io.Serializable;
-
-/**
- * a base interface indicates belonging to SeaTunnel.
- */
-public interface Plugin<T extends RuntimeEnv> extends LifeCycle<T>, Serializable {
-    String RESULT_TABLE_NAME = "result_table_name";
-    String SOURCE_TABLE_NAME = "source_table_name";
-
-    void setConfig(Config config);
-
-    Config getConfig();
-
-    default CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    default void open(T env) {
-
-    }
-
-    default void close() throws Exception{
-
-    }
+    /**
+     * Close method.
+     */
+    void close() throws Exception;
 
 }

@@ -77,7 +77,7 @@ class Doris extends SparkBatchSink with Serializable {
     checkAllExists(config, HOST, DATABASE, TABLE_NAME, USER, PASSWORD)
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {
+  override def open(prepareEnv: SparkEnvironment): Unit = {
     apiUrl =
       s"http://${config.getString(HOST)}/api/${config.getString(DATABASE)}/${config.getString(TABLE_NAME)}/_stream_load"
     if (TypesafeConfigUtils.hasSubConfig(config, ARGS_PREFIX)) {

@@ -75,7 +75,7 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
-    public void prepare(FlinkEnvironment prepareEnv) {
+    public void open(FlinkEnvironment prepareEnv) {
         fenodes = config.getString("fenodes");
         username = config.getString("user");
         tableName = config.getString("table");

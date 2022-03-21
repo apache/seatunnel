@@ -71,7 +71,7 @@ public class DruidSink implements FlinkBatchSink {
     }
 
     @Override
-    public void prepare(FlinkEnvironment env) {
+    public void open(FlinkEnvironment env) {
         this.coordinatorURL = config.getString(COORDINATOR_URL);
         this.datasource = config.getString(DATASOURCE);
         this.timestampColumn = config.hasPath(TIMESTAMP_COLUMN) ? config.getString(TIMESTAMP_COLUMN) : null;

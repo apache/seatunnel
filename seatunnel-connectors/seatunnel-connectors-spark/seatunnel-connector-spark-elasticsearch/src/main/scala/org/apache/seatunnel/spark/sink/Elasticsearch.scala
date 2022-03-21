@@ -46,7 +46,7 @@ class Elasticsearch extends SparkBatchSink {
     checkAllExists(config, HOSTS)
   }
 
-  override def prepare(environment: SparkEnvironment): Unit = {
+  override def open(environment: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         INDEX -> DEFAULT_INDEX,

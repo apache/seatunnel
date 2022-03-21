@@ -36,7 +36,7 @@ class File extends SparkBatchSink {
     checkAllExists(config, PATH)
   }
 
-  override def prepare(env: SparkEnvironment): Unit = {
+  override def open(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         PARTITION_BY -> util.Arrays.asList(),

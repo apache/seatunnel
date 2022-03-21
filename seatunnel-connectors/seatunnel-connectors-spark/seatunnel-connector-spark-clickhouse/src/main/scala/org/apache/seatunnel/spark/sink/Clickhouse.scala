@@ -171,7 +171,7 @@ class Clickhouse extends SparkBatchSink {
     checkResult
   }
 
-  override def prepare(env: SparkEnvironment): Unit = {
+  override def open(env: SparkEnvironment): Unit = {
     if (config.hasPath("fields")) {
       this.initSQL = initPrepareSQL()
     }

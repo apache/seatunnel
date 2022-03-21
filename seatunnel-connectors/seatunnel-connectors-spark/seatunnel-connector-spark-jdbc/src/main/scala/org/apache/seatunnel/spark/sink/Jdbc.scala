@@ -59,7 +59,7 @@ class Jdbc extends SparkBatchSink {
     checkAllExists(config, "driver", "url", "dbTable", "user", "password")
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {
+  override def open(prepareEnv: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "saveMode" -> "error",

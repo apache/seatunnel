@@ -61,15 +61,33 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
     }
 
     /**
-     * Execute prepare method defined in {@link Plugin}.
+     * Execute open method defined in {@link org.apache.seatunnel.plugin.LifeCycle}.
      *
      * @param env     runtimeEnv
      * @param plugins plugin list
      */
     @SafeVarargs
-    protected final void prepare(E env, List<? extends Plugin<E>>... plugins) {
+    protected final void open(E env, List<? extends Plugin<E>>... plugins) {
         for (List<? extends Plugin<E>> pluginList : plugins) {
-            pluginList.forEach(plugin -> plugin.prepare(env));
+            pluginList.forEach(plugin -> plugin.open(env));
+        }
+    }
+
+    /**
+     * Execute close method defined in {@link org.apache.seatunnel.plugin.LifeCycle}
+     *
+     * @param plugins plugin list
+     */
+    @SafeVarargs
+    protected final void close(List<? extends Plugin<E>>... plugins) {
+        for (List<? extends Plugin<E>> pluginList : plugins) {
+            pluginList.forEach(plugin -> {
+                try {
+                    plugin.close();
+                } catch (Exception e) {
+                    throw new RuntimeException(String.format("plugin %s close error", plugin.getClass().getName()), e);
+                }
+            });
         }
     }
 

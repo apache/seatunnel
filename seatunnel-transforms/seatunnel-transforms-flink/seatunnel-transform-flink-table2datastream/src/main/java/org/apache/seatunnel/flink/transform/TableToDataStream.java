@@ -72,7 +72,7 @@ public class TableToDataStream implements FlinkStreamTransform, FlinkBatchTransf
     }
 
     @Override
-    public void prepare(FlinkEnvironment env) {
+    public void open(FlinkEnvironment env) {
         if (config.hasPath("is_append")) {
             isAppend = config.getBoolean("is_append");
         }

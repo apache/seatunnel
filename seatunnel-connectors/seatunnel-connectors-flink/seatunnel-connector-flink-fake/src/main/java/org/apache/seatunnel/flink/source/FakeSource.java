@@ -53,18 +53,17 @@ public class FakeSource implements FlinkBatchSource {
     }
 
     @Override
-    public void prepare(FlinkEnvironment prepareEnv) {
-
-    }
-
-    @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
         Random random = new Random();
         return env.getBatchTableEnvironment().toDataSet(
-                env.getBatchTableEnvironment().fromValues(
-                        DataTypes.ROW(DataTypes.FIELD("name", DataTypes.STRING()),
-                                DataTypes.FIELD("age", DataTypes.INT())),
-                        Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt(AGE_LIMIT)))
-                                .collect(Collectors.toList())), Row.class);
+            env.getBatchTableEnvironment().fromValues(
+                DataTypes.ROW(DataTypes.FIELD("name", DataTypes.STRING()),
+                    DataTypes.FIELD("age", DataTypes.INT())),
+                Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt(AGE_LIMIT)))
+                    .collect(Collectors.toList())), Row.class);
+    }
+
+    public void close() throws Exception {
+        System.out.println("FakeSource close");
     }
 }

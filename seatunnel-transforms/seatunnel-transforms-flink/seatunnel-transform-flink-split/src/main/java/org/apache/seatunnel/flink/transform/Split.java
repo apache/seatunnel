@@ -88,7 +88,7 @@ public class Split implements FlinkStreamTransform, FlinkBatchTransform {
     }
 
     @Override
-    public void prepare(FlinkEnvironment prepareEnv) {
+    public void open(FlinkEnvironment prepareEnv) {
         fields = config.getStringList(FIELDS);
         num = fields.size();
         if (config.hasPath(SEPARATOR)) {

@@ -71,7 +71,7 @@ class Redis extends SparkBatchSink with Logging {
     }
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {
+  override def open(prepareEnv: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         HOST -> DEFAULT_HOST,

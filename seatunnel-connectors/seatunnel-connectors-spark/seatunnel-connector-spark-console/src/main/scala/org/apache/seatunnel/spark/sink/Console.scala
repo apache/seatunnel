@@ -60,7 +60,7 @@ class Console extends SparkBatchSink {
     }
   }
 
-  override def prepare(env: SparkEnvironment): Unit = {
+  override def open(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         LIMIT -> DEFAULT_LIMIT,
