@@ -82,6 +82,7 @@ public final class CompressionUtils {
             untaredFiles.add(outputFile);
         }
         debInputStream.close();
+        is.close();
     }
 
     /**
