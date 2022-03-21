@@ -25,7 +25,7 @@ import org.apache.spark.sql.{Dataset, Row}
 
 class Tidb extends SparkBatchSource {
 
-  override def prepare(env: SparkEnvironment): Unit = {}
+  override def open(env: SparkEnvironment): Unit = {}
 
   override def checkConfig(): CheckResult = {
     checkAllExists(config, "pre_sql", "database")

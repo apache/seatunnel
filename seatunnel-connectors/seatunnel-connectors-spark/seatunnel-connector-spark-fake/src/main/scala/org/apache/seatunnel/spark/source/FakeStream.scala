@@ -32,7 +32,7 @@ import scala.collection.JavaConversions._
 
 class FakeStream extends SparkStreamingSource[String] {
 
-  override def prepare(env: SparkEnvironment): Unit = {
+  override def open(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "rate" -> 1 // rate per second, X records/sec

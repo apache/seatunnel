@@ -28,7 +28,7 @@ import org.apache.spark.streaming.dstream.DStream
 
 class SocketStream extends SparkStreamingSource[String] {
 
-  override def prepare(env: SparkEnvironment): Unit = {
+  override def open(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "host" -> "localhost",

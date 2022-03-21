@@ -63,7 +63,7 @@ class Split extends BaseSparkTransform {
     checkAllExists(config, "fields")
   }
 
-  override def prepare(env: SparkEnvironment): Unit = {
+  override def open(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "separator" -> " ",

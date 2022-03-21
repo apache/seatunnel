@@ -63,7 +63,4 @@ public class FakeSource implements FlinkBatchSource {
                     .collect(Collectors.toList())), Row.class);
     }
 
-    public void close() throws Exception {
-        System.out.println("FakeSource close");
-    }
 }
