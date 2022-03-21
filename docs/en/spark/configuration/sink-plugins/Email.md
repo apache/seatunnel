@@ -64,7 +64,7 @@ The password of the email sender, the user name is the sender specified by `from
 
 ### limit [string]
 
-The number of data is limited, the default is `100000`
+The number of rows to include, the default is `100000`
 
 ## Examples
 
