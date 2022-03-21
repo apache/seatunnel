@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.seatunnel.spark.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT, HASH_NAME, HOST, LIST_NAME, PORT, SET_NAME, TIMEOUT, ZSET_NAME}
+import org.apache.seatunnel.spark.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT, HASH_NAME, HOST, LIST_NAME, PORT, SET_NAME, TIMEOUT, ZSET_NAME}
 import org.apache.seatunnel.spark.common.RedisDataType
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
@@ -38,7 +38,7 @@ class Redis extends SparkBatchSink with Logging {
     val redisConfigs = new RedisConfig(RedisEndpoint(
       host = config.getString(HOST),
       port = config.getInt(PORT),
-      auth = config.getString(AUTH),
+      auth = if (config.getIsNull(AUTH)) null else config.getString(AUTH),
       dbNum = config.getInt(DB_NUM),
       timeout = config.getInt(TIMEOUT)
     ))
@@ -57,9 +57,8 @@ class Redis extends SparkBatchSink with Logging {
 
   override def checkConfig(): CheckResult = {
     CheckConfigUtil.checkAllExists(config, HOST, PORT)
-
-    val dataType = config.getString(DATA_TYPE)
-    if (dataType != null) {
+    if (config.hasPath(DATA_TYPE)) {
+      val dataType = config.getString(DATA_TYPE)
       val dataTypeList = List("KV", "HASH", "SET", "ZSET", "LIST")
       val bool = dataTypeList.contains(dataType.toUpperCase)
       if (!bool) {
@@ -79,6 +78,7 @@ class Redis extends SparkBatchSink with Logging {
         PORT -> DEFAULT_PORT,
         AUTH -> DEFAULT_AUTH,
         DB_NUM -> DEFAULT_DB_NUM,
+        DATA_TYPE -> DEFAULT_DATA_TYPE,
         TIMEOUT -> DEFAULT_TIMEOUT
       ))
     config = config.withFallback(defaultConfig)
