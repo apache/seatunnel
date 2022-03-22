@@ -35,7 +35,7 @@ fi
 is_exist() {
     if [ -z $1 ]; then
       usage
-      exit -1
+      exit 1
     fi
 }
 
