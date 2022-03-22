@@ -18,7 +18,6 @@ package org.apache.seatunnel.spark.sink
 
 import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
@@ -30,6 +29,7 @@ import org.apache.hadoop.hbase.util.Bytes
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
+import org.apache.seatunnel.spark.Config.{CATALOG, HBASE_ZOOKEEPER_QUORUM, SAVE_MODE, STAGING_DIR}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.internal.Logging
@@ -45,13 +45,13 @@ class Hbase extends SparkBatchSink with Logging {
   var zookeeperPrefix = "zookeeper."
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "hbase.zookeeper.quorum", "catalog", "staging_dir")
+    checkAllExists(config, HBASE_ZOOKEEPER_QUORUM, CATALOG, STAGING_DIR)
   }
 
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "save_mode" -> HbaseSaveMode.Append.toString.toLowerCase))
+        SAVE_MODE -> HbaseSaveMode.Append.toString.toLowerCase))
 
     config = config.withFallback(defaultConfig)
     hbaseConf = HBaseConfiguration.create(env.getSparkSession.sessionState.newHadoopConf())
@@ -70,8 +70,8 @@ class Hbase extends SparkBatchSink with Logging {
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
     var dfWithStringFields = df
     val colNames = df.columns
-    val catalog = config.getString("catalog")
-    val stagingDir = config.getString("staging_dir") + "/" + System.currentTimeMillis().toString
+    val catalog = config.getString(CATALOG)
+    val stagingDir = config.getString(STAGING_DIR) + "/" + System.currentTimeMillis().toString
 
     // convert all columns type to string
     for (colName <- colNames) {
@@ -83,7 +83,7 @@ class Hbase extends SparkBatchSink with Logging {
     val htc = HBaseTableCatalog(parameters)
     val tableName = TableName.valueOf(htc.namespace + ":" + htc.name)
     val columnFamily = htc.getColumnFamilies
-    val saveMode = config.getString("save_mode").toLowerCase
+    val saveMode = config.getString(SAVE_MODE).toLowerCase
     val hbaseConn = ConnectionFactory.createConnection(hbaseConf)
 
     try {

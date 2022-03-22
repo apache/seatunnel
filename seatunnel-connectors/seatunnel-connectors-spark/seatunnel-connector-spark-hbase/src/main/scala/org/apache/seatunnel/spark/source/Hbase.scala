@@ -17,11 +17,11 @@
 package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
-
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.spark.HBaseContext
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.spark.Config.{CATALOG, HBASE_ZOOKEEPER_QUORUM}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
@@ -31,7 +31,7 @@ class Hbase extends SparkBatchSource {
   private final val FORMAT_SOURCE = "org.apache.hadoop.hbase.spark"
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "hbase.zookeeper.quorum", "catalog")
+    checkAllExists(config, HBASE_ZOOKEEPER_QUORUM, CATALOG)
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
