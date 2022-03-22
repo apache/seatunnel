@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.command;
 
+import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
@@ -25,8 +26,6 @@ import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.utils.AsciiArtUtils;
 import org.apache.seatunnel.utils.CompressionUtils;
-
-import org.apache.commons.compress.archivers.ArchiveException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,15 +79,21 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
      */
     @SafeVarargs
     protected final void close(List<? extends Plugin<E>>... plugins) {
+        Optional<RuntimeException> exceptionHolder = Optional.empty();
         for (List<? extends Plugin<E>> pluginList : plugins) {
-            pluginList.forEach(plugin -> {
+            for (Plugin<E> plugin : pluginList) {
                 try (Plugin<?> closed = plugin) {
                     // ignore
                 } catch (Exception e) {
-                    throw new RuntimeException(String.format("plugin %s close error", plugin.getClass().getName()), e);
+                    exceptionHolder = Optional.of(new RuntimeException(String.format(
+                            "plugin %s close error", plugin.getClass().getName()), exceptionHolder.orElse(null)));
                 }
-            });
+            }
         }
+        if (exceptionHolder.isPresent()) {
+            throw exceptionHolder.get();
+        }
+
     }
 
     /**
