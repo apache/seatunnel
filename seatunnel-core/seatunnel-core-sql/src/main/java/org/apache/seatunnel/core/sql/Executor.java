@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.sql.job;
-
-import org.apache.seatunnel.core.sql.splitter.SqlStatementSplitter;
+package org.apache.seatunnel.core.sql;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;

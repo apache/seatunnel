@@ -18,8 +18,6 @@
 package org.apache.seatunnel.core.sql;
 
 import org.apache.seatunnel.command.FlinkCommandArgs;
-import org.apache.seatunnel.core.sql.job.Executor;
-import org.apache.seatunnel.core.sql.job.JobInfo;
 import org.apache.seatunnel.utils.CommandLineUtils;
 
 import org.apache.commons.io.FileUtils;

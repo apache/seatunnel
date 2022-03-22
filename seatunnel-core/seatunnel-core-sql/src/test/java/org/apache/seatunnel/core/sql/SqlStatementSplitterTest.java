@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.sql.splitter;
+package org.apache.seatunnel.core.sql;
 
 import static org.junit.Assert.assertEquals;
+
+import org.apache.seatunnel.core.sql.SqlStatementSplitter;
 
 import org.junit.Test;
 

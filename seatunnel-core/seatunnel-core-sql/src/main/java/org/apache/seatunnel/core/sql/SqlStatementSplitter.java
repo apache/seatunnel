@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.sql.splitter;
+package org.apache.seatunnel.core.sql;
 
 import java.util.ArrayList;
 import java.util.List;

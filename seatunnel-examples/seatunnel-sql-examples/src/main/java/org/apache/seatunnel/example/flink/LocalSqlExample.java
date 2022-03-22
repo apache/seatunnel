@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.example.flink;
 
-import org.apache.seatunnel.core.sql.job.Executor;
-import org.apache.seatunnel.core.sql.job.JobInfo;
+import org.apache.seatunnel.core.sql.Executor;
+import org.apache.seatunnel.core.sql.JobInfo;
 
 import org.apache.commons.io.FileUtils;
 
