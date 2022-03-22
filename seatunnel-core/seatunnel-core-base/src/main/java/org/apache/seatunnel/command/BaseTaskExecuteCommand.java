@@ -61,7 +61,7 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
     }
 
     /**
-     * Execute open method defined in {@link org.apache.seatunnel.plugin.LifeCycle}.
+     * Execute prepare method defined in {@link org.apache.seatunnel.plugin.Plugin}.
      *
      * @param env     runtimeEnv
      * @param plugins plugin list
@@ -74,7 +74,7 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
     }
 
     /**
-     * Execute close method defined in {@link org.apache.seatunnel.plugin.LifeCycle}
+     * Execute close method defined in {@link org.apache.seatunnel.plugin.Plugin}
      *
      * @param plugins plugin list
      */
