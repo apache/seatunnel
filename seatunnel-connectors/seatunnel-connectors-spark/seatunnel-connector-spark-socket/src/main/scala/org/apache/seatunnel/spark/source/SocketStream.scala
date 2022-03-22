@@ -18,7 +18,6 @@ package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
 
-import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.stream.SparkStreamingSource
@@ -39,10 +38,6 @@ class SocketStream extends SparkStreamingSource[String] {
 
   override def getData(env: SparkEnvironment): DStream[String] = {
     env.getStreamingContext.socketTextStream(config.getString("host"), config.getInt("port"))
-  }
-
-  override def checkConfig(): CheckResult = {
-    CheckResult.success()
   }
 
   override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[String]): Dataset[Row] = {

@@ -71,11 +71,11 @@ processing plug-in, because the whole system is easy to expand.
 |                          |Hudi            |[doc](./docs/en/spark/configuration/source-plugins/Hudi.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Hudi.md)            |
 |                          |Jdbc            |[doc](./docs/en/spark/configuration/source-plugins/Jdbc.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Jdbc.md)            |
 |                          |MongoDB         |[doc](./docs/en/spark/configuration/source-plugins/MongoDB.md)      |[doc](./docs/en/spark/configuration/sink-plugins/MongoDB.md)         |
-|                          |neo4j           |[doc](./docs/en/spark/configuration/source-plugins/neo4j.md)        |                                                                     |
+|                          |Neo4j           |[doc](./docs/en/spark/configuration/source-plugins/neo4j.md)        |                                                                     |
 |                          |Phoenix         |[doc](./docs/en/spark/configuration/source-plugins/Phoenix.md)      |[doc](./docs/en/spark/configuration/sink-plugins/Phoenix.md)         |
 |                          |Redis           |[doc](./docs/en/spark/configuration/source-plugins/Redis.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Redis.md)           |
 |                          |Tidb            |[doc](./docs/en/spark/configuration/source-plugins/Tidb.md)         |[doc](./docs/en/spark/configuration/sink-plugins/Tidb.md)            |
-|                          |Clickhouse      |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Clickhouse.md)      |  
+|                          |Clickhouse      |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Clickhouse.md)      |
 |                          |Doris           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Doris.md)           |
 |                          |Email           |                                                                    |[doc](./docs/en/spark/configuration/sink-plugins/Email.md)           |
 |                          |Hbase           |[doc](./docs/en/spark/configuration/source-plugins/Hbase.md)        |[doc](./docs/en/spark/configuration/sink-plugins/Hbase.md)           |
@@ -138,7 +138,7 @@ and Flink.
 
 ## Downloads
 
-Download address for run-directly software package :https://github.com/apache/incubator-seatunnel/releases
+Download address for run-directly software package : https://seatunnel.apache.org/download
 
 ## Quick start
 

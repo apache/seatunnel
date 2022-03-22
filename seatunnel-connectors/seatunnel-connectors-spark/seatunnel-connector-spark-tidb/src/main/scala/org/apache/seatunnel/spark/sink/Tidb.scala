@@ -60,6 +60,4 @@ class Tidb extends SparkBatchSink {
     checkAllExists(config, "addr", "port", "database", "table", "user", "password")
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {
-  }
 }

@@ -30,8 +30,6 @@ class Hbase extends SparkBatchSource {
 
   private final val FORMAT_SOURCE = "org.apache.hadoop.hbase.spark"
 
-  override def prepare(env: SparkEnvironment): Unit = {}
-
   override def checkConfig(): CheckResult = {
     checkAllExists(config, "hbase.zookeeper.quorum", "catalog")
   }

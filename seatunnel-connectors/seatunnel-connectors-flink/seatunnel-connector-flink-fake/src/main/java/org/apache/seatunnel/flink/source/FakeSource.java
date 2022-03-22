@@ -15,41 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.sink;
+package org.apache.seatunnel.flink.source;
 
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.stream.FlinkStreamSink;
+import org.apache.seatunnel.flink.batch.FlinkBatchSource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.common.io.RichOutputFormat;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.types.Row;
 
-public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSink {
+import java.util.Arrays;
+import java.util.Random;
+import java.util.stream.Collectors;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSink.class);
-    private Integer limit = Integer.MAX_VALUE;
+public class FakeSource implements FlinkBatchSource {
 
-    private static final long serialVersionUID = 3482649370594181723L;
+    private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
     private Config config;
-
-    @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> rowDataSet) {
-        try {
-            rowDataSet.print();
-        } catch (Exception e) {
-            LOGGER.error("Failed to print result! ", e);
-        }
-        return rowDataSet.output(this);
-    }
-
-    @Override
-    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
-        dataStream.print();
-    }
+    private static final int AGE_LIMIT = 100;
 
     @Override
     public void setConfig(Config config) {
@@ -63,28 +49,22 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSin
 
     @Override
     public CheckResult checkConfig() {
-        if (config.hasPath("limit") && config.getInt("limit") >= -1) {
-            limit = config.getInt("limit");
-        }
         return CheckResult.success();
     }
 
     @Override
-    public void configure(Configuration parameters) {
+    public void prepare(FlinkEnvironment prepareEnv) {
 
     }
 
     @Override
-    public void open(int taskNumber, int numTasks) {
-
-    }
-
-    @Override
-    public void writeRecord(Row record) {
-    }
-
-    @Override
-    public void close() {
-
+    public DataSet<Row> getData(FlinkEnvironment env) {
+        Random random = new Random();
+        return env.getBatchTableEnvironment().toDataSet(
+                env.getBatchTableEnvironment().fromValues(
+                        DataTypes.ROW(DataTypes.FIELD("name", DataTypes.STRING()),
+                                DataTypes.FIELD("age", DataTypes.INT())),
+                        Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt(AGE_LIMIT)))
+                                .collect(Collectors.toList())), Row.class);
     }
 }
