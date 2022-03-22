@@ -62,6 +62,8 @@ public interface Plugin<T extends RuntimeEnv> extends Serializable {
 
     /**
      * This is a lifecycle method, this method will be executed before Plugin destroy.
+     * It's used to release some resource. We will have multiple plugin, if the former plugin throw exception when close,
+     * The follow plugins will not be close.
      *
      * @throws Exception when close failed.
      */
