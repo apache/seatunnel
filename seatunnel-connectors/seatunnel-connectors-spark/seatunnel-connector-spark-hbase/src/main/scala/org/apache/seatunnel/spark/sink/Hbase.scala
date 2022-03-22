@@ -18,6 +18,7 @@ package org.apache.seatunnel.spark.sink
 
 import scala.collection.JavaConversions._
 import scala.util.control.Breaks._
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}

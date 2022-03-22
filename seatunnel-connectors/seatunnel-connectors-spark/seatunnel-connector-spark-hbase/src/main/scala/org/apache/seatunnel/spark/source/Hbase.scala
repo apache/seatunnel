@@ -17,6 +17,7 @@
 package org.apache.seatunnel.spark.source
 
 import scala.collection.JavaConversions._
+
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.spark.HBaseContext
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
