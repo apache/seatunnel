@@ -25,6 +25,8 @@ import static org.apache.seatunnel.flink.Config.SOURCE_FETCH_SIZE;
 import static org.apache.seatunnel.flink.Config.URL;
 import static org.apache.seatunnel.flink.Config.USERNAME;
 
+import org.apache.flink.api.java.tuple.Tuple;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -106,19 +108,9 @@ public class JdbcSource implements FlinkBatchSource {
         dbUrl = config.getString(URL);
         username = config.getString(USERNAME);
         String query = config.getString(QUERY);
-        Matcher matcher = COMPILE.matcher(query);
-        if (matcher.find()) {
-            String var = matcher.group(1);
-            tableName = matcher.group(2);
-            if (!"*".equals(var.trim())) {
-                LinkedHashSet<String> vars = new LinkedHashSet<>();
-                String[] split = var.split(",");
-                for (String s : split) {
-                    vars.add(s.trim());
-                }
-                fields = vars;
-            }
-        }
+        Tuple2<String, Set<String>> tableNameAndFields = getTableNameAndFields(COMPILE, query);
+        tableName = tableNameAndFields.f0;
+        fields = tableNameAndFields.f1;
         if (config.hasPath(PASSWORD)) {
             password = config.getString(PASSWORD);
         }
@@ -130,6 +122,27 @@ public class JdbcSource implements FlinkBatchSource {
                 .setDrivername(driverName).setDBUrl(dbUrl).setUsername(username)
                 .setPassword(password).setQuery(query).setFetchSize(fetchSize)
                 .setRowTypeInfo(getRowTypeInfo()).finish();
+    }
+
+    private Tuple2<String, Set<String>> getTableNameAndFields(Pattern regex, String selectSql) {
+        Matcher matcher = regex.matcher(selectSql);
+        String tableName;
+        Set<String> fields = null;
+        if (matcher.find()) {
+            String var = matcher.group(1);
+            tableName = matcher.group(2);
+            if (!"*".equals(var.trim())) {
+                LinkedHashSet<String> vars = new LinkedHashSet<>();
+                String[] split = var.split(",");
+                for (String s : split) {
+                    vars.add(s.trim());
+                }
+                fields = vars;
+            }
+            return new Tuple2<>(tableName, fields);
+        } else {
+            throw new IllegalArgumentException("can't find tableName and fields in sql :" + selectSql);
+        }
     }
 
     private RowTypeInfo getRowTypeInfo() {
