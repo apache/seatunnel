@@ -82,8 +82,8 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
     protected final void close(List<? extends Plugin<E>>... plugins) {
         for (List<? extends Plugin<E>> pluginList : plugins) {
             pluginList.forEach(plugin -> {
-                try {
-                    plugin.close();
+                try (Plugin<?> closed = plugin) {
+                    // ignore
                 } catch (Exception e) {
                     throw new RuntimeException(String.format("plugin %s close error", plugin.getClass().getName()), e);
                 }
