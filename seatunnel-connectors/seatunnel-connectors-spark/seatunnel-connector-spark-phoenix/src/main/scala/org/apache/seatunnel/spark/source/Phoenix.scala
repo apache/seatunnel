@@ -60,7 +60,7 @@ class Phoenix extends SparkBatchSource with Logging {
     checkResult
   }
 
-  override def open(prepareEnv: SparkEnvironment): Unit = {
+  override def prepare(prepareEnv: SparkEnvironment): Unit = {
     phoenixCfg = config.entrySet().asScala.map {
       entry => s"$phoenixPrefix.${entry.getKey}" -> String.valueOf(entry.getValue.unwrapped())
     }.toMap

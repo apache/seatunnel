@@ -86,7 +86,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
-    public void open(FlinkEnvironment env) {
+    public void prepare(FlinkEnvironment env) {
         driverName = config.getString(DRIVER);
         dbUrl = config.getString(URL);
         username = config.getString(USERNAME);

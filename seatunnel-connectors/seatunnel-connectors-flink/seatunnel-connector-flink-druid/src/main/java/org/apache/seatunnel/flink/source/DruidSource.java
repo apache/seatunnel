@@ -112,7 +112,7 @@ public class DruidSource implements FlinkBatchSource {
     }
 
     @Override
-    public void open(FlinkEnvironment env) {
+    public void prepare(FlinkEnvironment env) {
         String jdbcURL = config.getString(JDBC_URL);
         String datasource = config.getString(DATASOURCE);
         String startTimestamp = config.hasPath(START_TIMESTAMP) ? config.getString(START_TIMESTAMP) : null;

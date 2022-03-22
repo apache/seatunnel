@@ -48,7 +48,7 @@ class Hbase extends SparkBatchSink with Logging {
     checkAllExists(config, "hbase.zookeeper.quorum", "catalog", "staging_dir")
   }
 
-  override def open(env: SparkEnvironment): Unit = {
+  override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "save_mode" -> HbaseSaveMode.Append.toString.toLowerCase))

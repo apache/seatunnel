@@ -77,7 +77,7 @@ public class InfluxDbSink implements FlinkBatchSink {
     }
 
     @Override
-    public void open(FlinkEnvironment env) {
+    public void prepare(FlinkEnvironment env) {
         this.serverURL = config.getString(SERVER_URL);
         this.username = config.hasPath(USER_NAME) ? config.getString(USER_NAME) : null;
         this.password = config.hasPath(PASSWORD) ? config.getString(PASSWORD) : null;

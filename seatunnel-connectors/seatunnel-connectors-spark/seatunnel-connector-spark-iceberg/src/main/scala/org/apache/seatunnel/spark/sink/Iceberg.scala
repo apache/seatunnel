@@ -47,7 +47,7 @@ class Iceberg extends SparkBatchSink {
     checkAllExists(config, "path")
   }
 
-  override def open(prepareEnv: SparkEnvironment): Unit = {
+  override def prepare(prepareEnv: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "saveMode" -> "append"))

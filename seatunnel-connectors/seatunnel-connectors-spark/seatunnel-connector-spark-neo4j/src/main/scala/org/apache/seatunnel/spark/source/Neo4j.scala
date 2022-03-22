@@ -48,7 +48,7 @@ class Neo4j extends SparkBatchSource {
 
   }
 
-  override def open(prepareEnv: SparkEnvironment): Unit = {
+  override def prepare(prepareEnv: SparkEnvironment): Unit = {
     config.entrySet().asScala.foreach(entry => {
       neo4jConf.put(entry.getKey, config.getString(entry.getKey))
     })

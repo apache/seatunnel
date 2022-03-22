@@ -34,7 +34,7 @@ class MongoDB extends SparkBatchSink {
 
   val map = new collection.mutable.HashMap[String, String]
 
-  override def open(env: SparkEnvironment): Unit = {
+  override def prepare(env: SparkEnvironment): Unit = {
     TypesafeConfigUtils
       .extractSubConfig(config, confPrefix, false)
       .entrySet()

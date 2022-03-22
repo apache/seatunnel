@@ -31,7 +31,7 @@ class Hudi extends SparkBatchSink {
     checkAllExists(config, "hoodie.base.path", "hoodie.table.name")
   }
 
-  override def open(env: SparkEnvironment): Unit = {
+  override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "save_mode" -> "append"))

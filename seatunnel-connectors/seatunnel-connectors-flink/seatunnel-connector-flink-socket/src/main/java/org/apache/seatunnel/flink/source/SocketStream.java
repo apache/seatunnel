@@ -63,7 +63,7 @@ public class SocketStream implements FlinkStreamSource {
     }
 
     @Override
-    public void open(FlinkEnvironment prepareEnv) {
+    public void prepare(FlinkEnvironment prepareEnv) {
         if (config.hasPath(HOST)) {
             host = config.getString(HOST);
         }

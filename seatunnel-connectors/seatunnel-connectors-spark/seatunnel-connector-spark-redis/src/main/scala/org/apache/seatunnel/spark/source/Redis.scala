@@ -43,7 +43,7 @@ class Redis extends SparkBatchSource {
    *
    * @param env Spark environment
    */
-  override def open(env: SparkEnvironment): Unit = {
+  override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         HOST -> DEFAULT_HOST,

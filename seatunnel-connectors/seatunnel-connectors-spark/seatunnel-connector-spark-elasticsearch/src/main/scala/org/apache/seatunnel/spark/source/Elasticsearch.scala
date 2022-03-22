@@ -32,7 +32,7 @@ class Elasticsearch extends SparkBatchSource {
   var esCfg: Map[String, String] = Map()
   val esPrefix = "es."
 
-  override def open(env: SparkEnvironment): Unit = {
+  override def prepare(env: SparkEnvironment): Unit = {
     if (TypesafeConfigUtils.hasSubConfig(config, esPrefix)) {
       val esConfig = TypesafeConfigUtils.extractSubConfig(config, esPrefix, false)
       esConfig

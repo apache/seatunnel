@@ -49,7 +49,7 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
 
   private var topics: Set[String] = _
 
-  override def open(env: SparkEnvironment): Unit = {
+  override def prepare(env: SparkEnvironment): Unit = {
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(

@@ -98,7 +98,7 @@ public class InfluxDbSource implements FlinkBatchSource {
     }
 
     @Override
-    public void open(FlinkEnvironment env) {
+    public void prepare(FlinkEnvironment env) {
         String serverURL = config.getString(SERVER_URL);
         String username = config.hasPath(USER_NAME) ? config.getString(USER_NAME) : null;
         String password = config.hasPath(PASSWORD) ? config.getString(PASSWORD) : null;

@@ -76,7 +76,7 @@ public class FileSourceTest {
 
         FileSource fileSource = new FileSource();
         fileSource.setConfig(sourceConfig);
-        fileSource.open(flinkEnvironment);
+        fileSource.prepare(flinkEnvironment);
         return fileSource;
     }
 

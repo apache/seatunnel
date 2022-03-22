@@ -67,9 +67,9 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
      * @param plugins plugin list
      */
     @SafeVarargs
-    protected final void open(E env, List<? extends Plugin<E>>... plugins) {
+    protected final void prepare(E env, List<? extends Plugin<E>>... plugins) {
         for (List<? extends Plugin<E>> pluginList : plugins) {
-            pluginList.forEach(plugin -> plugin.open(env));
+            pluginList.forEach(plugin -> plugin.prepare(env));
         }
     }
 

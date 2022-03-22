@@ -49,7 +49,7 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
         showAsciiLogo();
 
         try {
-            open(configBuilder.getEnv(), sources, transforms, sinks);
+            prepare(configBuilder.getEnv(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);
         } catch (Exception e) {

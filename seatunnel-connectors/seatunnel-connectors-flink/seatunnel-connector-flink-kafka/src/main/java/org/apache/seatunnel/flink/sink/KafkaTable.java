@@ -108,7 +108,7 @@ public class KafkaTable implements FlinkStreamSink {
     }
 
     @Override
-    public void open(FlinkEnvironment env) {
+    public void prepare(FlinkEnvironment env) {
         topic = config.getString("topics");
         String producerPrefix = "producer.";
         PropertiesUtil.setProperties(config, kafkaParams, producerPrefix, false);

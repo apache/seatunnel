@@ -85,7 +85,7 @@ public class FileSource implements FlinkBatchSource {
     }
 
     @Override
-    public void open(FlinkEnvironment env) {
+    public void prepare(FlinkEnvironment env) {
         String path = config.getString(PATH);
         FormatType format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
         Path filePath = new Path(path);

@@ -45,7 +45,7 @@ class Kafka extends SparkBatchSink with Logging {
     }
   }
 
-  override def open(env: SparkEnvironment): Unit = {
+  override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "format" -> "json",
