@@ -16,9 +16,12 @@
  */
 package org.apache.seatunnel.spark.source
 
+import java.util
+
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.Config._
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
@@ -30,7 +33,15 @@ import scala.util.{Failure, Success, Try}
 class File extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, PATH, FORMAT)
+    checkAllExists(config, PATH)
+  }
+
+  override def prepare(prepareEnv: SparkEnvironment): Unit = {
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        FORMAT -> DEFAULT_FORMAT
+      ))
+    config = config.withFallback(defaultConfig)
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
