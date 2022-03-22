@@ -36,8 +36,6 @@ class Hive extends SparkBatchSink with Logging {
     }
   }
 
-  override def prepare(env: SparkEnvironment): Unit = {}
-
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
     val sparkSession = df.sparkSession
     if (config.hasPath("sql")) {

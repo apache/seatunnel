@@ -29,8 +29,6 @@ import scala.util.{Failure, Success, Try}
 
 class File extends SparkBatchSource {
 
-  override def prepare(env: SparkEnvironment): Unit = {}
-
   override def checkConfig(): CheckResult = {
     checkAllExists(config, PATH, FORMAT)
   }

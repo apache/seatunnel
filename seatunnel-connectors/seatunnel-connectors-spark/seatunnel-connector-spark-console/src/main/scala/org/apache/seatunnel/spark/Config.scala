@@ -14,21 +14,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.transform
+package org.apache.seatunnel.spark
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.{Dataset, Row}
+/**
+ * Console configuration parameters and defaults
+ */
+object Config {
 
-class Sql extends BaseSparkTransform {
+  /**
+   * The nubmer of rows to show
+   */
+  val LIMIT = "limit"
 
-  override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    env.getSparkSession.sql(config.getString("sql"))
-  }
+  /**
+   * The serializer (plain/json/schema)
+   */
+  val SERIALIZER = "serializer"
 
-  override def checkConfig(): CheckResult = {
-    checkAllExists(config, "sql")
-  }
+  /**
+   * Default console show output
+   */
+  val PLAIN = "plain"
+
+  /**
+   * Convert dataframe to json and print
+   */
+  val JSON = "json"
+
+  /**
+   * Print the schema
+   */
+  val SCHEMA = "schema"
+
+  /**
+   * Default serializer
+   */
+  val DEFAULT_SERIALIZER = PLAIN
+
+  /**
+   * Default number of rows
+   */
+  val DEFAULT_LIMIT = 100
 
 }

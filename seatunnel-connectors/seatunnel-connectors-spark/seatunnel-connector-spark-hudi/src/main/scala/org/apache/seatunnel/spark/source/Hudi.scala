@@ -26,8 +26,6 @@ import scala.collection.JavaConversions._
 
 class Hudi extends SparkBatchSource {
 
-  override def prepare(env: SparkEnvironment): Unit = {}
-
   override def checkConfig(): CheckResult = {
     checkAllExists(config, "hoodie.datasource.read.paths")
   }
