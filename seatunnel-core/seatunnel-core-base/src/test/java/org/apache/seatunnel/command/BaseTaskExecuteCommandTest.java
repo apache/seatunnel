@@ -43,7 +43,8 @@ public class BaseTaskExecuteCommandTest extends TestCase {
         try {
             mockTaskExecutorCommand.close(pluginListA, pluginListB);
         } catch (Exception ex) {
-            // ignore
+            // just print into console
+            ex.printStackTrace();
         }
         Assert.assertEquals(4, closeTimes);
         Assert.assertThrows(RuntimeException.class, () -> mockTaskExecutorCommand.close(pluginListA));
@@ -64,7 +65,7 @@ public class BaseTaskExecuteCommandTest extends TestCase {
         @Override
         public void close() {
             closeTimes++;
-            throw new RuntimeException("Test close with exception");
+            throw new RuntimeException("Test close with exception, closeTimes:" + closeTimes);
         }
     }
 

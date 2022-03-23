@@ -31,9 +31,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Base task execute command. More details see:
@@ -79,21 +81,21 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
      */
     @SafeVarargs
     protected final void close(List<? extends Plugin<E>>... plugins) {
-        Optional<RuntimeException> exceptionHolder = Optional.empty();
+        List<RuntimeException> exceptionHolder = new ArrayList<>();
         for (List<? extends Plugin<E>> pluginList : plugins) {
             for (Plugin<E> plugin : pluginList) {
                 try (Plugin<?> closed = plugin) {
                     // ignore
                 } catch (Exception e) {
-                    exceptionHolder = Optional.of(new RuntimeException(String.format(
-                            "plugin %s close error", plugin.getClass().getName()), exceptionHolder.orElse(null)));
+                    exceptionHolder.add(new RuntimeException(String.format("plugin %s closed error, errorMessage: %s",
+                            plugin.getClass(), e.getMessage()), e));
                 }
             }
         }
-        if (exceptionHolder.isPresent()) {
-            throw exceptionHolder.get();
+        if (!exceptionHolder.isEmpty()) {
+            throw new RuntimeException(
+                    exceptionHolder.stream().map(RuntimeException::getMessage).collect(Collectors.joining("\n")));
         }
-
     }
 
     /**
