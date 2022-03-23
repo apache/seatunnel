@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.command;
 
-import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.Common;
@@ -26,16 +25,16 @@ import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.utils.AsciiArtUtils;
 import org.apache.seatunnel.utils.CompressionUtils;
+
+import org.apache.commons.compress.archivers.ArchiveException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Base task execute command. More details see:
@@ -81,20 +80,24 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
      */
     @SafeVarargs
     protected final void close(List<? extends Plugin<E>>... plugins) {
-        List<RuntimeException> exceptionHolder = new ArrayList<>();
+        RuntimeException exceptionHolder = null;
         for (List<? extends Plugin<E>> pluginList : plugins) {
             for (Plugin<E> plugin : pluginList) {
                 try (Plugin<?> closed = plugin) {
                     // ignore
-                } catch (Exception e) {
-                    exceptionHolder.add(new RuntimeException(String.format("plugin %s closed error, errorMessage: %s",
-                            plugin.getClass(), e.getMessage()), e));
+                } catch (Throwable e) {
+                    RuntimeException wrapperException = new RuntimeException(
+                            String.format("plugin %s closed error", plugin.getClass()), e);
+                    if (exceptionHolder == null) {
+                        exceptionHolder = wrapperException;
+                    } else {
+                        exceptionHolder.addSuppressed(wrapperException);
+                    }
                 }
             }
         }
-        if (!exceptionHolder.isEmpty()) {
-            throw new RuntimeException(
-                    exceptionHolder.stream().map(RuntimeException::getMessage).collect(Collectors.joining("\n")));
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
     }
 

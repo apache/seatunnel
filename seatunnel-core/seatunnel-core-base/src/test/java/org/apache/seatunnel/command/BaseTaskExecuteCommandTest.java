@@ -17,19 +17,20 @@
 
 package org.apache.seatunnel.command;
 
-import junit.framework.TestCase;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.plugin.Plugin;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class BaseTaskExecuteCommandTest extends TestCase {
+public class BaseTaskExecuteCommandTest {
 
-    private static int closeTimes = 0;
+    private static int CLOSE_TIMES = 0;
 
     @Test
     public void testClose() {
@@ -46,7 +47,7 @@ public class BaseTaskExecuteCommandTest extends TestCase {
             // just print into console
             ex.printStackTrace();
         }
-        Assert.assertEquals(4, closeTimes);
+        Assert.assertEquals(Integer.parseInt("4"), CLOSE_TIMES);
         Assert.assertThrows(RuntimeException.class, () -> mockTaskExecutorCommand.close(pluginListA));
 
     }
@@ -64,8 +65,8 @@ public class BaseTaskExecuteCommandTest extends TestCase {
 
         @Override
         public void close() {
-            closeTimes++;
-            throw new RuntimeException("Test close with exception, closeTimes:" + closeTimes);
+            CLOSE_TIMES++;
+            throw new RuntimeException("Test close with exception, closeTimes:" + CLOSE_TIMES);
         }
     }
 
