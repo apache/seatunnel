@@ -46,6 +46,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.operators.DataSource;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.split.JdbcNumericBetweenParametersProvider;
@@ -80,7 +81,6 @@ public class JdbcSource implements FlinkBatchSource {
     private String password;
     private int fetchSize = DEFAULT_FETCH_SIZE;
     private Set<String> fields;
-    private int parallelism = 1;
     private Map<String, TypeInformation<?>> tableFieldInfo;
 
     private static final Pattern COMPILE = Pattern.compile("[\\s]*select[\\s]*(.*)from[\\s]*([\\S]+)(.*)",
@@ -90,7 +90,11 @@ public class JdbcSource implements FlinkBatchSource {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        return env.getBatchEnvironment().createInput(jdbcInputFormat).setParallelism(parallelism);
+        DataSource<Row> dataSource = env.getBatchEnvironment().createInput(jdbcInputFormat);
+        if (config.hasPath(PARALLELISM)) {
+            return dataSource.setParallelism(config.getInt(PARALLELISM));
+        }
+        return dataSource;
     }
 
     @Override
@@ -122,9 +126,6 @@ public class JdbcSource implements FlinkBatchSource {
         }
         if (config.hasPath(SOURCE_FETCH_SIZE)) {
             fetchSize = config.getInt(SOURCE_FETCH_SIZE);
-        }
-        if (config.hasPath(PARALLELISM)) {
-            parallelism = config.getInt(PARALLELISM);
         }
         try {
             Class.forName(driverName);
@@ -188,7 +189,7 @@ public class JdbcSource implements FlinkBatchSource {
             }
         }
 
-        return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism);
+        return new JdbcNumericBetweenParametersProvider(min, max).ofBatchSize(fetchSize);
     }
 
     private boolean isNumericType(TypeInformation<?> type) {
