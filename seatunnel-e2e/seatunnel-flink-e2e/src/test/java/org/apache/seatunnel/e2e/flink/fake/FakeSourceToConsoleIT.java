@@ -25,7 +25,7 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class FakeSourceToConsoleTest extends FlinkContainer {
+public class FakeSourceToConsoleIT extends FlinkContainer {
 
     @Test
     public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {

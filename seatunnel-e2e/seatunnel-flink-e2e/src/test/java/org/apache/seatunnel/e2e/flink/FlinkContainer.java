@@ -30,6 +30,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,7 +50,8 @@ public abstract class FlinkContainer {
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
-    private static final String FLINK_JAR_PATH = "/tmp/seatunnel-core-flink.jar";
+    private static final String SEATUNNEL_FLINK_JAR = "seatunnel-core-flink.jar";
+    private static final String FLINK_JAR_PATH = Paths.get("/tmp", SEATUNNEL_FLINK_JAR).toString();
 
     private static final int WAIT_FLINK_JOB_SUBMIT = 5000;
 
@@ -101,7 +103,7 @@ public abstract class FlinkContainer {
         if (!new File(confPath).exists()) {
             throw new IllegalArgumentException(confFile + " doesn't exist");
         }
-        final String targetConfInContainer = "/tmp" + confFile;
+        final String targetConfInContainer = Paths.get("/tmp", confFile).toString();
         jobManager.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
         final List<String> command = new ArrayList<>();

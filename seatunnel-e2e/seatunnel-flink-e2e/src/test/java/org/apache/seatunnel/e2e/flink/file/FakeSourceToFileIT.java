@@ -25,9 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 
-public class FakeSourceToFile extends FlinkContainer {
+public class FakeSourceToFileIT extends FlinkContainer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToFile.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToFileIT.class);
 
     @Test
     public void testFakeSource2FileSink() throws Exception {
