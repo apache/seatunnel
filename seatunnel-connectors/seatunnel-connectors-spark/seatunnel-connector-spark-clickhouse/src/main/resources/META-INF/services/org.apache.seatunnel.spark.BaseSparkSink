@@ -16,3 +16,4 @@
 #
 
 org.apache.seatunnel.spark.sink.Clickhouse
+org.apache.seatunnel.spark.sink.ClickhouseFile
