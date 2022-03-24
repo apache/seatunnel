@@ -23,34 +23,69 @@ package org.apache.seatunnel.flink;
  */
 public interface Config {
 
-    /** Parallelism of the source or sink */
+    /**
+     * Parallelism of the source or sink
+     */
     String PARALLELISM = "parallelism";
 
-    /** Jdbc driver for source or sink */
+    /**
+     * Jdbc driver for source or sink
+     */
     String DRIVER = "driver";
 
-    /** Jdbc Url for source or sink */
+    /**
+     * Jdbc Url for source or sink
+     */
     String URL = "url";
 
-    /** Jdbc username for source or sink */
+    /**
+     * Jdbc username for source or sink
+     */
     String USERNAME = "username";
 
-    /** Jdbc query for source or sink */
+    /**
+     * Jdbc query for source or sink
+     */
     String QUERY = "query";
 
-    /** Jdbc password for source or sink */
+    /**
+     * Jdbc password for source or sink
+     */
     String PASSWORD = "password";
 
-    /** Jdbc fetch size for source */
+    /**
+     * Jdbc fetch size for source
+     */
     String SOURCE_FETCH_SIZE = "fetch_size";
 
-    /** Jdbc batch size for sink */
+    /**
+     * Jdbc batch size for sink
+     */
     String SINK_BATCH_SIZE = "batch_size";
 
-    /** Jdbc batch interval for sink */
+    /**
+     * Jdbc batch interval for sink
+     */
     String SINK_BATCH_INTERVAL = "batch_interval";
 
-    /** Jdbc max batch retries for sink */
+    /**
+     * Jdbc max batch retries for sink
+     */
     String SINK_BATCH_MAX_RETRIES = "batch_max_retries";
+
+    /**
+     * Jdbc partition column name
+     */
+    String PARTITION_COLUMN = "partition_column";
+
+    /**
+     * Jdbc partition upper bound
+     */
+    String PARTITION_UPPER_BOUND = "partition_upper_bound";
+
+    /**
+     * Jdbc partition lower bound
+     */
+    String PARTITION_LOWER_BOUND = "partition_lower_bound";
 
 }
