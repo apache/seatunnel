@@ -43,11 +43,12 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
         Execution<BaseSource<SparkEnvironment>, BaseTransform<SparkEnvironment>, BaseSink<SparkEnvironment>, SparkEnvironment>
             execution = configBuilder.createExecution();
         baseCheckConfig(sources, transforms, sinks);
-        prepare(configBuilder.getEnv(), sources, transforms, sinks);
         showAsciiLogo();
 
         try {
+            prepare(configBuilder.getEnv(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
+            close(sources, transforms, sinks);
         } catch (Exception e) {
             throw new RuntimeException("Execute Spark task error", e);
         }

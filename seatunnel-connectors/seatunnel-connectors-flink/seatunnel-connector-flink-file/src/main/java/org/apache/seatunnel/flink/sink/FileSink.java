@@ -150,4 +150,11 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
         String path = StringTemplate.substitute(config.getString(PATH), format);
         filePath = new Path(path);
     }
+
+    @Override
+    public void close() throws Exception {
+        if (outputFormat != null) {
+            outputFormat.close();
+        }
+    }
 }

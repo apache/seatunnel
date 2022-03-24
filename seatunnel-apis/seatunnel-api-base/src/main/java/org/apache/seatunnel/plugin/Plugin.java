@@ -25,9 +25,21 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.io.Serializable;
 
 /**
- * a base interface indicates belonging to SeaTunnel.
+ * A base interface indicates belonging to SeaTunnel.
+ * Plugin will be used as follows:
+ * <pre>{@code
+ *      Plugin<?> plugin = new PluginA<>();
+ *      plugin.setConfig(Config);
+ *      CheckResult checkResult = plugin.checkConfig();
+ *      if (checkResult.getSuccess()) {
+ *         plugin.prepare();
+ *         // plugin execute code
+ *         plugin.close();
+ *      }
+ *
+ * }</pre>
  */
-public interface Plugin<T extends RuntimeEnv> extends Serializable {
+public interface Plugin<T extends RuntimeEnv> extends Serializable, AutoCloseable {
     String RESULT_TABLE_NAME = "result_table_name";
     String SOURCE_TABLE_NAME = "source_table_name";
 
@@ -39,7 +51,23 @@ public interface Plugin<T extends RuntimeEnv> extends Serializable {
         return CheckResult.success();
     }
 
-    default void prepare(T prepareEnv) {
+    /**
+     * This is a lifecycle method, this method will be executed after Plugin created.
+     *
+     * @param env environment
+     */
+    default void prepare(T env) {
+
+    }
+
+    /**
+     * This is a lifecycle method, this method will be executed before Plugin destroy.
+     * It's used to release some resource.
+     *
+     * @throws Exception when close failed.
+     */
+    default void close() throws Exception {
+
     }
 
 }

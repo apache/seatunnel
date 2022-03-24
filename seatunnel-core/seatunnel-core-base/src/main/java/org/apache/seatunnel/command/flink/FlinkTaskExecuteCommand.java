@@ -46,11 +46,12 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
             execution = configBuilder.createExecution();
 
         baseCheckConfig(sources, transforms, sinks);
-        prepare(configBuilder.getEnv(), sources, transforms, sinks);
         showAsciiLogo();
 
         try {
+            prepare(configBuilder.getEnv(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
+            close(sources, transforms, sinks);
         } catch (Exception e) {
             throw new RuntimeException("Execute Flink task error", e);
         }
