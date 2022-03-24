@@ -80,6 +80,7 @@ public class JdbcSource implements FlinkBatchSource {
     private String username;
     private String password;
     private int fetchSize = DEFAULT_FETCH_SIZE;
+    private int parallelism = -1;
     private Set<String> fields;
     private Map<String, TypeInformation<?>> tableFieldInfo;
 
@@ -126,6 +127,11 @@ public class JdbcSource implements FlinkBatchSource {
         }
         if (config.hasPath(SOURCE_FETCH_SIZE)) {
             fetchSize = config.getInt(SOURCE_FETCH_SIZE);
+        }
+        if (config.hasPath(PARALLELISM)) {
+            parallelism = config.getInt(PARALLELISM);
+        } else {
+            parallelism = env.getBatchEnvironment().getParallelism();
         }
         try {
             Class.forName(driverName);
@@ -189,7 +195,7 @@ public class JdbcSource implements FlinkBatchSource {
             }
         }
 
-        return new JdbcNumericBetweenParametersProvider(min, max).ofBatchSize(fetchSize);
+        return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism * 2);
     }
 
     private boolean isNumericType(TypeInformation<?> type) {
