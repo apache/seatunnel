@@ -56,11 +56,6 @@ public class FakeSource implements FlinkStreamSource {
     }
 
     @Override
-    public void prepare(FlinkEnvironment prepareEnv) {
-
-    }
-
-    @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
         Random random = new Random();
         return env.getStreamExecutionEnvironment().fromCollection(

@@ -61,7 +61,7 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
     }
 
     /**
-     * Execute prepare method defined in {@link Plugin}.
+     * Execute prepare method defined in {@link org.apache.seatunnel.plugin.Plugin}.
      *
      * @param env     runtimeEnv
      * @param plugins plugin list
@@ -70,6 +70,34 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
     protected final void prepare(E env, List<? extends Plugin<E>>... plugins) {
         for (List<? extends Plugin<E>> pluginList : plugins) {
             pluginList.forEach(plugin -> plugin.prepare(env));
+        }
+    }
+
+    /**
+     * Execute close method defined in {@link org.apache.seatunnel.plugin.Plugin}
+     *
+     * @param plugins plugin list
+     */
+    @SafeVarargs
+    protected final void close(List<? extends Plugin<E>>... plugins) {
+        RuntimeException exceptionHolder = null;
+        for (List<? extends Plugin<E>> pluginList : plugins) {
+            for (Plugin<E> plugin : pluginList) {
+                try (Plugin<?> closed = plugin) {
+                    // ignore
+                } catch (Throwable e) {
+                    RuntimeException wrapperException = new RuntimeException(
+                            String.format("plugin %s closed error", plugin.getClass()), e);
+                    if (exceptionHolder == null) {
+                        exceptionHolder = wrapperException;
+                    } else {
+                        exceptionHolder.addSuppressed(wrapperException);
+                    }
+                }
+            }
+        }
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
     }
 

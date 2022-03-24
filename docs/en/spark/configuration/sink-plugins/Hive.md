@@ -18,9 +18,7 @@ Write Rows to [Apache Hive](https://hive.apache.org).
 | [partition_by](#partition_by-arraystring)           | Array[string] | no       | -             |
 
 ##### sql [string]
-Hive sql：insert into/overwrite $table  select * from xxx_table  
-
-If this option exists, other options will be ignored
+Hive sql：the whole insert data sql, such as `insert into/overwrite $table  select * from xxx_table `, If this option exists, other options will be ignored.
 
 ##### Source_table_name [string]
 
@@ -28,19 +26,19 @@ Datasource of this plugin.
 
 ##### result_table_name [string]
 
-The output hive table name.
+The output hive table name if the `sql` option doesn't specified.
 
 ##### save_mode [string]
 
-Same with option `spark.mode` in Spark.
+Same with option `spark.mode` in Spark, combined with `result_table_name` if the `sql` option doesn't specified.
 
 ##### sink_columns [string]
 
-Select the required fields in source_table_name and store them in result_table_name, separated by commas.
+Specify the selected fields which write to result_table_name, separated by commas, combined with `result_table_name` if the `sql` option doesn't specified.
 
 ##### partition_by [Array[string]]
 
-Hive partition fields
+Hive partition fields, combined with `result_table_name` if the `sql` option doesn't specified.
 
 ### Example
 

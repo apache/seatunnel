@@ -38,6 +38,7 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
@@ -71,7 +72,7 @@ public class JdbcSource implements FlinkStreamSource {
     private int fetchSize = DEFAULT_FETCH_SIZE;
     private Set<String> fields;
 
-    private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
+    private static final Pattern COMPILE = Pattern.compile("[\\s]*select[\\s]*(.*)from[\\s]*([\\S]+).*");
 
     private JdbcInputFormat jdbcInputFormat;
 
@@ -106,7 +107,26 @@ public class JdbcSource implements FlinkStreamSource {
         dbUrl = config.getString(URL);
         username = config.getString(USERNAME);
         String query = config.getString(QUERY);
-        Matcher matcher = COMPILE.matcher(query);
+        Tuple2<String, Set<String>> tableNameAndFields = getTableNameAndFields(COMPILE, query);
+        tableName = tableNameAndFields.f0;
+        fields = tableNameAndFields.f1;
+        if (config.hasPath(PASSWORD)) {
+            password = config.getString(PASSWORD);
+        }
+        if (config.hasPath(SOURCE_FETCH_SIZE)) {
+            fetchSize = config.getInt(SOURCE_FETCH_SIZE);
+        }
+
+        jdbcInputFormat = JdbcInputFormat.buildFlinkJdbcInputFormat()
+                .setDrivername(driverName).setDBUrl(dbUrl).setUsername(username)
+                .setPassword(password).setQuery(query).setFetchSize(fetchSize)
+                .setRowTypeInfo(getRowTypeInfo()).finish();
+    }
+
+    private Tuple2<String, Set<String>> getTableNameAndFields(Pattern regex, String selectSql) {
+        Matcher matcher = regex.matcher(selectSql);
+        String tableName;
+        Set<String> fields = null;
         if (matcher.find()) {
             String var = matcher.group(1);
             tableName = matcher.group(2);
@@ -118,15 +138,10 @@ public class JdbcSource implements FlinkStreamSource {
                 }
                 fields = vars;
             }
+            return new Tuple2<>(tableName, fields);
+        } else {
+            throw new IllegalArgumentException("can't find tableName and fields in sql :" + selectSql);
         }
-        if (config.hasPath(PASSWORD)) {
-            password = config.getString(PASSWORD);
-        }
-        if (config.hasPath(SOURCE_FETCH_SIZE)) {
-            fetchSize = config.getInt(SOURCE_FETCH_SIZE);
-        }
-
-        jdbcInputFormat = JdbcInputFormat.buildFlinkJdbcInputFormat().setDrivername(driverName).setDBUrl(dbUrl).setUsername(username).setPassword(password).setQuery(query).setFetchSize(fetchSize).setRowTypeInfo(getRowTypeInfo()).finish();
     }
 
     private RowTypeInfo getRowTypeInfo() {
