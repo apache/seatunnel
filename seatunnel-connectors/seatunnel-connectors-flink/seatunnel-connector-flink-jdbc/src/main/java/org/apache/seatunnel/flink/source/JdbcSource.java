@@ -140,7 +140,7 @@ public class JdbcSource implements FlinkBatchSource {
             throw new RuntimeException("jdbc connection init failed.", e);
         }
 
-        try (Connection connection = DriverManager.getConnection(dbUrl, username, password);) {
+        try (Connection connection = DriverManager.getConnection(dbUrl, username, password)) {
             tableFieldInfo = initTableField(connection);
             RowTypeInfo rowTypeInfo = getRowTypeInfo();
             JdbcInputFormat.JdbcInputFormatBuilder builder = JdbcInputFormat.buildFlinkJdbcInputFormat();
