@@ -32,6 +32,7 @@ import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -135,7 +136,11 @@ public class JdbcSource implements FlinkBatchSource {
         }
         try {
             Class.forName(driverName);
-            Connection connection = DriverManager.getConnection(dbUrl, username, password);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("jdbc connection init failed.", e);
+        }
+
+        try (Connection connection = DriverManager.getConnection(dbUrl, username, password);) {
             tableFieldInfo = initTableField(connection);
             RowTypeInfo rowTypeInfo = getRowTypeInfo();
             JdbcInputFormat.JdbcInputFormatBuilder builder = JdbcInputFormat.buildFlinkJdbcInputFormat();
@@ -157,7 +162,7 @@ public class JdbcSource implements FlinkBatchSource {
                     .setRowTypeInfo(rowTypeInfo);
 
             jdbcInputFormat = builder.finish();
-        } catch (SQLException | ClassNotFoundException e) {
+        } catch (SQLException e) {
             throw new RuntimeException("jdbc connection init failed.", e);
         }
     }
