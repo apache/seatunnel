@@ -9,7 +9,7 @@ Read data through jdbc
 ## Options
 
 | name                  | type   | required | default value |
-|-----------------------| ------ | -------- | ------------- |
+|-----------------------|--------| -------- | ------------- |
 | driver                | string | yes      | -             |
 | url                   | string | yes      | -             |
 | username              | string | yes      | -             |
@@ -17,8 +17,8 @@ Read data through jdbc
 | query                 | string | yes      | -             |
 | fetch_size            | int    | no       | -             |
 | partition_column      | string | no       | -             |
-| partition_upper_bound | string | no       | -             |
-| partition_lower_bound | string | no       | -             |
+| partition_upper_bound | long | no       | -             |
+| partition_lower_bound | long   | no       | -             |
 | common-options        | string | no       | -             |
 | parallelism           | int    | no       | -             |
 
@@ -56,11 +56,11 @@ The parallelism of an individual operator, for JdbcSource.
 
 The column name for parallelism's partition, only support numeric type.
 
-### partition_upper_bound [int]
+### partition_upper_bound [long]
 
 The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-### partition_lower_bound [int]
+### partition_lower_bound [long]
 
 The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
