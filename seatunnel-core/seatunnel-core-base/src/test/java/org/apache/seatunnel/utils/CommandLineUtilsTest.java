@@ -32,6 +32,7 @@ public class CommandLineUtilsTest {
 
         Assert.assertEquals("app.conf", commandLineArgs.getConfigFile());
         Assert.assertEquals("cluster", commandLineArgs.getDeployMode().getName());
+        Assert.assertEquals("cluster", commandLineArgs.getDeployMode().getName());
     }
 
     @Test
