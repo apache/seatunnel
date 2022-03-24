@@ -102,14 +102,11 @@ public final class CompressionUtils {
 
         final File outputFile = new File(outputDir, inputFile.getName().substring(0, inputFile.getName().length() - 3));
 
-        final GZIPInputStream in = new GZIPInputStream(new FileInputStream(inputFile));
-        final FileOutputStream out = new FileOutputStream(outputFile);
-
-        IOUtils.copy(in, out);
-
-        in.close();
-        out.close();
-
+        try (final FileInputStream fis = new FileInputStream(inputFile);
+             final GZIPInputStream in = new GZIPInputStream(fis);
+             final FileOutputStream out = new FileOutputStream(outputFile)) {
+            IOUtils.copy(in, out);
+        }
         return outputFile;
     }
 
