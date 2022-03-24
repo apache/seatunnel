@@ -19,19 +19,22 @@ package org.apache.seatunnel.flink.source;
 
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
 import java.util.Arrays;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-public class FakeSource implements FlinkBatchSource {
+public class FakeSource implements FlinkStreamSource {
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
     private Config config;
@@ -58,13 +61,17 @@ public class FakeSource implements FlinkBatchSource {
     }
 
     @Override
-    public DataSet<Row> getData(FlinkEnvironment env) {
+    public DataStream<Row> getData(FlinkEnvironment env) {
         Random random = new Random();
-        return env.getBatchTableEnvironment().toDataSet(
-                env.getBatchTableEnvironment().fromValues(
-                        DataTypes.ROW(DataTypes.FIELD("name", DataTypes.STRING()),
-                                DataTypes.FIELD("age", DataTypes.INT())),
-                        Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt(AGE_LIMIT)))
-                                .collect(Collectors.toList())), Row.class);
+        return env.getStreamExecutionEnvironment().fromCollection(
+                Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt(AGE_LIMIT)))
+                .collect(Collectors.toList()), getRowTypeInfo());
     }
+
+    private RowTypeInfo getRowTypeInfo() {
+        TypeInformation[] types = Lists.newArrayList(BasicTypeInfo.STRING_TYPE_INFO, BasicTypeInfo.INT_TYPE_INFO).toArray(new TypeInformation[0]);
+        String[] filedNames = Lists.newArrayList("name", "age").toArray(new String[0]);
+        return new RowTypeInfo(types, filedNames);
+    }
+
 }

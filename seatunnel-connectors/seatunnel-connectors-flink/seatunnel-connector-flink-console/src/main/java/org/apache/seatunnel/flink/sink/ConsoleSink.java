@@ -30,21 +30,8 @@ import org.apache.flink.types.Row;
 
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSink {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSink.class);
-    private Integer limit = Integer.MAX_VALUE;
-
     private static final long serialVersionUID = 3482649370594181723L;
     private Config config;
-
-    @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> rowDataSet) {
-        try {
-            rowDataSet.print();
-        } catch (Exception e) {
-            LOGGER.error("Failed to print result! ", e);
-        }
-        return rowDataSet.output(this);
-    }
 
     @Override
     public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
@@ -63,9 +50,6 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkStreamSin
 
     @Override
     public CheckResult checkConfig() {
-        if (config.hasPath("limit") && config.getInt("limit") >= -1) {
-            limit = config.getInt("limit");
-        }
         return CheckResult.success();
     }
 

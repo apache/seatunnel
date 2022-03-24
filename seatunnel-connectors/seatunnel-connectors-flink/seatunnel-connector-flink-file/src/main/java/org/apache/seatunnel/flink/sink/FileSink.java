@@ -75,23 +75,51 @@ public class FileSink implements FlinkStreamSink {
     private Path filePath;
 
     @Override
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
-        final DefaultRollingPolicy<Row, String> rollingPolicy = DefaultRollingPolicy.builder()
-            .withMaxPartSize(MB * TypesafeConfigUtils.getConfig(config, MAX_PART_SIZE, DEFAULT_MAX_PART_SIZE))
-            .withRolloverInterval(
-                TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULE_ROLLOVER_INTERVAL)))
-            .build();
-        OutputFileConfig outputFileConfig = OutputFileConfig.builder()
-            .withPartPrefix(TypesafeConfigUtils.getConfig(config, PART_PREFIX, DEFAULT_PART_PREFIX))
-            .withPartSuffix(TypesafeConfigUtils.getConfig(config, PART_SUFFIX, DEFAULT_PART_SUFFIX))
-            .build();
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+        if (env.isStreaming()) {
+            final DefaultRollingPolicy<Row, String> rollingPolicy = DefaultRollingPolicy.builder()
+                    .withMaxPartSize(MB * TypesafeConfigUtils.getConfig(config, MAX_PART_SIZE, DEFAULT_MAX_PART_SIZE))
+                    .withRolloverInterval(
+                            TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULE_ROLLOVER_INTERVAL)))
+                    .build();
+            OutputFileConfig outputFileConfig = OutputFileConfig.builder()
+                    .withPartPrefix(TypesafeConfigUtils.getConfig(config, PART_PREFIX, DEFAULT_PART_PREFIX))
+                    .withPartSuffix(TypesafeConfigUtils.getConfig(config, PART_SUFFIX, DEFAULT_PART_SUFFIX))
+                    .build();
 
-        final StreamingFileSink<Row> sink = StreamingFileSink
-            .forRowFormat(filePath, new SimpleStringEncoder<Row>())
-            .withRollingPolicy(rollingPolicy)
-            .withOutputFileConfig(outputFileConfig)
-            .build();
-        return dataStream.addSink(sink);
+            final StreamingFileSink<Row> sink = StreamingFileSink
+                    .forRowFormat(filePath, new SimpleStringEncoder<Row>())
+                    .withRollingPolicy(rollingPolicy)
+                    .withOutputFileConfig(outputFileConfig)
+                    .build();
+            dataStream.addSink(sink);
+        } else {
+            FormatType format = FormatType.from(config.getString(FORMAT).trim().toLowerCase());
+            switch (format) {
+                case JSON:
+                    RowTypeInfo rowTypeInfo = (RowTypeInfo) dataStream.getType();
+                    outputFormat = new JsonRowOutputFormat(filePath, rowTypeInfo);
+                    break;
+                case CSV:
+                    outputFormat = new CsvRowOutputFormat(filePath);
+                    break;
+                case TEXT:
+                    outputFormat = new TextOutputFormat<>(filePath);
+                    break;
+                default:
+                    LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
+                    break;
+            }
+            if (config.hasPath(WRITE_MODE)) {
+                String mode = config.getString(WRITE_MODE);
+                outputFormat.setWriteMode(FileSystem.WriteMode.valueOf(mode));
+            }
+            DataStreamSink<Row> rowDataStreamSink = dataStream.addSink(new FileSinkFunction<>(outputFormat));
+            if (config.hasPath(PARALLELISM)) {
+                int parallelism = config.getInt(PARALLELISM);
+                rowDataStreamSink.setParallelism(parallelism);
+            }
+        }
     }
 
     @Override
