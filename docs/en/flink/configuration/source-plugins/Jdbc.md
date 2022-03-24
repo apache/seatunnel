@@ -17,7 +17,7 @@ Read data through jdbc
 | query                 | string | yes      | -             |
 | fetch_size            | int    | no       | -             |
 | partition_column      | string | no       | -             |
-| partition_upper_bound | long | no       | -             |
+| partition_upper_bound | long   | no       | -             |
 | partition_lower_bound | long   | no       | -             |
 | common-options        | string | no       | -             |
 | parallelism           | int    | no       | -             |
