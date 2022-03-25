@@ -79,3 +79,19 @@ jdbc {
 ```
 
 > Divide partitions based on specified fields
+
+
+```bash
+jdbc {
+    driver = "com.mysql.jdbc.Driver"
+    url = "jdbc:mysql://localhost:3306/info"
+    table = "access"
+    result_table_name = "access_log"
+    user = "username"
+    password = "password"
+    
+    jdbc.connect_timeout = 10000
+    jdbc.socket_timeout = 10000
+}
+```
+> Timeout config
