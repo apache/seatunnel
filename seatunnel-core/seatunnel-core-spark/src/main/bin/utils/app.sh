@@ -21,7 +21,7 @@ function getAppName {
 
     if [ "$#" -ne 1 ]; then
         echo "Illegal number of parameters"
-        exit -1
+        exit 1
     fi
 
     config_file_path=$1

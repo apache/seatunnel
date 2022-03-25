@@ -37,7 +37,7 @@ CMD_ARGUMENTS=$@
 is_exist() {
     if [ -z $1 ]; then
       usage
-      exit -1
+      exit 1
     fi
 }
 
@@ -91,10 +91,10 @@ done
 if [ -z ${MASTER} ] || [ -z ${DEPLOY_MODE} ] || [ -z ${CONFIG_FILE} ]; then
   echo "Error: The following options are required: [-e | --deploy-mode], [-m | --master], [-c | --config]"
   usage
-  exit -1
+  exit 1
 elif [ ! -f ${CONFIG_FILE} ];then
   echo "Error: Config file ${CONFIG_FILE} does not exists! Please check it."
-  exit -1
+  exit 1
 fi
 
 # set positional arguments in their proper place
@@ -160,7 +160,7 @@ function get_spark_conf {
     spark_conf=$(java ${variables_substitution} -cp ${assemblyJarName} org.apache.seatunnel.config.ExposeSparkConf ${CONFIG_FILE})
     if [ "$?" != "0" ]; then
         echo "[ERROR] config file does not exists or cannot be parsed due to invalid format"
-        exit -1
+        exit 1
     fi
 
     echo ${spark_conf}
@@ -193,7 +193,7 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
     tar zcf plugins.tar.gz plugins
     if [ "$?" != "0" ]; then
       echo "[ERROR] failed to compress plugins.tar.gz in cluster mode"
-      exit -2
+      exit 2
     fi
 
     echo "[INFO] successfully compressed plugins.tar.gz in cluster mode"
