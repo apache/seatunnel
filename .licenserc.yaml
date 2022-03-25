@@ -33,6 +33,7 @@ header:
     - '**/*.json'
     - '**/*.iml'
     - '**/*.ini'
+    - '**/*.svg'
     - '**/.gitignore'
     - '**/LICENSE'
     - '**/NOTICE'
