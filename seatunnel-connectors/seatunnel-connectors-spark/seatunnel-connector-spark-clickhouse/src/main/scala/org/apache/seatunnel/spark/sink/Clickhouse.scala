@@ -37,7 +37,7 @@ import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.seatunnel.spark.sink.Clickhouse.{Shard, acceptedClickHouseSchema, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList, getDefaultValue, getRowShard}
 import org.apache.spark.sql.{Dataset, Row}
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatementImpl}
-import ru.yandex.clickhouse.except.{ClickHouseException, ClickHouseUnknownException}
+import ru.yandex.clickhouse.except.ClickHouseException
 
 import java.nio.ByteBuffer
 import java.util.concurrent.ThreadLocalRandom
@@ -311,10 +311,8 @@ class Clickhouse extends SparkBatchSink {
         } else {
           throw e
         }
-      case Failure(e: ClickHouseUnknownException) =>
-        statement.close()
-        throw e
       case Failure(e: Exception) =>
+        statement.close()
         throw e
     }
   }
