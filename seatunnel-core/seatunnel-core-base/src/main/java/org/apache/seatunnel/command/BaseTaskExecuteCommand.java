@@ -85,7 +85,7 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
             for (Plugin<E> plugin : pluginList) {
                 try (Plugin<?> closed = plugin) {
                     // ignore
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     RuntimeException wrapperException = new RuntimeException(
                             String.format("plugin %s closed error", plugin.getClass()), e);
                     if (exceptionHolder == null) {

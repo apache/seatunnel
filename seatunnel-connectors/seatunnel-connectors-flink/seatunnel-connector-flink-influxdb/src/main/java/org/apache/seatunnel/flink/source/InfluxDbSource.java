@@ -94,7 +94,7 @@ public class InfluxDbSource implements FlinkBatchSource {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, SERVER_URL, DATABASE, MEASUREMENT, FIELDS, FIELD_TYPES);
+        return CheckConfigUtil.checkAllExists(config, SERVER_URL, DATABASE, MEASUREMENT, FIELDS, FIELD_TYPES);
     }
 
     @Override

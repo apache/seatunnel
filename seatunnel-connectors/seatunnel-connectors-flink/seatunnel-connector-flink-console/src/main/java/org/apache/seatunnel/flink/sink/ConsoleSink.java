@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink, FlinkStreamSink {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSink.class);
+    private static final String LIMIT = "limit";
     private Integer limit = Integer.MAX_VALUE;
 
     private static final long serialVersionUID = 3482649370594181723L;
@@ -69,8 +70,8 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
 
     @Override
     public CheckResult checkConfig() {
-        if (config.hasPath("limit") && config.getInt("limit") >= -1) {
-            limit = config.getInt("limit");
+        if (config.hasPath(LIMIT) && config.getInt(LIMIT) >= -1) {
+            limit = config.getInt(LIMIT);
         }
         return CheckResult.success();
     }

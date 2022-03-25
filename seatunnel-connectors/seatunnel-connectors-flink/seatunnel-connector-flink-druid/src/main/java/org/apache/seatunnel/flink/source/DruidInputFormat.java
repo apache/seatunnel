@@ -91,7 +91,7 @@ public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implement
                 statement.close();
             }
         } catch (SQLException se) {
-            LOG.error("DruidInputFormat Statement couldn't be closed - " + se.getMessage());
+            LOG.error("DruidInputFormat Statement couldn't be closed", se);
         } finally {
             statement = null;
             try {
@@ -99,7 +99,7 @@ public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implement
                     dbConn.close();
                 }
             } catch (SQLException se) {
-                LOG.error("DruidInputFormat couldn't be closed - " + se.getMessage());
+                LOG.error("DruidInputFormat couldn't be closed", se);
             } finally {
                 dbConn = null;
                 parameterValues = null;
@@ -162,7 +162,7 @@ public class DruidInputFormat extends RichInputFormat<Row, InputSplit> implement
         try {
             resultSet.close();
         } catch (SQLException se) {
-            LOG.error("DruidInputFormat ResultSet couldn't be closed - " + se.getMessage());
+            LOG.error("DruidInputFormat ResultSet couldn't be closed", se);
         }
     }
 
