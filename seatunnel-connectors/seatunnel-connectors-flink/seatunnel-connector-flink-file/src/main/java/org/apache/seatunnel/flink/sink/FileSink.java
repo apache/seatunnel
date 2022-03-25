@@ -20,7 +20,7 @@ package org.apache.seatunnel.flink.sink;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
-import org.apache.seatunnel.common.utils.StringTemplate;
+import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.enums.FormatType;
@@ -109,7 +109,7 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
                 outputFormat = new CsvRowOutputFormat(filePath);
                 break;
             case TEXT:
-                outputFormat = new TextOutputFormat<Row>(filePath);
+                outputFormat = new TextOutputFormat<>(filePath);
                 break;
             default:
                 LOGGER.warn(" unknown file_format [{}],only support json,csv,text", format);
@@ -147,7 +147,7 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
     @Override
     public void prepare(FlinkEnvironment env) {
         String format = TypesafeConfigUtils.getConfig(config, PATH_TIME_FORMAT, DEFAULT_TIME_FORMAT);
-        String path = StringTemplate.substitute(config.getString(PATH), format);
+        String path = VariablesSubstitute.substitute(config.getString(PATH), format);
         filePath = new Path(path);
     }
 
