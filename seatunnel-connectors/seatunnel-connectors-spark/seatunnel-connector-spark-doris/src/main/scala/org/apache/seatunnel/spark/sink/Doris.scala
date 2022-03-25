@@ -30,7 +30,7 @@ import org.apache.spark.sql.{Dataset, Row}
 class Doris extends SparkBatchSink with Serializable {
 
   var apiUrl: String = _
-  var batch_size: Int = 100
+  var batch_size: Int = 5000
   var column_separator: String = "\t"
   var propertiesMap = new mutable.HashMap[String, String]()
 
