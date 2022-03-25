@@ -189,7 +189,7 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
 
   if [ ! -f "${plugins_tar_gz}" ]; then
     cur_dir=$(pwd)
-    cd ${APP_DIR}
+    cd ${APP_DIR} || exit
     tar zcf plugins.tar.gz plugins
     if [ "$?" != "0" ]; then
       echo "[ERROR] failed to compress plugins.tar.gz in cluster mode"
@@ -197,7 +197,7 @@ if [ "${DEPLOY_MODE}" == "cluster" ]; then
     fi
 
     echo "[INFO] successfully compressed plugins.tar.gz in cluster mode"
-    cd ${cur_dir}
+    cd ${cur_dir} || exit
   fi
 fi
 
