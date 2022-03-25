@@ -70,8 +70,8 @@ The way to specify the parameter is to add the prefix `clickhouse.` to the origi
 
 ### split_mode [boolean]
 
-This mode only support clickhouse table which engine is 'Distributed'. They will split distributed table 
-data in seatunnel and perform the write directly on each shard. The shard weight define is clickhouse will be 
+This mode only support clickhouse table which engine is 'Distributed'.And `internal_replication` option 
+should be `true`. They will split distributed table data in seatunnel and perform write directly on each shard. The shard weight define is clickhouse will be 
 counted.
 
 ### sharding_key [string]
