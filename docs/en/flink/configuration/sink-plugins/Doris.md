@@ -43,11 +43,13 @@ Doris password
 
 ##### batch_size [int]
 
-Maximum number of lines in a single write Doris,default value is 100.
+Maximum number of lines in a single write Doris,default value is 5000.
 
 ##### interval [int]
 
 The flush interval millisecond, after which the asynchronous thread will write the data in the cache to Doris.Set to 0 to turn off periodic writing.
+
+Default value ：5000
 
 ##### max_retries [int]
 
@@ -75,4 +77,4 @@ DorisSink {
 	 doris.column_separator="\t"
      doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
 }
- ```
+```
