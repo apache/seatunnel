@@ -44,7 +44,7 @@ jobs:
     strategy:
       matrix:
         java: ['8', '11']
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       MAVEN_OPTS: -Xmx2G -Xms2G
     steps:
