@@ -104,7 +104,7 @@ public class DorisStreamLoad implements Serializable {
     private LoadResponse loadBatch(String data) {
         String formatDate = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String label = String.format("flink_sink_%s_%s", formatDate,
-                UUID.randomUUID().toString().replaceAll("-", ""));
+                UUID.randomUUID().toString().replace("-", ""));
 
         HttpURLConnection feConn = null;
         HttpURLConnection beConn = null;
