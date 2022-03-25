@@ -1,32 +1,30 @@
-# Clickhouse
+# ClickhouseFile
 
-> Sink plugin : Clickhouse [Spark]
+> Sink plugin : ClickhouseFile [Spark]
 
 ## Description
 
-Use [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) to correspond the data source according to the field name and write it into ClickHouse. The corresponding data table needs to be created in advance before use
+Generate the clickhouse data file with the clickhouse-local program, and then send it to the clickhouse 
+server, also call bulk load.
 
 ## Options
 
-| name           | type    | required | default value |
-|----------------|---------| -------- |---------------|
-| bulk_size      | number  | no       | 20000         |
-| clickhouse.*   | string  | no       |               |
-| database       | string  | yes      | -             |
-| fields         | array   | no       | -             |
-| host           | string  | yes      | -             |
-| password       | string  | no       | -             |
-| retry          | number  | no       | 1             |
-| retry_codes    | array   | no       | [ ]           |
-| table          | string  | yes      | -             |
-| username       | string  | no       | -             |
-| split_mode     | boolean | no       | false         |
-| sharding_key   | string  | no       | -             |
-| common-options | string  | no       | -             |
-
-### bulk_size [number]
-
-The number of data written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000` .
+| name                   | type    | required | default value |
+|------------------------|---------|----------|---------------|
+| database               | string  | yes      | -             |
+| fields                 | array   | no       | -             |
+| host                   | string  | yes      | -             |
+| password               | string  | no       | -             |
+| table                  | string  | yes      | -             |
+| username               | string  | no       | -             |
+| sharding_key           | string  | no       | -             |
+| clickhouse_local_path  | string  | yes      | -             |
+| copy_method            | string  | no       | scp           |
+| node_free_password     | boolean | no       | false         |
+| node_pass              | list    | no       | -             |
+| node_pass.node_address | string  | no       | -             |
+| node_pass.password     | string  | no       | -             |
+| common-options         | string  | no       | -             |
 
 ### database [string]
 
@@ -44,16 +42,6 @@ The data field that needs to be output to `ClickHouse` , if not configured, it w
 
 `ClickHouse user password` . This field is only required when the permission is enabled in `ClickHouse` .
 
-### retry [number]
-
-The number of retries, the default is 1
-
-### retry_codes [array]
-
-When an exception occurs, the ClickHouse exception error code of the operation will be retried. For a detailed list of error codes, please refer to [ClickHouseErrorCode](https://github.com/ClickHouse/clickhouse-jdbc/blob/master/clickhouse-jdbc/src/main/java/ru/yandex/clickhouse/except/ClickHouseErrorCode.java)
-
-If multiple retries fail, this batch of data will be discarded, use with caution! !
-
 ### table [string]
 
 table name
@@ -62,23 +50,38 @@ table name
 
 `ClickHouse` user username, this field is only required when permission is enabled in `ClickHouse`
 
-### clickhouse [string]
-
-In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/blob/master/clickhouse-jdbc/src/main/java/ru/yandex/clickhouse/settings/ClickHouseProperties.java) provided by `clickhouse-jdbc` .
-
-The way to specify the parameter is to add the prefix `clickhouse.` to the original parameter name. For example, the way to specify `socket_timeout` is: `clickhouse.socket_timeout = 50000` . If these non-essential parameters are not specified, they will use the default values given by `clickhouse-jdbc`.
-
-### split_mode [boolean]
-
-This mode only support clickhouse table which engine is 'Distributed'.And `internal_replication` option 
-should be `true`. They will split distributed table data in seatunnel and perform write directly on each shard. The shard weight define is clickhouse will be 
-counted.
-
 ### sharding_key [string]
 
 When use split_mode, which node to send data to is a problem, the default is random selection, but the 
 'sharding_key' parameter can be used to specify the field for the sharding algorithm. This option only 
 worked when 'split_mode' is true.
+
+### clickhouse_local_path [string]
+
+The address of the clickhouse-local program on the spark node. Since each task needs to be called, 
+clickhouse-local should be located in the same path of each spark node.
+
+### copy_method [string]
+
+Specifies the method used to transfer files, the default is scp, optional scp and rsync
+
+### node_free_password [boolean]
+
+Because seatunnel need to use scp or rsync for file transfer, seatunnel need clickhouse server-side access.
+If each spark node and clickhouse server are configured with password-free login, 
+you can configure this option to true, otherwise you need to configure the corresponding node password in the node_pass configuration
+
+### node_pass [list]
+
+Used to save the addresses and corresponding passwords of all clickhouse servers
+
+### node_pass.node_address [string]
+
+The address corresponding to the clickhouse server
+
+### node_pass.node_password [string]
+
+The password corresponding to the clickhouse server, only support root user yet.
 
 ### common options [string]
 
@@ -87,7 +90,7 @@ Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) f
 ## ClickHouse type comparison table
 
 | ClickHouse field type | Convert plugin conversion goal type | SQL conversion expression     | Description                                           |
-| --------------------- | ----------------------------------- | ----------------------------- | ----------------------------------------------------- |
+| --------------------- | ----------------------------------- | ----------------------------- |-------------------------------------------------------|
 | Date                  | string                              | string()                      | `yyyy-MM-dd` Format string                            |
 | DateTime              | string                              | string()                      | `yyyy-MM-dd HH:mm:ss` Format string                   |
 | String                | string                              | string()                      |                                                       |
@@ -111,13 +114,13 @@ Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) f
 ```bash
 clickhouse {
     host = "localhost:8123"
-    clickhouse.socket_timeout = 50000
     database = "nginx"
     table = "access_msg"
     fields = ["date", "datetime", "hostname", "http_code", "data_size", "ua", "request_time"]
     username = "username"
     password = "password"
-    bulk_size = 20000
+    clickhouse_local_path = "/usr/bin/clickhouse-local"
+    node_free_password = true
 }
 ```
 
@@ -129,10 +132,17 @@ ClickHouse {
     fields = ["date", "datetime", "hostname", "http_code", "data_size", "ua", "request_time"]
     username = "username"
     password = "password"
-    bulk_size = 20000
-    retry_codes = [209, 210]
-    retry = 3
+    sharding_key = "age"
+    clickhouse_local_path = "/usr/bin/Clickhouse local"
+    node_pass = [
+      {
+        node_address = "localhost1"
+        password = "password"
+      }
+      {
+        node_address = "localhost2"
+        password = "password"
+      }
+    ]
 }
 ```
-
-> In case of network timeout or network abnormality, retry writing 3 times
