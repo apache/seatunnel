@@ -20,7 +20,6 @@ package org.apache.seatunnel.flink.source;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
@@ -60,15 +59,6 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     @Override
     public Config getConfig() {
         return config;
-    }
-
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(FlinkEnvironment env) {
     }
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};

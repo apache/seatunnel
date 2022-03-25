@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.spark.source
 
-import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -24,8 +23,6 @@ import org.apache.spark.sql.types.{DataTypes, StructType}
 import org.apache.spark.sql.{Dataset, Row, RowFactory}
 
 class Fake extends SparkBatchSource {
-
-  override def prepare(env: SparkEnvironment): Unit = {}
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
 
@@ -40,7 +37,4 @@ class Fake extends SparkBatchSource {
     env.getSparkSession.createDataset(s)(RowEncoder(schema))
   }
 
-  override def checkConfig(): CheckResult = {
-    CheckResult.success()
-  }
 }

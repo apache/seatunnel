@@ -10,18 +10,18 @@ Please [download Flink](https://flink.apache.org/downloads.html) first, please c
 
 ## Step 2: Download seatunnel
 
-Enter the [seatunnel installation package](https://github.com/apache/incubator-seatunnel/releases) download page and download the latest version of `seatunnel-<version>.zip`
+Enter the [seatunnel installation package](https://seatunnel.apache.org/download) download page and download the latest version of `seatunnel-<version>-bin.tar.gz`
 
-Or download the specified version directly (take 2.0.4 as an example):
+Or download the specified version directly (take 2.1.0 as an example):
 
 ```bash
-wget https://github.com/apache/incubator-seatunnel/releases/download/v2.0.4/waterdrop-dist-2.0.4-2.11.8-release.zip -O seatunnel-2.0.4.zip
+wget https://downloads.apache.org/incubator/seatunnel/2.1.0/apache-seatunnel-incubating-2.1.0-bin.tar.gz -O seatunnel-2.1.0.tar.gz
 ```
 
-After downloading, unzip:
+After downloading, extract:
 
 ```bash
-unzip seatunnel-<version>.zip
+tar -xvzf seatunnel-<version>.tar.gz
 ln -s seatunnel-<version> seatunnel
 ```
 

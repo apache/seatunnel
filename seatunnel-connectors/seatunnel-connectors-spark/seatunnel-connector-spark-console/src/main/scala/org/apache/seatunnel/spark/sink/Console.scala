@@ -18,6 +18,7 @@ package org.apache.seatunnel.spark.sink
 
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
+import org.apache.seatunnel.spark.Config.{LIMIT, SERIALIZER, PLAIN, JSON, SCHEMA, DEFAULT_SERIALIZER, DEFAULT_LIMIT}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -27,16 +28,16 @@ import scala.collection.JavaConversions._
 class Console extends SparkBatchSink {
 
   override def output(df: Dataset[Row], env: SparkEnvironment): Unit = {
-    val limit = config.getInt("limit")
+    val limit = config.getInt(LIMIT)
 
-    config.getString("serializer") match {
-      case "plain" =>
+    config.getString(SERIALIZER) match {
+      case PLAIN =>
         if (limit == -1) {
           df.show(Int.MaxValue, truncate = false)
         } else if (limit > 0) {
           df.show(limit, truncate = false)
         }
-      case "json" =>
+      case JSON =>
         if (limit == -1) {
           // scalastyle:off
           df.toJSON.take(Int.MaxValue).foreach(s => println(s))
@@ -46,24 +47,24 @@ class Console extends SparkBatchSink {
           df.toJSON.take(limit).foreach(s => println(s))
           // scalastyle:on
         }
-      case "schema" =>
+      case SCHEMA =>
         df.printSchema()
     }
   }
 
   override def checkConfig(): CheckResult = {
-    if (!config.hasPath("limit") || (config.hasPath("limit") && config.getInt("limit") >= -1)) {
+    if (!config.hasPath(LIMIT) || (config.hasPath(LIMIT) && config.getInt(LIMIT) >= -1)) {
       CheckResult.success()
     } else {
-      CheckResult.error("please specify [limit] as Number[-1, " + Int.MaxValue + "]")
+      CheckResult.error("Please specify [" + LIMIT + "] as Number[-1, " + Int.MaxValue + "]")
     }
   }
 
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "limit" -> 100,
-        "serializer" -> "plain" // plain | json
+        LIMIT -> DEFAULT_LIMIT,
+        SERIALIZER -> DEFAULT_SERIALIZER // plain | json
       ))
     config = config.withFallback(defaultConfig)
   }

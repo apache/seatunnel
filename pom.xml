@@ -80,6 +80,7 @@
         <module>seatunnel-connectors</module>
         <module>seatunnel-dist</module>
         <module>seatunnel-examples</module>
+        <module>seatunnel-e2e</module>
     </modules>
 
     <properties>
@@ -105,6 +106,7 @@
         <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>2.22.2</maven-failsafe-plugin.version>
         <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
         <checkstyle.fails.on.error>true</checkstyle.fails.on.error>
         <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
@@ -153,6 +155,9 @@
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
+        <testcontainer.version>1.16.3</testcontainer.version>
+        <skipUT>false</skipUT>
+        <skipIT>true</skipIT>
     </properties>
 
     <dependencyManagement>
@@ -475,6 +480,22 @@
                 <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${testcontainer.version}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
 
             <dependency>
                 <groupId>com.pingcap.tispark</groupId>
@@ -589,11 +610,31 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
+                        <skip>${skipUT}</skip>
                         <systemPropertyVariables>
                             <jacoco-agent.destfile>${project.build.directory}/jacoco.exec
                             </jacoco-agent.destfile>
                         </systemPropertyVariables>
+                        <excludes>
+                            <exclude>**/*IT.java</exclude>
+                        </excludes>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <skip>${skipIT}</skip>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
 
                 <plugin>
@@ -851,6 +892,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
             </plugin>
 
             <plugin>

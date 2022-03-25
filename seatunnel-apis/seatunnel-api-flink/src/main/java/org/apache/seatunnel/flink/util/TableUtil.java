@@ -24,9 +24,9 @@ import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.table.catalog.Catalog;
-import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.types.Row;
+
+import java.util.Arrays;
 
 public final class TableUtil {
 
@@ -59,9 +59,6 @@ public final class TableUtil {
     }
 
     public static boolean tableExists(TableEnvironment tableEnvironment, String name) {
-        String currentCatalog = tableEnvironment.getCurrentCatalog();
-        Catalog catalog = tableEnvironment.getCatalog(currentCatalog).get();
-        ObjectPath objectPath = new ObjectPath(tableEnvironment.getCurrentDatabase(), name);
-        return catalog.tableExists(objectPath);
+        return Arrays.asList(tableEnvironment.listTables()).contains(name);
     }
 }

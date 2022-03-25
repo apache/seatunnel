@@ -217,9 +217,21 @@ class Clickhouse extends SparkBatchSink {
       case "String" =>
         statement.setString(index + 1, item.getAs[String](fieldIndex))
       case "Date" =>
-        statement.setDate(index + 1, item.getAs[Date](fieldIndex))
+        val value = item.get(fieldIndex)
+        value match {
+          case date: Date =>
+            statement.setDate(index + 1, date)
+          case _ =>
+            statement.setDate(index + 1, Date.valueOf(value.toString))
+        }
       case "DateTime" | Clickhouse.datetime64Pattern(_) =>
-        statement.setTimestamp(index + 1, item.getAs[Timestamp](fieldIndex))
+        val value = item.get(fieldIndex)
+        value match {
+          case timestamp: Timestamp =>
+            statement.setTimestamp(index + 1, timestamp)
+          case _ =>
+            statement.setTimestamp(index + 1, Timestamp.valueOf(value.toString))
+        }
       case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
         statement.setInt(index + 1, item.getAs[Int](fieldIndex))
       case "UInt32" | "UInt64" | "Int64" =>

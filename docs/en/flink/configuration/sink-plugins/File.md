@@ -8,15 +8,18 @@ Write data to the file system
 
 ## Options
 
-| name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
-| format         | string | yes      | -             |
-| path           | string | yes      | -             |
-| path_time_format | string | no       | yyyyMMddHHmmss |
-| write_mode     | string | no       | -             |
-| common-options | string | no       | -             |
-| parallelism    | int    | no       | -             |
-
+| name              | type   | required | default value  |
+|-------------------|--------| -------- |----------------|
+| format            | string | yes      | -              |
+| path              | string | yes      | -              |
+| path_time_format  | string | no       | yyyyMMddHHmmss |
+| write_mode        | string | no       | -              |
+| common-options    | string | no       | -              |
+| parallelism       | int    | no       | -              |
+| rollover_interval | long   | no       | 1              |
+| max_part_size     | long   | no       | 1024          |
+| prefix            | string | no       | seatunnel      |
+| suffix            | string | no       | .ext           |
 
 ### format [string]
 
@@ -51,7 +54,7 @@ See [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/
 
 - OVERWRITE
 
-    - Overwrite, delete and then write if the path exists
+  - Overwrite, delete and then write if the path exists
 
 ### common options [string]
 
@@ -61,6 +64,21 @@ Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) f
 
 The parallelism of an individual operator, for FileSink
 
+### rollover_interval [long]
+
+The new file part rollover interval, unit min.
+
+### max_part_size [long]
+
+The max size of each file part, unit MB.
+
+### prefix [string]
+
+The prefix of each file part.
+
+### suffix [string]
+
+The suffix of each file part.
 
 ## Examples
 

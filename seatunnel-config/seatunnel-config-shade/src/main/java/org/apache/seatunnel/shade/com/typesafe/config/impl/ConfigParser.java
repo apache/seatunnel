@@ -111,11 +111,11 @@ final class ConfigParser {
 
                 Path path = pathStack.peekFirst();
 
-                if (path != null
+                if (path != null && !ConfigSyntax.JSON.equals(flavor)
                     && ("source".equals(path.first())
                     || "transform".equals(path.first())
                     || "sink".equals(path.first()))) {
-                    v = parseObjectForWaterdrop((ConfigNodeObject) n);
+                    v = parseObjectForSeatunnel((ConfigNodeObject) n);
                 } else {
                     v = parseObject((ConfigNodeObject) n);
                 }
@@ -233,7 +233,7 @@ final class ConfigParser {
             }
         }
 
-        private SimpleConfigList parseObjectForWaterdrop(ConfigNodeObject n) {
+        private SimpleConfigList parseObjectForSeatunnel(ConfigNodeObject n) {
 
             Map<String, AbstractConfigValue> values = new LinkedHashMap<>();
             List<AbstractConfigValue> valuesList = new ArrayList<>();

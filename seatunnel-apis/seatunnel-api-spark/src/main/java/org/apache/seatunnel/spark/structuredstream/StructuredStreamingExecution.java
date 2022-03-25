@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.spark.structuredstream;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.BaseSparkTransform;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -52,13 +51,4 @@ public class StructuredStreamingExecution implements Execution<StructuredStreami
         return this.config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(SparkEnvironment prepareEnv) {
-
-    }
 }
