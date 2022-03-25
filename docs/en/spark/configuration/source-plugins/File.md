@@ -9,7 +9,7 @@ read data from local or hdfs file.
 
 | name | type | required | default value |
 | --- | --- | --- | --- |
-| format | string | no | json |
+| format | string | no | - |
 | path | string | yes | - |
 | common-options| string | yes | - |
 
