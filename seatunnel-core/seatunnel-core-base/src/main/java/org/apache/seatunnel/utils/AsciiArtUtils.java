@@ -57,9 +57,9 @@ public final class AsciiArtUtils {
         for (int y = 0; y < height; y++) {
             StringBuilder sb = new StringBuilder();
             for (int x = 0; x < width; x++) {
-                if(image.getRGB(x, y) == RGB){
+                if (image.getRGB(x, y) == RGB) {
                     sb.append(" ");
-                }else{
+                } else {
                     sb.append(image.getRGB(x, y) == -1 ? "#" : "*");
                 }
             }
