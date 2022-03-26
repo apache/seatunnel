@@ -76,7 +76,7 @@ jobs:
         run: bash ./tools/dependencies/checkLicense.sh
       - name: Run Unit tests
         run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true --no-snapshot-updates
+          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false --no-snapshot-updates
       - name: Run Integration tests
         run: |
-          ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false -Dgpg.skip=true --no-snapshot-updates
+          ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false --no-snapshot-updates
