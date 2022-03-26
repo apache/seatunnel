@@ -29,7 +29,7 @@ public class FakeSourceToConsoleIT extends FlinkContainer {
 
     @Test
     public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFLinkJob("/fake/fakesource_to_console.conf");
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
 }
