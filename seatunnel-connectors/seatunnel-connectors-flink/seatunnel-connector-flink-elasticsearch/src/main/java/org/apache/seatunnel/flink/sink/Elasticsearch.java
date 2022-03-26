@@ -80,7 +80,7 @@ public class Elasticsearch implements FlinkStreamSink, FlinkBatchSink {
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        Map<String, String> configMap=new HashMap<>(DEFAULT_CONFIG_SIZE);
+        Map<String, String> configMap = new HashMap<>(DEFAULT_CONFIG_SIZE);
         configMap.put(INDEX, DEFAULT_INDEX);
         configMap.put(INDEX_TYPE, DEFAULT_INDEX_TYPE);
         configMap.put(INDEX_TIME_FORMAT, DEFAULT_INDEX_TIME_FORMAT);
