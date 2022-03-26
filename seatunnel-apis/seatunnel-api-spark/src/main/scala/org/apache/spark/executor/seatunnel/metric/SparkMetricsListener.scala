@@ -13,7 +13,7 @@ import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
-  * spark指标监听
+  * spark metric
   *
   * */
 
@@ -49,9 +49,9 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
   private val maxNumConcurrentTasks: String = String.valueOf(sparkSession.sparkContext.maxNumConcurrentTasks())
 
   /**
-    * 获取阶段性指标值
+    * Get stage index value
     *
-    * @param stageCompleted 阶段完成
+    * @param stageCompleted stageCompleted
     */
   override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {
     stagesCompleted.incrementAndGet()
@@ -71,16 +71,19 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
   }
 
   /**
-    * 获取每个task指标值,这里需要注意的是分布式系统每个task是运行在不同的执行器上的,
-    * 本地运行在driver上无需二次累加值,因此部分shuffle值需要做累加
+    * To get the index value of each task,
+    * it should be noted here that each task of the distributed system runs on a different executor,
+    * and the local running on the driver does not need to accumulate the value twice,
+    * so some shuffle values need to be accumulated
+    *
     *
     * @param taskEnd taskEnd
     */
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {
     tasksCompleted.incrementAndGet()
-    //内存使用峰值
+    //peak memory usage
     peakExecutionMemory.add(taskEnd.taskMetrics.peakExecutionMemory)
-    //只保留一个值
+    //keep only one value
     taskEndReason = taskEnd.reason.toString
     jvmGCTime.add(taskEnd.taskMetrics.jvmGCTime / unit)
     executorCpuTime = new java.math.BigDecimal(taskEnd.taskMetrics.executorCpuTime.doubleValue() / unit)
@@ -96,7 +99,7 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
   }
 
   /**
-    * 获取job个数以及job结束后的执行时间
+    * Get the number of jobs and the execution time after the job ends
     *
     * @param jobEnd jobEnd
     */
@@ -106,12 +109,13 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
   }
 
   /**
-    * 应用程序结束,后指标收集输出或者输出到外部系统中,生成任务执行报告
+    * After the application ends, the indicators are collected and output or output to an external system
+   * to generate a task execution report
     *
-    * @param applicationEnd 应用程序结束
+    * @param applicationEnd applicationEnd
     */
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
-    //处理无shuffle阶段值统计
+    //Handling no shuffle stage value statistics
     if (recordsRead.sum == 0){
       recordsRead.add(tmpRecordsRead.value)
     }
