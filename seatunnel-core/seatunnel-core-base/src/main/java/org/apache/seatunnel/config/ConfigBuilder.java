@@ -163,7 +163,6 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
                 // Iterator.next() may throw ServiceConfigurationError,
                 // but maybe caused by a not used plugin in this job
                 LOGGER.warn("Error when load plugin: [{}]", canonicalName, e);
-                throw e;
             }
         }
         throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
