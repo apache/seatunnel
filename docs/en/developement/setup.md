@@ -14,7 +14,6 @@ have installed the following software:
 * [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) installed.
 * [Java](https://www.java.com/en/download/) (only JDK 8 supported by now) installed and `JAVA_HOME` set.
 * [Scala](https://www.scala-lang.org/download/2.11.8.html) (only scala 2.11.8 supported by now) installed.
-* [Maven](https://maven.apache.org/download.cgi) installed.
 * [JetBrains IDEA](https://www.jetbrains.com/idea/) installed.
 
 ## Set Up
@@ -29,11 +28,11 @@ git clone git@github.com:apache/incubator-seatunnel.git
 
 ### Install Subproject Locally
 
-After cloning the source code, you should run the `maven` command to install the subproject to the maven local repository.
+After cloning the source code, you should run the `./mvnw` command to install the subproject to the maven local repository.
 Otherwise, your code could not start in JetBrains IntelliJ IDEA correctly.
 
 ```shell
-mvn install
+./mvnw install -Dmaven.test.skip
 ```
 
 ### Install JetBrains IDEA Scala Plugin
