@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.executor.seatunnel.metric.SparkMetricsListener;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.streaming.Seconds;
 import org.apache.spark.streaming.StreamingContext;
@@ -69,6 +70,7 @@ public class SparkEnvironment implements RuntimeEnv {
             builder.enableHiveSupport();
         }
         this.sparkSession = builder.getOrCreate();
+        createMetric();
         createStreamingContext();
         return this;
     }
@@ -93,5 +95,9 @@ public class SparkEnvironment implements RuntimeEnv {
         if (this.streamingContext == null) {
             this.streamingContext = new StreamingContext(sparkSession.sparkContext(), Seconds.apply(duration));
         }
+    }
+
+    private void createMetric(){
+        this.sparkSession.sparkContext().addSparkListener(new SparkMetricsListener(this.sparkSession));
     }
 }
