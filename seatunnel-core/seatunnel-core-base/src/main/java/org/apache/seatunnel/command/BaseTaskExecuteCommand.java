@@ -81,19 +81,21 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
      */
     @SafeVarargs
     protected final void close(List<? extends Plugin<E>>... plugins) {
-        Optional<RuntimeException> exceptionHolder = Optional.of(new PluginClosedException("below plugins closed error:"));
+        PluginClosedException exceptionHolder = null;
         for (List<? extends Plugin<E>> pluginList : plugins) {
             for (Plugin<E> plugin : pluginList) {
                 try (Plugin<?> closed = plugin) {
                     // ignore
                 } catch (Exception e) {
-                    exceptionHolder.get().addSuppressed(new PluginClosedException(
+                    exceptionHolder = exceptionHolder == null ?
+                            new PluginClosedException("below plugins closed error:") : exceptionHolder;
+                    exceptionHolder.addSuppressed(new PluginClosedException(
                             String.format("plugin %s closed error", plugin.getClass()), e));
                 }
             }
         }
-        if (exceptionHolder.get().getSuppressed().length > 0) {
-            throw exceptionHolder.get();
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
     }
 
