@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
+import org.apache.seatunnel.plugin.PluginClosedException;
 import org.apache.seatunnel.utils.AsciiArtUtils;
 import org.apache.seatunnel.utils.CompressionUtils;
 
@@ -80,19 +81,16 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
      */
     @SafeVarargs
     protected final void close(List<? extends Plugin<E>>... plugins) {
-        RuntimeException exceptionHolder = null;
+        PluginClosedException exceptionHolder = null;
         for (List<? extends Plugin<E>> pluginList : plugins) {
             for (Plugin<E> plugin : pluginList) {
                 try (Plugin<?> closed = plugin) {
                     // ignore
                 } catch (Exception e) {
-                    RuntimeException wrapperException = new RuntimeException(
-                            String.format("plugin %s closed error", plugin.getClass()), e);
-                    if (exceptionHolder == null) {
-                        exceptionHolder = wrapperException;
-                    } else {
-                        exceptionHolder.addSuppressed(wrapperException);
-                    }
+                    exceptionHolder = exceptionHolder == null ?
+                            new PluginClosedException("below plugins closed error:") : exceptionHolder;
+                    exceptionHolder.addSuppressed(new PluginClosedException(
+                            String.format("plugin %s closed error", plugin.getClass()), e));
                 }
             }
         }
