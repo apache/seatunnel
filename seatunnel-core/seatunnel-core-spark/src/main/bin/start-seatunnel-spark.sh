@@ -174,7 +174,7 @@ echo "[INFO] spark conf: ${sparkconf}"
 driverJavaOpts=""
 executorJavaOpts=""
 clientModeDriverJavaOpts=""
-if [ ! -z "${variables_substitution}" ]; then
+if [ -n "${variables_substitution}" ]; then
   driverJavaOpts="${variables_substitution}"
   executorJavaOpts="${variables_substitution}"
   # in local, client mode, driverJavaOpts can not work, we must use --driver-java-options
