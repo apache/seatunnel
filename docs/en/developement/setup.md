@@ -13,7 +13,7 @@ have installed the following software:
 
 * [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) installed.
 * [Java](https://www.java.com/en/download/) ( JDK8/JDK11 are supported by now) installed and `JAVA_HOME` set.
-* [Scala](https://www.scala-lang.org/download/2.11.8.html) (only scala 2.11.8 supported by now) installed.
+* [Scala](https://www.scala-lang.org/download/2.11.12.html) (only scala 2.11.12 supported by now) installed.
 * [JetBrains IDEA](https://www.jetbrains.com/idea/) installed.
 
 ## Set Up
