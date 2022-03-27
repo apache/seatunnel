@@ -160,6 +160,7 @@ flink-avro-1.13.6.jar
 flink-connector-base-1.13.6.jar
 flink-connector-elasticsearch-base_2.11-1.13.6.jar
 flink-connector-elasticsearch6_2.11-1.13.6.jar
+flink-connector-jdbc_2.11-1.13.6.jar
 flink-connector-kafka_2.11-1.13.6.jar
 flink-csv-1.13.6.jar
 flink-json-1.13.6.jar
@@ -345,6 +346,8 @@ jaxb-impl-2.2.3-1.jar
 jboss-logging-3.2.1.Final.jar
 jcip-annotations-1.0-1.jar
 jcl-over-slf4j-1.7.12.jar
+jcl-over-slf4j-1.7.16.jar
+jcl-over-slf4j-1.7.30.jar
 jcodings-1.0.18.jar
 jcodings-1.0.43.jar
 jcommander-1.81.jar
@@ -607,6 +610,9 @@ spark-unsafe_2.11-2.4.0.jar
 spoiwo_2.11-1.8.0.jar
 spymemcached-2.12.3.jar
 sqlline-1.2.0.jar
+sshd-common-2.7.0.jar
+sshd-core-2.7.0.jar
+sshd-scp-2.7.0.jar
 stax-api-1.0-2.jar
 stax2-api-3.1.4.jar
 stream-2.7.0.jar
@@ -657,7 +663,6 @@ iceberg-core-0.13.1.jar
 iceberg-api-0.13.1.jar
 iceberg-common-0.13.1.jar
 iceberg-bundled-guava-0.13.1.jar
-iceberg-spark-runtime-0.13.1.jar
 caffeine-2.8.4.jar
 checker-qual-3.4.0.jar
 error_prone_annotations-2.3.4.jar

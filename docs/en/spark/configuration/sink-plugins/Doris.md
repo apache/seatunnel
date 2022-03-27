@@ -1,6 +1,6 @@
-# Doirs
+# Doris
 
-> Sink plugin: Doirs [Spark]
+> Sink plugin: Doris [Spark]
 
 ### Description:
 Use Spark Batch Engine ETL Data to Doris.
@@ -29,6 +29,9 @@ Doris user name
 Doris user's password
 ##### batch_size [string]
 Doris number of submissions per batch
+
+Default value：5000
+
 ##### doris. [string]
 Doris stream_load properties,you can use 'doris.' prefix + stream_load properties
 [More Doris stream_load Configurations](https://doris.apache.org/administrator-guide/load-data/stream-load-manual.html)

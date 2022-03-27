@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.apis.BaseSink;
+import org.apache.seatunnel.apis.BaseSource;
+import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.env.Execution;
@@ -29,8 +32,6 @@ import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
 import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
 import org.apache.seatunnel.spark.structuredstream.StructuredStreamingExecution;
-import org.apache.seatunnel.utils.Engine;
-import org.apache.seatunnel.utils.PluginType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -48,20 +49,21 @@ import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
-public class ConfigBuilder {
+public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
     private final String configFile;
-    private final Engine engine;
-    private ConfigPackage configPackage;
+    private final EngineType engine;
+    private final ConfigPackage configPackage;
     private final Config config;
     private JobMode jobMode;
     private Config envConfig;
-    private final RuntimeEnv env;
+    private boolean enableHive;
+    private final ENVIRONMENT env;
 
-    public ConfigBuilder(String configFile, Engine engine) {
+    public ConfigBuilder(String configFile, EngineType engine) {
         this.configFile = configFile;
         this.engine = engine;
         this.config = load();
@@ -94,7 +96,7 @@ public class ConfigBuilder {
         return envConfig;
     }
 
-    public RuntimeEnv getEnv() {
+    public ENVIRONMENT getEnv() {
         return env;
     }
 
@@ -109,10 +111,26 @@ public class ConfigBuilder {
 
     }
 
+    private boolean checkIsContainHive() {
+        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+        for (Config c : sourceConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        List<? extends Config> sinkConfigList = config.getConfigList(PluginType.SINK.getType());
+        for (Config c : sinkConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * create plugin class instance, ignore case.
      **/
-    private <T extends Plugin<?>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
+    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
         if (name.split("\\.").length != 1) {
             // canonical class name
             return (T) Class.forName(name).newInstance();
@@ -157,7 +175,6 @@ public class ConfigBuilder {
         throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
     }
 
-
     /**
      * check if config is valid.
      **/
@@ -168,7 +185,7 @@ public class ConfigBuilder {
         this.createPlugins(PluginType.SINK);
     }
 
-    public <T extends Plugin<?>> List<T> createPlugins(PluginType type) {
+    public <T extends Plugin<ENVIRONMENT>> List<T> createPlugins(PluginType type) {
         Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
         List<? extends Config> configList = config.getConfigList(type.getType());
@@ -185,26 +202,26 @@ public class ConfigBuilder {
         return basePluginList;
     }
 
-    private RuntimeEnv createEnv() {
+    private ENVIRONMENT createEnv() {
         envConfig = config.getConfig("env");
-        setJobMode(envConfig);
-        RuntimeEnv env = null;
+        enableHive = checkIsContainHive();
+        ENVIRONMENT env;
         switch (engine) {
             case SPARK:
-                env = new SparkEnvironment();
+                env = (ENVIRONMENT) new SparkEnvironment().setEnableHive(enableHive);
                 break;
             case FLINK:
-                env = new FlinkEnvironment();
+                env = (ENVIRONMENT) new FlinkEnvironment();
                 break;
             default:
                 throw new IllegalArgumentException("Engine: " + engine + " is not supported");
         }
-        env.setConfig(envConfig);
-        env.prepare(jobMode);
+        setJobMode(envConfig);
+        env.setConfig(envConfig).setJobMode(jobMode).prepare();
         return env;
     }
 
-    public Execution createExecution() {
+    public Execution<BaseSource<ENVIRONMENT>, BaseTransform<ENVIRONMENT>, BaseSink<ENVIRONMENT>, ENVIRONMENT> createExecution() {
         Execution execution = null;
         switch (engine) {
             case SPARK:
@@ -229,7 +246,7 @@ public class ConfigBuilder {
                 throw new IllegalArgumentException("No suitable engine");
         }
         LOGGER.info("current execution is [{}]", execution.getClass().getName());
-        return execution;
+        return (Execution<BaseSource<ENVIRONMENT>, BaseTransform<ENVIRONMENT>, BaseSink<ENVIRONMENT>, ENVIRONMENT>) execution;
     }
 
 }

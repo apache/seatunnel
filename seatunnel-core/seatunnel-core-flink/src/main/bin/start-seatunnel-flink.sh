@@ -35,7 +35,7 @@ fi
 is_exist() {
     if [ -z $1 ]; then
       usage
-      exit -1
+      exit 1
     fi
 }
 
@@ -68,6 +68,9 @@ if [ -z ${CONFIG_FILE} ]; then
   echo "Error: The following option is required: [-c | --config]"
   usage
   exit -1
+elif [ ! -f ${CONFIG_FILE} ];then
+  echo "Error: Config file ${CONFIG_FILE} does not exists! Please check it."
+  exit -1
 fi
 
 # set positional arguments in their proper place
@@ -90,7 +93,8 @@ string_trim() {
     echo $1 | awk '{$1=$1;print}'
 }
 
-export JVM_ARGS=$(string_trim "${variables_substitution}")
+JVM_ARGS=$(string_trim "${variables_substitution}")
+export JVM_ARGS
 
 exec ${FLINK_HOME}/bin/flink run \
     ${PARAMS} \

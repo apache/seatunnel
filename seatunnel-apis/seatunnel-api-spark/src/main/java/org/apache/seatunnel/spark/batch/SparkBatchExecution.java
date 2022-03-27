@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.spark.batch;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.BaseSparkTransform;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -30,7 +29,7 @@ import org.apache.spark.sql.Row;
 
 import java.util.List;
 
-public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSparkTransform, SparkBatchSink> {
+public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSparkTransform, SparkBatchSink, SparkEnvironment> {
 
     private final SparkEnvironment environment;
 
@@ -48,10 +47,8 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
         if (!sources.isEmpty()) {
             Dataset<Row> ds = sources.get(0).getData(environment);
             for (BaseSparkTransform transform : transforms) {
-                if (ds.takeAsList(1).size() > 0) {
-                    ds = SparkEnvironment.transformProcess(environment, transform, ds);
-                    SparkEnvironment.registerTransformTempView(transform, ds);
-                }
+                ds = SparkEnvironment.transformProcess(environment, transform, ds);
+                SparkEnvironment.registerTransformTempView(transform, ds);
             }
             for (SparkBatchSink sink : sinks) {
                 SparkEnvironment.sinkProcess(environment, sink, ds);
@@ -67,11 +64,6 @@ public class SparkBatchExecution implements Execution<SparkBatchSource, BaseSpar
     @Override
     public Config getConfig() {
         return this.config;
-    }
-
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
     }
 
 }

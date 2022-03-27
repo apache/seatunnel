@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.spark.structuredstream;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.BaseSparkTransform;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -31,8 +30,7 @@ import org.apache.spark.sql.Row;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class StructuredStreamingExecution implements
-        Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink> {
+public class StructuredStreamingExecution implements Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink, SparkEnvironment> {
 
     private final SparkEnvironment sparkEnvironment;
 
@@ -71,11 +69,6 @@ public class StructuredStreamingExecution implements
     @Override
     public Config getConfig() {
         return this.config;
-    }
-
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
     }
 
 }

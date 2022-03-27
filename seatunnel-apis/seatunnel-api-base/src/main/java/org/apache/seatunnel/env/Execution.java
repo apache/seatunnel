@@ -27,7 +27,11 @@ import java.util.List;
 /**
  * the SeaTunnel job's execution context
  */
-public interface Execution<SR extends BaseSource, TF extends BaseTransform, SK extends BaseSink> extends Plugin<Void> {
+public interface Execution<
+    SR extends BaseSource<RE>,
+    TF extends BaseTransform<RE>,
+    SK extends BaseSink<RE>,
+    RE extends RuntimeEnv> extends Plugin<RE> {
 
     /**
      * start to execute the SeaTunnel job
@@ -38,7 +42,4 @@ public interface Execution<SR extends BaseSource, TF extends BaseTransform, SK e
      */
     void start(List<SR> sources, List<TF> transforms, List<SK> sinks) throws Exception;
 
-    @Override
-    default void prepare(Void prepareEnv) {
-    }
 }

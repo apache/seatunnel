@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.spark;
 
+import static org.apache.seatunnel.plugin.Plugin.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.plugin.Plugin.SOURCE_TABLE_NAME;
+
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -42,9 +45,25 @@ public class SparkEnvironment implements RuntimeEnv {
 
     private Config config = ConfigFactory.empty();
 
+    private boolean enableHive = false;
+
+    private JobMode jobMode;
+
+    public SparkEnvironment setEnableHive(boolean enableHive) {
+        this.enableHive = enableHive;
+        return this;
+    }
+
     @Override
-    public void setConfig(Config config) {
+    public SparkEnvironment setConfig(Config config) {
         this.config = config;
+        return this;
+    }
+
+    @Override
+    public RuntimeEnv setJobMode(JobMode mode) {
+        this.jobMode = mode;
+        return this;
     }
 
     @Override
@@ -58,10 +77,15 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void prepare(JobMode jobMode) {
+    public SparkEnvironment prepare() {
         SparkConf sparkConf = createSparkConf();
-        this.sparkSession = SparkSession.builder().config(sparkConf).getOrCreate();
+        SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
+        if (enableHive) {
+            builder.enableHiveSupport();
+        }
+        this.sparkSession = builder.getOrCreate();
         createStreamingContext();
+        return this;
     }
 
     public SparkSession getSparkSession() {

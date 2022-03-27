@@ -42,7 +42,7 @@ public final class CheckConfigUtil {
                 .filter(param -> !isValidParam(config, param))
                 .collect(Collectors.toList());
 
-        if (missingParams.size() > 0) {
+        if (!missingParams.isEmpty()) {
             String errorMsg = String.format("please specify [%s] as non-empty",
                     String.join(",", missingParams));
             return CheckResult.error(errorMsg);
