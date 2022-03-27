@@ -83,8 +83,8 @@ public class FlinkEnvironment implements RuntimeEnv {
             createStreamEnvironment();
             createStreamTableEnvironment();
         } else {
-            createBatchTableEnvironment();
             createExecutionEnvironment();
+            createBatchTableEnvironment();
         }
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
