@@ -23,9 +23,13 @@ import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.command.BaseTaskExecuteCommand;
 import org.apache.seatunnel.command.FlinkCommandArgs;
 import org.apache.seatunnel.config.ConfigBuilder;
-import org.apache.seatunnel.config.PluginType;
+import org.apache.seatunnel.config.EngineType;
+import org.apache.seatunnel.config.ExecutionContext;
+import org.apache.seatunnel.config.ExecutionFactory;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 
@@ -36,20 +40,25 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
 
     @Override
     public void execute(FlinkCommandArgs flinkCommandArgs) {
-        ConfigBuilder<FlinkEnvironment> configBuilder = new ConfigBuilder<>(flinkCommandArgs.getConfigFile(), flinkCommandArgs.getEngineType());
+        EngineType engine = flinkCommandArgs.getEngineType();
+        String configFile = flinkCommandArgs.getConfigFile();
 
-        List<BaseSource<FlinkEnvironment>> sources = configBuilder.createPlugins(PluginType.SOURCE);
-        List<BaseTransform<FlinkEnvironment>> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
-        List<BaseSink<FlinkEnvironment>> sinks = configBuilder.createPlugins(PluginType.SINK);
+        Config config = new ConfigBuilder<>(configFile, engine).getConfig();
+        ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine);
+        Execution<BaseSource<FlinkEnvironment>,
+            BaseTransform<FlinkEnvironment>,
+            BaseSink<FlinkEnvironment>,
+            FlinkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution();
 
-        Execution<BaseSource<FlinkEnvironment>, BaseTransform<FlinkEnvironment>, BaseSink<FlinkEnvironment>, FlinkEnvironment>
-            execution = configBuilder.createExecution();
+        List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
+        List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
+        List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();
 
-        baseCheckConfig(sources, transforms, sinks);
+        baseCheckConfig(sinks, transforms, sinks);
         showAsciiLogo();
 
         try {
-            prepare(configBuilder.getEnv(), sources, transforms, sinks);
+            prepare(executionContext.getEnvironment(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);
         } catch (Exception e) {

@@ -41,9 +41,15 @@ import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
+/**
+ * Used to load the plugins.
+ *
+ * @param <ENVIRONMENT> environment
+ */
 public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PluginFactory.class);
+    private final Config config;
     private final EngineType engineType;
     private static final Map<EngineType, Map<PluginType, Class<?>>> PLUGIN_BASE_CLASS_MAP;
 
@@ -64,20 +70,20 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
         PLUGIN_BASE_CLASS_MAP.put(EngineType.FLINK, flinkBaseClassMap);
     }
 
-    public PluginFactory(EngineType engineType) {
+    public PluginFactory(Config config, EngineType engineType) {
+        this.config = config;
         this.engineType = engineType;
     }
 
     /**
      * Create the plugins by plugin type.
      *
-     * @param config root config
      * @param type   plugin type
      * @param <T>    plugin
      * @return plugin list.
      */
     @SuppressWarnings("unchecked")
-    public <T extends Plugin<ENVIRONMENT>> List<T> createPlugins(Config config, PluginType type) {
+    public <T extends Plugin<ENVIRONMENT>> List<T> createPlugins(PluginType type) {
         Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
         List<? extends Config> configList = config.getConfigList(type.getType());
@@ -126,7 +132,6 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
         }
         throw new ClassNotFoundException("Plugin class not found by name :[" + pluginName + "]");
     }
-
 
     private Class<?> getPluginBaseClass(EngineType engineType, PluginType pluginType) {
         if (!PLUGIN_BASE_CLASS_MAP.containsKey(engineType)) {
