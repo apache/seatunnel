@@ -28,6 +28,6 @@ import org.apache.flink.types.Row;
  */
 public interface FlinkBatchTransform extends BaseFlinkTransform {
 
-    DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data);
+    DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) throws Exception;
 
 }
