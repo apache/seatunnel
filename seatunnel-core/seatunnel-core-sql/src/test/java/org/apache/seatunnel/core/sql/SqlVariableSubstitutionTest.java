@@ -34,16 +34,18 @@ public class SqlVariableSubstitutionTest {
     @Test
     public void normalizeStatementsWithMultiSqls() throws Exception {
         String[] args = {"-c", System.getProperty("user.dir") + TEST_RESOURCE_DIR + "flink.sql.conf.template",
-            "-t", "-i", "table_name=events"};
+            "-t", "-i", "table_name=events", "-i", "table_name2=print_table"};
 
         FlinkCommandArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
         String configFilePath = flinkArgs.getConfigFile();
         String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
         JobInfo jobInfo = new JobInfo(jobContent);
         Assert.assertFalse(jobInfo.getJobContent().contains("events"));
+        Assert.assertFalse(jobInfo.getJobContent().contains("print_table"));
 
         jobInfo.substitute(flinkArgs.getVariables());
         Assert.assertTrue(jobInfo.getJobContent().contains("events"));
+        Assert.assertTrue(jobInfo.getJobContent().contains("print_table"));
     }
 
 }

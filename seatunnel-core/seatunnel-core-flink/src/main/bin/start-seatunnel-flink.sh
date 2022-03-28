@@ -35,7 +35,7 @@ fi
 is_exist() {
     if [ -z $1 ]; then
       usage
-      exit -1
+      exit 1
     fi
 }
 
@@ -93,7 +93,8 @@ string_trim() {
     echo $1 | awk '{$1=$1;print}'
 }
 
-export JVM_ARGS=$(string_trim "${variables_substitution}")
+JVM_ARGS=$(string_trim "${variables_substitution}")
+export JVM_ARGS
 
 exec ${FLINK_HOME}/bin/flink run \
     ${PARAMS} \

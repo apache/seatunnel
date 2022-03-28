@@ -40,11 +40,13 @@ Doris 密码
 
 ##### batch_size [int]
 
-单次写Doris的最大行数,默认值100
+单次写 Doris 的最大行数,默认值 : 5000
 
 ##### interval [int]
 
 flush 间隔时间(毫秒)，超过该时间后异步线程将 缓存中数据写入Doris。设置为0表示关闭定期写入。
+
+默认值：5000（毫秒）即5秒一个批次
 
 ##### max_retries [int]
 
@@ -67,4 +69,4 @@ DorisSink {
 	 doris.column_separator="\t"
      doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
 }
- ```
+```

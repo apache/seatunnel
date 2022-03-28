@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.apis.BaseSink;
+import org.apache.seatunnel.apis.BaseSource;
+import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -27,6 +31,7 @@ import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
 import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
+import org.apache.seatunnel.spark.structuredstream.StructuredStreamingExecution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -44,18 +49,19 @@ import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
-public class ConfigBuilder {
+public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
     private final String configFile;
     private final EngineType engine;
-    private ConfigPackage configPackage;
+    private final ConfigPackage configPackage;
     private final Config config;
-    private boolean streaming;
+    private JobMode jobMode;
     private Config envConfig;
-    private final RuntimeEnv env;
+    private boolean enableHive;
+    private final ENVIRONMENT env;
 
     public ConfigBuilder(String configFile, EngineType engine) {
         this.configFile = configFile;
@@ -90,20 +96,41 @@ public class ConfigBuilder {
         return envConfig;
     }
 
-    public RuntimeEnv getEnv() {
+    public ENVIRONMENT getEnv() {
         return env;
     }
 
-    private boolean checkIsStreaming() {
-        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+    private void setJobMode(Config envConfig) {
+        if (envConfig.hasPath("job.mode")) {
+            jobMode = envConfig.getEnum(JobMode.class, "job.mode");
+        } else {
+            //Compatible with previous logic
+            List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+            jobMode = sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream") ? JobMode.STREAMING : JobMode.BATCH;
+        }
 
-        return sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream");
+    }
+
+    private boolean checkIsContainHive() {
+        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+        for (Config c : sourceConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        List<? extends Config> sinkConfigList = config.getConfigList(PluginType.SINK.getType());
+        for (Config c : sinkConfigList) {
+            if (c.getString(PLUGIN_NAME_KEY).toLowerCase().contains("hive")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
      * create plugin class instance, ignore case.
      **/
-    private <T extends Plugin<?>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
+    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
         if (name.split("\\.").length != 1) {
             // canonical class name
             return (T) Class.forName(name).newInstance();
@@ -148,7 +175,6 @@ public class ConfigBuilder {
         throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
     }
 
-
     /**
      * check if config is valid.
      **/
@@ -159,7 +185,7 @@ public class ConfigBuilder {
         this.createPlugins(PluginType.SINK);
     }
 
-    public <T extends Plugin<?>> List<T> createPlugins(PluginType type) {
+    public <T extends Plugin<ENVIRONMENT>> List<T> createPlugins(PluginType type) {
         Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
         List<T> basePluginList = new ArrayList<>();
         List<? extends Config> configList = config.getConfigList(type.getType());
@@ -176,48 +202,51 @@ public class ConfigBuilder {
         return basePluginList;
     }
 
-    private RuntimeEnv createEnv() {
+    private ENVIRONMENT createEnv() {
         envConfig = config.getConfig("env");
-        streaming = checkIsStreaming();
-        RuntimeEnv env = null;
+        enableHive = checkIsContainHive();
+        ENVIRONMENT env;
         switch (engine) {
             case SPARK:
-                env = new SparkEnvironment();
+                env = (ENVIRONMENT) new SparkEnvironment().setEnableHive(enableHive);
                 break;
             case FLINK:
-                env = new FlinkEnvironment();
+                env = (ENVIRONMENT) new FlinkEnvironment();
                 break;
             default:
                 throw new IllegalArgumentException("Engine: " + engine + " is not supported");
         }
-        env.setConfig(envConfig);
-        env.prepare(streaming);
+        setJobMode(envConfig);
+        env.setConfig(envConfig).setJobMode(jobMode).prepare();
         return env;
     }
 
-    public Execution createExecution() {
+    public Execution<BaseSource<ENVIRONMENT>, BaseTransform<ENVIRONMENT>, BaseSink<ENVIRONMENT>, ENVIRONMENT> createExecution() {
         Execution execution = null;
         switch (engine) {
             case SPARK:
                 SparkEnvironment sparkEnvironment = (SparkEnvironment) env;
-                if (streaming) {
+                if (JobMode.STREAMING.equals(jobMode)) {
                     execution = new SparkStreamingExecution(sparkEnvironment);
+                } else if (JobMode.STRUCTURED_STREAMING.equals(jobMode)) {
+                    execution = new StructuredStreamingExecution(sparkEnvironment);
                 } else {
                     execution = new SparkBatchExecution(sparkEnvironment);
                 }
                 break;
             case FLINK:
                 FlinkEnvironment flinkEnvironment = (FlinkEnvironment) env;
-                if (streaming) {
+                if (JobMode.STREAMING.equals(jobMode)) {
                     execution = new FlinkStreamExecution(flinkEnvironment);
                 } else {
                     execution = new FlinkBatchExecution(flinkEnvironment);
                 }
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("No suitable engine");
         }
-        return execution;
+        LOGGER.info("current execution is [{}]", execution.getClass().getName());
+        return (Execution<BaseSource<ENVIRONMENT>, BaseTransform<ENVIRONMENT>, BaseSink<ENVIRONMENT>, ENVIRONMENT>) execution;
     }
 
 }

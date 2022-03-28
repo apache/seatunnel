@@ -47,5 +47,4 @@ class Iceberg extends SparkBatchSource {
     checkAllExists(config, "path", "pre_sql")
   }
 
-  override def prepare(prepareEnv: SparkEnvironment): Unit = {}
 }

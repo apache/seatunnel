@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.source;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
@@ -30,7 +29,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.types.Row;
 
-public class SocketStream implements FlinkStreamSource<Row> {
+public class SocketStream implements FlinkStreamSource {
 
     private static final long serialVersionUID = 986629276153771291L;
     private Config config;
@@ -61,11 +60,6 @@ public class SocketStream implements FlinkStreamSource<Row> {
     @Override
     public Config getConfig() {
         return config;
-    }
-
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
     }
 
     @Override

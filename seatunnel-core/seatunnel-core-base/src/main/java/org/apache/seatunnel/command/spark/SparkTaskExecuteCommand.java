@@ -25,26 +25,30 @@ import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.config.ConfigBuilder;
 import org.apache.seatunnel.config.PluginType;
 import org.apache.seatunnel.env.Execution;
+import org.apache.seatunnel.spark.SparkEnvironment;
 
 import java.util.List;
 
-public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommandArgs> {
+public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommandArgs, SparkEnvironment> {
 
     @Override
     public void execute(SparkCommandArgs sparkCommandArgs) {
         String confFile = sparkCommandArgs.getConfigFile();
 
-        ConfigBuilder configBuilder = new ConfigBuilder(confFile, sparkCommandArgs.getEngineType());
-        List<BaseSource> sources = configBuilder.createPlugins(PluginType.SOURCE);
-        List<BaseTransform> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
-        List<BaseSink> sinks = configBuilder.createPlugins(PluginType.SINK);
-        Execution execution = configBuilder.createExecution();
+        ConfigBuilder<SparkEnvironment> configBuilder = new ConfigBuilder<>(confFile, sparkCommandArgs.getEngineType());
+        List<BaseSource<SparkEnvironment>> sources = configBuilder.createPlugins(PluginType.SOURCE);
+        List<BaseTransform<SparkEnvironment>> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
+        List<BaseSink<SparkEnvironment>> sinks = configBuilder.createPlugins(PluginType.SINK);
+
+        Execution<BaseSource<SparkEnvironment>, BaseTransform<SparkEnvironment>, BaseSink<SparkEnvironment>, SparkEnvironment>
+            execution = configBuilder.createExecution();
         baseCheckConfig(sources, transforms, sinks);
-        prepare(configBuilder.getEnv(), sources, transforms, sinks);
         showAsciiLogo();
 
         try {
+            prepare(configBuilder.getEnv(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
+            close(sources, transforms, sinks);
         } catch (Exception e) {
             throw new RuntimeException("Execute Spark task error", e);
         }

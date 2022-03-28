@@ -31,7 +31,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-public class DataStreamToTable implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
+public class DataStreamToTable implements FlinkStreamTransform, FlinkBatchTransform {
 
     private static final long serialVersionUID = -7861928245025199286L;
     private Config config;
@@ -62,9 +62,5 @@ public class DataStreamToTable implements FlinkStreamTransform<Row, Row>, FlinkB
     @Override
     public CheckResult checkConfig() {
         return CheckConfigUtil.checkAllExists(config, Plugin.RESULT_TABLE_NAME);
-    }
-
-    @Override
-    public void prepare(FlinkEnvironment env) {
     }
 }

@@ -55,7 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<Row, Row> {
+public class Elasticsearch implements FlinkStreamSink, FlinkBatchSink {
 
     private static final long serialVersionUID = 8445868321245456793L;
     private static final int DEFAULT_CONFIG_SIZE = 3;
@@ -80,13 +80,11 @@ public class Elasticsearch implements FlinkStreamSink<Row, Row>, FlinkBatchSink<
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        Config defaultConfig = ConfigFactory.parseMap(new HashMap<String, String>(DEFAULT_CONFIG_SIZE) {
-            {
-                put(INDEX, DEFAULT_INDEX);
-                put(INDEX_TYPE, DEFAULT_INDEX_TYPE);
-                put(INDEX_TIME_FORMAT, DEFAULT_INDEX_TIME_FORMAT);
-            }
-        });
+        Map<String, String> configMap = new HashMap<>(DEFAULT_CONFIG_SIZE);
+        configMap.put(INDEX, DEFAULT_INDEX);
+        configMap.put(INDEX_TYPE, DEFAULT_INDEX_TYPE);
+        configMap.put(INDEX_TIME_FORMAT, DEFAULT_INDEX_TIME_FORMAT);
+        Config defaultConfig = ConfigFactory.parseMap(configMap);
         config = config.withFallback(defaultConfig);
     }
 

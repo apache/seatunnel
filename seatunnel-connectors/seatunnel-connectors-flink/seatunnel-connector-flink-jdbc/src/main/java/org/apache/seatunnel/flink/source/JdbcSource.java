@@ -19,11 +19,18 @@ package org.apache.seatunnel.flink.source;
 
 import static org.apache.seatunnel.flink.Config.DRIVER;
 import static org.apache.seatunnel.flink.Config.PARALLELISM;
+import static org.apache.seatunnel.flink.Config.PARTITION_COLUMN;
+import static org.apache.seatunnel.flink.Config.PARTITION_LOWER_BOUND;
+import static org.apache.seatunnel.flink.Config.PARTITION_UPPER_BOUND;
 import static org.apache.seatunnel.flink.Config.PASSWORD;
 import static org.apache.seatunnel.flink.Config.QUERY;
 import static org.apache.seatunnel.flink.Config.SOURCE_FETCH_SIZE;
 import static org.apache.seatunnel.flink.Config.URL;
 import static org.apache.seatunnel.flink.Config.USERNAME;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -40,7 +47,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSource;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connector.jdbc.split.JdbcNumericBetweenParametersProvider;
+import org.apache.flink.connector.jdbc.split.JdbcParameterValuesProvider;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +59,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -56,7 +67,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class JdbcSource implements FlinkBatchSource<Row> {
+public class JdbcSource implements FlinkBatchSource {
 
     private static final long serialVersionUID = -3349505356339446415L;
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSource.class);
@@ -69,9 +80,12 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     private String username;
     private String password;
     private int fetchSize = DEFAULT_FETCH_SIZE;
+    private int parallelism = -1;
     private Set<String> fields;
+    private Map<String, TypeInformation<?>> tableFieldInfo;
 
-    private static final Pattern COMPILE = Pattern.compile("select (.+) from (.+).*");
+    private static final Pattern COMPILE = Pattern.compile("[\\s]*select[\\s]*(.*)from[\\s]*([\\S]+)(.*)",
+            Pattern.CASE_INSENSITIVE);
 
     private JdbcInputFormat jdbcInputFormat;
 
@@ -79,8 +93,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
     public DataSet<Row> getData(FlinkEnvironment env) {
         DataSource<Row> dataSource = env.getBatchEnvironment().createInput(jdbcInputFormat);
         if (config.hasPath(PARALLELISM)) {
-            int parallelism = config.getInt(PARALLELISM);
-            return dataSource.setParallelism(parallelism);
+            return dataSource.setParallelism(config.getInt(PARALLELISM));
         }
         return dataSource;
     }
@@ -106,7 +119,118 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         dbUrl = config.getString(URL);
         username = config.getString(USERNAME);
         String query = config.getString(QUERY);
+        Tuple2<String, Set<String>> tableNameAndFields = getTableNameAndFields(COMPILE, query);
+        tableName = tableNameAndFields.f0;
+        fields = tableNameAndFields.f1;
+        if (config.hasPath(PASSWORD)) {
+            password = config.getString(PASSWORD);
+        }
+        if (config.hasPath(SOURCE_FETCH_SIZE)) {
+            fetchSize = config.getInt(SOURCE_FETCH_SIZE);
+        }
+        if (config.hasPath(PARALLELISM)) {
+            parallelism = config.getInt(PARALLELISM);
+        } else {
+            parallelism = env.getBatchEnvironment().getParallelism();
+        }
+        try {
+            Class.forName(driverName);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("jdbc connection init failed.", e);
+        }
+
+        try (Connection connection = DriverManager.getConnection(dbUrl, username, password)) {
+            tableFieldInfo = initTableField(connection);
+            RowTypeInfo rowTypeInfo = getRowTypeInfo();
+            JdbcInputFormat.JdbcInputFormatBuilder builder = JdbcInputFormat.buildFlinkJdbcInputFormat();
+            if (config.hasPath(PARTITION_COLUMN)) {
+                if (!tableFieldInfo.containsKey(config.getString(PARTITION_COLUMN))) {
+                    throw new IllegalArgumentException(String.format("field %s not contain in table %s",
+                            config.getString(PARTITION_COLUMN), tableName));
+                }
+                if (!isNumericType(rowTypeInfo.getTypeAt(config.getString(PARTITION_COLUMN)))) {
+                    throw new IllegalArgumentException(String.format("%s is not numeric type", PARTITION_COLUMN));
+                }
+                JdbcParameterValuesProvider jdbcParameterValuesProvider =
+                        initPartition(config.getString(PARTITION_COLUMN), connection);
+                builder.setParametersProvider(jdbcParameterValuesProvider);
+                query = extendPartitionQuerySql(query, config.getString(PARTITION_COLUMN));
+            }
+            builder.setDrivername(driverName).setDBUrl(dbUrl).setUsername(username)
+                    .setPassword(password).setQuery(query).setFetchSize(fetchSize)
+                    .setRowTypeInfo(rowTypeInfo);
+
+            jdbcInputFormat = builder.finish();
+        } catch (SQLException e) {
+            throw new RuntimeException("jdbc connection init failed.", e);
+        }
+    }
+
+    private String extendPartitionQuerySql(String query, String column) {
         Matcher matcher = COMPILE.matcher(query);
+        if (matcher.find()) {
+            String where = matcher.group(Integer.parseInt("3"));
+            if (where != null && where.trim().toLowerCase().startsWith("where")) {
+                // contain where
+                return query + " AND \"" + column + "\" BETWEEN ? AND ?";
+            } else {
+                // not contain where
+                return query + " WHERE \"" + column + "\" BETWEEN ? AND ?";
+            }
+        } else {
+            throw new IllegalArgumentException("sql statement format is incorrect :" + query);
+        }
+    }
+
+    private JdbcParameterValuesProvider initPartition(String columnName, Connection connection) throws SQLException {
+        long max = Long.MAX_VALUE;
+        long min = Long.MIN_VALUE;
+        if (config.hasPath(PARTITION_UPPER_BOUND) && config.hasPath(PARTITION_LOWER_BOUND)) {
+            max = config.getLong(PARTITION_UPPER_BOUND);
+            min = config.getLong(PARTITION_LOWER_BOUND);
+        } else {
+            ResultSet rs = connection.createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
+                    "FROM %s", columnName, columnName, tableName));
+            if (rs.next()) {
+                max = config.hasPath(PARTITION_UPPER_BOUND) ? config.getLong(PARTITION_UPPER_BOUND) :
+                        Long.parseLong(rs.getString(1));
+                min = config.hasPath(PARTITION_LOWER_BOUND) ? config.getLong(PARTITION_LOWER_BOUND) :
+                        Long.parseLong(rs.getString(2));
+            }
+        }
+
+        return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism * 2);
+    }
+
+    private boolean isNumericType(TypeInformation<?> type) {
+        return type.equals(INT_TYPE_INFO) || type.equals(SHORT_TYPE_INFO)
+                || type.equals(LONG_TYPE_INFO) || type.equals(BIG_INT_TYPE_INFO);
+    }
+
+    private Map<String, TypeInformation<?>> initTableField(Connection connection) {
+        Map<String, TypeInformation<?>> map = new LinkedHashMap<>();
+
+        try {
+            TypeInformationMap informationMapping = getTypeInformationMap(driverName);
+            DatabaseMetaData metaData = connection.getMetaData();
+            ResultSet columns = metaData.getColumns(connection.getCatalog(), connection.getSchema(), tableName, "%");
+            while (columns.next()) {
+                String columnName = columns.getString("COLUMN_NAME");
+                String dataTypeName = columns.getString("TYPE_NAME");
+                if (fields == null || fields.contains(columnName)) {
+                    map.put(columnName, informationMapping.getInformation(dataTypeName));
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("get row type info exception", e);
+        }
+        return map;
+    }
+
+    private Tuple2<String, Set<String>> getTableNameAndFields(Pattern regex, String selectSql) {
+        Matcher matcher = regex.matcher(selectSql);
+        String tableName;
+        Set<String> fields = null;
         if (matcher.find()) {
             String var = matcher.group(1);
             tableName = matcher.group(2);
@@ -118,43 +242,18 @@ public class JdbcSource implements FlinkBatchSource<Row> {
                 }
                 fields = vars;
             }
+            return new Tuple2<>(tableName, fields);
+        } else {
+            throw new IllegalArgumentException("can't find tableName and fields in sql :" + selectSql);
         }
-        if (config.hasPath(PASSWORD)) {
-            password = config.getString(PASSWORD);
-        }
-        if (config.hasPath(SOURCE_FETCH_SIZE)) {
-            fetchSize = config.getInt(SOURCE_FETCH_SIZE);
-        }
-
-        jdbcInputFormat = JdbcInputFormat.buildFlinkJdbcInputFormat().setDrivername(driverName).setDBUrl(dbUrl).setUsername(username).setPassword(password).setQuery(query).setFetchSize(fetchSize).setRowTypeInfo(getRowTypeInfo()).finish();
     }
 
     private RowTypeInfo getRowTypeInfo() {
-        Map<String, TypeInformation<?>> map = new LinkedHashMap<>();
-
-        try {
-            Class.forName(driverName);
-            TypeInformationMap informationMapping = getTypeInformationMap(driverName);
-            Connection connection = DriverManager.getConnection(dbUrl, username, password);
-            DatabaseMetaData metaData = connection.getMetaData();
-            ResultSet columns = metaData.getColumns(connection.getCatalog(), connection.getSchema(), tableName, "%");
-            while (columns.next()) {
-                String columnName = columns.getString("COLUMN_NAME");
-                String dataTypeName = columns.getString("TYPE_NAME");
-                if (fields == null || fields.contains(columnName)) {
-                    map.put(columnName, informationMapping.getInformation(dataTypeName));
-                }
-            }
-            connection.close();
-        } catch (Exception e) {
-            LOGGER.warn("get row type info exception", e);
-        }
-
-        int size = map.size();
+        int size = tableFieldInfo.size();
         if (fields != null && fields.size() > 0) {
             size = fields.size();
         } else {
-            fields = map.keySet();
+            fields = tableFieldInfo.keySet();
         }
 
         TypeInformation<?>[] typeInformation = new TypeInformation<?>[size];
@@ -162,7 +261,7 @@ public class JdbcSource implements FlinkBatchSource<Row> {
         int i = 0;
 
         for (String field : fields) {
-            typeInformation[i] = map.get(field);
+            typeInformation[i] = tableFieldInfo.get(field);
             names[i] = field;
             i++;
         }

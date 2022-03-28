@@ -17,16 +17,14 @@
 package org.apache.seatunnel.spark.source
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-
-import scala.collection.JavaConversions._
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
 
-class Hudi extends SparkBatchSource {
+import scala.collection.JavaConversions._
 
-  override def prepare(env: SparkEnvironment): Unit = {}
+class Hudi extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
     checkAllExists(config, "hoodie.datasource.read.paths")

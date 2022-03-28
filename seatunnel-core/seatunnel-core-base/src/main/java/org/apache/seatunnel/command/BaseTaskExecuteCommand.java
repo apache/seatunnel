@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
+import org.apache.seatunnel.plugin.PluginClosedException;
 import org.apache.seatunnel.utils.AsciiArtUtils;
 import org.apache.seatunnel.utils.CompressionUtils;
 
@@ -45,7 +46,7 @@ import java.util.Optional;
  *
  * @param <T> command args.
  */
-public abstract class BaseTaskExecuteCommand<T extends CommandArgs> implements Command<T> {
+public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends RuntimeEnv> implements Command<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BaseTaskExecuteCommand.class);
 
@@ -54,20 +55,47 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs> implements C
      *
      * @param plugins plugin list.
      */
-    protected void baseCheckConfig(List<? extends Plugin>... plugins) {
+    @SafeVarargs
+    protected final void baseCheckConfig(List<? extends Plugin<E>>... plugins) {
         pluginCheck(plugins);
         deployModeCheck();
     }
 
     /**
-     * Execute prepare method defined in {@link Plugin}.
+     * Execute prepare method defined in {@link org.apache.seatunnel.plugin.Plugin}.
      *
-     * @param env runtimeEnv
+     * @param env     runtimeEnv
      * @param plugins plugin list
      */
-    protected void prepare(RuntimeEnv env, List<? extends Plugin>... plugins) {
-        for (List<? extends Plugin> pluginList : plugins) {
+    @SafeVarargs
+    protected final void prepare(E env, List<? extends Plugin<E>>... plugins) {
+        for (List<? extends Plugin<E>> pluginList : plugins) {
             pluginList.forEach(plugin -> plugin.prepare(env));
+        }
+    }
+
+    /**
+     * Execute close method defined in {@link org.apache.seatunnel.plugin.Plugin}
+     *
+     * @param plugins plugin list
+     */
+    @SafeVarargs
+    protected final void close(List<? extends Plugin<E>>... plugins) {
+        PluginClosedException exceptionHolder = null;
+        for (List<? extends Plugin<E>> pluginList : plugins) {
+            for (Plugin<E> plugin : pluginList) {
+                try (Plugin<?> closed = plugin) {
+                    // ignore
+                } catch (Exception e) {
+                    exceptionHolder = exceptionHolder == null ?
+                            new PluginClosedException("below plugins closed error:") : exceptionHolder;
+                    exceptionHolder.addSuppressed(new PluginClosedException(
+                            String.format("plugin %s closed error", plugin.getClass()), e));
+                }
+            }
+        }
+        if (exceptionHolder != null) {
+            throw exceptionHolder;
         }
     }
 
@@ -86,9 +114,9 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs> implements C
      *
      * @param plugins plugin list
      */
-    private void pluginCheck(List<? extends Plugin>... plugins) {
-        for (List<? extends Plugin> pluginList : plugins) {
-            for (Plugin plugin : pluginList) {
+    private void pluginCheck(List<? extends Plugin<E>>... plugins) {
+        for (List<? extends Plugin<E>> pluginList : plugins) {
+            for (Plugin<E> plugin : pluginList) {
                 CheckResult checkResult;
                 try {
                     checkResult = plugin.checkConfig();

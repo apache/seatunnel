@@ -31,5 +31,4 @@ class Sql extends BaseSparkTransform {
     checkAllExists(config, "sql")
   }
 
-  override def prepare(env: SparkEnvironment): Unit = {}
 }

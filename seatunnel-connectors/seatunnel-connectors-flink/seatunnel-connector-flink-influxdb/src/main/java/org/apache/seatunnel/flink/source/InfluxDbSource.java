@@ -42,7 +42,7 @@ import org.apache.flink.types.Row;
 import java.util.HashMap;
 import java.util.List;
 
-public class InfluxDbSource implements FlinkBatchSource<Row> {
+public class InfluxDbSource implements FlinkBatchSource {
 
     private Config config;
     private InfluxDbInputFormat influxDbInputFormat;
@@ -94,7 +94,7 @@ public class InfluxDbSource implements FlinkBatchSource<Row> {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.check(config, SERVER_URL, DATABASE, MEASUREMENT, FIELDS, FIELD_TYPES);
+        return CheckConfigUtil.checkAllExists(config, SERVER_URL, DATABASE, MEASUREMENT, FIELDS, FIELD_TYPES);
     }
 
     @Override

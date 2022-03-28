@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.spark.structuredstream;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.BaseSparkTransform;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -25,9 +24,13 @@ import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import java.util.List;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
-public class StructuredStreamingExecution implements Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink> {
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class StructuredStreamingExecution implements Execution<StructuredStreamingSource, BaseSparkTransform, StructuredStreamingSink, SparkEnvironment> {
 
     private final SparkEnvironment sparkEnvironment;
 
@@ -38,8 +41,24 @@ public class StructuredStreamingExecution implements Execution<StructuredStreami
     }
 
     @Override
-    public void start(List<StructuredStreamingSource> sources, List<BaseSparkTransform> transforms, List<StructuredStreamingSink> sinks) {
+    public void start(List<StructuredStreamingSource> sources, List<BaseSparkTransform> transforms,
+        List<StructuredStreamingSink> sinks) throws Exception {
 
+        List<Dataset<Row>> datasetList = sources.stream().map(s ->
+                SparkEnvironment.registerInputTempView(s, sparkEnvironment)
+        ).collect(Collectors.toList());
+        if (datasetList.size() > 0) {
+            Dataset<Row> ds = datasetList.get(0);
+            for (BaseSparkTransform tf : transforms) {
+                ds = SparkEnvironment.transformProcess(sparkEnvironment, tf, ds);
+                SparkEnvironment.registerTransformTempView(tf, ds);
+            }
+
+            for (StructuredStreamingSink sink : sinks) {
+                SparkEnvironment.sinkProcess(sparkEnvironment, sink, ds).start();
+            }
+            sparkEnvironment.getSparkSession().streams().awaitAnyTermination();
+        }
     }
 
     @Override
@@ -52,13 +71,4 @@ public class StructuredStreamingExecution implements Execution<StructuredStreami
         return this.config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(Void prepareEnv) {
-
-    }
 }

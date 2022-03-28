@@ -188,7 +188,6 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
             try {
                 flush();
             } catch (Exception e) {
-                LOGGER.warn("Writing records to doris failed.", e);
                 throw new RuntimeException("Writing records to doris failed.", e);
             }
         }

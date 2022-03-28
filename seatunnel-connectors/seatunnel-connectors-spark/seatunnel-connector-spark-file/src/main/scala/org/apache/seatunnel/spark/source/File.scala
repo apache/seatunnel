@@ -16,9 +16,6 @@
  */
 package org.apache.seatunnel.spark.source
 
-import scala.collection.JavaConversions._
-import scala.util.{Failure, Success, Try}
-
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
@@ -27,9 +24,10 @@ import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
 
-class File extends SparkBatchSource {
+import scala.collection.JavaConversions._
+import scala.util.{Failure, Success, Try}
 
-  override def prepare(env: SparkEnvironment): Unit = {}
+class File extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
     checkAllExists(config, PATH, FORMAT)
