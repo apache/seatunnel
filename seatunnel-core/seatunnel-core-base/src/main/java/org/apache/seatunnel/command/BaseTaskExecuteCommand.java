@@ -139,24 +139,19 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
             File workDir = new File(".");
 
             for (File file : Objects.requireNonNull(workDir.listFiles())) {
-                LOGGER.warn("\t list file: " + file.getAbsolutePath());
+                LOGGER.warn("\t list file: {} ", file.getAbsolutePath());
             }
             // decompress plugin dir
             File compressedFile = new File("plugins.tar.gz");
 
             try {
                 File tempFile = CompressionUtils.unGzip(compressedFile, workDir);
-                try {
-                    CompressionUtils.unTar(tempFile, workDir);
-                    LOGGER.info("succeeded to decompress plugins.tar.gz");
-                } catch (ArchiveException e) {
-                    LOGGER.error("failed to decompress plugins.tar.gz", e);
-                    System.exit(-1);
-                }
-            } catch (IOException e) {
+                CompressionUtils.unTar(tempFile, workDir);
+            } catch (Exception e) {
                 LOGGER.error("failed to decompress plugins.tar.gz", e);
                 System.exit(-1);
             }
+            LOGGER.info("succeeded to decompress plugins.tar.gz");
         }
     }
 

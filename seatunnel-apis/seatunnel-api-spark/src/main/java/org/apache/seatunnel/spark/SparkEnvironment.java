@@ -47,8 +47,6 @@ public class SparkEnvironment implements RuntimeEnv {
 
     private boolean enableHive = false;
 
-    private JobMode jobMode;
-
     public SparkEnvironment setEnableHive(boolean enableHive) {
         this.enableHive = enableHive;
         return this;
@@ -62,7 +60,6 @@ public class SparkEnvironment implements RuntimeEnv {
 
     @Override
     public RuntimeEnv setJobMode(JobMode mode) {
-        this.jobMode = mode;
         return this;
     }
 
