@@ -38,18 +38,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
 
 public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
 
@@ -62,10 +55,12 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     private JobMode jobMode;
     private Config envConfig;
     private final ENVIRONMENT env;
+    private final PluginFactory<ENVIRONMENT> pluginFactory;
 
     public ConfigBuilder(String configFile, EngineType engine) {
         this.configFile = configFile;
         this.engine = engine;
+        this.pluginFactory = new PluginFactory<>(engine);
         this.config = load();
         this.env = createEnv();
     }
@@ -127,66 +122,17 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     }
 
     /**
-     * create plugin class instance, ignore case.
-     **/
-    @SuppressWarnings("unchecked")
-    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(String pluginName, PluginType pluginType) throws Exception {
-        Map<PluginType, Class<?>> pluginBaseClassMap = engine.getPluginTypes();
-        if (!pluginBaseClassMap.containsKey(pluginType)) {
-            throw new IllegalArgumentException("PluginType not support : [" + pluginType + "]");
-        }
-        Class<T> pluginBaseClass = (Class<T>) pluginBaseClassMap.get(pluginType);
-        if (pluginName.split("\\.").length != 1) {
-            // canonical class name
-            Class<T> pluginClass = (Class<T>) Class.forName(pluginName);
-            if (pluginClass.isAssignableFrom(pluginBaseClass)) {
-                throw new IllegalArgumentException("plugin: " + pluginName + " is not extends from " + pluginBaseClass);
-            }
-            return pluginClass.newInstance();
-        }
-
-        ServiceLoader<T> plugins = ServiceLoader.load(pluginBaseClass);
-        for (Iterator<T> it = plugins.iterator(); it.hasNext(); ) {
-            try {
-                T plugin = it.next();
-                Class<?> serviceClass = plugin.getClass();
-                if (StringUtils.equalsIgnoreCase(serviceClass.getSimpleName(), pluginName)) {
-                    return plugin;
-                }
-            } catch (ServiceConfigurationError e) {
-                // Iterator.next() may throw ServiceConfigurationError,
-                // but maybe caused by a not used plugin in this job
-                LOGGER.warn("Error when load plugin: [{}]", pluginName, e);
-            }
-        }
-        throw new ClassNotFoundException("Plugin class not found by name :[" + pluginName + "]");
-    }
-
-    /**
      * check if config is valid.
      **/
     public void checkConfig() {
         this.createEnv();
-        this.createPlugins(PluginType.SOURCE);
-        this.createPlugins(PluginType.TRANSFORM);
-        this.createPlugins(PluginType.SINK);
+        this.pluginFactory.createPlugins(config, PluginType.SOURCE);
+        this.pluginFactory.createPlugins(config, PluginType.TRANSFORM);
+        this.pluginFactory.createPlugins(config, PluginType.SINK);
     }
 
     public <T extends Plugin<ENVIRONMENT>> List<T> createPlugins(PluginType type) {
-        Objects.requireNonNull(type, "PluginType can not be null when create plugins!");
-        List<T> basePluginList = new ArrayList<>();
-        List<? extends Config> configList = config.getConfigList(type.getType());
-        configList.forEach(plugin -> {
-            try {
-                T t = createPluginInstanceIgnoreCase(plugin.getString(PLUGIN_NAME_KEY), type);
-                t.setConfig(plugin);
-                basePluginList.add(t);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-        return basePluginList;
+        return pluginFactory.createPlugins(config, type);
     }
 
     private ENVIRONMENT createEnv() {

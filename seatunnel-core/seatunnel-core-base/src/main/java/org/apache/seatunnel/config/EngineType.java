@@ -17,51 +17,18 @@
 
 package org.apache.seatunnel.config;
 
-import org.apache.seatunnel.flink.BaseFlinkSink;
-import org.apache.seatunnel.flink.BaseFlinkSource;
-import org.apache.seatunnel.flink.BaseFlinkTransform;
-import org.apache.seatunnel.spark.BaseSparkSink;
-import org.apache.seatunnel.spark.BaseSparkSource;
-import org.apache.seatunnel.spark.BaseSparkTransform;
-
-import java.util.HashMap;
-import java.util.Map;
-
 public enum EngineType {
-
-    SPARK("spark", new HashMap<PluginType, Class<?>>() {
-        {
-            put(PluginType.SOURCE, BaseSparkSource.class);
-            put(PluginType.TRANSFORM, BaseSparkTransform.class);
-            put(PluginType.SINK, BaseSparkSink.class);
-        }
-    }),
-
-    FLINK("flink", new HashMap<PluginType, Class<?>>() {
-        {
-            put(PluginType.SOURCE, BaseFlinkSource.class);
-            put(PluginType.TRANSFORM, BaseFlinkTransform.class);
-            put(PluginType.SINK, BaseFlinkSink.class);
-        }
-    }),
+    SPARK("spark"),
+    FLINK("flink"),
     ;
 
     private final String engine;
-    /**
-     * store the map of plugin type to plugin base class, used to load the plugin.
-     */
-    private final Map<PluginType, Class<?>> pluginTypes;
 
-    EngineType(String engine, Map<PluginType, Class<?>> pluginTypes) {
+    EngineType(String engine) {
         this.engine = engine;
-        this.pluginTypes = pluginTypes;
     }
 
     public String getEngine() {
         return engine;
-    }
-
-    public Map<PluginType, Class<?>> getPluginTypes() {
-        return pluginTypes;
     }
 }
