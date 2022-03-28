@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.druid.sink;
+package org.apache.seatunnel.flink.druid.sink;
 
 import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_FIELD_DELIMITER;
 import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER;

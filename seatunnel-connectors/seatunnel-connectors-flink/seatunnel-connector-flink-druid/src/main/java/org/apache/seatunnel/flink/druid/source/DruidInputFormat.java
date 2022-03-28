@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.druid.source;
+package org.apache.seatunnel.flink.druid.source;
 
 import org.apache.flink.api.common.io.DefaultInputSplitAssigner;
 import org.apache.flink.api.common.io.RichInputFormat;

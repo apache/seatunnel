@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.druid.sink.DruidSink
+org.apache.seatunnel.flink.druid.sink.DruidSink

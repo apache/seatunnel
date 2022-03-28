@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.druid.source;
+package org.apache.seatunnel.flink.druid.source;
 
 import java.util.List;
 import java.util.Objects;
