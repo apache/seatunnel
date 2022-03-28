@@ -9,23 +9,23 @@ server, also call bulk load.
 
 ## Options
 
-| name                   | type    | required | default value |
-|------------------------|---------|----------|---------------|
-| database               | string  | yes      | -             |
-| fields                 | array   | no       | -             |
-| host                   | string  | yes      | -             |
-| password               | string  | no       | -             |
-| table                  | string  | yes      | -             |
-| username               | string  | no       | -             |
-| sharding_key           | string  | no       | -             |
-| clickhouse_local_path  | string  | yes      | -             |
-| tmp_batch_cache_line   | int     | no       | 100000        |
-| copy_method            | string  | no       | scp           |
-| node_free_password     | boolean | no       | false         |
-| node_pass              | list    | no       | -             |
-| node_pass.node_address | string  | no       | -             |
-| node_pass.password     | string  | no       | -             |
-| common-options         | string  | no       | -             |
+| name                   | type     | required | default value |
+|------------------------|----------|----------|---------------|
+| database               | string   | yes      | -             |
+| fields                 | array    | no       | -             |
+| host                   | string   | yes      | -             |
+| password               | string   | no       | -             |
+| table                  | string   | yes      | -             |
+| username               | string   | no       | -             |
+| sharding_key           | string   | no       | -             |
+| clickhouse_local_path  | string   | yes      | -             |
+| tmp_batch_cache_line   | int      | no       | 100000        |
+| copy_method            | string   | no       | scp           |
+| node_free_password     | boolean  | no       | false         |
+| node_pass              | list     | no       | -             |
+| node_pass.node_address | string   | no       | -             |
+| node_pass.password     | string   | no       | -             |
+| common-options         | string   | no       | -             |
 
 ### database [string]
 
