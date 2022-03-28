@@ -15,5 +15,5 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.source.Fake
-org.apache.seatunnel.spark.source.FakeStream
+org.apache.seatunnel.spark.fake.source.Fake
+org.apache.seatunnel.spark.fake.source.FakeStream

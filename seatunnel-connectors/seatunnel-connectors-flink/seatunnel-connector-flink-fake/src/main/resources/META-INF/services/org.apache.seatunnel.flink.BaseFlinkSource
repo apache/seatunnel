@@ -15,5 +15,5 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.source.FakeSource
-org.apache.seatunnel.flink.source.FakeSourceStream
+org.apache.seatunnel.flink.fake.source.FakeSource
+org.apache.seatunnel.flink.fake.source.FakeSourceStream

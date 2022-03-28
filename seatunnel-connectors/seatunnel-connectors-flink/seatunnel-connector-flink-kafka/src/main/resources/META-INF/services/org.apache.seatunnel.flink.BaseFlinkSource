@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.source.KafkaTableStream
+org.apache.seatunnel.flink.kafka.source.KafkaTableStream

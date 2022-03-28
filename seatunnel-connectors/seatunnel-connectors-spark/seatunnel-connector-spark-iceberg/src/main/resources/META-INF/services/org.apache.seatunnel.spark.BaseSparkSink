@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.sink.Iceberg
+org.apache.seatunnel.spark.iceberg.sink.Iceberg
