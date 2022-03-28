@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark
 /**
  * Console configuration parameters and defaults
  */
-object Config {
+object ConsoleConfig {
 
   /**
    * The nubmer of rows to show
