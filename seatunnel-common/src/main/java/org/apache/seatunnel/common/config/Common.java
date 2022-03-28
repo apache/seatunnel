@@ -27,6 +27,10 @@ import java.util.stream.Collectors;
 
 public class Common {
 
+    private Common() {
+        throw new IllegalStateException("Utility class");
+    }
+
     private static final List<String> ALLOWED_MODES = Arrays.stream(DeployMode.values())
         .map(DeployMode::getName).collect(Collectors.toList());
 
