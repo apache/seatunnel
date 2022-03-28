@@ -574,7 +574,6 @@ retrofit-2.9.0.jar
 rhino-1.7.11.jar
 scala-compiler-2.11.12.jar
 scala-library-2.11.12.jar
-scala-library-2.11.8.jar
 scala-parser-combinators_2.11-1.0.4.jar
 scala-parser-combinators_2.11-1.1.0.jar
 scala-reflect-2.11.12.jar
