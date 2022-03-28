@@ -15,31 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.env;
+package org.apache.seatunnel.common.constants;
 
-import org.apache.seatunnel.apis.BaseSink;
-import org.apache.seatunnel.apis.BaseSource;
-import org.apache.seatunnel.apis.BaseTransform;
-import org.apache.seatunnel.plugin.Plugin;
-
-import java.util.List;
-
-/**
- * the SeaTunnel job's execution context
- */
-public interface Execution<
-    SR extends BaseSource<RE>,
-    TF extends BaseTransform<RE>,
-    SK extends BaseSink<RE>,
-    RE extends RuntimeEnv> extends Plugin<RE> {
-
-    /**
-     * start to execute the SeaTunnel job
-     *
-     * @param sources    source plugin list
-     * @param transforms transform plugin list
-     * @param sinks      sink plugin list
-     */
-    void start(List<SR> sources, List<TF> transforms, List<SK> sinks) throws Exception;
-
+public enum JobMode {
+    BATCH, STREAMING, STRUCTURED_STREAMING
 }
