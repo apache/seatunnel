@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink.source;
 
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -62,7 +63,7 @@ public class FileSourceTest {
         Config rootConfig = getRootConfig(configFile);
 
         return new FlinkEnvironment()
-            .setStreaming(false)
+            .setJobMode(JobMode.BATCH)
             .setConfig(rootConfig)
             .prepare();
     }

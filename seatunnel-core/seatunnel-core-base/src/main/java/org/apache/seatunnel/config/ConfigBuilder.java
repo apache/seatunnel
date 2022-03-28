@@ -21,6 +21,7 @@ import org.apache.seatunnel.apis.BaseSink;
 import org.apache.seatunnel.apis.BaseSource;
 import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.plugin.Plugin;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchExecution;
 import org.apache.seatunnel.spark.stream.SparkStreamingExecution;
+import org.apache.seatunnel.spark.structuredstream.StructuredStreamingExecution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -56,7 +58,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     private final EngineType engine;
     private final ConfigPackage configPackage;
     private final Config config;
-    private boolean streaming;
+    private JobMode jobMode;
     private Config envConfig;
     private boolean enableHive;
     private final ENVIRONMENT env;
@@ -98,10 +100,15 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         return env;
     }
 
-    private boolean checkIsStreaming() {
-        List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+    private void setJobMode(Config envConfig) {
+        if (envConfig.hasPath("job.mode")) {
+            jobMode = envConfig.getEnum(JobMode.class, "job.mode");
+        } else {
+            //Compatible with previous logic
+            List<? extends Config> sourceConfigList = config.getConfigList(PluginType.SOURCE.getType());
+            jobMode = sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream") ? JobMode.STREAMING : JobMode.BATCH;
+        }
 
-        return sourceConfigList.get(0).getString(PLUGIN_NAME_KEY).toLowerCase().endsWith("stream");
     }
 
     private boolean checkIsContainHive() {
@@ -197,7 +204,6 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
 
     private ENVIRONMENT createEnv() {
         envConfig = config.getConfig("env");
-        streaming = checkIsStreaming();
         enableHive = checkIsContainHive();
         ENVIRONMENT env;
         switch (engine) {
@@ -205,12 +211,13 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
                 env = (ENVIRONMENT) new SparkEnvironment().setEnableHive(enableHive);
                 break;
             case FLINK:
-                env = (ENVIRONMENT) new FlinkEnvironment().setStreaming(streaming);
+                env = (ENVIRONMENT) new FlinkEnvironment();
                 break;
             default:
                 throw new IllegalArgumentException("Engine: " + engine + " is not supported");
         }
-        env.setConfig(envConfig).prepare();
+        setJobMode(envConfig);
+        env.setConfig(envConfig).setJobMode(jobMode).prepare();
         return env;
     }
 
@@ -219,23 +226,26 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         switch (engine) {
             case SPARK:
                 SparkEnvironment sparkEnvironment = (SparkEnvironment) env;
-                if (streaming) {
+                if (JobMode.STREAMING.equals(jobMode)) {
                     execution = new SparkStreamingExecution(sparkEnvironment);
+                } else if (JobMode.STRUCTURED_STREAMING.equals(jobMode)) {
+                    execution = new StructuredStreamingExecution(sparkEnvironment);
                 } else {
                     execution = new SparkBatchExecution(sparkEnvironment);
                 }
                 break;
             case FLINK:
                 FlinkEnvironment flinkEnvironment = (FlinkEnvironment) env;
-                if (streaming) {
+                if (JobMode.STREAMING.equals(jobMode)) {
                     execution = new FlinkStreamExecution(flinkEnvironment);
                 } else {
                     execution = new FlinkBatchExecution(flinkEnvironment);
                 }
                 break;
             default:
-                break;
+                throw new IllegalArgumentException("No suitable engine");
         }
+        LOGGER.info("current execution is [{}]", execution.getClass().getName());
         return (Execution<BaseSource<ENVIRONMENT>, BaseTransform<ENVIRONMENT>, BaseSink<ENVIRONMENT>, ENVIRONMENT>) execution;
     }
 

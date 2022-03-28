@@ -17,13 +17,20 @@
 
 package org.apache.seatunnel.spark;
 
+import static org.apache.seatunnel.plugin.Plugin.RESULT_TABLE_NAME;
+import static org.apache.seatunnel.plugin.Plugin.SOURCE_TABLE_NAME;
+
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.ConfigRuntimeException;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.env.RuntimeEnv;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.streaming.Seconds;
 import org.apache.spark.streaming.StreamingContext;
@@ -40,6 +47,8 @@ public class SparkEnvironment implements RuntimeEnv {
 
     private boolean enableHive = false;
 
+    private JobMode jobMode;
+
     public SparkEnvironment setEnableHive(boolean enableHive) {
         this.enableHive = enableHive;
         return this;
@@ -48,6 +57,12 @@ public class SparkEnvironment implements RuntimeEnv {
     @Override
     public SparkEnvironment setConfig(Config config) {
         this.config = config;
+        return this;
+    }
+
+    @Override
+    public RuntimeEnv setJobMode(JobMode mode) {
+        this.jobMode = mode;
         return this;
     }
 
@@ -94,4 +109,56 @@ public class SparkEnvironment implements RuntimeEnv {
             this.streamingContext = new StreamingContext(sparkSession.sparkContext(), Seconds.apply(duration));
         }
     }
+
+    public static void registerTempView(String tableName, Dataset<Row> ds) {
+        ds.createOrReplaceTempView(tableName);
+    }
+
+    public static Dataset<Row> registerInputTempView(BaseSparkSource<Dataset<Row>> source, SparkEnvironment environment) {
+        Config config = source.getConfig();
+        if (config.hasPath(RESULT_TABLE_NAME)) {
+            String tableName = config.getString(RESULT_TABLE_NAME);
+            Dataset<Row> data = source.getData(environment);
+            registerTempView(tableName, data);
+            return data;
+        } else {
+            throw new ConfigRuntimeException("Plugin[" + source.getClass().getName() + "] " +
+                    "must be registered as dataset/table, please set \"" + RESULT_TABLE_NAME + "\" config");
+        }
+    }
+
+    public static Dataset<Row> transformProcess(SparkEnvironment environment, BaseSparkTransform transform, Dataset<Row> ds) {
+        Dataset<Row> fromDs;
+        Config config = transform.getConfig();
+        if (config.hasPath(SOURCE_TABLE_NAME)) {
+            String sourceTableName = config.getString(SOURCE_TABLE_NAME);
+            fromDs = environment.getSparkSession().read().table(sourceTableName);
+        } else {
+            fromDs = ds;
+        }
+        return transform.process(fromDs, environment);
+    }
+
+    public static void registerTransformTempView(BaseSparkTransform transform, Dataset<Row> ds) {
+        Config config = transform.getConfig();
+        if (config.hasPath(RESULT_TABLE_NAME)) {
+            String resultTableName = config.getString(RESULT_TABLE_NAME);
+            registerTempView(resultTableName, ds);
+        }
+    }
+
+    public  static <T extends Object> T sinkProcess(SparkEnvironment environment, BaseSparkSink<T> sink, Dataset<Row> ds) {
+        Dataset<Row> fromDs;
+        Config config = sink.getConfig();
+        if (config.hasPath(SOURCE_TABLE_NAME)) {
+            String sourceTableName = config.getString(SOURCE_TABLE_NAME);
+            fromDs = environment.getSparkSession().read().table(sourceTableName);
+        } else {
+            fromDs = ds;
+        }
+        return sink.output(fromDs, environment);
+    }
 }
+
+
+

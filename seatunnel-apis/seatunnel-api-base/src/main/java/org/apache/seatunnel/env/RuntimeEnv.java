@@ -18,6 +18,7 @@
 package org.apache.seatunnel.env;
 
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.JobMode;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -33,5 +34,7 @@ public interface RuntimeEnv {
     CheckResult checkConfig();
 
     RuntimeEnv prepare();
+
+    RuntimeEnv setJobMode(JobMode mode);
 
 }
