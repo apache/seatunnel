@@ -19,6 +19,7 @@ package org.apache.seatunnel.spark.source
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.Config._
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
@@ -27,10 +28,19 @@ import org.apache.spark.sql.{Dataset, Row}
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
+
 class File extends SparkBatchSource {
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, PATH, FORMAT)
+    checkAllExists(config, PATH )
+  }
+
+  override def prepare(env: SparkEnvironment): Unit = {
+    val defaultConfig = ConfigFactory.parseMap(
+      Map(
+        PATH_TIME_FORMAT -> DEFAULT_TIME_FORMAT // if variable 'now' is used in path, this option specifies its time_format
+      ))
+    config = config.withFallback(defaultConfig)
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
