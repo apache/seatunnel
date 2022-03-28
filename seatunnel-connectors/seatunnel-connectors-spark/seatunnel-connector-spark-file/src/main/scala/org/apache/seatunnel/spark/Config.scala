@@ -23,7 +23,7 @@ object Config extends Serializable {
   final val SAVE_MODE = "save_mode"
   final val SERIALIZER = "serializer"
   final val PATH_TIME_FORMAT = "path_time_format"
-  final val DEFAULT_TIME_FORMAT = "path_time_format"
+  final val DEFAULT_TIME_FORMAT = "yyyyMMddHHmmss"
   final val FORMAT = "format"
   final val SAVE_MODE_ERROR = "error"
   final val OPTION_PREFIX = "options."
@@ -33,5 +33,7 @@ object Config extends Serializable {
   final val JSON = "json"
   final val ORC = "orc"
   final val CSV = "csv"
+
+  final val DEFAULT_FORMAT = JSON
 
 }
