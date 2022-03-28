@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.sink.JdbcSink
+org.apache.seatunnel.flink.jdbc.sink.JdbcSink

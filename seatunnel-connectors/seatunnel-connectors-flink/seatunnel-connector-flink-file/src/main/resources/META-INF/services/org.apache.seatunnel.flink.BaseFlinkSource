@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.source.FileSource
+org.apache.seatunnel.flink.file.source.FileSource

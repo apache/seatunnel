@@ -38,6 +38,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +46,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
@@ -56,11 +58,9 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     private static final String PLUGIN_NAME_KEY = "plugin_name";
     private final String configFile;
     private final EngineType engine;
-    private final ConfigPackage configPackage;
     private final Config config;
     private JobMode jobMode;
     private Config envConfig;
-    private boolean enableHive;
     private final ENVIRONMENT env;
 
     public ConfigBuilder(String configFile, EngineType engine) {
@@ -68,7 +68,6 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         this.engine = engine;
         this.config = load();
         this.env = createEnv();
-        this.configPackage = new ConfigPackage(engine.getEngine());
     }
 
     private Config load() {
@@ -130,49 +129,37 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     /**
      * create plugin class instance, ignore case.
      **/
-    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(String name, PluginType pluginType) throws Exception {
-        if (name.split("\\.").length != 1) {
+    @SuppressWarnings("unchecked")
+    private <T extends Plugin<ENVIRONMENT>> T createPluginInstanceIgnoreCase(String pluginName, PluginType pluginType) throws Exception {
+        Map<PluginType, Class<?>> pluginBaseClassMap = engine.getPluginTypes();
+        if (!pluginBaseClassMap.containsKey(pluginType)) {
+            throw new IllegalArgumentException("PluginType not support : [" + pluginType + "]");
+        }
+        Class<T> pluginBaseClass = (Class<T>) pluginBaseClassMap.get(pluginType);
+        if (pluginName.split("\\.").length != 1) {
             // canonical class name
-            return (T) Class.forName(name).newInstance();
+            Class<T> pluginClass = (Class<T>) Class.forName(pluginName);
+            if (pluginClass.isAssignableFrom(pluginBaseClass)) {
+                throw new IllegalArgumentException("plugin: " + pluginName + " is not extends from " + pluginBaseClass);
+            }
+            return pluginClass.newInstance();
         }
-        String packageName;
-        ServiceLoader<T> plugins;
-        switch (pluginType) {
-            case SOURCE:
-                packageName = configPackage.getSourcePackage();
-                Class<T> baseSource = (Class<T>) Class.forName(configPackage.getBaseSourceClass());
-                plugins = ServiceLoader.load(baseSource);
-                break;
-            case TRANSFORM:
-                packageName = configPackage.getTransformPackage();
-                Class<T> baseTransform = (Class<T>) Class.forName(configPackage.getBaseTransformClass());
-                plugins = ServiceLoader.load(baseTransform);
-                break;
-            case SINK:
-                packageName = configPackage.getSinkPackage();
-                Class<T> baseSink = (Class<T>) Class.forName(configPackage.getBaseSinkClass());
-                plugins = ServiceLoader.load(baseSink);
-                break;
-            default:
-                throw new IllegalArgumentException("PluginType not support : [" + pluginType + "]");
-        }
-        String canonicalName = packageName + "." + name;
+
+        ServiceLoader<T> plugins = ServiceLoader.load(pluginBaseClass);
         for (Iterator<T> it = plugins.iterator(); it.hasNext(); ) {
             try {
                 T plugin = it.next();
                 Class<?> serviceClass = plugin.getClass();
-                String serviceClassName = serviceClass.getName();
-                String clsNameToLower = serviceClassName.toLowerCase();
-                if (clsNameToLower.equals(canonicalName.toLowerCase())) {
+                if (StringUtils.equalsIgnoreCase(serviceClass.getSimpleName(), pluginName)) {
                     return plugin;
                 }
             } catch (ServiceConfigurationError e) {
                 // Iterator.next() may throw ServiceConfigurationError,
                 // but maybe caused by a not used plugin in this job
-                LOGGER.warn("Error when load plugin: [{}]", canonicalName, e);
+                LOGGER.warn("Error when load plugin: [{}]", pluginName, e);
             }
         }
-        throw new ClassNotFoundException("Plugin class not found by name :[" + canonicalName + "]");
+        throw new ClassNotFoundException("Plugin class not found by name :[" + pluginName + "]");
     }
 
     /**
@@ -204,7 +191,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
 
     private ENVIRONMENT createEnv() {
         envConfig = config.getConfig("env");
-        enableHive = checkIsContainHive();
+        boolean enableHive = checkIsContainHive();
         ENVIRONMENT env;
         switch (engine) {
             case SPARK:

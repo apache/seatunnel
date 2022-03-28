@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.sink.Email
+org.apache.seatunnel.spark.email.sink.Email

@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.sink.Redis
+org.apache.seatunnel.spark.redis.sink.Redis

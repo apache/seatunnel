@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.source.File
+org.apache.seatunnel.spark.file.source.File

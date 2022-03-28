@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.sink.Hudi
+org.apache.seatunnel.spark.hudi.sink.Hudi
