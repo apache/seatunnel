@@ -13,7 +13,7 @@ Output data to local or hdfs file.
 | options          | object | no       | -              |
 | partition_by     | array  | no       | -              |
 | path             | string | yes      | -              |
-| path_time_format | string | no       | yyyyMMddHHmmss |
+| path_time_format | string | no       | yyyy-MM-dd HH:mm:ss |
 | save_mode        | string | no       | error          |
 | serializer       | string | no       | json           |
 | common-options   | string | no       | -              |
