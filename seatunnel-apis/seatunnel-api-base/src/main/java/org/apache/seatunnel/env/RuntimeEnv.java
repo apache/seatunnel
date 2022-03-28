@@ -37,4 +37,6 @@ public interface RuntimeEnv {
 
     RuntimeEnv setJobMode(JobMode mode);
 
+    JobMode getJobMode();
+
 }

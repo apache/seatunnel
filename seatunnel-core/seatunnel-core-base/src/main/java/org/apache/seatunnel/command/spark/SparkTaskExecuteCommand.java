@@ -23,9 +23,13 @@ import org.apache.seatunnel.apis.BaseTransform;
 import org.apache.seatunnel.command.BaseTaskExecuteCommand;
 import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.config.ConfigBuilder;
-import org.apache.seatunnel.config.PluginType;
+import org.apache.seatunnel.config.EngineType;
+import org.apache.seatunnel.config.ExecutionContext;
+import org.apache.seatunnel.config.ExecutionFactory;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.SparkEnvironment;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 
@@ -33,20 +37,25 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
 
     @Override
     public void execute(SparkCommandArgs sparkCommandArgs) {
+        EngineType engine = sparkCommandArgs.getEngineType();
         String confFile = sparkCommandArgs.getConfigFile();
 
-        ConfigBuilder<SparkEnvironment> configBuilder = new ConfigBuilder<>(confFile, sparkCommandArgs.getEngineType());
-        List<BaseSource<SparkEnvironment>> sources = configBuilder.createPlugins(PluginType.SOURCE);
-        List<BaseTransform<SparkEnvironment>> transforms = configBuilder.createPlugins(PluginType.TRANSFORM);
-        List<BaseSink<SparkEnvironment>> sinks = configBuilder.createPlugins(PluginType.SINK);
+        Config config = new ConfigBuilder<>(confFile, engine).getConfig();
+        ExecutionContext<SparkEnvironment> executionContext = new ExecutionContext<>(config, engine);
 
-        Execution<BaseSource<SparkEnvironment>, BaseTransform<SparkEnvironment>, BaseSink<SparkEnvironment>, SparkEnvironment>
-            execution = configBuilder.createExecution();
+        List<BaseSource<SparkEnvironment>> sources = executionContext.getSources();
+        List<BaseTransform<SparkEnvironment>> transforms = executionContext.getTransforms();
+        List<BaseSink<SparkEnvironment>> sinks = executionContext.getSinks();
+
+        Execution<
+            BaseSource<SparkEnvironment>,
+            BaseTransform<SparkEnvironment>,
+            BaseSink<SparkEnvironment>, SparkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution();
         baseCheckConfig(sources, transforms, sinks);
         showAsciiLogo();
 
         try {
-            prepare(configBuilder.getEnv(), sources, transforms, sinks);
+            prepare(executionContext.getEnvironment(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);
         } catch (Exception e) {

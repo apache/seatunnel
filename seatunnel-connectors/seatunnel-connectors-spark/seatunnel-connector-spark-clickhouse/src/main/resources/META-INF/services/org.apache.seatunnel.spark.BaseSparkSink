@@ -15,5 +15,5 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.sink.Clickhouse
-org.apache.seatunnel.spark.sink.ClickhouseFile
+org.apache.seatunnel.spark.clickhouse.sink.Clickhouse
+org.apache.seatunnel.spark.clickhouse.sink.ClickhouseFile

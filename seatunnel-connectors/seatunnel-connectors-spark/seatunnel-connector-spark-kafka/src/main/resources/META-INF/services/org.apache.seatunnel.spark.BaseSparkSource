@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.source.KafkaStream
+org.apache.seatunnel.spark.kafka.source.KafkaStream

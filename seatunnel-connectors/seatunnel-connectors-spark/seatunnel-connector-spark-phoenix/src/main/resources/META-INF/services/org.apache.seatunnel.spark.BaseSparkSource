@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.source.Phoenix
+org.apache.seatunnel.spark.phoenix.source.Phoenix

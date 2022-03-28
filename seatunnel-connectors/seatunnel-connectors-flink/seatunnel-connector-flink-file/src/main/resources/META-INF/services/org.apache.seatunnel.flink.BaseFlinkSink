@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.sink.FileSink
+org.apache.seatunnel.flink.file.sink.FileSink
