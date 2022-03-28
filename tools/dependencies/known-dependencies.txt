@@ -74,7 +74,6 @@ commons-compiler-3.0.9.jar
 commons-compiler-3.1.6.jar
 commons-compress-1.18.jar
 commons-compress-1.19.jar
-commons-compress-1.20.jar
 commons-compress-1.21.jar
 commons-compress-1.4.1.jar
 commons-compress-1.8.1.jar
