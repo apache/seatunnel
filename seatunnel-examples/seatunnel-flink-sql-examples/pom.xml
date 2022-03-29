@@ -27,7 +27,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-sql-examples</artifactId>
+    <artifactId>seatunnel-flink-sql-examples</artifactId>
     <properties>
         <flink.scope>compile</flink.scope>
     </properties>
