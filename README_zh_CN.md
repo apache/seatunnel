@@ -54,7 +54,7 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 ```
 
 多个 Transform 构建了数据处理的 Pipeline，满足各种各样的数据处理需求，如果您熟悉 SQL，也可以直接通过 SQL 构建数据处理的 Pipeline，简单高效。目前 seatunnel
-支持的[Transform 列表](https://seatunnel.apache.org/docs/spark/configuration/transform-plugins/transform-plugin),
+支持的[Transform 列表](https://seatunnel.apache.org/docs/transform/common-options),
 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
 ## SeaTunnel 支持的插件
@@ -128,12 +128,12 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 ## 快速入门
 
 **Spark**
-https://seatunnel.apache.org/docs/spark/quick-start
+https://seatunnel.apache.org/docs/deployment
 
 **Flink**
-https://seatunnel.apache.org/docs/flink/quick-start
+https://seatunnel.apache.org/docs/deployment
 
-关于 SeaTunnel 的[详细文档](https://seatunnel.apache.org/docs/introduction)
+关于 SeaTunnel 的[详细文档](https://seatunnel.apache.org/docs/intro/about)
 
 ## 生产应用案例
 
