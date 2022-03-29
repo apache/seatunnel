@@ -33,6 +33,10 @@ import java.util.List;
 
 public class Executor {
 
+    private Executor() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static void runJob(JobInfo jobInfo) {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         EnvironmentSettings fsSettings = EnvironmentSettings.newInstance().inStreamingMode().build();

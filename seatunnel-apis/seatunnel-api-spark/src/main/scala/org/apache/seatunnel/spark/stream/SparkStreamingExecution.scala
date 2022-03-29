@@ -19,7 +19,6 @@ package org.apache.seatunnel.spark.stream
 import org.apache.seatunnel.env.Execution
 import org.apache.seatunnel.plugin.Plugin
 import org.apache.seatunnel.shade.com.typesafe.config.{Config, ConfigFactory}
-import org.apache.seatunnel.spark.batch.SparkBatchExecution
 import org.apache.seatunnel.spark.{BaseSparkSink, BaseSparkSource, BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.{Dataset, Row}
 
@@ -35,7 +34,7 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
     val source = sources.get(0).asInstanceOf[SparkStreamingSource[_]]
 
     sources.subList(1, sources.size()).foreach(s => {
-      SparkBatchExecution.registerInputTempView(
+      SparkEnvironment.registerInputTempView(
         s.asInstanceOf[BaseSparkSource[Dataset[Row]]],
         sparkEnvironment)
     })
@@ -44,21 +43,21 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
       dataset => {
         val conf = source.getConfig
         if (conf.hasPath(Plugin.RESULT_TABLE_NAME)) {
-          SparkBatchExecution.registerTempView(
+          SparkEnvironment.registerTempView(
             conf.getString(Plugin.RESULT_TABLE_NAME),
             dataset)
         }
         var ds = dataset
         for (tf <- transforms) {
-          ds = SparkBatchExecution.transformProcess(sparkEnvironment, tf, ds)
-          SparkBatchExecution.registerTransformTempView(tf, ds)
+          ds = SparkEnvironment.transformProcess(sparkEnvironment, tf, ds)
+          SparkEnvironment.registerTransformTempView(tf, ds)
         }
 
         source.beforeOutput()
 
         if (ds.take(1).length > 0) {
           sinks.foreach(sink => {
-            SparkBatchExecution.sinkProcess(sparkEnvironment, sink, ds)
+            SparkEnvironment.sinkProcess(sparkEnvironment, sink, ds)
           })
         }
 

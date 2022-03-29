@@ -39,6 +39,7 @@ import java.io.Serializable;
  *
  * }</pre>
  */
+
 public interface Plugin<T extends RuntimeEnv> extends Serializable, AutoCloseable {
     String RESULT_TABLE_NAME = "result_table_name";
     String SOURCE_TABLE_NAME = "source_table_name";

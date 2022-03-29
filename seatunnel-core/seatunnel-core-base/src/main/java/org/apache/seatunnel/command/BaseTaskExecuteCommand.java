@@ -23,15 +23,14 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.plugin.Plugin;
+import org.apache.seatunnel.plugin.PluginClosedException;
 import org.apache.seatunnel.utils.AsciiArtUtils;
 import org.apache.seatunnel.utils.CompressionUtils;
 
-import org.apache.commons.compress.archivers.ArchiveException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,19 +79,16 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
      */
     @SafeVarargs
     protected final void close(List<? extends Plugin<E>>... plugins) {
-        RuntimeException exceptionHolder = null;
+        PluginClosedException exceptionHolder = null;
         for (List<? extends Plugin<E>> pluginList : plugins) {
             for (Plugin<E> plugin : pluginList) {
                 try (Plugin<?> closed = plugin) {
                     // ignore
                 } catch (Exception e) {
-                    RuntimeException wrapperException = new RuntimeException(
-                            String.format("plugin %s closed error", plugin.getClass()), e);
-                    if (exceptionHolder == null) {
-                        exceptionHolder = wrapperException;
-                    } else {
-                        exceptionHolder.addSuppressed(wrapperException);
-                    }
+                    exceptionHolder = exceptionHolder == null ?
+                            new PluginClosedException("below plugins closed error:") : exceptionHolder;
+                    exceptionHolder.addSuppressed(new PluginClosedException(
+                            String.format("plugin %s closed error", plugin.getClass()), e));
                 }
             }
         }
@@ -141,24 +137,19 @@ public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends Ru
             File workDir = new File(".");
 
             for (File file : Objects.requireNonNull(workDir.listFiles())) {
-                LOGGER.warn("\t list file: " + file.getAbsolutePath());
+                LOGGER.warn("\t list file: {} ", file.getAbsolutePath());
             }
             // decompress plugin dir
             File compressedFile = new File("plugins.tar.gz");
 
             try {
                 File tempFile = CompressionUtils.unGzip(compressedFile, workDir);
-                try {
-                    CompressionUtils.unTar(tempFile, workDir);
-                    LOGGER.info("succeeded to decompress plugins.tar.gz");
-                } catch (ArchiveException e) {
-                    LOGGER.error("failed to decompress plugins.tar.gz", e);
-                    System.exit(-1);
-                }
-            } catch (IOException e) {
+                CompressionUtils.unTar(tempFile, workDir);
+            } catch (Exception e) {
                 LOGGER.error("failed to decompress plugins.tar.gz", e);
                 System.exit(-1);
             }
+            LOGGER.info("succeeded to decompress plugins.tar.gz");
         }
     }
 

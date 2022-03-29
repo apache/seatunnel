@@ -31,7 +31,7 @@ public class FakeSourceToFileIT extends FlinkContainer {
 
     @Test
     public void testFakeSource2FileSink() throws Exception {
-        Container.ExecResult execResult = executeSeaTunnelFLinkJob("/file/fakesource_to_file.conf");
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
 }

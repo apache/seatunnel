@@ -26,6 +26,10 @@ import java.util.stream.Collectors;
  */
 public class SqlStatementSplitter {
 
+    private SqlStatementSplitter() {
+        throw new IllegalStateException("Utility class");
+    }
+
     private static final String COMMENT_MASK = "--.*$";
     private static final String BEGINNING_COMMENT_MASK = "^(\\s)*--.*$";
     private static final String SEMICOLON = ";";

@@ -136,6 +136,9 @@ If the data volume is small, or the goal is merely for functional verification, 
 a cluster environment, because SeaTunnel supports standalone operation. Note: SeaTunnel 2.0 supports running on Spark
 and Flink.
 
+## Compiling project
+Follow this [document](docs/en/developement/setup.md).
+
 ## Downloads
 
 Download address for run-directly software package : https://seatunnel.apache.org/download

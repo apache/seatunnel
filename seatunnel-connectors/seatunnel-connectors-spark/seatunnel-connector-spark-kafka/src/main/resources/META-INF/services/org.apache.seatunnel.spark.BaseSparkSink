@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.sink.Kafka
+org.apache.seatunnel.spark.kafka.sink.Kafka

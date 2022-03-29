@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.sink.Elasticsearch
+org.apache.seatunnel.flink.elasticsearch.sink.Elasticsearch

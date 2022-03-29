@@ -24,7 +24,7 @@ The address of the `zookeeper` cluster, the format is: `host01:2181,host02:2181,
 
 The structure of the `hbase` table is defined by `catalog` , the name of the `hbase` table and its `namespace` , which `columns` are used as `rowkey`, and the correspondence between `column family` and `columns` can be defined by `catalog` `hbase table catalog`
 
-### stagging_dir [string]
+### staging_dir [string]
 
 A path on `HDFS` that will generate data that needs to be loaded into `hbase` . After the data is loaded, the data file will be deleted and the directory is still there.
 

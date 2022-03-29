@@ -39,7 +39,7 @@ import java.util.stream.Stream;
 /**
  * This class is the base class of FlinkEnvironment test.
  * The before method will create a Flink cluster, and after method will close the Flink cluster.
- * You can use {@link FlinkContainer#executeSeaTunnelFLinkJob} to submit a seatunnel config and run a seatunnel job.
+ * You can use {@link FlinkContainer#executeSeaTunnelFlinkJob} to submit a seatunnel config and run a seatunnel job.
  */
 public abstract class FlinkContainer {
 
@@ -84,7 +84,7 @@ public abstract class FlinkContainer {
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
-        copySeatunnelFlinkCoreJar();
+        copySeaTunnelFlinkCoreJar();
         LOG.info("Containers are started.");
     }
 
@@ -98,7 +98,7 @@ public abstract class FlinkContainer {
         }
     }
 
-    public Container.ExecResult executeSeaTunnelFLinkJob(String confFile) throws IOException, InterruptedException {
+    public Container.ExecResult executeSeaTunnelFlinkJob(String confFile) throws IOException, InterruptedException {
         final String confPath = getResource(confFile);
         if (!new File(confPath).exists()) {
             throw new IllegalArgumentException(confFile + " doesn't exist");
@@ -120,7 +120,7 @@ public abstract class FlinkContainer {
         return execResult;
     }
 
-    protected void copySeatunnelFlinkCoreJar() {
+    protected void copySeaTunnelFlinkCoreJar() {
         String currentModuleHome = System.getProperty("user.dir");
         String seatunnelCoreFlinkJarPath = currentModuleHome.replace("/seatunnel-e2e/seatunnel-flink-e2e", "")
             + "/seatunnel-core/seatunnel-core-flink/target/seatunnel-core-flink.jar";

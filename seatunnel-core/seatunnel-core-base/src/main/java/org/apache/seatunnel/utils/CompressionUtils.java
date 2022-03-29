@@ -21,10 +21,13 @@ import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -32,6 +35,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -41,6 +49,40 @@ public final class CompressionUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(CompressionUtils.class);
 
     private CompressionUtils() {
+    }
+
+    /**
+     * Compress directory to a 'tar.gz' format file.
+     *
+     * @param inputDir   all files in the directory will be included, except for symbolic links.
+     * @param outputFile the output tarball file.
+     */
+    public static void tarGzip(final Path inputDir, final Path outputFile) throws IOException {
+        LOGGER.info("Tar directory '{}' to file '{}'.", inputDir, outputFile);
+        try (OutputStream out = Files.newOutputStream(outputFile);
+             BufferedOutputStream bufferedOut = new BufferedOutputStream(out);
+             GzipCompressorOutputStream gzOut = new GzipCompressorOutputStream(bufferedOut);
+             TarArchiveOutputStream tarOut = new TarArchiveOutputStream(gzOut)) {
+            Files.walkFileTree(inputDir, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
+                    if (attrs.isSymbolicLink()) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    String fileName = inputDir.relativize(path).toString();
+                    TarArchiveEntry archiveEntry = new TarArchiveEntry(path.toFile(), fileName);
+                    tarOut.putArchiveEntry(archiveEntry);
+                    Files.copy(path, tarOut);
+                    tarOut.closeArchiveEntry();
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            tarOut.finish();
+            LOGGER.info("Creating tar file '{}'.", outputFile.toString());
+        } catch (IOException e) {
+            LOGGER.error("Error when tar directory '{}' to file '{}'.", inputDir, outputFile);
+            throw e;
+        }
     }
 
     /**
@@ -65,6 +107,9 @@ public final class CompressionUtils {
             TarArchiveEntry entry = null;
             while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
                 final File outputFile = new File(outputDir, entry.getName());
+                if (!outputFile.toPath().normalize().startsWith(outputDir.toPath())) {
+                    throw new IllegalStateException("Bad zip entry");
+                }
                 if (entry.isDirectory()) {
                     LOGGER.info("Attempting to write output directory {}.", outputFile.getAbsolutePath());
                     if (!outputFile.exists()) {
