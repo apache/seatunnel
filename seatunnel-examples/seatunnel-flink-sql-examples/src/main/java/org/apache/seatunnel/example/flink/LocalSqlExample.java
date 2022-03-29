@@ -28,7 +28,7 @@ import java.nio.charset.StandardCharsets;
 
 public class LocalSqlExample {
 
-    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-sql-examples/src/main/resources/examples/";
+    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-flink-sql-examples/src/main/resources/examples/";
 
     public static void main(String[] args) throws IOException {
         String configFile = getTestConfigFile("flink.sql.conf.template");
