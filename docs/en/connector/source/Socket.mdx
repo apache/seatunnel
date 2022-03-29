@@ -1,0 +1,102 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Socket
+
+## Description
+
+`SocketStream` is mainly used to receive `Socket` data and is used to quickly verify `Spark streaming` computing.
+
+:::tip
+
+Engine Supported and plugin name
+
+* [x] Spark: SocketStream
+* [x] Flink: Socket
+
+:::
+
+## Options
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| host           | string | no       | localhost     |
+| port           | number | no       | 9999          |
+| common-options | string | yes      | -             |
+
+### host [string]
+
+socket server hostname
+
+### port [number]
+
+socket server port
+
+### common options [string]
+
+Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
+
+</TabItem>
+<TabItem value="flink">
+
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| host           | string | no       | localhost     |
+| port           | int    | no       | 9999          |
+| common-options | string | no       | -             |
+
+### host [string]
+
+socket server hostname
+
+### port [int]
+
+socket server port
+
+### common options [string]
+
+Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
+
+</TabItem>
+</Tabs>
+
+## Examples
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+```bash
+socketStream {
+  port = 9999
+}
+```
+
+</TabItem>
+<TabItem value="flink">
+
+```bash
+source {
+    SocketStream{
+        result_table_name = "socket"
+        field_name = "info"
+    }
+}
+```
+
+</TabItem>
+</Tabs>

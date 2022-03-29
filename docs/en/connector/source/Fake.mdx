@@ -1,0 +1,135 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Fake
+
+## Description
+
+`Fake` is mainly used to conveniently generate user-specified data, which is used as input for functional verification, testing, and performance testing of seatunnel.
+
+:::note
+
+Engine Supported and plugin name
+
+* [x] Spark: Fake, FakeStream
+* [x] Flink: FakeSource, FakeSourceStream
+    * Flink `Fake Source` is mainly used to automatically generate data. The data has only two columns. The first column is of `String type` and the content is a random one from `["Gary", "Ricky Huo", "Kid Xiong"]` . The second column is of `Long type` , which is The current 13-bit timestamp is used as input for functional verification and testing of `seatunnel` .
+
+:::
+
+## Options
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+:::note
+
+These options is for Spark:`FakeStream`, and Spark:`Fake` do not have any options
+
+:::
+
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| content        | array  | no       | -             |
+| rate           | number | yes      | -             |
+| common-options | string | yes      | -             |
+
+### content [array]
+
+List of test data strings
+
+### rate [number]
+
+Number of test cases generated per second
+
+</TabItem>
+<TabItem value="flink">
+
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| parallelism    | `Int`  | no       | -             |
+| common-options |`string`| no       | -             |
+
+### parallelism [`Int`]
+
+The parallelism of an individual operator, for Fake Source Stream
+
+</TabItem>
+</Tabs>
+
+### common options [string]
+
+Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
+
+## Examples
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+### Fake
+
+```bash
+Fake {
+    result_table_name = "my_dataset"
+}
+```
+
+### FakeStream
+
+```bash
+fakeStream {
+    content = ['name=ricky&age=23', 'name=gary&age=28']
+    rate = 5
+}
+```
+
+The generated data is as follows, randomly extract the string from the `content` list
+
+```bash
++-----------------+
+|raw_message      |
++-----------------+
+|name=gary&age=28 |
+|name=ricky&age=23|
++-----------------+
+```
+
+</TabItem>
+<TabItem value="flink">
+
+### FakeSource
+
+```bash
+source {
+    FakeSourceStream {
+        result_table_name = "fake"
+        field_name = "name,age"
+    }
+}
+```
+
+### FakeSourceStream
+
+```bash
+source {
+    FakeSource {
+        result_table_name = "fake"
+        field_name = "name,age"
+    }
+}
+```
+
+</TabItem>
+</Tabs>
