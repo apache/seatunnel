@@ -48,7 +48,7 @@ public class Sql implements FlinkStreamTransform, FlinkBatchTransform {
         try {
             table = tableEnvironment.sqlQuery(sql);
         } catch (Exception e) {
-            throw new Exception(sql, e.getCause());
+            throw new Exception("Flink streaming transform sql execute failed, SQL: "+sql, e);
         }
         return TableUtil.tableToDataStream(tableEnvironment, table, false);
     }
@@ -60,7 +60,7 @@ public class Sql implements FlinkStreamTransform, FlinkBatchTransform {
         try {
             table = tableEnvironment.sqlQuery(sql);
         } catch (Exception e) {
-            throw new Exception(sql, e.getCause());
+            throw new Exception("Flink batch transform sql execute failed, SQL: "+sql, e);
         }
         return TableUtil.tableToDataSet(tableEnvironment, table);
     }
