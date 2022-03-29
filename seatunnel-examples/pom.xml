@@ -32,7 +32,7 @@
     <modules>
         <module>seatunnel-flink-examples</module>
         <module>seatunnel-spark-examples</module>
-        <module>seatunnel-sql-examples</module>
+        <module>seatunnel-flink-sql-examples</module>
     </modules>
     <build>
         <plugins>
