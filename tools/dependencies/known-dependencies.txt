@@ -48,9 +48,9 @@ aws-java-sdk-ec2-1.12.37.jar
 aws-java-sdk-kms-1.12.37.jar
 aws-java-sdk-s3-1.12.37.jar
 caffeine-2.8.0.jar
-calcite-core-1.29.0.jar
-calcite-druid-1.29.0.jar
-calcite-linq4j-1.29.0.jar
+calcite-core-1.30.0.jar
+calcite-druid-1.30.0.jar
+calcite-linq4j-1.30.0.jar
 checker-qual-3.10.0.jar
 chill-java-0.9.3.jar
 chill_2.11-0.9.3.jar
