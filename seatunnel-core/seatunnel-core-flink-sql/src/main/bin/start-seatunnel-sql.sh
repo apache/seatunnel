@@ -83,7 +83,7 @@ PLUGINS_DIR=${APP_DIR}/lib
 DEFAULT_CONFIG=${CONF_DIR}/application.conf
 CONFIG_FILE=${CONFIG_FILE:-$DEFAULT_CONFIG}
 
-assemblyJarName=$(find ${PLUGINS_DIR} -name seatunnel-core-sql*.jar)
+assemblyJarName=$(find ${PLUGINS_DIR} -name seatunnel-core-flink-sql*.jar)
 
 source ${CONF_DIR}/seatunnel-env.sh
 
