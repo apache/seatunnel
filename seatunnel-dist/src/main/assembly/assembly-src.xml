@@ -72,6 +72,9 @@
                 <exclude>**/*.diff</exclude>
                 <exclude>**/*.patch</exclude>
                 <exclude>**/*.tmp</exclude>
+                <exclude>**/all-dependencies.txt</exclude>
+                <exclude>**/self-modules.txt</exclude>
+                <exclude>**/third-party-dependencies.txt</exclude>
 
                 <!-- system ignore -->
                 <exclude>**/.DS_Store</exclude>
