@@ -13,6 +13,7 @@ Write data to Kafka
 | producer.bootstrap.servers | string | yes      | -             |
 | topic                      | string | yes      | -             |
 | producer.*                 | string | no       | -             |
+| semantic                   | string | no       | -             |
 | common-options             | string | no       | -             |
 
 ### producer.bootstrap.servers [string]
@@ -29,6 +30,9 @@ In addition to the above mandatory parameters that must be specified by the `Kaf
 
 The way to specify the parameter is to add the prefix `producer.` to the original parameter name. For example, the way to specify `request.timeout.ms` is: `producer.request.timeout.ms = 60000` . If these non-essential parameters are not specified, they will use the default values given in the official Kafka documentation.
 
+### semantic [string]
+Semantics that can be chosen. exactly_once/at_least_once/none, default is at_least_once
+
 ### common options [string]
 
 Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) for details
@@ -36,7 +40,7 @@ Sink plugin common parameters, please refer to [Sink Plugin](./sink-plugin.md) f
 ## Examples
 
 ```bash
-   KafkaTable {
+   KafkaSink {
      producer.bootstrap.servers = "127.0.0.1:9092"
      topics = test_sink
    }

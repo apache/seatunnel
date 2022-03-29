@@ -25,55 +25,35 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.formats.json.JsonRowSerializationSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
-import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
-import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
-import org.apache.kafka.clients.producer.ProducerRecord;
 
 import javax.annotation.Nullable;
 
 import java.util.Properties;
 
-public class KafkaTable implements FlinkStreamSink {
-
+public class KafkaSink implements FlinkStreamSink {
     private static final long serialVersionUID = 3980751499724935230L;
+    private static final String DEFAULT_KAFKA_SEMANTIC = "at_least_once";
     private Config config;
     private Properties kafkaParams = new Properties();
     private String topic;
+    private String semantic = DEFAULT_KAFKA_SEMANTIC;
 
     @Override
     @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
-        StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
-        Table table = tableEnvironment.fromDataStream(dataStream);
-        TypeInformation<?>[] types = table.getSchema().getFieldTypes();
-        String[] fieldNames = table.getSchema().getFieldNames();
-        JsonRowSerializationSchema jsonRowSerializationSchema = JsonRowSerializationSchema
-                .builder()
-                .withTypeInfo(Types.ROW_NAMED(fieldNames, types))
-                .build();
-
-        dataStream.addSink(
-                new FlinkKafkaProducer<Row>(
-                    topic,
-                    new KafkaSerializationSchema<Row>() {
-                        @Override
-                        public ProducerRecord<byte[], byte[]> serialize(Row row, @Nullable Long timestamp) {
-                            return new ProducerRecord<>(topic, jsonRowSerializationSchema.serialize(row));
-                        }
-                    },
-                    kafkaParams,
-                    FlinkKafkaProducer.Semantic.EXACTLY_ONCE
-                )
-        );
-        return null;
+        FlinkKafkaProducer<Row> rowFlinkKafkaProducer = new FlinkKafkaProducer<>(
+            topic,
+            JsonRowSerializationSchema.builder().withTypeInfo(dataStream.getType()).build(),
+            kafkaParams,
+            null,
+            getSemanticEnum(semantic),
+            FlinkKafkaProducer.DEFAULT_KAFKA_PRODUCERS_POOL_SIZE);
+        return dataStream.addSink(rowFlinkKafkaProducer);
     }
 
     @Override
@@ -94,9 +74,22 @@ public class KafkaTable implements FlinkStreamSink {
     @Override
     public void prepare(FlinkEnvironment env) {
         topic = config.getString("topics");
+        if (config.hasPath("semantic")) {
+            semantic = config.getString("semantic");
+        }
         String producerPrefix = "producer.";
         PropertiesUtil.setProperties(config, kafkaParams, producerPrefix, false);
         kafkaParams.put("key.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         kafkaParams.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+    }
+
+    private FlinkKafkaProducer.Semantic getSemanticEnum(String semantic) {
+        if ("exactly_once".equals(semantic)) {
+            return FlinkKafkaProducer.Semantic.EXACTLY_ONCE;
+        } else if ("at_least_once".equals(semantic)) {
+            return FlinkKafkaProducer.Semantic.AT_LEAST_ONCE;
+        } else {
+            return FlinkKafkaProducer.Semantic.NONE;
+        }
     }
 }
