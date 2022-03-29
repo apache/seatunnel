@@ -34,7 +34,7 @@ been used in the production of nearly 100 companies.
 
 ## Workflow
 
-![seatunnel-workflow.svg](images/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](../images/seatunnel-workflow.svg)
 
 ```text
 Source[Data Source Input] -> Transform[Data Processing] -> Sink[Result Output]
@@ -69,4 +69,5 @@ SeaTunnel enriches the <a href="https://landscape.cncf.io/landscape=observabilit
 
 ## What's More
 
+<!-- markdown-link-check-disable-next-line -->
 You can see [Quick Start](/category/start) for the next step.
