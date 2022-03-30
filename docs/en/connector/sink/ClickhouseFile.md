@@ -16,22 +16,23 @@ Engine Supported and plugin name
 
 ## Options
 
-| name                   | type    | required | default value |
-|------------------------|---------|----------|---------------|
-| database               | string  | yes      | -             |
-| fields                 | array   | no       | -             |
-| host                   | string  | yes      | -             |
-| password               | string  | no       | -             |
-| table                  | string  | yes      | -             |
-| username               | string  | no       | -             |
-| sharding_key           | string  | no       | -             |
-| clickhouse_local_path  | string  | yes      | -             |
-| copy_method            | string  | no       | scp           |
-| node_free_password     | boolean | no       | false         |
-| node_pass              | list    | no       | -             |
-| node_pass.node_address | string  | no       | -             |
-| node_pass.password     | string  | no       | -             |
-| common-options         | string  | no       | -             |
+| name                   | type     | required | default value |
+|------------------------|----------|----------|---------------|
+| database               | string   | yes      | -             |
+| fields                 | array    | no       | -             |
+| host                   | string   | yes      | -             |
+| password               | string   | no       | -             |
+| table                  | string   | yes      | -             |
+| username               | string   | no       | -             |
+| sharding_key           | string   | no       | -             |
+| clickhouse_local_path  | string   | yes      | -             |
+| tmp_batch_cache_line   | int      | no       | 100000        |
+| copy_method            | string   | no       | scp           |
+| node_free_password     | boolean  | no       | false         |
+| node_pass              | list     | no       | -             |
+| node_pass.node_address | string   | no       | -             |
+| node_pass.password     | string   | no       | -             |
+| common-options         | string   | no       | -             |
 
 ### database [string]
 
@@ -67,6 +68,12 @@ worked when 'split_mode' is true.
 
 The address of the clickhouse-local program on the spark node. Since each task needs to be called, 
 clickhouse-local should be located in the same path of each spark node.
+
+### tmp_batch_cache_line [int]
+
+SeaTunnel will use memory map technology to write temporary data to the file to cache the data that the 
+user needs to write to clickhouse. This parameter is used to configure the number of data pieces written 
+to the file each time. Most of the time you don't need to modify it.
 
 ### copy_method [string]
 
