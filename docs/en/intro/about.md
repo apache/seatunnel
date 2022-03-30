@@ -69,5 +69,4 @@ SeaTunnel enriches the <a href="https://landscape.cncf.io/landscape=observabilit
 
 ## What's More
 
-<!-- markdown-link-check-disable-next-line -->
-You can see [Quick Start](/category/start) for the next step.
+You can see [Quick Start](/docs/category/start) for the next step.
