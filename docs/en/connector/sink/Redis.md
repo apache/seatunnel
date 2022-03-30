@@ -15,18 +15,18 @@ Engine Supported and plugin name
 
 ## Options
 
-| name      | type   | required  | default value |
-|-----------|--------|-----------|---------------|
-| host      | string | yes       | "localhost"   |
-| port      | int    | yes       | 6379          |
-| auth      | string | no        |               |
-| db_num    | int    | no        | 0             |
-| data_type | string | no        | "KV"          |
-| hash_name | string | no        |               |
-| list_name | string | no        |               |
-| set_name  | string | no        |               |
-| zset_name | string | no        |               |
-| timeout   | int    | no        | 2000          |
+| name      | type   | required | default value |
+|-----------|--------|----------|---------------|
+| host      | string | no       | "localhost"   |
+| port      | int    | no       | 6379          |
+| auth      | string | no       |               |
+| db_num    | int    | no       | 0             |
+| data_type | string | no       | "KV"          |
+| hash_name | string | no       |               |
+| list_name | string | no       |               |
+| set_name  | string | no       |               |
+| zset_name | string | no       |               |
+| timeout   | int    | no       | 2000          |
 
 ### host [string]
 
