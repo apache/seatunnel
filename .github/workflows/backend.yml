@@ -83,3 +83,17 @@ jobs:
       - name: Run Integration tests
         run: |
           ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false --no-snapshot-updates
+  result:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [ build ]
+    if: always()
+    steps:
+      - name: Status
+        run: |
+          if [[ ${{ needs.build.result }} == 'success' ]]; then
+            echo "Passed!"
+          else
+            exit -1
+          fi
