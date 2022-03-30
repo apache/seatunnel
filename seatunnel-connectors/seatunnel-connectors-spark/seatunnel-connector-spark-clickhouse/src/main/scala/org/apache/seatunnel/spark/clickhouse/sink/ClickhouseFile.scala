@@ -37,6 +37,8 @@ import org.slf4j.LoggerFactory
 import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl}
 
 import java.io.File
+import java.nio.channels.FileChannel
+import java.nio.file.{Paths, StandardOpenOption}
 import java.util
 import java.util.concurrent.ThreadLocalRandom
 import java.util.{Objects, Properties, UUID}
@@ -60,6 +62,7 @@ class ClickhouseFile extends SparkBatchSink {
   private val random = ThreadLocalRandom.current()
   private var freePass: Boolean = false
   private var copyFileMethod: TransferMethod = SCP
+  private var tmpBatchCacheLine = 100000
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
 
@@ -89,9 +92,6 @@ class ClickhouseFile extends SparkBatchSink {
   }
 
   private def generateClickhouseFile(rows: Iterator[(Shard, Row)]): List[String] = {
-    val data = rows.map(r => {
-      this.fields.map(f => r._2.getAs[Object](f).toString).mkString("\t")
-    }).mkString("\n")
 
     def getValue(kv: util.Map.Entry[String, String]): String = {
       if (this.fields.contains(kv.getKey)) {
@@ -112,6 +112,9 @@ class ClickhouseFile extends SparkBatchSink {
     val targetPath = java.lang.String.format("%s/%s", CLICKHOUSE_FILE_PREFIX, uuid)
     val target = new File(targetPath)
     target.mkdirs()
+    val tmpDataPath = targetPath + "/local_data.log"
+
+    mmapSaveDataSafely(tmpDataPath, rows.map(r => r._2))
 
     val exec = mutable.ListBuffer[String]()
     exec.appendAll(clickhouseLocalPath.trim.split(" "))
@@ -125,12 +128,37 @@ class ClickhouseFile extends SparkBatchSink {
       this.table.tableSchema.entrySet.map(getValue).mkString(","), uuid))
     exec.append("--path")
     exec.append(targetPath)
-    // TODO change data stream for echo, change it to local file
-    val command = Process(Seq("echo", data)) #| exec
+    val command = Process(Seq("less", tmpDataPath)) #| exec
     LOGGER.info(command.lineStream.mkString("\n"))
 
     new File(targetPath + "/data/_local/" + this.table.getLocalTableName).listFiles().filter(f => f.isDirectory).
       filterNot(f => f.getName.equals("detached")).map(f => f.getAbsolutePath).toList
+  }
+
+  private def mmapSaveDataSafely(path: String, rows: Iterator[Row]): Unit = {
+
+    val outputChannel = FileChannel.open(Paths.get(path), StandardOpenOption.WRITE, StandardOpenOption.READ,
+      StandardOpenOption.CREATE_NEW)
+    val cache = mutable.ListBuffer[Row]()
+    while (rows.hasNext) {
+      cache.append(rows.next())
+      if (cache.length >= tmpBatchCacheLine) {
+        mmapSaveData(outputChannel, cache.toList)
+        cache.clear()
+      }
+    }
+    if (cache.nonEmpty) {
+      mmapSaveData(outputChannel, cache.toList)
+    }
+    outputChannel.close()
+  }
+
+  private def mmapSaveData(outputChannel: FileChannel, rows: List[Row]): Unit = {
+    val data = rows.map(r => {
+      this.fields.map(f => r.getAs[Object](f).toString).mkString("\t") + "\n"
+    }).mkString
+    val buffer = outputChannel.map(FileChannel.MapMode.READ_WRITE, outputChannel.size(), data.getBytes.length)
+    buffer.put(data.getBytes)
   }
 
   private def moveFileToServer(shard: Shard, paths: List[String]): Unit = {
@@ -193,6 +221,10 @@ class ClickhouseFile extends SparkBatchSink {
 
       if (config.hasPath("copy_method")) {
         this.copyFileMethod = getCopyMethod(config.getString("copy_method"))
+      }
+
+      if (config.hasPath("tmp_batch_cache_line")) {
+        this.tmpBatchCacheLine = config.getInt("tmp_batch_cache_line")
       }
 
       val (result, tableInfo) = getClickhouseTableInfo(conn, database, table)
