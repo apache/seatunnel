@@ -34,13 +34,11 @@
                 <exclude>**/.project</exclude>
                 <exclude>**/.settings/**</exclude>
                 <exclude>lib/**</exclude>
-                <exclude>plugins/.gitkeep</exclude>
             </excludes>
 
             <includes>
                 <include>README.md</include>
                 <include>bin/**</include>
-                <include>plugins/**</include>
                 <include>config/**</include>
             </includes>
         </fileSet>
