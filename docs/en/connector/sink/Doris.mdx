@@ -1,0 +1,174 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Doris
+
+### Description:
+
+Write Data to a Doris Table.
+
+:::tip
+
+Engine Supported and plugin name
+
+* [x] Spark: Doris
+* [x] Flink: DorisSink
+
+:::
+
+### Options
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+| name | type | required | default value |
+| --- | --- | --- | --- |
+| fenodes | string | yes | - |
+| database | string | yes | - |
+| table	 | string | yes | - |
+| user	 | string | yes | - |
+| password	 | string | yes | - |
+| batch_size	 | int | yes | 100 |
+| doris.*	 | string | no | - |
+
+##### fenodes [string]
+
+Doris FE address:8030
+
+##### database [string]
+
+Doris target database name
+
+##### table [string]
+
+Doris target table name
+
+##### user [string]
+
+Doris user name
+
+##### password [string]
+
+Doris user's password
+
+##### batch_size [string]
+
+Doris number of submissions per batch
+
+Default value：5000
+
+##### doris. [string]
+
+Doris stream_load properties,you can use 'doris.' prefix + stream_load properties
+[More Doris stream_load Configurations](https://doris.apache.org/administrator-guide/load-data/stream-load-manual.html)
+
+</TabItem>
+<TabItem value="flink">
+
+| name | type | required | default value |
+| --- | --- | --- | --- |
+| fenodes | string | yes | - |
+| database | string | yes | - |
+| table | string | yes | - |
+| user	 | string | yes | - |
+| password	 | string | yes | - |
+| batch_size	 | int | no |  100 |
+| interval	 | int | no |1000 |
+| max_retries	 | int | no | 1 |
+| doris.*	 | - | no | - |
+| parallelism | int | no  | - |
+
+##### fenodes [string]
+
+Doris FE http address
+
+##### database [string]
+
+Doris database name
+
+##### table [string]
+
+Doris table name
+
+##### user [string]
+
+Doris username
+
+##### password [string]
+
+Doris password
+
+##### batch_size [int]
+
+Maximum number of lines in a single write Doris,default value is 5000.
+
+##### interval [int]
+
+The flush interval millisecond, after which the asynchronous thread will write the data in the cache to Doris.Set to 0 to turn off periodic writing.
+
+Default value ：5000
+
+##### max_retries [int]
+
+Number of retries after writing Doris failed
+
+##### doris.* [string]
+
+The doris stream load parameters.you can use 'doris.' prefix + stream_load properties. eg:doris.column_separator' = ','
+[More Doris stream_load Configurations](https://doris.apache.org/administrator-guide/load-data/stream-load-manual.html)
+
+### parallelism [Int]
+
+The parallelism of an individual operator, for DorisSink
+
+</TabItem>
+</Tabs>
+
+### Examples
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+```conf
+Doris {
+    fenodes="0.0.0.0:8030"
+    database="test"
+    table="user"
+    user="doris"
+    password="doris"
+    batch_size=10000
+    doris.column_separator="\t"
+    doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
+}
+```
+
+</TabItem>
+<TabItem value="flink">
+
+```conf
+DorisSink {
+    fenodes = "127.0.0.1:8030"
+    database = database
+    table = table
+    user = root
+    password = password
+    batch_size = 1
+    doris.column_separator="\t"
+    doris.columns="id,user_name,user_name_cn,create_time,last_login_time"
+}
+```
+
+</TabItem>
+</Tabs>
