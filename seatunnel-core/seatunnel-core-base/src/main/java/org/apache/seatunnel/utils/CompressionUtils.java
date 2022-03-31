@@ -78,7 +78,7 @@ public final class CompressionUtils {
                 }
             });
             tarOut.finish();
-            LOGGER.info("Creating tar file '{}'.", outputFile.toString());
+            LOGGER.info("Creating tar file '{}'.", outputFile);
         } catch (IOException e) {
             LOGGER.error("Error when tar directory '{}' to file '{}'.", inputDir, outputFile);
             throw e;

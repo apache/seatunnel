@@ -18,6 +18,11 @@
 package org.apache.seatunnel.flink.util;
 
 public class ConfigKeyName {
+
+    private ConfigKeyName() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static final String TIME_CHARACTERISTIC = "execution.time-characteristic";
     public static final String BUFFER_TIMEOUT_MILLIS = "execution.buffer.timeout";
     public static final String PARALLELISM = "execution.parallelism";
