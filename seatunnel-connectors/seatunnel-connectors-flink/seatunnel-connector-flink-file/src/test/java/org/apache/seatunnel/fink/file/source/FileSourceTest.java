@@ -41,23 +41,25 @@ public class FileSourceTest {
     // *****************************************************************************
 
     @Test
-    public void getJsonDate() {
+    public void getJsonDate() throws Exception {
         String configFile = "flink.streaming.json.conf";
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
-        FileSource fileSource = createFileSource(configFile, flinkEnvironment);
-        DataSet<Row> data = fileSource.getData(flinkEnvironment);
-        Assert.assertNotNull(data);
+        try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
+            DataSet<Row> data = fileSource.getData(flinkEnvironment);
+            Assert.assertNotNull(data);
+        }
     }
 
     @Test
-    public void getTextData() {
+    public void getTextData() throws Exception {
         String configFile = "flink.streaming.text.conf";
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
-        FileSource fileSource = createFileSource(configFile, flinkEnvironment);
-        DataSet<Row> data = fileSource.getData(flinkEnvironment);
-        Assert.assertNotNull(data);
+        try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
+            DataSet<Row> data = fileSource.getData(flinkEnvironment);
+            Assert.assertNotNull(data);
+        }
     }
 
     private FlinkEnvironment createFlinkStreamEnvironment(String configFile) {
