@@ -61,7 +61,7 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
     private static final String DEFAULT_TIME_FORMAT = "yyyyMMddHHmmss";
     // *********************** For stream mode config ************************
     private static final String ROLLOVER_INTERVAL = "rollover_interval";
-    private static final long DEFAULE_ROLLOVER_INTERVAL = 60;
+    private static final long DEFAULT_ROLLOVER_INTERVAL = 60;
     private static final String MAX_PART_SIZE = "max_part_size";
     private static final long DEFAULT_MAX_PART_SIZE = 1024;
     private static final String PART_PREFIX = "prefix";
@@ -82,7 +82,7 @@ public class FileSink implements FlinkStreamSink, FlinkBatchSink {
         final DefaultRollingPolicy<Row, String> rollingPolicy = DefaultRollingPolicy.builder()
             .withMaxPartSize(MB * TypesafeConfigUtils.getConfig(config, MAX_PART_SIZE, DEFAULT_MAX_PART_SIZE))
             .withRolloverInterval(
-                TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULE_ROLLOVER_INTERVAL)))
+                TimeUnit.MINUTES.toMillis(TypesafeConfigUtils.getConfig(config, ROLLOVER_INTERVAL, DEFAULT_ROLLOVER_INTERVAL)))
             .build();
         OutputFileConfig outputFileConfig = OutputFileConfig.builder()
             .withPartPrefix(TypesafeConfigUtils.getConfig(config, PART_PREFIX, DEFAULT_PART_PREFIX))
