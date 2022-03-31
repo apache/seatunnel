@@ -152,7 +152,7 @@ public class SparkEnvironment implements RuntimeEnv {
         }
     }
 
-    public  static <T extends Object> T sinkProcess(SparkEnvironment environment, BaseSparkSink<T> sink, Dataset<Row> ds) {
+    public  static <T> T sinkProcess(SparkEnvironment environment, BaseSparkSink<T> sink, Dataset<Row> ds) {
         Dataset<Row> fromDs;
         Config config = sink.getConfig();
         if (config.hasPath(SOURCE_TABLE_NAME)) {
