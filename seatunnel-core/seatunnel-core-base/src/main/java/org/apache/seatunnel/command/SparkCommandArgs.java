@@ -60,6 +60,7 @@ public class SparkCommandArgs implements CommandArgs {
         return configFile;
     }
 
+    @Override
     public DeployMode getDeployMode() {
         return DeployMode.from(deployMode);
     }
