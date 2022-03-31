@@ -17,8 +17,8 @@ Engine Supported and plugin name
 
 | name                | type     | required | default value |
 |---------------------|----------|----------|---------------|
-| host                | string   | yes      | "localhost"   |
-| port                | int      | yes      | 6379          |
+| host                | string   | no       | "localhost"   |
+| port                | int      | no       | 6379          |
 | auth                | string   | no       |               |
 | db_num              | int      | no       | 0             |
 | keys_or_key_pattern | string   | yes      |               |
