@@ -418,7 +418,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Apache Log4j API (org.apache.logging.log4j:log4j-api:2.11.1 - https://logging.apache.org/log4j/2.x/log4j-api/)
      (Apache License, Version 2.0) Apache Log4j API (org.apache.logging.log4j:log4j-api:2.15.0 - https://logging.apache.org/log4j/2.x/log4j-api/)
      (Apache License, Version 2.0) Apache Log4j API (org.apache.logging.log4j:log4j-api:2.8.1 - https://logging.apache.org/log4j/2.x/log4j-api/)
-     (Apache License, Version 2.0) Apache Log4j Core (org.apache.logging.log4j:log4j-core:2.15.0 - https://logging.apache.org/log4j/2.x/log4j-core/)
+     (Apache License, Version 2.0) Apache Log4j Core (org.apache.logging.log4j:log4j-core:2.17.1 - https://logging.apache.org/log4j/2.x/log4j-core/)
      (Apache License, Version 2.0) Apache Log4j JUL Adapter (org.apache.logging.log4j:log4j-jul:2.15.0 - https://logging.apache.org/log4j/2.x/log4j-jul/)
      (Apache License, Version 2.0) Apache Log4j SLF4J Binding (org.apache.logging.log4j:log4j-slf4j-impl:2.15.0 - https://logging.apache.org/log4j/2.x/log4j-slf4j-impl/)
      (Apache License, Version 2.0) Apache POI (org.apache.poi:poi-ooxml-schemas:4.1.2 - http://poi.apache.org/)
