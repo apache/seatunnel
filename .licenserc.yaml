@@ -30,6 +30,7 @@ header:
     - .gitattributes
     - '**/known-dependencies.txt'
     - '**/*.md'
+    - '**/*.mdx'
     - '**/*.json'
     - '**/*.iml'
     - '**/*.ini'

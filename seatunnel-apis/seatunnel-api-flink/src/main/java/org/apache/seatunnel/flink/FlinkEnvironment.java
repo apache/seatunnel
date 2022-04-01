@@ -77,7 +77,6 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     @Override
-
     public FlinkEnvironment prepare() {
         if (isStreaming()) {
             createStreamEnvironment();
@@ -100,9 +99,15 @@ public class FlinkEnvironment implements RuntimeEnv {
         return JobMode.STREAMING.equals(jobMode);
     }
 
+    @Override
     public FlinkEnvironment setJobMode(JobMode jobMode) {
         this.jobMode = jobMode;
         return this;
+    }
+
+    @Override
+    public JobMode getJobMode() {
+        return jobMode;
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {

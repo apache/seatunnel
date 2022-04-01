@@ -47,6 +47,11 @@
         </dependency>
 
         <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-connector-spark-kafka</artifactId>
             <version>${project.version}</version>

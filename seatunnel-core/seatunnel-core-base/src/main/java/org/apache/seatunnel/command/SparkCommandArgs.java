@@ -22,38 +22,45 @@ import org.apache.seatunnel.config.EngineType;
 
 import com.beust.jcommander.Parameter;
 
+import java.util.Collections;
 import java.util.List;
 
 public class SparkCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-c", "--config"},
-        description = "config file",
+        description = "Config file",
         required = true)
-    private String configFile = "application.conf";
+    private String configFile;
 
     @Parameter(names = {"-e", "--deploy-mode"},
-        description = "spark deploy mode",
+        description = "Spark deploy mode",
         required = true,
         validateWith = DeployModeValidator.class)
-    private String deployMode = DeployMode.CLIENT.getName();
+    private String deployMode;
 
     @Parameter(names = {"-m", "--master"},
-        description = "spark master",
+        description = "Spark master",
         required = true)
     private String master = null;
 
     @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = null;
+        description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
+    private List<String> variables = Collections.emptyList();
 
     @Parameter(names = {"-t", "--check"},
-        description = "check config")
+        description = "Check config")
     private boolean checkConfig = false;
+
+    @Parameter(names = {"-h", "--help"},
+        help = true,
+        description = "Show the usage message")
+    private boolean help = false;
 
     public String getConfigFile() {
         return configFile;
     }
 
+    @Override
     public DeployMode getDeployMode() {
         return DeployMode.from(deployMode);
     }
@@ -93,5 +100,9 @@ public class SparkCommandArgs implements CommandArgs {
 
     public void setCheckConfig(boolean checkConfig) {
         this.checkConfig = checkConfig;
+    }
+
+    public boolean isHelp() {
+        return help;
     }
 }

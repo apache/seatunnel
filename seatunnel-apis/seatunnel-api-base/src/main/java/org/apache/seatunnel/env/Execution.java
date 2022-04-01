@@ -40,6 +40,7 @@ public interface Execution<
      * @param transforms transform plugin list
      * @param sinks      sink plugin list
      */
+    // todo: change the method to receive a ExecutionContext
     void start(List<SR> sources, List<TF> transforms, List<SK> sinks) throws Exception;
 
 }

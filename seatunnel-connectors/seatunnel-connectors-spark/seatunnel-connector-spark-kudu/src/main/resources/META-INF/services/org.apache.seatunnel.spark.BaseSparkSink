@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.sink.Kudu
+org.apache.seatunnel.spark.kudu.sink.Kudu

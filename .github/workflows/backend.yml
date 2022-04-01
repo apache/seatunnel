@@ -31,13 +31,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-license:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-      - name: Check License Header
-        uses: apache/skywalking-eyes@main
   build:
     name: Build
     runs-on: ubuntu-latest

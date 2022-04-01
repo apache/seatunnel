@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.sink.ConsoleSink
+org.apache.seatunnel.flink.console.sink.ConsoleSink

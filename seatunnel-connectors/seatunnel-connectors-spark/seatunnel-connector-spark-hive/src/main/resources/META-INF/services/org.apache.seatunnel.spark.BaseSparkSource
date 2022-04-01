@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.source.Hive
+org.apache.seatunnel.spark.hive.source.Hive

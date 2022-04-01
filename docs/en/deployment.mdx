@@ -1,0 +1,124 @@
+# Deployment
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+This section will show you how to submit your SeaTunnel application in all kinds of cluster engine. If you still not installation
+SeaTunnel you could go to see [quick start](/docs/category/start) about how to prepare and change SeaTunnel configuration firstly.
+
+## Deployment in All Kind of Engine
+
+### Local Mode(Spark Only)
+
+Local mode only support Spark engine for now.
+
+```shell
+./bin/start-seatunnel-spark.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/application.conf
+```
+
+### Standalone Cluster
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+```shell
+# client mode
+./bin/start-seatunnel-spark.sh \
+--master spark://ip:7077 \
+--deploy-mode client \
+--config ./config/application.conf
+
+# cluster mode
+./bin/start-seatunnel-spark.sh \
+--master spark://ip:7077 \
+--deploy-mode cluster \
+--config ./config/application.conf
+```
+
+</TabItem>
+<TabItem value="flink">
+
+```shell
+bin/start-seatunnel-flink.sh \
+--config config-path
+
+# -p 2 specifies that the parallelism of flink job is 2. You can also specify more parameters, use flink run -h to view
+bin/start-seatunnel-flink.sh \
+-p 2 \
+--config config-path
+```
+
+</TabItem>
+</Tabs>
+
+### Yarn Cluster
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+```shell
+# client mode
+./bin/start-seatunnel-spark.sh \
+--master yarn \
+--deploy-mode client \
+--config ./config/application.conf
+
+# cluster mode
+./bin/start-seatunnel-spark.sh \
+--master yarn \
+--deploy-mode cluster \
+--config ./config/application.conf
+```
+
+</TabItem>
+<TabItem value="flink">
+
+```shell
+bin/start-seatunnel-flink.sh \
+-m yarn-cluster \
+--config config-path
+
+# -ynm seatunnel specifies the name displayed in the yarn webUI as seatunnel, you can also specify more parameters, use flink run -h to view
+bin/start-seatunnel-flink.sh \
+-m yarn-cluster \
+-ynm seatunnel \
+--config config-path
+```
+
+</TabItem>
+</Tabs>
+
+### Mesos Cluster(Spark Only)
+
+Mesos cluster deployment only support Spark engine for now.
+
+```shell
+# cluster mode
+./bin/start-seatunnel-spark.sh \
+--master mesos://ip:7077 \
+--deploy-mode cluster \
+--config ./config/application.conf
+```
+
+## Run Your Engine in Scaling
+
+(This section is about engine instead of SeaTunnel itself, it is background knowledge for user who not understand engine
+cluster type). Both Spark and Flink could be run in different kind of cluster and any scale. This guide only show the basic
+usage of SeaTunnel which build above engine Spark or Flink, if you want to scale your engine cluster see
+[Spark](https://spark.apache.org/docs/latest/running-on-kubernetes.html)
+or [Flink](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/deployment/resource-providers/native_kubernetes/) document.

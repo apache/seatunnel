@@ -67,6 +67,11 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     @Override
+    public JobMode getJobMode() {
+        return jobMode;
+    }
+
+    @Override
     public Config getConfig() {
         return this.config;
     }
