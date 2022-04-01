@@ -151,6 +151,7 @@
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
         <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <influxdb-java.version>2.22</influxdb-java.version>
+        <log4j-core.version>2.15.0</log4j-core.version>
         <scalastyle-maven-plugin.version>1.0.0</scalastyle-maven-plugin.version>
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
@@ -501,6 +502,11 @@
                 <groupId>com.pingcap.tispark</groupId>
                 <artifactId>tispark-assembly</artifactId>
                 <version>${tispark.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-core</artifactId>
+                <version>${log4j-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.druid</groupId>
