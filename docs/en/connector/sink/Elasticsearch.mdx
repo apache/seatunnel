@@ -12,7 +12,7 @@ Output data to `Elasticsearch`.
 Engine Supported and plugin name
 
 * [x] Spark: Elasticsearch(supported `ElasticSearch version is >= 2.x and <7.0.0`)
-* [x] Flink: Elasticsearch
+* [x] Flink: Elasticsearch(supported `ElasticSearch version is >= 2.x and <8.0.0`)
 
 :::
 
@@ -30,7 +30,7 @@ Engine Supported and plugin name
 | name              | type   | required | default value |
 | ----------------- | ------ | -------- | ------------- |
 | hosts             | array  | yes      | -             |
-| index_type        | string | no       | log           |
+| index_type        | string | no       | -             |
 | index_time_format | string | no       | yyyy.MM.dd    |
 | index             | string | no       | seatunnel     |
 | es.*              | string | no       |               |
@@ -57,7 +57,7 @@ Engine Supported and plugin name
 
 ### index_type [string]
 
-`Elasticsearch` index type
+`Elasticsearch` index type, it is recommended not to specify in elasticsearch 7 and above
 
 #### index_time_format [string]
 

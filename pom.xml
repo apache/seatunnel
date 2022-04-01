@@ -122,7 +122,7 @@
         <zkclient.version>0.3</zkclient.version>
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
         <parquet-avro.version>1.10.0</parquet-avro.version>
-        <transport.version>6.3.1</transport.version>
+        <transport.version>7.5.1</transport.version>
         <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
@@ -332,7 +332,7 @@
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
+                <artifactId>flink-connector-elasticsearch7_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
             </dependency>
 
