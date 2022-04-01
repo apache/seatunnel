@@ -33,7 +33,7 @@ public class FlinkStarterTest {
         Assert.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
     }
 
-    @Test()
+    @Test
     public void buildCommandsMissingConfig() {
         try {
             String[] args = {"-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
@@ -41,7 +41,7 @@ public class FlinkStarterTest {
             String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
             // since we cannot get the actual jar path, so we just check the command contains the command
             Assert.assertTrue(flinkExecuteCommand.contains("--config flink.yarn.conf"));
-        }catch (Exception e) {
+        } catch (Exception e) {
             Assert.assertEquals("The following option is required: [-c | --config]", e.getMessage());
         }
     }
