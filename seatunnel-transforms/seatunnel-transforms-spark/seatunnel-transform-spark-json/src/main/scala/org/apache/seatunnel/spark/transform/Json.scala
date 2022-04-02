@@ -96,9 +96,7 @@ class Json extends BaseSparkTransform {
       Map(
         "source_field" -> "raw_message",
         "target_field" -> Constants.ROW_ROOT,
-        "schema_dir" -> Paths
-          .get(Common.pluginFilesDir("json").toString, "schemas")
-          .toString,
+        "schema_dir" -> Paths.get(Common.pluginFilesDir("json").toString, "schemas").toString,
         "schema_file" -> ""))
     config = config.withFallback(defaultConfig)
     val schemaFile = config.getString("schema_file")
