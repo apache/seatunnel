@@ -28,7 +28,7 @@ import static org.apache.seatunnel.flink.elasticsearch.config.Config.PARALLELISM
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.utils.StringTemplate;
+import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
@@ -36,14 +36,12 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
-import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
 import org.apache.flink.streaming.connectors.elasticsearch6.ElasticsearchSink;
 import org.apache.flink.types.Row;
 import org.apache.http.HttpHost;
@@ -99,28 +97,9 @@ public class Elasticsearch implements FlinkStreamSink, FlinkBatchSink {
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataStream.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
-        indexName = StringTemplate.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT));
-        ElasticsearchSink.Builder<Row> esSinkBuilder = new ElasticsearchSink.Builder<>(
-                httpHosts,
-                new ElasticsearchSinkFunction<Row>() {
-                    public IndexRequest createIndexRequest(Row element) {
-                        int elementLen = element.getArity();
-                        Map<String, Object> json = new HashMap<>(elementLen);
-                        for (int i = 0; i < elementLen; i++) {
-                            json.put(fieldNames[i], element.getField(i));
-                        }
-
-                        return Requests.indexRequest()
-                                .index(indexName)
-                                .type(config.getString(INDEX_TYPE))
-                                .source(json);
-                    }
-
-                    @Override
-                    public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {
-                        indexer.add(createIndexRequest(element));
-                    }
-                }
+        indexName = VariablesSubstitute.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT));
+        ElasticsearchSink.Builder<Row> esSinkBuilder = new ElasticsearchSink.Builder<>(httpHosts,
+                (ElasticsearchSinkFunction<Row>) (element, ctx, indexer) -> indexer.add(createIndexRequest(element, fieldNames))
         );
 
         // configuration for the bulk requests; this instructs the sink to emit after every element, otherwise they would be buffered
@@ -139,32 +118,24 @@ public class Elasticsearch implements FlinkStreamSink, FlinkBatchSink {
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
         String[] fieldNames = rowTypeInfo.getFieldNames();
-        indexName = StringTemplate.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT));
-        DataSink<Row> dataSink = dataSet.output(new ElasticsearchOutputFormat<>(config, new ElasticsearchSinkFunction<Row>() {
-            @Override
-            public void process(Row element, RuntimeContext ctx, RequestIndexer indexer) {
-                indexer.add(createIndexRequest(element));
-            }
-
-            private IndexRequest createIndexRequest(Row element) {
-                int elementLen = element.getArity();
-                Map<String, Object> json = new HashMap<>(elementLen);
-                for (int i = 0; i < elementLen; i++) {
-                    json.put(fieldNames[i], element.getField(i));
-                }
-
-                return Requests.indexRequest()
-                        .index(indexName)
-                        .type(config.getString(INDEX_TYPE))
-                        .source(json);
-            }
-        }));
+        indexName = VariablesSubstitute.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT));
+        DataSink<Row> dataSink = dataSet.output(new ElasticsearchOutputFormat<>(config,
+                (ElasticsearchSinkFunction<Row>) (element, ctx, indexer) -> indexer.add(createIndexRequest(element, fieldNames))));
 
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
             return dataSink.setParallelism(parallelism);
         }
         return dataSink;
+    }
 
+    private IndexRequest createIndexRequest(Row element, String[] fieldNames) {
+        int elementLen = element.getArity();
+        Map<String, Object> json = new HashMap<>(elementLen);
+        for (int i = 0; i < elementLen; i++) {
+            json.put(fieldNames[i], element.getField(i));
+        }
+        return Requests.indexRequest().index(indexName).type(config.getString(INDEX_TYPE))
+                .source(json);
     }
 }
