@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.elasticsearch.sink
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.common.utils.StringTemplate
+import org.apache.seatunnel.common.utils.VariablesSubstitute
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.elasticsearch.Config.{HOSTS, INDEX, INDEX_TYPE, INDEX_TIME_FORMAT, DEFAULT_INDEX_TIME_FORMAT, DEFAULT_INDEX, DEFAULT_INDEX_TYPE}
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -37,8 +37,7 @@ class Elasticsearch extends SparkBatchSink {
   var esCfg: Map[String, String] = Map()
 
   override def output(df: Dataset[Row], environment: SparkEnvironment): Unit = {
-    val index =
-      StringTemplate.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT))
+    val index = VariablesSubstitute.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT))
     df.saveToEs(index + "/" + config.getString(INDEX_TYPE), this.esCfg)
   }
 

@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.file.sink
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable
-import org.apache.seatunnel.common.utils.StringTemplate
+import org.apache.seatunnel.common.utils.VariablesSubstitute
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.file.Config._
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -60,7 +60,7 @@ class File extends SparkBatchSink {
       case Failure(_) =>
     }
 
-    val path = StringTemplate.substitute(config.getString(PATH), config.getString(PATH_TIME_FORMAT))
+    val path = VariablesSubstitute.substitute(config.getString(PATH), config.getString(PATH_TIME_FORMAT))
     config.getString(SERIALIZER) match {
       case CSV => writer.csv(path)
       case JSON => writer.json(path)
