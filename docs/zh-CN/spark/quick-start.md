@@ -6,7 +6,7 @@
 
 > 如果你熟悉Spark，或者已经有Spark环境, 可以忽略这一步。我们不需要对Spark做任何配置。
 
-请先[下载Spark](https://spark.apache.org/downloads.html), 选择`Spark版本 >= 2.x.x`。在下载并解压之后, 不需要修改配置就可以指定 `deploy-mode = local`去提交任务。如果想将任务运行在`Standalone clusters`， `Yarn clusters`， `Mesos clusters`, 请参考在Spark官网 [Spark部署文档](https://spark.apache.org/docs/latest/cluster-overview.html).
+请先[下载Spark](https://spark.apache.org/downloads.html), 选择`Spark版本 >= 2.x.x`，目前还不支持spark3.x。在下载并解压之后, 不需要修改配置就可以指定 `deploy-mode = local`去提交任务。如果想将任务运行在`Standalone clusters`， `Yarn clusters`， `Mesos clusters`, 请参考在Spark官网 [Spark部署文档](https://spark.apache.org/docs/latest/cluster-overview.html).
 
 ### 第二布: 下载 Seatunnel
 
