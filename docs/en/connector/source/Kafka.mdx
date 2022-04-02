@@ -104,6 +104,15 @@ The `csv` format uses this parameter to set the separator and so on. For example
 
 - To learn more about how the `Avro Schema JSON string` should be defined, please refer to: https://avro.apache.org/docs/current/spec.html
 
+### rowtime.field [string]
+
+Extract timestamp using current configuration field for flink event time watermark
+
+### watermark [long]
+
+Sets a built-in watermark strategy for rowtime.field attributes which are out-of-order by a bounded time
+    interval. Emits watermarks which are the maximum observed timestamp minus the specified delay.
+
 ### offset.reset [string]
 
 The consumer's initial `offset` is only valid for new consumers. There are three modes

@@ -24,71 +24,71 @@ import org.apache.seatunnel.flink.jdbc.source.JdbcSource;
  * Jdbc source {@link JdbcSource} and
  * sink {@link JdbcSink} configuration parameters
  */
-public interface Config {
+public final class Config {
 
     /**
      * Parallelism of the source or sink
      */
-    String PARALLELISM = "parallelism";
+    public static final String PARALLELISM = "parallelism";
 
     /**
      * Jdbc driver for source or sink
      */
-    String DRIVER = "driver";
+    public static final String DRIVER = "driver";
 
     /**
      * Jdbc Url for source or sink
      */
-    String URL = "url";
+    public static final String URL = "url";
 
     /**
      * Jdbc username for source or sink
      */
-    String USERNAME = "username";
+    public static final String USERNAME = "username";
 
     /**
      * Jdbc query for source or sink
      */
-    String QUERY = "query";
+    public static final String QUERY = "query";
 
     /**
      * Jdbc password for source or sink
      */
-    String PASSWORD = "password";
+    public static final String PASSWORD = "password";
 
     /**
      * Jdbc fetch size for source
      */
-    String SOURCE_FETCH_SIZE = "fetch_size";
+    public static final String SOURCE_FETCH_SIZE = "fetch_size";
 
     /**
      * Jdbc batch size for sink
      */
-    String SINK_BATCH_SIZE = "batch_size";
+    public static final String SINK_BATCH_SIZE = "batch_size";
 
     /**
      * Jdbc batch interval for sink
      */
-    String SINK_BATCH_INTERVAL = "batch_interval";
+    public static final String SINK_BATCH_INTERVAL = "batch_interval";
 
     /**
      * Jdbc max batch retries for sink
      */
-    String SINK_BATCH_MAX_RETRIES = "batch_max_retries";
+    public static final String SINK_BATCH_MAX_RETRIES = "batch_max_retries";
 
     /**
      * Jdbc partition column name
      */
-    String PARTITION_COLUMN = "partition_column";
+    public static final String PARTITION_COLUMN = "partition_column";
 
     /**
      * Jdbc partition upper bound
      */
-    String PARTITION_UPPER_BOUND = "partition_upper_bound";
+    public static final String PARTITION_UPPER_BOUND = "partition_upper_bound";
 
     /**
      * Jdbc partition lower bound
      */
-    String PARTITION_LOWER_BOUND = "partition_lower_bound";
+    public static final String PARTITION_LOWER_BOUND = "partition_lower_bound";
 
 }

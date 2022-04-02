@@ -19,6 +19,7 @@ package org.apache.seatunnel.example.spark;
 
 import org.apache.seatunnel.Seatunnel;
 import org.apache.seatunnel.command.SparkCommandArgs;
+import org.apache.seatunnel.common.config.DeployMode;
 
 public class LocalSparkExample {
 
@@ -30,6 +31,7 @@ public class LocalSparkExample {
         sparkArgs.setConfigFile(configFile);
         sparkArgs.setCheckConfig(false);
         sparkArgs.setVariables(null);
+        sparkArgs.setDeployMode(DeployMode.CLIENT.getName());
         Seatunnel.run(sparkArgs);
     }
 
