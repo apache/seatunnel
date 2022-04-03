@@ -93,15 +93,19 @@ public class FlinkStarter implements Starter {
         List<String> command = new ArrayList<>();
         command.add("${FLINK_HOME}/bin/flink run");
         command.addAll(flinkParams);
-        command.add("-c " + APP_NAME);
+        command.add("-c");
+        command.add(APP_NAME);
         command.add(appJar);
-        command.add("--config " + flinkCommandArgs.getConfigFile());
+        command.add("--config");
+        command.add(flinkCommandArgs.getConfigFile());
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
 
         // set System properties
-        flinkCommandArgs.getVariables().stream().filter(Objects::nonNull)
+        flinkCommandArgs.getVariables().stream()
+            .filter(Objects::nonNull)
+            .map(String::trim)
             .forEach(variable -> command.add("-D" + variable));
         return command;
     }
