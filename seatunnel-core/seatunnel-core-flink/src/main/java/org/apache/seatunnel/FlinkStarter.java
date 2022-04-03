@@ -91,7 +91,8 @@ public class FlinkStarter implements Starter {
     @Override
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
-        command.add("${FLINK_HOME}/bin/flink run");
+        command.add("${FLINK_HOME}/bin/flink");
+        command.add("run");
         command.addAll(flinkParams);
         command.add("-c");
         command.add(APP_NAME);
