@@ -125,8 +125,8 @@ public class SparkStarter implements Starter {
         JCommander commander = JCommander.newBuilder()
             .programName("start-seatunnel-spark.sh")
             .addObject(commandArgs)
+            .args(args)
             .build();
-        commander.parse(args);
         if (commandArgs.isHelp()) {
             commander.usage();
             System.exit(USAGE_EXIT_CODE);
