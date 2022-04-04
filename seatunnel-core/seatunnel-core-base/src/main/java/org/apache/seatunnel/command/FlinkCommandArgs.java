@@ -22,6 +22,7 @@ import org.apache.seatunnel.config.EngineType;
 
 import com.beust.jcommander.Parameter;
 
+import java.util.Collections;
 import java.util.List;
 
 public class FlinkCommandArgs implements CommandArgs {
@@ -33,11 +34,16 @@ public class FlinkCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-i", "--variable"},
         description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = null;
+    private List<String> variables = Collections.emptyList();
 
     @Parameter(names = {"-t", "--check"},
         description = "check config")
     private boolean checkConfig = false;
+
+    @Parameter(names = {"-h", "--help"},
+        help = true,
+        description = "Show the usage message")
+    private boolean help = false;
 
     public String getConfigFile() {
         return configFile;
@@ -71,5 +77,13 @@ public class FlinkCommandArgs implements CommandArgs {
 
     public void setCheckConfig(boolean checkConfig) {
         this.checkConfig = checkConfig;
+    }
+
+    public boolean isHelp() {
+        return help;
+    }
+
+    public void setHelp(boolean help) {
+        this.help = help;
     }
 }

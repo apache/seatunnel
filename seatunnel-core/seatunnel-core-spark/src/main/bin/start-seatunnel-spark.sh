@@ -27,9 +27,11 @@ fi
 CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.SparkStarter ${@}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
+    echo ${CMD}
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
     eval ${CMD}
 else
+    echo ${CMD}
     exit ${EXIT_CODE}
 fi
