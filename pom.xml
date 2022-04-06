@@ -27,7 +27,7 @@
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
-    <version>2.0.5-SNAPSHOT</version>
+    <version>2.1.1-SNAPSHOT</version>
 
     <name>SeaTunnel</name>
 
