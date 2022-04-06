@@ -33,7 +33,7 @@ import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
-public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<Row, Row> {
+public class Sql implements FlinkStreamTransform, FlinkBatchTransform {
 
     private String sql;
 
@@ -42,16 +42,26 @@ public class Sql implements FlinkStreamTransform<Row, Row>, FlinkBatchTransform<
     private static final String SQL = "sql";
 
     @Override
-    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) throws Exception {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
-        Table table = tableEnvironment.sqlQuery(sql);
+        Table table = null;
+        try {
+            table = tableEnvironment.sqlQuery(sql);
+        } catch (Exception e) {
+            throw new Exception("Flink streaming transform sql execute failed, SQL: " + sql, e);
+        }
         return TableUtil.tableToDataStream(tableEnvironment, table, false);
     }
 
     @Override
-    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
+    public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) throws Exception {
         BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
-        Table table = tableEnvironment.sqlQuery(sql);
+        Table table = null;
+        try {
+            table = tableEnvironment.sqlQuery(sql);
+        } catch (Exception e) {
+            throw new Exception("Flink batch transform sql execute failed, SQL: " + sql, e);
+        }
         return TableUtil.tableToDataSet(tableEnvironment, table);
     }
 

@@ -50,6 +50,11 @@
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.sshd</groupId>
+            <artifactId>sshd-scp</artifactId>
+        </dependency>
+
     </dependencies>
 
 </project>

@@ -57,7 +57,11 @@ public final class AsciiArtUtils {
         for (int y = 0; y < height; y++) {
             StringBuilder sb = new StringBuilder();
             for (int x = 0; x < width; x++) {
-                sb.append(image.getRGB(x, y) == RGB ? " " : image.getRGB(x, y) == -1 ? "#" : "*");
+                if (image.getRGB(x, y) == RGB) {
+                    sb.append(" ");
+                } else {
+                    sb.append(image.getRGB(x, y) == -1 ? "#" : "*");
+                }
             }
             if (sb.toString().trim().isEmpty()) {
                 continue;

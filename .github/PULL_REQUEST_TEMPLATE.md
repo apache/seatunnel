@@ -24,5 +24,5 @@ Feel free to ping committers for the review!
 
 * [ ] Code changed are covered with tests, or it does not need tests for reason:
 * [ ] If any new Jar binary package adding in you PR, please add License Notice according
-  [New License Guide](https://github.com/apache/incubator-seatunnel/blob/dev/docs/en/developement/NewLicenseGuide.md)
+  [New License Guide](https://github.com/apache/incubator-seatunnel/blob/dev/docs/en/development/new-license.md)
 * [ ] If necessary, please update the documentation to describe the new feature. https://github.com/apache/incubator-seatunnel/tree/dev/docs

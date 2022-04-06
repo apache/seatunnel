@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel;
 
-import static org.apache.seatunnel.utils.Engine.SPARK;
-
-import org.apache.seatunnel.config.command.CommandLineArgs;
-import org.apache.seatunnel.config.command.CommandLineUtils;
+import org.apache.seatunnel.command.SparkCommandArgs;
+import org.apache.seatunnel.utils.CommandLineUtils;
 
 public class SeatunnelSpark {
 
     public static void main(String[] args) throws Exception {
-        CommandLineArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Seatunnel.run(sparkArgs, SPARK);
+        SparkCommandArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
+        Seatunnel.run(sparkArgs);
     }
 }

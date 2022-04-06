@@ -80,6 +80,7 @@
                                 <exclude>com/typesafe/config/impl/ConfigNodePath.class</exclude>
                                 <exclude>com/typesafe/config/impl/PathParser.class</exclude>
                                 <exclude>com/typesafe/config/impl/Path.class</exclude>
+                                <exclude>com/typesafe/config/impl/SimpleConfigObject.class</exclude>
                             </excludes>
                         </filter>
                     </filters>

@@ -16,7 +16,7 @@
  */
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.config.{CheckResult, Common, ConfigRuntimeException}
+import org.apache.seatunnel.common.config.{Common, ConfigRuntimeException}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
 import org.apache.spark.sql.functions._
@@ -91,16 +91,12 @@ class Json extends BaseSparkTransform {
     }
   }
 
-  override def checkConfig(): CheckResult = CheckResult.success()
-
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "source_field" -> "raw_message",
         "target_field" -> Constants.ROW_ROOT,
-        "schema_dir" -> Paths
-          .get(Common.pluginFilesDir("json").toString, "schemas")
-          .toString,
+        "schema_dir" -> Paths.get(Common.pluginFilesDir("json").toString, "schemas").toString,
         "schema_file" -> ""))
     config = config.withFallback(defaultConfig)
     val schemaFile = config.getString("schema_file")

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.stream;
 
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
@@ -28,20 +27,21 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+import java.util.Optional;
 
-public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink> {
+public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkStreamTransform, FlinkStreamSink, FlinkEnvironment> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkStreamExecution.class);
 
     private Config config;
 
-    private FlinkEnvironment flinkEnvironment;
+    private final FlinkEnvironment flinkEnvironment;
 
     public FlinkStreamExecution(FlinkEnvironment streamEnvironment) {
         this.flinkEnvironment = streamEnvironment;
@@ -49,31 +49,25 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
 
     @Override
     public void start(List<FlinkStreamSource> sources, List<FlinkStreamTransform> transforms, List<FlinkStreamSink> sinks) throws Exception {
-        List<DataStream> data = new ArrayList<>();
+        List<DataStream<Row>> data = new ArrayList<>();
 
         for (FlinkStreamSource source : sources) {
-            DataStream dataStream = source.getData(flinkEnvironment);
+            DataStream<Row> dataStream = source.getData(flinkEnvironment);
             data.add(dataStream);
             registerResultTable(source, dataStream);
         }
 
-        DataStream input = data.get(0);
+        DataStream<Row> input = data.get(0);
 
         for (FlinkStreamTransform transform : transforms) {
-            DataStream stream = fromSourceTable(transform);
-            if (Objects.isNull(stream)) {
-                stream = input;
-            }
+            DataStream<Row> stream = fromSourceTable(transform.getConfig()).orElse(input);
             input = transform.processStream(flinkEnvironment, stream);
             registerResultTable(transform, input);
             transform.registerFunction(flinkEnvironment);
         }
 
         for (FlinkStreamSink sink : sinks) {
-            DataStream stream = fromSourceTable(sink);
-            if (Objects.isNull(stream)) {
-                stream = input;
-            }
+            DataStream<Row> stream = fromSourceTable(sink.getConfig()).orElse(input);
             sink.outputStream(flinkEnvironment, stream);
         }
         try {
@@ -101,14 +95,13 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         }
     }
 
-    private DataStream fromSourceTable(Plugin plugin) {
-        Config config = plugin.getConfig();
-        if (config.hasPath(SOURCE_TABLE_NAME)) {
+    private Optional<DataStream<Row>> fromSourceTable(Config pluginConfig) {
+        if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
             StreamTableEnvironment tableEnvironment = flinkEnvironment.getStreamTableEnvironment();
-            Table table = tableEnvironment.scan(config.getString(SOURCE_TABLE_NAME));
-            return TableUtil.tableToDataStream(tableEnvironment, table, true);
+            Table table = tableEnvironment.scan(pluginConfig.getString(SOURCE_TABLE_NAME));
+            return Optional.ofNullable(TableUtil.tableToDataStream(tableEnvironment, table, true));
         }
-        return null;
+        return Optional.empty();
     }
 
     @Override
@@ -121,12 +114,4 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         return config;
     }
 
-    @Override
-    public CheckResult checkConfig() {
-        return CheckResult.success();
-    }
-
-    @Override
-    public void prepare(Void prepareEnv) {
-    }
 }

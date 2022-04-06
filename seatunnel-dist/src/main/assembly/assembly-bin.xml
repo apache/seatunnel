@@ -34,14 +34,13 @@
                 <exclude>**/.project</exclude>
                 <exclude>**/.settings/**</exclude>
                 <exclude>lib/**</exclude>
-                <exclude>plugins/.gitkeep</exclude>
             </excludes>
 
             <includes>
                 <include>README.md</include>
                 <include>bin/**</include>
-                <include>plugins/**</include>
                 <include>config/**</include>
+                <include>plugins/**</include>
             </includes>
         </fileSet>
         <fileSet>
@@ -56,6 +55,11 @@
         </fileSet>
         <fileSet>
             <directory>../seatunnel-core/seatunnel-core-flink/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-core-flink-sql/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
         </fileSet>
@@ -75,9 +79,9 @@
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-sql/target</directory>
+            <directory>../seatunnel-core/seatunnel-core-flink-sql/target</directory>
             <includes>
-                <include>seatunnel-core-sql*.jar</include>
+                <include>seatunnel-core-flink-sql*.jar</include>
             </includes>
             <excludes>
                 <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>

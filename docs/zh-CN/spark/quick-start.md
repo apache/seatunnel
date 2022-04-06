@@ -6,22 +6,22 @@
 
 > 如果你熟悉Spark，或者已经有Spark环境, 可以忽略这一步。我们不需要对Spark做任何配置。
 
-请先[下载Spark](https://spark.apache.org/downloads.html), 选择`Spark版本 >= 2.x.x`。在下载并解压之后, 不需要修改配置就可以指定 `deploy-mode = local`去提交任务。如果想将任务运行在`Standalone clusters`， `Yarn clusters`， `Mesos clusters`, 请参考在Spark官网 [Spark部署文档](https://spark.apache.org/docs/latest/cluster-overview.html).
+请先[下载Spark](https://spark.apache.org/downloads.html), 选择`Spark版本 >= 2.x.x`，目前还不支持spark3.x。在下载并解压之后, 不需要修改配置就可以指定 `deploy-mode = local`去提交任务。如果想将任务运行在`Standalone clusters`， `Yarn clusters`， `Mesos clusters`, 请参考在Spark官网 [Spark部署文档](https://spark.apache.org/docs/latest/cluster-overview.html).
 
 ### 第二布: 下载 Seatunnel
 
-通过[Seatunnel安装包下载](https://github.com/apache/incubator-seatunnel/releases) 下载最新版本 `seatunnel-<version>.zip`
+通过[Seatunnel安装包下载](https://seatunnel.apache.org/download) 下载最新版本 `seatunnel-<version>-bin.tar.gz`
 
-或者下载指定的版本 (以`2.0.4`为例):
+或者下载指定的版本 (以`2.1.0`为例):
 
 ```bash
-wget https://github.com/apache/incubator-seatunnel/releases/download/v2.0.4/waterdrop-dist-2.0.4-2.11.8-release.zip -O seatunnel-2.0.4.zip
+wget https://downloads.apache.org/incubator/seatunnel/2.1.0/apache-seatunnel-incubating-2.1.0-bin.tar.gz -O seatunnel-2.1.0.tar.gz
 ```
 
 下载完成后解压:
 
 ```bash
-unzip seatunnel-<version>.zip
+tar -xvzf seatunnel-<version>.tar.gz
 ln -s seatunnel-<version> seatunnel
 ```
 

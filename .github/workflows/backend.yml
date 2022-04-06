@@ -31,25 +31,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-license:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-      - name: Check License Header
-        uses: apache/skywalking-eyes@main
   build:
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    strategy:
+      matrix:
+        java: ['8', '11']
+    timeout-minutes: 40
     env:
       MAVEN_OPTS: -Xmx2G -Xms2G
     steps:
       - uses: actions/checkout@v2
-      - name: Set up JDK 1.8
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v2
         with:
-          java-version:  8
+          java-version:  ${{ matrix.java }}
           distribution: 'adopt'
       - name: Cache local Maven repository
         uses: actions/cache@v2
@@ -76,4 +72,7 @@ jobs:
         run: bash ./tools/dependencies/checkLicense.sh
       - name: Run Unit tests
         run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dgpg.skip=true --no-snapshot-updates
+          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false --no-snapshot-updates
+      - name: Run Integration tests
+        run: |
+          ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false --no-snapshot-updates
