@@ -47,5 +47,5 @@ class Iceberg extends SparkBatchSource {
     checkAllExists(config, "path", "pre_sql")
   }
 
-  override def getPluginName: String = "IcebergSource"
+  override def getPluginName: String = "iceberg"
 }

@@ -61,7 +61,7 @@ class FakeStream extends SparkStreamingSource[String] {
     }
   }
 
-  override def getPluginName: String = "FakeSourceStream"
+  override def getPluginName: String = "FakeStream"
 }
 
 private class FakeReceiver(config: Config)
