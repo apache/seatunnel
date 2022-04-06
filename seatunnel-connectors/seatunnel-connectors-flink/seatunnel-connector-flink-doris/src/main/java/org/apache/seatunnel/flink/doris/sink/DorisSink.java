@@ -100,7 +100,7 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
 
     @Override
     public String getPluginName() {
-        return "doris";
+        return "DorisSink";
     }
 
     @Override

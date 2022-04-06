@@ -130,7 +130,7 @@ public class DruidSource implements FlinkBatchSource {
 
     @Override
     public String getPluginName() {
-        return "druid";
+        return "DruidSource";
     }
 
     private RowTypeInfo getRowTypeInfo(String jdbcURL, String datasource, Collection<String> userColumns) {

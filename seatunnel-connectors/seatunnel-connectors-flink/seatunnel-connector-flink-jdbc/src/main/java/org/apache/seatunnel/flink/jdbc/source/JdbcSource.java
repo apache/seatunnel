@@ -168,7 +168,7 @@ public class JdbcSource implements FlinkBatchSource {
 
     @Override
     public String getPluginName() {
-        return "jdbc";
+        return "JdbcSource";
     }
 
     private String extendPartitionQuerySql(String query, String column) {

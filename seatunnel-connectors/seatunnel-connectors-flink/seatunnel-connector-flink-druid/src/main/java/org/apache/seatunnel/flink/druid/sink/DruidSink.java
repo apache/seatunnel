@@ -81,6 +81,6 @@ public class DruidSink implements FlinkBatchSink {
 
     @Override
     public String getPluginName() {
-        return "druid";
+        return "DruidSink";
     }
 }

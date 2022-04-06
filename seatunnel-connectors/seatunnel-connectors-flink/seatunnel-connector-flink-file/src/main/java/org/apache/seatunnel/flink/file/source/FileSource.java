@@ -121,6 +121,6 @@ public class FileSource implements FlinkBatchSource {
 
     @Override
     public String getPluginName() {
-        return "File";
+        return "FileSource";
     }
 }

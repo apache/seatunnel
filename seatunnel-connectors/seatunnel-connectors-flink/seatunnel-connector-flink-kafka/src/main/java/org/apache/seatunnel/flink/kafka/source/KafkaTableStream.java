@@ -113,7 +113,7 @@ public class KafkaTableStream implements FlinkStreamSource {
 
     @Override
     public String getPluginName() {
-        return "kafkaStream";
+        return "KafkaTableStream";
     }
 
     @Override
