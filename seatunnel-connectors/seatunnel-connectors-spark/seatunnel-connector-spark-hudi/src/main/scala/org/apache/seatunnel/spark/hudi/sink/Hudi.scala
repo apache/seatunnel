@@ -47,5 +47,5 @@ class Hudi extends SparkBatchSink {
       .save(config.getString("hoodie.base.path"))
   }
 
-  override def getPluginName: String = "hudi"
+  override def getPluginName: String = "Hudi"
 }

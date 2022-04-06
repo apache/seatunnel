@@ -85,7 +85,7 @@ public class KafkaSink implements FlinkStreamSink {
 
     @Override
     public String getPluginName() {
-        return "kafka";
+        return "Kafka";
     }
 
     private FlinkKafkaProducer.Semantic getSemanticEnum(String semantic) {

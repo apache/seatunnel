@@ -86,7 +86,7 @@ public class Elasticsearch implements FlinkStreamSink, FlinkBatchSink {
 
     @Override
     public String getPluginName() {
-        return "elasticsearch";
+        return "ElasticSearch";
     }
 
     @Override

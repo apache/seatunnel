@@ -109,5 +109,5 @@ class Redis extends SparkBatchSink with Logging {
     sc.toRedisHASH(value, hashName)(redisConfig = redisConfig)
   }
 
-  override def getPluginName: String = "redis"
+  override def getPluginName: String = "Redis"
 }

@@ -128,5 +128,5 @@ class Email extends SparkBatchSink {
    *
    * @return plugin name.
    */
-  override def getPluginName: String = "email"
+  override def getPluginName: String = "Email"
 }

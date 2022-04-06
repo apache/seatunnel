@@ -64,5 +64,5 @@ class File extends SparkBatchSource {
     }
   }
 
-  override def getPluginName: String = "file"
+  override def getPluginName: String = "File"
 }

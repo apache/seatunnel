@@ -37,5 +37,5 @@ class Tidb extends SparkBatchSource {
     spark.sql(config.getString("pre_sql"))
   }
 
-  override def getPluginName: String = "Tidb"
+  override def getPluginName: String = "TiDB"
 }

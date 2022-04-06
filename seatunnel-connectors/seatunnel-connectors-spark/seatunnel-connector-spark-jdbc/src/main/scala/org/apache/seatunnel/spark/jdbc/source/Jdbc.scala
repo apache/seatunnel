@@ -61,5 +61,5 @@ class Jdbc extends SparkBatchSource {
     reader
   }
 
-  override def getPluginName: String = "jdbc"
+  override def getPluginName: String = "Jdbc"
 }

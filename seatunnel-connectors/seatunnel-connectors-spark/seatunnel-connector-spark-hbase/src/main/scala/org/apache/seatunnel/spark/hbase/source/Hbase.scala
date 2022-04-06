@@ -50,5 +50,5 @@ class Hbase extends SparkBatchSource {
     reader.load()
   }
 
-  override def getPluginName: String = "hbase"
+  override def getPluginName: String = "Hbase"
 }

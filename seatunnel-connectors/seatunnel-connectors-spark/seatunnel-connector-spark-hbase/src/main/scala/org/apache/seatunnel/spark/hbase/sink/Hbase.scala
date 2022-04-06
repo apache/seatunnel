@@ -163,5 +163,5 @@ class Hbase extends SparkBatchSink with Logging {
     }
   }
 
-  override def getPluginName: String = "hbase"
+  override def getPluginName: String = "Hbase"
 }

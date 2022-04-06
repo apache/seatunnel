@@ -79,5 +79,5 @@ class Elasticsearch extends SparkBatchSink {
    *
    * @return plugin name.
    */
-  override def getPluginName: String = "elasticsearch"
+  override def getPluginName: String = "ElasticSearch"
 }

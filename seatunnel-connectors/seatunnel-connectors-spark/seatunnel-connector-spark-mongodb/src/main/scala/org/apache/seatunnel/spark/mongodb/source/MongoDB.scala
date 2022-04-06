@@ -69,5 +69,5 @@ class MongoDB extends SparkBatchSource {
     CheckConfigUtil.checkAllExists(config, "readconfig.uri", "readconfig.database", "readconfig.collection")
   }
 
-  override def getPluginName: String = "mongodb"
+  override def getPluginName: String = "MongoDB"
 }

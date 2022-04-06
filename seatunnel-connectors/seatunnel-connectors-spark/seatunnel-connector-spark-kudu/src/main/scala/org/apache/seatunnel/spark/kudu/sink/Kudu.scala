@@ -54,5 +54,5 @@ class Kudu extends SparkBatchSink {
     }
   }
 
-  override def getPluginName: String = "kudu"
+  override def getPluginName: String = "Kudu"
 }
