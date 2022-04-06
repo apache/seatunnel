@@ -125,8 +125,8 @@ public class SparkStarter implements Starter {
         JCommander commander = JCommander.newBuilder()
             .programName("start-seatunnel-spark.sh")
             .addObject(commandArgs)
+            .args(args)
             .build();
-        commander.parse(args);
         if (commandArgs.isHelp()) {
             commander.usage();
             System.exit(USAGE_EXIT_CODE);
@@ -208,10 +208,12 @@ public class SparkStarter implements Starter {
      * list jars in given directory
      */
     private List<Path> listJars(Path dir) throws IOException {
-        return Files.list(dir)
-            .filter(it -> !Files.isDirectory(it))
-            .filter(it -> it.getFileName().endsWith("jar"))
-            .collect(Collectors.toList());
+        try (Stream<Path> stream = Files.list(dir)) {
+            return stream
+                    .filter(it -> !Files.isDirectory(it))
+                    .filter(it -> it.getFileName().endsWith("jar"))
+                    .collect(Collectors.toList());
+        }
     }
 
     /**
