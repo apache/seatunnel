@@ -22,7 +22,6 @@ import static org.apache.seatunnel.flink.elasticsearch.config.Config.DEFAULT_IND
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.HOSTS;
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.INDEX;
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.INDEX_TIME_FORMAT;
-import static org.apache.seatunnel.flink.elasticsearch.config.Config.INDEX_TYPE;
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.PARALLELISM;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
