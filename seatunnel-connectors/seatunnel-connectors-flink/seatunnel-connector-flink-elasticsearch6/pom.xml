@@ -27,8 +27,10 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connector-flink-elasticsearch</artifactId>
-
+    <artifactId>seatunnel-connector-flink-elasticsearch6</artifactId>
+    <properties>
+        <elasticsearch6.version>6.3.1</elasticsearch6.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -51,11 +53,12 @@
 
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-elasticsearch7_${scala.binary.version}</artifactId>
+            <artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
         </dependency>
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>transport</artifactId>
+            <version>${elasticsearch6.version}</version>
         </dependency>
     </dependencies>
 

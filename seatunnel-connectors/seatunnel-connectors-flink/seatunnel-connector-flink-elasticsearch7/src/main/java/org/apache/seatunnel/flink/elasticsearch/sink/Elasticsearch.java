@@ -134,16 +134,8 @@ public class Elasticsearch implements FlinkStreamSink, FlinkBatchSink {
         for (int i = 0; i < elementLen; i++) {
             json.put(fieldNames[i], element.getField(i));
         }
-
-        if (config.hasPath(INDEX_TYPE)) {
-            return Requests.indexRequest()
-                    .index(indexName)
-                    .type(config.getString(INDEX_TYPE))
-                    .source(json);
-        } else {
-            return Requests.indexRequest()
-                    .index(indexName)
-                    .source(json);
-        }
+        return Requests.indexRequest()
+                .index(indexName)
+                .source(json);
     }
 }
