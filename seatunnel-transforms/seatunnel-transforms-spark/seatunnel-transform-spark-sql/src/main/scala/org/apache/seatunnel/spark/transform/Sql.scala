@@ -31,4 +31,6 @@ class Sql extends BaseSparkTransform {
     checkAllExists(config, "sql")
   }
 
+  override def getPluginName: String = "sql"
+
 }

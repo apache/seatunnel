@@ -106,6 +106,11 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
+    public String getPluginName() {
+        return "jdbc";
+    }
+
+    @Override
     @Nullable
     public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);

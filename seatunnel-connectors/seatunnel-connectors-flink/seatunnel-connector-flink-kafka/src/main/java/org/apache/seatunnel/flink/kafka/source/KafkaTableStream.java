@@ -112,6 +112,11 @@ public class KafkaTableStream implements FlinkStreamSource {
     }
 
     @Override
+    public String getPluginName() {
+        return "kafkaStream";
+    }
+
+    @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         tableEnvironment

@@ -99,6 +99,11 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
+    public String getPluginName() {
+        return "doris";
+    }
+
+    @Override
     public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         batchIntervalMs = 0;
         BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();

@@ -61,6 +61,11 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
         return config;
     }
 
+    @Override
+    public String getPluginName() {
+        return "FakeSourceStream";
+    }
+
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
 
     @Override

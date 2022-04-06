@@ -78,4 +78,9 @@ public class DruidSink implements FlinkBatchSink {
         this.timestampFormat = config.hasPath(TIMESTAMP_FORMAT) ? config.getString(TIMESTAMP_FORMAT) : null;
         this.timestampMissingValue = config.hasPath(TIMESTAMP_MISSING_VALUE) ? config.getString(TIMESTAMP_MISSING_VALUE) : null;
     }
+
+    @Override
+    public String getPluginName() {
+        return "druid";
+    }
 }

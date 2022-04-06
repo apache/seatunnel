@@ -83,6 +83,11 @@ public class KafkaSink implements FlinkStreamSink {
         kafkaParams.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
     }
 
+    @Override
+    public String getPluginName() {
+        return "kafka";
+    }
+
     private FlinkKafkaProducer.Semantic getSemanticEnum(String semantic) {
         if ("exactly_once".equals(semantic)) {
             return FlinkKafkaProducer.Semantic.EXACTLY_ONCE;
