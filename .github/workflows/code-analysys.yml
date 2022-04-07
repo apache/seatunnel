@@ -39,7 +39,7 @@ jobs:
           -Dmaven.test.skip=true
           -Dsonar.host.url=https://sonarcloud.io
           -Dsonar.organization=apache
-          -Dsonar.projectKey=apache-incubator-seatunnel
+          -Dsonar.projectKey=apache_incubator-seatunnel
           -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
