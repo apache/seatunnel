@@ -27,7 +27,7 @@
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
-    <version>2.1.1-SNAPSHOT</version>
+    <version>${revision}</version>
 
     <name>SeaTunnel</name>
 
@@ -84,6 +84,7 @@
     </modules>
 
     <properties>
+        <revision>2.1.1-SNAPSHOT</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
         <scala.version>2.11.12</scala.version>
