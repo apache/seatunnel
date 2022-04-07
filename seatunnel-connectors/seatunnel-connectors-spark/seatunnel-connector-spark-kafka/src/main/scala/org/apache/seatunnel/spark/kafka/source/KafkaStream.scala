@@ -124,4 +124,6 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
       }
     }
   }
+
+  override def getPluginName: String = "KafkaStream"
 }

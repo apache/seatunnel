@@ -54,4 +54,5 @@ class MongoDB extends SparkBatchSink {
     MongoSpark.save(df, writeConfig)
   }
 
+  override def getPluginName: String = "MongoDB"
 }

@@ -128,6 +128,11 @@ public class DruidSource implements FlinkBatchSource {
                 .finish();
     }
 
+    @Override
+    public String getPluginName() {
+        return "DruidSource";
+    }
+
     private RowTypeInfo getRowTypeInfo(String jdbcURL, String datasource, Collection<String> userColumns) {
         HashMap<String, TypeInformation> map = new LinkedHashMap<>();
 

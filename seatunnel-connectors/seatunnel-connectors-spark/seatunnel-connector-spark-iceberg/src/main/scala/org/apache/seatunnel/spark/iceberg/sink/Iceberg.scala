@@ -53,4 +53,6 @@ class Iceberg extends SparkBatchSink {
         "saveMode" -> "append"))
     config = config.withFallback(defaultConfig)
   }
+
+  override def getPluginName: String = "Iceberg"
 }

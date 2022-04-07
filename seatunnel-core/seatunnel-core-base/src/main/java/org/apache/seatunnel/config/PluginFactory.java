@@ -120,8 +120,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
         for (Iterator<Plugin<?>> it = plugins.iterator(); it.hasNext(); ) {
             try {
                 Plugin<?> plugin = it.next();
-                Class<?> serviceClass = plugin.getClass();
-                if (StringUtils.equalsIgnoreCase(serviceClass.getSimpleName(), pluginName)) {
+                if (StringUtils.equalsIgnoreCase(plugin.getPluginName(), pluginName)) {
                     return plugin;
                 }
             } catch (ServiceConfigurationError e) {

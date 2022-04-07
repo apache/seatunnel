@@ -122,4 +122,11 @@ class Email extends SparkBatchSink {
     val mailer: SMTPMailer = new SMTPMailer(configuration)
     mailer
   }
+
+  /**
+   * Return the plugin name, this is used in seatunnel conf DSL.
+   *
+   * @return plugin name.
+   */
+  override def getPluginName: String = "Email"
 }

@@ -41,4 +41,5 @@ class Kudu extends SparkBatchSource {
     ds
   }
 
+  override def getPluginName: String = "Kudu"
 }
