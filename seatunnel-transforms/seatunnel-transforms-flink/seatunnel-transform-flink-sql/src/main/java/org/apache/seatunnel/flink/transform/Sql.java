@@ -84,4 +84,9 @@ public class Sql implements FlinkStreamTransform, FlinkBatchTransform {
     public void prepare(FlinkEnvironment env) {
         sql = config.getString("sql");
     }
+
+    @Override
+    public String getPluginName() {
+        return "sql";
+    }
 }

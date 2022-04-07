@@ -69,4 +69,6 @@ class Jdbc extends SparkBatchSink {
         "duplicateIncs" -> ""))
     config = config.withFallback(defaultConfig)
   }
+
+  override def getPluginName: String = "Jdbc"
 }

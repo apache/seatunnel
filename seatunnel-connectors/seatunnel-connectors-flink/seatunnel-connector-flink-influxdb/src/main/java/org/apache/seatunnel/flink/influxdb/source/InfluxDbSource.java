@@ -128,6 +128,11 @@ public class InfluxDbSource implements FlinkBatchSource {
                 .finish();
     }
 
+    @Override
+    public String getPluginName() {
+        return "InfluxDbSource";
+    }
+
     private RowTypeInfo getRowTypeInfo(List<String> fields, List<String> fieldTypes) {
         TypeInformation<?>[] typeInformation = new TypeInformation<?>[fieldTypes.size()];
         String[] names = new String[fieldTypes.size()];

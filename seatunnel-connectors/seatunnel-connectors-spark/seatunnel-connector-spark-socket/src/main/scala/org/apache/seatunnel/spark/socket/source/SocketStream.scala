@@ -49,4 +49,5 @@ class SocketStream extends SparkStreamingSource[String] {
     sparkSession.createDataFrame(rowsRDD, schema)
   }
 
+  override def getPluginName: String = "SocketStream"
 }

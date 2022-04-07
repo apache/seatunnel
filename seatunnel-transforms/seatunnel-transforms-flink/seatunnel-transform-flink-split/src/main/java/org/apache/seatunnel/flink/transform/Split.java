@@ -101,4 +101,8 @@ public class Split implements FlinkStreamTransform, FlinkBatchTransform {
         rowTypeInfo = new RowTypeInfo(types, fields.toArray(new String[0]));
     }
 
+    @Override
+    public String getPluginName() {
+        return "split";
+    }
 }

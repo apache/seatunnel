@@ -71,4 +71,9 @@ public class SocketStream implements FlinkStreamSource {
             port = config.getInt(PORT);
         }
     }
+
+    @Override
+    public String getPluginName() {
+        return "SocketStream";
+    }
 }
