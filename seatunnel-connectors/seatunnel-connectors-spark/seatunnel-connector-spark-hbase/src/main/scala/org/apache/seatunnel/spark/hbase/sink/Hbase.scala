@@ -162,4 +162,6 @@ class Hbase extends SparkBatchSink with Logging {
       admin.truncateTable(tableName, true)
     }
   }
+
+  override def getPluginName: String = "Hbase"
 }

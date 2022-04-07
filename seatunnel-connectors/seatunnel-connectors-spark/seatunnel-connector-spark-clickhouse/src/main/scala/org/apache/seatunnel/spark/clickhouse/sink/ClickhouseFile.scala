@@ -285,6 +285,8 @@ class ClickhouseFile extends SparkBatchSink {
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
   }
+
+  override def getPluginName: String = "ClickhouseFile"
 }
 
 

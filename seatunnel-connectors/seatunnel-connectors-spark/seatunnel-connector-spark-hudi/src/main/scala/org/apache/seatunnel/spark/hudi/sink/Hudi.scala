@@ -46,4 +46,6 @@ class Hudi extends SparkBatchSink {
     writer.mode(config.getString("save_mode"))
       .save(config.getString("hoodie.base.path"))
   }
+
+  override def getPluginName: String = "Hudi"
 }
