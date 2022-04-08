@@ -22,7 +22,6 @@ import static org.apache.seatunnel.flink.elasticsearch.config.Config.DEFAULT_IND
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.HOSTS;
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.INDEX;
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.INDEX_TIME_FORMAT;
-import static org.apache.seatunnel.flink.elasticsearch.config.Config.INDEX_TYPE;
 import static org.apache.seatunnel.flink.elasticsearch.config.Config.PARALLELISM;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -139,16 +138,8 @@ public class Elasticsearch implements FlinkStreamSink, FlinkBatchSink {
         for (int i = 0; i < elementLen; i++) {
             json.put(fieldNames[i], element.getField(i));
         }
-
-        if (config.hasPath(INDEX_TYPE)) {
-            return Requests.indexRequest()
-                    .index(indexName)
-                    .type(config.getString(INDEX_TYPE))
-                    .source(json);
-        } else {
-            return Requests.indexRequest()
-                    .index(indexName)
-                    .source(json);
-        }
+        return Requests.indexRequest()
+                .index(indexName)
+                .source(json);
     }
 }

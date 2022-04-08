@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.elasticsearch.config;
+package org.apache.seatunnel.flink.elasticsearch6.config;
 
 /**
  * ElasticSearch sink configuration options
