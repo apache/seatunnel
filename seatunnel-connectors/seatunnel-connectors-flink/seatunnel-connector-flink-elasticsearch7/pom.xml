@@ -29,10 +29,6 @@
 
     <artifactId>seatunnel-connector-flink-elasticsearch7</artifactId>
 
-    <properties>
-        <elasticsearch7.version>7.5.1</elasticsearch7.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
