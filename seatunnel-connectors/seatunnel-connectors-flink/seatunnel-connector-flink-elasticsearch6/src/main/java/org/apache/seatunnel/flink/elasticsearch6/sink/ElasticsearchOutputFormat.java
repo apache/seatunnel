@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.elasticsearch.sink;
-
-import static org.apache.seatunnel.flink.elasticsearch.config.Config.HOSTS;
+package org.apache.seatunnel.flink.elasticsearch6.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -46,7 +44,7 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
     private static final long serialVersionUID = 2048590860723433896L;
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchOutputFormat.class);
 
-    private Config config;
+    private final Config config;
 
     private static final String PREFIX = "es.";
 
@@ -63,7 +61,7 @@ public class ElasticsearchOutputFormat<T> extends RichOutputFormat<T> {
 
     @Override
     public void configure(Configuration configuration) {
-        List<String> hosts = config.getStringList(HOSTS);
+        List<String> hosts = config.getStringList(org.apache.seatunnel.flink.elasticsearch6.config.Config.HOSTS);
         Settings.Builder settings = Settings.builder();
 
         config.entrySet().forEach(entry -> {
