@@ -84,6 +84,7 @@
         <module>seatunnel-connectors</module>
         <module>seatunnel-dist</module>
         <module>seatunnel-examples</module>
+        <module>seatunnel-connector-spark-http</module>
     </modules>
 
     <properties>
