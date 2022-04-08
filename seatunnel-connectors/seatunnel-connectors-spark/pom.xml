@@ -51,6 +51,7 @@
         <module>seatunnel-connector-spark-tidb</module>
         <module>seatunnel-connector-spark-neo4j</module>
         <module>seatunnel-connector-spark-iceberg</module>
+        <module>seatunnel-connector-spark-feishu</module>
     </modules>
 
 </project>
