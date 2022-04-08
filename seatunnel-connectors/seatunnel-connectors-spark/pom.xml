@@ -52,6 +52,7 @@
         <module>seatunnel-connector-spark-neo4j</module>
         <module>seatunnel-connector-spark-iceberg</module>
         <module>seatunnel-connector-spark-feishu</module>
+		<module>seatunnel-connector-spark-http</module>
     </modules>
 
 </project>
