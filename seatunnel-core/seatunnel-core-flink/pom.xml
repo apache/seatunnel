@@ -86,7 +86,7 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-flink-elasticsearch7</artifactId>
+            <artifactId>seatunnel-connector-flink-elasticsearch${elasticsearch}</artifactId>
             <version>${project.version}</version>
         </dependency>
 
