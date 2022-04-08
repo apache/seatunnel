@@ -1,4 +1,4 @@
-# SeaTunnel
+# Apache SeaTunnel (Incubating)
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
@@ -47,30 +47,68 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 ## SeaTunnel 的工作流程
 
-![seatunnel-workflow.svg](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
 
 ```
 Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 ```
 
 多个 Transform 构建了数据处理的 Pipeline，满足各种各样的数据处理需求，如果您熟悉 SQL，也可以直接通过 SQL 构建数据处理的 Pipeline，简单高效。目前 seatunnel
-支持的[Transform 列表](https://seatunnel.apache.org/docs/spark/configuration/transform-plugins/transform-plugin),
+支持的[Transform 列表](https://seatunnel.apache.org/docs/transform/common-options),
 仍然在不断扩充中。您也可以开发自己的数据处理插件，整个系统是易于扩展的。
 
 ## SeaTunnel 支持的插件
 
-* Input plugin
+### Connector
 
-Fake, File, Hdfs, Kafka, Druid, InfluxDB, S3, Socket, 自行开发的 Input plugin
+| <div style="width: 80pt">Connector Type | <div style="width: 50pt">Source | <div style="width: 50pt">Sink                     |
+|:--------------:|:--------------------------------------------------------:|:-------------------------------------------------:|
+|Clickhouse      |                                                          |[doc](./docs/en/connector/sink/Clickhouse.md)      |
+|Doris           |                                                          |[doc](./docs/en/connector/sink/Doris.mdx)          |
+|Druid           |[doc](./docs/en/connector/source/Druid.md)                |[doc](./docs/en/connector/sink/Druid.md)           |
+|ElasticSearch   |[doc](./docs/en/connector/source/Elasticsearch.md)        |[doc](./docs/en/connector/sink/Elasticsearch.mdx)  |
+|Email           |                                                          |[doc](./docs/en/connector/sink/Email.md)           |
+|Fake            |[doc](./docs/en/connector/source/Fake.mdx)                |                                                   |
+|File            |[doc](./docs/en/connector/source/File.mdx)                |[doc](./docs/en/connector/sink/File.mdx)           |
+|Hbase           |[doc](./docs/en/connector/source/Hbase.md)                |[doc](./docs/en/connector/sink/Hbase.md)           |
+|Hive            |[doc](./docs/en/connector/source/Hive.md)                 |[doc](./docs/en/connector/sink/Hive.md)            |
+|Hudi            |[doc](./docs/en/connector/source/Hudi.md)                 |[doc](./docs/en/connector/sink/Hudi.md)            |
+|Iceberg         |[doc](./docs/en/connector/source/Iceberg.md)              |[doc](./docs/en/connector/sink/Iceberg.md)         |
+|InfluxDb        |[doc](./docs/en/connector/source/InfluxDb.md)             |[doc](./docs/en/connector/sink/InfluxDb.md)        |
+|Jdbc            |[doc](./docs/en/connector/source/Jdbc.mdx)                |[doc](./docs/en/connector/sink/Jdbc.mdx)           |
+|Kafka           |[doc](./docs/en/connector/source/Kafka.mdx)               |[doc](./docs/en/connector/sink/Kafka.md)           |
+|Kudu            |[doc](./docs/en/connector/source/Kudu.md)                 |[doc](./docs/en/connector/sink/Kudu.md)            |
+|MongoDB         |[doc](./docs/en/connector/source/MongoDB.md)              |[doc](./docs/en/connector/sink/MongoDB.md)         |
+|Neo4j           |[doc](./docs/en/connector/source/neo4j.md)                |                                                   |
+|Phoenix         |[doc](./docs/en/connector/source/Phoenix.md)              |[doc](./docs/en/connector/sink/Phoenix.md)         |
+|Redis           |[doc](./docs/en/connector/source/Redis.md)                |[doc](./docs/en/connector/sink/Redis.md)           |
+|Socket          |[doc](./docs/en/connector/source/Socket.mdx)              |                                                   |
+|Tidb            |[doc](./docs/en/connector/source/Tidb.md)                 |[doc](./docs/en/connector/sink/Tidb.md)            |
 
-* Filter plugin
+### Transform
 
-Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace, Sample, Split, Sql,
-Table, Truncate, Uppercase, Uuid, 自行开发的Filter plugin
-
-* Output plugin
-
-Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, InfluxDB, Mysql, S3, Stdout, 自行开发的 Output plugin
+|<div style="width: 130pt">Transform Plugins|
+|:-----------------------------------------:|
+|Add                                        |
+|CheckSum                                   |
+|Convert                                    |
+|Date                                       |
+|Drop                                       |
+|Grok                                       |
+|[Json](./docs/en/transform/json.md)        |
+|Kv                                         |
+|Lowercase                                  |
+|Remove                                     |
+|Rename                                     |
+|Repartition                                |
+|Replace                                    |
+|Sample                                     |
+|[Split](./docs/en/transform/split.mdx)     |
+|[Sql](./docs/en/transform/sql.md)          |
+|Table                                      |
+|Truncate                                   |
+|Uppercase                                  |
+|Uuid                                       |
 
 ## 环境依赖
 
@@ -85,17 +123,17 @@ Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, InfluxDB, Mysql, S3, Stdout, 自�
 
 ## 下载
 
-可以直接运行的软件包下载地址：https://github.com/apache/incubator-seatunnel/releases
+可以直接运行的软件包下载地址：https://seatunnel.apache.org/zh-CN/download/
 
 ## 快速入门
 
 **Spark**
-https://seatunnel.apache.org/docs/spark/quick-start
+https://seatunnel.apache.org/docs/deployment
 
 **Flink**
-https://seatunnel.apache.org/docs/flink/quick-start
+https://seatunnel.apache.org/docs/deployment
 
-关于 SeaTunnel 的[详细文档](https://seatunnel.apache.org/docs/introduction)
+关于 SeaTunnel 的[详细文档](https://seatunnel.apache.org/docs/intro/about)
 
 ## 生产应用案例
 
@@ -134,3 +172,9 @@ SeaTunnel遵守贡献者公约[code of conduct](https://www.apache.org/foundatio
 * 邮件列表: **dev@seatunnel.apache.org**. 发送任意内容至 `dev-subscribe@seatunnel.apache.org`， 按照回复订阅邮件列表。
 * Slack: 发送 `Request to join SeaTunnel slack` 邮件到邮件列表 (`dev@seatunnel.apache.org`), 我们会邀请你加入（在此之前请确认已经注册Slack）.
 * [bilibili B站 视频](https://space.bilibili.com/1542095008)
+
+## 我们的用户
+各种公司和组织将 SeaTunnel 用于科研、商业化产品使用。
+访问我们的 [官方网站](https://seatunnel.apache.org/user) 查找用户页面。
+## License
+[Apache 2.0 License.](LICENSE)

@@ -1,6 +1,7 @@
 /*
  *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
  */
+
 package org.apache.seatunnel.shade.com.typesafe.config.impl;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;

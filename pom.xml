@@ -1,21 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-
     Licensed to the Apache Software Foundation (ASF) under one or more
     contributor license agreements.  See the NOTICE file distributed with
     this work for additional information regarding copyright ownership.
     The ASF licenses this file to You under the Apache License, Version 2.0
     (the "License"); you may not use this file except in compliance with
     the License.  You may obtain a copy of the License at
-
        http://www.apache.org/licenses/LICENSE-2.0
-
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -27,11 +23,11 @@
         <artifactId>apache</artifactId>
         <version>25</version>
     </parent>
-    
+
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
-    <version>2.0.5-SNAPSHOT</version>
+    <version>${revision}</version>
 
     <name>SeaTunnel</name>
 
@@ -49,12 +45,12 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git@github.com:apache/incubator-seatunnel.git</connection>
-        <developerConnection>scm:git:git@github.com:apache/incubator-seatunnel.git</developerConnection>
+        <connection>scm:git:https://github.com/apache/incubator-seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/incubator-seatunnel.git</developerConnection>
         <url>https://github.com/apache/incubator-seatunnel</url>
         <tag>HEAD</tag>
     </scm>
-    
+
     <issueManagement>
         <system>GitHub</system>
         <url>https://github.com/apache/incubator-seatunnel/issues</url>
@@ -84,18 +80,21 @@
         <module>seatunnel-connectors</module>
         <module>seatunnel-dist</module>
         <module>seatunnel-examples</module>
+        <module>seatunnel-e2e</module>
     </modules>
 
     <properties>
+        <revision>2.1.1-SNAPSHOT</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
-        <scala.version>2.11.8</scala.version>
+        <scala.version>2.11.12</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <spark.version>2.4.0</spark.version>
         <spark.binary.version>2.4</spark.binary.version>
         <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
+        <iceberg.version>0.13.1</iceberg.version>
         <flink.version>1.13.6</flink.version>
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
@@ -103,16 +102,17 @@
         <fastjson.version>1.2.60</fastjson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
+        <postgresql.version>42.3.3</postgresql.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
-        <maven-checkstyle-plugin.version>3.1.0</maven-checkstyle-plugin.version>
+        <maven-failsafe-plugin.version>2.22.2</maven-failsafe-plugin.version>
+        <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
         <checkstyle.fails.on.error>true</checkstyle.fails.on.error>
         <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
         <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
-        <maven-gpg-plugin.version>1.6</maven-gpg-plugin.version>
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
         <scala-maven-plugin.version>3.3.1</scala-maven-plugin.version>
         <maven-compiler-plugin.version>2.0.2</maven-compiler-plugin.version>
@@ -121,9 +121,10 @@
         <play-mailer.version>7.0.2</play-mailer.version>
         <phoenix-spark.version>5.0.0-HBase-2.0</phoenix-spark.version>
         <zkclient.version>0.3</zkclient.version>
+        <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
+        <elasticsearch7.client.version>7.5.1</elasticsearch7.client.version>
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
         <parquet-avro.version>1.10.0</parquet-avro.version>
-        <transport.version>6.3.1</transport.version>
         <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
@@ -134,7 +135,7 @@
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
-        <httpclient.version>4.5.2</httpclient.version>
+        <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <httpcore-nio.version>4.4.4</httpcore-nio.version>
         <httpasyncclient.version>4.1.4</httpasyncclient.version>
@@ -145,11 +146,23 @@
         <junit.version>4.13.2</junit.version>
         <tispark.version>2.4.1</tispark.version>
         <druid.version>0.22.1</druid.version>
+        <sshd.version>2.7.0</sshd.version>
         <calcite-druid.version>1.29.0</calcite-druid.version>
         <config.version>1.3.3</config.version>
         <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
+        <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
         <influxdb-java.version>2.22</influxdb-java.version>
+        <log4j-core.version>2.17.1</log4j-core.version>
+        <scalastyle-maven-plugin.version>1.0.0</scalastyle-maven-plugin.version>
+        <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
+        <p3c-pmd.version>1.3.0</p3c-pmd.version>
+        <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
+        <testcontainer.version>1.16.3</testcontainer.version>
+        <!-- Option args -->
+        <skipUT>false</skipUT>
+        <skipIT>true</skipIT>
+        <elasticsearch>7</elasticsearch>
     </properties>
 
     <dependencyManagement>
@@ -217,13 +230,6 @@
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-jdbc_${scala.binary.version}</artifactId>
-                <version>${flink.version}</version>
-                <scope>${flink.scope}</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.flink</groupId>
                 <artifactId>flink-table-common</artifactId>
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
@@ -257,6 +263,13 @@
             </dependency>
 
             <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>com.norbitltd</groupId>
                 <artifactId>spoiwo_${scala.binary.version}</artifactId>
                 <version>${spoiwo.version}</version>
@@ -272,6 +285,12 @@
                 <groupId>org.apache.phoenix</groupId>
                 <artifactId>phoenix-spark</artifactId>
                 <version>${phoenix-spark.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.glassfish.web</groupId>
+                        <artifactId>javax.servlet.jsp</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -305,15 +324,15 @@
             </dependency>
 
             <dependency>
-                <groupId>org.elasticsearch.client</groupId>
-                <artifactId>transport</artifactId>
-                <version>${transport.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.elasticsearch</groupId>
                 <artifactId>elasticsearch-spark-20_${scala.binary.version}</artifactId>
                 <version>${elasticsearch-spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-connector-elasticsearch${elasticsearch}_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
             </dependency>
 
             <dependency>
@@ -324,7 +343,7 @@
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-jdbc_${scala.binary.version}</artifactId>
+                <artifactId>flink-connector-jdbc_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
             </dependency>
 
@@ -344,6 +363,12 @@
                 <groupId>org.apache.hbase.connectors.spark</groupId>
                 <artifactId>hbase-spark</artifactId>
                 <version>${hbase-spark.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.glassfish.web</groupId>
+                        <artifactId>javax.servlet.jsp</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -449,16 +474,43 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.sshd</groupId>
+                <artifactId>sshd-scp</artifactId>
+                <version>${sshd.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>${junit.version}</version>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${testcontainer.version}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.pingcap.tispark</groupId>
                 <artifactId>tispark-assembly</artifactId>
                 <version>${tispark.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-core</artifactId>
+                <version>${log4j-core.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.druid</groupId>
@@ -487,20 +539,26 @@
                 <artifactId>influxdb-java</artifactId>
                 <version>${influxdb-java.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-core</artifactId>
+                <version>${iceberg.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-spark-runtime</artifactId>
+                <version>${iceberg.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>${scala.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
-
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/
-            </url>
-        </repository>
-    </distributionManagement>
 
     <build>
 
@@ -525,8 +583,10 @@
                     <artifactId>scala-maven-plugin</artifactId>
                     <version>${scala-maven-plugin.version}</version>
                     <configuration>
-                        <scalaCompatVersion>${scala.binary.version}</scalaCompatVersion>
-                        <scalaVersion>${scala.version}</scalaVersion>
+                        <args>
+                            <arg>-nobootcp</arg>
+                            <arg>-target:jvm-${java.version}</arg>
+                        </args>
                     </configuration>
                     <executions>
                         <execution>
@@ -568,16 +628,37 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
+                        <skip>${skipUT}</skip>
                         <systemPropertyVariables>
-                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
+                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec
+                            </jacoco-agent.destfile>
                         </systemPropertyVariables>
+                        <excludes>
+                            <exclude>**/*IT.java</exclude>
+                        </excludes>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <skip>${skipIT}</skip>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
 
                 <plugin>
                     <groupId>io.fabric8</groupId>
                     <artifactId>docker-maven-plugin</artifactId>
-                    <version>0.38.0</version>
+                    <version>${docker-maven-plugin.version}</version>
                 </plugin>
 
                 <!-- shade -->
@@ -620,20 +701,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>${maven-assembly-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>single</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <attach>false</attach>
-                        <descriptors>
-                            <descriptor>assembly.xml</descriptor>
-                        </descriptors>
-                    </configuration>
                 </plugin>
 
                 <!-- checkstyle (Start) -->
@@ -642,6 +709,7 @@
                     <artifactId>maven-checkstyle-plugin</artifactId>
                     <version>${maven-checkstyle-plugin.version}</version>
                     <configuration>
+                        <!--suppress UnresolvedMavenProperty -->
                         <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/checkStyle.xml
                         </configLocation>
                         <encoding>UTF-8</encoding>
@@ -681,7 +749,7 @@
                 <plugin>
                     <groupId>org.scalastyle</groupId>
                     <artifactId>scalastyle-maven-plugin</artifactId>
-                    <version>1.0.0</version>
+                    <version>${scalastyle-maven-plugin.version}</version>
                     <configuration>
                         <verbose>false</verbose>
                         <failOnViolation>true</failOnViolation>
@@ -689,7 +757,10 @@
                         <failOnWarning>false</failOnWarning>
                         <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
                         <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
-                        <configLocation>${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml</configLocation>
+                        <!--suppress UnresolvedMavenProperty -->
+                        <configLocation>
+                            ${maven.multiModuleProjectDirectory}/tools/checkstyle/scalastyle-config.xml
+                        </configLocation>
                         <outputFile>${project.build.directory}/target/scalastyle-output.xml</outputFile>
                         <inputEncoding>UTF-8</inputEncoding>
                         <outputEncoding>UTF-8</outputEncoding>
@@ -734,24 +805,11 @@
                         <dependency>
                             <groupId>com.alibaba.p3c</groupId>
                             <artifactId>p3c-pmd</artifactId>
-                            <version>1.3.0</version>
+                            <version>${p3c-pmd.version}</version>
                         </dependency>
                     </dependencies>
                 </plugin>
                 <!-- checkstyle (End) -->
-
-                <!-- maven deploy (Start) -->
-                <plugin>
-                    <groupId>org.sonatype.plugins</groupId>
-                    <artifactId>nexus-staging-maven-plugin</artifactId>
-                    <version>${nexus-staging-maven-plugin.version}</version>
-                    <extensions>true</extensions>
-                    <configuration>
-                        <serverId>ossrh</serverId>
-                        <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                        <autoReleaseAfterClose>true</autoReleaseAfterClose>
-                    </configuration>
-                </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -788,44 +846,28 @@
                     </executions>
                 </plugin>
 
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-gpg-plugin</artifactId>
-                    <version>${maven-gpg-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>sign-artifacts</id>
-                            <phase>verify</phase>
-                            <goals>
-                                <goal>sign</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-deploy-plugin</artifactId>
-                    <version>${maven-deploy-plugin.version}</version>
-                    <configuration>
-                        <skip>${maven.deploy.skip}</skip>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>default-deploy</id>
-                            <phase>deploy</phase>
-                            <goals>
-                                <goal>deploy</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                <!-- maven deploy (End) -->
 
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
                     <version>${maven-helper-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <version>${maven-license-maven-plugin}</version>
+                    <configuration>
+                        <outputDirectory>${project.basedir}/seatunnel-dist/target/</outputDirectory>
+                        <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
+                        <sortArtifactByName>false</sortArtifactByName>
+                        <useMissingFile>false</useMissingFile>
+                        <addJavaLicenseAfterPackage>true</addJavaLicenseAfterPackage>
+                        <socketTimeout>30000</socketTimeout>
+                        <connectTimeout>30000</connectTimeout>
+                        <connectionRequestTimeout>30000</connectionRequestTimeout>
+                        <excludedScopes>test,provided</excludedScopes>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -834,6 +876,25 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                    <tagNameFormat>@{project.version}</tagNameFormat>
+                    <tagBase>${project.version}</tagBase>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.maven.scm</groupId>
+                        <artifactId>maven-scm-provider-jgit</artifactId>
+                        <version>${maven-scm-provider-jgit.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
 
             <plugin>
@@ -853,6 +914,11 @@
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
             </plugin>
 
@@ -864,6 +930,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

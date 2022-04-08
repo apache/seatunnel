@@ -76,11 +76,19 @@ public class TypesafeConfigUtilsTest {
     }
 
     public Config getConfig() {
-        Map<String, String> configMap = new HashMap<>();
+        Map<String, Object> configMap = new HashMap<>();
         configMap.put("test.t0", "v0");
         configMap.put("test.t1", "v1");
         configMap.put("k0", "v2");
         configMap.put("k1", "v3");
+        configMap.put("l1", Long.parseLong("100"));
         return ConfigFactory.parseMap(configMap);
+    }
+
+    @Test
+    public void testGetConfig() {
+        Config config = getConfig();
+        Assert.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
+        Assert.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
     }
 }

@@ -23,10 +23,16 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class Common {
 
-    private static final List<String> ALLOWED_MODES = Arrays.asList("client", "cluster");
+    private Common() {
+        throw new IllegalStateException("Utility class");
+    }
+
+    private static final List<String> ALLOWED_MODES = Arrays.stream(DeployMode.values())
+        .map(DeployMode::getName).collect(Collectors.toList());
 
     private static Optional<String> MODE = Optional.empty();
 
@@ -58,18 +64,22 @@ public class Common {
      * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
      */
     public static Path appRootDir() {
-        if (MODE.equals(Optional.of("client"))) {
+        if (MODE.equals(Optional.of(DeployMode.CLIENT.getName()))) {
             try {
                 String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
-                return Paths.get(path).getParent().getParent().getParent();
+                return Paths.get(path).getParent().getParent();
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
-        } else if (MODE.equals(Optional.of("cluster"))) {
+        } else if (MODE.equals(Optional.of(DeployMode.CLUSTER.getName()))) {
             return Paths.get("");
         } else {
             throw new IllegalStateException("MODE not support : " + MODE.orElse("null"));
         }
+    }
+
+    public static Path appLibDir() {
+        return appRootDir().resolve("lib");
     }
 
     /**
@@ -77,6 +87,10 @@ public class Common {
      */
     public static Path pluginRootDir() {
         return Paths.get(appRootDir().toString(), "plugins");
+    }
+
+    public static Path pluginTarball() {
+        return appRootDir().resolve("plugins.tar.gz");
     }
 
     /**

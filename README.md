@@ -1,4 +1,4 @@
-# SeaTunnel
+# Apache SeaTunnel (Incubating)
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" height="200px" align="right" />
 
@@ -49,7 +49,7 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 
 ## Workflow of SeaTunnel
 
-![seatunnel-workflow.svg](https://github.com/apache/incubator-seatunnel-website/blob/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
 
 ```
 Source[Data Source Input] -> Transform[Data Processing] -> Sink[Result Output]
@@ -62,18 +62,56 @@ processing plug-in, because the whole system is easy to expand.
 
 ## Plugins supported by SeaTunnel
 
-- Input plugin
+### Connector
 
-  Fake, File, Hdfs, Kafka, Druid, InfluxDB, S3, Socket, self-developed Input plugin
+| <div style="width: 80pt">Connector Type | <div style="width: 50pt">Source | <div style="width: 50pt">Sink                     |
+|:--------------:|:--------------------------------------------------------:|:-------------------------------------------------:|
+|Clickhouse      |                                                          |[doc](./docs/en/connector/sink/Clickhouse.md)      |
+|Doris           |                                                          |[doc](./docs/en/connector/sink/Doris.mdx)          |
+|Druid           |[doc](./docs/en/connector/source/Druid.md)                |[doc](./docs/en/connector/sink/Druid.md)           |
+|ElasticSearch   |[doc](./docs/en/connector/source/Elasticsearch.md)        |[doc](./docs/en/connector/sink/Elasticsearch.mdx)  |
+|Email           |                                                          |[doc](./docs/en/connector/sink/Email.md)           |
+|Fake            |[doc](./docs/en/connector/source/Fake.mdx)                |                                                   |
+|File            |[doc](./docs/en/connector/source/File.mdx)                |[doc](./docs/en/connector/sink/File.mdx)           |
+|Hbase           |[doc](./docs/en/connector/source/Hbase.md)                |[doc](./docs/en/connector/sink/Hbase.md)           |
+|Hive            |[doc](./docs/en/connector/source/Hive.md)                 |[doc](./docs/en/connector/sink/Hive.md)            |
+|Hudi            |[doc](./docs/en/connector/source/Hudi.md)                 |[doc](./docs/en/connector/sink/Hudi.md)            |
+|Iceberg         |[doc](./docs/en/connector/source/Iceberg.md)              |[doc](./docs/en/connector/sink/Iceberg.md)         |
+|InfluxDb        |[doc](./docs/en/connector/source/InfluxDb.md)             |[doc](./docs/en/connector/sink/InfluxDb.md)        |
+|Jdbc            |[doc](./docs/en/connector/source/Jdbc.mdx)                |[doc](./docs/en/connector/sink/Jdbc.mdx)           |
+|Kafka           |[doc](./docs/en/connector/source/Kafka.mdx)               |[doc](./docs/en/connector/sink/Kafka.md)           |
+|Kudu            |[doc](./docs/en/connector/source/Kudu.md)                 |[doc](./docs/en/connector/sink/Kudu.md)            |
+|MongoDB         |[doc](./docs/en/connector/source/MongoDB.md)              |[doc](./docs/en/connector/sink/MongoDB.md)         |
+|Neo4j           |[doc](./docs/en/connector/source/neo4j.md)                |                                                   |
+|Phoenix         |[doc](./docs/en/connector/source/Phoenix.md)              |[doc](./docs/en/connector/sink/Phoenix.md)         |
+|Redis           |[doc](./docs/en/connector/source/Redis.md)                |[doc](./docs/en/connector/sink/Redis.md)           |
+|Socket          |[doc](./docs/en/connector/source/Socket.mdx)              |                                                   |
+|Tidb            |[doc](./docs/en/connector/source/Tidb.md)                 |[doc](./docs/en/connector/sink/Tidb.md)            |
 
-- Filter plugin
-  
-  Add, Checksum, Convert, Date, Drop, Grok, Json, Kv, Lowercase, Remove, Rename, Repartition, Replace,
-  Sample, Split, Sql, Table, Truncate, Uppercase, Uuid, Self-developed Filter plugin
-  
-- Output plugin
+### Transform
 
-  Elasticsearch, File, Hdfs, Jdbc, Kafka, Druid, InfluxDB, Mysql, S3, Stdout, self-developed Output plugin
+|<div style="width: 130pt">Transform Plugins|
+|:-----------------------------------------:|
+|Add                                        |
+|CheckSum                                   |
+|Convert                                    |
+|Date                                       |
+|Drop                                       |
+|Grok                                       |
+|[Json](./docs/en/transform/json.md)        |
+|Kv                                         |
+|Lowercase                                  |
+|Remove                                     |
+|Rename                                     |
+|Repartition                                |
+|Replace                                    |
+|Sample                                     |
+|[Split](./docs/en/transform/split.mdx)     |
+|[Sql](./docs/en/transform/sql.md)          |
+|Table                                      |
+|Truncate                                   |
+|Uppercase                                  |
+|Uuid                                       |
 
 ## Environmental dependency
 
@@ -88,20 +126,23 @@ If the data volume is small, or the goal is merely for functional verification, 
 a cluster environment, because SeaTunnel supports standalone operation. Note: SeaTunnel 2.0 supports running on Spark
 and Flink.
 
+## Compiling project
+Follow this [document](docs/en/development/setup.md).
+
 ## Downloads
 
-Download address for run-directly software package :https://github.com/apache/incubator-seatunnel/releases
+Download address for run-directly software package : https://seatunnel.apache.org/download
 
 ## Quick start
 
 **Spark**
-https://seatunnel.apache.org/docs/spark/quick-start
+https://seatunnel.apache.org/docs/deployment
 
 **Flink**
-https://seatunnel.apache.org/docs/flink/quick-start
+https://seatunnel.apache.org/docs/deployment
 
 Detailed documentation on SeaTunnel
-https://seatunnel.apache.org/docs/introduction
+https://seatunnel.apache.org/docs/intro/about
 
 ## Application practice cases
 
@@ -142,7 +183,7 @@ Collecting various logs from business services into Apache Kafka, some of the da
 
 For more use cases, please refer to: https://seatunnel.apache.org/blog
 
-# Code of conduct
+## Code of conduct
 
 This project adheres to the Contributor Covenant [code of conduct](https://www.apache.org/foundation/policies/conduct).
 By participating, you are expected to uphold this code. Please follow
@@ -163,12 +204,19 @@ Thanks to all developers!
 * Twitter: https://twitter.com/ASFSeaTunnel
 * [Bilibili](https://space.bilibili.com/1542095008) (for Chinese users)
 
-# Landscapes
+## Landscapes
 
 <p align="center">
 <br/><br/>
-<img src="https://landscape.cncf.io/images/left-logo.svg" width="150"/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200"/>
+<img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
 <br/><br/>
-SeaTunnel enriches the <a href="https://landscape.cncf.io/landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
+SeaTunnel enriches the <a href="https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0">CNCF CLOUD NATIVE Landscape.</a >
 
 </p >
+
+## Our Users
+Various companies and organizations use SeaTunnel for research, production and commercial products.
+Visit our [website](https://seatunnel.apache.org/user) to find the user page.
+
+## License
+[Apache 2.0 License.](LICENSE)

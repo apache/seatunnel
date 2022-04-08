@@ -1,0 +1,101 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Console
+
+## Description
+
+Output data to standard terminal or Flink taskManager, which is often used for debugging and easy to observe the data.
+
+:::tip
+
+Engine Supported and plugin name
+
+* [x] Spark: Console
+* [x] Flink: Console
+
+:::
+
+## Options
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+| name           | type   | required | default value |
+| -------------- | ------ | -------- | ------------- |
+| limit          | number | no       | 100           |
+| serializer     | string | no       | plain         |
+| common-options | string | no       | -             |
+
+### limit [number]
+
+Limit the number of `rows` to be output, the legal range is `[-1, 2147483647]` , `-1` means that the output is up to `2147483647` rows
+
+### serializer [string]
+
+The format of serialization when outputting. Available serializers include: `json` , `plain`
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Plugin](common-options.md) for details
+
+</TabItem>
+<TabItem value="flink">
+
+## Options
+
+| name           | type   | required | default value |
+|----------------|--------| -------- |---------------|
+| limit          | int    | no       | INT_MAX       |
+| common-options | string | no       | -             |
+
+### limit [int]
+
+limit console result lines
+
+### common options [string]
+
+Sink plugin common parameters, please refer to [Sink Plugin](common-options.md) for details
+
+</TabItem>
+</Tabs>
+
+## Examples
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark"
+    values={[
+        {label: 'Spark', value: 'spark'},
+        {label: 'Flink', value: 'flink'},
+    ]}>
+<TabItem value="spark">
+
+```bash
+console {
+    limit = 10,
+    serializer = "json"
+}
+```
+
+> Output 10 pieces of data in Json format
+
+</TabItem>
+<TabItem value="flink">
+
+```bash
+ConsoleSink{}
+```
+
+## Note
+
+Flink's console output is in flink's WebUI
+
+</TabItem>
+</Tabs>
