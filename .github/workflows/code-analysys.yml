@@ -40,7 +40,7 @@ jobs:
           -Dsonar.host.url=https://sonarcloud.io
           -Dsonar.organization=apache
           -Dsonar.projectKey=apache_incubator-seatunnel
-          -Dsonar.login=$SONAR_TOKEN
+          -Dsonar.login=${{ secrets.SONARCLOUD_TOKEN }}
           -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
