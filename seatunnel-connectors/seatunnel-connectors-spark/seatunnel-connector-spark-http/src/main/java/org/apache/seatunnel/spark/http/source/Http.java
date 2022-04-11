@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spark.source;
+package org.apache.seatunnel.spark.http.source;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.spark.batch.SparkBatchSource;
-import org.apache.seatunnel.spark.source.constant.Settings;
-import org.apache.seatunnel.spark.source.util.HttpClientResult;
-import org.apache.seatunnel.spark.source.util.HttpClientUtils;
+import org.apache.seatunnel.spark.http.source.constant.Settings;
+import org.apache.seatunnel.spark.http.source.util.HttpClientResult;
+import org.apache.seatunnel.spark.http.source.util.HttpClientUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hadoop.conf.Configuration;
@@ -65,14 +66,10 @@ public class Http extends SparkBatchSource {
     public Dataset<Row> getData(SparkEnvironment env) {
         SparkSession spark = env.getSparkSession();
         String url = config.getString(Settings.SOURCE_HTTP_URL);
-        String method = config.hasPath(Settings.SOURCE_HTTP_METHOD) ?
-            config.getString(Settings.SOURCE_HTTP_METHOD) : GET;
-        String header = config.hasPath(Settings.SOURCE_HTTP_HEADER) ?
-            config.getString(Settings.SOURCE_HTTP_HEADER) : "";
-        String requestParams = config.hasPath(Settings.SOURCE_HTTP_REQUEST_PARAMS) ?
-            config.getString(Settings.SOURCE_HTTP_REQUEST_PARAMS) : "";
-        String syncPath = config.hasPath(Settings.SOURCE_HTTP_SYNC_PATH) ?
-            config.getString(Settings.SOURCE_HTTP_SYNC_PATH) : "";
+        String method = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_METHOD, GET);
+        String header = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_HEADER, "");
+        String requestParams = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_REQUEST_PARAMS, "");
+        String syncPath = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_SYNC_PATH, "");
 
         JavaSparkContext jsc = JavaSparkContext.fromSparkContext(spark.sparkContext());
 
@@ -135,6 +132,7 @@ public class Http extends SparkBatchSource {
         try {
             return new ObjectMapper().readValue(content, HashMap.class);
         } catch (IOException e) {
+            //only records the log, does not handle it, and does not affect the main process.
             LOG.error("{} json to map error!", content, e);
         }
         return map;

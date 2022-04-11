@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spark.source.constant;
+package org.apache.seatunnel.spark.http.source.constant;
 
 public class Settings {
 

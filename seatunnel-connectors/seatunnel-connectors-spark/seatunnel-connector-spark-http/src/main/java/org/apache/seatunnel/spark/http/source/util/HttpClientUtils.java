@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.spark.source.util;
+package org.apache.seatunnel.spark.http.source.util;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
