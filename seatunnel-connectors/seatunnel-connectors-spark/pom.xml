@@ -18,41 +18,41 @@
 
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-connectors</artifactId>
-        <version>${revision}</version>
-    </parent>
-    <modelVersion>4.0.0</modelVersion>
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <parent>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-connectors</artifactId>
+    <version>${revision}</version>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connectors-spark</artifactId>
-    <packaging>pom</packaging>
+  <artifactId>seatunnel-connectors-spark</artifactId>
+  <packaging>pom</packaging>
 
-    <modules>
-        <module>seatunnel-connector-spark-doris</module>
-        <module>seatunnel-connector-spark-file</module>
-        <module>seatunnel-connector-spark-kafka</module>
-        <module>seatunnel-connector-spark-socket</module>
-        <module>seatunnel-connector-spark-redis</module>
-        <module>seatunnel-connector-spark-phoenix</module>
-        <module>seatunnel-connector-spark-mongodb</module>
-        <module>seatunnel-connector-spark-kudu</module>
-        <module>seatunnel-connector-spark-jdbc</module>
-        <module>seatunnel-connector-spark-hive</module>
-        <module>seatunnel-connector-spark-fake</module>
-        <module>seatunnel-connector-spark-elasticsearch</module>
-        <module>seatunnel-connector-spark-hudi</module>
-        <module>seatunnel-connector-spark-hbase</module>
-        <module>seatunnel-connector-spark-console</module>
-        <module>seatunnel-connector-spark-clickhouse</module>
-        <module>seatunnel-connector-spark-email</module>
-        <module>seatunnel-connector-spark-tidb</module>
-        <module>seatunnel-connector-spark-neo4j</module>
-        <module>seatunnel-connector-spark-iceberg</module>
-        <module>seatunnel-connector-spark-feishu</module>
-		<module>seatunnel-connector-spark-http</module>
-    </modules>
+  <modules>
+    <module>seatunnel-connector-spark-doris</module>
+    <module>seatunnel-connector-spark-file</module>
+    <module>seatunnel-connector-spark-kafka</module>
+    <module>seatunnel-connector-spark-socket</module>
+    <module>seatunnel-connector-spark-redis</module>
+    <module>seatunnel-connector-spark-phoenix</module>
+    <module>seatunnel-connector-spark-mongodb</module>
+    <module>seatunnel-connector-spark-kudu</module>
+    <module>seatunnel-connector-spark-jdbc</module>
+    <module>seatunnel-connector-spark-hive</module>
+    <module>seatunnel-connector-spark-fake</module>
+    <module>seatunnel-connector-spark-elasticsearch</module>
+    <module>seatunnel-connector-spark-hudi</module>
+    <module>seatunnel-connector-spark-hbase</module>
+    <module>seatunnel-connector-spark-console</module>
+    <module>seatunnel-connector-spark-clickhouse</module>
+    <module>seatunnel-connector-spark-email</module>
+    <module>seatunnel-connector-spark-tidb</module>
+    <module>seatunnel-connector-spark-neo4j</module>
+    <module>seatunnel-connector-spark-iceberg</module>
+    <module>seatunnel-connector-spark-feishu</module>
+    <module>seatunnel-connector-spark-http</module>
+  </modules>
 
 </project>
