@@ -35,7 +35,7 @@ jobs:
           distribution: 'adopt'
       - name: Run SonarCloud Analysis
         run: >
-          if [[ null == ${{ secrets.SONARCLOUD_TOKEN }} ]]; then
+          if [[ ! ${{ secrets.SONARCLOUD_TOKEN }} ]]; then
               exit 1
           fi
           ./mvnw --batch-mode verify sonar:sonar
