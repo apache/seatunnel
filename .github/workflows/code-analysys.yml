@@ -24,7 +24,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: null != ${{ secrets.SONARCLOUD_TOKEN }}
     steps:
       - uses: actions/checkout@v2
         with:
