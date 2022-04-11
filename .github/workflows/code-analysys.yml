@@ -36,12 +36,16 @@ jobs:
           distribution: 'adopt'
       - name: Run SonarCloud Analysis
         run: >
+          if [[ ${{ secrets.SONARCLOUD_TOKEN }} == null ]]; then
+              exit 1
+          fi
           ./mvnw --batch-mode verify sonar:sonar
-          -Dmaven.test.skip=true
-          -Dsonar.host.url=https://sonarcloud.io
-          -Dsonar.organization=apache
-          -Dsonar.projectKey=apache_incubator-seatunnel
-          -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+                    -Dmaven.test.skip=true
+                    -Dsonar.host.url=https://sonarcloud.io
+                    -Dsonar.organization=apache
+                    -Dsonar.projectKey=apache_incubator-seatunnel
+                    -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
+          
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
