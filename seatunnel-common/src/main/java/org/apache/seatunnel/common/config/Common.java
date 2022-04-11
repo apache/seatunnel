@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.common.config;
 
+import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -57,16 +58,13 @@ public class Common {
     }
 
     /**
-     * Root dir varies between different spark master and deploy mode,
-     * it also varies between relative and absolute path.
-     * When running seatunnel in --master local, you can put plugins related files in $project_dir/plugins,
-     * then these files will be automatically copied to $project_dir/seatunnel-core/target and token in effect if you start seatunnel in IDE tools such as IDEA.
-     * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
+     * Root dir varies between different spark master and deploy mode, it also varies between relative and absolute path. When running seatunnel in --master local, you can put plugins related files in $project_dir/plugins, then these files will be automatically copied to $project_dir/seatunnel-core/target and token in effect if you start seatunnel in IDE tools such as IDEA. When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
      */
     public static Path appRootDir() {
         if (MODE.equals(Optional.of(DeployMode.CLIENT.getName()))) {
             try {
                 String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+                path = new File(path).getPath();
                 return Paths.get(path).getParent().getParent();
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
