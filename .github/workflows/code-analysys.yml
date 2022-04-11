@@ -24,7 +24,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.repository == 'apache/incubator-seatunnel'
+    if: null != ${{ secrets.SONARCLOUD_TOKEN }}
     steps:
       - uses: actions/checkout@v2
         with:
