@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,28 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: SonarCloud
-on:
-  push:
-  pull_request:
-    branches: [dev]
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-      - name: Set up JDK 11
-        uses: actions/setup-java@v2
-        with:
-          java-version: 11
-          distribution: 'adopt'
-      - name: Run SonarCloud Analysis
-        run: bash ./tools/sonarcheck/check.sh          
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+if [ ! "$SONAR_TOKEN" ]; then
+  echo "SONAR_TOKEN environment variable should be set"
+  exit 1
+fi
+./mvnw --batch-mode verify sonar:sonar -Dmaven.test.skip=true -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=apache -Dsonar.projectKey=apache_incubator-seatunnel -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
