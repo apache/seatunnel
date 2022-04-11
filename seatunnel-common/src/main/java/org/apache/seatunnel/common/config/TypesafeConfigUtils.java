@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import lombok.NonNull;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -93,7 +95,7 @@ public final class TypesafeConfigUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T getConfig(final Config config, final String configKey, final T defaultValue) {
+    public static <T> T getConfig(final Config config, final String configKey, @NonNull final T defaultValue) {
         if (defaultValue.getClass().equals(Long.class)) {
             return config.hasPath(configKey) ? (T) Long.valueOf(config.getString(configKey)) : defaultValue;
         }

@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.fake;
+package org.apache.seatunnel.flink.clickhouse.pojo;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+public class IntHolder {
+    private int value;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+    public int getValue() {
+        return value;
+    }
 
-import java.io.IOException;
-
-public class FakeSourceToConsoleIT extends FlinkContainer {
-
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    public void setValue(int value) {
+        this.value = value;
     }
 }

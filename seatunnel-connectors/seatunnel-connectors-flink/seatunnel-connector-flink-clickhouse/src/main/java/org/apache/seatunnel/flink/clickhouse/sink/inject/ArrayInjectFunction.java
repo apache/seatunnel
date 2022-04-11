@@ -15,21 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.fake;
+package org.apache.seatunnel.flink.clickhouse.sink.inject;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+import java.sql.SQLException;
+import java.util.regex.Pattern;
 
-import java.io.IOException;
+public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
 
-public class FakeSourceToConsoleIT extends FlinkContainer {
+    private static final Pattern PATTERN = Pattern.compile("(Array.*)");
 
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    @Override
+    public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
+        statement.setArray(index, (java.sql.Array) value);
+    }
+
+    @Override
+    public boolean isCurrentFieldType(String fieldType) {
+        return PATTERN.matcher(fieldType).matches();
     }
 }
