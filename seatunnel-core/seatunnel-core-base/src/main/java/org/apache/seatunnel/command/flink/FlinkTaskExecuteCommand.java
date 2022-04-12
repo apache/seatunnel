@@ -45,8 +45,6 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
 
         Config config = new ConfigBuilder<>(configFile, engine).getConfig();
         ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine);
-
-
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();

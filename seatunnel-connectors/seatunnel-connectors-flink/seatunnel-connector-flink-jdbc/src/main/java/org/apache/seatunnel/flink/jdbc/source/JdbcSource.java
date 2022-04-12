@@ -195,8 +195,6 @@ public class JdbcSource implements FlinkBatchSource {
             min = config.getLong(PARTITION_LOWER_BOUND);
             return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism * 2);
         }
-
-
         try (ResultSet rs = connection.createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
                 "FROM %s", columnName, columnName, tableName))) {
             if (rs.next()) {
