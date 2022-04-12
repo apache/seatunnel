@@ -65,9 +65,9 @@ public class ClickhouseOutputFormat extends RichOutputFormat<Row> {
     private final Map<String, String> tableSchema;
     private final ShardMetadata shardMetadata;
     private final int batchSize;
-    private final RetryUtils.RetryMaterial retryMaterial;
 
     // The below fields should be created by open function.
+    private transient RetryUtils.RetryMaterial retryMaterial;
     private transient ShardRouter shardRouter;
     private transient ClickhouseClient clickhouseClient;
     private transient String prepareSql;
@@ -84,15 +84,6 @@ public class ClickhouseOutputFormat extends RichOutputFormat<Row> {
         this.fields = fields;
         this.tableSchema = tableSchema;
         this.batchSize = config.getInt(BULK_SIZE);
-        List<Integer> retryCodes = config.getIntList(RETRY_CODES);
-        int retryTimes = config.getInt(RETRY);
-        this.retryMaterial = new RetryUtils.RetryMaterial(retryTimes, true, exception -> {
-            if (exception instanceof SQLException) {
-                SQLException sqlException = (SQLException) exception;
-                return retryCodes.contains(sqlException.getErrorCode());
-            }
-            return false;
-        });
     }
 
     @Override
@@ -101,6 +92,14 @@ public class ClickhouseOutputFormat extends RichOutputFormat<Row> {
 
     @Override
     public void open(int taskNumber, int numTasks) {
+        List<Integer> retryCodes = config.getIntList(RETRY_CODES);
+        retryMaterial = new RetryUtils.RetryMaterial(config.getInt(RETRY), true, exception -> {
+            if (exception instanceof SQLException) {
+                SQLException sqlException = (SQLException) exception;
+                return retryCodes.contains(sqlException.getErrorCode());
+            }
+            return false;
+        });
         clickhouseClient = new ClickhouseClient(config);
         fieldInjectFunctionMap = initFieldInjectFunctionMap();
         shardRouter = new ShardRouter(clickhouseClient, shardMetadata);
