@@ -50,6 +50,7 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToClickhouseIT.class);
 
     @Before
+    @SuppressWarnings("magicnumber")
     public void startClickhouseContainer() throws InterruptedException {
         clickhouseServer = new GenericContainer<>(CLICKHOUSE_DOCKER_IMAGE)
             .withNetwork(NETWORK)
@@ -94,7 +95,6 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
         properties.setProperty("password", "");
         return new BalancedClickhouseDataSource(jdbcUrl, properties);
     }
-
 
     private void initializeClickhouseTable() {
         try (ClickHouseConnection connection = dataSource.getConnection()) {
