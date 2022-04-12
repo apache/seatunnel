@@ -102,10 +102,9 @@ public class HttpClientUtils {
          * If an interface is accessed, and the data cannot be returned within a certain amount of time, the call is simply abandoned.
          */
         RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(CONNECT_TIMEOUT).setSocketTimeout(SOCKET_TIMEOUT).build();
-
         HttpGet httpGet = new HttpGet(uriBuilder.build());
+        httpGet.setConfig(requestConfig);
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            httpGet.setConfig(requestConfig);
             // set request header
             packageHeader(headers, httpGet);
             // Execute the request and get the response result
