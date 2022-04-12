@@ -101,6 +101,7 @@
         <hadoop.version>2.7.5</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
         <jackson.version>2.11.0</jackson.version>
+        <jackson-databind.version>2.12.6.1 </jackson-databind.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
         <postgresql.version>42.3.3</postgresql.version>
@@ -502,7 +503,7 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
-                <version>${jackson.version}</version>
+                <version>${jackson-databind.version}</version>
             </dependency>
 
             <dependency>

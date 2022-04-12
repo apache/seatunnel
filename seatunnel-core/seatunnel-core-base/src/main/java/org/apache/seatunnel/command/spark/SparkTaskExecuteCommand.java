@@ -47,14 +47,13 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
         List<BaseTransform<SparkEnvironment>> transforms = executionContext.getTransforms();
         List<BaseSink<SparkEnvironment>> sinks = executionContext.getSinks();
 
-        Execution<
-            BaseSource<SparkEnvironment>,
-            BaseTransform<SparkEnvironment>,
-            BaseSink<SparkEnvironment>, SparkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution();
         baseCheckConfig(sources, transforms, sinks);
         showAsciiLogo();
 
-        try {
+        try (Execution<
+                BaseSource<SparkEnvironment>,
+                BaseTransform<SparkEnvironment>,
+                BaseSink<SparkEnvironment>, SparkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution()) {
             prepare(executionContext.getEnvironment(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);

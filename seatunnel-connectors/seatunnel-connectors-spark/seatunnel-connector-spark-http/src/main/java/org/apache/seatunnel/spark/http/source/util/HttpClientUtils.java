@@ -45,6 +45,10 @@ import java.util.Set;
 
 public class HttpClientUtils {
 
+    private HttpClientUtils() {
+        throw new IllegalStateException("Utility class");
+    }
+
     private static final String ENCODING = "UTF-8";
     private static final int CONNECT_TIMEOUT = 6000 * 2;
     private static final int SOCKET_TIMEOUT = 6000 * 10;
@@ -83,9 +87,6 @@ public class HttpClientUtils {
      * @throws Exception information
      */
     public static HttpClientResult doGet(String url, Map<String, String> headers, Map<String, String> params) throws Exception {
-        // Create httpClient object
-        CloseableHttpClient httpClient = HttpClients.createDefault();
-
         // Create access address
         URIBuilder uriBuilder = new URIBuilder(url);
         if (params != null) {
@@ -95,27 +96,19 @@ public class HttpClientUtils {
             }
         }
 
-        HttpGet httpGet = new HttpGet(uriBuilder.build());
         /**
          * setConnectTimeout:Set the connection timeout, in milliseconds.
          * setSocketTimeout:The timeout period (ie response time) for requesting data acquisition, in milliseconds.
          * If an interface is accessed, and the data cannot be returned within a certain amount of time, the call is simply abandoned.
          */
         RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(CONNECT_TIMEOUT).setSocketTimeout(SOCKET_TIMEOUT).build();
+        HttpGet httpGet = new HttpGet(uriBuilder.build());
         httpGet.setConfig(requestConfig);
-
-        // set request header
-        packageHeader(headers, httpGet);
-
-        // Create httpResponse object
-        CloseableHttpResponse httpResponse = null;
-
-        try {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            // set request header
+            packageHeader(headers, httpGet);
             // Execute the request and get the response result
-            return getHttpClientResult(httpResponse, httpClient, httpGet);
-        } finally {
-            // release resources
-            release(httpResponse, httpClient);
+            return getHttpClientResult(httpClient, httpGet);
         }
     }
 
@@ -152,8 +145,6 @@ public class HttpClientUtils {
      * @throws Exception information
      */
     public static HttpClientResult doPost(String url, Map<String, String> headers, Map<String, String> params) throws Exception {
-        // Create httpClient object
-        CloseableHttpClient httpClient = HttpClients.createDefault();
         HttpPost httpPost = new HttpPost(url);
         /**
          * setConnectTimeout:Set the connection timeout, in milliseconds.
@@ -168,15 +159,9 @@ public class HttpClientUtils {
         // Encapsulate request parameters
         packageParam(params, httpPost);
 
-        // Create httpResponse object
-        CloseableHttpResponse httpResponse = null;
-
-        try {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault();) {
             // Execute the request and get the response result
-            return getHttpClientResult(httpResponse, httpClient, httpPost);
-        } finally {
-            // release resources
-            release(httpResponse, httpClient);
+            return getHttpClientResult(httpClient, httpPost);
         }
     }
 
@@ -192,7 +177,7 @@ public class HttpClientUtils {
     }
 
     /**
-     *Send a put request with request parameters
+     * Send a put request with request parameters
      *
      * @param url    request address
      * @param params request parameter map
@@ -200,19 +185,15 @@ public class HttpClientUtils {
      * @throws Exception information
      */
     public static HttpClientResult doPut(String url, Map<String, String> params) throws Exception {
-        CloseableHttpClient httpClient = HttpClients.createDefault();
+
         HttpPut httpPut = new HttpPut(url);
         RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(CONNECT_TIMEOUT).setSocketTimeout(SOCKET_TIMEOUT).build();
         httpPut.setConfig(requestConfig);
 
         packageParam(params, httpPut);
 
-        CloseableHttpResponse httpResponse = null;
-
-        try {
-            return getHttpClientResult(httpResponse, httpClient, httpPut);
-        } finally {
-            release(httpResponse, httpClient);
+        try (CloseableHttpClient httpClient = HttpClients.createDefault();) {
+            return getHttpClientResult(httpClient, httpPut);
         }
     }
 
@@ -224,16 +205,12 @@ public class HttpClientUtils {
      * @throws Exception information
      */
     public static HttpClientResult doDelete(String url) throws Exception {
-        CloseableHttpClient httpClient = HttpClients.createDefault();
+
         HttpDelete httpDelete = new HttpDelete(url);
         RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(CONNECT_TIMEOUT).setSocketTimeout(SOCKET_TIMEOUT).build();
         httpDelete.setConfig(requestConfig);
-
-        CloseableHttpResponse httpResponse = null;
-        try {
-            return getHttpClientResult(httpResponse, httpClient, httpDelete);
-        } finally {
-            release(httpResponse, httpClient);
+        try (CloseableHttpClient httpClient = HttpClients.createDefault();) {
+            return getHttpClientResult(httpClient, httpDelete);
         }
     }
 
@@ -247,7 +224,7 @@ public class HttpClientUtils {
      */
     public static HttpClientResult doDelete(String url, Map<String, String> params) throws Exception {
         if (params == null) {
-            params = new HashMap<String, String>(INITIAL_CAPACITY);
+            params = new HashMap<>(INITIAL_CAPACITY);
         }
 
         params.put("_method", "delete");
@@ -255,9 +232,9 @@ public class HttpClientUtils {
     }
 
     /**
-     *encapsulate request header
+     * encapsulate request header
      *
-     * @param params request header map
+     * @param params     request header map
      * @param httpMethod http request method
      */
     public static void packageHeader(Map<String, String> params, HttpRequestBase httpMethod) {
@@ -274,15 +251,14 @@ public class HttpClientUtils {
     /**
      * Encapsulate request parameters
      *
-     * @param params  request parameter map
+     * @param params     request parameter map
      * @param httpMethod http request method
      * @throws UnsupportedEncodingException exception information
      */
-    public static void packageParam(Map<String, String> params, HttpEntityEnclosingRequestBase httpMethod)
-        throws UnsupportedEncodingException {
+    public static void packageParam(Map<String, String> params, HttpEntityEnclosingRequestBase httpMethod) throws UnsupportedEncodingException {
         // Encapsulate request parameters
         if (params != null) {
-            List<NameValuePair> nvps = new ArrayList<NameValuePair>();
+            List<NameValuePair> nvps = new ArrayList<>();
             Set<Entry<String, String>> entrySet = params.entrySet();
             for (Entry<String, String> entry : entrySet) {
                 nvps.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
@@ -296,24 +272,22 @@ public class HttpClientUtils {
     /**
      * get response result
      *
-     * @param httpResponse http response object
-     * @param httpClient   http client object
-     * @param httpMethod   http method onject
+     * @param httpClient http client object
+     * @param httpMethod http method onject
      * @return http response result
      * @throws Exception information
      */
-    public static HttpClientResult getHttpClientResult(CloseableHttpResponse httpResponse,
-        CloseableHttpClient httpClient, HttpRequestBase httpMethod) throws Exception {
+    public static HttpClientResult getHttpClientResult(CloseableHttpClient httpClient, HttpRequestBase httpMethod) throws Exception {
         // execute request
-        httpResponse = httpClient.execute(httpMethod);
-
-        // get return result
-        if (httpResponse != null && httpResponse.getStatusLine() != null) {
-            String content = "";
-            if (httpResponse.getEntity() != null) {
-                content = EntityUtils.toString(httpResponse.getEntity(), ENCODING);
+        try (CloseableHttpResponse httpResponse = httpClient.execute(httpMethod)) {
+            // get return result
+            if (httpResponse != null && httpResponse.getStatusLine() != null) {
+                String content = "";
+                if (httpResponse.getEntity() != null) {
+                    content = EntityUtils.toString(httpResponse.getEntity(), ENCODING);
+                }
+                return new HttpClientResult(httpResponse.getStatusLine().getStatusCode(), content);
             }
-            return new HttpClientResult(httpResponse.getStatusLine().getStatusCode(), content);
         }
         return new HttpClientResult(HttpStatus.SC_INTERNAL_SERVER_ERROR);
     }
@@ -322,7 +296,7 @@ public class HttpClientUtils {
      * release resources
      *
      * @param httpResponse http response object
-     * @param httpClient http client objet
+     * @param httpClient   http client objet
      * @throws IOException information
      */
     public static void release(CloseableHttpResponse httpResponse, CloseableHttpClient httpClient) throws IOException {
