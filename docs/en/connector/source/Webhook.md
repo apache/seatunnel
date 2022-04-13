@@ -8,7 +8,7 @@ Provide http interface to push data.
 
 Engine Supported and plugin name
 
-* [x] Spark: Http
+* [x] Spark: Webhook
 * [ ] Flink
 
 :::
