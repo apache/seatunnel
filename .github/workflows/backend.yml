@@ -109,8 +109,7 @@ jobs:
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
                  -Dmaven.wagon.http.retryHandler.count=3 \
-                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
-                 --no-snapshot-updates
+                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120
       - name: Run Unit tests
         run: |
           ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false --no-snapshot-updates
