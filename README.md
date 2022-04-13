@@ -127,7 +127,7 @@ a cluster environment, because SeaTunnel supports standalone operation. Note: Se
 and Flink.
 
 ## Compiling project
-Follow this [document](docs/en/development/setup.md).
+Follow this [document](docs/en/contribution/setup.md).
 
 ## Downloads
 
