@@ -53,6 +53,7 @@
         <module>seatunnel-connector-spark-iceberg</module>
         <module>seatunnel-connector-spark-feishu</module>
         <module>seatunnel-connector-spark-http</module>
+        <module>seatunnel-connector-spark-webhook</module>
     </modules>
 
 </project>
