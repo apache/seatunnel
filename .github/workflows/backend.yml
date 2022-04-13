@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   build-on-ubuntu:
-    name: Build
+    name: Build-on-ubuntu
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -78,7 +78,7 @@ jobs:
           ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false --no-snapshot-updates
           
   build-on-windows:
-    name: Build
+    name: Build-on-windows
     runs-on: windows-latest
     strategy:
       matrix:
@@ -100,9 +100,6 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-      - name: Check Style
-        run: |
-          ./mvnw -T 2C -B checkstyle:check --no-snapshot-updates
       - name: Build and Package
         run: |
           ./mvnw -B install scalastyle:check \
