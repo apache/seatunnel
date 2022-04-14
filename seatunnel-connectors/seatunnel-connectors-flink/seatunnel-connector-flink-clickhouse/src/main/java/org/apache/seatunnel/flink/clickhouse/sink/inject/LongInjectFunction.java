@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.fake;
+package org.apache.seatunnel.flink.clickhouse.sink.inject;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+import java.sql.SQLException;
 
-import java.io.IOException;
+public class LongInjectFunction implements ClickhouseFieldInjectFunction {
 
-public class FakeSourceToConsoleIT extends FlinkContainer {
+    @Override
+    public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
+        statement.setLong(index, (Long) value);
+    }
 
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    @Override
+    public boolean isCurrentFieldType(String fieldType) {
+        return "UInt32".equals(fieldType)
+            || "UInt64".equals(fieldType)
+            || "Int64".equals(fieldType);
     }
 }

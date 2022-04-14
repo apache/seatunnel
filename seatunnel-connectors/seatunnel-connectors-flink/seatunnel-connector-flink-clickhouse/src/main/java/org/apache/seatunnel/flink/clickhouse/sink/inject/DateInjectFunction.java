@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.fake;
+package org.apache.seatunnel.flink.clickhouse.sink.inject;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+import java.sql.Date;
+import java.sql.SQLException;
 
-import java.io.IOException;
+public class DateInjectFunction implements ClickhouseFieldInjectFunction {
+    @Override
+    public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
+        if (value instanceof Date) {
+            statement.setDate(index, (Date) value);
+        } else {
+            statement.setDate(index, Date.valueOf(value.toString()));
+        }
+    }
 
-public class FakeSourceToConsoleIT extends FlinkContainer {
-
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    @Override
+    public boolean isCurrentFieldType(String fieldType) {
+        return "Date".equals(fieldType);
     }
 }
