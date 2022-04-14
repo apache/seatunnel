@@ -31,11 +31,11 @@ public class CommonTest {
 
     @Test
     public void appLibDir() {
-        assertEquals(Common.appRootDir().toString() + File.separator + "/lib", Common.appLibDir().toString());
+        assertEquals(Common.appRootDir().toString() + File.separator + "lib", Common.appLibDir().toString());
     }
 
     @Test
     public void pluginTarFile() {
-        assertEquals(Common.appRootDir().toString() + File.separator + "/plugins.tar.gz", Common.pluginTarball().toString());
+        assertEquals(Common.appRootDir().toString() + File.separator + "plugins.tar.gz", Common.pluginTarball().toString());
     }
 }
