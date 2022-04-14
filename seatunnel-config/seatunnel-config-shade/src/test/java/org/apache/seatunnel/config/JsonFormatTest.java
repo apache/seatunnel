@@ -26,18 +26,19 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.File;
+
 public class JsonFormatTest {
 
     @Test
     public void testJsonFormat() {
-
         Config json = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("json/spark.batch.json"))
+                .parseFile(FileUtils.getFileFromResources("json" + File.separator + "spark.batch.json"))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         Config config = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("json/spark.batch.conf"))
+                .parseFile(FileUtils.getFileFromResources("json" + File.separator + "spark.batch.conf"))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
@@ -45,7 +46,6 @@ public class JsonFormatTest {
         Assert.assertEquals(config.atPath("sink"), json.atPath("sink"));
         Assert.assertEquals(config.atPath("source"), json.atPath("source"));
         Assert.assertEquals(config.atPath("env"), json.atPath("env"));
-
     }
 
 }

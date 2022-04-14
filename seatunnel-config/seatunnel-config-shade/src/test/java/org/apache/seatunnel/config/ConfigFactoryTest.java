@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,8 +33,7 @@ public class ConfigFactoryTest {
 
     @Test
     public void testBasicParseAppConf() {
-
-        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
+        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory" + File.separator + "config.conf"));
 
         Assert.assertTrue(config.hasPath("env"));
         Assert.assertTrue(config.hasPath("source"));
@@ -54,8 +54,7 @@ public class ConfigFactoryTest {
 
     @Test
     public void testTransformOrder() {
-
-        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
+        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory" + File.separator + "config.conf"));
 
         String[] pluginNames = {"split", "sql1", "sql2", "sql3", "json"};
 
@@ -66,7 +65,6 @@ public class ConfigFactoryTest {
             String parsedPluginName = String.valueOf(transforms.get(i).root().get("plugin_name").unwrapped());
             Assert.assertEquals(pluginNames[i], parsedPluginName);
         }
-
     }
 
     @Test
@@ -74,9 +72,8 @@ public class ConfigFactoryTest {
         List<String> keys = Arrays.asList("spark.app.name", "spark.executor.instances", "spark.executor.cores",
                 "spark.executor.memory", "spark.streaming.batchDuration");
 
-        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
+        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory" + File.separator + "config.conf"));
         Config evnConfig = config.getConfig("env");
         evnConfig.entrySet().forEach(entry -> Assert.assertTrue(keys.contains(entry.getKey())));
-
     }
 }
