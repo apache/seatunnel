@@ -34,9 +34,9 @@ Source plugin common parameters, please refer to [Source Plugin](common-options.
 
 ## Example
 
-```bash
+```
 Webhook {
-       result_table_name= "request_body"
+      result_table_name = "request_body"
    }
 ```
 
