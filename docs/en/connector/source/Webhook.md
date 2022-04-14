@@ -2,7 +2,7 @@
 
 ## Description
 
-Provide http interface to push data.
+Provide http interface to push data，only supports post requests.
 
 :::tip
 
