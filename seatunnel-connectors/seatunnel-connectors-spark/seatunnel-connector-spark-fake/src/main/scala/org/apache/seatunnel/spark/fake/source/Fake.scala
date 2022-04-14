@@ -37,4 +37,5 @@ class Fake extends SparkBatchSource {
     env.getSparkSession.createDataset(s)(RowEncoder(schema))
   }
 
+  override def getPluginName: String = "Fake"
 }

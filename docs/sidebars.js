@@ -133,10 +133,10 @@ const sidebars = {
     'deployment',
     {
       type: 'category',
-      label: 'Development',
+      label: 'Contribution',
       items: [
-        'development/setup',
-        'development/new-license',
+        'contribution/setup',
+        'contribution/new-license',
       ],
     },
     'faq',

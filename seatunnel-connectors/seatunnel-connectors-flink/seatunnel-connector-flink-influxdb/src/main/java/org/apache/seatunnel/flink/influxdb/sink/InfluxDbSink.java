@@ -86,4 +86,9 @@ public class InfluxDbSink implements FlinkBatchSink {
         this.tags = config.getStringList(TAGS);
         this.fields = config.getStringList(FIELDS);
     }
+
+    @Override
+    public String getPluginName() {
+        return "InfluxDbSink";
+    }
 }

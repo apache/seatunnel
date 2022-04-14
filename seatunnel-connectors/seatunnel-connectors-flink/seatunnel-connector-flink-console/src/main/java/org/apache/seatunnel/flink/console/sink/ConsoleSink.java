@@ -94,4 +94,10 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
     public void close() {
 
     }
+
+    @Override
+    public String getPluginName() {
+        return "ConsoleSink";
+    }
+
 }

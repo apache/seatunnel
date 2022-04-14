@@ -23,7 +23,7 @@
     <parent>
         <artifactId>seatunnel</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 

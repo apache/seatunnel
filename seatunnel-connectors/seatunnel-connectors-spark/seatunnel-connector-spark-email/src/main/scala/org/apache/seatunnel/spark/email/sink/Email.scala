@@ -89,8 +89,10 @@ class Email extends SparkBatchSink {
     val host = config.getString("host")
     val port = config.getInt("port")
     val password = config.getString("password")
+    val ssl = if (config.hasPath("use_ssl")) config.getBoolean("use_ssl") else false
+    val tls = if (config.hasPath("use_tls")) config.getBoolean("use_tls") else false
 
-    val mailer: SMTPMailer = createMailer(host, port, from, password)
+    val mailer: SMTPMailer = createMailer(host, port, from, password, ssl, tls)
     val result: String = mailer.send(email)
   }
 
@@ -103,14 +105,17 @@ class Email extends SparkBatchSink {
       port: Int,
       user: String,
       password: String,
+      ssl: Boolean = false,
+      tls: Boolean = false,
       timeout: Int = 10000,
-      connectionTimeout: Int = 10000): SMTPMailer = {
+      connectionTimeout: Int = 10000
+      ): SMTPMailer = {
     // STMP's service SMTPConfiguration
     val configuration = new SMTPConfiguration(
       host,
       port,
-      false,
-      false,
+      ssl,
+      tls,
       false,
       Option(user),
       Option(password),
@@ -122,4 +127,11 @@ class Email extends SparkBatchSink {
     val mailer: SMTPMailer = new SMTPMailer(configuration)
     mailer
   }
+
+  /**
+   * Return the plugin name, this is used in seatunnel conf DSL.
+   *
+   * @return plugin name.
+   */
+  override def getPluginName: String = "Email"
 }
