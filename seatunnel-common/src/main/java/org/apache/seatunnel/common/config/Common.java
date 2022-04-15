@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.common.config;
 
+import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -67,6 +68,7 @@ public class Common {
         if (MODE.equals(Optional.of(DeployMode.CLIENT.getName()))) {
             try {
                 String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+                path = new File(path).getPath();
                 return Paths.get(path).getParent().getParent();
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
