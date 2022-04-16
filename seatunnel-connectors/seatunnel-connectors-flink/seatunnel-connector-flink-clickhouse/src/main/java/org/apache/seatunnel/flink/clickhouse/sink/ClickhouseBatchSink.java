@@ -43,7 +43,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.types.Row;
 import ru.yandex.clickhouse.ClickHouseConnection;
 
@@ -76,9 +75,9 @@ public class ClickhouseBatchSink implements FlinkBatchSink {
 
     @Nullable
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         ClickhouseOutputFormat clickhouseOutputFormat = new ClickhouseOutputFormat(config, shardMetadata, fields, tableSchema);
-        return dataSet.output(clickhouseOutputFormat);
+        dataSet.output(clickhouseOutputFormat);
     }
 
     @Override
