@@ -43,7 +43,6 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.flink.api.common.functions.MapPartitionFunction;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.api.java.operators.MapPartitionOperator;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
@@ -122,7 +121,7 @@ public class ClickhouseFileBatchSink extends ClickhouseBatchSink {
 
     @Nullable
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         MapPartitionOperator<Row, Row> mapPartitionOperator = dataSet.mapPartition(new MapPartitionFunction<Row, Row>() {
 
             @Override
@@ -133,7 +132,7 @@ public class ClickhouseFileBatchSink extends ClickhouseBatchSink {
 
         });
         // This is just a dummy sink, since each flink job need to have a sink.
-        return mapPartitionOperator.output(new OutputFormat<Row>() {
+        mapPartitionOperator.output(new OutputFormat<Row>() {
 
             @Override
             public void configure(Configuration parameters) {
