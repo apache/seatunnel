@@ -44,10 +44,8 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
   private val recordsRead = new LongAccumulator
   private val stageTotalInputBytes = new LongAccumulator
   private val stageTotalOutputBytes = new LongAccumulator
-  private val tmpRecordsRead = new LongAccumulator
-  private val tmpRecordsWritten = new LongAccumulator
   private val readBytes = new LongAccumulator
-  private val recordsWritten = new LongAccumulator
+  private var recordsWritten = 0L
   private val writeBytes = new LongAccumulator
   private val jvmGCTime = new LongAccumulator
   private var executorCpuTime: String = "0"
@@ -84,8 +82,8 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
     val outputMetrics = stageCompleted.stageInfo.taskMetrics.outputMetrics
     stageTotalInputBytes.add(inputMetrics._bytesRead.value)
     stageTotalOutputBytes.add(outputMetrics._bytesWritten.value)
-    tmpRecordsRead.add(inputMetrics._recordsRead.value)
-    tmpRecordsWritten.add(outputMetrics._recordsWritten.value)
+    recordsWritten = outputMetrics.recordsWritten
+    writeBytes.add(outputMetrics._bytesWritten.value)
   }
 
   /**
@@ -110,10 +108,9 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
       .setScale(2, RoundingMode.UP).toPlainString
     val shuffleReadMetrics = taskEnd.taskMetrics.shuffleReadMetrics
     val shuffleWriteMetrics = taskEnd.taskMetrics.shuffleWriteMetrics
+    recordsRead.add(taskEnd.taskMetrics.inputMetrics._recordsRead.value)
     recordsRead.add(shuffleReadMetrics._recordsRead.value)
     readBytes.add(shuffleReadMetrics.totalBytesRead)
-    recordsWritten.add(shuffleWriteMetrics._recordsWritten.value)
-    writeBytes.add(shuffleWriteMetrics._bytesWritten.value)
   }
 
   /**
@@ -134,12 +131,6 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
     */
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
     //Handling no shuffle stage value statistics
-    if (recordsRead.sum == 0){
-      recordsRead.add(tmpRecordsRead.value)
-    }
-    if (recordsWritten.sum == 0){
-      recordsWritten.add(tmpRecordsWritten.value)
-    }
     val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
     metrics.put("jobName", jobName)
     metrics.put("createTime", dateFormat.format(new Date(startTime)))
@@ -155,7 +146,7 @@ class SparkMetricsListener(sparkSession: SparkSession) extends SparkListener {
     metrics.put("executorRuntime", executorRunTime.asInstanceOf[AnyRef])
     metrics.put("recordsRead", recordsRead.value.asInstanceOf[AnyRef])
     metrics.put("shuffleReadBytes", readBytes.value.asInstanceOf[AnyRef])
-    metrics.put("recordsWritten", recordsWritten.value.asInstanceOf[AnyRef])
+    metrics.put("recordsWritten", recordsWritten.asInstanceOf[AnyRef])
     metrics.put("shuffleWriteBytes", writeBytes.value.asInstanceOf[AnyRef])
     metrics.put("totalInputBytes", stageTotalInputBytes.value.asInstanceOf[AnyRef])
     metrics.put("totalOutputBytes", stageTotalOutputBytes.value.asInstanceOf[AnyRef])
