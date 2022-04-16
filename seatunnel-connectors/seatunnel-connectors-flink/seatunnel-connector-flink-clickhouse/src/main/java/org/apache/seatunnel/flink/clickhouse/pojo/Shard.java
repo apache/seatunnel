@@ -19,7 +19,7 @@ package org.apache.seatunnel.flink.clickhouse.pojo;
 
 import java.io.Serializable;
 
-public class Shard implements Serializable,Comparable<Shard> {
+public class Shard implements Serializable {
     private static final long serialVersionUID = -1L;
 
     private final int shardNum;
@@ -128,10 +128,5 @@ public class Shard implements Serializable,Comparable<Shard> {
         result = 31 * result + database.hashCode();
         hashCode = result;
         return hashCode;
-    }
-
-    @Override
-    public int compareTo(Shard o) {
-        return o.shardNum - this.shardNum;
     }
 }
