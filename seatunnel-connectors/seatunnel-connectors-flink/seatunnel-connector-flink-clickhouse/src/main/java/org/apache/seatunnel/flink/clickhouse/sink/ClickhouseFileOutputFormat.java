@@ -85,6 +85,7 @@ public class ClickhouseFileOutputFormat {
     private final Map<String, String> schemaMap;
     private final Map<Shard, List<String>> shardLocalDataPaths;
 
+    // In most of the case, the data has been already shuffled in ClickhouseFileBatchSink#outputBatch
     private final Map<Shard, List<Row>> rowCache;
 
     public ClickhouseFileOutputFormat(Config config, ShardMetadata shardMetadata, List<String> fields) throws IOException {

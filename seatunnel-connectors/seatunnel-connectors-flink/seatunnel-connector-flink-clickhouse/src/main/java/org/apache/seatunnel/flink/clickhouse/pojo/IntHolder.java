@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.flink.clickhouse.pojo;
 
-public class IntHolder {
+import java.io.Serializable;
+
+public class IntHolder implements Serializable {
+
+    private static final long serialVersionUID = -1L;
+
     private int value;
 
     public int getValue() {
