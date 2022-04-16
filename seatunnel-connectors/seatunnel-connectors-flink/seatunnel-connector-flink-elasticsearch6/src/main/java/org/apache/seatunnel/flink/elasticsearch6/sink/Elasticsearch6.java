@@ -40,7 +40,6 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
 import org.apache.flink.streaming.connectors.elasticsearch6.ElasticsearchSink;
 import org.apache.flink.types.Row;
@@ -87,7 +86,7 @@ public class Elasticsearch6 implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
 
         List<HttpHost> httpHosts = new ArrayList<>();
         List<String> hosts = config.getStringList(HOSTS);
@@ -108,13 +107,14 @@ public class Elasticsearch6 implements FlinkStreamSink, FlinkBatchSink {
         // finally, build and add the sink to the job's pipeline
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataStream.addSink(esSinkBuilder.build()).setParallelism(parallelism);
+            dataStream.addSink(esSinkBuilder.build()).setParallelism(parallelism);
+        } else {
+            dataStream.addSink(esSinkBuilder.build());
         }
-        return dataStream.addSink(esSinkBuilder.build());
     }
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
 
         RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
         indexName = StringTemplate.substitute(config.getString(INDEX), config.getString(INDEX_TIME_FORMAT));
@@ -124,9 +124,8 @@ public class Elasticsearch6 implements FlinkStreamSink, FlinkBatchSink {
 
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            dataSink.setParallelism(parallelism);
         }
-        return dataSink;
 
     }
 
