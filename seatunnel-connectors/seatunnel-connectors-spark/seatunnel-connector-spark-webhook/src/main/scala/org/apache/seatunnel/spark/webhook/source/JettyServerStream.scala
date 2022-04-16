@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.spark.webhook.source
 
-import org.apache.spark.sql.execution.streaming.MemoryStream
 import org.apache.spark.sql.{DataFrame, Encoder, Encoders, SQLContext}
+import org.apache.spark.sql.execution.streaming.MemoryStream
 import org.spark_project.jetty.server.Server
 import org.spark_project.jetty.servlet.{ServletContextHandler, ServletHolder}
 
 class JettyServerStream(port: Int = 9999, baseUrl: String = "/") {
+
+  // Create server
+  var server: Server = new Server(port)
+
   /**
    * Starts an HTTP server and initializes memory stream.
    * As requests are made to given http endpoint, it puts data on memory stream.
@@ -37,8 +41,6 @@ class JettyServerStream(port: Int = 9999, baseUrl: String = "/") {
     implicit val enc: Encoder[HttpData] = Encoders.product[HttpData]
     val stream = MemoryStream[HttpData]
 
-    // Create server
-    var server = new Server(port)
     var context = new ServletContextHandler(ServletContextHandler.SESSIONS)
     context.setContextPath("/")
     server.setHandler(context)
@@ -49,5 +51,9 @@ class JettyServerStream(port: Int = 9999, baseUrl: String = "/") {
     // Start server and return streaming DF
     server.start()
     stream.toDF()
+  }
+
+  def stop(): Unit = {
+    server.stop()
   }
 }
