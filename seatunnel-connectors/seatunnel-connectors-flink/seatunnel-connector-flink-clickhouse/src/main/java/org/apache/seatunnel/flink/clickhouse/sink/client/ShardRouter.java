@@ -27,6 +27,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.types.Row;
 import ru.yandex.clickhouse.ClickHouseConnection;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -34,7 +35,9 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class ShardRouter {
+public class ShardRouter implements Serializable {
+
+    private static final long serialVersionUID = -1L;
 
     private String shardTable;
     private final String table;

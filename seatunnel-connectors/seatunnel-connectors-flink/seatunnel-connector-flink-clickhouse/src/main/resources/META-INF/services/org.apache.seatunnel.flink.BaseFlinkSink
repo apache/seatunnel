@@ -16,3 +16,4 @@
 #
 
 org.apache.seatunnel.flink.clickhouse.sink.ClickhouseBatchSink
+org.apache.seatunnel.flink.clickhouse.sink.ClickhouseFileBatchSink

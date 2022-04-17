@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.clickhouse.pojo;
+package org.apache.seatunnel.flink.clickhouse.sink.file;
 
-import java.io.Serializable;
+import java.util.List;
 
-public class IntHolder implements Serializable {
+public interface FileTransfer {
 
-    private static final long serialVersionUID = -1L;
+    void init();
 
-    private int value;
+    void transferAndChown(String sourcePath, String targetPath);
 
-    public int getValue() {
-        return value;
-    }
+    void transferAndChown(List<String> sourcePath, String targetPath);
 
-    public void setValue(int value) {
-        this.value = value;
-    }
+    void close();
 }
