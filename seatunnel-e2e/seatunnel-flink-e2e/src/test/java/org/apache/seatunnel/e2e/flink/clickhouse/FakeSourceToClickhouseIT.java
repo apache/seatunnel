@@ -45,7 +45,7 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
 
     private GenericContainer<?> clickhouseServer;
     private BalancedClickhouseDataSource dataSource;
-    private static final String CLICKHOUSE_DOCKER_IMAGE = "yandex/clickhouse-server:21.3.20.1";
+    private static final String CLICKHOUSE_DOCKER_IMAGE = "yandex/clickhouse-server:22.1.3.7";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToClickhouseIT.class);
 

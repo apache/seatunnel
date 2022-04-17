@@ -17,19 +17,26 @@
 
 package org.apache.seatunnel.flink.clickhouse.pojo;
 
-import java.io.Serializable;
+public enum ClickhouseFileCopyMethod {
+    SCP("scp"),
+    RSYNC("rsync"),
+    ;
+    private final String name;
 
-public class IntHolder implements Serializable {
-
-    private static final long serialVersionUID = -1L;
-
-    private int value;
-
-    public int getValue() {
-        return value;
+    ClickhouseFileCopyMethod(String name) {
+        this.name = name;
     }
 
-    public void setValue(int value) {
-        this.value = value;
+    public String getName() {
+        return name;
+    }
+
+    public static ClickhouseFileCopyMethod from(String name) {
+        for (ClickhouseFileCopyMethod clickhouseFileCopyMethod : ClickhouseFileCopyMethod.values()) {
+            if (clickhouseFileCopyMethod.getName().equalsIgnoreCase(name)) {
+                return clickhouseFileCopyMethod;
+            }
+        }
+        throw new IllegalArgumentException("Unknown ClickhouseFileCopyMethod: " + name);
     }
 }
