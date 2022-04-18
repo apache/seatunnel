@@ -48,7 +48,6 @@ public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink
         } catch (Exception e) {
             LOGGER.error("Failed to print result! ", e);
         }
-        rowDataSet.output(this);
     }
 
     @Override
