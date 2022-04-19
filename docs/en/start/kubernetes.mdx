@@ -166,7 +166,7 @@ Once the Flink Kubernetes Operator is running as seen in the previous steps you 
     namespace: default
     name: seatunnel-flink-streaming-example
   spec:
-    image: seatunnel-flink:2.1.0
+    image: seatunnel:2.1.0-flink-1.13
     flinkVersion: v1_14
     flinkConfiguration:
       taskmanager.numberOfTaskSlots: "2"
