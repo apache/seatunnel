@@ -68,6 +68,7 @@ const sidebars = {
       items: [
         'start/local',
         'start/docker',
+        'start/kubernetes',
       ],
     },
     {
