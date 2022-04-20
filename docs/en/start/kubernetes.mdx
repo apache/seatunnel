@@ -145,74 +145,74 @@ sink {
 This configuration need to be present when we are going to deploy the application (SeaTunnel) to Flink cluster (on Kubernetes), we also need to configure a Pod to Use a PersistentVolume for Storage.
 - Create `/mnt/data` on your Node. Open a shell to the single Node in your cluster. How you open a shell depends on how you set up your cluster. For example, in our case weare using Minikube, you can open a shell to your Node by entering `minikube ssh`. 
 In your shell on that Node, create a /mnt/data directory:
-  ```bash
-  minikube ssh
-  
-  # This assumes that your Node uses "sudo" to run commands
-  # as the superuser
-  sudo mkdir /mnt/data
-  ```
+```bash
+minikube ssh
+
+# This assumes that your Node uses "sudo" to run commands
+# as the superuser
+sudo mkdir /mnt/data
+```
 - Copy application (SeaTunnel) configuration files to your Node.
-  ```bash
-  minikube cp flink.streaming.conf /mnt/data/flink.streaming.conf
-  ```
+```bash
+minikube cp flink.streaming.conf /mnt/data/flink.streaming.conf
+```
 
 Once the Flink Kubernetes Operator is running as seen in the previous steps you are ready to submit a Flink (SeaTunnel) job:
 - Create `seatunnel-flink.yaml` FlinkDeployment manifest:
-  ```yaml
-  apiVersion: flink.apache.org/v1alpha1
-  kind: FlinkDeployment
-  metadata:
-    namespace: default
-    name: seatunnel-flink-streaming-example
+```yaml
+apiVersion: flink.apache.org/v1alpha1
+kind: FlinkDeployment
+metadata:
+namespace: default
+name: seatunnel-flink-streaming-example
+spec:
+image: seatunnel:2.1.0-flink-1.13
+flinkVersion: v1_14
+flinkConfiguration:
+  taskmanager.numberOfTaskSlots: "2"
+serviceAccount: flink
+jobManager:
+  replicas: 1
+  resource:
+    memory: "2048m"
+    cpu: 1
+taskManager:
+  resource:
+    memory: "2048m"
+    cpu: 2
+podTemplate:
   spec:
-    image: seatunnel:2.1.0-flink-1.13
-    flinkVersion: v1_14
-    flinkConfiguration:
-      taskmanager.numberOfTaskSlots: "2"
-    serviceAccount: flink
-    jobManager:
-      replicas: 1
-      resource:
-        memory: "2048m"
-        cpu: 1
-    taskManager:
-      resource:
-        memory: "2048m"
-        cpu: 2
-    podTemplate:
-      spec:
-        containers:
-          - name: flink-main-container
-            volumeMounts:
-              - mountPath: /data
-                name: config-volume
-        #     volumeMounts:
-        #       - mountPath: /data
-        #         name: task-pv-storage
-        # volumes:
-        #   - name: task-pv-storage
-        #     persistentVolumeClaim:
-        #       claimName: task-pv-claim
+    containers:
+      - name: flink-main-container
+        volumeMounts:
+          - mountPath: /data
+            name: config-volume
+    #     volumeMounts:
+    #       - mountPath: /data
+    #         name: task-pv-storage
+    # volumes:
+    #   - name: task-pv-storage
+    #     persistentVolumeClaim:
+    #       claimName: task-pv-claim
 
-        volumes:
-          - name: config-volume
-            hostPath:
-              path: "/mnt/data"
-              type: Directory
+    volumes:
+      - name: config-volume
+        hostPath:
+          path: "/mnt/data"
+          type: Directory
 
-    job:
-      jarURI: local:///opt/flink/usrlib/seatunnel-core-flink.jar
-      entryClass: org.apache.seatunnel.SeatunnelFlink
-      args: ["--config", "/data/flink.streaming.conf"]
-      parallelism: 2
-      upgradeMode: stateless
+job:
+  jarURI: local:///opt/flink/usrlib/seatunnel-core-flink.jar
+  entryClass: org.apache.seatunnel.SeatunnelFlink
+  args: ["--config", "/data/flink.streaming.conf"]
+  parallelism: 2
+  upgradeMode: stateless
 
-  ```
+```
 - Run the example application:
-  ```bash
-  kubectl apply -f seatunnel-flink.yaml
-  ```
+```bash
+kubectl apply -f seatunnel-flink.yaml
+```
 </TabItem>
 </Tabs>
 
