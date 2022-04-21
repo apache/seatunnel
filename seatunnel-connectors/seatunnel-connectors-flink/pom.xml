@@ -41,6 +41,7 @@
         <module>seatunnel-connector-flink-socket</module>
         <module>seatunnel-connector-flink-doris</module>
         <module>seatunnel-connector-flink-influxdb</module>
+        <module>seatunnel-connector-flink-clickhouse</module>
     </modules>
 
 </project>

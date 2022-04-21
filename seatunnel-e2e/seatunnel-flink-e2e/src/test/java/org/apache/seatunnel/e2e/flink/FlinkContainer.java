@@ -46,7 +46,7 @@ public abstract class FlinkContainer {
     private static final Logger LOG = LoggerFactory.getLogger(FlinkContainer.class);
 
     private static final String FLINK_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
-    public static final Network NETWORK = Network.newNetwork();
+    protected static final Network NETWORK = Network.newNetwork();
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
@@ -85,7 +85,7 @@ public abstract class FlinkContainer {
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
         copySeaTunnelFlinkCoreJar();
-        LOG.info("Containers are started.");
+        LOG.info("Flink containers are started.");
     }
 
     @After
