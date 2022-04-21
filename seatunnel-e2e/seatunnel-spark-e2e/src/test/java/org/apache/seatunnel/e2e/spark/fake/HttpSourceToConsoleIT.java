@@ -15,15 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.command;
+package org.apache.seatunnel.e2e.spark.fake;
 
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.config.EngineType;
+import org.apache.seatunnel.e2e.spark.SparkContainer;
 
-public interface CommandArgs {
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
 
-    EngineType getEngineType();
+import java.io.IOException;
 
-    DeployMode getDeployMode();
+/**
+ * This test case is used to verify that the http source is able to send data to the console.
+ * Make sure the SeaTunnel job can submit successfully on spark engine.
+ */
+public class HttpSourceToConsoleIT extends SparkContainer {
+
+    @Test
+    public void testHttpSourceToConsoleSine() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/http/httpsource_to_console.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
 
 }

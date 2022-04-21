@@ -32,7 +32,7 @@ public class CommandFactory {
      * @return Special command.s
      */
     @SuppressWarnings("unchecked")
-    public static <T extends CommandArgs> Command<T> createCommand(T commandArgs) {
+    public static <T extends AbstractCommandArgs> Command<T> createCommand(T commandArgs) {
         switch (commandArgs.getEngineType()) {
             case FLINK:
                 return (Command<T>) new FlinkCommandBuilder().buildCommand((FlinkCommandArgs) commandArgs);

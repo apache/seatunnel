@@ -20,42 +20,7 @@ package org.apache.seatunnel.command;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.EngineType;
 
-import com.beust.jcommander.Parameter;
-
-import java.util.Collections;
-import java.util.List;
-
-public class FlinkCommandArgs implements CommandArgs {
-
-    @Parameter(names = {"-c", "--config"},
-        description = "config file",
-        required = true)
-    private String configFile = "application.conf";
-
-    @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = Collections.emptyList();
-
-    @Parameter(names = {"-t", "--check"},
-        description = "check config")
-    private boolean checkConfig = false;
-
-    @Parameter(names = {"-h", "--help"},
-        help = true,
-        description = "Show the usage message")
-    private boolean help = false;
-
-    public String getConfigFile() {
-        return configFile;
-    }
-
-    public boolean isCheckConfig() {
-        return checkConfig;
-    }
-
-    public List<String> getVariables() {
-        return variables;
-    }
+public class FlinkCommandArgs extends AbstractCommandArgs {
 
     @Override
     public EngineType getEngineType() {
@@ -67,23 +32,4 @@ public class FlinkCommandArgs implements CommandArgs {
         return DeployMode.CLIENT;
     }
 
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
-    }
-
-    public void setVariables(List<String> variables) {
-        this.variables = variables;
-    }
-
-    public void setCheckConfig(boolean checkConfig) {
-        this.checkConfig = checkConfig;
-    }
-
-    public boolean isHelp() {
-        return help;
-    }
-
-    public void setHelp(boolean help) {
-        this.help = help;
-    }
 }

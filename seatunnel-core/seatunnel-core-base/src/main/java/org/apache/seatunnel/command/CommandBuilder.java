@@ -18,6 +18,6 @@
 package org.apache.seatunnel.command;
 
 @FunctionalInterface
-public interface CommandBuilder<T extends CommandArgs> {
+public interface CommandBuilder<T extends AbstractCommandArgs> {
     Command<T> buildCommand(T commandArgs);
 }
