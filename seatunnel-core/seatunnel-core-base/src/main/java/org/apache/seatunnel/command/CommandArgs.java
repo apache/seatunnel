@@ -20,10 +20,69 @@ package org.apache.seatunnel.command;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.EngineType;
 
-public interface CommandArgs {
+import com.beust.jcommander.Parameter;
 
-    EngineType getEngineType();
+import java.util.Collections;
+import java.util.List;
 
-    DeployMode getDeployMode();
+public abstract class CommandArgs {
+
+    @Parameter(names = {"-c", "--config"},
+            description = "Config file",
+            required = true)
+    private String configFile;
+
+    @Parameter(names = {"-i", "--variable"},
+            description = "variable substitution, such as -i city=beijing, or -i date=20190318")
+    private List<String> variables = Collections.emptyList();
+
+    @Parameter(names = {"-t", "--check"},
+            description = "check config")
+    private boolean checkConfig = false;
+
+    @Parameter(names = {"-h", "--help"},
+            help = true,
+            description = "Show the usage message")
+    private boolean help = false;
+
+    public String getConfigFile() {
+        return configFile;
+    }
+
+    public void setConfigFile(String configFile) {
+        this.configFile = configFile;
+    }
+
+    public List<String> getVariables() {
+        return variables;
+    }
+
+    public void setVariables(List<String> variables) {
+        this.variables = variables;
+    }
+
+    public boolean isCheckConfig() {
+        return checkConfig;
+    }
+
+    public void setCheckConfig(boolean checkConfig) {
+        this.checkConfig = checkConfig;
+    }
+
+    public boolean isHelp() {
+        return help;
+    }
+
+    public void setHelp(boolean help) {
+        this.help = help;
+    }
+
+    public EngineType getEngineType() {
+        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
+    }
+
+    public DeployMode getDeployMode() {
+        throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
+    }
 
 }
