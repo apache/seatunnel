@@ -33,7 +33,7 @@ public class HttpSourceToConsoleIT extends SparkContainer {
 
     @Test
     public void testHttpSourceToConsoleSine() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/httpsource_to_console.conf");
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/http/httpsource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
 
