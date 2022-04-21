@@ -85,6 +85,7 @@ public abstract class SparkContainer {
         master.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
         // TODO: use start-seatunnel-spark.sh to run the spark job. Need to modified the SparkStarter can find the seatunnel-core-spark.jar.
+        // Running IT use cases under Windows requires replacing \ with /
         String jar = SPARK_JAR_PATH.replaceAll("\\\\", "/");
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
