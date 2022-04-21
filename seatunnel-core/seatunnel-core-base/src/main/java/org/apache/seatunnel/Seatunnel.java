@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel;
 
-import org.apache.seatunnel.command.Command;
 import org.apache.seatunnel.command.AbstractCommandArgs;
+import org.apache.seatunnel.command.Command;
 import org.apache.seatunnel.command.CommandFactory;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
