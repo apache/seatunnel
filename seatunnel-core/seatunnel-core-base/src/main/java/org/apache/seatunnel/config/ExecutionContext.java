@@ -25,8 +25,6 @@ import org.apache.seatunnel.env.RuntimeEnv;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 
 /**

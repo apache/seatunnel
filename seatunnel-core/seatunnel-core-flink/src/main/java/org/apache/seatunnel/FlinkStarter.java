@@ -21,6 +21,7 @@ import org.apache.seatunnel.command.FlinkCommandArgs;
 import org.apache.seatunnel.common.config.Common;
 
 import com.beust.jcommander.JCommander;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +103,10 @@ public class FlinkStarter implements Starter {
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
-
+        if (StringUtils.isNotEmpty(flinkCommandArgs.getSeatunnelHome())) {
+            command.add("--home");
+            command.add(flinkCommandArgs.getSeatunnelHome());
+        }
         // set System properties
         flinkCommandArgs.getVariables().stream()
             .filter(Objects::nonNull)

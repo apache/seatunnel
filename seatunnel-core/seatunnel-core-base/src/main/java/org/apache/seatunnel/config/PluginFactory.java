@@ -98,7 +98,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     @Nonnull
     private List<URL> searchPluginJar() {
 
-        File pluginDir = new File(this.seaTunnelHome + "/" + PLUGIN_DIR_NAME + "/" + this.engineType);
+        File pluginDir = new File(this.seaTunnelHome + "/" + PLUGIN_DIR_NAME + "/" + this.engineType.getEngine());
         if (!pluginDir.exists() || pluginDir.listFiles() == null) {
             return new ArrayList<>();
         }

@@ -121,6 +121,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
+        LOGGER.info("register plugins :" + pluginPaths);
         Configuration configuration;
         try {
             if (isStreaming()) {
@@ -137,13 +138,13 @@ public class FlinkEnvironment implements RuntimeEnv {
         if (jars == null) {
             jars = new ArrayList<>();
         }
-        jars.addAll(pluginPaths.stream().map(URL::getPath).collect(Collectors.toList()));
+        jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
         configuration.set(PipelineOptions.JARS, jars);
         List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
         if (classpath == null) {
             classpath = new ArrayList<>();
         }
-        classpath.addAll(pluginPaths.stream().map(URL::getPath).collect(Collectors.toList()));
+        classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
         configuration.set(PipelineOptions.CLASSPATHS, classpath);
     }
 
