@@ -22,7 +22,7 @@ import org.apache.seatunnel.config.EngineType;
 
 import com.beust.jcommander.Parameter;
 
-public class SparkCommandArgs extends CommandArgs {
+public class SparkCommandArgs extends AbstractCommandArgs {
 
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "Spark deploy mode",

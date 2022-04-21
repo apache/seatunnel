@@ -20,7 +20,7 @@ package org.apache.seatunnel.command;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.EngineType;
 
-public class FlinkCommandArgs extends CommandArgs {
+public class FlinkCommandArgs extends AbstractCommandArgs {
 
     @Override
     public EngineType getEngineType() {

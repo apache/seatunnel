@@ -25,7 +25,7 @@ import com.beust.jcommander.Parameter;
 import java.util.Collections;
 import java.util.List;
 
-public abstract class CommandArgs {
+public abstract class AbstractCommandArgs {
 
     @Parameter(names = {"-c", "--config"},
             description = "Config file",

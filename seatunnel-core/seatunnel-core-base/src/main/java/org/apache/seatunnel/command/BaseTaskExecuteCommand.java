@@ -44,7 +44,7 @@ import java.util.Optional;
  *
  * @param <T> command args.
  */
-public abstract class BaseTaskExecuteCommand<T extends CommandArgs, E extends RuntimeEnv> implements Command<T> {
+public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E extends RuntimeEnv> implements Command<T> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BaseTaskExecuteCommand.class);
 
