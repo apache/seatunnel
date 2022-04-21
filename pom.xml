@@ -101,7 +101,7 @@
         <hadoop.version>2.7.5</hadoop.version>
         <fastjson.version>1.2.60</fastjson.version>
         <jackson.version>2.11.0</jackson.version>
-        <jackson-databind.version>2.12.6.1 </jackson-databind.version>
+        <jackson-databind.version>2.12.6.1</jackson-databind.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
         <postgresql.version>42.3.3</postgresql.version>
@@ -137,6 +137,7 @@
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
+        <connector.scope>provided</connector.scope>
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <httpcore-nio.version>4.4.4</httpcore-nio.version>
@@ -164,7 +165,6 @@
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
-        <elasticsearch>7</elasticsearch>
     </properties>
 
     <dependencyManagement>
@@ -339,7 +339,7 @@
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-elasticsearch${elasticsearch}_${scala.binary.version}</artifactId>
+                <artifactId>flink-connector-elasticsearch7_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
             </dependency>
 

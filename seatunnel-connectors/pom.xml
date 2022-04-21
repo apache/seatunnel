@@ -32,7 +32,9 @@
 
     <modules>
         <module>seatunnel-connectors-flink</module>
+        <module>seatunnel-connectors-flink-list</module>
         <module>seatunnel-connectors-spark</module>
+        <module>seatunnel-connectors-spark-list</module>
     </modules>
 
 </project>

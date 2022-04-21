@@ -25,6 +25,8 @@ import org.apache.seatunnel.env.RuntimeEnv;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,6 +44,7 @@ public class ExecutionContext<ENVIRONMENT extends RuntimeEnv> {
     private final List<BaseSource<ENVIRONMENT>> sources;
     private final List<BaseTransform<ENVIRONMENT>> transforms;
     private final List<BaseSink<ENVIRONMENT>> sinks;
+    private final List<URL> pluginJarPaths = new ArrayList<>();
 
     public ExecutionContext(Config config, EngineType engine) {
         this.config = config;

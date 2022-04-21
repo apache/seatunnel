@@ -30,7 +30,9 @@
     <artifactId>seatunnel-flink-examples</artifactId>
     <properties>
         <flink.scope>compile</flink.scope>
+        <connector.scope>compile</connector.scope>
     </properties>
+
     <dependencies>
         <!--Resolve ConfigParser class conflict between Seatunnel and Flink.
         Native debugging increases flink's default ConfigParser priority.-->
@@ -43,6 +45,14 @@
             <artifactId>seatunnel-core-flink</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connectors-flink-list-current</artifactId>
+            <version>${project.version}</version>
+            <scope>${connector.scope}</scope>
+        </dependency>
+
         <!--flink-->
         <dependency>
             <groupId>org.apache.flink</groupId>

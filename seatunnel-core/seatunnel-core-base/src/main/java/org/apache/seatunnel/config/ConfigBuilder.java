@@ -82,6 +82,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         // check environment
         ENVIRONMENT environment = new EnvironmentFactory<ENVIRONMENT>(config, engine).getEnvironment();
         // check plugins
+        //TODO add plugin jar check
         PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine);
         pluginFactory.createPlugins(PluginType.SOURCE);
         pluginFactory.createPlugins(PluginType.TRANSFORM);
