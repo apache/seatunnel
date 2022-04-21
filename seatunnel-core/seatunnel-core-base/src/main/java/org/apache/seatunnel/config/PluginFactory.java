@@ -32,7 +32,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -40,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 /**
  * Used to load the plugins.
@@ -54,6 +61,11 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     private static final Map<EngineType, Map<PluginType, Class<?>>> PLUGIN_BASE_CLASS_MAP;
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
+    private static final String PLUGIN_DIR_NAME = "connectors";
+
+    private final List<URL> pluginJarPaths;
+    private final String seaTunnelHome;
+    private final ClassLoader defaultClassLoader;
 
     static {
         PLUGIN_BASE_CLASS_MAP = new HashMap<>();
@@ -70,16 +82,62 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
         PLUGIN_BASE_CLASS_MAP.put(EngineType.FLINK, flinkBaseClassMap);
     }
 
-    public PluginFactory(Config config, EngineType engineType) {
+    public PluginFactory(Config config, EngineType engineType, String seaTunnelHome) {
         this.config = config;
         this.engineType = engineType;
+        this.seaTunnelHome = seaTunnelHome;
+        this.pluginJarPaths = searchPluginJar();
+        this.defaultClassLoader = initClassLoaderWithPaths(this.pluginJarPaths);
+    }
+
+    private ClassLoader initClassLoaderWithPaths(List<URL> pluginJarPaths) {
+        return new URLClassLoader(pluginJarPaths.toArray(new URL[0]),
+                Thread.currentThread().getContextClassLoader());
+    }
+
+    @Nonnull
+    private List<URL> searchPluginJar() {
+
+        File pluginDir = new File(this.seaTunnelHome + "/" + PLUGIN_DIR_NAME + "/" + this.engineType);
+        if (!pluginDir.exists() || pluginDir.listFiles() == null) {
+            return new ArrayList<>();
+        }
+        File[] plugins =
+                Arrays.stream(pluginDir.listFiles()).filter(f -> f.getName().endsWith(".jar")).toArray(File[]::new);
+        return Arrays.stream(PluginType.values()).flatMap(type -> {
+            List<URL> pluginList = new ArrayList<>();
+            List<? extends Config> configList = config.getConfigList(type.getType());
+            configList.forEach(pluginConfig -> {
+                try {
+                    for (File plugin : plugins) {
+                        try {
+                            createPluginInstanceIgnoreCase(type, pluginConfig.getString(PLUGIN_NAME_KEY),
+                                    new URLClassLoader(new URL[]{plugin.toURI().toURL()},
+                                            Thread.currentThread().getContextClassLoader()));
+                            pluginList.add(plugin.toURI().toURL());
+                            break;
+                        } catch (ClassNotFoundException ignored) {
+                            // do nothing
+                        }
+
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            return pluginList.stream();
+        }).collect(Collectors.toList());
+    }
+
+    public List<URL> getPluginJarPaths() {
+        return this.pluginJarPaths;
     }
 
     /**
      * Create the plugins by plugin type.
      *
-     * @param type   plugin type
-     * @param <T>    plugin
+     * @param type plugin type
+     * @param <T>  plugin
      * @return plugin list.
      */
     @SuppressWarnings("unchecked")
@@ -89,7 +147,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
         List<? extends Config> configList = config.getConfigList(type.getType());
         configList.forEach(plugin -> {
             try {
-                T t = (T) createPluginInstanceIgnoreCase(type, plugin.getString(PLUGIN_NAME_KEY));
+                T t = (T) createPluginInstanceIgnoreCase(type, plugin.getString(PLUGIN_NAME_KEY), this.defaultClassLoader);
                 t.setConfig(plugin);
                 basePluginList.add(t);
             } catch (Exception e) {
@@ -104,7 +162,8 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
      * create plugin class instance, ignore case.
      **/
     @SuppressWarnings("unchecked")
-    private Plugin<?> createPluginInstanceIgnoreCase(PluginType pluginType, String pluginName) throws Exception {
+    private Plugin<?> createPluginInstanceIgnoreCase(PluginType pluginType, String pluginName,
+                                                     ClassLoader classLoader) throws Exception {
         Class<Plugin<?>> pluginBaseClass = (Class<Plugin<?>>) getPluginBaseClass(engineType, pluginType);
 
         if (pluginName.split("\\.").length != 1) {
@@ -115,8 +174,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
             }
             return pluginClass.getDeclaredConstructor().newInstance();
         }
-
-        ServiceLoader<Plugin<?>> plugins = ServiceLoader.load(pluginBaseClass);
+        ServiceLoader<Plugin<?>> plugins = ServiceLoader.load(pluginBaseClass, classLoader);
         for (Iterator<Plugin<?>> it = plugins.iterator(); it.hasNext(); ) {
             try {
                 Plugin<?> plugin = it.next();

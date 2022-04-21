@@ -43,11 +43,13 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     private final String configFile;
     private final EngineType engine;
     private final Config config;
+    private final String seaTunnelHome;
 
-    public ConfigBuilder(String configFile, EngineType engine) {
+    public ConfigBuilder(String configFile, EngineType engine, String seaTunnelHome) {
         this.configFile = configFile;
         this.engine = engine;
         this.config = load();
+        this.seaTunnelHome = seaTunnelHome;
     }
 
     private Config load() {
@@ -82,8 +84,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         // check environment
         ENVIRONMENT environment = new EnvironmentFactory<ENVIRONMENT>(config, engine).getEnvironment();
         // check plugins
-        //TODO add plugin jar check
-        PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine);
+        PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine, seaTunnelHome);
         pluginFactory.createPlugins(PluginType.SOURCE);
         pluginFactory.createPlugins(PluginType.TRANSFORM);
         pluginFactory.createPlugins(PluginType.SINK);

@@ -45,6 +45,19 @@ public abstract class AbstractCommandArgs {
             description = "Show the usage message")
     private boolean help = false;
 
+    @Parameter(names = {"-sh", "--home"},
+            description = "Specify SeaTunnel home, it can also be specified via the environment variable " +
+                    "SEATUNNEL_HOME")
+    private String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
+
+    public String getSeatunnelHome() {
+        return seatunnelHome;
+    }
+
+    public void setSeatunnelHome(String seatunnelHome) {
+        this.seatunnelHome = seatunnelHome;
+    }
+
     public String getConfigFile() {
         return configFile;
     }

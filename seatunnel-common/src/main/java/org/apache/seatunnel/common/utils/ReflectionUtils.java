@@ -15,33 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.env;
+package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.JobMode;
+import java.lang.reflect.Method;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+public class ReflectionUtils {
 
-import java.net.URL;
-import java.util.List;
+    public static Method getDeclaredMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
 
-/**
- * engine related runtime environment
- */
-public interface RuntimeEnv {
+        Method method;
 
-    RuntimeEnv setConfig(Config config);
+        for (; clazz != Object.class; clazz = clazz.getSuperclass()) {
+            try {
+                method = clazz.getDeclaredMethod(methodName, parameterTypes);
+                method.setAccessible(true);
+                return method;
+            } catch (Exception e) {
+                // do nothing
+            }
+        }
 
-    Config getConfig();
-
-    CheckResult checkConfig();
-
-    RuntimeEnv prepare();
-
-    RuntimeEnv setJobMode(JobMode mode);
-
-    JobMode getJobMode();
-
-    void registerPlugin(List<URL> pluginPaths);
+        return null;
+    }
 
 }

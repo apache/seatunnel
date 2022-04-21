@@ -35,6 +35,10 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.streaming.Seconds;
 import org.apache.spark.streaming.StreamingContext;
 
+import java.net.URL;
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class SparkEnvironment implements RuntimeEnv {
 
     private static final long DEFAULT_SPARK_STREAMING_DURATION = 5;
@@ -79,6 +83,12 @@ public class SparkEnvironment implements RuntimeEnv {
     @Override
     public CheckResult checkConfig() {
         return CheckResult.success();
+    }
+
+    @Override
+    public void registerPlugin(List<URL> pluginPaths) {
+        this.sparkSession.conf().set("spark.jars",
+                pluginPaths.stream().map(URL::getPath).collect(Collectors.joining(",")));
     }
 
     @Override
@@ -152,7 +162,7 @@ public class SparkEnvironment implements RuntimeEnv {
         }
     }
 
-    public  static <T extends Object> T sinkProcess(SparkEnvironment environment, BaseSparkSink<T> sink, Dataset<Row> ds) {
+    public static <T extends Object> T sinkProcess(SparkEnvironment environment, BaseSparkSink<T> sink, Dataset<Row> ds) {
         Dataset<Row> fromDs;
         Config config = sink.getConfig();
         if (config.hasPath(SOURCE_TABLE_NAME)) {

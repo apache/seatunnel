@@ -154,6 +154,12 @@
             <artifactId>seatunnel-connector-spark-feishu</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-spark-http</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

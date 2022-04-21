@@ -43,7 +43,8 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
         } else {
             confPath = sparkCommandArgs.getConfigFile();
         }
-        new ConfigBuilder<SparkEnvironment>(confPath, sparkCommandArgs.getEngineType()).checkConfig();
+        new ConfigBuilder<SparkEnvironment>(confPath, sparkCommandArgs.getEngineType(),
+                sparkCommandArgs.getSeatunnelHome()).checkConfig();
         LOGGER.info("config OK !");
     }
 

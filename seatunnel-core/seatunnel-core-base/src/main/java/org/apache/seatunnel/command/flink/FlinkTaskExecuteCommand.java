@@ -43,8 +43,9 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
         EngineType engine = flinkCommandArgs.getEngineType();
         String configFile = flinkCommandArgs.getConfigFile();
 
-        Config config = new ConfigBuilder<>(configFile, engine).getConfig();
-        ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine);
+        Config config = new ConfigBuilder<>(configFile, engine, flinkCommandArgs.getSeatunnelHome()).getConfig();
+        ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine,
+                flinkCommandArgs.getSeatunnelHome());
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();

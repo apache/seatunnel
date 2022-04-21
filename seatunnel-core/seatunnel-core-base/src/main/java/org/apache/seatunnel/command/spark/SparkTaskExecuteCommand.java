@@ -40,8 +40,9 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
         EngineType engine = sparkCommandArgs.getEngineType();
         String confFile = sparkCommandArgs.getConfigFile();
 
-        Config config = new ConfigBuilder<>(confFile, engine).getConfig();
-        ExecutionContext<SparkEnvironment> executionContext = new ExecutionContext<>(config, engine);
+        Config config = new ConfigBuilder<>(confFile, engine, sparkCommandArgs.getSeatunnelHome()).getConfig();
+        ExecutionContext<SparkEnvironment> executionContext = new ExecutionContext<>(config, engine,
+                sparkCommandArgs.getSeatunnelHome());
 
         List<BaseSource<SparkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<SparkEnvironment>> transforms = executionContext.getTransforms();

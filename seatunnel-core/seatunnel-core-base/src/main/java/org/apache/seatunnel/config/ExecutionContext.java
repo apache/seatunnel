@@ -44,14 +44,14 @@ public class ExecutionContext<ENVIRONMENT extends RuntimeEnv> {
     private final List<BaseSource<ENVIRONMENT>> sources;
     private final List<BaseTransform<ENVIRONMENT>> transforms;
     private final List<BaseSink<ENVIRONMENT>> sinks;
-    private final List<URL> pluginJarPaths = new ArrayList<>();
 
-    public ExecutionContext(Config config, EngineType engine) {
+    public ExecutionContext(Config config, EngineType engine, String seaTunnelHome) {
         this.config = config;
         this.engine = engine;
         this.environment = new EnvironmentFactory<ENVIRONMENT>(config, engine).getEnvironment();
         this.jobMode = environment.getJobMode();
-        PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine);
+        PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine, seaTunnelHome);
+        this.environment.registerPlugin(pluginFactory.getPluginJarPaths());
         this.sources = pluginFactory.createPlugins(PluginType.SOURCE);
         this.transforms = pluginFactory.createPlugins(PluginType.TRANSFORM);
         this.sinks = pluginFactory.createPlugins(PluginType.SINK);
