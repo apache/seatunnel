@@ -22,15 +22,7 @@ import org.apache.seatunnel.config.EngineType;
 
 import com.beust.jcommander.Parameter;
 
-import java.util.Collections;
-import java.util.List;
-
-public class SparkCommandArgs implements CommandArgs {
-
-    @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
-    private String configFile;
+public class SparkCommandArgs extends AbstractCommandArgs {
 
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "Spark deploy mode",
@@ -43,47 +35,18 @@ public class SparkCommandArgs implements CommandArgs {
         required = true)
     private String master = null;
 
-    @Parameter(names = {"-i", "--variable"},
-        description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
-    private List<String> variables = Collections.emptyList();
-
-    @Parameter(names = {"-t", "--check"},
-        description = "Check config")
-    private boolean checkConfig = false;
-
-    @Parameter(names = {"-h", "--help"},
-        help = true,
-        description = "Show the usage message")
-    private boolean help = false;
-
-    public String getConfigFile() {
-        return configFile;
-    }
-
     @Override
     public DeployMode getDeployMode() {
         return DeployMode.from(deployMode);
-    }
-
-    public boolean isCheckConfig() {
-        return checkConfig;
     }
 
     public String getMaster() {
         return master;
     }
 
-    public List<String> getVariables() {
-        return variables;
-    }
-
     @Override
     public EngineType getEngineType() {
         return EngineType.SPARK;
-    }
-
-    public void setConfigFile(String configFile) {
-        this.configFile = configFile;
     }
 
     public void setDeployMode(String deployMode) {
@@ -94,15 +57,4 @@ public class SparkCommandArgs implements CommandArgs {
         this.master = master;
     }
 
-    public void setVariables(List<String> variables) {
-        this.variables = variables;
-    }
-
-    public void setCheckConfig(boolean checkConfig) {
-        this.checkConfig = checkConfig;
-    }
-
-    public boolean isHelp() {
-        return help;
-    }
 }
