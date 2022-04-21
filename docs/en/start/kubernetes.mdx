@@ -163,50 +163,42 @@ Once the Flink Kubernetes Operator is running as seen in the previous steps you 
 apiVersion: flink.apache.org/v1alpha1
 kind: FlinkDeployment
 metadata:
-namespace: default
-name: seatunnel-flink-streaming-example
+  namespace: default
+  name: seatunnel-flink-streaming-example
 spec:
-image: seatunnel:2.1.0-flink-1.13
-flinkVersion: v1_14
-flinkConfiguration:
-  taskmanager.numberOfTaskSlots: "2"
-serviceAccount: flink
-jobManager:
-  replicas: 1
-  resource:
-    memory: "2048m"
-    cpu: 1
-taskManager:
-  resource:
-    memory: "2048m"
-    cpu: 2
-podTemplate:
-  spec:
-    containers:
-      - name: flink-main-container
-        volumeMounts:
-          - mountPath: /data
-            name: config-volume
-    #     volumeMounts:
-    #       - mountPath: /data
-    #         name: task-pv-storage
-    # volumes:
-    #   - name: task-pv-storage
-    #     persistentVolumeClaim:
-    #       claimName: task-pv-claim
+  image: seatunnel:2.1.0-flink-1.13
+  flinkVersion: v1_14
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "2"
+  serviceAccount: flink
+  jobManager:
+    replicas: 1
+    resource:
+      memory: "2048m"
+      cpu: 1
+  taskManager:
+    resource:
+      memory: "2048m"
+      cpu: 2
+  podTemplate:  
+    spec:
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - mountPath: /data
+              name: config-volume
+      volumes:
+        - name: config-volume
+          hostPath:
+            path: "/mnt/data"
+            type: Directory
 
-    volumes:
-      - name: config-volume
-        hostPath:
-          path: "/mnt/data"
-          type: Directory
-
-job:
-  jarURI: local:///opt/flink/usrlib/seatunnel-core-flink.jar
-  entryClass: org.apache.seatunnel.SeatunnelFlink
-  args: ["--config", "/data/flink.streaming.conf"]
-  parallelism: 2
-  upgradeMode: stateless
+  job:
+    jarURI: local:///opt/flink/usrlib/seatunnel-core-flink.jar
+    entryClass: org.apache.seatunnel.SeatunnelFlink
+    args: ["--config", "/data/flink.streaming.conf"]
+    parallelism: 2
+    upgradeMode: stateless
 
 ```
 - Run the example application:
@@ -258,8 +250,15 @@ looks like the below (your content may be different since we use `FakeSourceStre
 +I[Kid Xiong, 1650316791091]
 +I[Kid Xiong, 1650316792092]
 ```
+
+To stop your job and delete your FlinkDeployment you can simply:
+
+```bash
+kubectl delete -f seatunnel-flink.yaml
+```
 </TabItem>
 </Tabs>
+
 
 Happy SeaTunneling!
 
