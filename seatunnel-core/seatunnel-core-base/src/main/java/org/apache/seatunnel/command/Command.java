@@ -23,7 +23,7 @@ package org.apache.seatunnel.command;
  * @param <T> args type
  */
 @FunctionalInterface
-public interface Command<T extends CommandArgs> {
+public interface Command<T extends AbstractCommandArgs> {
 
     /**
      * Execute command

@@ -59,56 +59,9 @@ Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
 
 ## SeaTunnel 支持的插件
 
-### Connector
+- Connectors 支持 [查看](https://seatunnel.apache.org/docs/category/source)
 
-| <div style="width: 80pt">Connector Type | <div style="width: 50pt">Source | <div style="width: 50pt">Sink                     |
-|:--------------:|:--------------------------------------------------------:|:-------------------------------------------------:|
-|Clickhouse      |                                                          |[doc](./docs/en/connector/sink/Clickhouse.md)      |
-|Doris           |                                                          |[doc](./docs/en/connector/sink/Doris.mdx)          |
-|Druid           |[doc](./docs/en/connector/source/Druid.md)                |[doc](./docs/en/connector/sink/Druid.md)           |
-|ElasticSearch   |[doc](./docs/en/connector/source/Elasticsearch.md)        |[doc](./docs/en/connector/sink/Elasticsearch.mdx)  |
-|Email           |                                                          |[doc](./docs/en/connector/sink/Email.md)           |
-|Fake            |[doc](./docs/en/connector/source/Fake.mdx)                |                                                   |
-|File            |[doc](./docs/en/connector/source/File.mdx)                |[doc](./docs/en/connector/sink/File.mdx)           |
-|Hbase           |[doc](./docs/en/connector/source/Hbase.md)                |[doc](./docs/en/connector/sink/Hbase.md)           |
-|Hive            |[doc](./docs/en/connector/source/Hive.md)                 |[doc](./docs/en/connector/sink/Hive.md)            |
-|Hudi            |[doc](./docs/en/connector/source/Hudi.md)                 |[doc](./docs/en/connector/sink/Hudi.md)            |
-|Iceberg         |[doc](./docs/en/connector/source/Iceberg.md)              |[doc](./docs/en/connector/sink/Iceberg.md)         |
-|InfluxDb        |[doc](./docs/en/connector/source/InfluxDb.md)             |[doc](./docs/en/connector/sink/InfluxDb.md)        |
-|Jdbc            |[doc](./docs/en/connector/source/Jdbc.mdx)                |[doc](./docs/en/connector/sink/Jdbc.mdx)           |
-|Kafka           |[doc](./docs/en/connector/source/Kafka.mdx)               |[doc](./docs/en/connector/sink/Kafka.md)           |
-|Kudu            |[doc](./docs/en/connector/source/Kudu.md)                 |[doc](./docs/en/connector/sink/Kudu.md)            |
-|MongoDB         |[doc](./docs/en/connector/source/MongoDB.md)              |[doc](./docs/en/connector/sink/MongoDB.md)         |
-|Neo4j           |[doc](./docs/en/connector/source/neo4j.md)                |                                                   |
-|Phoenix         |[doc](./docs/en/connector/source/Phoenix.md)              |[doc](./docs/en/connector/sink/Phoenix.md)         |
-|Redis           |[doc](./docs/en/connector/source/Redis.md)                |[doc](./docs/en/connector/sink/Redis.md)           |
-|Socket          |[doc](./docs/en/connector/source/Socket.mdx)              |                                                   |
-|Tidb            |[doc](./docs/en/connector/source/Tidb.md)                 |[doc](./docs/en/connector/sink/Tidb.md)            |
-
-### Transform
-
-|<div style="width: 130pt">Transform Plugins|
-|:-----------------------------------------:|
-|Add                                        |
-|CheckSum                                   |
-|Convert                                    |
-|Date                                       |
-|Drop                                       |
-|Grok                                       |
-|[Json](./docs/en/transform/json.md)        |
-|Kv                                         |
-|Lowercase                                  |
-|Remove                                     |
-|Rename                                     |
-|Repartition                                |
-|Replace                                    |
-|Sample                                     |
-|[Split](./docs/en/transform/split.mdx)     |
-|[Sql](./docs/en/transform/sql.md)          |
-|Table                                      |
-|Truncate                                   |
-|Uppercase                                  |
-|Uuid                                       |
+- Transform 支持 [查看](https://seatunnel.apache.org/docs/transform/common-options/)
 
 ## 环境依赖
 
