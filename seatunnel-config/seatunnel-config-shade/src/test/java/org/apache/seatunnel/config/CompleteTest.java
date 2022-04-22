@@ -18,7 +18,6 @@
 package org.apache.seatunnel.config;
 
 import org.apache.seatunnel.config.utils.FileUtils;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
@@ -26,7 +25,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,7 +39,7 @@ public class CompleteTest {
         systemProperties.put("city2", "shanghai");
 
         Config config = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("seatunnel" + File.separator + "variables.conf"))
+                .parseFile(FileUtils.getFileFromResources("seatunnel/variables.conf"))
                 .resolveWith(ConfigFactory.parseMap(systemProperties), ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         String sql1 = config.getConfigList("transform").get(1).getString("sql");

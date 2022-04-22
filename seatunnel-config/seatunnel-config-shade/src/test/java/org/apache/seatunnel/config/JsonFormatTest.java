@@ -18,27 +18,23 @@
 package org.apache.seatunnel.config;
 
 import org.apache.seatunnel.config.utils.FileUtils;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
-
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.io.File;
 
 public class JsonFormatTest {
 
     @Test
     public void testJsonFormat() {
         Config json = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("json" + File.separator + "spark.batch.json"))
+                .parseFile(FileUtils.getFileFromResources("json/spark.batch.json"))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         Config config = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("json" + File.separator + "spark.batch.conf"))
+                .parseFile(FileUtils.getFileFromResources("json/spark.batch.conf"))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
