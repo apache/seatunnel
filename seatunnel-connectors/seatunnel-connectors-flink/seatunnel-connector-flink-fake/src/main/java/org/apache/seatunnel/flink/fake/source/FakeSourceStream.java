@@ -32,6 +32,7 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
 
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource {
@@ -67,12 +68,14 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     }
 
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
+    private static final int AGE_LIMIT = 100;
 
     @Override
     public void run(SourceContext<Row> ctx) throws Exception {
+        Random random = new Random();
         while (running) {
             int randomNum = (int) (1 + Math.random() * NAME_ARRAY.length);
-            Row row = Row.of(NAME_ARRAY[randomNum - 1], System.currentTimeMillis());
+            Row row = Row.of(NAME_ARRAY[randomNum - 1], (long) random.nextInt(AGE_LIMIT));
             ctx.collect(row);
             Thread.sleep(TimeUnit.SECONDS.toMillis(1));
         }
