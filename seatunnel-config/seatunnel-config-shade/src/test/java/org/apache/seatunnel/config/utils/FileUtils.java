@@ -27,16 +27,13 @@ public final class FileUtils {
 
     // get file from classpath, resources folder
     public static File getFileFromResources(String fileName) {
-
-        ClassLoader classLoader = FileUtils.class.getClassLoader();
-
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         URL resource = classLoader.getResource(fileName);
         if (resource == null) {
             throw new IllegalArgumentException("file is not found!");
         } else {
             return new File(resource.getFile());
         }
-
     }
 
 }

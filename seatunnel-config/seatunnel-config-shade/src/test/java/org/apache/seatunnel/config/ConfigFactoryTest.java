@@ -32,6 +32,7 @@ public class ConfigFactoryTest {
 
     @Test
     public void testBasicParseAppConf() {
+
         Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
 
         Assert.assertTrue(config.hasPath("env"));
@@ -53,6 +54,7 @@ public class ConfigFactoryTest {
 
     @Test
     public void testTransformOrder() {
+
         Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
 
         String[] pluginNames = {"split", "sql1", "sql2", "sql3", "json"};
@@ -64,6 +66,7 @@ public class ConfigFactoryTest {
             String parsedPluginName = String.valueOf(transforms.get(i).root().get("plugin_name").unwrapped());
             Assert.assertEquals(pluginNames[i], parsedPluginName);
         }
+
     }
 
     @Test
@@ -74,5 +77,6 @@ public class ConfigFactoryTest {
         Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
         Config evnConfig = config.getConfig("env");
         evnConfig.entrySet().forEach(entry -> Assert.assertTrue(keys.contains(entry.getKey())));
+
     }
 }
