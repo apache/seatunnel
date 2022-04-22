@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.config;
 
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.BaseFlinkSource;
@@ -64,7 +65,6 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     private static final String PLUGIN_DIR_NAME = "connectors";
 
     private final List<URL> pluginJarPaths;
-    private final String seaTunnelHome;
     private final ClassLoader defaultClassLoader;
 
     static {
@@ -82,10 +82,9 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
         PLUGIN_BASE_CLASS_MAP.put(EngineType.FLINK, flinkBaseClassMap);
     }
 
-    public PluginFactory(Config config, EngineType engineType, String seaTunnelHome) {
+    public PluginFactory(Config config, EngineType engineType) {
         this.config = config;
         this.engineType = engineType;
-        this.seaTunnelHome = seaTunnelHome;
         this.pluginJarPaths = searchPluginJar();
         this.defaultClassLoader = initClassLoaderWithPaths(this.pluginJarPaths);
     }
@@ -98,7 +97,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     @Nonnull
     private List<URL> searchPluginJar() {
 
-        File pluginDir = new File(this.seaTunnelHome + "/" + PLUGIN_DIR_NAME + "/" + this.engineType.getEngine());
+        File pluginDir = new File(Common.appRootDir() + "/" + PLUGIN_DIR_NAME + "/" + this.engineType.getEngine());
         if (!pluginDir.exists() || pluginDir.listFiles() == null) {
             return new ArrayList<>();
         }

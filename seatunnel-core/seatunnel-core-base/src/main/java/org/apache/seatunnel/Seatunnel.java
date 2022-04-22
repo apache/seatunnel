@@ -45,7 +45,6 @@ public class Seatunnel {
 
         try {
             Command<T> command = CommandFactory.createCommand(commandArgs);
-            LOGGER.info("seatunnel home : " + commandArgs.getSeatunnelHome());
             command.execute(commandArgs);
         } catch (ConfigRuntimeException e) {
             showConfigError(e);

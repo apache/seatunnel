@@ -35,8 +35,7 @@ public class FlinkConfValidateCommand implements Command<FlinkCommandArgs> {
     @Override
     public void execute(FlinkCommandArgs flinkCommandArgs) {
         String configPath = flinkCommandArgs.getConfigFile();
-        new ConfigBuilder<FlinkEnvironment>(configPath, flinkCommandArgs.getEngineType(),
-                flinkCommandArgs.getSeatunnelHome()).checkConfig();
+        new ConfigBuilder<FlinkEnvironment>(configPath, flinkCommandArgs.getEngineType()).checkConfig();
         LOGGER.info("config OK !");
     }
 }
