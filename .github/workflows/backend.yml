@@ -31,8 +31,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build
+  build-on-ubuntu:
+    name: Build-on-ubuntu
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -76,3 +76,39 @@ jobs:
       - name: Run Integration tests
         run: |
           ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false --no-snapshot-updates
+  build-on-windows:
+    name: Build-on-windows
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        java: ['8']
+    timeout-minutes: 50
+    env:
+      MAVEN_OPTS: -Xmx2G -Xms2G
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version:  ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Check Style
+        shell: cmd
+        run: |
+          .\mvnw.cmd -T 2C -B checkstyle:check -nsu
+      - name: Build and Package
+        shell: cmd
+        run: |
+          .\mvnw.cmd -B install scalastyle:check -Dmaven.test.skip=true -Dcheckstyle.skip=true -Dlicense.skipAddThirdParty=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.count=3 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 -nsu
+      - name: Run Unit tests
+        shell: cmd
+        run: |
+          .\mvnw.cmd -T 2C -B clean verify -Dmaven.test.skip=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true -nsu

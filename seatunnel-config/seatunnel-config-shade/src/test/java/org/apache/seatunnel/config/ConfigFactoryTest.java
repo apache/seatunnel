@@ -25,15 +25,16 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 
 public class ConfigFactoryTest {
 
     @Test
-    public void testBasicParseAppConf() {
+    public void testBasicParseAppConf() throws URISyntaxException {
 
-        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
+        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("/factory/config.conf"));
 
         Assert.assertTrue(config.hasPath("env"));
         Assert.assertTrue(config.hasPath("source"));
@@ -53,9 +54,9 @@ public class ConfigFactoryTest {
     }
 
     @Test
-    public void testTransformOrder() {
+    public void testTransformOrder() throws URISyntaxException {
 
-        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
+        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("/factory/config.conf"));
 
         String[] pluginNames = {"split", "sql1", "sql2", "sql3", "json"};
 
@@ -70,11 +71,11 @@ public class ConfigFactoryTest {
     }
 
     @Test
-    public void testQuotedString() {
+    public void testQuotedString() throws URISyntaxException {
         List<String> keys = Arrays.asList("spark.app.name", "spark.executor.instances", "spark.executor.cores",
                 "spark.executor.memory", "spark.streaming.batchDuration");
 
-        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("factory/config.conf"));
+        Config config = ConfigFactory.parseFile(FileUtils.getFileFromResources("/factory/config.conf"));
         Config evnConfig = config.getConfig("env");
         evnConfig.entrySet().forEach(entry -> Assert.assertTrue(keys.contains(entry.getKey())));
 
