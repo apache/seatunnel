@@ -56,12 +56,13 @@ jobs:
             ${{ runner.os }}-maven-
       - name: Check Style
         run: |
-          ./mvnw -T 2C -B checkstyle:check --no-snapshot-updates
+          ./mvnw -T 2C -B checkstyle:check scalastyle:check --no-snapshot-updates
       - name: Build and Package
         run: |
-          ./mvnw -B install scalastyle:check \
+          ./mvnw -B install \
                  -Dmaven.test.skip=true \
                  -Dcheckstyle.skip=true \
+                 -Dscalastyle.skip=true \
                  -Dlicense.skipAddThirdParty=true \
                  -Dhttp.keepAlive=false \
                  -Dmaven.wagon.http.pool=false \
@@ -72,10 +73,10 @@ jobs:
         run: bash ./tools/dependencies/checkLicense.sh
       - name: Run Unit tests
         run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false --no-snapshot-updates
+          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
       - name: Run Integration tests
         run: |
-          ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false --no-snapshot-updates
+          ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
   build-on-windows:
     name: Build-on-windows
     runs-on: windows-latest
