@@ -39,7 +39,6 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class SparkEnvironment implements RuntimeEnv {
 
@@ -92,8 +91,7 @@ public class SparkEnvironment implements RuntimeEnv {
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
         LOGGER.info("register plugins :" + pluginPaths);
-        this.sparkSession.conf().set("spark.jars",
-                pluginPaths.stream().map(URL::getPath).collect(Collectors.joining(",")));
+        //  this.sparkSession.conf().set("spark.jars",pluginPaths.stream().map(URL::getPath).collect(Collectors.joining(",")));
     }
 
     @Override

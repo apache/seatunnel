@@ -23,6 +23,10 @@ import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.config.ConfigBuilder;
+import org.apache.seatunnel.config.EngineType;
+import org.apache.seatunnel.config.PluginFactory;
+import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.utils.CompressionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -137,8 +141,10 @@ public class SparkStarter implements Starter {
     @Override
     public List<String> buildCommands() throws IOException {
         setSparkConf();
+        Common.setDeployMode(commandArgs.getDeployMode().getName());
         this.jars.addAll(getPluginsJarDependencies());
         this.jars.addAll(listJars(Common.appLibDir()));
+        this.jars.addAll(getConnectorJarDependencies());
         this.appName = this.sparkConf.getOrDefault("spark.app.name", Constants.LOGO);
         return buildFinal();
     }
@@ -190,7 +196,6 @@ public class SparkStarter implements Starter {
      * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
      */
     private List<Path> getPluginsJarDependencies() throws IOException {
-        Common.setDeployMode(commandArgs.getDeployMode().getName());
         Path pluginRootDir = Common.pluginRootDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
@@ -202,6 +207,19 @@ public class SparkStarter implements Starter {
                 .filter(it -> it.getFileName().endsWith("jar"))
                 .collect(Collectors.toList());
         }
+    }
+
+    /**
+     * return connector's jars, which located in 'connectors/spark/*'.
+     */
+    private List<Path> getConnectorJarDependencies() {
+        Path pluginRootDir = Common.connectorRootDir("SPARK");
+        if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
+            return Collections.emptyList();
+        }
+        Config config = new ConfigBuilder<>(commandArgs.getConfigFile(), EngineType.SPARK).getConfig();
+        PluginFactory<RuntimeEnv> pluginFactory = new PluginFactory<>(config, EngineType.SPARK);
+        return pluginFactory.getPluginJarPaths().stream().map(url -> new File(url.getPath()).toPath()).collect(Collectors.toList());
     }
 
     /**

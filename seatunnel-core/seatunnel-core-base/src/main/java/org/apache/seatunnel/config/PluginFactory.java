@@ -62,7 +62,6 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     private static final Map<EngineType, Map<PluginType, Class<?>>> PLUGIN_BASE_CLASS_MAP;
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
-    private static final String PLUGIN_DIR_NAME = "connectors";
 
     private final List<URL> pluginJarPaths;
     private final ClassLoader defaultClassLoader;
@@ -97,7 +96,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     @Nonnull
     private List<URL> searchPluginJar() {
 
-        File pluginDir = new File(Common.appRootDir() + "/" + PLUGIN_DIR_NAME + "/" + this.engineType.getEngine());
+        File pluginDir = Common.connectorRootDir(this.engineType.getEngine()).toFile();
         if (!pluginDir.exists() || pluginDir.listFiles() == null) {
             return new ArrayList<>();
         }
