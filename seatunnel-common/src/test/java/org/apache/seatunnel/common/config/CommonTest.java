@@ -21,6 +21,8 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
+import java.io.File;
+
 public class CommonTest {
 
     static {
@@ -29,11 +31,11 @@ public class CommonTest {
 
     @Test
     public void appLibDir() {
-        assertEquals(Common.appRootDir().toString() + "/lib", Common.appLibDir().toString());
+        assertEquals(Common.appRootDir().toString() + File.separator + "lib", Common.appLibDir().toString());
     }
 
     @Test
     public void pluginTarFile() {
-        assertEquals(Common.appRootDir().toString() + "/plugins.tar.gz", Common.pluginTarball().toString());
+        assertEquals(Common.appRootDir().toString() + File.separator + "plugins.tar.gz", Common.pluginTarball().toString());
     }
 }
