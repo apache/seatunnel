@@ -21,7 +21,6 @@ import org.apache.seatunnel.command.FlinkCommandArgs;
 import org.apache.seatunnel.common.config.Common;
 
 import com.beust.jcommander.JCommander;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,18 +56,14 @@ public class FlinkStarter implements Starter {
     FlinkStarter(String[] args) {
         this.flinkCommandArgs = parseArgs(args);
 
-        if (StringUtils.isNotBlank(flinkCommandArgs.getRunMode())) {
-            String mode = flinkCommandArgs.getRunMode();
-            switch (mode) {
-                case RUN_MODE_RUN:
-                case RUN_MODE_APPLICATION:
-                    this.runMode = mode;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Run mode " + mode + " not supported");
-            }
-        } else {
-            this.runMode = RUN_MODE_RUN;
+        String mode = flinkCommandArgs.getRunMode();
+        switch (mode) {
+            case RUN_MODE_RUN:
+            case RUN_MODE_APPLICATION:
+                this.runMode = mode;
+                break;
+            default:
+                throw new IllegalArgumentException("Run mode " + mode + " not supported");
         }
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());

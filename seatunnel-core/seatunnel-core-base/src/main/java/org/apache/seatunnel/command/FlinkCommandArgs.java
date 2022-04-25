@@ -26,7 +26,7 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
 
     @Parameter(names = {"-r", "--run-mode"},
         description = "job run mode, run or run-application")
-    private String runMode;
+    private String runMode = "run";
 
     @Override
     public EngineType getEngineType() {
