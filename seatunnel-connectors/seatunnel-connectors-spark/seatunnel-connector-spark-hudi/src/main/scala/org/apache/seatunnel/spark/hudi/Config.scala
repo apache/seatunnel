@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark
+package org.apache.seatunnel.spark.hudi
 
 /**
  * Configurations and defaults for Hudi source and sink

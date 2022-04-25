@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.hudi.sink
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
-import org.apache.seatunnel.spark.Config.{DEFAULT_SAVE_MODE, HOODIE_BASE_PATH, HOODIE_TABLE_NAME, SAVE_MODE}
+import org.apache.seatunnel.spark.hudi.Config.{DEFAULT_SAVE_MODE, HOODIE_BASE_PATH, HOODIE_TABLE_NAME, SAVE_MODE}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}

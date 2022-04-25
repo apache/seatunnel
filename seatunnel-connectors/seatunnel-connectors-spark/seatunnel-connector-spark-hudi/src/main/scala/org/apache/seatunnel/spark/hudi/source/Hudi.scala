@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.hudi.source
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.Config.HOODIE_DATASTORE_READ_PATHS
+import org.apache.seatunnel.spark.hudi.Config.HOODIE_DATASTORE_READ_PATHS
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.spark.sql.{Dataset, Row}
