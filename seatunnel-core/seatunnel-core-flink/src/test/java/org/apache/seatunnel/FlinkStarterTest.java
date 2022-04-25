@@ -31,6 +31,11 @@ public class FlinkStarterTest {
         Assert.assertTrue(flinkExecuteCommand.contains("--config test.conf"));
         Assert.assertTrue(flinkExecuteCommand.contains("-m yarn-cluster"));
         Assert.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
+        Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
+
+        String[] argsInApplicationMode = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--application-mode"};
+        flinkExecuteCommand = String.join(" ", new FlinkStarter(argsInApplicationMode).buildCommands());
+        Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run-application"));
     }
 
     @Test

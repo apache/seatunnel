@@ -92,7 +92,7 @@ public class FlinkStarter implements Starter {
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
         command.add("${FLINK_HOME}/bin/flink");
-        command.add("run");
+        command.add(flinkCommandArgs.isApplicationMode() ? "run-application" : "run");
         command.addAll(flinkParams);
         command.add("-c");
         command.add(APP_NAME);

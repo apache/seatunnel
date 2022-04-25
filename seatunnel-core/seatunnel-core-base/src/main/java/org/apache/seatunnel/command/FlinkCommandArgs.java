@@ -20,7 +20,13 @@ package org.apache.seatunnel.command;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.EngineType;
 
+import com.beust.jcommander.Parameter;
+
 public class FlinkCommandArgs extends AbstractCommandArgs {
+
+    @Parameter(names = {"--application-mode"},
+        description = "run job in application mode")
+    private boolean isApplicationMode = false;
 
     @Override
     public EngineType getEngineType() {
@@ -32,4 +38,11 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         return DeployMode.CLIENT;
     }
 
+    public boolean isApplicationMode() {
+        return isApplicationMode;
+    }
+
+    public void setApplicationMode(boolean applicationMode) {
+        isApplicationMode = applicationMode;
+    }
 }
