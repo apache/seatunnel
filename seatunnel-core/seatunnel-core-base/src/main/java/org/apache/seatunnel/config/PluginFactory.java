@@ -28,6 +28,8 @@ import org.apache.seatunnel.spark.BaseSparkSource;
 import org.apache.seatunnel.spark.BaseSparkTransform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -36,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 
 import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -62,6 +65,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     private static final Map<EngineType, Map<PluginType, Class<?>>> PLUGIN_BASE_CLASS_MAP;
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
+    private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
 
     private final List<URL> pluginJarPaths;
     private final ClassLoader defaultClassLoader;
@@ -96,39 +100,74 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     @Nonnull
     private List<URL> searchPluginJar() {
 
-        File pluginDir = Common.connectorRootDir(this.engineType.getEngine()).toFile();
+        File pluginDir = Common.connectorJarDir(this.engineType.getEngine()).toFile();
         if (!pluginDir.exists() || pluginDir.listFiles() == null) {
             return new ArrayList<>();
         }
+        Config pluginMapping = ConfigFactory
+                .parseFile(new File(getPluginMappingPath()))
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(ConfigFactory.systemProperties(),
+                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
         File[] plugins =
                 Arrays.stream(pluginDir.listFiles()).filter(f -> f.getName().endsWith(".jar")).toArray(File[]::new);
-        return Arrays.stream(PluginType.values()).flatMap(type -> {
-            List<URL> pluginList = new ArrayList<>();
-            List<? extends Config> configList = config.getConfigList(type.getType());
-            configList.forEach(pluginConfig -> {
-                try {
-                    for (File plugin : plugins) {
-                        try {
-                            createPluginInstanceIgnoreCase(type, pluginConfig.getString(PLUGIN_NAME_KEY),
-                                    new URLClassLoader(new URL[]{plugin.toURI().toURL()},
-                                            Thread.currentThread().getContextClassLoader()));
-                            pluginList.add(plugin.toURI().toURL());
-                            break;
-                        } catch (ClassNotFoundException ignored) {
-                            // do nothing
+
+        return Arrays.stream(PluginType.values()).filter(type -> !PluginType.TRANSFORM.equals(type))
+                .flatMap(type -> {
+                    List<URL> pluginList = new ArrayList<>();
+                    List<? extends Config> configList = config.getConfigList(type.getType());
+                    configList.forEach(pluginConfig -> {
+
+                        if (containPluginMappingValue(pluginMapping, type, pluginConfig.getString(PLUGIN_NAME_KEY))) {
+                            try {
+                                for (File plugin : plugins) {
+                                    if (plugin.getName().startsWith(getPluginMappingValue(pluginMapping, type,
+                                            pluginConfig.getString(PLUGIN_NAME_KEY)))) {
+                                        pluginList.add(plugin.toURI().toURL());
+                                        break;
+                                    }
+                                }
+                            } catch (MalformedURLException e) {
+                                LOGGER.warn("can get plugin url", e);
+                            }
+                        } else {
+                            throw new IllegalArgumentException(String.format("can't find connector %s in " +
+                                            "%s. If you add connector to connectors dictionary, please modify this " +
+                                            "file.", getPluginMappingKey(type, pluginConfig.getString(PLUGIN_NAME_KEY)),
+                                    getPluginMappingPath()));
                         }
 
-                    }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            return pluginList.stream();
-        }).collect(Collectors.toList());
+                    });
+                    return pluginList.stream();
+                }).collect(Collectors.toList());
     }
 
     public List<URL> getPluginJarPaths() {
         return this.pluginJarPaths;
+    }
+
+    private String getPluginMappingPath() {
+        return Common.connectorDir() + "/" + PLUGIN_MAPPING_FILE;
+    }
+
+    private String getPluginMappingKey(PluginType type, String pluginName) {
+        return this.engineType.getEngine() + "." + type.getType() + "." + pluginName;
+
+    }
+
+    private String getPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
+        return pluginMapping.getConfig(this.engineType.getEngine()).getConfig(type.getType()).getString(pluginName);
+    }
+
+    private boolean containPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
+        if (pluginMapping.hasPath(this.engineType.getEngine())) {
+            Config engine = pluginMapping.getConfig(this.engineType.getEngine());
+            if (engine.hasPath(type.getType())) {
+                Config plugins = engine.getConfig(type.getType());
+                return plugins.hasPath(pluginName);
+            }
+        }
+        return false;
     }
 
     /**

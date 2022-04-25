@@ -56,7 +56,7 @@
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>transport</artifactId>
-            <version>${elasticsearch7.client.version}</version>
+            <version>${elasticsearch6.client.version}</version>
         </dependency>
     </dependencies>
 
