@@ -267,7 +267,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache 2) chill-java (com.twitter:chill-java:0.7.6 - https://github.com/twitter/chill)
      (Apache 2) chill-java (com.twitter:chill-java:0.8.4 - https://github.com/twitter/chill)
      (Apache 2) chill-java (com.twitter:chill-java:0.9.3 - https://github.com/twitter/chill)
-     (Apache 2) fastjson (com.alibaba:fastjson:1.2.60 - https://github.com/alibaba/fastjson)
+     (Apache 2) fastjson (com.alibaba:fastjson:1.2.80 - https://github.com/alibaba/fastjson)
      (Apache 2) opencsv (com.opencsv:opencsv:4.6 - http://opencsv.sf.net)
      (Apache 2) opencsv (net.sf.opencsv:opencsv:2.3 - http://opencsv.sf.net)
      (Apache 2) org.roaringbitmap:RoaringBitmap (org.roaringbitmap:RoaringBitmap:0.9.0 - https://github.com/RoaringBitmap/RoaringBitmap)

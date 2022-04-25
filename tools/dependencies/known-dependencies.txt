@@ -165,7 +165,7 @@ error_prone_annotations-2.3.4.jar
 error_prone_annotations-2.8.0.jar
 esri-geometry-api-2.2.0.jar
 extendedset-0.22.1.jar
-fastjson-1.2.60.jar
+fastjson-1.2.80.jar
 fastutil-6.5.6.jar
 fastutil-7.0.13.jar
 fastutil-8.5.4.jar
