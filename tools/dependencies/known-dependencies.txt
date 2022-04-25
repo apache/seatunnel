@@ -302,11 +302,11 @@ icu4j-localespi-60.2.jar
 influxdb-java-2.22.jar
 ion-java-1.0.2.jar
 j2objc-annotations-1.1.jar
-jackson-annotations-2.11.0.jar
-jackson-core-2.11.0.jar
+jackson-annotations-2.12.6.jar
+jackson-core-2.12.6.jar
 jackson-core-asl-1.9.13.jar
 jackson-core-asl-1.9.2.jar
-jackson-databind-2.12.6.1.jar
+jackson-databind-2.12.6.jar
 jackson-dataformat-cbor-2.12.3.jar
 jackson-dataformat-cbor-2.8.10.jar
 jackson-dataformat-cbor-2.8.11.jar
