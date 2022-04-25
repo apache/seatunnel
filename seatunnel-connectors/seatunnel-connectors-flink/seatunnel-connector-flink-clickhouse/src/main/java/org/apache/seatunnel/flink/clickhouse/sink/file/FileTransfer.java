@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.stream;
+package org.apache.seatunnel.flink.clickhouse.sink.file;
 
-import org.apache.seatunnel.flink.BaseFlinkSink;
-import org.apache.seatunnel.flink.FlinkEnvironment;
+import java.util.List;
 
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
+public interface FileTransfer {
 
-/**
- * a FlinkStreamSink plugin will write data to other system using Flink DataStream API.
- */
-public interface FlinkStreamSink extends BaseFlinkSink {
+    void init();
 
-    void outputStream(FlinkEnvironment env, DataStream<Row> dataStream);
+    void transferAndChown(String sourcePath, String targetPath);
 
+    void transferAndChown(List<String> sourcePath, String targetPath);
+
+    void close();
 }

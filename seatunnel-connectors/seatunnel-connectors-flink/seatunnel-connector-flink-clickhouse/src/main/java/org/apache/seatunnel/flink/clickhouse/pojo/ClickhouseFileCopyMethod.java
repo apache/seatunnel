@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.flink.stream;
+package org.apache.seatunnel.flink.clickhouse.pojo;
 
-import org.apache.seatunnel.flink.BaseFlinkSink;
-import org.apache.seatunnel.flink.FlinkEnvironment;
+public enum ClickhouseFileCopyMethod {
+    SCP("scp"),
+    RSYNC("rsync"),
+    ;
+    private final String name;
 
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
+    ClickhouseFileCopyMethod(String name) {
+        this.name = name;
+    }
 
-/**
- * a FlinkStreamSink plugin will write data to other system using Flink DataStream API.
- */
-public interface FlinkStreamSink extends BaseFlinkSink {
+    public String getName() {
+        return name;
+    }
 
-    void outputStream(FlinkEnvironment env, DataStream<Row> dataStream);
-
+    public static ClickhouseFileCopyMethod from(String name) {
+        for (ClickhouseFileCopyMethod clickhouseFileCopyMethod : ClickhouseFileCopyMethod.values()) {
+            if (clickhouseFileCopyMethod.getName().equalsIgnoreCase(name)) {
+                return clickhouseFileCopyMethod;
+            }
+        }
+        throw new IllegalArgumentException("Unknown ClickhouseFileCopyMethod: " + name);
+    }
 }

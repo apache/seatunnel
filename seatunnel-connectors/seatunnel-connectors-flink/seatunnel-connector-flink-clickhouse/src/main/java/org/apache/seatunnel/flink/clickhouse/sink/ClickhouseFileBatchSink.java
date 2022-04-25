@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.flink.clickhouse.sink;
 
-import static org.apache.seatunnel.flink.clickhouse.ConfigKey.BULK_SIZE;
+import static org.apache.seatunnel.flink.clickhouse.ConfigKey.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.flink.clickhouse.ConfigKey.COPY_METHOD;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.DATABASE;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.FIELDS;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.HOST;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.PASSWORD;
-import static org.apache.seatunnel.flink.clickhouse.ConfigKey.RETRY;
-import static org.apache.seatunnel.flink.clickhouse.ConfigKey.RETRY_CODES;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.SHARDING_KEY;
-import static org.apache.seatunnel.flink.clickhouse.ConfigKey.SPLIT_MODE;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.TABLE;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.USERNAME;
 
@@ -33,7 +31,8 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSink;
+import org.apache.seatunnel.flink.clickhouse.pojo.ClickhouseFileCopyMethod;
+import org.apache.seatunnel.flink.clickhouse.pojo.IntHolder;
 import org.apache.seatunnel.flink.clickhouse.pojo.Shard;
 import org.apache.seatunnel.flink.clickhouse.pojo.ShardMetadata;
 import org.apache.seatunnel.flink.clickhouse.sink.client.ClickhouseClient;
@@ -42,24 +41,30 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.flink.api.common.functions.MapPartitionFunction;
+import org.apache.flink.api.common.functions.Partitioner;
+import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.operators.MapPartitionOperator;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.Collector;
 import ru.yandex.clickhouse.ClickHouseConnection;
 
 import javax.annotation.Nullable;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
-@SuppressWarnings("magicnumber")
-public class ClickhouseBatchSink implements FlinkBatchSink {
+public class ClickhouseFileBatchSink extends ClickhouseBatchSink {
 
-    private ShardMetadata shardMetadata;
     private Config config;
-
+    private ShardMetadata shardMetadata;
     private Map<String, String> tableSchema = new HashMap<>();
     private List<String> fields;
 
@@ -73,31 +78,23 @@ public class ClickhouseBatchSink implements FlinkBatchSink {
         return config;
     }
 
-    @Nullable
-    @Override
-    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
-        ClickhouseOutputFormat clickhouseOutputFormat = new ClickhouseOutputFormat(config, shardMetadata, fields, tableSchema);
-        dataSet.output(clickhouseOutputFormat);
-    }
-
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD, CLICKHOUSE_LOCAL_PATH);
+        if (!checkResult.isSuccess()) {
+            return checkResult;
+        }
+        Map<String, Object> defaultConfigs = ImmutableMap.<String, Object>builder()
+            .put(COPY_METHOD, ClickhouseFileCopyMethod.SCP.getName())
+            .build();
+
+        config = config.withFallback(ConfigFactory.parseMap(defaultConfigs));
+        return CheckResult.success();
     }
 
     @Override
     public void prepare(FlinkEnvironment env) {
-        Map<String, Object> defaultConfig = ImmutableMap.<String, Object>builder()
-            .put(BULK_SIZE, 20_000)
-            .put(RETRY_CODES, new ArrayList<>())
-            .put(RETRY, 1)
-            .put(SPLIT_MODE, false)
-            .build();
-
-        config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
-
         ClickhouseClient clickhouseClient = new ClickhouseClient(config);
-        boolean splitMode = config.getBoolean(SPLIT_MODE);
         String table = config.getString(TABLE);
         String database = config.getString(DATABASE);
         String[] hostAndPort = config.getString(HOST).split(":");
@@ -110,7 +107,7 @@ public class ClickhouseBatchSink implements FlinkBatchSink {
                 shardKeyType,
                 database,
                 table,
-                splitMode,
+                false, // we don't need to set splitMode in clickhouse file mode.
                 new Shard(1, 1, 1, hostAndPort[0], hostAndPort[0], hostAndPort[1], database));
 
             if (this.config.hasPath(FIELDS)) {
@@ -127,14 +124,65 @@ public class ClickhouseBatchSink implements FlinkBatchSink {
         }
     }
 
+    @Nullable
+    @Override
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+        RowTypeInfo rowTypeInfo = (RowTypeInfo) dataSet.getType();
+        String[] fieldNames = rowTypeInfo.getFieldNames();
+        final IntHolder shardKeyIndexHolder = new IntHolder();
+        for (int i = 0; i < fieldNames.length; i++) {
+            if (fieldNames[i].equals(shardMetadata.getShardKey())) {
+                shardKeyIndexHolder.setValue(i);
+                break;
+            }
+        }
+        final MapPartitionOperator<Row, Row> mapPartitionOperator = dataSet.partitionCustom(new Partitioner<String>() {
+            // make sure the data belongs to each shard shuffle to the same partition
+            @Override
+            public int partition(String shardKey, int numPartitions) {
+                return shardKey.hashCode() % numPartitions;
+            }
+        }, new KeySelector<Row, String>() {
+            @Override
+            public String getKey(Row value) {
+                int shardKeyIndex = shardKeyIndexHolder.getValue();
+                return Objects.toString(value.getField(shardKeyIndex));
+            }
+        }).mapPartition(new MapPartitionFunction<Row, Row>() {
+            @Override
+            public void mapPartition(Iterable<Row> values, Collector<Row> out) throws Exception {
+                new ClickhouseFileOutputFormat(config, shardMetadata, fields).writeRecords(values);
+            }
+        });
+
+        // This is just a dummy sink, since each flink job need to have a sink.
+        mapPartitionOperator.output(new OutputFormat<Row>() {
+
+            @Override
+            public void configure(Configuration parameters) {
+            }
+
+            @Override
+            public void open(int taskNumber, int numTasks) {
+            }
+
+            @Override
+            public void writeRecord(Row record) {
+            }
+
+            @Override
+            public void close() {
+            }
+        });
+    }
+
     @Override
     public void close() {
-        // do nothing
+        super.close();
     }
 
     @Override
     public String getPluginName() {
-        return "Clickhouse";
+        return "ClickhouseFile";
     }
-
 }

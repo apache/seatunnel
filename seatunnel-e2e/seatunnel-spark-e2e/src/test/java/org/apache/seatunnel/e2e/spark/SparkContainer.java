@@ -30,6 +30,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,6 +85,9 @@ public abstract class SparkContainer {
         master.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
         // TODO: use start-seatunnel-spark.sh to run the spark job. Need to modified the SparkStarter can find the seatunnel-core-spark.jar.
+        // Running IT use cases under Windows requires replacing \ with /
+        String jar = SPARK_JAR_PATH.replaceAll("\\\\", "/");
+        String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
         command.add("spark-submit");
         command.add("--class");
@@ -94,9 +98,9 @@ public abstract class SparkContainer {
         command.add("local");
         command.add("--deploy-mode");
         command.add("client");
-        command.add(SPARK_JAR_PATH);
+        command.add(jar);
         command.add("-c");
-        command.add(targetConfInContainer);
+        command.add(conf);
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
@@ -112,8 +116,9 @@ public abstract class SparkContainer {
 
     protected void copySeaTunnelSparkCoreJar() {
         String currentModuleHome = System.getProperty("user.dir");
+        Path prjRootPath = Paths.get(currentModuleHome).getParent().getParent();
         // copy jar to container
-        String seatunnelCoreSparkJarPath = currentModuleHome.replace("/seatunnel-e2e/seatunnel-spark-e2e", "")
+        String seatunnelCoreSparkJarPath = prjRootPath
             + "/seatunnel-core/seatunnel-core-spark/target/seatunnel-core-spark.jar";
         master.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreSparkJarPath), SPARK_JAR_PATH);
     }

@@ -72,13 +72,15 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             sink.outputBatch(flinkEnvironment, dataSet);
         }
 
-        try {
-            LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
-            JobExecutionResult execute = flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
-            LOGGER.info(execute.toString());
-        } catch (Exception e) {
-            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
-            throw e;
+        if (whetherExecute(sinks)) {
+            try {
+                LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
+                JobExecutionResult execute = flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
+                LOGGER.info(execute.toString());
+            } catch (Exception e) {
+                LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
+                throw e;
+            }
         }
     }
 
@@ -116,4 +118,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
         return config;
     }
 
+    private boolean whetherExecute(List<FlinkBatchSink> sinks) {
+        return sinks.stream().anyMatch(s -> !"ConsoleSink".equals(s.getPluginName()));
+    }
 }
