@@ -56,7 +56,7 @@ jobs:
             ${{ runner.os }}-maven-
       - name: Check Style
         run: |
-          ./mvnw -T 2C -B checkstyle:check scalastyle:check -U
+          ./mvnw -T 2C -B checkstyle:check scalastyle:check --no-snapshot-updates
       - name: Build and Package
         run: |
           ./mvnw -B install \
