@@ -24,9 +24,9 @@ import com.beust.jcommander.Parameter;
 
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
-    @Parameter(names = {"--application-mode"},
-        description = "run job in application mode")
-    private boolean isApplicationMode = false;
+    @Parameter(names = {"-r", "--run-mode"},
+        description = "job run mode, run or run-application")
+    private String runMode;
 
     @Override
     public EngineType getEngineType() {
@@ -38,11 +38,11 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         return DeployMode.CLIENT;
     }
 
-    public boolean isApplicationMode() {
-        return isApplicationMode;
+    public String getRunMode() {
+        return runMode;
     }
 
-    public void setApplicationMode(boolean applicationMode) {
-        isApplicationMode = applicationMode;
+    public void setRunMode(String runMode) {
+        this.runMode = runMode;
     }
 }
