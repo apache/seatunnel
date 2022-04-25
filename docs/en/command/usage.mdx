@@ -59,8 +59,11 @@ bin/start-seatunnel-spark.sh \
 bin/start-seatunnel-flink.sh \
     -c config-path \
     -i key=value \
+    -r run-application \
     [other params]
 ```
+
+- Use `-r` or `--run-mode` to specify the flink job run mode, you can use `run-application` or `run` (default value)
 
 </TabItem>
 </Tabs>
