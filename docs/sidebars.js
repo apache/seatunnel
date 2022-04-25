@@ -69,13 +69,13 @@ const sidebars = {
         'start/local',
         'start/docker',
         'start/kubernetes',
+        'start/config'
       ],
     },
     {
       type: 'category',
       label: 'Connector',
       items: [
-        'connector/config-example',
         {
           type: 'category',
           label: 'Source',
