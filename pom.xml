@@ -99,7 +99,7 @@
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
-        <fastjson.version>1.2.60</fastjson.version>
+        <fastjson.version>1.2.80</fastjson.version>
         <jackson.version>2.12.6</jackson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
