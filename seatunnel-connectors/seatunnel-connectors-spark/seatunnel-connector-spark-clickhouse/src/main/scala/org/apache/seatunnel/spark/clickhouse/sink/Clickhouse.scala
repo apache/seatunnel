@@ -234,7 +234,15 @@ class Clickhouse extends SparkBatchSink {
             statement.setTimestamp(index + 1, Timestamp.valueOf(value.toString))
         }
       case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
-        statement.setInt(index + 1, item.getAs[Int](fieldIndex))
+        val value = item.get(fieldIndex)
+        value match {
+          case byte: Byte =>
+            statement.setByte(index + 1, byte.byteValue())
+          case short: Short =>
+            statement.setShort(index + 1, short.shortValue())
+          case _ =>
+            statement.setInt(index + 1, value.asInstanceOf[Int])
+        }
       case "UInt32" | "UInt64" | "Int64" =>
         statement.setLong(index + 1, item.getAs[Long](fieldIndex))
       case "Float32" =>
