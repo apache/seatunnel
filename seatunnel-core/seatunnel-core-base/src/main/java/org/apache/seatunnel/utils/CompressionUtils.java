@@ -58,7 +58,7 @@ public final class CompressionUtils {
      * @param outputFile the output tarball file.
      */
     public static void tarGzip(final Path inputDir, final Path outputFile) throws IOException {
-        LOGGER.info("Tar directory '{}' to file '{}'.", inputDir, outputFile);
+        LOGGER.debug("Tar directory '{}' to file '{}'.", inputDir, outputFile);
         try (OutputStream out = Files.newOutputStream(outputFile);
              BufferedOutputStream bufferedOut = new BufferedOutputStream(out);
              GzipCompressorOutputStream gzOut = new GzipCompressorOutputStream(bufferedOut);
@@ -78,7 +78,7 @@ public final class CompressionUtils {
                 }
             });
             tarOut.finish();
-            LOGGER.info("Creating tar file '{}'.", outputFile);
+            LOGGER.debug("Creating tar file '{}'.", outputFile);
         } catch (IOException e) {
             LOGGER.error("Error when tar directory '{}' to file '{}'.", inputDir, outputFile);
             throw e;
@@ -97,7 +97,7 @@ public final class CompressionUtils {
      * @throws FileNotFoundException file not found exception
      * @throws ArchiveException      archive exception
      */
-    public static void unTar(final File inputFile, final File outputDir) throws  IOException, ArchiveException {
+    public static void unTar(final File inputFile, final File outputDir) throws IOException, ArchiveException {
 
         LOGGER.info("Untaring {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
 
