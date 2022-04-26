@@ -232,18 +232,7 @@ public class SparkStarter implements Starter {
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
-        if (this.commandArgs.getDeployMode().getName() == "cluster") {
-            String regEx = ".+/(.+)$";
-            Pattern p = Pattern.compile(regEx);
-            for (int i = 1; i < args.length; i++) {
-                if ("-c".equals(args[i - 1]) || "--config".equals(args[i - 1])){
-                    Matcher m = p.matcher(args[i]);
-                    if (m.find()) {
-                        args[i] = m.group(1);
-                    }
-                }
-            }
-        }
+        changeFileLocation();
         appendArgs(commands, args);
         return commands;
     }
@@ -305,6 +294,24 @@ public class SparkStarter implements Starter {
      */
     protected void appendAppJar(List<String> commands) {
         commands.add(Common.appLibDir().resolve("seatunnel-core-spark.jar").toString());
+    }
+
+    /**
+     * change file location to get config file on yarn cluster mode
+     */
+    protected void changeFileLocation() {
+        if ( "cluster".equals(this.commandArgs.getDeployMode().getName())) {
+            String regEx = ".+/(.+)$";
+            Pattern p = Pattern.compile(regEx);
+            for (int i = 1; i < args.length; i++) {
+                if ("-c".equals(args[i - 1]) || "--config".equals(args[i - 1])) {
+                    Matcher m = p.matcher(args[i]);
+                    if (m.find()) {
+                        args[i] = m.group(1);
+                    }
+                }
+            }
+        }
     }
 
     /**
