@@ -45,6 +45,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -230,6 +232,18 @@ public class SparkStarter implements Starter {
         appendFiles(commands, this.files);
         appendSparkConf(commands, this.sparkConf);
         appendAppJar(commands);
+        if (this.commandArgs.getDeployMode().getName() == "cluster") {
+            String regEx = ".+/(.+)$";
+            Pattern p = Pattern.compile(regEx);
+            for (int i = 1; i < args.length; i++) {
+                if ("-c".equals(args[i - 1]) || "--config".equals(args[i - 1])){
+                    Matcher m = p.matcher(args[i]);
+                    if (m.find()) {
+                        args[i] = m.group(1);
+                    }
+                }
+            }
+        }
         appendArgs(commands, args);
         return commands;
     }
