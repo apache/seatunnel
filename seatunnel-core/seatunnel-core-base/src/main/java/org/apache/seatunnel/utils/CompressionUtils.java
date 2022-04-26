@@ -58,7 +58,7 @@ public final class CompressionUtils {
      * @param outputFile the output tarball file.
      */
     public static void tarGzip(final Path inputDir, final Path outputFile) throws IOException {
-        LOGGER.debug("Tar directory '{}' to file '{}'.", inputDir, outputFile);
+        LOGGER.info("Tar directory '{}' to file '{}'.", inputDir, outputFile);
         try (OutputStream out = Files.newOutputStream(outputFile);
              BufferedOutputStream bufferedOut = new BufferedOutputStream(out);
              GzipCompressorOutputStream gzOut = new GzipCompressorOutputStream(bufferedOut);
@@ -78,7 +78,7 @@ public final class CompressionUtils {
                 }
             });
             tarOut.finish();
-            LOGGER.debug("Creating tar file '{}'.", outputFile);
+            LOGGER.info("Creating tar file '{}'.", outputFile);
         } catch (IOException e) {
             LOGGER.error("Error when tar directory '{}' to file '{}'.", inputDir, outputFile);
             throw e;
