@@ -14,35 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.spark.hudi
 
-package org.apache.seatunnel.command;
+/**
+ * Configurations and defaults for Hudi source and sink
+ */
+object Config extends Serializable {
 
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.config.EngineType;
+  /**
+   * Hoodie base path
+   */
+  val HOODIE_BASE_PATH = "hoodie.base.path"
 
-import com.beust.jcommander.Parameter;
+  /**
+   * Hoodie table name
+   */
+  val HOODIE_TABLE_NAME = "hoodie.table.name"
 
-public class FlinkCommandArgs extends AbstractCommandArgs {
+  /**
+   * Save mode
+   */
+  val SAVE_MODE = "save_mode"
 
-    @Parameter(names = {"-r", "--run-mode"},
-        description = "job run mode, run or run-application")
-    private String runMode = "run";
+  /**
+   * Default save mode
+   */
+  val DEFAULT_SAVE_MODE = "append"
 
-    @Override
-    public EngineType getEngineType() {
-        return EngineType.FLINK;
-    }
-
-    @Override
-    public DeployMode getDeployMode() {
-        return DeployMode.CLIENT;
-    }
-
-    public String getRunMode() {
-        return runMode;
-    }
-
-    public void setRunMode(String runMode) {
-        this.runMode = runMode;
-    }
+  /**
+   * Hoodie data store read paths
+   */
+  val HOODIE_DATASTORE_READ_PATHS = "hoodie.datasource.read.paths"
 }

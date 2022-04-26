@@ -15,34 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.command;
+package org.apache.seatunnel.spark.webhook.source
 
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.config.EngineType;
+import java.util.Date
 
-import com.beust.jcommander.Parameter;
-
-public class FlinkCommandArgs extends AbstractCommandArgs {
-
-    @Parameter(names = {"-r", "--run-mode"},
-        description = "job run mode, run or run-application")
-    private String runMode = "run";
-
-    @Override
-    public EngineType getEngineType() {
-        return EngineType.FLINK;
-    }
-
-    @Override
-    public DeployMode getDeployMode() {
-        return DeployMode.CLIENT;
-    }
-
-    public String getRunMode() {
-        return runMode;
-    }
-
-    public void setRunMode(String runMode) {
-        this.runMode = runMode;
-    }
-}
+/**
+ * Streaming data read from local server will have this schema
+ *
+ * @param value - The payload POSTed to http endpoint.
+ * @param timestamp - Timestamp of when it was put on a stream.
+ */
+case class HttpData(value: String, timestamp: Date)

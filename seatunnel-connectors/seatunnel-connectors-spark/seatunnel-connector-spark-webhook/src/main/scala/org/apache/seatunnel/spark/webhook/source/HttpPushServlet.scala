@@ -15,34 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.command;
+package org.apache.seatunnel.spark.webhook.source
 
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.config.EngineType;
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
+import scala.io.Source
+import org.apache.spark.sql.execution.streaming.MemoryStream
 
-import com.beust.jcommander.Parameter;
+import java.util.Date
 
-public class FlinkCommandArgs extends AbstractCommandArgs {
+class HttpPushServlet(stream: MemoryStream[HttpData]) extends HttpServlet {
 
-    @Parameter(names = {"-r", "--run-mode"},
-        description = "job run mode, run or run-application")
-    private String runMode = "run";
+  override def doPost(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
+    val resBody = Source.fromInputStream(req.getInputStream).mkString
+    val timestamp = new Date(System.currentTimeMillis())
+    stream.addData(HttpData(resBody, timestamp))
 
-    @Override
-    public EngineType getEngineType() {
-        return EngineType.FLINK;
-    }
+    resp.setContentType("application/json;charset=utf-8")
+    resp.setStatus(HttpServletResponse.SC_OK)
+    resp.getWriter.write("""{"success": true}""")
+  }
 
-    @Override
-    public DeployMode getDeployMode() {
-        return DeployMode.CLIENT;
-    }
-
-    public String getRunMode() {
-        return runMode;
-    }
-
-    public void setRunMode(String runMode) {
-        this.runMode = runMode;
-    }
 }
