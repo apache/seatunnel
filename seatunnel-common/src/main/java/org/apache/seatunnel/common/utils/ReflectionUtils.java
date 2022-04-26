@@ -31,7 +31,7 @@ public class ReflectionUtils {
                 m = clazz.getDeclaredMethod(methodName, parameterTypes);
                 m.setAccessible(true);
                 return Optional.of(m);
-            } catch (Exception e) {
+            } catch (NoSuchMethodException e) {
                 // do nothing
             }
         }
