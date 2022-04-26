@@ -18,24 +18,25 @@
 package org.apache.seatunnel.common.utils;
 
 import java.lang.reflect.Method;
+import java.util.Optional;
 
 public class ReflectionUtils {
 
-    public static Method getDeclaredMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
+    public static Optional<Method> getDeclaredMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
 
-        Method method;
-
+        Optional<Method> method = Optional.empty();
+        Method m;
         for (; clazz != Object.class; clazz = clazz.getSuperclass()) {
             try {
-                method = clazz.getDeclaredMethod(methodName, parameterTypes);
-                method.setAccessible(true);
-                return method;
+                m = clazz.getDeclaredMethod(methodName, parameterTypes);
+                m.setAccessible(true);
+                return Optional.of(m);
             } catch (Exception e) {
                 // do nothing
             }
         }
 
-        return null;
+        return method;
     }
 
 }

@@ -127,7 +127,8 @@ public class FlinkEnvironment implements RuntimeEnv {
             if (isStreaming()) {
                 configuration =
                         (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
-                                "getConfiguration")).invoke(this.environment);
+                                "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
+                                "method: getConfiguration")).invoke(this.environment);
             } else {
                 configuration = batchEnvironment.getConfiguration();
             }
