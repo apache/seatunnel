@@ -14,26 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.spark.hudi
 
-package org.apache.seatunnel.config.utils;
+/**
+ * Configurations and defaults for Hudi source and sink
+ */
+object Config extends Serializable {
 
-import java.io.File;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
+  /**
+   * Hoodie base path
+   */
+  val HOODIE_BASE_PATH = "hoodie.base.path"
 
-public final class FileUtils {
+  /**
+   * Hoodie table name
+   */
+  val HOODIE_TABLE_NAME = "hoodie.table.name"
 
-    private FileUtils() {
-    }
+  /**
+   * Save mode
+   */
+  val SAVE_MODE = "save_mode"
 
-    // get file from classpath, resources folder
-    public static File getFileFromResources(String fileName) throws URISyntaxException {
-        URL resource = FileUtils.class.getResource(fileName);
-        if (resource == null) {
-            throw new IllegalArgumentException("file is not found!");
-        }
-        return Paths.get(resource.toURI()).toFile();
-    }
+  /**
+   * Default save mode
+   */
+  val DEFAULT_SAVE_MODE = "append"
 
+  /**
+   * Hoodie data store read paths
+   */
+  val HOODIE_DATASTORE_READ_PATHS = "hoodie.datasource.read.paths"
 }

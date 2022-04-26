@@ -19,6 +19,7 @@ package org.apache.seatunnel.spark.hudi.sink
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
+import org.apache.seatunnel.spark.hudi.Config.{DEFAULT_SAVE_MODE, HOODIE_BASE_PATH, HOODIE_TABLE_NAME, SAVE_MODE}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.spark.sql.{Dataset, Row}
@@ -28,13 +29,13 @@ import scala.collection.JavaConversions._
 class Hudi extends SparkBatchSink {
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "hoodie.base.path", "hoodie.table.name")
+    checkAllExists(config, HOODIE_BASE_PATH, HOODIE_TABLE_NAME)
   }
 
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "save_mode" -> "append"))
+        SAVE_MODE -> DEFAULT_SAVE_MODE))
     config = config.withFallback(defaultConfig)
   }
 
@@ -43,8 +44,8 @@ class Hudi extends SparkBatchSink {
     for (e <- config.entrySet()) {
       writer.option(e.getKey, String.valueOf(e.getValue.unwrapped()))
     }
-    writer.mode(config.getString("save_mode"))
-      .save(config.getString("hoodie.base.path"))
+    writer.mode(config.getString(SAVE_MODE))
+      .save(config.getString(HOODIE_BASE_PATH))
   }
 
   override def getPluginName: String = "Hudi"

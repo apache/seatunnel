@@ -79,7 +79,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         }
     }
 
-    private void registerResultTable(Plugin plugin, DataStream dataStream) {
+    private void registerResultTable(Plugin<FlinkEnvironment> plugin, DataStream<Row> dataStream) {
         Config config = plugin.getConfig();
         if (config.hasPath(RESULT_TABLE_NAME)) {
             String name = config.getString(RESULT_TABLE_NAME);

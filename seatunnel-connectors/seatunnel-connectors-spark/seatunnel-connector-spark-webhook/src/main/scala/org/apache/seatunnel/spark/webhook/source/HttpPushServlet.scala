@@ -15,25 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.config.utils;
+package org.apache.seatunnel.spark.webhook.source
 
-import java.io.File;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
+import scala.io.Source
+import org.apache.spark.sql.execution.streaming.MemoryStream
 
-public final class FileUtils {
+import java.util.Date
 
-    private FileUtils() {
-    }
+class HttpPushServlet(stream: MemoryStream[HttpData]) extends HttpServlet {
 
-    // get file from classpath, resources folder
-    public static File getFileFromResources(String fileName) throws URISyntaxException {
-        URL resource = FileUtils.class.getResource(fileName);
-        if (resource == null) {
-            throw new IllegalArgumentException("file is not found!");
-        }
-        return Paths.get(resource.toURI()).toFile();
-    }
+  override def doPost(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
+    val resBody = Source.fromInputStream(req.getInputStream).mkString
+    val timestamp = new Date(System.currentTimeMillis())
+    stream.addData(HttpData(resBody, timestamp))
+
+    resp.setContentType("application/json;charset=utf-8")
+    resp.setStatus(HttpServletResponse.SC_OK)
+    resp.getWriter.write("""{"success": true}""")
+  }
 
 }
