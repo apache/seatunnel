@@ -30,6 +30,7 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,7 +47,7 @@ public abstract class FlinkContainer {
     private static final Logger LOG = LoggerFactory.getLogger(FlinkContainer.class);
 
     private static final String FLINK_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
-    public static final Network NETWORK = Network.newNetwork();
+    protected static final Network NETWORK = Network.newNetwork();
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
@@ -85,7 +86,7 @@ public abstract class FlinkContainer {
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
         copySeaTunnelFlinkCoreJar();
-        LOG.info("Containers are started.");
+        LOG.info("Flink containers are started.");
     }
 
     @After
@@ -106,11 +107,14 @@ public abstract class FlinkContainer {
         final String targetConfInContainer = Paths.get("/tmp", confFile).toString();
         jobManager.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
+        // Running IT use cases under Windows requires replacing \ with /
+        String jar = FLINK_JAR_PATH.replaceAll("\\\\", "/");
+        String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
         command.add("flink");
         command.add("run");
-        command.add("-c org.apache.seatunnel.SeatunnelFlink " + FLINK_JAR_PATH);
-        command.add("--config " + targetConfInContainer);
+        command.add("-c org.apache.seatunnel.SeatunnelFlink " + jar);
+        command.add("--config " + conf);
 
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
@@ -122,7 +126,8 @@ public abstract class FlinkContainer {
 
     protected void copySeaTunnelFlinkCoreJar() {
         String currentModuleHome = System.getProperty("user.dir");
-        String seatunnelCoreFlinkJarPath = currentModuleHome.replace("/seatunnel-e2e/seatunnel-flink-e2e", "")
+        Path prjRootPath = Paths.get(currentModuleHome).getParent().getParent();
+        String seatunnelCoreFlinkJarPath = prjRootPath
             + "/seatunnel-core/seatunnel-core-flink/target/seatunnel-core-flink.jar";
         jobManager.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreFlinkJarPath), FLINK_JAR_PATH);
     }

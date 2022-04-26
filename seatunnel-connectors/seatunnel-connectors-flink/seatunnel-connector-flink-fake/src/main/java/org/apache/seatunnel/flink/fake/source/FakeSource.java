@@ -53,6 +53,11 @@ public class FakeSource implements FlinkBatchSource {
     }
 
     @Override
+    public String getPluginName() {
+        return "FakeSource";
+    }
+
+    @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
         Random random = new Random();
         return env.getBatchTableEnvironment().toDataSet(

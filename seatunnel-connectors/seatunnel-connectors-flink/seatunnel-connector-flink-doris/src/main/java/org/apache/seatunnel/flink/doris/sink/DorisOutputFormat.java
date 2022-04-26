@@ -207,7 +207,7 @@ public class DorisOutputFormat<T> extends RichOutputFormat<T> {
                 result = OBJECT_MAPPER.writeValueAsString(batch);
             }
         } else {
-            result = String.join(this.lineDelimiter, (CharSequence) batch);
+            result = String.join(this.lineDelimiter, batch.toArray(new CharSequence[batch.size()]));
         }
         for (int i = 0; i <= maxRetries; i++) {
             try {

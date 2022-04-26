@@ -123,4 +123,5 @@ class Redis extends SparkBatchSource {
     sc.fromRedisZSet(keysOrKeyPattern, partitionNum)(redisConfig = redisConfig)
   }
 
+  override def getPluginName: String = "Redis"
 }

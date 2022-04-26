@@ -60,4 +60,5 @@ class Tidb extends SparkBatchSink {
     checkAllExists(config, "addr", "port", "database", "table", "user", "password")
   }
 
+  override def getPluginName: String = "TiDB"
 }

@@ -66,4 +66,10 @@ class Elasticsearch extends SparkBatchSource {
     checkAllExists(config, HOSTS, INDEX)
   }
 
+  /**
+   * Return the plugin name, this is used in seatunnel conf DSL.
+   *
+   * @return plugin name.
+   */
+  override def getPluginName: String = "ElasticSearch"
 }

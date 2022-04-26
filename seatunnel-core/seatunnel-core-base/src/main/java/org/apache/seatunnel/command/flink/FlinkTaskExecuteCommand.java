@@ -45,11 +45,6 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
 
         Config config = new ConfigBuilder<>(configFile, engine).getConfig();
         ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine);
-        Execution<BaseSource<FlinkEnvironment>,
-            BaseTransform<FlinkEnvironment>,
-            BaseSink<FlinkEnvironment>,
-            FlinkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution();
-
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();
@@ -57,7 +52,10 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
         baseCheckConfig(sinks, transforms, sinks);
         showAsciiLogo();
 
-        try {
+        try (Execution<BaseSource<FlinkEnvironment>,
+                BaseTransform<FlinkEnvironment>,
+                BaseSink<FlinkEnvironment>,
+                FlinkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution()) {
             prepare(executionContext.getEnvironment(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);

@@ -71,4 +71,12 @@ public interface Plugin<T extends RuntimeEnv> extends Serializable, AutoCloseabl
 
     }
 
+    /**
+     * Return the plugin name, this is used in seatunnel conf DSL.
+     *
+     * @return plugin name.
+     */
+    default String getPluginName() {
+        return this.getClass().getSimpleName();
+    }
 }

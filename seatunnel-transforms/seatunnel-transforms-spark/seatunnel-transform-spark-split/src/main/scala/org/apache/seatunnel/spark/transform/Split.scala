@@ -85,4 +85,6 @@ class Split extends BaseSparkTransform {
     }
     filled.toSeq
   }
+
+  override def getPluginName: String = "split"
 }

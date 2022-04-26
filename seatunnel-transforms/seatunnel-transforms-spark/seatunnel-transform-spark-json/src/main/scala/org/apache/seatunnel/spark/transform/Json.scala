@@ -135,4 +135,6 @@ class Json extends BaseSparkTransform {
       this.useCustomSchema = true
     }
   }
+
+  override def getPluginName: String = "json"
 }

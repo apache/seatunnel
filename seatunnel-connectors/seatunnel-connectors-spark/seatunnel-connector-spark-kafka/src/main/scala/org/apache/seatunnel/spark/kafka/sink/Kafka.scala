@@ -102,4 +102,6 @@ class Kafka extends SparkBatchSink with Logging {
         }
     }
   }
+
+  override def getPluginName: String = "Kafka"
 }

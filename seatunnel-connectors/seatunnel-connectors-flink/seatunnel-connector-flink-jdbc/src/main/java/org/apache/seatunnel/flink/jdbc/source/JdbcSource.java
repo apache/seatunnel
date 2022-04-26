@@ -166,6 +166,11 @@ public class JdbcSource implements FlinkBatchSource {
         }
     }
 
+    @Override
+    public String getPluginName() {
+        return "JdbcSource";
+    }
+
     private String extendPartitionQuerySql(String query, String column) {
         Matcher matcher = COMPILE.matcher(query);
         if (matcher.find()) {
@@ -188,9 +193,10 @@ public class JdbcSource implements FlinkBatchSource {
         if (config.hasPath(PARTITION_UPPER_BOUND) && config.hasPath(PARTITION_LOWER_BOUND)) {
             max = config.getLong(PARTITION_UPPER_BOUND);
             min = config.getLong(PARTITION_LOWER_BOUND);
-        } else {
-            ResultSet rs = connection.createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
-                    "FROM %s", columnName, columnName, tableName));
+            return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism * 2);
+        }
+        try (ResultSet rs = connection.createStatement().executeQuery(String.format("SELECT MAX(%s),MIN(%s) " +
+                "FROM %s", columnName, columnName, tableName))) {
             if (rs.next()) {
                 max = config.hasPath(PARTITION_UPPER_BOUND) ? config.getLong(PARTITION_UPPER_BOUND) :
                         Long.parseLong(rs.getString(1));
@@ -198,7 +204,6 @@ public class JdbcSource implements FlinkBatchSource {
                         Long.parseLong(rs.getString(2));
             }
         }
-
         return new JdbcNumericBetweenParametersProvider(min, max).ofBatchNum(parallelism * 2);
     }
 

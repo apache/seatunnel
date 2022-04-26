@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.seatunnel.spark.clickhouse.Config.{CLICKHOUSE_LOCAL_PATH, COPY_METHOD, DATABASE, FIELDS, HOST, NODE_ADDRESS, NODE_FREE_PASSWORD, NODE_PASS, PASSWORD, SHARDING_KEY, TABLE, TMP_BATCH_CACHE_LINE, USERNAME}
 import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse._
 import org.apache.seatunnel.spark.clickhouse.sink.ClickhouseFile.{CLICKHOUSE_FILE_PREFIX, LOGGER, UUID_LENGTH, getClickhouseTableInfo}
 import org.apache.seatunnel.spark.clickhouse.sink.Table
@@ -66,7 +67,7 @@ class ClickhouseFile extends SparkBatchSink {
 
   override def output(data: Dataset[Row], env: SparkEnvironment): Unit = {
 
-    if (!config.hasPath("fields")) {
+    if (!config.hasPath(FIELDS)) {
       this.fields = data.schema.fieldNames.toList
     }
 
@@ -208,23 +209,23 @@ class ClickhouseFile extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    var checkResult = checkAllExists(config, "host", "table", "database", "username", "password",
-      "clickhouse_local_path")
+    var checkResult = checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD,
+      CLICKHOUSE_LOCAL_PATH)
     if (checkResult.isSuccess) {
-      clickhouseLocalPath = config.getString("clickhouse_local_path")
-      properties.put("user", config.getString("username"))
-      properties.put("password", config.getString("password"))
-      val host = config.getString("host")
-      val database = config.getString("database")
-      val table = config.getString("table")
+      clickhouseLocalPath = config.getString(CLICKHOUSE_LOCAL_PATH)
+      properties.put("user", config.getString(USERNAME))
+      properties.put("password", config.getString(PASSWORD))
+      val host = config.getString(HOST)
+      val database = config.getString(DATABASE)
+      val table = config.getString(TABLE)
       val conn = getClickhouseConnection(host, database, properties)
 
-      if (config.hasPath("copy_method")) {
-        this.copyFileMethod = getCopyMethod(config.getString("copy_method"))
+      if (config.hasPath(COPY_METHOD)) {
+        this.copyFileMethod = getCopyMethod(config.getString(COPY_METHOD))
       }
 
-      if (config.hasPath("tmp_batch_cache_line")) {
-        this.tmpBatchCacheLine = config.getInt("tmp_batch_cache_line")
+      if (config.hasPath(TMP_BATCH_CACHE_LINE)) {
+        this.tmpBatchCacheLine = config.getInt(TMP_BATCH_CACHE_LINE)
       }
 
       val (result, tableInfo) = getClickhouseTableInfo(conn, database, table)
@@ -233,16 +234,16 @@ class ClickhouseFile extends SparkBatchSink {
       } else {
         this.table = tableInfo
         tableInfo.initTableInfo(host, conn)
-        tableInfo.initShardDataPath(config.getString("username"), config.getString("password"))
+        tableInfo.initShardDataPath(config.getString(USERNAME), config.getString(PASSWORD))
         // check config of node password whether completed or not
-        if (config.hasPath("node_free_password") && config.getBoolean("node_free_password")) {
+        if (config.hasPath(NODE_FREE_PASSWORD) && config.getBoolean(NODE_FREE_PASSWORD)) {
           this.freePass = true
-        } else if (config.hasPath("node_pass")) {
-          val nodePass = config.getObjectList("node_pass")
+        } else if (config.hasPath(NODE_PASS)) {
+          val nodePass = config.getObjectList(NODE_PASS)
           val nodePassMap = mutable.Map[String, String]()
           nodePass.foreach(np => {
-            val address = np.toConfig.getString("node_address")
-            val password = np.toConfig.getString("password")
+            val address = np.toConfig.getString(NODE_ADDRESS)
+            val password = np.toConfig.getString(PASSWORD)
             nodePassMap(address) = password
           })
           this.nodePass = nodePassMap.toMap
@@ -254,13 +255,13 @@ class ClickhouseFile extends SparkBatchSink {
         }
         if (checkResult.isSuccess) {
           // check sharding method
-          if (config.hasPath("sharding_key") && StringUtils.isNotEmpty(config.getString("sharding_key"))) {
-            this.table.shardKey = config.getString("sharding_key")
+          if (config.hasPath(SHARDING_KEY) && StringUtils.isNotEmpty(config.getString(SHARDING_KEY))) {
+            this.table.shardKey = config.getString(SHARDING_KEY)
           }
           checkResult = this.table.prepareShardInfo(conn)
           if (checkResult.isSuccess) {
-            if (this.config.hasPath("fields")) {
-              this.fields = config.getStringList("fields").toList
+            if (this.config.hasPath(FIELDS)) {
+              this.fields = config.getStringList(FIELDS).toList
               checkResult = acceptedClickHouseSchema(this.fields, JavaConversions.mapAsScalaMap(this.table
                 .tableSchema).toMap, this.table.name)
             }
@@ -285,6 +286,8 @@ class ClickhouseFile extends SparkBatchSink {
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
   }
+
+  override def getPluginName: String = "ClickhouseFile"
 }
 
 

@@ -36,8 +36,6 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
-import javax.annotation.Nullable;
-
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -99,7 +97,12 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public String getPluginName() {
+        return "DorisSink";
+    }
+
+    @Override
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         batchIntervalMs = 0;
         BatchTableEnvironment tableEnvironment = env.getBatchTableEnvironment();
         Table table = tableEnvironment.fromDataSet(dataSet);
@@ -109,14 +112,12 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
         DataSink<Row> rowDataSink = dataSet.output(new DorisOutputFormat<>(dorisStreamLoad, fieldNames, batchSize, batchIntervalMs, maxRetries));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return rowDataSink.setParallelism(parallelism);
+            rowDataSink.setParallelism(parallelism);
         }
-        return rowDataSink;
     }
 
     @Override
-    @Nullable
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         StreamTableEnvironment tableEnvironment = env.getStreamTableEnvironment();
         Table table = tableEnvironment.fromDataStream(dataStream);
         String[] fieldNames = table.getSchema().getFieldNames();
@@ -127,6 +128,5 @@ public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
             int parallelism = config.getInt(PARALLELISM);
             rowDataStreamSink.setParallelism(parallelism);
         }
-        return null;
     }
 }

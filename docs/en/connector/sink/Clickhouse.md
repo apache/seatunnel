@@ -9,7 +9,7 @@ Use [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) to correspo
 Engine Supported and plugin name
 
 * [x] Spark: Clickhouse
-* [ ] Flink
+* [x] Flink: Clickhouse
 
 :::
 

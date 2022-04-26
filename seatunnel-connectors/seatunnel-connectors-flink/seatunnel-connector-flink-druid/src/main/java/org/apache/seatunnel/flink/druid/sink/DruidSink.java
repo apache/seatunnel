@@ -46,13 +46,12 @@ public class DruidSink implements FlinkBatchSink {
     private String timestampMissingValue;
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         DataSink<Row> dataSink = dataSet.output(new DruidOutputFormat(coordinatorURL, datasource, timestampColumn, timestampFormat, timestampMissingValue));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            dataSink.setParallelism(parallelism);
         }
-        return dataSink;
     }
 
     @Override
@@ -77,5 +76,10 @@ public class DruidSink implements FlinkBatchSink {
         this.timestampColumn = config.hasPath(TIMESTAMP_COLUMN) ? config.getString(TIMESTAMP_COLUMN) : null;
         this.timestampFormat = config.hasPath(TIMESTAMP_FORMAT) ? config.getString(TIMESTAMP_FORMAT) : null;
         this.timestampMissingValue = config.hasPath(TIMESTAMP_MISSING_VALUE) ? config.getString(TIMESTAMP_MISSING_VALUE) : null;
+    }
+
+    @Override
+    public String getPluginName() {
+        return "DruidSink";
     }
 }

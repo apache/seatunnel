@@ -34,11 +34,12 @@ import org.apache.seatunnel.common.config.TypesafeConfigUtils.{extractSubConfig,
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.seatunnel.spark.clickhouse.Config.{BULK_SIZE, DATABASE, FIELDS, HOST, PASSWORD, RETRY, RETRY_CODES, SHARDING_KEY, SPLIT_MODE, TABLE, USERNAME}
 import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse.{Shard, acceptedClickHouseSchema, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList, getDefaultValue, getRowShard}
 import org.apache.spark.sql.{Dataset, Row}
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatementImpl}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseArray, ClickHouseConnectionImpl, ClickHousePreparedStatementImpl}
 import ru.yandex.clickhouse.except.ClickHouseException
-
+import ru.yandex.clickhouse.domain.ClickHouseDataType
 import java.nio.ByteBuffer
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
@@ -69,10 +70,10 @@ class Clickhouse extends SparkBatchSink {
 
   override def output(data: Dataset[Row], environment: SparkEnvironment): Unit = {
     val dfFields = data.schema.fieldNames
-    val bulkSize = config.getInt("bulk_size")
-    val retry = config.getInt("retry")
+    val bulkSize = config.getInt(BULK_SIZE)
+    val retry = config.getInt(RETRY)
 
-    if (!config.hasPath("fields")) {
+    if (!config.hasPath(FIELDS)) {
       fields = dfFields.toList
       initSQL = initPrepareSQL()
     }
@@ -109,7 +110,7 @@ class Clickhouse extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    var checkResult = checkAllExists(config, "host", "table", "database", "username", "password")
+    var checkResult = checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD)
     if (checkResult.isSuccess) {
       if (hasSubConfig(config, clickhousePrefix)) {
         extractSubConfig(config, clickhousePrefix, false).entrySet().foreach(e => {
@@ -117,20 +118,20 @@ class Clickhouse extends SparkBatchSink {
         })
       }
 
-      properties.put("user", config.getString("username"))
-      properties.put("password", config.getString("password"))
+      properties.put("user", config.getString(USERNAME))
+      properties.put("password", config.getString(PASSWORD))
 
-      if (config.hasPath("split_mode")) {
-        splitMode = config.getBoolean("split_mode")
+      if (config.hasPath(SPLIT_MODE)) {
+        splitMode = config.getBoolean(SPLIT_MODE)
       }
-      val database = config.getString("database")
-      val host = config.getString("host")
+      val database = config.getString(DATABASE)
+      val host = config.getString(HOST)
       val conn = getClickhouseConnection(host, database, properties)
       val hostAndPort = host.split(":")
-      this.table = config.getString("table")
+      this.table = config.getString(TABLE)
       this.tableSchema = getClickHouseSchema(conn, this.table).toMap
       if (splitMode) {
-        val tableName = config.getString("table")
+        val tableName = config.getString(TABLE)
         val localTable = getClickHouseDistributedTable(conn, database, tableName)
         if (Objects.isNull(localTable)) {
           CheckResult.error(s"split mode only support table which engine is '$distributedEngine' at now")
@@ -143,8 +144,8 @@ class Clickhouse extends SparkBatchSink {
             weight += elem.shardWeight
           }
           this.shardWeightCount = weight
-          if (config.hasPath("sharding_key") && StringUtils.isNotEmpty(config.getString("sharding_key"))) {
-            this.shardKey = config.getString("sharding_key")
+          if (config.hasPath(SHARDING_KEY) && StringUtils.isNotEmpty(config.getString(SHARDING_KEY))) {
+            this.shardKey = config.getString(SHARDING_KEY)
           }
         }
       } else {
@@ -160,8 +161,8 @@ class Clickhouse extends SparkBatchSink {
           this.shardKeyType = this.tableSchema(this.shardKey)
         }
       }
-      if (this.config.hasPath("fields")) {
-        this.fields = config.getStringList("fields")
+      if (this.config.hasPath(FIELDS)) {
+        this.fields = config.getStringList(FIELDS)
         checkResult = acceptedClickHouseSchema(this.fields.toList, this.tableSchema, this.table)
       }
     }
@@ -169,18 +170,18 @@ class Clickhouse extends SparkBatchSink {
   }
 
   override def prepare(env: SparkEnvironment): Unit = {
-    if (config.hasPath("fields")) {
+    if (config.hasPath(FIELDS)) {
       this.initSQL = initPrepareSQL()
     }
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "bulk_size" -> 20000,
+        BULK_SIZE -> 20000,
         // "retry_codes" -> util.Arrays.asList(ClickHouseErrorCode.NETWORK_ERROR.code),
-        "retry_codes" -> util.Arrays.asList(),
-        "retry" -> 1))
+        RETRY_CODES -> util.Arrays.asList(),
+        RETRY -> 1))
     config = config.withFallback(defaultConfig)
-    retryCodes = config.getIntList("retry_codes")
+    retryCodes = config.getIntList(RETRY_CODES)
   }
 
 
@@ -253,7 +254,8 @@ class Clickhouse extends SparkBatchSink {
             statement.setDouble(index + 1, value.asInstanceOf[Double])
         }
       case Clickhouse.arrayPattern(_) =>
-        statement.setArray(index + 1, item.getAs[java.sql.Array](fieldIndex))
+        val value = item.getAs[Seq[Any]](fieldIndex).toArray
+        statement.setArray(index + 1, new ClickHouseArray(ClickHouseDataType.String, value))
       case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
       case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
     }
@@ -316,6 +318,8 @@ class Clickhouse extends SparkBatchSink {
         throw e
     }
   }
+
+  override def getPluginName: String = "Clickhouse"
 }
 
 object Clickhouse {

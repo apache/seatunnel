@@ -36,19 +36,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
 import org.apache.flink.connector.jdbc.JdbcOutputFormat;
 import org.apache.flink.connector.jdbc.utils.JdbcTypeUtil;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.types.Row;
-
-import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
@@ -106,8 +102,12 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
-    @Nullable
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public String getPluginName() {
+        return "JdbcSink";
+    }
+
+    @Override
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
         TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
 
@@ -128,14 +128,14 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
                 .build());
 
         if (config.hasPath(PARALLELISM)) {
-            return dataStream.addSink(sink).setParallelism(config.getInt(PARALLELISM));
+            dataStream.addSink(sink).setParallelism(config.getInt(PARALLELISM));
+        } else {
+            dataStream.addSink(sink);
         }
-        return dataStream.addSink(sink);
     }
 
-    @Nullable
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
         TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
         int[] types = Arrays.stream(fieldTypes).mapToInt(JdbcTypeUtil::typeInformationToSqlType).toArray();
@@ -149,6 +149,6 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
                 .setBatchSize(batchSize)
                 .setSqlTypes(types)
                 .finish();
-        return dataSet.output(format);
+        dataSet.output(format);
     }
 }
