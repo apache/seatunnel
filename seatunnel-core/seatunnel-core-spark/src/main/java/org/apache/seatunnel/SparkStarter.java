@@ -297,7 +297,8 @@ public class SparkStarter implements Starter {
     }
 
     /**
-     * change file location to get config file on yarn cluster mode
+     * change file location to get config file name on yarn cluster mode
+     * Intercepting file names using regular expressions
      */
     protected void changeFileLocation() {
         if (DeployMode.CLUSTER.getName().equals(this.commandArgs.getDeployMode().getName())) {
