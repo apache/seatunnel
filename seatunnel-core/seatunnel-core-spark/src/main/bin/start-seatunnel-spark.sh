@@ -30,7 +30,7 @@ if [ ${EXIT_CODE} -eq 234 ]; then
     echo ${CMD}
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
-    echo "Execute SeaTunnel Flink Job: ${CMD}"
+    echo "Execute SeaTunnel Spark Job: ${CMD}"
     eval ${CMD}
 else
     echo ${CMD}
