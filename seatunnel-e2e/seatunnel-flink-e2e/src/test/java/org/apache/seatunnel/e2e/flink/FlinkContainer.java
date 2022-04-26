@@ -52,7 +52,7 @@ public abstract class FlinkContainer {
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
-    private static final Path projectRootPath = Paths.get(System.getProperty("user.dir")).getParent().getParent();
+    private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
     private static final String SEATUNNEL_FLINK_JAR = "seatunnel-core-flink.jar";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String FLINK_JAR_PATH = Paths.get("/tmp", "/lib", SEATUNNEL_FLINK_JAR).toString();
@@ -129,18 +129,17 @@ public abstract class FlinkContainer {
     }
 
     protected void copySeaTunnelFlinkFile() {
-        String seatunnelCoreFlinkJarPath = projectRootPath
+        String seatunnelCoreFlinkJarPath = PROJECT_ROOT_PATH
                 + "/seatunnel-core/seatunnel-core-flink/target/seatunnel-core-flink.jar";
         jobManager.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreFlinkJarPath), FLINK_JAR_PATH);
 
         // copy connectors jar
-        File jars = new File(projectRootPath + "/seatunnel-connectors/seatunnel-connectors-flink-list" +
+        File jars = new File(PROJECT_ROOT_PATH + "/seatunnel-connectors/seatunnel-connectors-flink-list" +
                 "/seatunnel-connectors-flink-list-current/target/lib");
-        Arrays.stream(Objects.requireNonNull(jars.listFiles(
-                f -> f.getName().startsWith("seatunnel-connector-flink")))).forEach(jar -> {
-            jobManager.copyFileToContainer(MountableFile.forHostPath(jar.getAbsolutePath()),
-                    getConnectorPath(jar.getName()));
-        });
+        Arrays.stream(Objects.requireNonNull(
+                        jars.listFiles(f -> f.getName().startsWith("seatunnel-connector-flink"))))
+                .forEach(jar -> jobManager.copyFileToContainer(MountableFile.forHostPath(jar.getAbsolutePath()),
+                        getConnectorPath(jar.getName())));
 
         // copy plugin-mapping.properties
         jobManager.copyFileToContainer(MountableFile.forHostPath(Paths.get(CONNECTORS_PATH,
