@@ -54,19 +54,20 @@ public abstract class SparkContainer {
     private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
     private static final String SEATUNNEL_SPARK_JAR = "seatunnel-core-spark.jar";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
-    private static final String SPARK_JAR_PATH = Paths.get("/tmp", "/lib", SEATUNNEL_SPARK_JAR).toString();
-    private static final String CONNECTORS_PATH = Paths.get("/tmp", "/connectors").toString();
+    private static final String SEATUNNEL_HOME = "/tmp/seatunnel";
+    private static final String SPARK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_SPARK_JAR).toString();
+    private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
 
     private static final int WAIT_SPARK_JOB_SUBMIT = 5000;
 
     @Before
     public void before() {
         master = new GenericContainer<>(SPARK_DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases("spark-master")
-                .withExposedPorts()
-                .withEnv("SPARK_MODE", "master")
-                .withLogConsumer(new Slf4jLogConsumer(LOG));
+            .withNetwork(NETWORK)
+            .withNetworkAliases("spark-master")
+            .withExposedPorts()
+            .withEnv("SPARK_MODE", "master")
+            .withLogConsumer(new Slf4jLogConsumer(LOG));
         // In most case we can just use standalone mode to execute a spark job, if we want to use cluster mode, we need to
         // start a worker.
 
@@ -126,18 +127,20 @@ public abstract class SparkContainer {
     protected void copySeaTunnelSparkFile() {
         // copy jar to container
         String seatunnelCoreSparkJarPath = PROJECT_ROOT_PATH
-                + "/seatunnel-core/seatunnel-core-spark/target/seatunnel-core-spark.jar";
+            + "/seatunnel-core/seatunnel-core-spark/target/seatunnel-core-spark.jar";
         master.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreSparkJarPath), SPARK_JAR_PATH);
 
         // copy connectors jar
-        getConnectorJarFiles(PROJECT_ROOT_PATH.toString()).forEach(jar -> {
-            master.copyFileToContainer(MountableFile.forHostPath(jar.getAbsolutePath()),
-                    getConnectorPath(jar.getName()));
-        });
+        getConnectorJarFiles(PROJECT_ROOT_PATH.toString())
+            .forEach(jar ->
+                master.copyFileToContainer(
+                    MountableFile.forHostPath(jar.getAbsolutePath()),
+                    getConnectorPath(jar.getName())));
 
         // copy plugin-mapping.properties
-        master.copyFileToContainer(MountableFile.forHostPath(Paths.get(CONNECTORS_PATH,
-                PLUGIN_MAPPING_FILE)), CONNECTORS_PATH + "/" + PLUGIN_MAPPING_FILE);
+        master.copyFileToContainer(
+            MountableFile.forHostPath(Paths.get(CONNECTORS_PATH, "/seatunnel-connectors/plugin-mapping.properties")),
+            Paths.get(CONNECTORS_PATH, PLUGIN_MAPPING_FILE).toString());
     }
 
     private String getResource(String confFile) {
@@ -145,7 +148,7 @@ public abstract class SparkContainer {
     }
 
     private String getConnectorPath(String fileName) {
-        return CONNECTORS_PATH + "/spark" + "/" + fileName;
+        return Paths.get(SEATUNNEL_HOME, "spark", fileName).toString();
     }
 
     private List<File> getConnectorJarFiles(String prjRootPath) {
