@@ -300,7 +300,7 @@ public class SparkStarter implements Starter {
      * change file location to get config file on yarn cluster mode
      */
     protected void changeFileLocation() {
-        if ( "cluster".equals(this.commandArgs.getDeployMode().getName())) {
+        if ( DeployMode.CLUSTER.getName().equals(this.commandArgs.getDeployMode().getName())) {
             String regEx = ".+/(.+)$";
             Pattern p = Pattern.compile(regEx);
             for (int i = 1; i < args.length; i++) {
