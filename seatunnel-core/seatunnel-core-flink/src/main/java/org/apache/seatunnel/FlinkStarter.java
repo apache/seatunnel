@@ -51,20 +51,9 @@ public class FlinkStarter implements Starter {
      * SeaTunnel flink job jar.
      */
     private final String appJar;
-    private final String runMode;
 
     FlinkStarter(String[] args) {
         this.flinkCommandArgs = parseArgs(args);
-
-        String mode = flinkCommandArgs.getRunMode();
-        switch (mode) {
-            case RUN_MODE_RUN:
-            case RUN_MODE_APPLICATION:
-                this.runMode = mode;
-                break;
-            default:
-                throw new IllegalArgumentException("Run mode " + mode + " not supported");
-        }
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
@@ -105,7 +94,7 @@ public class FlinkStarter implements Starter {
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
         command.add("${FLINK_HOME}/bin/flink");
-        command.add(runMode);
+        command.add(flinkCommandArgs.getRunMode().getMode());
         command.addAll(flinkParams);
         command.add("-c");
         command.add(APP_NAME);
