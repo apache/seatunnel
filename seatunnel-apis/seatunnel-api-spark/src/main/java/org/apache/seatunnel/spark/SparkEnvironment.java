@@ -91,7 +91,9 @@ public class SparkEnvironment implements RuntimeEnv {
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
         LOGGER.info("register plugins :" + pluginPaths);
-        //  this.sparkSession.conf().set("spark.jars",pluginPaths.stream().map(URL::getPath).collect(Collectors.joining(",")));
+        // TODO we use --jar parameter to support submit multi-jar in spark cluster at now. Refactor it to
+        //  support submit multi-jar in code or remove this logic.
+        // this.sparkSession.conf().set("spark.jars",pluginPaths.stream().map(URL::getPath).collect(Collectors.joining(",")));
     }
 
     @Override
