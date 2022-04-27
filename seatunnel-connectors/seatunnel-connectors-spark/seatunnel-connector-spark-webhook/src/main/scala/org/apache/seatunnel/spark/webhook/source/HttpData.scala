@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.spark.webhook.source
 
-import java.util.Date
+import java.sql.Timestamp
 
 /**
  * Streaming data read from local server will have this schema
@@ -25,4 +25,4 @@ import java.util.Date
  * @param value - The payload POSTed to http endpoint.
  * @param timestamp - Timestamp of when it was put on a stream.
  */
-case class HttpData(value: String, timestamp: Date)
+case class HttpData(value: String, timestamp: Timestamp)
