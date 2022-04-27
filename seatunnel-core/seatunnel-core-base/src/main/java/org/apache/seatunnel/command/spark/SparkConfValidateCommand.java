@@ -22,10 +22,12 @@ import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.ConfigBuilder;
 import org.apache.seatunnel.spark.SparkEnvironment;
+import org.apache.seatunnel.utils.FileUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
@@ -37,12 +39,7 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
 
     @Override
     public void execute(SparkCommandArgs sparkCommandArgs) {
-        String confPath;
-        if (DeployMode.CLUSTER.equals(sparkCommandArgs.getDeployMode())) {
-            confPath = Paths.get(sparkCommandArgs.getConfigFile()).getFileName().toString();
-        } else {
-            confPath = sparkCommandArgs.getConfigFile();
-        }
+        Path confPath = FileUtils.getConfigPath(sparkCommandArgs);
         new ConfigBuilder<SparkEnvironment>(confPath, sparkCommandArgs.getEngineType()).checkConfig();
         LOGGER.info("config OK !");
     }

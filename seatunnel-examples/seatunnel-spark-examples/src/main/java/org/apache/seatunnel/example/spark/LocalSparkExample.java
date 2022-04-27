@@ -31,7 +31,7 @@ public class LocalSparkExample {
         sparkArgs.setConfigFile(configFile);
         sparkArgs.setCheckConfig(false);
         sparkArgs.setVariables(null);
-        sparkArgs.setDeployMode(DeployMode.CLIENT.getName());
+        sparkArgs.setDeployMode(DeployMode.CLIENT);
         Seatunnel.run(sparkArgs);
     }
 
