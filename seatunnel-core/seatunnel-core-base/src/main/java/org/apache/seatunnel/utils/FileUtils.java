@@ -25,13 +25,17 @@ import java.nio.file.Paths;
 
 public class FileUtils {
 
+    private FileUtils() {
+        throw new UnsupportedOperationException("This class cannot be instantiated");
+    }
+
     /**
      * Get the seatunnel config path.
      * In client mode, the path to the config file is directly given by user.
      * In cluster mode, the path to the config file is the `executor path/config file name`.
      *
-     * @param args
-     * @return
+     * @param args args
+     * @return path of the seatunnel config file.
      */
     public static Path getConfigPath(AbstractCommandArgs args) {
         checkNotNull(args, "args");

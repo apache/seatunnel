@@ -19,7 +19,6 @@ package org.apache.seatunnel.command.spark;
 
 import org.apache.seatunnel.command.Command;
 import org.apache.seatunnel.command.SparkCommandArgs;
-import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.ConfigBuilder;
 import org.apache.seatunnel.spark.SparkEnvironment;
 import org.apache.seatunnel.utils.FileUtils;
@@ -28,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * Used to validate the spark task conf is validated.
