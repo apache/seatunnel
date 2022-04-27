@@ -56,6 +56,13 @@ const sidebars = {
     },
     {
       type: 'category',
+      label: 'Basic Concept',
+      items: [
+        'concept/config',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Quick Start',
       link: {
         type: 'generated-index',
@@ -68,8 +75,7 @@ const sidebars = {
       items: [
         'start/local',
         'start/docker',
-        'start/kubernetes',
-        'start/config'
+        'start/kubernetes'
       ],
     },
     {
