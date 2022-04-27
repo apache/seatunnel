@@ -72,7 +72,11 @@
     </mailingLists>
 
     <modules>
-        <module>seatunnel-config</module>
+        <!--
+            We retrieve the config module from maven repository. If you want to change the config module,
+            you need to open this annotation and change the dependency of config-shade to project.
+            <module>seatunnel-config</module>
+        -->
         <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
@@ -85,6 +89,7 @@
 
     <properties>
         <revision>2.1.1-SNAPSHOT</revision>
+        <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
         <scala.version>2.11.12</scala.version>
@@ -168,6 +173,11 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-config-shade</artifactId>
+                <version>${seatunnel.config.shade.version}</version>
+            </dependency>
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>
