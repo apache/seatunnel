@@ -19,14 +19,17 @@ package org.apache.seatunnel.command;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.config.EngineType;
+import org.apache.seatunnel.config.FlinkRunMode;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
     @Parameter(names = {"-r", "--run-mode"},
+        converter = RunModeConverter.class,
         description = "job run mode, run or run-application")
-    private String runMode = "run";
+    private FlinkRunMode runMode = FlinkRunMode.RUN;
 
     @Override
     public EngineType getEngineType() {
@@ -38,11 +41,33 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         return DeployMode.CLIENT;
     }
 
-    public String getRunMode() {
+    public FlinkRunMode getRunMode() {
         return runMode;
     }
 
-    public void setRunMode(String runMode) {
+    public void setRunMode(FlinkRunMode runMode) {
         this.runMode = runMode;
     }
+
+    /**
+     * Used to convert the run mode string to the enum value.
+     */
+    private static class RunModeConverter implements IStringConverter<FlinkRunMode> {
+        /**
+         * If the '-r' is not set, then will not go into this convert method.
+         *
+         * @param value input value set by '-r' or '--run-mode'
+         * @return flink run mode enum value
+         */
+        @Override
+        public FlinkRunMode convert(String value) {
+            for (FlinkRunMode flinkRunMode : FlinkRunMode.values()) {
+                if (flinkRunMode.getMode().equalsIgnoreCase(value)) {
+                    return flinkRunMode;
+                }
+            }
+            throw new IllegalArgumentException(String.format("Run mode %s not supported", value));
+        }
+    }
+
 }
