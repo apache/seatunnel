@@ -97,7 +97,7 @@ public final class CompressionUtils {
      * @throws FileNotFoundException file not found exception
      * @throws ArchiveException      archive exception
      */
-    public static void unTar(final File inputFile, final File outputDir) throws  IOException, ArchiveException {
+    public static void unTar(final File inputFile, final File outputDir) throws IOException, ArchiveException {
 
         LOGGER.info("Untaring {} to dir {}.", inputFile.getAbsolutePath(), outputDir.getAbsolutePath());
 
