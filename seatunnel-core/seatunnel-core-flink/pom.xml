@@ -71,6 +71,11 @@
             <artifactId>seatunnel-transform-flink-datastream2table</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transform-flink-replace</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>junit</groupId>
