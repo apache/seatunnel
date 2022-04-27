@@ -194,6 +194,12 @@
             <artifactId>seatunnel-transform-spark-json</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transform-spark-replace</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

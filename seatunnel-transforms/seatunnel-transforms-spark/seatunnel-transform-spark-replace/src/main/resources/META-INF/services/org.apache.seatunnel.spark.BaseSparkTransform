@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.transform.Sql
+org.apache.seatunnel.spark.transform.Replace
