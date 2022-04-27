@@ -104,7 +104,6 @@ public class FlinkStarter implements Starter {
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
-
         // set System properties
         flinkCommandArgs.getVariables().stream()
             .filter(Objects::nonNull)
