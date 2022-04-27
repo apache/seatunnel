@@ -55,7 +55,7 @@ public abstract class FlinkContainer {
     private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
     private static final String SEATUNNEL_FLINK_JAR = "seatunnel-core-flink.jar";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
-    private static final String SEATUNNEL_HOME = "/tmp/seatunnel";
+    private static final String SEATUNNEL_HOME = "/tmp/flink/seatunnel";
     private static final String FLINK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_FLINK_JAR).toString();
     private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
 
