@@ -15,27 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.spark;
+package org.apache.seatunnel.utils;
 
-import org.apache.seatunnel.Seatunnel;
 import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.common.config.DeployMode;
 
-public class LocalSparkExample {
+import org.junit.Assert;
+import org.junit.Test;
 
-    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-spark-examples/src/main/resources/examples/";
+import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-    public static void main(String[] args) {
-        String configFile = getTestConfigFile("spark.batch.conf");
-        SparkCommandArgs sparkArgs = new SparkCommandArgs();
-        sparkArgs.setConfigFile(configFile);
-        sparkArgs.setCheckConfig(false);
-        sparkArgs.setVariables(null);
-        sparkArgs.setDeployMode(DeployMode.CLIENT);
-        Seatunnel.run(sparkArgs);
-    }
+public class FileUtilsTest {
 
-    public static String getTestConfigFile(String configFile) {
-        return System.getProperty("user.dir") + TEST_RESOURCE_DIR + configFile;
+    @Test
+    public void getConfigPath() throws URISyntaxException {
+        // test client mode.
+        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
+        sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
+        Path expectConfPath = Paths.get(FileUtilsTest.class.getResource("/flink.batch.conf").toURI());
+        sparkCommandArgs.setConfigFile(expectConfPath.toString());
+        Assert.assertEquals(expectConfPath, FileUtils.getConfigPath(sparkCommandArgs));
+
+        // test cluster mode
+        sparkCommandArgs.setDeployMode(DeployMode.CLUSTER);
+        Assert.assertEquals("flink.batch.conf", FileUtils.getConfigPath(sparkCommandArgs).toString());
     }
 }
