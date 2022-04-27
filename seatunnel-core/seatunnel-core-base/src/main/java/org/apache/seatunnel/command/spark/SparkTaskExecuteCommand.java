@@ -28,9 +28,11 @@ import org.apache.seatunnel.config.ExecutionContext;
 import org.apache.seatunnel.config.ExecutionFactory;
 import org.apache.seatunnel.env.Execution;
 import org.apache.seatunnel.spark.SparkEnvironment;
+import org.apache.seatunnel.utils.FileUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import java.nio.file.Path;
 import java.util.List;
 
 public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommandArgs, SparkEnvironment> {
@@ -38,7 +40,7 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
     @Override
     public void execute(SparkCommandArgs sparkCommandArgs) {
         EngineType engine = sparkCommandArgs.getEngineType();
-        String confFile = sparkCommandArgs.getConfigFile();
+        Path confFile = FileUtils.getConfigPath(sparkCommandArgs);
 
         Config config = new ConfigBuilder<>(confFile, engine).getConfig();
         ExecutionContext<SparkEnvironment> executionContext = new ExecutionContext<>(config, engine);

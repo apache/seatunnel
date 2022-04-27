@@ -28,7 +28,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
+import java.nio.file.Path;
 
 /**
  * Used to build the {@link  Config} from file.
@@ -40,11 +40,11 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
     private static final String PLUGIN_NAME_KEY = "plugin_name";
-    private final String configFile;
+    private final Path configFile;
     private final EngineType engine;
     private final Config config;
 
-    public ConfigBuilder(String configFile, EngineType engine) {
+    public ConfigBuilder(Path configFile, EngineType engine) {
         this.configFile = configFile;
         this.engine = engine;
         this.config = load();
@@ -52,7 +52,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
 
     private Config load() {
 
-        if (configFile.isEmpty()) {
+        if (configFile == null) {
             throw new ConfigRuntimeException("Please specify config file");
         }
 
@@ -61,7 +61,7 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         // variables substitution / variables resolution order:
         // config file --> system environment --> java properties
         Config config = ConfigFactory
-            .parseFile(new File(configFile))
+            .parseFile(configFile.toFile())
             .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
             .resolveWith(ConfigFactory.systemProperties(),
                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
