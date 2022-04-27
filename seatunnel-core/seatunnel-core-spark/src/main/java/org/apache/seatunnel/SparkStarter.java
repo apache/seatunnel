@@ -23,6 +23,10 @@ import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.config.ConfigBuilder;
+import org.apache.seatunnel.config.EngineType;
+import org.apache.seatunnel.config.PluginFactory;
+import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.utils.CompressionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -123,10 +127,10 @@ public class SparkStarter implements Starter {
     private static SparkCommandArgs parseCommandArgs(String[] args) {
         SparkCommandArgs commandArgs = new SparkCommandArgs();
         JCommander commander = JCommander.newBuilder()
-            .programName("start-seatunnel-spark.sh")
-            .addObject(commandArgs)
-            .args(args)
-            .build();
+                .programName("start-seatunnel-spark.sh")
+                .addObject(commandArgs)
+                .args(args)
+                .build();
         if (commandArgs.isHelp()) {
             commander.usage();
             System.exit(USAGE_EXIT_CODE);
@@ -137,8 +141,10 @@ public class SparkStarter implements Starter {
     @Override
     public List<String> buildCommands() throws IOException {
         setSparkConf();
+        Common.setDeployMode(commandArgs.getDeployMode().getName());
         this.jars.addAll(getPluginsJarDependencies());
         this.jars.addAll(listJars(Common.appLibDir()));
+        this.jars.addAll(getConnectorJarDependencies());
         this.appName = this.sparkConf.getOrDefault("spark.app.name", Constants.LOGO);
         return buildFinal();
     }
@@ -148,19 +154,19 @@ public class SparkStarter implements Starter {
      */
     private void setSparkConf() throws FileNotFoundException {
         commandArgs.getVariables()
-            .stream()
-            .filter(Objects::nonNull)
-            .map(variable -> variable.split("=", 2))
-            .filter(pair -> pair.length == 2)
-            .forEach(pair -> System.setProperty(pair[0], pair[1]));
+                .stream()
+                .filter(Objects::nonNull)
+                .map(variable -> variable.split("=", 2))
+                .filter(pair -> pair.length == 2)
+                .forEach(pair -> System.setProperty(pair[0], pair[1]));
         this.sparkConf = getSparkConf(commandArgs.getConfigFile());
         String driverJavaOpts = this.sparkConf.get("spark.driver.extraJavaOptions");
         String executorJavaOpts = this.sparkConf.get("spark.executor.extraJavaOptions");
         if (!commandArgs.getVariables().isEmpty()) {
             String properties = commandArgs.getVariables()
-                .stream()
-                .map(v -> "-D" + v)
-                .collect(Collectors.joining(" "));
+                    .stream()
+                    .map(v -> "-D" + v)
+                    .collect(Collectors.joining(" "));
             driverJavaOpts += " " + properties;
             executorJavaOpts += " " + properties;
             this.sparkConf.put("spark.driver.extraJavaOptions", driverJavaOpts);
@@ -177,31 +183,43 @@ public class SparkStarter implements Starter {
             throw new FileNotFoundException("config file '" + file + "' does not exists!");
         }
         Config appConfig = ConfigFactory.parseFile(file)
-            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         return appConfig.getConfig("env")
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
     }
 
     /**
      * return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'.
      */
     private List<Path> getPluginsJarDependencies() throws IOException {
-        Common.setDeployMode(commandArgs.getDeployMode().getName());
         Path pluginRootDir = Common.pluginRootDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
         try (Stream<Path> stream = Files.walk(pluginRootDir, PLUGIN_LIB_DIR_DEPTH, FOLLOW_LINKS)) {
             return stream
-                .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
-                .filter(it -> it.getParent().endsWith("lib"))
-                .filter(it -> it.getFileName().endsWith("jar"))
-                .collect(Collectors.toList());
+                    .filter(it -> pluginRootDir.relativize(it).getNameCount() == PLUGIN_LIB_DIR_DEPTH)
+                    .filter(it -> it.getParent().endsWith("lib"))
+                    .filter(it -> it.getFileName().endsWith("jar"))
+                    .collect(Collectors.toList());
         }
+    }
+
+    /**
+     * return connector's jars, which located in 'connectors/spark/*'.
+     */
+    private List<Path> getConnectorJarDependencies() {
+        Path pluginRootDir = Common.connectorJarDir("SPARK");
+        if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
+            return Collections.emptyList();
+        }
+        Config config = new ConfigBuilder<>(Paths.get(commandArgs.getConfigFile()), EngineType.SPARK).getConfig();
+        PluginFactory<RuntimeEnv> pluginFactory = new PluginFactory<>(config, EngineType.SPARK);
+        return pluginFactory.getPluginJarPaths().stream().map(url -> new File(url.getPath()).toPath()).collect(Collectors.toList());
     }
 
     /**
@@ -262,8 +280,8 @@ public class SparkStarter implements Starter {
     protected void appendPaths(List<String> commands, String option, List<Path> paths) {
         if (!paths.isEmpty()) {
             String values = paths.stream()
-                .map(Path::toString)
-                .collect(Collectors.joining(","));
+                    .map(Path::toString)
+                    .collect(Collectors.joining(","));
             appendOption(commands, option, values);
         }
     }

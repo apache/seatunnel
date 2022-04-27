@@ -15,25 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.fake;
+package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+import java.lang.reflect.Method;
+import java.util.Optional;
 
-import org.junit.Assert;
-import org.testcontainers.containers.Container;
+public class ReflectionUtils {
 
-import java.io.IOException;
+    public static Optional<Method> getDeclaredMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
 
-/**
- * This test case is used to verify that the http source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
- */
-public class HttpSourceToConsoleIT extends SparkContainer {
+        Optional<Method> method = Optional.empty();
+        Method m;
+        for (; clazz != Object.class; clazz = clazz.getSuperclass()) {
+            try {
+                m = clazz.getDeclaredMethod(methodName, parameterTypes);
+                m.setAccessible(true);
+                return Optional.of(m);
+            } catch (NoSuchMethodException e) {
+                // do nothing
+            }
+        }
 
-    public void testHttpSourceToConsoleSine() throws IOException, InterruptedException {
-        // skip this test case, since there exist some problem to run streaming in e2e
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/http/httpsource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        return method;
     }
 
 }

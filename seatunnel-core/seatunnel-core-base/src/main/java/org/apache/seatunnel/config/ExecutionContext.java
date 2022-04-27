@@ -49,6 +49,7 @@ public class ExecutionContext<ENVIRONMENT extends RuntimeEnv> {
         this.environment = new EnvironmentFactory<ENVIRONMENT>(config, engine).getEnvironment();
         this.jobMode = environment.getJobMode();
         PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine);
+        this.environment.registerPlugin(pluginFactory.getPluginJarPaths());
         this.sources = pluginFactory.createPlugins(PluginType.SOURCE);
         this.transforms = pluginFactory.createPlugins(PluginType.TRANSFORM);
         this.sinks = pluginFactory.createPlugins(PluginType.SINK);

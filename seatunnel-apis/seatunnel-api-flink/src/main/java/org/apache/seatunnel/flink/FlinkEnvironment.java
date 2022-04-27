@@ -19,6 +19,7 @@ package org.apache.seatunnel.flink;
 
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.env.RuntimeEnv;
 import org.apache.seatunnel.flink.util.ConfigKeyName;
 import org.apache.seatunnel.flink.util.EnvironmentUtil;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
@@ -41,6 +44,12 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class FlinkEnvironment implements RuntimeEnv {
 
@@ -108,6 +117,36 @@ public class FlinkEnvironment implements RuntimeEnv {
     @Override
     public JobMode getJobMode() {
         return jobMode;
+    }
+
+    @Override
+    public void registerPlugin(List<URL> pluginPaths) {
+        LOGGER.info("register plugins :" + pluginPaths);
+        Configuration configuration;
+        try {
+            if (isStreaming()) {
+                configuration =
+                        (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
+                                "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
+                                "method: getConfiguration")).invoke(this.environment);
+            } else {
+                configuration = batchEnvironment.getConfiguration();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        List<String> jars = configuration.get(PipelineOptions.JARS);
+        if (jars == null) {
+            jars = new ArrayList<>();
+        }
+        jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+        configuration.set(PipelineOptions.JARS, jars);
+        List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
+        if (classpath == null) {
+            classpath = new ArrayList<>();
+        }
+        classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+        configuration.set(PipelineOptions.CLASSPATHS, classpath);
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
