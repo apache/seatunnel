@@ -24,12 +24,13 @@ if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
 fi
 
-CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.SparkStarter ${@}) && EXIT_CODE=$? || EXIT_CODE=$?
+CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.SparkStarter ${@} | tail -n 1) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo ${CMD}
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
+    echo "Execute SeaTunnel Spark Job: ${CMD}"
     eval ${CMD}
 else
     echo ${CMD}

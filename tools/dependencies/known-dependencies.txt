@@ -628,6 +628,8 @@ scala-xml_2.11-1.0.5.jar
 scala-xml_2.11-1.3.0.jar
 scalaj-http_2.11-2.3.0.jar
 scalap-2.11.12.jar
+seatunnel-config-base-2.1.1.jar
+seatunnel-config-shade-2.1.1.jar
 servlet-api-2.5.jar
 shims-0.9.0.jar
 shims-0.9.22.jar

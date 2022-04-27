@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.command;
 
-import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
 
-import com.beust.jcommander.IParameterValidator;
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
 
-public class DeployModeValidator implements IParameterValidator {
+import java.util.Optional;
+
+public class DeployModeConverter implements IStringConverter<DeployMode> {
+
     @Override
-    public void validate(String name, String value)
-        throws ParameterException {
-        if (!Common.isModeAllowed(value)) {
-            throw new ParameterException("deploy-mode: " + value + " is not allowed.");
-        }
+    public DeployMode convert(String value) {
+        Optional<DeployMode> deployMode = DeployMode.from(value);
+        return deployMode.orElseThrow(() -> new ParameterException("deploy-mode: " + value + " is not allowed."));
     }
 }

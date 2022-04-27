@@ -27,18 +27,13 @@ public class SparkCommandArgs extends AbstractCommandArgs {
     @Parameter(names = {"-e", "--deploy-mode"},
         description = "Spark deploy mode",
         required = true,
-        validateWith = DeployModeValidator.class)
-    private String deployMode;
+        converter = DeployModeConverter.class)
+    private DeployMode deployMode;
 
     @Parameter(names = {"-m", "--master"},
         description = "Spark master",
         required = true)
     private String master = null;
-
-    @Override
-    public DeployMode getDeployMode() {
-        return DeployMode.from(deployMode);
-    }
 
     public String getMaster() {
         return master;
@@ -49,7 +44,12 @@ public class SparkCommandArgs extends AbstractCommandArgs {
         return EngineType.SPARK;
     }
 
-    public void setDeployMode(String deployMode) {
+    @Override
+    public DeployMode getDeployMode() {
+        return deployMode;
+    }
+
+    public void setDeployMode(DeployMode deployMode) {
         this.deployMode = deployMode;
     }
 

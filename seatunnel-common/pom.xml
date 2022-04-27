@@ -32,7 +32,6 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-config-shade</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <dependency>
@@ -55,6 +54,5 @@
             <artifactId>junit</artifactId>
         </dependency>
     </dependencies>
-
 
 </project>
