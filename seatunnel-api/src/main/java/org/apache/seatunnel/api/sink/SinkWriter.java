@@ -17,5 +17,47 @@
 
 package org.apache.seatunnel.api.sink;
 
-public interface SinkWriter {
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+public interface SinkWriter<T, StateT> {
+    void write(T element) throws IOException, InterruptedException;
+
+    /**
+     * @return The writer's state.
+     * @throws IOException if fail to snapshot writer's state.
+     * @deprecated implement {@link #snapshotState(long)}
+     */
+    default List<StateT> snapshotState() throws IOException {
+        return Collections.emptyList();
+    }
+
+    /**
+     * @return The writer's state.
+     * @throws IOException if fail to snapshot writer's state.
+     */
+    default List<StateT> snapshotState(long checkpointId) throws IOException {
+        return snapshotState();
+    }
+
+    interface Context {
+
+        /**
+         * Gets the configuration with which Flink was started.
+         */
+        Map<String, String> getConfiguration();
+
+        /**
+         * @return The index of this subtask.
+         */
+        int getIndexOfSubtask();
+
+        /**
+         * @return The number of parallel Sink tasks.
+         */
+        int getNumberOfParallelSubtasks();
+
+    }
 }

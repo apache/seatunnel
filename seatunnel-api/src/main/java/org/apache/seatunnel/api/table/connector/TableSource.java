@@ -21,5 +21,5 @@ import org.apache.seatunnel.api.source.Source;
 
 public interface TableSource {
 
-    Source<?,?,?> createSource();
+    Source<?, ?, ?> createSource();
 }

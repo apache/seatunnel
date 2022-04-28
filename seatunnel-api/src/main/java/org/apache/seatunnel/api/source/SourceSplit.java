@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.api.source;
 
-/** An interface for all the Split types to extend. */
+/**
+ * An interface for all the Split types to extend.
+ */
 public interface SourceSplit {
 
     /**

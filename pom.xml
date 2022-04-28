@@ -86,6 +86,7 @@
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
         <module>seatunnel-api</module>
+        <module>seatunnel-translation</module>
     </modules>
 
     <properties>

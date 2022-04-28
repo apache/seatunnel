@@ -17,12 +17,8 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
+public interface Factory {
 
-import java.util.List;
-import java.util.Map;
-
-public interface TableFactory {
     /**
      * Returns a unique identifier among same factory interfaces.
      *
@@ -31,22 +27,4 @@ public interface TableFactory {
      * using "-" (e.g. {@code elasticsearch-7}).
      */
     String factoryIdentifier();
-
-    /** Provides information describing the multi-table to be accessed. */
-    interface Context {
-
-        ClassLoader getClassLoader();
-
-        /**
-         * Returns a list of tables that need to be processed.
-         *
-         * <p> By default, return only single table.
-         *
-         * <p> If you need multiple tables, implement {@link SupportMultipleTable}.
-         */
-        List<CatalogTable> getCatalogTable();
-
-        /** Gives read-only access to the configuration of the current session. */
-        Map<String, String> getOptions();
-    }
 }

@@ -30,7 +30,7 @@ public interface SupportMultipleTable {
     /**
      * A connector can pick tables and return the accepted and remaining tables.
      */
-    Result applyTables(TableFactory.Context context);
+    Result applyTables(TableFactoryContext context);
 
     final class Result {
         private final List<CatalogTable> acceptedTables;

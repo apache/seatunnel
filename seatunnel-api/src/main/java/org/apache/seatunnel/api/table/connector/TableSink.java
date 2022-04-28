@@ -21,5 +21,5 @@ import org.apache.seatunnel.api.sink.Sink;
 
 public interface TableSink {
 
-    Sink<?> createSink();
+    Sink<?, ?, ?, ?> createSink();
 }

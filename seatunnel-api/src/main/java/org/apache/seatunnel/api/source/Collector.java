@@ -17,5 +17,8 @@
 
 package org.apache.seatunnel.api.source;
 
-public interface Collector {
+public interface Collector<T> {
+
+    void collect(T record);
+
 }

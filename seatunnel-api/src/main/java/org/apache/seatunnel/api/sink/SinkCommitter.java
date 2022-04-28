@@ -17,5 +17,14 @@
 
 package org.apache.seatunnel.api.sink;
 
-public interface SinkCommitter {
+import java.io.IOException;
+import java.util.List;
+
+public interface SinkCommitter<CommitInfoT> {
+
+    List<CommitInfoT> prepareCommit(boolean flush) throws IOException, InterruptedException;
+
+    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException, InterruptedException;
+
+    void abort() throws Exception;
 }

@@ -17,6 +17,7 @@
  */
 
 package org.apache.seatunnel.api.table.catalog;
+
 import org.apache.seatunnel.api.table.type.DataType;
 
 import java.util.Objects;
@@ -36,7 +37,9 @@ public abstract class Column {
         this.comment = comment;
     }
 
-    /** Creates a regular table column that represents physical data. */
+    /**
+     * Creates a regular table column that represents physical data.
+     */
     public static PhysicalColumn physical(String name, DataType dataType) {
         return new PhysicalColumn(name, dataType);
     }
@@ -52,8 +55,10 @@ public abstract class Column {
         return new MetadataColumn(name, dataType, metadataKey);
     }
 
-    /** Add the comment to the column and return the new object. */
-    public abstract Column withComment( String comment);
+    /**
+     * Add the comment to the column and return the new object.
+     */
+    public abstract Column withComment(String comment);
 
     /**
      * Returns whether the given column is a physical column of a table; neither computed nor
@@ -61,22 +66,30 @@ public abstract class Column {
      */
     public abstract boolean isPhysical();
 
-    /** Returns the data type of this column. */
+    /**
+     * Returns the data type of this column.
+     */
     public DataType getDataType() {
         return this.dataType;
     }
 
-    /** Returns the name of this column. */
+    /**
+     * Returns the name of this column.
+     */
     public String getName() {
         return name;
     }
 
-    /** Returns the comment of this column. */
+    /**
+     * Returns the comment of this column.
+     */
     public Optional<String> getComment() {
         return Optional.ofNullable(comment);
     }
 
-    /** Returns a copy of the column with a replaced {@link DataType}. */
+    /**
+     * Returns a copy of the column with a replaced {@link DataType}.
+     */
     public abstract Column copy(DataType newType);
 
     @Override
@@ -102,7 +115,9 @@ public abstract class Column {
     // Specific kinds of columns
     // --------------------------------------------------------------------------------------------
 
-    /** Representation of a physical column. */
+    /**
+     * Representation of a physical column.
+     */
     public static final class PhysicalColumn extends Column {
 
         private PhysicalColumn(String name, DataType dataType) {
@@ -132,7 +147,9 @@ public abstract class Column {
         }
     }
 
-    /** Representation of a metadata column. */
+    /**
+     * Representation of a metadata column.
+     */
     public static final class MetadataColumn extends Column {
 
         private final String metadataKey;
@@ -156,7 +173,7 @@ public abstract class Column {
         }
 
         @Override
-        public MetadataColumn withComment( String comment) {
+        public MetadataColumn withComment(String comment) {
             if (comment == null) {
                 return this;
             }

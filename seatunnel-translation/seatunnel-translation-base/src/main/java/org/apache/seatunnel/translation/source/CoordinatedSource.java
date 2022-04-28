@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.state;
+package org.apache.seatunnel.translation.source;
 
-public interface StatefulOperator {
+public class CoordinatedSource {
+
 }
