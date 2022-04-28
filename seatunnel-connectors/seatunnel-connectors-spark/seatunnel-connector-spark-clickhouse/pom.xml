@@ -33,6 +33,7 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api-spark</artifactId>
+            <scope>provided</scope>
             <version>${project.version}</version>
         </dependency>
         <dependency>
