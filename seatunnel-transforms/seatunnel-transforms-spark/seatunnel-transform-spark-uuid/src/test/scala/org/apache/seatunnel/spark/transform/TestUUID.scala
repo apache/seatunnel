@@ -17,21 +17,29 @@
 
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.{Dataset, Row}
+import java.security.SecureRandom
 
-class Sql extends BaseSparkTransform {
+import junit.framework.TestCase.assertEquals
+import org.apache.commons.math3.random.Well19937c
+import org.junit.Test
 
-  override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    env.getSparkSession.sql(config.getString("sql"))
+class TestUUID {
+  @Test
+  def testUuid() {
+    val UUID = new UUID
+    assertEquals(36, UUID.generate("").length)
+    assertEquals(37, UUID.generate("u").length)
   }
 
-  override def checkConfig(): CheckResult = {
-    checkAllExists(config, "sql")
+  @Test
+  def testSecureUuid() {
+    val rand = new SecureRandom
+    val seed = for (_ <- 0 until 728) yield rand.nextInt
+    val prng = new Well19937c(seed.toArray)
+
+    val UUID = new UUID
+    UUID.setPrng(prng)
+    assertEquals(36, UUID.generate("").length)
+    assertEquals(37, UUID.generate("u").length)
   }
-
-  override def getPluginName: String = "sql"
-
 }

@@ -17,21 +17,14 @@
 
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.{Dataset, Row}
+object JsonConfig {
+  val PLUGIN_NAME = "json"
 
-class Sql extends BaseSparkTransform {
-
-  override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    env.getSparkSession.sql(config.getString("sql"))
-  }
-
-  override def checkConfig(): CheckResult = {
-    checkAllExists(config, "sql")
-  }
-
-  override def getPluginName: String = "sql"
-
+  val FIELDS = "fields"
+  val SOURCE_FILED = "source_field"
+  val DEFAULT_SOURCE_FILED = "raw_message"
+  val TARGET_FILED = "target_field"
+  val SCHEMA_DIR = "schema_dir"
+  val SCHEMA_FILE = "schema_file"
+  val DEFAULT_SCHEMA_FILE = ""
 }

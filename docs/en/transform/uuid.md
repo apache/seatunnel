@@ -1,4 +1,4 @@
-# Uuid
+# UUID
 
 ## Description
 
@@ -38,7 +38,7 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 ## Examples
 
 ```bash
-  uuid {
+  UUID {
     fields = "u"
     prefix = "uuid-"
     secure = true
@@ -46,10 +46,10 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 }
 ```
 
-Use `Uuid` as udf in sql.
+Use `UUID` as udf in sql.
 
 ```bash
-  Uuid {
+  UUID {
     fields = "u"
     prefix = "uuid-"
     secure = true
@@ -57,6 +57,6 @@ Use `Uuid` as udf in sql.
 
   # Use the uuid function (confirm that the fake table exists)
   sql {
-    sql = "select * from (select raw_message, uuid() as info_row from fake) t1"
+    sql = "select * from (select raw_message, UUID() as info_row from fake) t1"
   }
 ```

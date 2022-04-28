@@ -14,31 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.spark.transform
 
-import java.security.SecureRandom
+object UUIDConfig {
+  val PLUGIN_NAME = "UUID"
+  val UDF_NAME = PLUGIN_NAME
 
-import junit.framework.TestCase.assertEquals
-import org.apache.commons.math3.random.Well19937c
-import org.junit.Test
-
-class TestUuid {
-  @Test
-  def testUuid() {
-    val uuid = new Uuid
-    assertEquals(36, uuid.generate("").length)
-    assertEquals(37, uuid.generate("u").length)
-  }
-
-  @Test
-  def testSecureUuid() {
-    val rand = new SecureRandom
-    val seed = for (_ <- 0 until 728) yield rand.nextInt
-    val prng = new Well19937c(seed.toArray)
-
-    val uuid = new Uuid
-    uuid.setPrng(prng)
-    assertEquals(36, uuid.generate("").length)
-    assertEquals(37, uuid.generate("u").length)
-  }
+  val FIELDS = "fields"
+  val DEFAULT_SOURCE_FILED = "raw_message"
+  val UUID_PREFIX = "prefix"
+  val DEFAULT_UUID_PREFIX = ""
+  val UUID_SECURE = "secure"
+  val DEFAULT_UUID_SECURE = false
 }
