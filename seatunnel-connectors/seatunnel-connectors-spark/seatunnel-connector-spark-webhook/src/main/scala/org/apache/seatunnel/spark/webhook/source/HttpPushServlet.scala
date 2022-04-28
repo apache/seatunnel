@@ -27,8 +27,7 @@ class HttpPushServlet(stream: MemoryStream[HttpData]) extends HttpServlet {
 
   override def doPost(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
     val resBody = Source.fromInputStream(req.getInputStream).mkString
-    val timestamp = new Timestamp(System.currentTimeMillis())
-    stream.addData(HttpData(resBody, timestamp))
+    stream.addData(HttpData(resBody, System.currentTimeMillis()))
 
     resp.setContentType("application/json;charset=utf-8")
     resp.setStatus(HttpServletResponse.SC_OK)
