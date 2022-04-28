@@ -37,7 +37,6 @@ public class TableFactoryContext {
         this.classLoader = classLoader;
     }
 
-
     public ClassLoader getClassLoader() {
         return this.classLoader;
     }

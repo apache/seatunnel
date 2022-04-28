@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.state.CheckpointListener;
+import org.apache.seatunnel.common.constants.CollectionConstants;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,7 +65,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
          * @param subtask The index of the operator's parallel subtask that shall receive the split.
          */
         default void assignSplit(SplitT split, int subtask) {
-            Map<Integer, List<SplitT>> splits = new HashMap<>();
+            Map<Integer, List<SplitT>> splits = new HashMap<>(CollectionConstants.MAP_SIZE);
             splits.put(subtask, Collections.singletonList(split));
             assignSplits(splits);
         }
