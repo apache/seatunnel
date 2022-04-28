@@ -177,10 +177,10 @@ public class JdbcSource implements FlinkBatchSource {
             String where = matcher.group(Integer.parseInt("3"));
             if (where != null && where.trim().toLowerCase().startsWith("where")) {
                 // contain where
-                return query + " AND \"" + column + "\" BETWEEN ? AND ?";
+                return query + " AND `" + column + "` BETWEEN ? AND ?";
             } else {
                 // not contain where
-                return query + " WHERE \"" + column + "\" BETWEEN ? AND ?";
+                return query + " WHERE `" + column + "` BETWEEN ? AND ?";
             }
         } else {
             throw new IllegalArgumentException("sql statement format is incorrect :" + query);
