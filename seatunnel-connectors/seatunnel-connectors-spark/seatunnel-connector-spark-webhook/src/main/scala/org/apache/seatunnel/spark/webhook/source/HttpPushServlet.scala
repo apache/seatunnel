@@ -17,18 +17,17 @@
 
 package org.apache.seatunnel.spark.webhook.source
 
-import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
-import scala.io.Source
 import org.apache.spark.sql.execution.streaming.MemoryStream
 
-import java.util.Date
+import java.sql.Timestamp
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
+import scala.io.Source
 
 class HttpPushServlet(stream: MemoryStream[HttpData]) extends HttpServlet {
 
   override def doPost(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
     val resBody = Source.fromInputStream(req.getInputStream).mkString
-    val timestamp = new Date(System.currentTimeMillis())
-    stream.addData(HttpData(resBody, timestamp))
+    stream.addData(HttpData(resBody, System.currentTimeMillis()))
 
     resp.setContentType("application/json;charset=utf-8")
     resp.setStatus(HttpServletResponse.SC_OK)

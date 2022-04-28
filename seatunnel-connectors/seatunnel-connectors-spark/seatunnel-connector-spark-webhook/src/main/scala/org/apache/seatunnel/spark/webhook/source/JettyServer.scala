@@ -22,7 +22,7 @@ import org.apache.spark.sql.execution.streaming.MemoryStream
 import org.spark_project.jetty.server.Server
 import org.spark_project.jetty.servlet.{ServletContextHandler, ServletHolder}
 
-class JettyServerStream(port: Int = 9999, baseUrl: String = "/") {
+class JettyServer(port: Int = 9999, baseUrl: String = "/") {
 
   // Create server
   var server: Server = new Server(port)
