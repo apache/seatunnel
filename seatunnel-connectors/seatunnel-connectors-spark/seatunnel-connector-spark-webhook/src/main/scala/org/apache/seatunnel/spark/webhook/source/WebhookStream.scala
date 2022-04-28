@@ -23,7 +23,10 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row, SparkSession, SQLContext}
 import org.apache.spark.streaming.dstream.DStream
 
-class Webhook extends SparkStreamingSource[String] {
+class WebhookStream extends SparkStreamingSource[String] {
+
+  // Create server
+  var server: JettyServer = null
 
   override def start(env: SparkEnvironment, handler: Dataset[Row] => Unit): Unit = {
     var spark = env.getSparkSession
@@ -33,7 +36,8 @@ class Webhook extends SparkStreamingSource[String] {
     var port = if (config.hasPath("port")) config.getInt("port") else 9999
     var baseUrl = if (config.hasPath("path")) config.getString("path") else "/"
 
-    val query = new JettyServerStream(port, baseUrl)
+    this.server = new JettyServer(port, baseUrl)
+    val query = this.server
       .toDF
       .writeStream
       .foreachBatch((batch, batchId) => {
@@ -42,6 +46,12 @@ class Webhook extends SparkStreamingSource[String] {
       .start()
 
     query.awaitTermination()
+  }
+
+  def stop(): Unit = {
+    if (this.server != null) {
+      this.server.stop()
+    }
   }
 
   override def rdd2dataset(sparkSession: SparkSession, rdd: RDD[String]): Dataset[Row] = { null }
