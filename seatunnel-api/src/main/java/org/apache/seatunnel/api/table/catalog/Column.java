@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.DataType;
 import java.util.Objects;
 import java.util.Optional;
 
+@SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
 public abstract class Column {
 
     protected final String name;

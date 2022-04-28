@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Source;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +46,6 @@ public final class FactoryUtil {
             Map<String, String> options,
             ClassLoader classLoader,
             String factoryIdentifier) {
-
 
         try {
             final TableSourceFactory factory = discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
