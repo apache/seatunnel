@@ -19,17 +19,17 @@ public class ScalarReplace extends ScalarFunction {
 
 
     public String eval(String str) {
-        String raw_text = str;
+        String rawText = str;
         if (isRegex) {
             if (replaceFirst) {
-                raw_text = str.replaceFirst(pattern, replacement);
+                rawText = str.replaceFirst(pattern, replacement);
             } else {
-                raw_text = str.replaceAll(pattern, replacement);
+                rawText = str.replaceAll(pattern, replacement);
             }
         } else {
-            raw_text = StringUtils.replace(str, pattern, replacement, replaceFirst ? 1 : -1);
+            rawText = StringUtils.replace(str, pattern, replacement, replaceFirst ? 1 : -1);
         }
-        return raw_text;
+        return rawText;
     }
 
 }

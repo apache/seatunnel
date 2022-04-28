@@ -25,33 +25,21 @@ public class Replace implements FlinkStreamTransform, FlinkBatchTransform {
     private Boolean replaceFirst = false;
 
 
-    /**
-     * @param config
-     */
     @Override
     public void setConfig(Config config) {
         this.config = config;
     }
 
-    /**
-     * @return
-     */
     @Override
     public Config getConfig() {
         return config;
     }
 
-    /**
-     * @return
-     */
     @Override
     public CheckResult checkConfig() {
         return CheckConfigUtil.checkAllExists(config);
     }
 
-    /**
-     * @param prepareEnv
-     */
     @Override
     public void prepare(FlinkEnvironment prepareEnv) {
 
@@ -69,9 +57,6 @@ public class Replace implements FlinkStreamTransform, FlinkBatchTransform {
         }
     }
 
-    /**
-     * @param flinkEnvironment
-     */
     @Override
     public void registerFunction(FlinkEnvironment flinkEnvironment) {
         FlinkStreamTransform.super.registerFunction(flinkEnvironment);
@@ -83,21 +68,11 @@ public class Replace implements FlinkStreamTransform, FlinkBatchTransform {
         }
     }
 
-    /**
-     * @param env
-     * @param data
-     * @return
-     */
     @Override
     public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
         return data;
     }
 
-    /**
-     * @param env
-     * @param dataStream
-     * @return
-     */
     @Override
     public DataStream<Row> processStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         return dataStream;

@@ -2,7 +2,8 @@
 
 ## Description
 
-Examines string value in a given field and replaces substring of the string value that matches the given string literal or regexes with the given replacement.
+Examines string value in a given field and replaces substring of the string value that matches the given string literal
+or regexes with the given replacement.
 
 :::tip
 
@@ -50,7 +51,8 @@ Whether or not to skip any matches beyond the first match.
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.mdx) for details
 
 ## Examples
-the word `a` will be replaced by `b` at message field values.
+
+The word `a` will be replaced by `b` at message field values.
 
 ```bash
 Replace {
@@ -90,11 +92,11 @@ Use `Replace` as udf in sql.
 
 ### pattern [string]
 
-the regular expression to which this string is to be matched or a common string literal, the default is ""
+The regular expression to which this string is to be matched or a common string literal, the default is ""
 
 ### replacement [string]
 
-the string to be substituted for each match, the default is ""
+The string to be substituted for each match, the default is ""
 
 ### is_regex [boolean]
 
@@ -102,9 +104,7 @@ Whether or not to interpret the pattern as a regex (true) or string literal (fal
 
 ### replace_first [boolean]
 
-when replace_first set true , The string constructed by replacing the first matching subsequence by the replacement
-string,
-Otherwise, replacing all matching subsequence by the replacement string
+When replace_first set true , The string constructed by replacing the first matching subsequence by the replacement string, Otherwise, replacing all matching subsequence by the replacement string
 
 ### common options [string]
 
