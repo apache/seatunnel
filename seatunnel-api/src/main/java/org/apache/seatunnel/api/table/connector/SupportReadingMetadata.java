@@ -25,7 +25,6 @@ import java.util.Map;
 
 /**
  * Used for {@link TableSource} to support metadata columns.
- *
  */
 public interface SupportReadingMetadata {
 

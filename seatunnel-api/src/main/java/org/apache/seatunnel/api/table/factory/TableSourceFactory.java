@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.table.connector.TableSource;
 
-public interface TableSourceFactory extends TableFactory {
+public interface TableSourceFactory extends Factory {
 
-    TableSource createSource(TableFactory.Context context);
+    TableSource createSource(TableFactoryContext context);
 }

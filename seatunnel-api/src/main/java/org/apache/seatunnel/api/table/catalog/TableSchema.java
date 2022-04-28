@@ -32,7 +32,9 @@ public final class TableSchema implements Serializable {
         return new TableSchema(columns);
     }
 
-    /** Returns all {@link Column}s of this schema. */
+    /**
+     * Returns all {@link Column}s of this schema.
+     */
     public List<Column> getColumns() {
         return columns;
     }

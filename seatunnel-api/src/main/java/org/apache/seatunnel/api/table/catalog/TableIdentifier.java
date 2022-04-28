@@ -22,7 +22,7 @@ import java.util.Objects;
 
 public final class TableIdentifier implements Serializable {
     private static final long serialVersionUID = 1L;
-    
+
     private final String catalogName;
 
     private final String databaseName;

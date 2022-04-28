@@ -17,5 +17,10 @@
 
 package org.apache.seatunnel.api.source;
 
-public interface SourceEvent {
+import java.io.Serializable;
+
+/**
+ * An base class for the events passed between the SourceReaders and Enumerators.
+ */
+public interface SourceEvent extends Serializable {
 }

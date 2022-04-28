@@ -17,17 +17,31 @@
 
 package org.apache.seatunnel.api.source;
 
+import org.apache.seatunnel.api.serialization.Serializer;
+
 import java.io.Serializable;
 
 /**
  * The interface for Source. It acts like a factory class that helps construct the {@link
  * SourceSplitEnumerator} and {@link SourceReader} and corresponding serializers.
  *
- * @param <T> The type of records produced by the source.
+ * @param <T>      The type of records produced by the source.
  * @param <SplitT> The type of splits handled by the source.
- * @param <StateT> The type of state to store.
  */
 public interface Source<T, SplitT extends SourceSplit, StateT> extends Serializable {
 
+    /**
+     * Get the boundedness of this source.
+     *
+     * @return the boundedness of this source.
+     */
+    Boundedness getBoundedness();
 
+    SourceReader<T, SplitT> createReader(SourceReader.Context readerContext) throws Exception;
+
+    SourceSplitEnumerator<SplitT, StateT> createEnumerator(SourceSplitEnumerator.Context<SplitT> enumeratorContext) throws Exception;
+
+    SourceSplitEnumerator<SplitT, StateT> restoreEnumerator(SourceSplitEnumerator.Context<SplitT> enumeratorContext, StateT checkpointState) throws Exception;
+
+    Serializer<StateT> getEnumeratorStateSerializer();
 }

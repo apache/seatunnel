@@ -15,15 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.serialization;
 
 import java.io.IOException;
-import java.util.List;
 
-public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> {
+public interface Serializer<T> {
 
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo)
-            throws IOException, InterruptedException;
+    /**
+     * Serializes the given object.
+     *
+     * @param obj The object to serialize.
+     * @return The serialized data (bytes).
+     * @throws IOException Thrown, if the serialization fails.
+     */
+    byte[] serialize(T obj) throws IOException;
 
-    void abort() throws Exception;
+    /**
+     * De-serializes the given data (bytes).
+     *
+     * @param serialized The serialized data
+     * @return The deserialized object
+     * @throws IOException Thrown, if the deserialization fails.
+     */
+    T deserialize(byte[] serialized) throws IOException;
 }

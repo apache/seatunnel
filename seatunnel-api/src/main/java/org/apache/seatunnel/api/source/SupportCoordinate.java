@@ -15,15 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.source;
 
-import java.io.IOException;
-import java.util.List;
-
-public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> {
-
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo)
-            throws IOException, InterruptedException;
-
-    void abort() throws Exception;
+/**
+ * Used to mark whether the interface supports coordination.
+ */
+public interface SupportCoordinate {
 }

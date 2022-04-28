@@ -15,8 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.translation.serialization;
 
-public final class TableFactoryUtil {
+import org.apache.seatunnel.api.table.type.Row;
 
+import java.io.IOException;
+
+public interface RowSerialization<T> {
+
+    /**
+     * Serializes the given object.
+     *
+     * @param seaTunnelRow The object to serialize.
+     * @return The serialized data (bytes).
+     * @throws IOException Thrown, if the serialization fails.
+     */
+    T serialize(Row seaTunnelRow) throws IOException;
+
+    /**
+     * De-serializes the given data (bytes).
+     *
+     * @param engineRow The internal engine row
+     * @return The SeaTunnel Row
+     * @throws IOException Thrown, if the deserialization fails.
+     */
+    Row deserialize(T engineRow) throws IOException;
 }

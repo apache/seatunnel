@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.table.factory;
 
-import java.io.IOException;
-import java.util.List;
+public class FactoryException extends RuntimeException {
 
-public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> {
+    public FactoryException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo)
-            throws IOException, InterruptedException;
-
-    void abort() throws Exception;
+    public FactoryException(String message) {
+        super(message);
+    }
 }

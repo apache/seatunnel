@@ -17,9 +17,46 @@
 
 package org.apache.seatunnel.api.source;
 
-public interface SourceReader {
+import org.apache.seatunnel.api.state.CheckpointListener;
 
-    interface SupportCoordinate {
+import java.util.List;
+import java.util.Map;
 
+public interface SourceReader<T, SplitT extends SourceSplit> extends CheckpointListener {
+
+    void start(Collector<T> output) throws Exception;
+
+    List<SplitT> snapshotState(long checkpointId);
+
+    void addSplits(List<SplitT> splits);
+
+    default void handleSourceEvent(SourceEvent sourceEvent) {
+    }
+
+    interface Context {
+
+        /**
+         * Gets the configuration with which Flink was started.
+         */
+        Map<String, String> getConfiguration();
+
+        /**
+         * @return The index of this subtask.
+         */
+        int getIndexOfSubtask();
+
+        /**
+         * Sends a split request to the source's {@link SourceSplitEnumerator}. This will result in a call to
+         * the {@link SourceSplitEnumerator#handleSplitRequest(int, String)} method, with this reader's
+         * parallel subtask id and the hostname where this reader runs.
+         */
+        void sendSplitRequest();
+
+        /**
+         * Send a source event to the source coordinator.
+         *
+         * @param sourceEvent the source event to coordinator.
+         */
+        void sendSourceEventToCoordinator(SourceEvent sourceEvent);
     }
 }

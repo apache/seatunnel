@@ -17,8 +17,38 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.serialization.Serializer;
+
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.List;
+import java.util.Optional;
 
-public interface Sink<IN> extends Serializable {
+public interface Sink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Serializable {
 
+    SinkWriter<IN, StateT> createWriter(SinkWriter.Context context) throws IOException;
+
+    default SinkWriter<IN, StateT> restoreWriter(SinkWriter.Context context, List<StateT> states) throws IOException {
+        return createWriter(context);
+    }
+
+    default Optional<Serializer<StateT>> getWriterStateSerializer() {
+        return Optional.empty();
+    }
+
+    default Optional<SinkCommitter<CommitInfoT>> createCommitter() throws IOException {
+        return Optional.empty();
+    }
+
+    default Optional<Serializer<CommitInfoT>> getCommitInfoSerializer() {
+        return Optional.empty();
+    }
+
+    default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>> createAggregatedCommitter() throws IOException {
+        return Optional.empty();
+    }
+
+    default Optional<Serializer<AggregatedCommitInfoT>> getAggregatedCommitInfoSerializer() {
+        return Optional.empty();
+    }
 }
