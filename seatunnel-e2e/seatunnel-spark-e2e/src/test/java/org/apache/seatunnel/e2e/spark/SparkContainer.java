@@ -156,7 +156,7 @@ public abstract class SparkContainer {
 
     private List<File> getConnectorJarFiles() {
         File jars = new File(PROJECT_ROOT_PATH +
-            "/seatunnel-connectors/seatunnel-connectors-spark-list/seatunnel-connectors-spark-list-current/target/lib");
+            "/seatunnel-connectors/seatunnel-connectors-spark-dist/target/lib");
         return Arrays.stream(
                 Objects.requireNonNull(
                     jars.listFiles(

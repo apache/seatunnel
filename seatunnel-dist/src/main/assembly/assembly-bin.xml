@@ -89,7 +89,7 @@
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-connectors/seatunnel-connectors-flink-list/seatunnel-connectors-flink-list-current/target/lib</directory>
+            <directory>../seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib</directory>
             <includes>
                 <include>seatunnel-connector-flink*.jar</include>
             </includes>
@@ -99,7 +99,7 @@
             <outputDirectory>/connectors/flink</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-connectors/seatunnel-connectors-spark-list/seatunnel-connectors-spark-list-current/target/lib</directory>
+            <directory>../seatunnel-connectors/seatunnel-connectors-spark-dist/target/lib</directory>
             <includes>
                 <include>seatunnel-connector-spark*.jar</include>
             </includes>
@@ -107,26 +107,6 @@
                 <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
             </excludes>
             <outputDirectory>/connectors/spark</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-connectors/seatunnel-connectors-flink-list/seatunnel-connectors-flink-list-previous/target/lib</directory>
-            <includes>
-                <include>seatunnel-connector-flink*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/opt/flink</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>../seatunnel-connectors/seatunnel-connectors-spark-list/seatunnel-connectors-spark-list-previous/target/lib</directory>
-            <includes>
-                <include>seatunnel-connector-spark*.jar</include>
-            </includes>
-            <excludes>
-                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
-            </excludes>
-            <outputDirectory>/opt/spark</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>../seatunnel-connectors</directory>
