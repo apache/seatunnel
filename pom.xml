@@ -169,6 +169,7 @@
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
         <elasticsearch>7</elasticsearch>
+        <slf4j.version>1.7.25</slf4j.version>
     </properties>
 
     <dependencyManagement>
@@ -901,6 +902,7 @@
                         <excludedScopes>test,provided</excludedScopes>
                     </configuration>
                 </plugin>
+
             </plugins>
         </pluginManagement>
 

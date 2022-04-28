@@ -30,21 +30,26 @@
     <artifactId>seatunnel-spark-examples</artifactId>
     <properties>
         <spark.scope>compile</spark.scope>
-        <connector.scope>compile</connector.scope>
     </properties>
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-core-spark</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${project.version}</version>
         </dependency>
 
+        <!--   seatunnel connectors   -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-spark-list-current</artifactId>
+            <artifactId>seatunnel-connector-spark-fake</artifactId>
             <version>${project.version}</version>
-            <scope>${connector.scope}</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-spark-console</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--   seatunnel connectors   -->
 
         <!--spark-->
         <dependency>
@@ -78,6 +83,12 @@
             <groupId>net.jpountz.lz4</groupId>
             <artifactId>lz4</artifactId>
             <version>1.3.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
     </dependencies>
 </project>
