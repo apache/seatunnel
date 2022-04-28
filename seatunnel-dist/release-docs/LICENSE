@@ -860,7 +860,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) htrace-core (org.htrace:htrace-core:3.0.4 - https://github.com/cloudera/htrace)
      (The Apache Software License, Version 2.0) htrace-core4 (org.apache.htrace:htrace-core4:4.1.0-incubating - http://incubator.apache.org/projects/htrace.html)
      (The Apache Software License, Version 2.0) jackson-databind (com.fasterxml.jackson.core:jackson-databind:2.12.6  - http://github.com/FasterXML/jackson)
-     (The Apache Software License, Version 2.0) jackson-module-scala (com.fasterxml.jackson.module:jackson-module-scala_2.11:2.6.7.1 - http://wiki.fasterxml.com/JacksonModuleScala)
+     (The Apache Software License, Version 2.0) jackson-module-scala (com.fasterxml.jackson.module:jackson-module-scala_2.11:2.12.6 - http://wiki.fasterxml.com/JacksonModuleScala)
      (The Apache Software License, Version 2.0) javax.inject (javax.inject:javax.inject:1 - http://code.google.com/p/atinject/)
      (The Apache Software License, Version 2.0) lang-mustache (org.elasticsearch.plugin:lang-mustache-client:6.3.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) lang-mustache (org.elasticsearch.plugin:lang-mustache-client:7.5.1 - https://github.com/elastic/elasticsearch)
