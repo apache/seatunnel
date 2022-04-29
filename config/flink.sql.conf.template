@@ -20,8 +20,12 @@
 --
 --
 
+SET flink_env.execution.parallelism = 1;
+SET flink_env.execution.checkpoint.interval = 10000;
+SET flink_env.execution.checkpoint.data-uri = "hdfs://localhost:9000/checkpoint";
 
 SET 'table.dml-sync' = 'true';
+SET 'table.local-time-zone' = 'Asia/Shanghai';
 
 CREATE TABLE events (
   f_type INT,
@@ -42,8 +46,7 @@ CREATE TABLE print_table (
   uid INT,
   lstmt TIMESTAMP
 ) WITH (
-  'connector' = 'print',
-  'sink.parallelism' = '1'
+  'connector' = 'print'
 );
 
 INSERT INTO print_table SELECT * FROM events where f_type = 1;
