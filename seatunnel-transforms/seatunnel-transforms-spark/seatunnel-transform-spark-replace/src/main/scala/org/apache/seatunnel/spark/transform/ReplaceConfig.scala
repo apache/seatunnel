@@ -17,21 +17,17 @@
 
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.{Dataset, Row}
+object ReplaceConfig {
+  val PLUGIN_NAME = "replace"
+  val UDF_NAME = "Replace"
 
-class Sql extends BaseSparkTransform {
-
-  override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    env.getSparkSession.sql(config.getString("sql"))
-  }
-
-  override def checkConfig(): CheckResult = {
-    checkAllExists(config, "sql")
-  }
-
-  override def getPluginName: String = "sql"
-
+  val FIELDS = "fields"
+  val SOURCE_FILED = "source_field"
+  val DEFAULT_SOURCE_FILED = "raw_message"
+  val PATTERN = "pattern"
+  val REPLACEMENT = "replacement"
+  val REPLACE_REGEX = "is_regex"
+  val DEFAULT_REPLACE_REGEX = false
+  val REPLACE_FIRST = "replace_first"
+  val DEFAULT_REPLACE_FIRST = false
 }

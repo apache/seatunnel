@@ -17,21 +17,14 @@
 
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.{Dataset, Row}
+object UUIDConfig {
+  val PLUGIN_NAME = "UUID"
+  val UDF_NAME = PLUGIN_NAME
 
-class Sql extends BaseSparkTransform {
-
-  override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    env.getSparkSession.sql(config.getString("sql"))
-  }
-
-  override def checkConfig(): CheckResult = {
-    checkAllExists(config, "sql")
-  }
-
-  override def getPluginName: String = "sql"
-
+  val FIELDS = "fields"
+  val DEFAULT_SOURCE_FILED = "raw_message"
+  val UUID_PREFIX = "prefix"
+  val DEFAULT_UUID_PREFIX = ""
+  val UUID_SECURE = "secure"
+  val DEFAULT_UUID_SECURE = false
 }
