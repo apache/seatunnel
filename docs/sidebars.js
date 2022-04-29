@@ -73,7 +73,7 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: 'Basic Concept',
+      label: 'Concept',
       items: [
         'concept/config',
       ],
