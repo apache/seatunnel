@@ -33,7 +33,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-core-base</artifactId>
+            <artifactId>seatunnel-core-flink</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.spark.transform
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists

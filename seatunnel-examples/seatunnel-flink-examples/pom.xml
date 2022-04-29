@@ -30,7 +30,6 @@
     <artifactId>seatunnel-flink-examples</artifactId>
     <properties>
         <flink.scope>compile</flink.scope>
-        <connector.scope>compile</connector.scope>
     </properties>
 
     <dependencies>
@@ -46,12 +45,18 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!--   seatunnel-connector   -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-flink-list-current</artifactId>
+            <artifactId>seatunnel-connector-flink-fake</artifactId>
             <version>${project.version}</version>
-            <scope>${connector.scope}</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-flink-console</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--   seatunnel connectors   -->
 
         <!--flink-->
         <dependency>
@@ -83,6 +88,12 @@
             <artifactId>flink-runtime-web_${scala.binary.version}</artifactId>
             <version>${flink.version}</version>
             <scope>${flink.scope}</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
     </dependencies>
 
