@@ -118,7 +118,7 @@ public abstract class FlinkContainer {
         final List<String> command = new ArrayList<>();
         command.add("flink");
         command.add("run");
-        command.add("-c org.apache.seatunnel.SeatunnelFlink " + jar);
+        command.add("-c org.apache.seatunnel.core.flink.SeatunnelFlink " + jar);
         command.add("--config " + conf);
 
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
@@ -136,7 +136,7 @@ public abstract class FlinkContainer {
 
         // copy connectors jar
         File jars = new File(PROJECT_ROOT_PATH +
-            "/seatunnel-connectors/seatunnel-connectors-flink-list/seatunnel-connectors-flink-list-current/target/lib");
+            "/seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib");
         Arrays.stream(Objects.requireNonNull(jars.listFiles(f -> f.getName().startsWith("seatunnel-connector-flink"))))
             .forEach(jar ->
                 jobManager.copyFileToContainer(

@@ -68,14 +68,20 @@ const sidebars = {
       items: [
         'start/local',
         'start/docker',
-        'start/kubernetes',
+        'start/kubernetes'
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Concept',
+      items: [
+        'concept/config',
       ],
     },
     {
       type: 'category',
       label: 'Connector',
       items: [
-        'connector/config-example',
         {
           type: 'category',
           label: 'Source',
