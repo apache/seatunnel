@@ -1,11 +1,8 @@
 # FAQ
 
-why-i-should-install-computing-engine-like-spark-or-flink
-
 ## Why I should install computing engine like Spark or Flink
 
-<!-- We should add the reason -->
-TODO
+Now SeaTunnel uses computing engines such as spark and flink to complete resource scheduling and node communication, so we can focus on the ease of use of data synchronization and the development of high-performance components. But this is only temporary.
 
 ## I have a question, but I can not solve it by myself
 
