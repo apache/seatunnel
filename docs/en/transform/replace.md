@@ -7,11 +7,11 @@ or regexes with the given replacement.
 
 :::tip
 
-This transform can supported by Spark and Flink,There are slight differences between the two engine configuration items.
+This transform can supported by Spark and Flink.
 
 :::
 
-## Options(Spark)
+## Options
 
 | name           | type   | required | default value |
 | -------------- | ------ | -------- | ------------- |
@@ -21,6 +21,7 @@ This transform can supported by Spark and Flink,There are slight differences bet
 | replacement    | string | yes      | -             |
 | is_regex       | boolean| no       | false         |
 | replace_first  | boolean| no       | false         |
+| common-options | string | no       | -             |
 
 ### source_field [string]
 
@@ -34,13 +35,13 @@ The name of the field to replaced.
 
 The string to match.
 
-### is_regex [string]
-
-Whether or not to interpret the pattern as a regex (true) or string literal (false).
-
-### replacement [boolean]
+### replacement [string]
 
 The replacement pattern (is_regex is true) or string literal (is_regex is false).
+
+### is_regex [boolean]
+
+Whether or not to interpret the pattern as a regex (true) or string literal (false).
 
 ### replace_first [boolean]
 
@@ -79,38 +80,6 @@ Use `Replace` as udf in sql.
     sql = "select * from (select raw_message, replace(raw_message) as info_row from fake) t1"
   }
 ```
-
-## Options(Flink)
-
-| name  | type   | required | default value |
-| ----- | ------ | -------- |---------------|
-| pattern      | string | no       | -             |
-| replacement | string  | no      | -             |
-| is_regex | boolean  | no      | false         |
-| replace_first | boolean  | no      | false         |
-| common-options | string | no       | -             |
-
-### pattern [string]
-
-The regular expression to which this string is to be matched or a common string literal, the default is ""
-
-### replacement [string]
-
-The string to be substituted for each match, the default is ""
-
-### is_regex [boolean]
-
-Whether or not to interpret the pattern as a regex (true) or string literal (false), the dafault is false
-
-### replace_first [boolean]
-
-When replace_first set true , The string constructed by replacing the first matching subsequence by the replacement string, Otherwise, replacing all matching subsequence by the replacement string
-
-### common options [string]
-
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.mdx) for details
-
-## Examples
 
 - Replace the string that the first regular expression matches  
   Input : Tom's phone number is 123456789 , he's age is 24  
