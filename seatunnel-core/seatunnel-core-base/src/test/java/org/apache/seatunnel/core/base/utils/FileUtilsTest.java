@@ -49,5 +49,9 @@ public class FileUtilsTest {
         public void setDeployMode(DeployMode deployMode) {
             this.deployMode = deployMode;
         }
+
+        public DeployMode getDeployMode() {
+            return deployMode;
+        }
     }
 }
