@@ -56,13 +56,6 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: 'Basic Concept',
-      items: [
-        'concept/config',
-      ],
-    },
-    {
-      type: 'category',
       label: 'Quick Start',
       link: {
         type: 'generated-index',
