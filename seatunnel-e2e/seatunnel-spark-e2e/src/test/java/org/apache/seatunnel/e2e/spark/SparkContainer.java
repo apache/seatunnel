@@ -98,7 +98,7 @@ public abstract class SparkContainer {
         final List<String> command = new ArrayList<>();
         command.add("spark-submit");
         command.add("--class");
-        command.add("org.apache.seatunnel.SeatunnelSpark");
+        command.add("org.apache.seatunnel.core.spark.SeatunnelSpark");
         command.add("--name");
         command.add("SeaTunnel");
         command.add("--master");

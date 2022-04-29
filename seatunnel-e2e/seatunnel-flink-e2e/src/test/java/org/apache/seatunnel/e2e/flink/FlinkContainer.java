@@ -118,7 +118,7 @@ public abstract class FlinkContainer {
         final List<String> command = new ArrayList<>();
         command.add("flink");
         command.add("run");
-        command.add("-c org.apache.seatunnel.SeatunnelFlink " + jar);
+        command.add("-c org.apache.seatunnel.core.flink.SeatunnelFlink " + jar);
         command.add("--config " + conf);
 
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
