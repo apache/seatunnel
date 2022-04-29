@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.core.sql;
 
-import org.apache.seatunnel.command.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 import org.apache.seatunnel.core.sql.job.JobInfo;
-import org.apache.seatunnel.utils.CommandLineUtils;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.Assert;
