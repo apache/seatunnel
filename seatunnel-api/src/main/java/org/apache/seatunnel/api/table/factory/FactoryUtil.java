@@ -52,7 +52,7 @@ public final class FactoryUtil {
             List<Source> sources = new ArrayList<>(multipleTables.size());
             if (factory instanceof SupportMultipleTable) {
                 TableFactoryContext context = new TableFactoryContext(multipleTables, options, classLoader);
-                SupportMultipleTable multipleTableSourceFactory = ((SupportMultipleTable) factory);
+                SupportMultipleTable multipleTableSourceFactory = (SupportMultipleTable) factory;
                 // TODO: create all source
                 SupportMultipleTable.Result result = multipleTableSourceFactory.applyTables(context);
                 TableSource multipleTableSource = factory.createSource(new TableFactoryContext(result.getAcceptedTables(), options, classLoader));
