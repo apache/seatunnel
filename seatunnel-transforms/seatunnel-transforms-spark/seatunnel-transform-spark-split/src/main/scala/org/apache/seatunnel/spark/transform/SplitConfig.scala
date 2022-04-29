@@ -17,21 +17,14 @@
 
 package org.apache.seatunnel.spark.transform
 
-import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
-import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
-import org.apache.spark.sql.{Dataset, Row}
+object SplitConfig {
+  val PLUGIN_NAME = "split"
+  val UDF_NAME = "Split"
 
-class Sql extends BaseSparkTransform {
-
-  override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    env.getSparkSession.sql(config.getString("sql"))
-  }
-
-  override def checkConfig(): CheckResult = {
-    checkAllExists(config, "sql")
-  }
-
-  override def getPluginName: String = "sql"
-
+  val FIELDS = "fields"
+  val SOURCE_FILED = "source_field"
+  val DEFAULT_SOURCE_FILED = "raw_message"
+  val TARGET_FILED = "target_field"
+  val SPLIT_SEPARATOR = "separator"
+  val DEFAULT_SPLIT_SEPARATOR = " "
 }
