@@ -25,7 +25,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class Seatunnel {
+public class Seatunnel {
     private static final Logger LOGGER = LoggerFactory.getLogger(Seatunnel.class);
 
     /**
