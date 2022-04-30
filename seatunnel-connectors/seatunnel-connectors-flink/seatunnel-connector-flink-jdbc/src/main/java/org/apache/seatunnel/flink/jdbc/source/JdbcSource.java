@@ -37,7 +37,6 @@ import java.sql.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.*;
 import static org.apache.seatunnel.flink.jdbc.Config.*;
@@ -53,9 +52,6 @@ public class JdbcSource implements FlinkBatchSource {
     private int fetchSize = DEFAULT_FETCH_SIZE;
     private int parallelism = -1;
     private Map<String, TypeInformation<?>> tableFieldInfo;
-
-    private static final Pattern COMPILE = Pattern.compile("[\\s]*select[\\s]*(.*)from[\\s]*([\\S]+)(.*)",
-            Pattern.CASE_INSENSITIVE);
 
     private JdbcInputFormat jdbcInputFormat;
 
