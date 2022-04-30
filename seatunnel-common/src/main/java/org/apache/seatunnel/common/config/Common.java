@@ -33,7 +33,7 @@ public class Common {
     }
 
     private static final List<String> ALLOWED_MODES = Arrays.stream(DeployMode.values())
-        .map(DeployMode::getName).collect(Collectors.toList());
+            .map(DeployMode::getName).collect(Collectors.toList());
 
     private static Optional<String> MODE = Optional.empty();
 
@@ -89,6 +89,27 @@ public class Common {
      */
     public static Path pluginRootDir() {
         return Paths.get(appRootDir().toString(), "plugins");
+    }
+
+    /**
+     * Plugin Root Dir
+     */
+    public static Path connectorRootDir(String engine) {
+        return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
+    }
+
+    /**
+     * Plugin Connector Jar Dir
+     */
+    public static Path connectorJarDir(String engine) {
+        return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
+    }
+
+    /**
+     * Plugin Connector Dir
+     */
+    public static Path connectorDir() {
+        return Paths.get(appRootDir().toString(), "connectors");
     }
 
     public static Path pluginTarball() {
