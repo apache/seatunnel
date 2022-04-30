@@ -18,14 +18,17 @@ package org.apache.seatunnel.spark.iceberg.source
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
+import org.apache.seatunnel.plugin.Plugin
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.seatunnel.spark.iceberg.Config.{PATH, PRE_SQL}
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
 
 class Iceberg extends SparkBatchSource {
+
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     val reader = env.getSparkSession.read.format("iceberg")
     for (e <- config.entrySet()) {
@@ -38,13 +41,13 @@ class Iceberg extends SparkBatchSource {
           reader.option(e.getKey, config.getString(e.getKey))
       }
     }
-    val df = reader.load(config.getString("path"))
-    df.createOrReplaceTempView(config.getString("result_table_name"))
-    env.getSparkSession.sql(config.getString("pre_sql"))
+    val df = reader.load(config.getString(PATH))
+    df.createOrReplaceTempView(config.getString(Plugin.RESULT_TABLE_NAME))
+    env.getSparkSession.sql(config.getString(PRE_SQL))
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "path", "pre_sql")
+    checkAllExists(config, PATH, PRE_SQL)
   }
 
   override def getPluginName: String = "Iceberg"
