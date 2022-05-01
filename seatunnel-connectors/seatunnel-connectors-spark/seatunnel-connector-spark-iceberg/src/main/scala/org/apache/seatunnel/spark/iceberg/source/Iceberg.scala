@@ -16,9 +16,9 @@
  */
 package org.apache.seatunnel.spark.iceberg.source
 
+import org.apache.seatunnel.apis.base.plugin.Plugin
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.plugin.Plugin
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
