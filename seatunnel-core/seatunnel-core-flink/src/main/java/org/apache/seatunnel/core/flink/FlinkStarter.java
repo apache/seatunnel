@@ -20,12 +20,10 @@ package org.apache.seatunnel.core.flink;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.base.Starter;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.config.FlinkJobStarter;
+import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 
-import com.beust.jcommander.JCommander;
-
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * The SeaTunnel flink starter. This class is responsible for generate the final flink job execute command.
@@ -33,15 +31,7 @@ import java.util.Objects;
 public class FlinkStarter implements Starter {
 
     private static final String APP_NAME = SeatunnelFlink.class.getName();
-    private static final int USAGE_EXIT_CODE = 234;
     private static final String APP_JAR_NAME = "seatunnel-core-flink.jar";
-    private static final String RUN_MODE_RUN = "run";
-    private static final String RUN_MODE_APPLICATION = "run-application";
-
-    /**
-     * Flink parameters, used by flink job itself. e.g. `-m yarn-cluster`
-     */
-    private final List<String> flinkParams = new ArrayList<>();
 
     /**
      * SeaTunnel parameters, used by SeaTunnel application. e.g. `-c config.conf`
@@ -54,7 +44,7 @@ public class FlinkStarter implements Starter {
     private final String appJar;
 
     FlinkStarter(String[] args) {
-        this.flinkCommandArgs = parseArgs(args);
+        this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobStarter.JAR);
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
@@ -63,54 +53,12 @@ public class FlinkStarter implements Starter {
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) {
         FlinkStarter flinkStarter = new FlinkStarter(args);
-        List<String> command = flinkStarter.buildCommands();
-        String finalFLinkCommand = String.join(" ", command);
-        System.out.println(finalFLinkCommand);
-    }
-
-    /**
-     * Parse seatunnel args.
-     *
-     * @param args args
-     * @return FlinkCommandArgs
-     */
-    private FlinkCommandArgs parseArgs(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        JCommander jCommander = JCommander.newBuilder()
-            .programName("start-seatunnel-flink.sh")
-            .addObject(flinkCommandArgs)
-            .acceptUnknownOptions(true)
-            .args(args)
-            .build();
-        // The args is not belongs to seatunnel, add into flink params
-        flinkParams.addAll(jCommander.getUnknownOptions());
-        if (flinkCommandArgs.isHelp()) {
-            jCommander.usage();
-            System.exit(USAGE_EXIT_CODE);
-        }
-        return flinkCommandArgs;
+        System.out.println(String.join(" ", flinkStarter.buildCommands()));
     }
 
     @Override
     public List<String> buildCommands() {
-        List<String> command = new ArrayList<>();
-        command.add("${FLINK_HOME}/bin/flink");
-        command.add(flinkCommandArgs.getRunMode().getMode());
-        command.addAll(flinkParams);
-        command.add("-c");
-        command.add(APP_NAME);
-        command.add(appJar);
-        command.add("--config");
-        command.add(flinkCommandArgs.getConfigFile());
-        if (flinkCommandArgs.isCheckConfig()) {
-            command.add("--check");
-        }
-        // set System properties
-        flinkCommandArgs.getVariables().stream()
-            .filter(Objects::nonNull)
-            .map(String::trim)
-            .forEach(variable -> command.add("-D" + variable));
-        return command;
+        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, APP_NAME, appJar);
     }
 
 }
