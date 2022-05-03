@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.sql;
 
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.config.FlinkJobType;
 import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 import org.apache.seatunnel.core.sql.job.Executor;
 import org.apache.seatunnel.core.sql.job.JobInfo;
@@ -36,7 +37,7 @@ public class SeatunnelSql {
     }
 
     private static JobInfo parseJob(String[] args) throws IOException {
-        FlinkCommandArgs flinkArgs = CommandLineUtils.parseFlinkArgs(args);
+        FlinkCommandArgs flinkArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
         String configFilePath = flinkArgs.getConfigFile();
         String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
         JobInfo jobInfo = new JobInfo(jobContent);

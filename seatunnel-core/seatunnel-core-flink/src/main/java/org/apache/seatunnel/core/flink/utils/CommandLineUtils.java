@@ -20,7 +20,7 @@ package org.apache.seatunnel.core.flink.utils;
 import static org.apache.seatunnel.core.flink.constant.FlinkConstant.USAGE_EXIT_CODE;
 
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.config.FlinkJobStarter;
+import org.apache.seatunnel.core.flink.config.FlinkJobType;
 
 import com.beust.jcommander.JCommander;
 
@@ -43,10 +43,10 @@ public class CommandLineUtils {
         return flinkCommandArgs;
     }
 
-    public static FlinkCommandArgs parseCommandArgs(String[] args, FlinkJobStarter starter) {
+    public static FlinkCommandArgs parseCommandArgs(String[] args, FlinkJobType jobType) {
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         JCommander jCommander = JCommander.newBuilder()
-            .programName(starter.getStarter())
+            .programName(jobType.getType())
             .addObject(flinkCommandArgs)
             .acceptUnknownOptions(true)
             .args(args)

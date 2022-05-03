@@ -20,7 +20,7 @@ package org.apache.seatunnel.core.flink;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.base.Starter;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.config.FlinkJobStarter;
+import org.apache.seatunnel.core.flink.config.FlinkJobType;
 import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 
 import java.util.List;
@@ -44,7 +44,7 @@ public class FlinkStarter implements Starter {
     private final String appJar;
 
     FlinkStarter(String[] args) {
-        this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobStarter.JAR);
+        this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();

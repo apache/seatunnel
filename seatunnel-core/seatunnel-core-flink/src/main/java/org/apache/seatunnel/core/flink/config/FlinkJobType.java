@@ -17,18 +17,18 @@
 
 package org.apache.seatunnel.core.flink.config;
 
-public enum FlinkJobStarter {
+public enum FlinkJobType {
     JAR("start-seatunnel-flink.sh"),
     SQL("start-seatunnel-sql.sh"),
     ;
 
-    private final String starter;
+    private final String type;
 
-    FlinkJobStarter(String starter) {
-        this.starter = starter;
+    FlinkJobType(String type) {
+        this.type = type;
     }
 
-    public String getStarter() {
-        return starter;
+    public String getType() {
+        return this.type;
     }
 }
