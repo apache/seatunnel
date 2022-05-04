@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.spark.transform
 
 import org.apache.seatunnel.common.config.{Common, ConfigRuntimeException}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.{BaseSparkTransform, SparkEnvironment}
+import org.apache.seatunnel.spark.transform.JsonConfig._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -40,19 +42,19 @@ class Json extends BaseSparkTransform {
   var useCustomSchema: Boolean = false
 
   override def process(df: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    val srcField = config.getString("source_field")
+    val srcField = config.getString(SOURCE_FILED)
     val spark = env.getSparkSession
 
     import spark.implicits._
 
-    config.getString("target_field") match {
+    config.getString(TARGET_FILED) match {
       case Constants.ROW_ROOT => {
 
         val jsonRDD = df.select(srcField).as[String].rdd
 
         val newDF = srcField match {
           // for backward-compatibility for spark < 2.2.0, we created rdd, not Dataset[String]
-          case "raw_message" => {
+          case DEFAULT_SOURCE_FILED => {
             val tmpDF =
               if (this.useCustomSchema) {
                 spark.read.schema(this.customSchema).json(jsonRDD)
@@ -94,14 +96,14 @@ class Json extends BaseSparkTransform {
   override def prepare(env: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "source_field" -> "raw_message",
-        "target_field" -> Constants.ROW_ROOT,
-        "schema_dir" -> Paths.get(Common.pluginFilesDir("json").toString, "schemas").toString,
-        "schema_file" -> ""))
+        SOURCE_FILED -> DEFAULT_SOURCE_FILED,
+        TARGET_FILED -> Constants.ROW_ROOT,
+        SCHEMA_DIR -> Paths.get(Common.pluginFilesDir("json").toString, "schemas").toString,
+        SCHEMA_FILE -> DEFAULT_SCHEMA_FILE))
     config = config.withFallback(defaultConfig)
-    val schemaFile = config.getString("schema_file")
+    val schemaFile = config.getString(SCHEMA_FILE)
     if (schemaFile.trim != "") {
-      parseCustomJsonSchema(env.getSparkSession, config.getString("schema_dir"), schemaFile)
+      parseCustomJsonSchema(env.getSparkSession, config.getString(SCHEMA_DIR), schemaFile)
     }
   }
 
@@ -136,5 +138,5 @@ class Json extends BaseSparkTransform {
     }
   }
 
-  override def getPluginName: String = "json"
+  override def getPluginName: String = PLUGIN_NAME
 }
