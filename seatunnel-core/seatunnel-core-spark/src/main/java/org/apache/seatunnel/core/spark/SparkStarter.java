@@ -35,6 +35,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.UnixStyleUsageFormatter;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
@@ -133,6 +134,7 @@ public class SparkStarter implements Starter {
                 .args(args)
                 .build();
         if (commandArgs.isHelp()) {
+            commander.setUsageFormatter(new UnixStyleUsageFormatter(commander));
             commander.usage();
             System.exit(USAGE_EXIT_CODE);
         }
