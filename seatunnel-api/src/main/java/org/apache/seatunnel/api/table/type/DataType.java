@@ -17,5 +17,13 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public interface DataType {
+/**
+ * Data type of column in SeaTunnel.
+ */
+public interface DataType<T> {
+
+    boolean isBasicType();
+
+    Class<T> getTypeClass();
+
 }

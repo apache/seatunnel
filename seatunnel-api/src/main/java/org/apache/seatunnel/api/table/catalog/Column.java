@@ -26,8 +26,14 @@ import java.util.Optional;
 @SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
 public abstract class Column {
 
+    /**
+     * column name.
+     */
     protected final String name;
 
+    /**
+     * Data type of the column.
+     */
     protected final DataType dataType;
 
     protected final String comment;

@@ -1,4 +1,4 @@
-# Json
+# Replace
 
 ## Description
 
@@ -33,13 +33,13 @@ The name of the field to replaced.
 
 The string to match.
 
-### is_regex [string]
-
-Whether or not to interpret the pattern as a regex (true) or string literal (false).
-
-### replacement [boolean]
+### replacement [string]
 
 The replacement pattern (is_regex is true) or string literal (is_regex is false).
+
+### is_regex [boolean]
+
+Whether or not to interpret the pattern as a regex (true) or string literal (false).
 
 ### replace_first [boolean]
 

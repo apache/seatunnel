@@ -17,5 +17,9 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+/**
+ * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
+ * the implementation of Catalog.
+ */
 public interface Catalog {
 }

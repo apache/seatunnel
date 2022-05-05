@@ -27,6 +27,7 @@ public class FlinkRowSerialization implements RowSerialization<Row> {
 
     @Override
     public Row serialize(org.apache.seatunnel.api.table.type.Row seaTunnelRow) throws IOException {
+
         return null;
     }
 

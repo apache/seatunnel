@@ -21,26 +21,41 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Represent the table metadata in SeaTunnel.
+ */
 public final class CatalogTable implements Serializable {
+
     private static final long serialVersionUID = 1L;
+
+    /**
+     * Used to identify the table.
+     */
     private final TableIdentifier tableId;
+
+    /**
+     * The table schema metadata.
+     */
     private final TableSchema tableSchema;
+
     private final Map<String, String> options;
+
     private final List<String> partitionKeys;
+
     private final String comment;
 
     public static CatalogTable of(
-            TableIdentifier tableId,
-            TableSchema tableSchema,
-            Map<String, String> options,
-            List<String> partitionKeys,
-            String comment) {
+        TableIdentifier tableId,
+        TableSchema tableSchema,
+        Map<String, String> options,
+        List<String> partitionKeys,
+        String comment) {
         return new CatalogTable(
-                tableId,
-                tableSchema,
-                options,
-                partitionKeys,
-                comment);
+            tableId,
+            tableSchema,
+            options,
+            partitionKeys,
+            comment);
     }
 
     private CatalogTable(
