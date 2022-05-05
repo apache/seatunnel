@@ -17,15 +17,17 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class ListType implements DataType {
+public class ListType<T> implements DataType<T> {
 
-    @Override
-    public boolean isBasicType() {
-        return false;
+    // todo: use DataType?
+    private final Class<T> typeClass;
+
+    public ListType(Class<T> typeClass) {
+        this.typeClass = typeClass;
     }
 
     @Override
-    public Class getTypeClass() {
-        return null;
+    public Class<T> getTypeClass() {
+        return typeClass;
     }
 }

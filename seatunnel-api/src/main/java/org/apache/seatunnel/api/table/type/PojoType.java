@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class NullType extends BasicType<Void> {
+// todo: we may don't need to pojo type
+public class PojoType<T> implements DataType<T> {
 
-    private static final NullType INSTANCE = new NullType(Void.class);
+    private final Class<T> typeClass;
 
-    private NullType(Class<Void> typeClass) {
-        super(typeClass);
+    public PojoType(Class<T> typeClass) {
+        this.typeClass = typeClass;
+
+    }
+
+    @Override
+    public Class<T> getTypeClass() {
+        return typeClass;
     }
 }
