@@ -14,23 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.spark.iceberg
 
-package org.apache.seatunnel.core.flink;
+/**
+ * Configurations and defaults for Iceberg source and sink
+ */
+object Config extends Serializable {
 
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
+  /**
+   * Save mode config
+   */
+  val SAVE_MODE = "saveMode"
 
-public class SeatunnelFlink {
+  /**
+   * Default save mode value
+   */
+  val SAVE_MODE_DEFAULT = "append"
 
-    public static void main(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
-        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
-            .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
-    }
+  /**
+   * Path config
+   */
+  val PATH = "path"
 
+  /**
+   * Pre sql config
+   */
+  val PRE_SQL = "pre_sql"
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink;
+package org.apache.seatunnel.core.sql;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.core.base.Starter;
@@ -25,40 +25,32 @@ import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 
 import java.util.List;
 
-/**
- * The SeaTunnel flink starter. This class is responsible for generate the final flink job execute command.
- */
-public class FlinkStarter implements Starter {
+public class FlinkSqlStarter implements Starter {
 
-    private static final String APP_NAME = SeatunnelFlink.class.getName();
-    private static final String APP_JAR_NAME = "seatunnel-core-flink.jar";
+    private static final String APP_JAR_NAME = "seatunnel-core-flink-sql.jar";
+    private static final String CLASS_NAME = SeatunnelSql.class.getName();
 
-    /**
-     * SeaTunnel parameters, used by SeaTunnel application. e.g. `-c config.conf`
-     */
     private final FlinkCommandArgs flinkCommandArgs;
-
     /**
-     * SeaTunnel flink job jar.
+     * SeaTunnel flink sql job jar.
      */
     private final String appJar;
 
-    FlinkStarter(String[] args) {
-        this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
+    FlinkSqlStarter(String[] args) {
+        this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
         // set the deployment mode, used to get the job jar path.
         Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(String[] args) {
-        FlinkStarter flinkStarter = new FlinkStarter(args);
-        System.out.println(String.join(" ", flinkStarter.buildCommands()));
-    }
-
     @Override
     public List<String> buildCommands() {
-        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, APP_NAME, appJar);
+        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, CLASS_NAME, appJar);
     }
 
+    @SuppressWarnings("checkstyle:RegexpSingleline")
+    public static void main(String[] args) {
+        FlinkSqlStarter flinkSqlStarter = new FlinkSqlStarter(args);
+        System.out.println(String.join(" ", flinkSqlStarter.buildCommands()));
+    }
 }
