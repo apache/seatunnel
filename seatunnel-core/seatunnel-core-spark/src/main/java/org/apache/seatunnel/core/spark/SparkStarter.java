@@ -161,8 +161,8 @@ public class SparkStarter implements Starter {
                 .filter(pair -> pair.length == 2)
                 .forEach(pair -> System.setProperty(pair[0], pair[1]));
         this.sparkConf = getSparkConf(commandArgs.getConfigFile());
-        String driverJavaOpts = this.sparkConf.get("spark.driver.extraJavaOptions");
-        String executorJavaOpts = this.sparkConf.get("spark.executor.extraJavaOptions");
+        String driverJavaOpts = this.sparkConf.getOrDefault("spark.driver.extraJavaOptions", "");
+        String executorJavaOpts = this.sparkConf.getOrDefault("spark.executor.extraJavaOptions", "");
         if (!commandArgs.getVariables().isEmpty()) {
             String properties = commandArgs.getVariables()
                     .stream()
@@ -170,8 +170,8 @@ public class SparkStarter implements Starter {
                     .collect(Collectors.joining(" "));
             driverJavaOpts += " " + properties;
             executorJavaOpts += " " + properties;
-            this.sparkConf.put("spark.driver.extraJavaOptions", driverJavaOpts);
-            this.sparkConf.put("spark.executor.extraJavaOptions", executorJavaOpts);
+            this.sparkConf.put("spark.driver.extraJavaOptions", driverJavaOpts.trim());
+            this.sparkConf.put("spark.executor.extraJavaOptions", executorJavaOpts.trim());
         }
     }
 
