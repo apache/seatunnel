@@ -15,30 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.catalog;
+package org.apache.seatunnel.api.table.type;
 
-import java.io.Serializable;
-import java.util.List;
+public class DoubleType implements DataType {
+    private final double value;
 
-/**
- * Represent a physical table schema.
- */
-public final class TableSchema implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final List<Column> columns;
-
-    private TableSchema(List<Column> columns) {
-        this.columns = columns;
+    public DoubleType(double value) {
+        this.value = value;
     }
 
-    public static TableSchema of(List<Column> columns) {
-        return new TableSchema(columns);
-    }
-
-    /**
-     * Returns all {@link Column}s of this schema.
-     */
-    public List<Column> getColumns() {
-        return columns;
+    public double getValue() {
+        return value;
     }
 }

@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.catalog;
+package org.apache.seatunnel.api.table.type;
 
-import java.io.Serializable;
-import java.util.List;
+public class LongType implements DataType {
 
-/**
- * Represent a physical table schema.
- */
-public final class TableSchema implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final List<Column> columns;
+    private final long value;
 
-    private TableSchema(List<Column> columns) {
-        this.columns = columns;
+    public LongType(long value) {
+        this.value = value;
     }
 
-    public static TableSchema of(List<Column> columns) {
-        return new TableSchema(columns);
+    public long getValue() {
+        return value;
     }
 
-    /**
-     * Returns all {@link Column}s of this schema.
-     */
-    public List<Column> getColumns() {
-        return columns;
-    }
 }

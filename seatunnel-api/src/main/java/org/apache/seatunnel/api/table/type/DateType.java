@@ -15,30 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.catalog;
+package org.apache.seatunnel.api.table.type;
 
-import java.io.Serializable;
-import java.util.List;
+import java.sql.Date;
 
-/**
- * Represent a physical table schema.
- */
-public final class TableSchema implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final List<Column> columns;
+public class DateType implements DataType {
 
-    private TableSchema(List<Column> columns) {
-        this.columns = columns;
+    private final Date value;
+
+    public DateType(Date value) {
+        this.value = value;
     }
 
-    public static TableSchema of(List<Column> columns) {
-        return new TableSchema(columns);
+    public Date getValue() {
+        return value;
     }
 
-    /**
-     * Returns all {@link Column}s of this schema.
-     */
-    public List<Column> getColumns() {
-        return columns;
-    }
 }

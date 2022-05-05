@@ -17,5 +17,8 @@
 
 package org.apache.seatunnel.api.table.type;
 
+/**
+ * Data type of column in SeaTunnel.
+ */
 public interface DataType {
 }

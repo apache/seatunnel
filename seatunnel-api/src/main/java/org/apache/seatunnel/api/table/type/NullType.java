@@ -15,30 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.catalog;
+package org.apache.seatunnel.api.table.type;
 
-import java.io.Serializable;
-import java.util.List;
+public class NullType implements DataType {
 
-/**
- * Represent a physical table schema.
- */
-public final class TableSchema implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final List<Column> columns;
+    private static final NullType INSTANCE = new NullType();
 
-    private TableSchema(List<Column> columns) {
-        this.columns = columns;
-    }
-
-    public static TableSchema of(List<Column> columns) {
-        return new TableSchema(columns);
-    }
-
-    /**
-     * Returns all {@link Column}s of this schema.
-     */
-    public List<Column> getColumns() {
-        return columns;
+    public static NullType getInstance() {
+        return INSTANCE;
     }
 }

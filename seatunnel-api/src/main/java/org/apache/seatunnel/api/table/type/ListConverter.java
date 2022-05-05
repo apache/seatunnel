@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.catalog;
+package org.apache.seatunnel.api.table.type;
 
-import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Represent a physical table schema.
- */
-public final class TableSchema implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final List<Column> columns;
+public class ListConverter implements Converter<ListType> {
 
-    private TableSchema(List<Column> columns) {
-        this.columns = columns;
-    }
-
-    public static TableSchema of(List<Column> columns) {
-        return new TableSchema(columns);
-    }
-
-    /**
-     * Returns all {@link Column}s of this schema.
-     */
-    public List<Column> getColumns() {
-        return columns;
+    // todo: the default list converter is simple
+    @Override
+    public ListType convert(String originValue) {
+        List<DataType> list = new ArrayList<>();
+        list.add(new StringType(originValue));
+        return new ListType(list);
     }
 }
