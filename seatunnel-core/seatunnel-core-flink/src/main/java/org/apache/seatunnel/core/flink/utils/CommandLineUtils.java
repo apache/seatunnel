@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkJobType;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.UnixStyleUsageFormatter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +55,7 @@ public class CommandLineUtils {
         // The args is not belongs to seatunnel, add into flink params
         flinkCommandArgs.setFlinkParams(jCommander.getUnknownOptions());
         if (flinkCommandArgs.isHelp()) {
+            jCommander.setUsageFormatter(new UnixStyleUsageFormatter(jCommander));
             jCommander.usage();
             System.exit(USAGE_EXIT_CODE);
         }
