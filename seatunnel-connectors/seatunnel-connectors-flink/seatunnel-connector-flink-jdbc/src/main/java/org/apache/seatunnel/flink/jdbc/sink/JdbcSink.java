@@ -197,7 +197,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     private void executePostSql() {
-        if (!StringUtils.isNotBlank(postSql)) {
+        if (StringUtils.isNotBlank(postSql)) {
             LOGGER.info("Starting to execute post sql: \n {}", postSql);
             try {
                 executeSql(postSql);
