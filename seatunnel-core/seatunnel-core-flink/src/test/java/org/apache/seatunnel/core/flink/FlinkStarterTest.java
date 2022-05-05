@@ -23,7 +23,7 @@ import org.junit.Test;
 public class FlinkStarterTest {
 
     @Test
-    public void buildCommands() {
+    public void buildCommands() throws Exception {
         String[] args = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
         FlinkStarter flinkStarter = new FlinkStarter(args);
         String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());

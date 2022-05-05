@@ -44,12 +44,12 @@ public class FlinkSqlStarter implements Starter {
     }
 
     @Override
-    public List<String> buildCommands() {
+    public List<String> buildCommands() throws Exception {
         return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, CLASS_NAME, appJar);
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         FlinkSqlStarter flinkSqlStarter = new FlinkSqlStarter(args);
         System.out.println(String.join(" ", flinkSqlStarter.buildCommands()));
     }
