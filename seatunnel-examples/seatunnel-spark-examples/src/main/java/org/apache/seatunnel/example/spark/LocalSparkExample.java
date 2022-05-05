@@ -17,25 +17,35 @@
 
 package org.apache.seatunnel.example.spark;
 
-import org.apache.seatunnel.Seatunnel;
-import org.apache.seatunnel.command.SparkCommandArgs;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.core.base.Seatunnel;
+import org.apache.seatunnel.core.base.command.Command;
+import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.spark.command.SparkCommandBuilder;
+
+import java.io.FileNotFoundException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Paths;
 
 public class LocalSparkExample {
 
-    public static final String TEST_RESOURCE_DIR = "/seatunnel-examples/seatunnel-spark-examples/src/main/resources/examples/";
-
-    public static void main(String[] args) {
-        String configFile = getTestConfigFile("spark.batch.conf");
+    public static void main(String[] args) throws URISyntaxException, FileNotFoundException {
+        String configFile = getTestConfigFile("/examples/spark.batch.conf");
         SparkCommandArgs sparkArgs = new SparkCommandArgs();
         sparkArgs.setConfigFile(configFile);
         sparkArgs.setCheckConfig(false);
         sparkArgs.setVariables(null);
         sparkArgs.setDeployMode(DeployMode.CLIENT);
-        Seatunnel.run(sparkArgs);
+        Command<SparkCommandArgs> sparkCommand = new SparkCommandBuilder().buildCommand(sparkArgs);
+        Seatunnel.run(sparkCommand);
     }
 
-    public static String getTestConfigFile(String configFile) {
-        return System.getProperty("user.dir") + TEST_RESOURCE_DIR + configFile;
+    public static String getTestConfigFile(String configFile) throws URISyntaxException, FileNotFoundException {
+        URL resource = LocalSparkExample.class.getResource(configFile);
+        if (resource == null) {
+            throw new FileNotFoundException("Could not find config file: " + configFile);
+        }
+        return Paths.get(resource.toURI()).toString();
     }
 }

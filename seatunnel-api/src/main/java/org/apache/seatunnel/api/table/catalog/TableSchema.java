@@ -20,6 +20,9 @@ package org.apache.seatunnel.api.table.catalog;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * Represent a physical table schema.
+ */
 public final class TableSchema implements Serializable {
     private static final long serialVersionUID = 1L;
     private final List<Column> columns;
