@@ -18,42 +18,43 @@
 
 package org.apache.seatunnel.flink.jdbc.input;
 
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_DEC_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.DOUBLE_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.FLOAT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
+
 import org.apache.flink.api.common.typeinfo.SqlTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.*;
-import static org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO;
-
 public class OracleTypeInformationMap implements TypeInformationMap {
 
     private static final Map<String, TypeInformation<?>> INFORMATION_MAP = new HashMap<>();
 
     static {
-        {
-            INFORMATION_MAP.put("NVARCHAR2", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("VARCHAR2", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("FLOAT", DOUBLE_TYPE_INFO);
-            INFORMATION_MAP.put("NUMBER", BIG_DEC_TYPE_INFO);
-            INFORMATION_MAP.put("LONG", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("DATE", SqlTimeTypeInfo.TIMESTAMP);
-            INFORMATION_MAP.put("RAW", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
-            INFORMATION_MAP.put("LONG RAW", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
-            INFORMATION_MAP.put("NCHAR", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("CHAR", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("BINARY_FLOAT", FLOAT_TYPE_INFO);
-            INFORMATION_MAP.put("BINARY_DOUBLE", DOUBLE_TYPE_INFO);
-            INFORMATION_MAP.put("ROWID", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("NCLOB", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("CLOB", STRING_TYPE_INFO);
-            INFORMATION_MAP.put("BLOB", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
-            INFORMATION_MAP.put("BFILE", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
-            INFORMATION_MAP.put("TIMESTAMP", SqlTimeTypeInfo.TIMESTAMP);
-            INFORMATION_MAP.put("TIMESTAMP WITH TIME ZONE", SqlTimeTypeInfo.TIMESTAMP);
-            INFORMATION_MAP.put("TIMESTAMP WITH LOCAL TIME ZONE", SqlTimeTypeInfo.TIMESTAMP);
-        }
+        INFORMATION_MAP.put("NVARCHAR2", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("VARCHAR2", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("FLOAT", DOUBLE_TYPE_INFO);
+        INFORMATION_MAP.put("NUMBER", BIG_DEC_TYPE_INFO);
+        INFORMATION_MAP.put("LONG", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("DATE", SqlTimeTypeInfo.TIMESTAMP);
+        INFORMATION_MAP.put("RAW", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
+        INFORMATION_MAP.put("LONG RAW", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
+        INFORMATION_MAP.put("NCHAR", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("CHAR", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("BINARY_FLOAT", FLOAT_TYPE_INFO);
+        INFORMATION_MAP.put("BINARY_DOUBLE", DOUBLE_TYPE_INFO);
+        INFORMATION_MAP.put("ROWID", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("NCLOB", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("CLOB", STRING_TYPE_INFO);
+        INFORMATION_MAP.put("BLOB", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
+        INFORMATION_MAP.put("BFILE", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
+        INFORMATION_MAP.put("TIMESTAMP", SqlTimeTypeInfo.TIMESTAMP);
+        INFORMATION_MAP.put("TIMESTAMP WITH TIME ZONE", SqlTimeTypeInfo.TIMESTAMP);
+        INFORMATION_MAP.put("TIMESTAMP WITH LOCAL TIME ZONE", SqlTimeTypeInfo.TIMESTAMP);
     }
 
     @Override

@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +18,34 @@
 
 package org.apache.seatunnel.flink.jdbc.source;
 
+import static org.apache.seatunnel.flink.jdbc.Config.DRIVER;
+import static org.apache.seatunnel.flink.jdbc.Config.PARALLELISM;
+import static org.apache.seatunnel.flink.jdbc.Config.PARTITION_COLUMN;
+import static org.apache.seatunnel.flink.jdbc.Config.PARTITION_LOWER_BOUND;
+import static org.apache.seatunnel.flink.jdbc.Config.PARTITION_UPPER_BOUND;
+import static org.apache.seatunnel.flink.jdbc.Config.PASSWORD;
+import static org.apache.seatunnel.flink.jdbc.Config.QUERY;
+import static org.apache.seatunnel.flink.jdbc.Config.SOURCE_FETCH_SIZE;
+import static org.apache.seatunnel.flink.jdbc.Config.URL;
+import static org.apache.seatunnel.flink.jdbc.Config.USERNAME;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.BIG_INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.INT_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.SHORT_TYPE_INFO;
+
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.jdbc.input.DefaultTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.JdbcInputFormat;
+import org.apache.seatunnel.flink.jdbc.input.MysqlTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.OracleTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.PostgresTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.TypeInformationMap;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSource;
@@ -24,22 +53,18 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.split.JdbcNumericBetweenParametersProvider;
 import org.apache.flink.connector.jdbc.split.JdbcParameterValuesProvider;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.batch.FlinkBatchSource;
-import org.apache.seatunnel.flink.jdbc.input.*;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.*;
-import static org.apache.seatunnel.flink.jdbc.Config.*;
 
 public class JdbcSource implements FlinkBatchSource {
 
