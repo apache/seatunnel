@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class BooleanType extends BasicType<Boolean> {
-    private static final BooleanType INSTANCE = new BooleanType(Boolean.class);
+public interface Converter<T1, T2> {
 
-    private BooleanType(Class<Boolean> typeClass) {
-        super(typeClass);
-    }
+    T2 convert(T1 dataType);
 }
