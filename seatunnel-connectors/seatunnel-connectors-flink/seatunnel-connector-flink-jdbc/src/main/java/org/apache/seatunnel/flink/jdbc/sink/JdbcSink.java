@@ -185,7 +185,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     private void executePreSql() {
-        if (!StringUtils.isNotBlank(preSql)) {
+        if (StringUtils.isNotBlank(preSql)) {
             LOGGER.info("Starting to execute pre sql: \n {}", preSql);
             try {
                 executeSql(preSql);
