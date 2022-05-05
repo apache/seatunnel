@@ -17,16 +17,11 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class LongType implements DataType {
+public class LongType extends BasicType<Long> {
 
-    private final long value;
+    private static final LongType INSTANCE = new LongType(Long.class);
 
-    public LongType(long value) {
-        this.value = value;
+    private LongType(Class<Long> typeClass) {
+        super(typeClass);
     }
-
-    public long getValue() {
-        return value;
-    }
-
 }

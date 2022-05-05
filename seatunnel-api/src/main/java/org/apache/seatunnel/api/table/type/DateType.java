@@ -17,18 +17,13 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import java.sql.Date;
+import java.util.Date;
 
-public class DateType implements DataType {
+public class DateType extends BasicType<Date> {
 
-    private final Date value;
+    private static final DateType INSTANCE = new DateType(Date.class);
 
-    public DateType(Date value) {
-        this.value = value;
+    private DateType(Class<Date> typeClass) {
+        super(typeClass);
     }
-
-    public Date getValue() {
-        return value;
-    }
-
 }

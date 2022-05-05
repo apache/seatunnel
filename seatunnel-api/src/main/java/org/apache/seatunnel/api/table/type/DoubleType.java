@@ -17,14 +17,11 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class DoubleType implements DataType {
-    private final double value;
+public class DoubleType extends BasicType<Double> {
 
-    public DoubleType(double value) {
-        this.value = value;
-    }
+    public static final DoubleType INSTANCE = new DoubleType(Double.class);
 
-    public double getValue() {
-        return value;
+    private DoubleType(Class<Double> typeClass) {
+        super(typeClass);
     }
 }

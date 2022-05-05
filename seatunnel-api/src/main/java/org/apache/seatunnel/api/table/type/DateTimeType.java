@@ -17,14 +17,19 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import java.sql.Time;
-
 public class DateTimeType implements DataType {
 
-    // todo
-    private Time value;
+    public DateTimeType() {
 
-    private DateTimeType(Time value) {
-        this.value = value;
+    }
+
+    @Override
+    public boolean isBasicType() {
+        return false;
+    }
+
+    @Override
+    public Class getTypeClass() {
+        return null;
     }
 }

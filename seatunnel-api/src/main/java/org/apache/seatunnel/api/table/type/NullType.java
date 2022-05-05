@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class NullType implements DataType {
+public class NullType extends BasicType<Void> {
 
-    private static final NullType INSTANCE = new NullType();
+    private static final NullType INSTANCE = new NullType(Void.class);
 
-    public static NullType getInstance() {
-        return INSTANCE;
+    private NullType(Class<Void> typeClass) {
+        super(typeClass);
     }
 }

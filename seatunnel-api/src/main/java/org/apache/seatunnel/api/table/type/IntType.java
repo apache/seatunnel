@@ -17,15 +17,11 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class IntType implements DataType {
+public class IntType extends BasicType<Integer> {
 
-    private final int value;
+    private static final IntType INSTANCE = new IntType(Integer.class);
 
-    public IntType(int value) {
-        this.value = value;
-    }
-
-    public int getValue() {
-        return value;
+    private IntType(Class<Integer> typeClass) {
+        super(typeClass);
     }
 }

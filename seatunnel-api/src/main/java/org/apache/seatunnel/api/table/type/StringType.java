@@ -17,16 +17,11 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class StringType implements DataType {
+public class StringType extends BasicType<String> {
 
-    private final String value;
+    public static final StringType INSTANCE = new StringType(String.class);
 
-    public StringType(String value) {
-        this.value = value;
+    private StringType(Class<String> typeClass) {
+        super(typeClass);
     }
-
-    public String getValue() {
-        return value;
-    }
-
 }

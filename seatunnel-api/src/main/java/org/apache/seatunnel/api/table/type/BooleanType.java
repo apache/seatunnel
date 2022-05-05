@@ -17,14 +17,10 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class BooleanType implements DataType {
-    private final boolean value;
+public class BooleanType extends BasicType<Boolean> {
+    private static final BooleanType INSTANCE = new BooleanType(Boolean.class);
 
-    public BooleanType(boolean value) {
-        this.value = value;
-    }
-
-    public boolean getValue() {
-        return value;
+    private BooleanType(Class<Boolean> typeClass) {
+        super(typeClass);
     }
 }

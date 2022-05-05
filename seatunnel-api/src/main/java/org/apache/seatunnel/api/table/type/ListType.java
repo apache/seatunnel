@@ -17,17 +17,15 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import java.util.List;
-
 public class ListType implements DataType {
-    private final List<DataType> value;
 
-    public ListType(List<DataType> value) {
-        this.value = value;
+    @Override
+    public boolean isBasicType() {
+        return false;
     }
 
-    public List<DataType> getValue() {
-        return value;
+    @Override
+    public Class getTypeClass() {
+        return null;
     }
-
 }
