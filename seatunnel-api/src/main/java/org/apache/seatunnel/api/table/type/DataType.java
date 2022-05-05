@@ -22,8 +22,11 @@ package org.apache.seatunnel.api.table.type;
  */
 public interface DataType<T> {
 
-    boolean isBasicType();
-
+    /**
+     * The type class.
+     *
+     * @return the type class.
+     */
     Class<T> getTypeClass();
 
 }

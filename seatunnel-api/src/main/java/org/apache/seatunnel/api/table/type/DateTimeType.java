@@ -24,11 +24,6 @@ public class DateTimeType implements DataType {
     }
 
     @Override
-    public boolean isBasicType() {
-        return false;
-    }
-
-    @Override
     public Class getTypeClass() {
         return null;
     }
