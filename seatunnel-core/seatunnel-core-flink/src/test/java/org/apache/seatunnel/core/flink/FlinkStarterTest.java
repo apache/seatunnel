@@ -17,49 +17,45 @@
 
 package org.apache.seatunnel.core.flink;
 
+import com.beust.jcommander.ParameterException;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class FlinkStarterTest {
+    static final String APP_CONF_PATH = ClassLoader.getSystemResource("app.conf").getPath();
 
     @Test
     public void buildCommands() throws Exception {
-        String[] args = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
+        String[] args = {"--config", APP_CONF_PATH, "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
         FlinkStarter flinkStarter = new FlinkStarter(args);
         String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
         // since we cannot get the actual jar path, so we just check the command contains the command
-        Assert.assertTrue(flinkExecuteCommand.contains("--config test.conf"));
+        Assert.assertTrue(flinkExecuteCommand.contains("--config " + APP_CONF_PATH));
         Assert.assertTrue(flinkExecuteCommand.contains("-m yarn-cluster"));
         Assert.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
         Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
 
-        String[] args1 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run-application"};
+        String[] args1 = {"--config", APP_CONF_PATH, "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run-application"};
         flinkExecuteCommand = String.join(" ", new FlinkStarter(args1).buildCommands());
         Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run-application"));
 
-        String[] args2 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run"};
+        String[] args2 = {"--config", APP_CONF_PATH, "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run"};
         flinkExecuteCommand = String.join(" ", new FlinkStarter(args2).buildCommands());
         Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
 
-        try {
-            String[] args3 = {"--config", "test.conf", "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run123"};
-            new FlinkStarter(args3);
-        } catch (Exception e) {
-            Assert.assertTrue(e instanceof IllegalArgumentException);
-            Assert.assertEquals("Run mode run123 not supported", e.getMessage());
-        }
+        String[] args3 = {"--config", APP_CONF_PATH, "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run123"};
+        Assert.assertThrows("Run mode run123 not supported", IllegalArgumentException.class, () -> new FlinkStarter(args3));
     }
 
     @Test
     public void buildCommandsMissingConfig() {
-        try {
-            String[] args = {"-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
-            FlinkStarter flinkStarter = new FlinkStarter(args);
-            String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
-            // since we cannot get the actual jar path, so we just check the command contains the command
-            Assert.assertTrue(flinkExecuteCommand.contains("--config flink.yarn.conf"));
-        } catch (Exception e) {
-            Assert.assertEquals("The following option is required: [-c | --config]", e.getMessage());
-        }
+        Assert.assertThrows("The following option is required: [-c | --config]", ParameterException.class,
+            () -> {
+                String[] args = {"-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
+                FlinkStarter flinkStarter = new FlinkStarter(args);
+                String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
+                // since we cannot get the actual jar path, so we just check the command contains the command
+                Assert.assertTrue(flinkExecuteCommand.contains("--config flink.yarn.conf"));
+            });
     }
 }
