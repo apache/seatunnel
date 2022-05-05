@@ -211,7 +211,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     }
 
     private void executeSql(String sql) throws SQLException {
-        try(Connection connection = DriverManager.getConnection(dbUrl, username, password);
+        try (Connection connection = DriverManager.getConnection(dbUrl, username, password);
             Statement statement = connection.createStatement()) {
 
             statement.execute(sql);
