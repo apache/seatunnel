@@ -25,7 +25,14 @@ if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
 fi
 
-CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.core.flink.FlinkStarter ${@}) && EXIT_CODE=$? || EXIT_CODE=$?
+if [ $# == 0 ]
+then
+    args="-h"
+else
+    args=$@
+fi
+
+CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.core.flink.FlinkStarter ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo ${CMD}
