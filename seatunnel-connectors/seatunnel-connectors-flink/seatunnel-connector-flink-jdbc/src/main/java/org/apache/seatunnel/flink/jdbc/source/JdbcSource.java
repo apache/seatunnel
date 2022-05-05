@@ -209,7 +209,7 @@ public class JdbcSource implements FlinkBatchSource {
             throw new SQLException("No result set metadata available to resolver row info!");
         }
         TypeInformationMap informationMapping = getTypeInformationMap(databaseDialect);
-        for (int i = 1; i < rsMeta.getColumnCount(); i++) {
+        for (int i = 1; i <= rsMeta.getColumnCount(); i++) {
             String columnName = rsMeta.getColumnLabel(i);
             String columnTypeName = rsMeta.getColumnTypeName(i);
             if (columnTypeName == null) {
