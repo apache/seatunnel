@@ -33,6 +33,8 @@
     <modules>
         <module>seatunnel-transform-spark-json</module>
         <module>seatunnel-transform-spark-split</module>
+        <module>seatunnel-transform-spark-replace</module>
+        <module>seatunnel-transform-spark-uuid</module>
         <module>seatunnel-transform-spark-sql</module>
     </modules>
 

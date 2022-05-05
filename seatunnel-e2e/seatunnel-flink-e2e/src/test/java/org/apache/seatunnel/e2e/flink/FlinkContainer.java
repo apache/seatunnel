@@ -35,6 +35,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -51,8 +52,12 @@ public abstract class FlinkContainer {
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
+    private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
     private static final String SEATUNNEL_FLINK_JAR = "seatunnel-core-flink.jar";
-    private static final String FLINK_JAR_PATH = Paths.get("/tmp", SEATUNNEL_FLINK_JAR).toString();
+    private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
+    private static final String SEATUNNEL_HOME = "/tmp/flink/seatunnel";
+    private static final String FLINK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_FLINK_JAR).toString();
+    private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
 
     private static final int WAIT_FLINK_JOB_SUBMIT = 5000;
 
@@ -67,25 +72,25 @@ public abstract class FlinkContainer {
     @Before
     public void before() {
         jobManager = new GenericContainer<>(FLINK_DOCKER_IMAGE)
-            .withCommand("jobmanager")
-            .withNetwork(NETWORK)
-            .withNetworkAliases("jobmanager")
-            .withExposedPorts()
-            .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
-            .withLogConsumer(new Slf4jLogConsumer(LOG));
+                .withCommand("jobmanager")
+                .withNetwork(NETWORK)
+                .withNetworkAliases("jobmanager")
+                .withExposedPorts()
+                .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
+                .withLogConsumer(new Slf4jLogConsumer(LOG));
 
         taskManager =
-            new GenericContainer<>(FLINK_DOCKER_IMAGE)
-                .withCommand("taskmanager")
-                .withNetwork(NETWORK)
-                .withNetworkAliases("taskmanager")
-                .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
-                .dependsOn(jobManager)
-                .withLogConsumer(new Slf4jLogConsumer(LOG));
+                new GenericContainer<>(FLINK_DOCKER_IMAGE)
+                        .withCommand("taskmanager")
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("taskmanager")
+                        .withEnv("FLINK_PROPERTIES", FLINK_PROPERTIES)
+                        .dependsOn(jobManager)
+                        .withLogConsumer(new Slf4jLogConsumer(LOG));
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
-        copySeaTunnelFlinkCoreJar();
+        copySeaTunnelFlinkFile();
         LOG.info("Flink containers are started.");
     }
 
@@ -113,7 +118,7 @@ public abstract class FlinkContainer {
         final List<String> command = new ArrayList<>();
         command.add("flink");
         command.add("run");
-        command.add("-c org.apache.seatunnel.SeatunnelFlink " + jar);
+        command.add("-c org.apache.seatunnel.core.flink.SeatunnelFlink " + jar);
         command.add("--config " + conf);
 
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
@@ -124,16 +129,32 @@ public abstract class FlinkContainer {
         return execResult;
     }
 
-    protected void copySeaTunnelFlinkCoreJar() {
-        String currentModuleHome = System.getProperty("user.dir");
-        Path prjRootPath = Paths.get(currentModuleHome).getParent().getParent();
-        String seatunnelCoreFlinkJarPath = prjRootPath
+    protected void copySeaTunnelFlinkFile() {
+        String seatunnelCoreFlinkJarPath = PROJECT_ROOT_PATH
             + "/seatunnel-core/seatunnel-core-flink/target/seatunnel-core-flink.jar";
         jobManager.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreFlinkJarPath), FLINK_JAR_PATH);
+
+        // copy connectors jar
+        File jars = new File(PROJECT_ROOT_PATH +
+            "/seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib");
+        Arrays.stream(Objects.requireNonNull(jars.listFiles(f -> f.getName().startsWith("seatunnel-connector-flink"))))
+            .forEach(jar ->
+                jobManager.copyFileToContainer(
+                    MountableFile.forHostPath(jar.getAbsolutePath()),
+                    getConnectorPath(jar.getName())));
+
+        // copy plugin-mapping.properties
+        jobManager.copyFileToContainer(
+            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-connectors/plugin-mapping.properties"),
+            Paths.get(CONNECTORS_PATH, PLUGIN_MAPPING_FILE).toString());
     }
 
     private String getResource(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources" + confFile;
+    }
+
+    private String getConnectorPath(String fileName) {
+        return Paths.get(CONNECTORS_PATH.toString(), "flink", fileName).toString();
     }
 
 }
