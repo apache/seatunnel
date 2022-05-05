@@ -28,7 +28,7 @@ import java.io.IOException;
 public class HttpSourceToConsoleIT extends FlinkContainer {
 
     @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
+    public void testHttpSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/http/httpsource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
