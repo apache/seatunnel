@@ -31,7 +31,7 @@ public class Seatunnel {
     /**
      * This method is the entrypoint of SeaTunnel.
      *
-     * @param commandArgs commandArgs
+     * @param command commandArgs
      * @param <T>         commandType
      */
     public static <T extends CommandArgs> void run(Command<T> command) {
