@@ -61,6 +61,7 @@ public class HttpClientUtils {
      * @return http response result
      * @throws Exception information
      */
+    // This method is reserved for future extension to users.
     public static HttpClientResult doGet(String url) throws Exception {
         return doGet(url, null, null);
     }
@@ -73,6 +74,7 @@ public class HttpClientUtils {
      * @return http response result
      * @throws Exception information
      */
+    // This method is reserved for future extension to users.
     public static HttpClientResult doGet(String url, Map<String, String> params) throws Exception {
         return doGet(url, null, params);
     }
@@ -119,6 +121,7 @@ public class HttpClientUtils {
      * @return http response result
      * @throws Exception information
      */
+    // This method is reserved for future extension to users.
     public static HttpClientResult doPost(String url) throws Exception {
         return doPost(url, null, null);
     }
@@ -204,6 +207,7 @@ public class HttpClientUtils {
      * @return http response result
      * @throws Exception information
      */
+    // This method is reserved for future extension to users.
     public static HttpClientResult doDelete(String url) throws Exception {
 
         HttpDelete httpDelete = new HttpDelete(url);
@@ -222,6 +226,7 @@ public class HttpClientUtils {
      * @return http response result
      * @throws Exception information
      */
+    // This method is reserved for future extension to users.
     public static HttpClientResult doDelete(String url, Map<String, String> params) throws Exception {
         if (params == null) {
             params = new HashMap<>(INITIAL_CAPACITY);
@@ -299,6 +304,7 @@ public class HttpClientUtils {
      * @param httpClient   http client objet
      * @throws IOException information
      */
+    // This method is reserved for future extension to users.
     public static void release(CloseableHttpResponse httpResponse, CloseableHttpClient httpClient) throws IOException {
         // release resources
         if (httpResponse != null) {

@@ -32,6 +32,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.operators.DataSource;
+import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,12 @@ public class Http implements FlinkBatchSource {
     private static Logger LOG = LoggerFactory.getLogger(Http.class);
 
     private Config config;
-
+    private String url;
+    private String method;
+    private String header;
+    private String requestParams;
+    private String syncPath;
+    private Map requestMap;
     @Override
     public void setConfig(Config config) {
         this.config = config;
@@ -68,14 +74,18 @@ public class Http implements FlinkBatchSource {
     }
 
     @Override
-    public DataSet<Row> getData(FlinkEnvironment env) {
-        String url = config.getString(Settings.SOURCE_HTTP_URL);
-        String method = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_METHOD, GET);
-        String header = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_HEADER, "");
-        String requestParams = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_REQUEST_PARAMS, "");
-        String syncPath = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_SYNC_PATH, "");
+    public void prepare(FlinkEnvironment env) {
+        url = config.getString(Settings.SOURCE_HTTP_URL);
+        method = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_METHOD, GET);
+        header = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_HEADER, "");
+        requestParams = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_REQUEST_PARAMS, "");
+        syncPath = TypesafeConfigUtils.getConfig(config, Settings.SOURCE_HTTP_SYNC_PATH, "");
 
-        Map requestMap = jsonToMap(requestParams);
+        requestMap = jsonToMap(requestParams);
+    }
+
+    @Override
+    public DataSet<Row> getData(FlinkEnvironment env) {
         String syncValues = getSyncValues(env.getBatchEnvironment(), syncPath);
         LOG.info("sync values->{}", syncValues);
         Map syncMap = jsonToMap(syncValues);
@@ -93,13 +103,19 @@ public class Http implements FlinkBatchSource {
             }
         } catch (Exception e) {
             LOG.error("http call error!", e);
+            throw new RuntimeException(e);
         }
 
         LOG.info("http respond code->{}", response.getCode());
         LOG.info("http respond body->{}", response.getContent());
 
-        Row row = Row.of(response.getContent());
-        return env.getBatchEnvironment().fromElements(row);
+        return env.getBatchTableEnvironment().toDataSet(
+            env.getBatchTableEnvironment().fromValues(
+                DataTypes.ROW(DataTypes.FIELD("rawMsg", DataTypes.STRING())),
+                response.getContent()
+            ),
+            Row.class
+        );
     }
 
     private String getSyncValues(ExecutionEnvironment env, String syncPath) {
