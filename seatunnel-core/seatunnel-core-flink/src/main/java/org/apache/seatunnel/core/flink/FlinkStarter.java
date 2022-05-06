@@ -51,13 +51,13 @@ public class FlinkStarter implements Starter {
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         FlinkStarter flinkStarter = new FlinkStarter(args);
         System.out.println(String.join(" ", flinkStarter.buildCommands()));
     }
 
     @Override
-    public List<String> buildCommands() {
+    public List<String> buildCommands() throws Exception {
         return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, APP_NAME, appJar);
     }
 
