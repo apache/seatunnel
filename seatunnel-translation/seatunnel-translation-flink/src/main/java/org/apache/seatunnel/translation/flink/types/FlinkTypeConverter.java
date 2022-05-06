@@ -25,16 +25,15 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 /**
  * Convert SeaTunnel {@link DataType} to flink type.
  */
-public interface FlinkTypeConverter<T1, T2>
-    extends Converter<DataType<T1>, TypeInformation<T2>> {
+public interface FlinkTypeConverter<T1, T2> extends Converter<T1, T2> {
 
     /**
      * Convert SeaTunnel {@link DataType} to flink {@link  TypeInformation}.
      *
-     * @param dataType SeaTunnel {@link DataType}
+     * @param seaTunnelDataType SeaTunnel {@link DataType}
      * @return flink {@link TypeInformation}
      */
     @Override
-    TypeInformation<T2> convert(DataType<T1> dataType);
+    T2 convert(T1 seaTunnelDataType);
 
 }

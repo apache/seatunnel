@@ -19,15 +19,13 @@ package org.apache.seatunnel.api.table.type;
 
 public class ListType<T> implements DataType<T> {
 
-    // todo: use DataType?
-    private final Class<T> typeClass;
+    private final DataType<T> elementType;
 
-    public ListType(Class<T> typeClass) {
-        this.typeClass = typeClass;
+    public ListType(DataType<T> elementType) {
+        this.elementType = elementType;
     }
 
-    @Override
-    public Class<T> getTypeClass() {
-        return typeClass;
+    public DataType<T> getElementType() {
+        return elementType;
     }
 }
