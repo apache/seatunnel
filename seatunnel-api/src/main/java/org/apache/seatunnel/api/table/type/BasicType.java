@@ -54,4 +54,28 @@ public class BasicType<T> implements DataType<T> {
     public Class<T> getPhysicalTypeClass() {
         return this.physicalTypeClass;
     }
+
+    @Override
+    public int hashCode() {
+        return this.physicalTypeClass.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        BasicType<?> other = (BasicType<?>) obj;
+        return this.physicalTypeClass.equals(other.physicalTypeClass);
+    }
+
+    @Override
+    public String toString() {
+        return "BasicType{" +
+            "physicalTypeClass=" + physicalTypeClass +
+            '}';
+    }
 }

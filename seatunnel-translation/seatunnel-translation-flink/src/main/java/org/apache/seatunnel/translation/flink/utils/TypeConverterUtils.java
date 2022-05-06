@@ -20,13 +20,22 @@ package org.apache.seatunnel.translation.flink.utils;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DataType;
+import org.apache.seatunnel.api.table.type.EnumType;
 import org.apache.seatunnel.api.table.type.ListType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PojoType;
 import org.apache.seatunnel.api.table.type.TimestampType;
+import org.apache.seatunnel.translation.flink.types.ArrayTypeConverter;
+import org.apache.seatunnel.translation.flink.types.BasicTypeConverter;
+import org.apache.seatunnel.translation.flink.types.PojoTypeConverter;
 import org.apache.seatunnel.translation.flink.types.TimestampTypeConverter;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
-import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.EnumTypeInfo;
+import org.apache.flink.api.java.typeutils.ListTypeInfo;
+import org.apache.flink.api.java.typeutils.MapTypeInfo;
+import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -44,67 +53,117 @@ public class TypeConverterUtils {
                 TimestampTypeConverter.INSTANCE.convert((TimestampType) dataType);
         }
         if (dataType instanceof ArrayType) {
-            return convertBasicArrayType((ArrayType<T1>) dataType);
+            return (TypeInformation<T2>) convertArrayType((ArrayType<T1>) dataType);
         }
         if (dataType instanceof ListType) {
-            // todo:
+            return (TypeInformation<T2>) covertListType((ListType<T1>) dataType);
         }
-        // todo:
-        return null;
+        if (dataType instanceof EnumType) {
+            return (TypeInformation<T2>) coverEnumType((EnumType<Enum>) dataType);
+        }
+        if (dataType instanceof MapType) {
+            return (TypeInformation<T2>) convertMapType((MapType) dataType);
+        }
+        if (dataType instanceof PojoType) {
+            return (TypeInformation<T2>) convertPojoType((PojoType<T1>) dataType);
+        }
+        throw new IllegalArgumentException("Unsupported data type: " + dataType);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> TypeInformation<T> convertBasicType(BasicType<T> basicType) {
         Class<T> physicalTypeClass = basicType.getPhysicalTypeClass();
         if (physicalTypeClass == Boolean.class) {
-            return (TypeInformation<T>) BasicTypeInfo.BOOLEAN_TYPE_INFO;
+            BasicType<Boolean> booleanBasicType = (BasicType<Boolean>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.BOOLEAN_CONVERTER.convert(booleanBasicType);
         }
         if (physicalTypeClass == String.class) {
-            return (TypeInformation<T>) BasicTypeInfo.STRING_TYPE_INFO;
+            BasicType<String> stringBasicType = (BasicType<String>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.STRING_CONVERTER.convert(stringBasicType);
         }
         if (physicalTypeClass == Date.class) {
-            return (TypeInformation<T>) BasicTypeInfo.DATE_TYPE_INFO;
+            BasicType<Date> dateBasicType = (BasicType<Date>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.DATE_CONVERTER.convert(dateBasicType);
         }
         if (physicalTypeClass == Double.class) {
-            return (TypeInformation<T>) BasicTypeInfo.DOUBLE_TYPE_INFO;
+            BasicType<Double> doubleBasicType = (BasicType<Double>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.DOUBLE_CONVERTER.convert(doubleBasicType);
         }
         if (physicalTypeClass == Integer.class) {
-            return (TypeInformation<T>) BasicTypeInfo.INT_TYPE_INFO;
+            BasicType<Integer> integerBasicType = (BasicType<Integer>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.INTEGER_CONVERTER.convert(integerBasicType);
         }
         if (physicalTypeClass == Long.class) {
-            return (TypeInformation<T>) BasicTypeInfo.LONG_TYPE_INFO;
+            BasicType<Long> longBasicType = (BasicType<Long>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.LONG_CONVERTER.convert(longBasicType);
         }
         if (physicalTypeClass == Float.class) {
-            return (TypeInformation<T>) BasicTypeInfo.FLOAT_TYPE_INFO;
+            BasicType<Float> floatBasicType = (BasicType<Float>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.FLOAT_CONVERTER.convert(floatBasicType);
         }
         if (physicalTypeClass == Byte.class) {
-            return (TypeInformation<T>) BasicTypeInfo.BYTE_TYPE_INFO;
+            BasicType<Byte> byteBasicType = (BasicType<Byte>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.BYTE_CONVERTER.convert(byteBasicType);
         }
         if (physicalTypeClass == Short.class) {
-            return (TypeInformation<T>) BasicTypeInfo.SHORT_TYPE_INFO;
+            BasicType<Short> shortBasicType = (BasicType<Short>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.SHORT_CONVERTER.convert(shortBasicType);
         }
         if (physicalTypeClass == Character.class) {
-            return (TypeInformation<T>) BasicTypeInfo.CHAR_TYPE_INFO;
+            BasicType<Character> characterBasicType = (BasicType<Character>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.CHARACTER_CONVERTER.convert(characterBasicType);
         }
         if (physicalTypeClass == BigInteger.class) {
-            return (TypeInformation<T>) BasicTypeInfo.BIG_INT_TYPE_INFO;
+            BasicType<BigInteger> bigIntegerBasicType = (BasicType<BigInteger>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.BIG_INTEGER_CONVERTER.convert(bigIntegerBasicType);
         }
         if (physicalTypeClass == BigDecimal.class) {
-            return (TypeInformation<T>) BasicTypeInfo.BIG_DEC_TYPE_INFO;
+            BasicType<BigDecimal> bigDecimalBasicType = (BasicType<BigDecimal>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.BIG_DECIMAL.convert(bigDecimalBasicType);
         }
         if (physicalTypeClass == Void.class) {
-            return (TypeInformation<T>) BasicTypeInfo.VOID_TYPE_INFO;
+            BasicType<Void> voidBasicType = (BasicType<Void>) basicType;
+            return (TypeInformation<T>)
+                BasicTypeConverter.NULL_CONVERTER.convert(voidBasicType);
         }
         throw new IllegalArgumentException("Unsupported basic type: " + basicType);
     }
 
-    @SuppressWarnings("unchecked")
-    public static <T, C> BasicArrayTypeInfo<T, C> convertBasicArrayType(ArrayType<C> arrayType) {
-        BasicType<C> elementType = (BasicType<C>) arrayType.getElementType();
-        Class<C> physicalTypeClass = elementType.getPhysicalTypeClass();
-        if (physicalTypeClass == Boolean.class) {
-            return (BasicArrayTypeInfo<T, C>) BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO;
-        }
-        throw new IllegalArgumentException("Unsupported basic type: " + elementType);
+    public static <T1, T2> BasicArrayTypeInfo<T1, T2> convertArrayType(ArrayType<T1> arrayType) {
+        ArrayTypeConverter<T1, T2> arrayTypeConverter = new ArrayTypeConverter<>();
+        return arrayTypeConverter.convert(arrayType);
+    }
+
+    public static <T> ListTypeInfo<T> covertListType(ListType<T> listType) {
+        DataType<T> elementType = listType.getElementType();
+        return new ListTypeInfo<>(convertType(elementType));
+    }
+
+    public static <T extends Enum<T>> EnumTypeInfo<T> coverEnumType(EnumType<T> enumType) {
+        Class<T> enumClass = enumType.getEnumClass();
+        return new EnumTypeInfo<>(enumClass);
+    }
+
+    public static <K, V> MapTypeInfo<K, V> convertMapType(MapType<K, V> mapType) {
+        DataType<K> keyType = mapType.getKeyType();
+        DataType<V> valueType = mapType.getValueType();
+        return new MapTypeInfo<>(convertType(keyType), convertType(valueType));
+    }
+
+    public static <T> PojoTypeInfo<T> convertPojoType(PojoType<T> pojoType) {
+        PojoTypeConverter<T> pojoTypeConverter = new PojoTypeConverter<>();
+        return pojoTypeConverter.convert(pojoType);
     }
 }

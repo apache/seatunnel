@@ -19,21 +19,42 @@ package org.apache.seatunnel.translation.flink.types;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DataType;
-import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 
-public class ArrayTypeConverter<T1, T2> implements FlinkTypeConverter<ArrayType<T1>, TypeInformation<T2>> {
+public class ArrayTypeConverter<T1, T2> implements FlinkTypeConverter<ArrayType<T1>, BasicArrayTypeInfo<T1, T2>> {
 
     @Override
-    public TypeInformation<T2> convert(ArrayType<T1> seaTunnelDataType) {
-        DataType<T1> elementType = seaTunnelDataType.getElementType();
-        if (elementType instanceof BasicType) {
-            BasicType<T1> basicType = (BasicType<T1>) elementType;
-            return (TypeInformation<T2>) TypeConverterUtils.convertBasicType(basicType);
+    @SuppressWarnings("unchecked")
+    public BasicArrayTypeInfo<T1, T2> convert(ArrayType<T1> arrayType) {
+        BasicType<T1> elementType = arrayType.getElementType();
+        if (BasicType.BOOLEAN.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO;
         }
-        // todo: support complex array types
-        throw new IllegalArgumentException("Unsupported array type: " + elementType);
+        if (BasicType.STRING.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO;
+        }
+        if (BasicType.DOUBLE.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO;
+        }
+        if (BasicType.INTEGER.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.INT_ARRAY_TYPE_INFO;
+        }
+        if (BasicType.LONG.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.LONG_ARRAY_TYPE_INFO;
+        }
+        if (BasicType.FLOAT.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.FLOAT_ARRAY_TYPE_INFO;
+        }
+        if (BasicType.BYTE.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.BYTE_ARRAY_TYPE_INFO;
+        }
+        if (BasicType.SHORT.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.SHORT_ARRAY_TYPE_INFO;
+        }
+        if (BasicType.CHARACTER.equals(elementType)) {
+            return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.CHAR_ARRAY_TYPE_INFO;
+        }
+        throw new IllegalArgumentException("Unsupported basic type: " + elementType);
     }
 }

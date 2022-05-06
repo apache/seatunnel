@@ -1,13 +1,13 @@
 package org.apache.seatunnel.api.table.type;
 
-public class EnumType<T> implements DataType<T> {
-    private final Class<T> typeClass;
+public class EnumType<T extends Enum<T>> implements DataType<T> {
+    private final Class<T> enumClass;
 
-    public EnumType(Class<T> typeClass) {
-        this.typeClass = typeClass;
+    public EnumType(Class<T> enumClass) {
+        this.enumClass = enumClass;
     }
 
-    public Class<T> getTypeClass() {
-        return typeClass;
+    public Class<T> getEnumClass() {
+        return enumClass;
     }
 }
