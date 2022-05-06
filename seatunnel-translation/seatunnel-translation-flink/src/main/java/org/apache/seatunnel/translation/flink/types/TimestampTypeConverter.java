@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.translation.flink.types;
 
-public class DateTimeType implements DataType {
+import org.apache.seatunnel.api.table.type.TimestampType;
 
-    public DateTimeType() {
+import org.apache.flink.table.runtime.typeutils.TimestampDataTypeInfo;
+
+public class TimestampTypeConverter implements FlinkTypeConverter<TimestampType, TimestampDataTypeInfo> {
+
+    public static final TimestampTypeConverter INSTANCE = new TimestampTypeConverter();
+
+    private TimestampTypeConverter() {
 
     }
 
     @Override
-    public Class getTypeClass() {
-        return null;
+    public TimestampDataTypeInfo convert(TimestampType seaTunnelDataType) {
+        return new TimestampDataTypeInfo(seaTunnelDataType.getPrecision());
     }
 }

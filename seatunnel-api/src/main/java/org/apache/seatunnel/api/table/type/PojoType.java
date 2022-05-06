@@ -17,18 +17,29 @@
 
 package org.apache.seatunnel.api.table.type;
 
-// todo: we may don't need to pojo type
+import java.lang.reflect.Field;
+
 public class PojoType<T> implements DataType<T> {
 
-    private final Class<T> typeClass;
+    private final Class<T> pojoClass;
+    private final Field[] fields;
+    private final DataType<?>[] fieldTypes;
 
-    public PojoType(Class<T> typeClass) {
-        this.typeClass = typeClass;
-
+    public PojoType(Class<T> pojoClass, Field[] fields, DataType<?>[] fieldTypes) {
+        this.pojoClass = pojoClass;
+        this.fields = fields;
+        this.fieldTypes = fieldTypes;
     }
 
-    @Override
-    public Class<T> getTypeClass() {
-        return typeClass;
+    public Class<T> getPojoClass() {
+        return pojoClass;
+    }
+
+    public Field[] getFields() {
+        return fields;
+    }
+
+    public DataType<?>[] getFieldTypes() {
+        return fieldTypes;
     }
 }
