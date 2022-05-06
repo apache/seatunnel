@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
 import java.util.Date;
 
 public class BasicType<T> implements DataType<T> {
@@ -29,19 +32,26 @@ public class BasicType<T> implements DataType<T> {
     public static final BasicType<Long> LONG = new BasicType<>(Long.class);
     public static final BasicType<Float> FLOAT = new BasicType<>(Float.class);
     public static final BasicType<Byte> BYTE = new BasicType<>(Byte.class);
+    public static final BasicType<Short> SHORT = new BasicType<>(Short.class);
+    public static final BasicType<Character> CHARACTER = new BasicType<>(Character.class);
+    public static final BasicType<BigInteger> BIG_INTEGER = new BasicType<>(BigInteger.class);
+    public static final BasicType<BigDecimal> BIG_DECIMAL = new BasicType<>(BigDecimal.class);
+    public static final BasicType<Instant> INSTANT = new BasicType<>(Instant.class);
     public static final BasicType<Void> NULL = new BasicType<>(Void.class);
 
-    private final Class<T> typeClass;
+    /**
+     * The physical type class.
+     */
+    private final Class<T> physicalTypeClass;
 
-    public BasicType(Class<T> typeClass) {
-        if (typeClass == null) {
-            throw new IllegalArgumentException("typeClass cannot be null");
+    public BasicType(Class<T> physicalTypeClass) {
+        if (physicalTypeClass == null) {
+            throw new IllegalArgumentException("physicalTypeClass cannot be null");
         }
-        this.typeClass = typeClass;
+        this.physicalTypeClass = physicalTypeClass;
     }
 
-    @Override
-    public Class<T> getTypeClass() {
-        return this.typeClass;
+    public Class<T> getPhysicalTypeClass() {
+        return this.physicalTypeClass;
     }
 }

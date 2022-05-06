@@ -17,23 +17,23 @@
 
 package org.apache.seatunnel.translation.flink.types;
 
-import org.apache.seatunnel.api.table.type.Converter;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DataType;
+import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 
-/**
- * Convert SeaTunnel {@link DataType} to flink type.
- */
-public interface FlinkTypeConverter<T1, T2> extends Converter<T1, T2> {
+public class ArrayTypeConverter<T1, T2> implements FlinkTypeConverter<ArrayType<T1>, TypeInformation<T2>> {
 
-    /**
-     * Convert SeaTunnel {@link DataType} to flink {@link  TypeInformation}.
-     *
-     * @param seaTunnelDataType SeaTunnel {@link DataType}
-     * @return flink {@link TypeInformation}
-     */
     @Override
-    T2 convert(T1 seaTunnelDataType);
-
+    public TypeInformation<T2> convert(ArrayType<T1> seaTunnelDataType) {
+        DataType<T1> elementType = seaTunnelDataType.getElementType();
+        if (elementType instanceof BasicType) {
+            BasicType<T1> basicType = (BasicType<T1>) elementType;
+            return (TypeInformation<T2>) TypeConverterUtils.convertBasicType(basicType);
+        }
+        // todo: support complex array types
+        throw new IllegalArgumentException("Unsupported array type: " + elementType);
+    }
 }

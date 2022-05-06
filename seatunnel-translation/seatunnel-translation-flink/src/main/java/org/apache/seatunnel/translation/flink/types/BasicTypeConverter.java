@@ -23,9 +23,13 @@ import org.apache.seatunnel.api.table.type.DataType;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
 import java.util.Date;
 
-public class BasicTypeConverter<T1, T2> implements FlinkTypeConverter<T1, T2> {
+public class BasicTypeConverter<T1, T2>
+    implements FlinkTypeConverter<DataType<T1>, TypeInformation<T2>> {
 
     public static final BasicTypeConverter<String, String> STRING_CONVERTER =
         new BasicTypeConverter<>(
@@ -67,21 +71,46 @@ public class BasicTypeConverter<T1, T2> implements FlinkTypeConverter<T1, T2> {
             BasicType.BYTE,
             BasicTypeInfo.BYTE_TYPE_INFO);
 
+    public static final BasicTypeConverter<Short, Short> SHORT_CONVERTER =
+        new BasicTypeConverter<>(
+            BasicType.SHORT,
+            BasicTypeInfo.SHORT_TYPE_INFO);
+
+    public static final BasicTypeConverter<Character, Character> CHARACTER_CONVERTER =
+        new BasicTypeConverter<>(
+            BasicType.CHARACTER,
+            BasicTypeInfo.CHAR_TYPE_INFO);
+
+    public static final BasicTypeConverter<BigInteger, BigInteger> BIG_INTEGER_CONVERTER =
+        new BasicTypeConverter<>(
+            BasicType.BIG_INTEGER,
+            BasicTypeInfo.BIG_INT_TYPE_INFO);
+
+    public static final BasicTypeConverter<BigDecimal, BigDecimal> BIG_DECIMAL =
+        new BasicTypeConverter<>(
+            BasicType.BIG_DECIMAL,
+            BasicTypeInfo.BIG_DEC_TYPE_INFO);
+
+    public static final BasicTypeConverter<Instant, Instant> INSTANT_CONVERTER =
+        new BasicTypeConverter<>(
+            BasicType.INSTANT,
+            BasicTypeInfo.INSTANT_TYPE_INFO);
+
     public static final BasicTypeConverter<Void, Void> NULL_CONVERTER =
         new BasicTypeConverter<>(
             BasicType.NULL,
             BasicTypeInfo.VOID_TYPE_INFO);
 
-    private final DataType<T1> dataType;
-    private final TypeInformation<T2> typeInformation;
+    private final DataType<T1> seaTunnelDataType;
+    private final TypeInformation<T2> flinkTypeInformation;
 
-    public BasicTypeConverter(DataType<T1> dataType, TypeInformation<T2> typeInformation) {
-        this.dataType = dataType;
-        this.typeInformation = typeInformation;
+    public BasicTypeConverter(DataType<T1> seaTunnelDataType, TypeInformation<T2> flinkTypeInformation) {
+        this.seaTunnelDataType = seaTunnelDataType;
+        this.flinkTypeInformation = flinkTypeInformation;
     }
 
     @Override
-    public TypeInformation<T2> convert(DataType<T1> dataType) {
-        return typeInformation;
+    public TypeInformation<T2> convert(DataType<T1> seaTunnelDataType) {
+        return flinkTypeInformation;
     }
 }

@@ -28,7 +28,7 @@ import java.util.Map;
  */
 public interface SupportReadingMetadata {
 
-    Map<String, DataType> listReadableMetadata(CatalogTable catalogTable);
+    Map<String, DataType<?>> listReadableMetadata(CatalogTable catalogTable);
 
-    void applyReadableMetadata(CatalogTable catalogTable, List<String> metadataKeys, DataType dataType);
+    void applyReadableMetadata(CatalogTable catalogTable, List<String> metadataKeys, DataType<?> dataType);
 }
