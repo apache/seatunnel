@@ -235,11 +235,11 @@ public class JdbcSource implements FlinkBatchSource {
     }
 
     private TypeInformationMap getTypeInformationMap(String databaseDialect) {
-        if ("mysql".equalsIgnoreCase(databaseDialect)) {
+        if (databaseDialect.toLowerCase().contains("mysql")) {
             return new MysqlTypeInformationMap();
-        } else if ("postgresql".equalsIgnoreCase(databaseDialect)) {
+        } else if (databaseDialect.toLowerCase().contains("postgresql")) {
             return new PostgresTypeInformationMap();
-        } else if ("oracle".equalsIgnoreCase(databaseDialect)) {
+        } else if (databaseDialect.toLowerCase().contains("oracle")) {
             return new OracleTypeInformationMap();
         } else {
             return new DefaultTypeInformationMap();
