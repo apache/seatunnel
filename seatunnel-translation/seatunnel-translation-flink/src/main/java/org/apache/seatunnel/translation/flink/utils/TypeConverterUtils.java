@@ -59,10 +59,11 @@ public class TypeConverterUtils {
             return (TypeInformation<T2>) covertListType((ListType<T1>) dataType);
         }
         if (dataType instanceof EnumType) {
-            return (TypeInformation<T2>) coverEnumType((EnumType<Enum>) dataType);
+
+            return (TypeInformation<T2>) coverEnumType((EnumType<?>) dataType);
         }
         if (dataType instanceof MapType) {
-            return (TypeInformation<T2>) convertMapType((MapType) dataType);
+            return (TypeInformation<T2>) convertMapType((MapType<?, ?>) dataType);
         }
         if (dataType instanceof PojoType) {
             return (TypeInformation<T2>) convertPojoType((PojoType<T1>) dataType);
