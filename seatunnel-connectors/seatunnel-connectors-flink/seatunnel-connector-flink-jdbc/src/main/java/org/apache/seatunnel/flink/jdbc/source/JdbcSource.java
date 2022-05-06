@@ -46,6 +46,7 @@ import org.apache.seatunnel.flink.jdbc.input.TypeInformationMap;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSource;
@@ -235,11 +236,11 @@ public class JdbcSource implements FlinkBatchSource {
     }
 
     private TypeInformationMap getTypeInformationMap(String databaseDialect) {
-        if (databaseDialect.toLowerCase().contains("mysql")) {
+        if (StringUtils.containsIgnoreCase(databaseDialect, "mysql")) {
             return new MysqlTypeInformationMap();
-        } else if (databaseDialect.toLowerCase().contains("postgresql")) {
+        } else if (StringUtils.containsIgnoreCase(databaseDialect, "postgresql")) {
             return new PostgresTypeInformationMap();
-        } else if (databaseDialect.toLowerCase().contains("oracle")) {
+        } else if (StringUtils.containsIgnoreCase(databaseDialect, "oracle")) {
             return new OracleTypeInformationMap();
         } else {
             return new DefaultTypeInformationMap();
