@@ -39,15 +39,6 @@ public class CommandLineUtils {
         throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
     }
 
-    public static FlinkCommandArgs parseFlinkArgs(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(flinkCommandArgs)
-            .build()
-            .parse(args);
-        return flinkCommandArgs;
-    }
-
     public static FlinkCommandArgs parseCommandArgs(String[] args, FlinkJobType jobType) {
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         JCommander jCommander = JCommander.newBuilder()
@@ -67,7 +58,7 @@ public class CommandLineUtils {
 
     }
 
-    public static List<String> buildFlinkCommand(FlinkCommandArgs flinkCommandArgs, String className, String jarPath) throws FileNotFoundException {
+    public static List<String> buildFlinkCommand(FlinkCommandArgs flinkCommandArgs, String className, String jarPath, FlinkJobType jobType) throws FileNotFoundException {
         List<String> command = new ArrayList<>();
         command.add("${FLINK_HOME}/bin/flink");
         command.add(flinkCommandArgs.getRunMode().getMode());
@@ -86,11 +77,13 @@ public class CommandLineUtils {
           .map(String::trim)
           .forEach(variable -> command.add("-D" + variable));
 
-        ConfigParser.getConfigEnvValues(flinkCommandArgs.getConfigFile())
-            .entrySet()
-            .stream()
-            .sorted(Comparator.comparing(Map.Entry::getKey))
-            .forEach(entry -> command.add("-D" + entry.getKey() + "=" + entry.getValue()));
+        if (jobType.equals(FlinkJobType.JAR)) {
+            ConfigParser.getConfigEnvValues(flinkCommandArgs.getConfigFile())
+                .entrySet()
+                .stream()
+                .sorted(Comparator.comparing(Map.Entry::getKey))
+                .forEach(entry -> command.add("-D" + entry.getKey() + "=" + entry.getValue()));
+        }
 
         return command;
 
