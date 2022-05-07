@@ -73,12 +73,12 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
         Assert.assertEquals(0, execResult.getExitCode());
 
         consumer.subscribe(Arrays.asList("test_1"));
-        final ConsumerRecords<byte[], byte[]> poll = consumer.poll(2000L);
+        final ConsumerRecords<byte[], byte[]> poll = consumer.poll(3000L);
 
-        Assert.assertEquals(2, poll.count());
+        Assert.assertEquals(3, poll.count());
         poll.forEach(record -> {
             final String[] split = new String(record.value()).split(";");
-            Assert.assertEquals(2, split.length);
+            Assert.assertEquals(3, split.length);
         });
 
         consumer.unsubscribe();

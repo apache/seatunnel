@@ -30,35 +30,35 @@ public final class Config {
     /**
      * Field delimiter character for csv
      */
-    public static final String KAFKA_SINK_FORMAT_CSV_FIELD_DELIMITER = "format.field_delimiter";
+    public static final String KAFKA_SINK_FORMAT_CSV_FIELD_DELIMITER = "format.csv.field_delimiter";
 
     /**
      * Line delimiter character for csv
      */
-    public static final String KAFKA_SINK_FORMAT_CSV_LINE_DELIMITER = "format.line_delimiter";
+    public static final String KAFKA_SINK_FORMAT_CSV_LINE_DELIMITER = "format.csv.line_delimiter";
 
     /**
      * Disabled quote character for enclosing field values
      */
-    public static final String KAFKA_SINK_FORMAT_CSV_DISABLE_QUOTE_CHARACTER = "format.disable_quote_character";
+    public static final String KAFKA_SINK_FORMAT_CSV_DISABLE_QUOTE_CHARACTER = "format.csv.disable_quote_character";
 
     /**
      * Quote character for enclosing field values
      */
-    public static final String KAFKA_SINK_FORMAT_CSV_QUOTE_CHARACTER = "format.quote_character";
+    public static final String KAFKA_SINK_FORMAT_CSV_QUOTE_CHARACTER = "format.csv.quote_character";
 
     /**
      * Array element delimiter string for separating array and row element values
      */
-    public static final String KAFKA_SINK_FORMAT_CSV_ARRAY_ELEMENT_DELIMITER = "format.array_element_delimiter";
+    public static final String KAFKA_SINK_FORMAT_CSV_ARRAY_ELEMENT_DELIMITER = "format.csv.array_element_delimiter";
 
     /**
      * Escape character for escaping values
      */
-    public static final String KAFKA_SINK_FORMAT_CSV_ESCAPE_CHARACTER = "format.escape_character";
+    public static final String KAFKA_SINK_FORMAT_CSV_ESCAPE_CHARACTER = "format.csv.escape_character";
 
     /**
      * Null literal string that is interpreted as a null value
      */
-    public static final String KAFKA_SINK_FORMAT_CSV_NULL_LITERAL = "format.null_literal";
+    public static final String KAFKA_SINK_FORMAT_CSV_NULL_LITERAL = "format.csv.null_literal";
 }

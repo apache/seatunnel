@@ -22,6 +22,19 @@ Engine Supported and plugin name
 | producer.*                 | string | no       | -             |
 | semantic                   | string | no       | -             |
 | common-options             | string | no       | -             |
+------------------------------------------------------------------
+If you want to write data to kafka by batch job, some additional parameters for `format` need to be specified.
+
+| name                               | type   | required | default value |
+| ---------------------------------- | ------ | -------- | ------------- |
+| format.type                        | string | yes      | -             |
+| format.csv.field_delimiter         | string | no       | ,             |
+| format.csv.line_delimiter          | string | no       | \n            |
+| format.csv.disable_quote_character | string | no       | false         |
+| format.csv.quote_character         | string | no       | ''            |
+| format.csv.array_element_delimiter | string | no       | ;             |
+| format.csv.escape_character        | string | no       | -             |
+| format.csv.null_literal            | string | no       | -             |
 
 ### producer.bootstrap.servers [string]
 
@@ -47,6 +60,30 @@ In at_least_once, flink producer will wait for all outstanding messages in the K
 NONE does not provide any guarantees: messages may be lost in case of issues on the Kafka broker and messages may be duplicated in case of a Flink failure.
 
 please refer to [Flink Kafka Fault Tolerance](https://nightlies.apache.org/flink/flink-docs-release-1.14/docs/connectors/datastream/kafka/#fault-tolerance)
+
+### format.type [string]
+Format type for batch kafka sink. Currently only supported for 'Json' or 'Csv'.
+
+### format.csv.field_delimiter [string]
+Field delimiter character for csv.
+
+### format.csv.line_delimiter  [string]
+Line delimiter character for csv.
+
+### format.csv.disable_quote_character [string]
+Disabled quote character for enclosing field values.
+
+### format.csv.quote_character [string]
+Quote character for enclosing field values.
+
+### format.csv.array_element_delimiter [string]
+Array element delimiter string for separating array and row element values.
+
+### format.csv.escape_character [string]
+Escape character for escaping values.
+
+### format.csv.null_literal [string]
+Null literal string that is interpreted as a null value.
 
 ### common options [string]
 
