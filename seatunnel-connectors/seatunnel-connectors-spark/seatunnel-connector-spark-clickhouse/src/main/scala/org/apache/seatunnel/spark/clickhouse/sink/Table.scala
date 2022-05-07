@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.clickhouse.sink
 
 import org.apache.commons.lang3.StringUtils
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse.{Shard, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList}
+import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse.{HostAndPort, Shard, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList, parseHost}
 import org.apache.seatunnel.spark.clickhouse.sink.ClickhouseFile.getClickhouseTableInfo
 import ru.yandex.clickhouse.ClickHouseConnectionImpl
 
@@ -39,13 +39,12 @@ class Table(val name: String, val database: String, val engine: String, val crea
   var shardKeyType: String = _
   var localCreateTableDDL: String = createTableDDL
 
-  def initTableInfo(host: String, conn: ClickHouseConnectionImpl): Unit = {
+  def initTableInfo(hosts: List[HostAndPort], conn: ClickHouseConnectionImpl): Unit = {
     if (shards.size() == 0) {
-      val hostAndPort = host.split(":")
       if (distributedEngine.equals(this.engine)) {
         val localTable = getClickHouseDistributedTable(conn, database, name)
         this.localTable = localTable.table
-        val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hostAndPort(1))
+        val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hosts)
         var weight = 0
         for (elem <- shardList) {
           this.shards.put(weight, elem)
@@ -54,7 +53,7 @@ class Table(val name: String, val database: String, val engine: String, val crea
         this.shardWeightCount = weight
         this.localCreateTableDDL = getClickhouseTableInfo(conn, localTable.database, localTable.table)._2.createTableDDL
       } else {
-        this.shards.put(0, Shard(1, 1, 1, hostAndPort(0), hostAndPort(0), hostAndPort(1), database))
+        this.shards.put(0, Shard(1, 1, 1, hosts.head.host, hosts.head.host, hosts.head.port, database))
       }
     }
   }
