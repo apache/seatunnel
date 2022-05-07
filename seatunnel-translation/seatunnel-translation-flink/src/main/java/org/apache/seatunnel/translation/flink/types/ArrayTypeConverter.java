@@ -27,6 +27,7 @@ public class ArrayTypeConverter<T1, T2> implements FlinkTypeConverter<ArrayType<
     @Override
     @SuppressWarnings("unchecked")
     public BasicArrayTypeInfo<T1, T2> convert(ArrayType<T1> arrayType) {
+        // todo: now we only support basic array types
         BasicType<T1> elementType = arrayType.getElementType();
         if (BasicType.BOOLEAN.equals(elementType)) {
             return (BasicArrayTypeInfo<T1, T2>) BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO;
