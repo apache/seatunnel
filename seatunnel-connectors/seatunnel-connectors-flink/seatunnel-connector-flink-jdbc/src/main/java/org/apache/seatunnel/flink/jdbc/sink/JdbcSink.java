@@ -190,7 +190,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
             try {
                 executeSql(preSql);
             } catch (SQLException e) {
-                LOGGER.error(String.format("Execute pre sql failed, pre sql is : \n %s \n", preSql), e);
+                LOGGER.error("Execute pre sql failed, pre sql is : \n {} \n", preSql, e);
                 throw new RuntimeException(e);
             }
         }
@@ -202,7 +202,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
             try {
                 executeSql(postSql);
             } catch (SQLException e) {
-                LOGGER.error(String.format("Execute post sql failed, post sql is : \n %s \n", postSql), e);
+                LOGGER.error("Execute post sql failed, post sql is : \n {} \n", postSql, e);
                 if (!ignorePostSqlExceptions) {
                     throw new RuntimeException(e);
                 }
