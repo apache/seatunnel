@@ -215,10 +215,10 @@ class ClickhouseFile extends SparkBatchSink {
       clickhouseLocalPath = config.getString(CLICKHOUSE_LOCAL_PATH)
       properties.put("user", config.getString(USERNAME))
       properties.put("password", config.getString(PASSWORD))
-      val host = config.getString(HOST)
+      val hosts = parseHost(config.getString(HOST))
       val database = config.getString(DATABASE)
       val table = config.getString(TABLE)
-      val conn = getClickhouseConnection(host, database, properties)
+      val conn = getClickhouseConnection(hosts.map(_.hostAndPort).mkString(","), database, properties)
 
       if (config.hasPath(COPY_METHOD)) {
         this.copyFileMethod = getCopyMethod(config.getString(COPY_METHOD))
@@ -233,7 +233,7 @@ class ClickhouseFile extends SparkBatchSink {
         checkResult = result
       } else {
         this.table = tableInfo
-        tableInfo.initTableInfo(host, conn)
+        tableInfo.initTableInfo(hosts, conn)
         tableInfo.initShardDataPath(config.getString(USERNAME), config.getString(PASSWORD))
         // check config of node password whether completed or not
         if (config.hasPath(NODE_FREE_PASSWORD) && config.getBoolean(NODE_FREE_PASSWORD)) {

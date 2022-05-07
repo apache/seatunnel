@@ -29,8 +29,6 @@ public interface Command<T extends CommandArgs> {
 
     /**
      * Execute command
-     *
-     * @param commandArgs args
      */
     void execute();
 

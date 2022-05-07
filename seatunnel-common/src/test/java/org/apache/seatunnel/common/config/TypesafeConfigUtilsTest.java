@@ -20,7 +20,6 @@ package org.apache.seatunnel.common.config;
 import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
 import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable;
 import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -63,10 +62,10 @@ public class TypesafeConfigUtilsTest {
     @Test
     public void testExtractSubConfigThrowable() {
         Config config = getConfig();
-        Throwable exception = assertThrows(ConfigRuntimeException.class, () -> {
+
+        assertThrows("config is empty", ConfigRuntimeException.class, () -> {
             extractSubConfigThrowable(config, "test1.", false);
         });
-        assertEquals("config is empty", exception.getMessage());
 
         Config subConfig = extractSubConfigThrowable(config, "test.", false);
         Map<String, String> configMap = new HashMap<>();
