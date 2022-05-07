@@ -66,7 +66,7 @@ public class Executor {
             Optional<String[]> optional = setOperationParse(stmt);
             if (optional.isPresent()) {
                 String[] setOptionStrs = optional.get();
-                callSetOperation(configuration, setOptionStrs[0], setOptionStrs[1]);
+                callSetOperation(configuration, setOptionStrs[0].trim(), setOptionStrs[1].trim());
                 continue;
             }
             Operation op = stEnv.getParser().parse(stmt).get(0);
