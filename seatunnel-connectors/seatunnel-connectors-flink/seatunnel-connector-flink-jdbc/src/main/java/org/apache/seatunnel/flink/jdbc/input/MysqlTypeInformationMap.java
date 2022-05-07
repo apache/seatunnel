@@ -65,7 +65,7 @@ public class MysqlTypeInformationMap implements TypeInformationMap {
         INFORMATION_MAP.put("TIMESTAMP", SqlTimeTypeInfo.TIMESTAMP);
         INFORMATION_MAP.put("DECIMAL", BIG_DEC_TYPE_INFO);
         INFORMATION_MAP.put("BINARY", BYTE_PRIMITIVE_ARRAY_TYPE_INFO);
-
+        INFORMATION_MAP.put("BIT", INT_TYPE_INFO);
     }
 
     @Override
