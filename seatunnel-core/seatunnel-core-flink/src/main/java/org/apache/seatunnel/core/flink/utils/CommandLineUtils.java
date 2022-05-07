@@ -39,15 +39,6 @@ public class CommandLineUtils {
         throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
     }
 
-    public static FlinkCommandArgs parseFlinkArgs(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(flinkCommandArgs)
-            .build()
-            .parse(args);
-        return flinkCommandArgs;
-    }
-
     public static FlinkCommandArgs parseCommandArgs(String[] args, FlinkJobType jobType) {
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         JCommander jCommander = JCommander.newBuilder()
