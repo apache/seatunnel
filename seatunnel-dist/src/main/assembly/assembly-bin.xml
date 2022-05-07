@@ -89,6 +89,33 @@
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>../seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib</directory>
+            <includes>
+                <include>seatunnel-connector-flink*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/connectors/flink</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-connectors/seatunnel-connectors-spark-dist/target/lib</directory>
+            <includes>
+                <include>seatunnel-connector-spark*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/connectors/spark</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-connectors</directory>
+            <includes>
+                <include>plugin-mapping.properties</include>
+            </includes>
+            <outputDirectory>/connectors</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <includes>

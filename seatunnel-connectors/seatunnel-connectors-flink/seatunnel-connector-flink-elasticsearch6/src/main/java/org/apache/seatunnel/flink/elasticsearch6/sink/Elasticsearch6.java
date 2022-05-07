@@ -86,6 +86,11 @@ public class Elasticsearch6 implements FlinkStreamSink, FlinkBatchSink {
     }
 
     @Override
+    public String getPluginName() {
+        return "ElasticSearch";
+    }
+
+    @Override
     public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
 
         List<HttpHost> httpHosts = new ArrayList<>();

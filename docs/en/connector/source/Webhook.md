@@ -1,4 +1,4 @@
-# Webhook
+# WebhookStream
 
 ## Description
 
@@ -8,7 +8,7 @@ Provide http interface to push data，only supports post requests.
 
 Engine Supported and plugin name
 
-* [x] Spark: Webhook
+* [x] Spark: WebhookStream
 * [ ] Flink
 
 :::
@@ -35,7 +35,7 @@ Source plugin common parameters, please refer to [Source Plugin](common-options.
 ## Example
 
 ```
-Webhook {
+WebhookStream {
       result_table_name = "request_body"
    }
 ```

@@ -31,6 +31,7 @@
     <properties>
         <flink.scope>compile</flink.scope>
     </properties>
+
     <dependencies>
         <!--Resolve ConfigParser class conflict between Seatunnel and Flink.
         Native debugging increases flink's default ConfigParser priority.-->
@@ -43,6 +44,20 @@
             <artifactId>seatunnel-core-flink</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!--   seatunnel-connector   -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-flink-fake</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-flink-console</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!--   seatunnel connectors   -->
+
         <!--flink-->
         <dependency>
             <groupId>org.apache.flink</groupId>
@@ -73,6 +88,12 @@
             <artifactId>flink-runtime-web_${scala.binary.version}</artifactId>
             <version>${flink.version}</version>
             <scope>${flink.scope}</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
     </dependencies>
 

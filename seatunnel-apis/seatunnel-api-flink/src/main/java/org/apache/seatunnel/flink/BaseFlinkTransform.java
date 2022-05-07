@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink;
 
-import org.apache.seatunnel.apis.BaseTransform;
+import org.apache.seatunnel.apis.base.api.BaseTransform;
 
 /**
  * a base interface indicates a transform plugin running on Flink.
