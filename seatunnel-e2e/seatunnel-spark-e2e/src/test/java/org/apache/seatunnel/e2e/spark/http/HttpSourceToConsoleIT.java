@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.fake;
+package org.apache.seatunnel.e2e.spark.http;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
