@@ -15,30 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common;
+package org.apache.seatunnel.e2e.spark.http;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.e2e.spark.SparkContainer;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.junit.Assert;
+import org.testcontainers.containers.Container;
 
-public class MapUtil {
-    private MapUtil() {
+import java.io.IOException;
 
+/**
+ * This test case is used to verify that the http source is able to send data to the console.
+ * Make sure the SeaTunnel job can submit successfully on spark engine.
+ */
+public class HttpSourceToConsoleIT extends SparkContainer {
+
+    public void testHttpSourceToConsoleSine() throws IOException, InterruptedException {
+        // skip this test case, since there exist some problem to run streaming in e2e
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/http/httpsource_to_console.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
     }
 
-    public static Map<String, String> setMap(Config config, String prefix, boolean keepPrefix) {
-
-        final Map<String, String> map = new HashMap<>(config.entrySet().size());
-
-        config.entrySet().forEach(entry -> {
-            String key = entry.getKey();
-            String value = config.getString(key);
-            if (key.startsWith(prefix)) {
-                map.put(keepPrefix ? key : key.substring(prefix.length()), value);
-            }
-        });
-
-        return map;
-    }
 }

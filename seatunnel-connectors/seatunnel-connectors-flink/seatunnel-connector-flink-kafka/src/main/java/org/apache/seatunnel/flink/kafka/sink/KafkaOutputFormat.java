@@ -50,13 +50,13 @@ public class KafkaOutputFormat extends RichOutputFormat<Row> {
     private static final Logger LOG = LoggerFactory.getLogger(KafkaOutputFormat.class);
     private final TypeInformation<Row> typeInfo;
     private final String topic;
-    private final Map<String, Object> formatProperties;
+    private final Map<String, String> formatProperties;
     private final Properties producerProperties;
     private final SinkFormatEnum formatEnum;
     private transient SerializationSchema<Row> serialization = null;
     private transient KafkaProducer<byte[], byte[]> producer;
 
-    public KafkaOutputFormat(String topic, Properties producerProperties, Map<String, Object> formatProperties, TypeInformation<Row> typeInfo) {
+    public KafkaOutputFormat(String topic, Properties producerProperties, Map<String, String> formatProperties, TypeInformation<Row> typeInfo) {
         this.topic = Objects.requireNonNull(topic, "kafka sink topic can not be null.");
         this.producerProperties = producerProperties;
         this.formatProperties = Objects.requireNonNull(formatProperties, "format properties can not be null, at least need 'format.type'.");
@@ -94,20 +94,19 @@ public class KafkaOutputFormat extends RichOutputFormat<Row> {
             case CSV:
                 final CsvRowSerializationSchema.Builder csvBuilder = new CsvRowSerializationSchema.Builder(typeInfo);
 
-                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_LINE_DELIMITER)).ifPresent(v -> csvBuilder.setLineDelimiter(String.valueOf(v)));
-                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_FIELD_DELIMITER)).ifPresent(v -> csvBuilder.setFieldDelimiter((char) v));
+                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_LINE_DELIMITER)).ifPresent(csvBuilder::setLineDelimiter);
+                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_FIELD_DELIMITER)).ifPresent(v -> csvBuilder.setFieldDelimiter(v.charAt(0)));
 
-                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_DISABLE_QUOTE_CHARACTER)).ifPresent(flag -> {
-                    if ((boolean) flag) {
-                        csvBuilder.disableQuoteCharacter();
-                    } else {
-                        Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_QUOTE_CHARACTER)).ifPresent(v -> csvBuilder.setQuoteCharacter((char) v));
-                    }
-                });
+                final String disable = formatProperties.get(KAFKA_SINK_FORMAT_CSV_DISABLE_QUOTE_CHARACTER);
+                if (Objects.nonNull(disable) && Boolean.parseBoolean(disable)) {
+                    csvBuilder.disableQuoteCharacter();
+                } else {
+                    Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_QUOTE_CHARACTER)).ifPresent(v -> csvBuilder.setQuoteCharacter(v.charAt(0)));
+                }
 
-                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_ARRAY_ELEMENT_DELIMITER)).ifPresent(v -> csvBuilder.setArrayElementDelimiter(String.valueOf(v)));
-                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_ESCAPE_CHARACTER)).ifPresent(v -> csvBuilder.setEscapeCharacter((char) v));
-                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_NULL_LITERAL)).ifPresent(v -> csvBuilder.setNullLiteral(String.valueOf(v)));
+                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_ARRAY_ELEMENT_DELIMITER)).ifPresent(csvBuilder::setArrayElementDelimiter);
+                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_ESCAPE_CHARACTER)).ifPresent(v -> csvBuilder.setEscapeCharacter(v.charAt(0)));
+                Optional.ofNullable(formatProperties.get(KAFKA_SINK_FORMAT_CSV_NULL_LITERAL)).ifPresent(csvBuilder::setNullLiteral);
 
                 serialization = csvBuilder.build();
                 break;
@@ -124,7 +123,7 @@ public class KafkaOutputFormat extends RichOutputFormat<Row> {
     }
 
     private void exceptionProcess(Exception e, Row record) {
-        LOG.error(String.format("Write record to Kafka error, record is %s", record), e);
+        LOG.error("Write record to Kafka error, record is {}", record, e);
         throw new RuntimeException(e);
     }
 

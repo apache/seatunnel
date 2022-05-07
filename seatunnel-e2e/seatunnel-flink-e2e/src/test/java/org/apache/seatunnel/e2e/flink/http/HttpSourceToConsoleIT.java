@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common;
+package org.apache.seatunnel.e2e.flink.http;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
 
-public class MapUtil {
-    private MapUtil() {
+import java.io.IOException;
 
-    }
+public class HttpSourceToConsoleIT extends FlinkContainer {
 
-    public static Map<String, String> setMap(Config config, String prefix, boolean keepPrefix) {
-
-        final Map<String, String> map = new HashMap<>(config.entrySet().size());
-
-        config.entrySet().forEach(entry -> {
-            String key = entry.getKey();
-            String value = config.getString(key);
-            if (key.startsWith(prefix)) {
-                map.put(keepPrefix ? key : key.substring(prefix.length()), value);
-            }
-        });
-
-        return map;
+    @Test
+    public void testHttpSourceToConsoleSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/http/httpsource_to_console.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
     }
 }

@@ -15,25 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.fake;
+package org.apache.seatunnel.flink.http.source.constant;
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+public class Settings {
 
-import org.junit.Assert;
-import org.testcontainers.containers.Container;
+    public static final String SOURCE_HTTP_URL = "url";
+    public static final String SOURCE_HTTP_METHOD = "method";
+    public static final String SOURCE_HTTP_HEADER = "header";
+    public static final String SOURCE_HTTP_REQUEST_PARAMS = "request_params";
 
-import java.io.IOException;
+    public static final String SOURCE_HTTP_SYNC_PATH = "sync_path";
 
-/**
- * This test case is used to verify that the http source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
- */
-public class HttpSourceToConsoleIT extends SparkContainer {
-
-    public void testHttpSourceToConsoleSine() throws IOException, InterruptedException {
-        // skip this test case, since there exist some problem to run streaming in e2e
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/http/httpsource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
-    }
 
 }

@@ -15,30 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.common;
+package org.apache.seatunnel.flink.http.source.util;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import java.io.Serializable;
 
-import java.util.HashMap;
-import java.util.Map;
+public class HttpClientResult implements Serializable {
 
-public class MapUtil {
-    private MapUtil() {
+    private static final long serialVersionUID = 2168152194164783950L;
 
+    /**
+     * response status code
+     */
+    private int code;
+
+    /**
+     * response body
+     */
+    private String content;
+
+    public HttpClientResult() {
     }
 
-    public static Map<String, String> setMap(Config config, String prefix, boolean keepPrefix) {
-
-        final Map<String, String> map = new HashMap<>(config.entrySet().size());
-
-        config.entrySet().forEach(entry -> {
-            String key = entry.getKey();
-            String value = config.getString(key);
-            if (key.startsWith(prefix)) {
-                map.put(keepPrefix ? key : key.substring(prefix.length()), value);
-            }
-        });
-
-        return map;
+    public HttpClientResult(int code) {
+        this.code = code;
     }
+
+    public HttpClientResult(int code, String content) {
+        this.code = code;
+        this.content = content;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    @Override
+    public String toString() {
+        return "HttpClientResult [code=" + code + ", content=" + content + "]";
+    }
+
 }

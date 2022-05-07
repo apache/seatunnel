@@ -46,7 +46,7 @@ public class KafkaSink implements FlinkStreamSink, FlinkBatchSink {
     private Properties kafkaParams = new Properties();
     private String topic;
     private String semantic = DEFAULT_KAFKA_SEMANTIC;
-    private Map<String, Object> formatProperties;
+    private Map<String, String> formatProperties;
 
     @Override
     public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
