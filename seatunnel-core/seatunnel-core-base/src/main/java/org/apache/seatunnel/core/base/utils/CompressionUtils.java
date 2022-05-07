@@ -106,10 +106,7 @@ public final class CompressionUtils {
              final TarArchiveInputStream debInputStream = (TarArchiveInputStream) new ArchiveStreamFactory().createArchiveInputStream("tar", is)) {
             TarArchiveEntry entry = null;
             while ((entry = (TarArchiveEntry) debInputStream.getNextEntry()) != null) {
-                final File outputFile = new File(outputDir, entry.getName());
-                if (!outputFile.toPath().normalize().startsWith(outputDir.toPath())) {
-                    throw new IllegalStateException("Bad zip entry");
-                }
+                final File outputFile = new File(outputDir, entry.getName()).toPath().normalize().toFile();
                 if (entry.isDirectory()) {
                     LOGGER.info("Attempting to write output directory {}.", outputFile.getAbsolutePath());
                     if (!outputFile.exists()) {
@@ -120,6 +117,10 @@ public final class CompressionUtils {
                     }
                 } else {
                     LOGGER.info("Creating output file {}.", outputFile.getAbsolutePath());
+                    File outputParentFile = outputFile.getParentFile();
+                    if (outputParentFile != null && !outputParentFile.exists()) {
+                        outputParentFile.mkdirs();
+                    }
                     final OutputStream outputFileStream = new FileOutputStream(outputFile);
                     IOUtils.copy(debInputStream, outputFileStream);
                     outputFileStream.close();

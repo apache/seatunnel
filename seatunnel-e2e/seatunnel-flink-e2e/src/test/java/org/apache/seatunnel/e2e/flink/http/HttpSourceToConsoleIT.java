@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink;
+package org.apache.seatunnel.e2e.flink.http;
 
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
+import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-public class SeatunnelFlink {
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
 
-    public static void main(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
-        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
-            .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
+import java.io.IOException;
+
+public class HttpSourceToConsoleIT extends FlinkContainer {
+
+    @Test
+    public void testHttpSourceToConsoleSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/http/httpsource_to_console.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
     }
-
 }

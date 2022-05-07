@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink;
+package org.apache.seatunnel.flink.http.source.constant;
 
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
+public class Settings {
 
-public class SeatunnelFlink {
+    public static final String SOURCE_HTTP_URL = "url";
+    public static final String SOURCE_HTTP_METHOD = "method";
+    public static final String SOURCE_HTTP_HEADER = "header";
+    public static final String SOURCE_HTTP_REQUEST_PARAMS = "request_params";
 
-    public static void main(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
-        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
-            .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
-    }
+    public static final String SOURCE_HTTP_SYNC_PATH = "sync_path";
+
 
 }

@@ -25,16 +25,16 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.base.Starter;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
+import org.apache.seatunnel.core.base.config.ConfigParser;
 import org.apache.seatunnel.core.base.config.EngineType;
 import org.apache.seatunnel.core.base.config.PluginFactory;
 import org.apache.seatunnel.core.base.utils.CompressionUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.UnixStyleUsageFormatter;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
@@ -133,6 +133,7 @@ public class SparkStarter implements Starter {
                 .args(args)
                 .build();
         if (commandArgs.isHelp()) {
+            commander.setUsageFormatter(new UnixStyleUsageFormatter(commander));
             commander.usage();
             System.exit(USAGE_EXIT_CODE);
         }
@@ -161,8 +162,8 @@ public class SparkStarter implements Starter {
                 .filter(pair -> pair.length == 2)
                 .forEach(pair -> System.setProperty(pair[0], pair[1]));
         this.sparkConf = getSparkConf(commandArgs.getConfigFile());
-        String driverJavaOpts = this.sparkConf.get("spark.driver.extraJavaOptions");
-        String executorJavaOpts = this.sparkConf.get("spark.executor.extraJavaOptions");
+        String driverJavaOpts = this.sparkConf.getOrDefault("spark.driver.extraJavaOptions", "");
+        String executorJavaOpts = this.sparkConf.getOrDefault("spark.executor.extraJavaOptions", "");
         if (!commandArgs.getVariables().isEmpty()) {
             String properties = commandArgs.getVariables()
                     .stream()
@@ -170,8 +171,8 @@ public class SparkStarter implements Starter {
                     .collect(Collectors.joining(" "));
             driverJavaOpts += " " + properties;
             executorJavaOpts += " " + properties;
-            this.sparkConf.put("spark.driver.extraJavaOptions", driverJavaOpts);
-            this.sparkConf.put("spark.executor.extraJavaOptions", executorJavaOpts);
+            this.sparkConf.put("spark.driver.extraJavaOptions", driverJavaOpts.trim());
+            this.sparkConf.put("spark.executor.extraJavaOptions", executorJavaOpts.trim());
         }
     }
 
@@ -179,18 +180,7 @@ public class SparkStarter implements Starter {
      * Get spark configurations from SeaTunnel job config file.
      */
     static Map<String, String> getSparkConf(String configFile) throws FileNotFoundException {
-        File file = new File(configFile);
-        if (!file.exists()) {
-            throw new FileNotFoundException("config file '" + file + "' does not exists!");
-        }
-        Config appConfig = ConfigFactory.parseFile(file)
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
-
-        return appConfig.getConfig("env")
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
+        return ConfigParser.getConfigEnvValues(configFile);
     }
 
     /**

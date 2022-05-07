@@ -15,21 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.command;
+package org.apache.seatunnel.flink.http.source.util;
 
-import org.apache.seatunnel.apis.base.command.CommandArgs;
+import java.io.Serializable;
 
-/**
- * Command interface.
- *
- * @param <T> args type
- */
-@FunctionalInterface
-public interface Command<T extends CommandArgs> {
+public class HttpClientResult implements Serializable {
+
+    private static final long serialVersionUID = 2168152194164783950L;
 
     /**
-     * Execute command
+     * response status code
      */
-    void execute();
+    private int code;
+
+    /**
+     * response body
+     */
+    private String content;
+
+    public HttpClientResult() {
+    }
+
+    public HttpClientResult(int code) {
+        this.code = code;
+    }
+
+    public HttpClientResult(int code, String content) {
+        this.code = code;
+        this.content = content;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    @Override
+    public String toString() {
+        return "HttpClientResult [code=" + code + ", content=" + content + "]";
+    }
 
 }

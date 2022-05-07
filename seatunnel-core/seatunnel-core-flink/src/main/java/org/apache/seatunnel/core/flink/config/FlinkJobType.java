@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink;
+package org.apache.seatunnel.core.flink.config;
 
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
-import org.apache.seatunnel.core.flink.config.FlinkJobType;
-import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
+public enum FlinkJobType {
+    JAR("start-seatunnel-flink.sh"),
+    SQL("start-seatunnel-sql.sh"),
+    ;
 
-public class SeatunnelFlink {
+    private final String type;
 
-    public static void main(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
-        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
-            .buildCommand(flinkCommandArgs);
-        Seatunnel.run(flinkCommand);
+    FlinkJobType(String type) {
+        this.type = type;
     }
 
+    public String getType() {
+        return this.type;
+    }
 }

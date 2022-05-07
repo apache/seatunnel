@@ -9,7 +9,7 @@ Get data from http or https interface
 Engine Supported and plugin name
 
 * [x] Spark: Http
-* [ ] Flink
+* [x] Flink: Http
 
 :::
 
