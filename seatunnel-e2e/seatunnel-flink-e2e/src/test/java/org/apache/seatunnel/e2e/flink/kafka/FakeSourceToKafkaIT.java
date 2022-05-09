@@ -67,10 +67,15 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
                 .withNetwork(NETWORK)
                 .withNetworkAliases("kafka")
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER))
+                .withEnv("KAFKA_CFG_ZOOKEEPER_CONNECT", "zookeeper:2181")
                 .withEnv("ALLOW_PLAINTEXT_LISTENER", "yes")
-                .withEnv("KAFKA_CFG_ZOOKEEPER_CONNECT", "zookeeper:2181");
+                .withEnv("KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP", "CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT")
+                .withEnv("KAFKA_CFG_LISTENERS", "CLIENT://:9092,EXTERNAL://:9093")
+                .withEnv("KAFKA_CFG_ADVERTISED_LISTENERS", "CLIENT://kafka:9092,EXTERNAL://0.0.0.0:9093")
+                .withEnv("KAFKA_CFG_INTER_BROKER_LISTENER_NAME", "CLIENT")
+                ;
 
-        kafkaServer.setPortBindings(Lists.newArrayList("9092:9092"));
+        kafkaServer.setPortBindings(Lists.newArrayList("9092:9092", "9093:9093"));
 
         Startables.deepStart(Stream.of(kafkaServer)).join();
         LOGGER.info("Kafka container started");
@@ -95,7 +100,7 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
         Assert.assertEquals(3, poll.count());
         poll.forEach(record -> {
             final String[] split = new String(record.value()).split(";");
-            Assert.assertEquals(3, split.length);
+            Assert.assertEquals(2, split.length);
         });
 
         consumer.unsubscribe();
