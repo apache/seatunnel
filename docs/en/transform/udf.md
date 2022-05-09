@@ -19,7 +19,7 @@ This transform **ONLY** supported by Flink.
 
 ### function [string]
 
-A config prefix, use like `udf.test="xxx.Test"`.
+A config prefix, use like `function.test="xxx.Test"`.
 
 ### common options [string]
 
