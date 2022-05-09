@@ -21,8 +21,8 @@ import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
 import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.junit.After;
 import org.junit.Assert;
@@ -36,12 +36,14 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
 
 public class FakeSourceToKafkaIT extends FlinkContainer {
-    private static final String KAFKA_DOCKER_IMAGE = "bitnami/kafka:2.4.1";
+    private static final String KAFKA_DOCKER_IMAGE = "bitnami/kafka:latest";
     private static final String ZOOKEEPER_DOCKER_IMAGE = "bitnami/zookeeper:latest";
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToKafkaIT.class);
     private GenericContainer<?> kafkaServer;
@@ -57,6 +59,8 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER))
                 .withEnv("ALLOW_ANONYMOUS_LOGIN", "yes");
         zookeeperServer.setPortBindings(Lists.newArrayList("2181:2181"));
+        zookeeperServer.setHostAccessible(true);
+
         Startables.deepStart(Stream.of(zookeeperServer)).join();
 
         LOGGER.info("Zookeeper container started");
@@ -71,11 +75,12 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
                 .withEnv("ALLOW_PLAINTEXT_LISTENER", "yes")
                 .withEnv("KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP", "CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT")
                 .withEnv("KAFKA_CFG_LISTENERS", "CLIENT://:9092,EXTERNAL://:9093")
-                .withEnv("KAFKA_CFG_ADVERTISED_LISTENERS", "CLIENT://kafka:9092,EXTERNAL://0.0.0.0:9093")
+                .withEnv("KAFKA_CFG_ADVERTISED_LISTENERS", "CLIENT://kafka:9092,EXTERNAL://localhost:9093")
                 .withEnv("KAFKA_CFG_INTER_BROKER_LISTENER_NAME", "CLIENT")
                 ;
 
         kafkaServer.setPortBindings(Lists.newArrayList("9092:9092", "9093:9093"));
+        kafkaServer.setHostAccessible(true);
 
         Startables.deepStart(Stream.of(kafkaServer)).join();
         LOGGER.info("Kafka container started");
@@ -94,14 +99,10 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/kafka/fakesource_to_kafka_with_csv_format.conf");
         Assert.assertEquals(0, execResult.getExitCode());
 
-        consumer.subscribe(Arrays.asList("test_1"));
-        final ConsumerRecords<byte[], byte[]> poll = consumer.poll(3000L);
-
-        Assert.assertEquals(3, poll.count());
-        poll.forEach(record -> {
-            final String[] split = new String(record.value()).split(";");
-            Assert.assertEquals(2, split.length);
-        });
+        final TopicPartition topicPartition = new TopicPartition("test_1", 0);
+        final Map<TopicPartition, Long> topicPartitionLongMap = consumer.endOffsets(Collections.singletonList(topicPartition));
+        final Long count = Optional.ofNullable(topicPartitionLongMap.get(topicPartition)).orElse(0L);
+        Assert.assertEquals(3, count.longValue());
 
         consumer.unsubscribe();
     }
@@ -115,21 +116,21 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/kafka/fakesource_to_kafka_with_json_format.conf");
         Assert.assertEquals(0, execResult.getExitCode());
 
-        consumer.subscribe(Arrays.asList("test_2"));
-        final ConsumerRecords<byte[], byte[]> poll = consumer.poll(2000L);
-
-        Assert.assertEquals(2, poll.count());
+        final TopicPartition topicPartition = new TopicPartition("test_2", 0);
+        final Map<TopicPartition, Long> topicPartitionLongMap = consumer.endOffsets(Collections.singletonList(topicPartition));
+        final Long count = Optional.ofNullable(topicPartitionLongMap.get(topicPartition)).orElse(0L);
+        Assert.assertEquals(3, count.longValue());
         consumer.unsubscribe();
     }
 
     private void createKafkaConsumer() {
         final Properties props = new Properties();
-        props.put("bootstrap.servers", "127.0.0.1:9092");
+        props.put("bootstrap.servers", "localhost:9093");
         props.put("key.deserializer", ByteArrayDeserializer.class.getName());
         props.put("value.deserializer", ByteArrayDeserializer.class.getName());
         props.put("group.id", "test");
         props.put("auto.offset.reset", "earliest");
-        props.put("enable.offset.commit", "false");
+        props.put("enable.auto.commit", "false");
 
         consumer = new KafkaConsumer<>(props);
     }
@@ -138,6 +139,9 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
     public void closeClickhouseContainer() {
         if (kafkaServer != null) {
             kafkaServer.stop();
+        }
+        if (zookeeperServer != null) {
+            zookeeperServer.stop();
         }
         if (consumer != null) {
             consumer.close();
