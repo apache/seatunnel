@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.flink.transform.Udf
+org.apache.seatunnel.flink.transform.UDF

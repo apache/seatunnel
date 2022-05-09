@@ -13,18 +13,13 @@ This transform **ONLY** supported by Flink.
 
 ## Options
 
-| name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
-| class_names    | string | yes      | -             |
-| function_names | string | yes      | -             |
+| name           | type        | required | default value |
+| -------------- | ----------- | -------- | ------------- |
+| function       | string      | yes      | -             |
 
-### class_names [string-list]
+### function [string]
 
-The names of UDF classes. 
-
-### function_names [string]
-
-The names of UDF which you want to use as.
+A config prefix, use like `udf.test="xxx.Test"`.
 
 ### common options [string]
 
@@ -36,8 +31,8 @@ Use `udf` in sql.
 
 ```bash
   udf {
-    class_names = ["com.example.udf.flink.TestUDF"]
-    function_names = ["test_1"]
+    function.test_1 = "com.example.udf.flink.TestUDF"
+    function.test_2 = "com.example.udf.flink.TestUDTF"
   }
   
   # Use the specify function (confirm that the fake table exists)

@@ -50,5 +50,4 @@
             <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
         </dependency>
     </dependencies>
-
 </project>

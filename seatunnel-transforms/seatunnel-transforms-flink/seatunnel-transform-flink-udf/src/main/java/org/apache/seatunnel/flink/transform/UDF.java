@@ -17,34 +17,36 @@
 
 package org.apache.seatunnel.flink.transform;
 
-import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.functions.UserDefinedFunction;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-public class Udf implements FlinkStreamTransform, FlinkBatchTransform {
+public class UDF implements FlinkStreamTransform, FlinkBatchTransform {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Udf.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(UDF.class);
+    private static final String UDF_CONFIG_PREFIX = "function.";
 
-    private static final String CLASS_NAMES = "class_names";
-    private static final String FUNCTION_NAMES = "function_names";
     private Config config;
-    private List<String> className;
-    private List<String> functionName;
+    private List<String> classNames;
+    private List<String> functionNames;
 
     @Override
     public DataSet<Row> processBatch(FlinkEnvironment env, DataSet<Row> data) {
@@ -61,11 +63,11 @@ public class Udf implements FlinkStreamTransform, FlinkBatchTransform {
         TableEnvironment tEnv = flinkEnvironment.isStreaming() ?
                 flinkEnvironment.getStreamTableEnvironment() : flinkEnvironment.getBatchTableEnvironment();
 
-        for (int i = 0; i < functionName.size(); i++) {
+        for (int i = 0; i < functionNames.size(); i++) {
             try {
-                tEnv.createTemporarySystemFunction(functionName.get(i), (Class<? extends UserDefinedFunction>) Class.forName(className.get(i)));
+                tEnv.createTemporarySystemFunction(functionNames.get(i), (Class<? extends UserDefinedFunction>) Class.forName(classNames.get(i)));
             } catch (ClassNotFoundException e) {
-                LOGGER.error("The udf class {} not founded, make sure you enter the correct class name", className.get(i));
+                LOGGER.error("The udf class {} not founded, make sure you enter the correct class name", classNames.get(i));
                 throw new RuntimeException(e);
             }
         }
@@ -83,20 +85,35 @@ public class Udf implements FlinkStreamTransform, FlinkBatchTransform {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, CLASS_NAMES, FUNCTION_NAMES);
+        hasSubConfig(UDF_CONFIG_PREFIX);
+        return CheckResult.success();
     }
 
     @Override
     public void prepare(FlinkEnvironment prepareEnv) {
-        className = config.getStringList(CLASS_NAMES);
-        functionName = config.getStringList(FUNCTION_NAMES);
+        final Properties properties = new Properties();
+        PropertiesUtil.setProperties(config, properties, UDF_CONFIG_PREFIX, false);
 
-        Preconditions.checkState(className.size() == functionName.size(),
-                "The number of Class names is inconsistent with the number of Function names");
+        classNames = new ArrayList<>(properties.size());
+        functionNames = new ArrayList<>(properties.size());
+
+        properties.forEach((k, v) -> {
+            classNames.add(String.valueOf(k));
+            functionNames.add(String.valueOf(k));
+        });
     }
 
     @Override
     public String getPluginName() {
         return "udf";
+    }
+
+    private void hasSubConfig(String prefix){
+        for (Map.Entry<String, ConfigValue> entry : config.entrySet()) {
+            if (entry.getKey().startsWith(prefix)){
+                return;
+            }
+        }
+        throw new RuntimeException(String.format("No config start with %s!, please check your transform config!", prefix));
     }
 }
