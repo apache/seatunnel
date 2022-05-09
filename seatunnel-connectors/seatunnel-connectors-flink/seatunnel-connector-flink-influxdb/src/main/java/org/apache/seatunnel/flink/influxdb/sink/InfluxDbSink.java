@@ -52,13 +52,12 @@ public class InfluxDbSink implements FlinkBatchSink {
     private List<String> fields;
 
     @Override
-    public DataSink<Row> outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
+    public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         DataSink<Row> dataSink = dataSet.output(new InfluxDbOutputFormat(serverURL, username, password, database, measurement, tags, fields));
         if (config.hasPath(PARALLELISM)) {
             int parallelism = config.getInt(PARALLELISM);
-            return dataSink.setParallelism(parallelism);
+            dataSink.setParallelism(parallelism);
         }
-        return dataSink;
     }
 
     @Override
@@ -85,5 +84,10 @@ public class InfluxDbSink implements FlinkBatchSink {
         this.measurement = config.getString(MEASUREMENT);
         this.tags = config.getStringList(TAGS);
         this.fields = config.getStringList(FIELDS);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "InfluxDbSink";
     }
 }

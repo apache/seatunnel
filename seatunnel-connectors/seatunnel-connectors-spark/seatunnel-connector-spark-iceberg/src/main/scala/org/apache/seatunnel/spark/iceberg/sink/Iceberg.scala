@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.{ConfigFactory, ConfigValueType}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.seatunnel.spark.iceberg.Config.{PATH, SAVE_MODE, SAVE_MODE_DEFAULT}
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
@@ -39,18 +40,20 @@ class Iceberg extends SparkBatchSink {
           writer.option(e.getKey, config.getString(e.getKey))
       }
     }
-    writer.mode(config.getString("saveMode"))
-      .save(config.getString("path"))
+    writer.mode(config.getString(SAVE_MODE))
+      .save(config.getString(PATH))
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "path")
+    checkAllExists(config, PATH)
   }
 
   override def prepare(prepareEnv: SparkEnvironment): Unit = {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "saveMode" -> "append"))
+        SAVE_MODE -> SAVE_MODE_DEFAULT))
     config = config.withFallback(defaultConfig)
   }
+
+  override def getPluginName: String = "Iceberg"
 }

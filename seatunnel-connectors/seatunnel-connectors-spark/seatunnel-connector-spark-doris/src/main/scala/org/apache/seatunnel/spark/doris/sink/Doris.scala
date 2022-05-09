@@ -95,4 +95,11 @@ class Doris extends SparkBatchSink with Serializable {
       batch_size = config.getInt(Config.BULK_SIZE)
     }
   }
+
+  /**
+   * Return the plugin name, this is used in seatunnel conf DSL.
+   *
+   * @return plugin name.
+   */
+  override def getPluginName: String = "Doris"
 }

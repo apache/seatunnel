@@ -63,4 +63,6 @@ class File extends SparkBatchSource {
       case _ => reader.format(format).load(path)
     }
   }
+
+  override def getPluginName: String = "File"
 }

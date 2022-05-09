@@ -53,4 +53,6 @@ class Neo4j extends SparkBatchSource {
       neo4jConf.put(entry.getKey, config.getString(entry.getKey))
     })
   }
+
+  override def getPluginName: String = "Neo4j"
 }

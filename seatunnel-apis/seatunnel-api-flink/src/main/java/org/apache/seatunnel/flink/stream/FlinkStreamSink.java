@@ -21,17 +21,13 @@ import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
-
-import javax.annotation.Nullable;
 
 /**
  * a FlinkStreamSink plugin will write data to other system using Flink DataStream API.
  */
 public interface FlinkStreamSink extends BaseFlinkSink {
 
-    @Nullable
-    DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream);
+    void outputStream(FlinkEnvironment env, DataStream<Row> dataStream);
 
 }

@@ -13,7 +13,7 @@ Engine Supported and plugin name
 
 * [x] Spark: Fake, FakeStream
 * [x] Flink: FakeSource, FakeSourceStream
-    * Flink `Fake Source` is mainly used to automatically generate data. The data has only two columns. The first column is of `String type` and the content is a random one from `["Gary", "Ricky Huo", "Kid Xiong"]` . The second column is of `Long type` , which is The current 13-bit timestamp is used as input for functional verification and testing of `seatunnel` .
+    * Flink `Fake Source` is mainly used to automatically generate data. The data has only two columns. The first column is of `String type` and the content is a random one from `["Gary", "Ricky Huo", "Kid Xiong"]` . The second column is of `Long type` , which is the current 13-digit timestamp is used as input for functional verification and testing of `seatunnel` .
 
 :::
 
@@ -109,7 +109,7 @@ The generated data is as follows, randomly extract the string from the `content`
 </TabItem>
 <TabItem value="flink">
 
-### FakeSource
+### FakeSourceStream
 
 ```bash
 source {
@@ -120,7 +120,7 @@ source {
 }
 ```
 
-### FakeSourceStream
+### FakeSource
 
 ```bash
 source {

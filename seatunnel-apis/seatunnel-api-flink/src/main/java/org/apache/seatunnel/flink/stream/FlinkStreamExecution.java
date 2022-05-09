@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.flink.stream;
 
-import org.apache.seatunnel.env.Execution;
+import org.apache.seatunnel.apis.base.env.Execution;
+import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
-import org.apache.seatunnel.plugin.Plugin;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -79,7 +79,7 @@ public class FlinkStreamExecution implements Execution<FlinkStreamSource, FlinkS
         }
     }
 
-    private void registerResultTable(Plugin plugin, DataStream dataStream) {
+    private void registerResultTable(Plugin<FlinkEnvironment> plugin, DataStream<Row> dataStream) {
         Config config = plugin.getConfig();
         if (config.hasPath(RESULT_TABLE_NAME)) {
             String name = config.getString(RESULT_TABLE_NAME);

@@ -23,7 +23,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connectors</artifactId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -33,7 +33,8 @@
     <modules>
         <module>seatunnel-connector-flink-console</module>
         <module>seatunnel-connector-flink-druid</module>
-        <module>seatunnel-connector-flink-elasticsearch</module>
+        <module>seatunnel-connector-flink-elasticsearch6</module>
+        <module>seatunnel-connector-flink-elasticsearch7</module>
         <module>seatunnel-connector-flink-file</module>
         <module>seatunnel-connector-flink-jdbc</module>
         <module>seatunnel-connector-flink-kafka</module>
@@ -41,6 +42,8 @@
         <module>seatunnel-connector-flink-socket</module>
         <module>seatunnel-connector-flink-doris</module>
         <module>seatunnel-connector-flink-influxdb</module>
+        <module>seatunnel-connector-flink-clickhouse</module>
+        <module>seatunnel-connector-flink-http</module>
     </modules>
 
 </project>

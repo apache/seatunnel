@@ -34,11 +34,12 @@ import org.apache.seatunnel.common.config.TypesafeConfigUtils.{extractSubConfig,
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse.{Shard, acceptedClickHouseSchema, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList, getDefaultValue, getRowShard}
+import org.apache.seatunnel.spark.clickhouse.Config.{BULK_SIZE, DATABASE, FIELDS, HOST, PASSWORD, RETRY, RETRY_CODES, SHARDING_KEY, SPLIT_MODE, TABLE, USERNAME}
+import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse.{Shard, acceptedClickHouseSchema, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList, getDefaultValue, getRowShard, parseHost}
 import org.apache.spark.sql.{Dataset, Row}
-import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseConnectionImpl, ClickHousePreparedStatementImpl}
+import ru.yandex.clickhouse.{BalancedClickhouseDataSource, ClickHouseArray, ClickHouseConnectionImpl, ClickHousePreparedStatementImpl}
 import ru.yandex.clickhouse.except.ClickHouseException
-
+import ru.yandex.clickhouse.domain.ClickHouseDataType
 import java.nio.ByteBuffer
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.atomic.AtomicLong
@@ -56,6 +57,7 @@ class Clickhouse extends SparkBatchSink {
   private val shards = new util.TreeMap[Int, Shard]()
   private val clickhousePrefix = "clickhouse."
   private val properties: Properties = new Properties()
+  private var multiHosts: String = _
 
   // used for split mode
   private var splitMode: Boolean = false
@@ -69,17 +71,22 @@ class Clickhouse extends SparkBatchSink {
 
   override def output(data: Dataset[Row], environment: SparkEnvironment): Unit = {
     val dfFields = data.schema.fieldNames
-    val bulkSize = config.getInt("bulk_size")
-    val retry = config.getInt("retry")
+    val bulkSize = config.getInt(BULK_SIZE)
+    val retry = config.getInt(RETRY)
 
-    if (!config.hasPath("fields")) {
+    if (!config.hasPath(FIELDS)) {
       fields = dfFields.toList
       initSQL = initPrepareSQL()
     }
     data.foreachPartition { iter: Iterator[Row] =>
 
       val statementMap = this.shards.map(s => {
-        val executorBalanced = new BalancedClickhouseDataSource(s._2.jdbc, this.properties)
+        // if use splitMode, jdbcUrl should use the shard itself url, or else should use multiHosts
+        var jdbcUrl = String.format("jdbc:clickhouse://%s/%s", multiHosts, s._2.database)
+        if (splitMode) {
+          jdbcUrl = s._2.jdbc
+        }
+        val executorBalanced = new BalancedClickhouseDataSource(jdbcUrl, this.properties)
         val executorConn = executorBalanced.getConnection.asInstanceOf[ClickHouseConnectionImpl]
         (s._2, executorConn.prepareStatement(this.initSQL).asInstanceOf[ClickHousePreparedStatementImpl])
       }).toMap
@@ -109,7 +116,7 @@ class Clickhouse extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    var checkResult = checkAllExists(config, "host", "table", "database", "username", "password")
+    var checkResult = checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD)
     if (checkResult.isSuccess) {
       if (hasSubConfig(config, clickhousePrefix)) {
         extractSubConfig(config, clickhousePrefix, false).entrySet().foreach(e => {
@@ -117,39 +124,39 @@ class Clickhouse extends SparkBatchSink {
         })
       }
 
-      properties.put("user", config.getString("username"))
-      properties.put("password", config.getString("password"))
+      properties.put("user", config.getString(USERNAME))
+      properties.put("password", config.getString(PASSWORD))
 
-      if (config.hasPath("split_mode")) {
-        splitMode = config.getBoolean("split_mode")
+      if (config.hasPath(SPLIT_MODE)) {
+        splitMode = config.getBoolean(SPLIT_MODE)
       }
-      val database = config.getString("database")
-      val host = config.getString("host")
-      val conn = getClickhouseConnection(host, database, properties)
-      val hostAndPort = host.split(":")
-      this.table = config.getString("table")
+      val database = config.getString(DATABASE)
+      val hosts = parseHost(config.getString(HOST))
+      multiHosts = hosts.map(_.hostAndPort).mkString(",")
+      val conn = getClickhouseConnection(multiHosts, database, properties)
+      this.table = config.getString(TABLE)
       this.tableSchema = getClickHouseSchema(conn, this.table).toMap
       if (splitMode) {
-        val tableName = config.getString("table")
+        val tableName = config.getString(TABLE)
         val localTable = getClickHouseDistributedTable(conn, database, tableName)
         if (Objects.isNull(localTable)) {
           CheckResult.error(s"split mode only support table which engine is '$distributedEngine' at now")
         } else {
           this.shardTable = localTable.table
-          val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hostAndPort(1))
+          val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hosts)
           var weight = 0
           for (elem <- shardList) {
             this.shards(weight) = elem
             weight += elem.shardWeight
           }
           this.shardWeightCount = weight
-          if (config.hasPath("sharding_key") && StringUtils.isNotEmpty(config.getString("sharding_key"))) {
-            this.shardKey = config.getString("sharding_key")
+          if (config.hasPath(SHARDING_KEY) && StringUtils.isNotEmpty(config.getString(SHARDING_KEY))) {
+            this.shardKey = config.getString(SHARDING_KEY)
           }
         }
       } else {
-        // only one connection
-        this.shards(0) = Shard(1, 1, 1, hostAndPort(0), hostAndPort(0), hostAndPort(1), database)
+        // only one connection, just use the first host in hosts, as it will be ignored when output data
+        this.shards(0) = Shard(1, 1, 1, hosts.head.host, hosts.head.host, hosts.head.port, database)
       }
 
       if (StringUtils.isNotEmpty(this.shardKey)) {
@@ -160,8 +167,8 @@ class Clickhouse extends SparkBatchSink {
           this.shardKeyType = this.tableSchema(this.shardKey)
         }
       }
-      if (this.config.hasPath("fields")) {
-        this.fields = config.getStringList("fields")
+      if (this.config.hasPath(FIELDS)) {
+        this.fields = config.getStringList(FIELDS)
         checkResult = acceptedClickHouseSchema(this.fields.toList, this.tableSchema, this.table)
       }
     }
@@ -169,18 +176,18 @@ class Clickhouse extends SparkBatchSink {
   }
 
   override def prepare(env: SparkEnvironment): Unit = {
-    if (config.hasPath("fields")) {
+    if (config.hasPath(FIELDS)) {
       this.initSQL = initPrepareSQL()
     }
 
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        "bulk_size" -> 20000,
+        BULK_SIZE -> 20000,
         // "retry_codes" -> util.Arrays.asList(ClickHouseErrorCode.NETWORK_ERROR.code),
-        "retry_codes" -> util.Arrays.asList(),
-        "retry" -> 1))
+        RETRY_CODES -> util.Arrays.asList(),
+        RETRY -> 1))
     config = config.withFallback(defaultConfig)
-    retryCodes = config.getIntList("retry_codes")
+    retryCodes = config.getIntList(RETRY_CODES)
   }
 
 
@@ -233,7 +240,15 @@ class Clickhouse extends SparkBatchSink {
             statement.setTimestamp(index + 1, Timestamp.valueOf(value.toString))
         }
       case "Int8" | "UInt8" | "Int16" | "UInt16" | "Int32" =>
-        statement.setInt(index + 1, item.getAs[Int](fieldIndex))
+        val value = item.get(fieldIndex)
+        value match {
+          case byte: Byte =>
+            statement.setByte(index + 1, byte.byteValue())
+          case short: Short =>
+            statement.setShort(index + 1, short.shortValue())
+          case _ =>
+            statement.setInt(index + 1, value.asInstanceOf[Int])
+        }
       case "UInt32" | "UInt64" | "Int64" =>
         statement.setLong(index + 1, item.getAs[Long](fieldIndex))
       case "Float32" =>
@@ -253,8 +268,9 @@ class Clickhouse extends SparkBatchSink {
             statement.setDouble(index + 1, value.asInstanceOf[Double])
         }
       case Clickhouse.arrayPattern(_) =>
-        statement.setArray(index + 1, item.getAs[java.sql.Array](fieldIndex))
-      case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
+        val value = item.getAs[Seq[Any]](fieldIndex).toArray
+        statement.setArray(index + 1, new ClickHouseArray(ClickHouseDataType.String, value))
+      case Clickhouse.decimalPattern(_) => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
       case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
     }
   }
@@ -316,6 +332,8 @@ class Clickhouse extends SparkBatchSink {
         throw e
     }
   }
+
+  override def getPluginName: String = "Clickhouse"
 }
 
 object Clickhouse {
@@ -353,18 +371,33 @@ object Clickhouse {
     }
   }
 
+  def parseHost(host: String): List[HostAndPort] = {
+    host.split(",")
+      .map(_.trim)
+      .map(_.split(":"))
+      .map(hostAndPort => HostAndPort(hostAndPort(0), hostAndPort(1)))
+      .toList
+  }
+
   def getClusterShardList(conn: ClickHouseConnectionImpl, clusterName: String,
-                          database: String, port: String): ListBuffer[Shard] = {
+                          database: String, hosts: List[HostAndPort]): ListBuffer[Shard] = {
     val rs = conn.createStatement().executeQuery(
       s"select shard_num,shard_weight,replica_num,host_name,host_address," +
         s"port from system.clusters where cluster = '$clusterName'")
     // TODO The port will be used for data communication of the tcp protocol in the future
     // port is tcp protocol, need http protocol port at now
     val nodeList = mutable.ListBuffer[Shard]()
+    val defaultPort = hosts.head.port
     while (rs.next()) {
+      val hostname = rs.getString(4)
+      val hostAddress = rs.getString(5)
+      val port = hosts.toStream
+        .filter(hostAndPort => hostname.equals(hostAndPort.host) || hostAddress.equals(hostAndPort.host))
+        .map(_.port)
+        .headOption
+        .getOrElse(defaultPort)
       nodeList += Shard(rs.getInt(1), rs.getInt(2),
-        rs.getInt(3), rs.getString(4), rs.getString(5),
-        port, database)
+        rs.getInt(3), hostname, hostAddress, port, database)
     }
     nodeList
   }
@@ -504,5 +537,9 @@ object Clickhouse {
                    hostname: String, hostAddress: String, port: String,
                    database: String) extends Serializable {
     val jdbc = s"jdbc:clickhouse://$hostAddress:$port/$database"
+  }
+
+  case class HostAndPort(host: String, port: String) {
+    val hostAndPort = s"$host:$port"
   }
 }

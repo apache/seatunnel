@@ -27,7 +27,7 @@
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel</artifactId>
     <packaging>pom</packaging>
-    <version>2.0.5-SNAPSHOT</version>
+    <version>${revision}</version>
 
     <name>SeaTunnel</name>
 
@@ -72,7 +72,11 @@
     </mailingLists>
 
     <modules>
-        <module>seatunnel-config</module>
+        <!--
+            We retrieve the config module from maven repository. If you want to change the config module,
+            you need to open this annotation and change the dependency of config-shade to project.
+            <module>seatunnel-config</module>
+        -->
         <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
@@ -84,6 +88,8 @@
     </modules>
 
     <properties>
+        <revision>2.1.1-SNAPSHOT</revision>
+        <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
         <scala.version>2.11.12</scala.version>
@@ -98,7 +104,8 @@
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <hadoop.version>2.7.5</hadoop.version>
-        <fastjson.version>1.2.60</fastjson.version>
+        <fastjson.version>1.2.80</fastjson.version>
+        <jackson.version>2.12.6</jackson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
         <postgresql.version>42.3.3</postgresql.version>
@@ -120,9 +127,10 @@
         <play-mailer.version>7.0.2</play-mailer.version>
         <phoenix-spark.version>5.0.0-HBase-2.0</phoenix-spark.version>
         <zkclient.version>0.3</zkclient.version>
+        <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
+        <elasticsearch7.client.version>7.5.1</elasticsearch7.client.version>
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
         <parquet-avro.version>1.10.0</parquet-avro.version>
-        <transport.version>7.5.1</transport.version>
         <elasticsearch-spark.version>6.8.3</elasticsearch-spark.version>
         <clickhouse-jdbc.version>0.2</clickhouse-jdbc.version>
         <hbase-spark.version>1.0.0</hbase-spark.version>
@@ -157,12 +165,20 @@
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
         <testcontainer.version>1.16.3</testcontainer.version>
+        <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
+        <elasticsearch>7</elasticsearch>
+        <slf4j.version>1.7.25</slf4j.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-config-shade</artifactId>
+                <version>${seatunnel.config.shade.version}</version>
+            </dependency>
             <!--spark-->
             <dependency>
                 <groupId>org.apache.spark</groupId>
@@ -249,6 +265,12 @@
                 <version>${flink.version}</version>
                 <scope>${flink.scope}</scope>
             </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-runtime-web_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+                <scope>${flink.scope}</scope>
+            </dependency>
 
             <!--Because the license is not in compliance, if you need to use MySQL, you can add it yourself-->
             <dependency>
@@ -320,12 +342,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.elasticsearch.client</groupId>
-                <artifactId>transport</artifactId>
-                <version>${transport.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.elasticsearch</groupId>
                 <artifactId>elasticsearch-spark-20_${scala.binary.version}</artifactId>
                 <version>${elasticsearch-spark.version}</version>
@@ -333,7 +349,13 @@
 
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-elasticsearch7_${scala.binary.version}</artifactId>
+                <artifactId>flink-connector-elasticsearch${elasticsearch}_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
             </dependency>
 
@@ -481,16 +503,37 @@
                 <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers</artifactId>
                 <version>${testcontainer.version}</version>
                 <scope>test</scope>
                 <exclusions>
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-annotations</artifactId>
-                    </exclusion>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
@@ -865,6 +908,7 @@
                         <excludedScopes>test,provided</excludedScopes>
                     </configuration>
                 </plugin>
+
             </plugins>
         </pluginManagement>
 

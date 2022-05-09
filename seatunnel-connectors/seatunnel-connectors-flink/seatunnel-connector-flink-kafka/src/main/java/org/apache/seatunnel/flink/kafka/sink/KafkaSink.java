@@ -27,11 +27,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.formats.json.JsonRowSerializationSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.types.Row;
-
-import javax.annotation.Nullable;
 
 import java.util.Properties;
 
@@ -44,16 +41,15 @@ public class KafkaSink implements FlinkStreamSink {
     private String semantic = DEFAULT_KAFKA_SEMANTIC;
 
     @Override
-    @Nullable
-    public DataStreamSink<Row> outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
+    public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         FlinkKafkaProducer<Row> rowFlinkKafkaProducer = new FlinkKafkaProducer<>(
-            topic,
-            JsonRowSerializationSchema.builder().withTypeInfo(dataStream.getType()).build(),
-            kafkaParams,
-            null,
-            getSemanticEnum(semantic),
-            FlinkKafkaProducer.DEFAULT_KAFKA_PRODUCERS_POOL_SIZE);
-        return dataStream.addSink(rowFlinkKafkaProducer);
+                topic,
+                JsonRowSerializationSchema.builder().withTypeInfo(dataStream.getType()).build(),
+                kafkaParams,
+                null,
+                getSemanticEnum(semantic),
+                FlinkKafkaProducer.DEFAULT_KAFKA_PRODUCERS_POOL_SIZE);
+        dataStream.addSink(rowFlinkKafkaProducer);
     }
 
     @Override
@@ -81,6 +77,11 @@ public class KafkaSink implements FlinkStreamSink {
         PropertiesUtil.setProperties(config, kafkaParams, producerPrefix, false);
         kafkaParams.put("key.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         kafkaParams.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Kafka";
     }
 
     private FlinkKafkaProducer.Semantic getSemanticEnum(String semantic) {

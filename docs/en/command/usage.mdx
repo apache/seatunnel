@@ -59,8 +59,11 @@ bin/start-seatunnel-spark.sh \
 bin/start-seatunnel-flink.sh \
     -c config-path \
     -i key=value \
+    -r run-application \
     [other params]
 ```
+
+- Use `-r` or `--run-mode` to specify the flink job run mode, you can use `run-application` or `run` (default value)
 
 </TabItem>
 </Tabs>
@@ -129,6 +132,8 @@ bin/start-seatunnel-flink.sh \
 ```
 
 This designation will replace `"${my_name}"` in the configuration file with `kid-xiong`
+
+> All the configurations in the `env` section will be applied to Flink dynamic parameters with the format of `-D`, such as `-Dexecution.parallelism=1` .
 
 > For the rest of the parameters, refer to the original flink parameters. Check the flink parameter method: `bin/flink run -h` . The parameters can be added as needed. For example, `-m yarn-cluster` is specified as `on yarn` mode.
 

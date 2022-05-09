@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.flink.batch;
 
-import org.apache.seatunnel.env.Execution;
+import org.apache.seatunnel.apis.base.env.Execution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.util.TableUtil;
 
@@ -48,7 +48,6 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     }
 
     @Override
-
     public void start(List<FlinkBatchSource> sources, List<FlinkBatchTransform> transforms, List<FlinkBatchSink> sinks) throws Exception {
         List<DataSet<Row>> data = new ArrayList<>();
 
@@ -72,13 +71,15 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
             sink.outputBatch(flinkEnvironment, dataSet);
         }
 
-        try {
-            LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
-            JobExecutionResult execute = flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
-            LOGGER.info(execute.toString());
-        } catch (Exception e) {
-            LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
-            throw e;
+        if (whetherExecute(sinks)) {
+            try {
+                LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getBatchEnvironment().getExecutionPlan());
+                JobExecutionResult execute = flinkEnvironment.getBatchEnvironment().execute(flinkEnvironment.getJobName());
+                LOGGER.info(execute.toString());
+            } catch (Exception e) {
+                LOGGER.warn("Flink with job name [{}] execute failed", flinkEnvironment.getJobName());
+                throw e;
+            }
         }
     }
 
@@ -116,4 +117,7 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
         return config;
     }
 
+    private boolean whetherExecute(List<FlinkBatchSink> sinks) {
+        return sinks.stream().anyMatch(s -> !"ConsoleSink".equals(s.getPluginName()));
+    }
 }

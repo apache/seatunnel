@@ -76,4 +76,5 @@ class Phoenix extends SparkBatchSink with Logging {
     }
   }
 
+  override def getPluginName: String = "Phoenix"
 }

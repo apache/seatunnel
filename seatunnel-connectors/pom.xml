@@ -23,7 +23,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel</artifactId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -32,7 +32,9 @@
 
     <modules>
         <module>seatunnel-connectors-flink</module>
+        <module>seatunnel-connectors-flink-dist</module>
         <module>seatunnel-connectors-spark</module>
+        <module>seatunnel-connectors-spark-dist</module>
     </modules>
 
 </project>

@@ -61,4 +61,6 @@ class Hive extends SparkBatchSink with Logging {
       }
     }
   }
+
+  override def getPluginName: String = "Hive"
 }

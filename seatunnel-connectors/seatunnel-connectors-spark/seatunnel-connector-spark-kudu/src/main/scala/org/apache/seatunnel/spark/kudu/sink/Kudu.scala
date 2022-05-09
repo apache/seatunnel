@@ -53,4 +53,6 @@ class Kudu extends SparkBatchSink {
       case "insertIgnore" => kuduContext.insertIgnoreRows(df, table)
     }
   }
+
+  override def getPluginName: String = "Kudu"
 }

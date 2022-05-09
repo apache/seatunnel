@@ -23,7 +23,7 @@
     <parent>
         <artifactId>seatunnel-examples</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <version>2.0.5-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -90,6 +90,11 @@
             <version>${flink.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
-        
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
     </dependencies>
 </project>

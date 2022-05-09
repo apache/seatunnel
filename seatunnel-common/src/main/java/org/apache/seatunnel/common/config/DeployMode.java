@@ -20,6 +20,7 @@ package org.apache.seatunnel.common.config;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public enum DeployMode {
     CLIENT("client"),
@@ -39,8 +40,8 @@ public enum DeployMode {
         return name;
     }
 
-    public static DeployMode from(String name) {
-        return NAME_MAP.get(name);
+    public static Optional<DeployMode> from(String name) {
+        return Optional.ofNullable(NAME_MAP.get(name));
     }
 
 }

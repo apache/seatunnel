@@ -94,11 +94,15 @@ public class Split implements FlinkStreamTransform, FlinkBatchTransform {
         if (config.hasPath(SEPARATOR)) {
             separator = config.getString(SEPARATOR);
         }
-        TypeInformation[] types = new TypeInformation[fields.size()];
+        TypeInformation<?>[] types = new TypeInformation[fields.size()];
         for (int i = 0; i < types.length; i++) {
             types[i] = Types.STRING();
         }
         rowTypeInfo = new RowTypeInfo(types, fields.toArray(new String[0]));
     }
 
+    @Override
+    public String getPluginName() {
+        return "split";
+    }
 }

@@ -10,7 +10,7 @@ server, also call bulk load.
 Engine Supported and plugin name
 
 * [x] Spark: ClickhouseFile
-* [ ] Flink
+* [x] Flink
 
 :::
 
@@ -126,7 +126,7 @@ Sink plugin common parameters, please refer to [common options](common-options.m
 ## Examples
 
 ```bash
-clickhouse {
+ClickhouseFile {
     host = "localhost:8123"
     database = "nginx"
     table = "access_msg"
@@ -139,7 +139,7 @@ clickhouse {
 ```
 
 ```bash
-ClickHouse {
+ClickhouseFile {
     host = "localhost:8123"
     database = "nginx"
     table = "access_msg"

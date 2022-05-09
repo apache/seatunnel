@@ -26,18 +26,23 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
+
 public class CompleteTest {
 
     @Test
-    public void testVariables() {
-
-        System.setProperty("dt", "20190318");
-        System.setProperty("city2", "shanghai");
+    public void testVariables() throws URISyntaxException {
+        // We use a map to mock the system property, since the system property will be only loaded once
+        // after the test is run. see Issue #1670
+        Map<String, String> systemProperties = new HashMap<>();
+        systemProperties.put("dt", "20190318");
+        systemProperties.put("city2", "shanghai");
 
         Config config = ConfigFactory
-            .parseFile(FileUtils.getFileFromResources("seatunnel/variables.conf"))
-            .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
-
+            .parseFile(FileUtils.getFileFromResources("/seatunnel/variables.conf"))
+            .resolveWith(ConfigFactory.parseMap(systemProperties), ConfigResolveOptions.defaults().setAllowUnresolved(true));
         String sql1 = config.getConfigList("transform").get(1).getString("sql");
         String sql2 = config.getConfigList("transform").get(2).getString("sql");
 

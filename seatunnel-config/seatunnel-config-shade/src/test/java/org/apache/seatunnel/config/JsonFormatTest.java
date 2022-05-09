@@ -26,18 +26,20 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.net.URISyntaxException;
+
 public class JsonFormatTest {
 
     @Test
-    public void testJsonFormat() {
+    public void testJsonFormat() throws URISyntaxException {
 
         Config json = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("json/spark.batch.json"))
+                .parseFile(FileUtils.getFileFromResources("/json/spark.batch.json"))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
         Config config = ConfigFactory
-                .parseFile(FileUtils.getFileFromResources("json/spark.batch.conf"))
+                .parseFile(FileUtils.getFileFromResources("/json/spark.batch.conf"))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
 

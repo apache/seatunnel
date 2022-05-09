@@ -74,4 +74,5 @@ class Phoenix extends SparkBatchSource with Logging {
     }
   }
 
+  override def getPluginName: String = "Phoenix"
 }

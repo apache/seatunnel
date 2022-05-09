@@ -68,13 +68,20 @@ const sidebars = {
       items: [
         'start/local',
         'start/docker',
+        'start/kubernetes'
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Concept',
+      items: [
+        'concept/config',
       ],
     },
     {
       type: 'category',
       label: 'Connector',
       items: [
-        'connector/config-example',
         {
           type: 'category',
           label: 'Source',
@@ -133,10 +140,10 @@ const sidebars = {
     'deployment',
     {
       type: 'category',
-      label: 'Development',
+      label: 'Contribution',
       items: [
-        'development/setup',
-        'development/new-license',
+        'contribution/setup',
+        'contribution/new-license',
       ],
     },
     'faq',
