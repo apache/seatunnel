@@ -1,6 +1,6 @@
 package org.apache.seatunnel.api.table.type;
 
-public class ArrayType<T> implements DataType<T> {
+public class ArrayType<T> implements SeaTunnelDataType<T> {
 
     private final BasicType<T> elementType;
 

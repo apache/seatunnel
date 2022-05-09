@@ -22,7 +22,7 @@ import java.math.BigInteger;
 import java.time.Instant;
 import java.util.Date;
 
-public class BasicType<T> implements DataType<T> {
+public class BasicType<T> implements SeaTunnelDataType<T> {
 
     public static final BasicType<Boolean> BOOLEAN = new BasicType<>(Boolean.class);
     public static final BasicType<String> STRING = new BasicType<>(String.class);

@@ -18,9 +18,9 @@
 package org.apache.seatunnel.translation.flink.types;
 
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DataType;
 import org.apache.seatunnel.api.table.type.ListType;
 import org.apache.seatunnel.api.table.type.PojoType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
@@ -36,7 +36,7 @@ public class PojoTypeConverterTest {
     public void convert() {
         PojoTypeConverter<MockPojo> pojoTypeConverter = new PojoTypeConverter<>();
         Field[] fields = MockPojo.class.getDeclaredFields();
-        DataType<?>[] fieldTypes = {BasicType.STRING, new ListType<>(BasicType.INTEGER)};
+        SeaTunnelDataType<?>[] fieldTypes = {BasicType.STRING, new ListType<>(BasicType.INTEGER)};
         PojoTypeInfo<MockPojo> pojoTypeInfo =
             pojoTypeConverter.convert(new PojoType<>(MockPojo.class, fields, fieldTypes));
         Assert.assertEquals(
