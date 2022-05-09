@@ -270,7 +270,7 @@ class Clickhouse extends SparkBatchSink {
       case Clickhouse.arrayPattern(_) =>
         val value = item.getAs[Seq[Any]](fieldIndex).toArray
         statement.setArray(index + 1, new ClickHouseArray(ClickHouseDataType.String, value))
-      case "Decimal" => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
+      case Clickhouse.decimalPattern(_) => statement.setBigDecimal(index + 1, item.getAs[BigDecimal](fieldIndex))
       case _ => statement.setString(index + 1, item.getAs[String](fieldIndex))
     }
   }
