@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.serialization;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.serialization.RowSerialization;
 
 import org.apache.flink.types.Row;
@@ -26,13 +27,17 @@ import java.io.IOException;
 public class FlinkRowSerialization implements RowSerialization<Row> {
 
     @Override
-    public Row serialize(org.apache.seatunnel.api.table.type.Row seaTunnelRow) throws IOException {
-
-        return null;
+    public Row serialize(SeaTunnelRow seaTunnelRow) throws IOException {
+        return Row.of(seaTunnelRow.getFields());
     }
 
     @Override
-    public org.apache.seatunnel.api.table.type.Row deserialize(Row engineRow) throws IOException {
-        return null;
+    public SeaTunnelRow deserialize(Row engineRow) throws IOException {
+        int arity = engineRow.getArity();
+        Object[] fields = new Object[arity];
+        for (int i = 0; i < arity; i++) {
+            fields[i] = engineRow.getField(i);
+        }
+        return new SeaTunnelRow(fields);
     }
 }
