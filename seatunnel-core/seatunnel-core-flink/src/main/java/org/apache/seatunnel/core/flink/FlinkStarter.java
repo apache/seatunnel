@@ -22,6 +22,8 @@ import org.apache.seatunnel.core.base.Starter;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkJobType;
 import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -30,6 +32,7 @@ import java.util.List;
  */
 public class FlinkStarter implements Starter {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkStarter.class);
     private static final String APP_NAME = SeatunnelFlink.class.getName();
     private static final String APP_JAR_NAME = "seatunnel-core-flink.jar";
 
@@ -50,10 +53,9 @@ public class FlinkStarter implements Starter {
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws Exception {
         FlinkStarter flinkStarter = new FlinkStarter(args);
-        System.out.println(String.join(" ", flinkStarter.buildCommands()));
+        LOGGER.info(String.join(" ", flinkStarter.buildCommands()));
     }
 
     @Override

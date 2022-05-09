@@ -22,11 +22,14 @@ import org.apache.seatunnel.core.base.Starter;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkJobType;
 import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class FlinkSqlStarter implements Starter {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkSqlStarter.class);
     private static final String APP_JAR_NAME = "seatunnel-core-flink-sql.jar";
     private static final String CLASS_NAME = SeatunnelSql.class.getName();
 
@@ -48,9 +51,8 @@ public class FlinkSqlStarter implements Starter {
         return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, CLASS_NAME, appJar, FlinkJobType.SQL);
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws Exception {
         FlinkSqlStarter flinkSqlStarter = new FlinkSqlStarter(args);
-        System.out.println(String.join(" ", flinkSqlStarter.buildCommands()));
+        LOGGER.info(String.join(" ", flinkSqlStarter.buildCommands()));
     }
 }

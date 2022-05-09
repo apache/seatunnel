@@ -36,6 +36,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.UnixStyleUsageFormatter;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -58,6 +60,7 @@ import java.util.stream.Stream;
  */
 public class SparkStarter implements Starter {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SparkStarter.class);
     private static final int USAGE_EXIT_CODE = 234;
 
     private static final int PLUGIN_LIB_DIR_DEPTH = 3;
@@ -97,11 +100,10 @@ public class SparkStarter implements Starter {
         this.commandArgs = commandArgs;
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws IOException {
         SparkStarter starter = getInstance(args);
         List<String> command = starter.buildCommands();
-        System.out.println(String.join(" ", command));
+        LOGGER.info(String.join(" ", command));
     }
 
     /**
