@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
+import org.apache.flink.api.connector.sink.Sink.InitContext;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 

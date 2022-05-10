@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowSerialization;
 
 import org.apache.flink.api.connector.sink.SinkWriter;
+import org.apache.flink.api.connector.sink.SinkWriter.Context;
 import org.apache.flink.types.Row;
 
 import java.io.IOException;
