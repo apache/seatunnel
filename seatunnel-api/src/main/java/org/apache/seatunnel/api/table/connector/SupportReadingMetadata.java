@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.table.connector;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.DataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.List;
 import java.util.Map;
@@ -28,7 +28,7 @@ import java.util.Map;
  */
 public interface SupportReadingMetadata {
 
-    Map<String, DataType<?>> listReadableMetadata(CatalogTable catalogTable);
+    Map<String, SeaTunnelDataType<?>> listReadableMetadata(CatalogTable catalogTable);
 
-    void applyReadableMetadata(CatalogTable catalogTable, List<String> metadataKeys, DataType<?> dataType);
+    void applyReadableMetadata(CatalogTable catalogTable, List<String> metadataKeys, SeaTunnelDataType<?> dataType);
 }

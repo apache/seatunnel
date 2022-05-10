@@ -19,11 +19,11 @@ package org.apache.seatunnel.translation.flink.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DataType;
 import org.apache.seatunnel.api.table.type.EnumType;
 import org.apache.seatunnel.api.table.type.ListType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PojoType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.TimestampType;
 import org.apache.seatunnel.translation.flink.types.ArrayTypeConverter;
 import org.apache.seatunnel.translation.flink.types.BasicTypeConverter;
@@ -43,8 +43,12 @@ import java.util.Date;
 
 public class TypeConverterUtils {
 
+    private TypeConverterUtils() {
+        throw new UnsupportedOperationException("TypeConverterUtils is a utility class and cannot be instantiated");
+    }
+
     @SuppressWarnings("unchecked")
-    public static <T1, T2> TypeInformation<T2> convertType(DataType<T1> dataType) {
+    public static <T1, T2> TypeInformation<T2> convertType(SeaTunnelDataType<T1> dataType) {
         if (dataType instanceof BasicType) {
             return (TypeInformation<T2>) convertBasicType((BasicType<T1>) dataType);
         }
@@ -132,7 +136,7 @@ public class TypeConverterUtils {
         if (physicalTypeClass == BigDecimal.class) {
             BasicType<BigDecimal> bigDecimalBasicType = (BasicType<BigDecimal>) basicType;
             return (TypeInformation<T>)
-                BasicTypeConverter.BIG_DECIMAL.convert(bigDecimalBasicType);
+                BasicTypeConverter.BIG_DECIMAL_CONVERTER.convert(bigDecimalBasicType);
         }
         if (physicalTypeClass == Void.class) {
             BasicType<Void> voidBasicType = (BasicType<Void>) basicType;
@@ -148,7 +152,7 @@ public class TypeConverterUtils {
     }
 
     public static <T> ListTypeInfo<T> covertListType(ListType<T> listType) {
-        DataType<T> elementType = listType.getElementType();
+        SeaTunnelDataType<T> elementType = listType.getElementType();
         return new ListTypeInfo<>(convertType(elementType));
     }
 
@@ -158,8 +162,8 @@ public class TypeConverterUtils {
     }
 
     public static <K, V> MapTypeInfo<K, V> convertMapType(MapType<K, V> mapType) {
-        DataType<K> keyType = mapType.getKeyType();
-        DataType<V> valueType = mapType.getValueType();
+        SeaTunnelDataType<K> keyType = mapType.getKeyType();
+        SeaTunnelDataType<V> valueType = mapType.getValueType();
         return new MapTypeInfo<>(convertType(keyType), convertType(valueType));
     }
 

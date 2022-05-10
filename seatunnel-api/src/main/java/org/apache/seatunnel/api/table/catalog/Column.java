@@ -18,7 +18,7 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import org.apache.seatunnel.api.table.type.DataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -34,11 +34,11 @@ public abstract class Column {
     /**
      * Data type of the column.
      */
-    protected final DataType<?> dataType;
+    protected final SeaTunnelDataType<?> dataType;
 
     protected final String comment;
 
-    private Column(String name, DataType<?> dataType, String comment) {
+    private Column(String name, SeaTunnelDataType<?> dataType, String comment) {
         this.name = name;
         this.dataType = dataType;
         this.comment = comment;
@@ -47,7 +47,7 @@ public abstract class Column {
     /**
      * Creates a regular table column that represents physical data.
      */
-    public static PhysicalColumn physical(String name, DataType<?> dataType) {
+    public static PhysicalColumn physical(String name, SeaTunnelDataType<?> dataType) {
         return new PhysicalColumn(name, dataType);
     }
 
@@ -58,7 +58,7 @@ public abstract class Column {
      * <p>Allows to specify whether the column is virtual or not.
      */
     public static MetadataColumn metadata(
-            String name, DataType<?> dataType, String metadataKey) {
+        String name, SeaTunnelDataType<?> dataType, String metadataKey) {
         return new MetadataColumn(name, dataType, metadataKey);
     }
 
@@ -76,7 +76,7 @@ public abstract class Column {
     /**
      * Returns the data type of this column.
      */
-    public DataType<?> getDataType() {
+    public SeaTunnelDataType<?> getDataType() {
         return this.dataType;
     }
 
@@ -95,9 +95,9 @@ public abstract class Column {
     }
 
     /**
-     * Returns a copy of the column with a replaced {@link DataType}.
+     * Returns a copy of the column with a replaced {@link SeaTunnelDataType}.
      */
-    public abstract Column copy(DataType<?> newType);
+    public abstract Column copy(SeaTunnelDataType<?> newType);
 
     @Override
     public boolean equals(Object o) {
@@ -127,11 +127,11 @@ public abstract class Column {
      */
     public static final class PhysicalColumn extends Column {
 
-        private PhysicalColumn(String name, DataType<?> dataType) {
+        private PhysicalColumn(String name, SeaTunnelDataType<?> dataType) {
             this(name, dataType, null);
         }
 
-        private PhysicalColumn(String name, DataType<?> dataType, String comment) {
+        private PhysicalColumn(String name, SeaTunnelDataType<?> dataType, String comment) {
             super(name, dataType, comment);
         }
 
@@ -149,7 +149,7 @@ public abstract class Column {
         }
 
         @Override
-        public Column copy(DataType<?> newDataType) {
+        public Column copy(SeaTunnelDataType<?> newDataType) {
             return new PhysicalColumn(name, newDataType, comment);
         }
     }
@@ -162,13 +162,13 @@ public abstract class Column {
         private final String metadataKey;
 
         private MetadataColumn(
-                String name, DataType<?> dataType, String metadataKey) {
+            String name, SeaTunnelDataType<?> dataType, String metadataKey) {
             this(name, dataType, metadataKey, null);
         }
 
         private MetadataColumn(
                 String name,
-                DataType<?> dataType,
+                SeaTunnelDataType<?> dataType,
                 String metadataKey,
                 String comment) {
             super(name, dataType, comment);
@@ -193,7 +193,7 @@ public abstract class Column {
         }
 
         @Override
-        public Column copy(DataType<?> newDataType) {
+        public Column copy(SeaTunnelDataType<?> newDataType) {
             return new MetadataColumn(name, newDataType, metadataKey, comment);
         }
 

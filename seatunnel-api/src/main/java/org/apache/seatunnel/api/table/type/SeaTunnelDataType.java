@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.types;
-
-import org.apache.seatunnel.api.table.type.Converter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-
-import org.apache.flink.api.common.typeinfo.TypeInformation;
+package org.apache.seatunnel.api.table.type;
 
 /**
- * Convert SeaTunnel {@link SeaTunnelDataType} to flink type.
+ * Logic data type of column in SeaTunnel.
  */
-public interface FlinkTypeConverter<T1, T2> extends Converter<T1, T2> {
+public interface SeaTunnelDataType<T> {
 
-    /**
-     * Convert SeaTunnel {@link SeaTunnelDataType} to flink {@link  TypeInformation}.
-     *
-     * @param seaTunnelDataType SeaTunnel {@link SeaTunnelDataType}
-     * @return flink {@link TypeInformation}
-     */
-    @Override
-    T2 convert(T1 seaTunnelDataType);
 
 }

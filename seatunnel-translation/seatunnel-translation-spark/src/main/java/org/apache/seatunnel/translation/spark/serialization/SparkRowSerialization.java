@@ -15,25 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.types;
+package org.apache.seatunnel.translation.spark.serialization;
 
-import org.apache.seatunnel.api.table.type.Converter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.serialization.RowSerialization;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.RowFactory;
 
-/**
- * Convert SeaTunnel {@link SeaTunnelDataType} to flink type.
- */
-public interface FlinkTypeConverter<T1, T2> extends Converter<T1, T2> {
+import java.io.IOException;
 
-    /**
-     * Convert SeaTunnel {@link SeaTunnelDataType} to flink {@link  TypeInformation}.
-     *
-     * @param seaTunnelDataType SeaTunnel {@link SeaTunnelDataType}
-     * @return flink {@link TypeInformation}
-     */
+public class SparkRowSerialization implements RowSerialization<Row> {
+
     @Override
-    T2 convert(T1 seaTunnelDataType);
+    public Row serialize(SeaTunnelRow seaTunnelRow) throws IOException {
+        return RowFactory.create(seaTunnelRow.getFields());
+    }
 
+    @Override
+    public SeaTunnelRow deserialize(Row engineRow) throws IOException {
+        Object[] fields = new Object[engineRow.length()];
+        for (int i = 0; i < engineRow.length(); i++) {
+            fields[i] = engineRow.get(i);
+        }
+        return new SeaTunnelRow(fields);
+    }
 }

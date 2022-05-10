@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.types;
+package org.apache.seatunnel.translation.spark.types;
 
-import org.apache.seatunnel.api.table.type.Converter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.TimestampType;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.spark.sql.types.DataTypes;
 
-/**
- * Convert SeaTunnel {@link SeaTunnelDataType} to flink type.
- */
-public interface FlinkTypeConverter<T1, T2> extends Converter<T1, T2> {
+public class TimestampTypeConverter
+    implements SparkDataTypeConverter<TimestampType, org.apache.spark.sql.types.TimestampType> {
 
-    /**
-     * Convert SeaTunnel {@link SeaTunnelDataType} to flink {@link  TypeInformation}.
-     *
-     * @param seaTunnelDataType SeaTunnel {@link SeaTunnelDataType}
-     * @return flink {@link TypeInformation}
-     */
+    public static final TimestampTypeConverter INSTANCE = new TimestampTypeConverter();
+
+    private TimestampTypeConverter() {
+
+    }
+
     @Override
-    T2 convert(T1 seaTunnelDataType);
-
+    public org.apache.spark.sql.types.TimestampType convert(TimestampType seaTunnelDataType) {
+        return (org.apache.spark.sql.types.TimestampType) DataTypes.TimestampType;
+    }
 }

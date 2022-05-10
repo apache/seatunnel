@@ -85,7 +85,7 @@ public class BasicTypeConverter<T1>
             BasicType.BIG_INTEGER,
             BasicTypeInfo.BIG_INT_TYPE_INFO);
 
-    public static final BasicTypeConverter<BigDecimal> BIG_DECIMAL =
+    public static final BasicTypeConverter<BigDecimal> BIG_DECIMAL_CONVERTER =
         new BasicTypeConverter<>(
             BasicType.BIG_DECIMAL,
             BasicTypeInfo.BIG_DEC_TYPE_INFO);
