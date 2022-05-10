@@ -18,6 +18,7 @@
 package org.apache.seatunnel.flink.jdbc.sink;
 
 import static org.apache.seatunnel.flink.jdbc.Config.DRIVER;
+import static org.apache.seatunnel.flink.jdbc.Config.PARALLELISM;
 import static org.apache.seatunnel.flink.jdbc.Config.PASSWORD;
 import static org.apache.seatunnel.flink.jdbc.Config.QUERY;
 import static org.apache.seatunnel.flink.jdbc.Config.SINK_BATCH_INTERVAL;
@@ -31,6 +32,7 @@ import static org.apache.seatunnel.flink.jdbc.Config.USERNAME;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.parsing.StatementSqlBuilder;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
@@ -40,6 +42,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
 import org.apache.flink.connector.jdbc.JdbcOutputFormat;
@@ -48,6 +51,7 @@ import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +61,8 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
@@ -65,7 +71,6 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     private static final int DEFAULT_BATCH_SIZE = 5000;
     private static final int DEFAULT_MAX_RETRY_TIMES = 3;
     private static final int DEFAULT_INTERVAL_MILLIS = 0;
-    private static final String PARALLELISM = "parallelism";
 
     private Config config;
     private String driverName;
@@ -73,6 +78,8 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     private String username;
     private String password;
     private String query;
+    private String statementSql;
+    private String[] parameters;
     private String preSql;
     private String postSql;
     private boolean ignorePostSqlExceptions = false;
@@ -101,6 +108,10 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
         dbUrl = config.getString(URL);
         username = config.getString(USERNAME);
         query = config.getString(QUERY);
+        StatementSqlBuilder statementSqlBuilder = new StatementSqlBuilder(query);
+        statementSqlBuilder.parse();
+        statementSql = statementSqlBuilder.getSql();
+        parameters = statementSqlBuilder.getParameters().toArray(new String[0]);
         if (config.hasPath(PASSWORD)) {
             password = config.getString(PASSWORD);
         }
@@ -132,13 +143,19 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
     @Override
     public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         executePreSql();
-
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
-        TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
 
-        int[] types = Arrays.stream(fieldTypes).mapToInt(JdbcTypeUtil::typeInformationToSqlType).toArray();
+        Map<String, TypeInformation> fieldTypeInformationMap = new HashMap<>();
+        Map<String, Integer> fieldSqlTypeMap = new HashMap<>();
+        Map<String, Integer> fieldPositionMap = new HashMap<>();
+        buildFieldNameMapping(table.getSchema(), fieldTypeInformationMap, fieldSqlTypeMap, fieldPositionMap);
+
+        TypeInformation[] typeInformations = getTypeInfomationsArray(fieldTypeInformationMap);
+        RowTypeInfo rowTypeInfo = new RowTypeInfo(typeInformations);
+        int[] types = getSqlTypesArray(fieldSqlTypeMap);
+
         SinkFunction<Row> sink = org.apache.flink.connector.jdbc.JdbcSink.sink(
-            query,
+            statementSql,
             (st, row) -> JdbcUtils.setRecordToStatement(st, types, row),
             JdbcExecutionOptions.builder()
                 .withBatchSize(batchSize)
@@ -152,36 +169,78 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
                 .withPassword(password)
                 .build());
 
+        DataStream<Row> dataStreamN = dataStream.map(source -> copyFields(source, fieldPositionMap)).returns(rowTypeInfo);
         if (config.hasPath(PARALLELISM)) {
-            dataStream.addSink(sink).setParallelism(config.getInt(PARALLELISM));
+            dataStreamN.addSink(sink).setParallelism(config.getInt(PARALLELISM));
         } else {
-            dataStream.addSink(sink);
+            dataStreamN.addSink(sink);
         }
     }
 
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         executePreSql();
-
         Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
-        TypeInformation<?>[] fieldTypes = table.getSchema().getFieldTypes();
-        int[] types = Arrays.stream(fieldTypes).mapToInt(JdbcTypeUtil::typeInformationToSqlType).toArray();
 
+        Map<String, TypeInformation> fieldTypeInformationMap = new HashMap<>();
+        Map<String, Integer> fieldSqlTypeMap = new HashMap<>();
+        Map<String, Integer> fieldPositionMap = new HashMap<>();
+        buildFieldNameMapping(table.getSchema(), fieldTypeInformationMap, fieldSqlTypeMap, fieldPositionMap);
+
+        TypeInformation[] typeInformations = getTypeInfomationsArray(fieldTypeInformationMap);
+        RowTypeInfo rowTypeInfo = new RowTypeInfo(typeInformations);
+        int[] types = getSqlTypesArray(fieldSqlTypeMap);
         JdbcOutputFormat format = JdbcOutputFormat.buildJdbcOutputFormat()
-                .setDrivername(driverName)
-                .setDBUrl(dbUrl)
-                .setUsername(username)
-                .setPassword(password)
-                .setQuery(query)
-                .setBatchSize(batchSize)
-                .setSqlTypes(types)
-                .finish();
-        dataSet.output(format);
+            .setDrivername(driverName)
+            .setDBUrl(dbUrl)
+            .setUsername(username)
+            .setPassword(password)
+            .setQuery(statementSql)
+            .setBatchSize(batchSize)
+            .setSqlTypes(types)
+            .finish();
+        dataSet.map(source -> copyFields(source, fieldPositionMap)).returns(rowTypeInfo).output(format);
     }
 
     @Override
     public void close() throws Exception {
         executePostSql();
+    }
+
+    private void buildFieldNameMapping(TableSchema schema,
+                                       Map<String, TypeInformation> fieldTypeInformationMap,
+                                       Map<String, Integer> fieldSqlTypeMap,
+                                       Map<String, Integer> fieldPositionMap) {
+        int position = 0;
+        for (String fieldName : schema.getFieldNames()) {
+            TypeInformation<?> typeInformation = schema.getFieldType(fieldName).orElseThrow(() -> new RuntimeException("absent type information for field " + fieldName));
+            fieldTypeInformationMap.put(fieldName, typeInformation);
+            int jdbcType = JdbcTypeUtil.typeInformationToSqlType(typeInformation);
+            fieldSqlTypeMap.put(fieldName, jdbcType);
+            fieldPositionMap.put(fieldName, position++);
+        }
+    }
+
+    private int[] getSqlTypesArray(Map<String, Integer> fieldSqlTypeMap) {
+        return Arrays.stream(parameters)
+            .mapToInt(fieldSqlTypeMap::get)
+            .toArray();
+    }
+
+    private TypeInformation[] getTypeInfomationsArray(Map<String, TypeInformation> fieldTypeInformationMap) {
+        return Arrays.stream(parameters)
+            .map(fieldTypeInformationMap::get)
+            .toArray(size -> new TypeInformation[size]);
+    }
+
+    private Row copyFields(Row source, Map<String, Integer> fieldPositionMap) {
+        Row target = new Row(source.getKind(), parameters.length);
+        for (int i = 0; i < parameters.length; i++) {
+            String parameter = parameters[i];
+            int position = fieldPositionMap.get(parameter);
+            target.setField(i, source.getField(position));
+        }
+        return target;
     }
 
     private void executePreSql() {
@@ -212,7 +271,7 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
 
     private void executeSql(String sql) throws SQLException {
         try (Connection connection = DriverManager.getConnection(dbUrl, username, password);
-            Statement statement = connection.createStatement()) {
+             Statement statement = connection.createStatement()) {
 
             statement.execute(sql);
             LOGGER.info("Executed sql successfully.");
