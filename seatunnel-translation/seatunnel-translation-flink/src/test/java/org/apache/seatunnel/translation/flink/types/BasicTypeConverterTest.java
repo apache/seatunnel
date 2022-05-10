@@ -123,7 +123,7 @@ public class BasicTypeConverterTest {
     public void convertBigDecimalType() {
         BasicType<BigDecimal> bigDecimalBasicType = BasicType.BIG_DECIMAL;
         TypeInformation<BigDecimal> bigDecimalTypeInformation =
-            BasicTypeConverter.BIG_DECIMAL.convert(bigDecimalBasicType);
+            BasicTypeConverter.BIG_DECIMAL_CONVERTER.convert(bigDecimalBasicType);
         Assert.assertEquals(BasicTypeInfo.BIG_DEC_TYPE_INFO, bigDecimalTypeInformation);
     }
 

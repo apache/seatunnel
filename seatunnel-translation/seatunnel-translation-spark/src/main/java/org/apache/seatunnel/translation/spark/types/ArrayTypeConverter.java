@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.types;
+package org.apache.seatunnel.translation.spark.types;
 
-import org.apache.seatunnel.api.table.type.Converter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.DataTypes;
 
-/**
- * Convert SeaTunnel {@link SeaTunnelDataType} to flink type.
- */
-public interface FlinkTypeConverter<T1, T2> extends Converter<T1, T2> {
+public class ArrayTypeConverter<T1>
+    implements SparkDataTypeConverter<ArrayType<T1>, org.apache.spark.sql.types.ArrayType> {
 
-    /**
-     * Convert SeaTunnel {@link SeaTunnelDataType} to flink {@link  TypeInformation}.
-     *
-     * @param seaTunnelDataType SeaTunnel {@link SeaTunnelDataType}
-     * @return flink {@link TypeInformation}
-     */
     @Override
-    T2 convert(T1 seaTunnelDataType);
-
+    public org.apache.spark.sql.types.ArrayType convert(ArrayType<T1> seaTunnelDataType) {
+        DataType elementType = TypeConverterUtils.convert(seaTunnelDataType.getElementType());
+        return DataTypes.createArrayType(elementType);
+    }
 }

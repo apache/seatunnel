@@ -34,5 +34,11 @@
             <artifactId>seatunnel-translation-base</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- apache spark table -->
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_${scala.binary.version}</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>

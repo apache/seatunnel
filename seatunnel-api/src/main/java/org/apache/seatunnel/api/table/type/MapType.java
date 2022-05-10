@@ -2,12 +2,12 @@ package org.apache.seatunnel.api.table.type;
 
 import java.util.Map;
 
-public class MapType<K, V> implements DataType<Map<K, V>> {
+public class MapType<K, V> implements SeaTunnelDataType<Map<K, V>> {
 
-    private final DataType<K> keyType;
-    private final DataType<V> valueType;
+    private final SeaTunnelDataType<K> keyType;
+    private final SeaTunnelDataType<V> valueType;
 
-    public MapType(DataType<K> keyType, DataType<V> valueType) {
+    public MapType(SeaTunnelDataType<K> keyType, SeaTunnelDataType<V> valueType) {
         if (keyType == null) {
             throw new IllegalArgumentException("keyType cannot be null");
         }
@@ -18,11 +18,11 @@ public class MapType<K, V> implements DataType<Map<K, V>> {
         this.valueType = valueType;
     }
 
-    public DataType<K> getKeyType() {
+    public SeaTunnelDataType<K> getKeyType() {
         return keyType;
     }
 
-    public DataType<V> getValueType() {
+    public SeaTunnelDataType<V> getValueType() {
         return valueType;
     }
 
