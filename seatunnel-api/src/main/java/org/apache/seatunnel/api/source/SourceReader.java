@@ -19,16 +19,34 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.state.CheckpointListener;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
-public interface SourceReader<T, SplitT extends SourceSplit> extends CheckpointListener {
+public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseable, CheckpointListener {
 
-    void start(Collector<T> output) throws Exception;
+    void open();
 
-    List<SplitT> snapshotState(long checkpointId);
+    /**
+     * Called to close the reader, in case it holds on to any resources, like threads or network
+     * connections.
+     */
+    @Override
+    void close() throws IOException;
+
+    void pollNext(Collector<T> output) throws Exception;
+
+    List<SplitT> snapshotState(long checkpointId) throws Exception;
 
     void addSplits(List<SplitT> splits);
+
+    /**
+     * This method is called when the reader is notified that it will not receive any further
+     * splits.
+     *
+     * <p>It is triggered when the enumerator calls {@link
+     * SourceSplitEnumerator.Context#signalNoMoreSplits(int)} with the reader's parallel subtask.
+     */
+    void handleNoMoreSplits();
 
     default void handleSourceEvent(SourceEvent sourceEvent) {
     }
@@ -36,18 +54,18 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends CheckpointL
     interface Context {
 
         /**
-         * Gets the configuration with which Flink was started.
-         */
-        Map<String, String> getConfiguration();
-
-        /**
          * @return The index of this subtask.
          */
         int getIndexOfSubtask();
 
         /**
+         * Indicator that the input has reached the end of data.
+         */
+        void signalNoMoreElement();
+
+        /**
          * Sends a split request to the source's {@link SourceSplitEnumerator}. This will result in a call to
-         * the {@link SourceSplitEnumerator#handleSplitRequest(int, String)} method, with this reader's
+         * the {@link SourceSplitEnumerator#handleSplitRequest(int)} method, with this reader's
          * parallel subtask id and the hostname where this reader runs.
          */
         void sendSplitRequest();

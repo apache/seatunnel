@@ -48,6 +48,7 @@ public final class FactoryUtil {
             String factoryIdentifier) {
 
         try {
+
             final TableSourceFactory factory = discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
             List<Source> sources = new ArrayList<>(multipleTables.size());
             if (factory instanceof SupportMultipleTable) {
