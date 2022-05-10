@@ -22,30 +22,36 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public interface SinkWriter<T, StateT> {
-    void write(T element) throws IOException, InterruptedException;
+public interface SinkWriter<T, CommitInfoT, StateT> {
+
+    void write(T element) throws IOException;
+
+    /**
+     * prepare the commit, will be called before {@link #snapshotState()}
+     *
+     * @return the commit info need to commit
+     */
+    CommitInfoT prepareCommit() throws IOException;
 
     /**
      * @return The writer's state.
      * @throws IOException if fail to snapshot writer's state.
-     * @deprecated implement {@link #snapshotState(long)}
      */
     default List<StateT> snapshotState() throws IOException {
         return Collections.emptyList();
     }
 
     /**
-     * @return The writer's state.
-     * @throws IOException if fail to snapshot writer's state.
+     * call it when SinkWriter close
+     *
+     * @throws IOException if close failed
      */
-    default List<StateT> snapshotState(long checkpointId) throws IOException {
-        return snapshotState();
-    }
+    void close() throws IOException;
 
     interface Context {
 
         /**
-         * Gets the configuration with which Flink was started.
+         * Gets the configuration with which Job was started.
          */
         Map<String, String> getConfiguration();
 

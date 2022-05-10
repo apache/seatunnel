@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.serialization;
 
 import java.io.IOException;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 
-public interface SinkCommitter<CommitInfoT> {
+public class DefaultSerializer implements Serializer<String> {
 
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
+    @Override
+    public byte[] serialize(String obj) throws IOException {
+        return obj.getBytes(StandardCharsets.UTF_8);
+    }
 
-    void abort() throws Exception;
+    @Override
+    public String deserialize(byte[] serialized) throws IOException {
+        return new String(serialized);
+    }
 }

@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.translation.sink;
 
-import java.io.IOException;
-import java.util.List;
+import org.apache.seatunnel.api.sink.Sink;
 
-public interface SinkCommitter<CommitInfoT> {
+import java.util.Map;
 
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
+public interface SinkConverter<T> {
 
-    void abort() throws Exception;
+    T convert(Sink<?, ?, ?, ?> sink, Map<String, String> configuration);
+
 }

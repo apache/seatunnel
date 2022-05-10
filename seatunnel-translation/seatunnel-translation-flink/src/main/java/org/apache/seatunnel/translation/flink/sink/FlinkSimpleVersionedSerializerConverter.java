@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.translation.flink.sink;
 
-import java.io.IOException;
-import java.util.List;
+import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.translation.flink.serialization.FlinkSimpleVersionedSerializer;
+import org.apache.seatunnel.translation.serialization.SerializerConverter;
 
-public interface SinkCommitter<CommitInfoT> {
+import org.apache.flink.core.io.SimpleVersionedSerializer;
 
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
+public class FlinkSimpleVersionedSerializerConverter<T> implements SerializerConverter<SimpleVersionedSerializer<T>> {
 
-    void abort() throws Exception;
+    @Override
+    public SimpleVersionedSerializer<T> convert(Serializer<?> serializer) {
+        return new FlinkSimpleVersionedSerializer(serializer);
+    }
 }
