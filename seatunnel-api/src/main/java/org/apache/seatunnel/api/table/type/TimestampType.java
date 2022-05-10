@@ -2,7 +2,7 @@ package org.apache.seatunnel.api.table.type;
 
 import java.sql.Timestamp;
 
-public class TimestampType implements DataType<Timestamp> {
+public class TimestampType implements SeaTunnelDataType<Timestamp> {
 
     private final int precision;
 
