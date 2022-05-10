@@ -195,7 +195,20 @@ JdbcSink {
     driver = com.mysql.jdbc.Driver
     url = "jdbc:mysql://localhost/test"
     username = root
-    query = "insert into test(name,age) values(?,?)"
+    query = "insert into test(name,age) values(#{name}, #{age})"
+    batch_size = 2
+}
+```
+
+benefit from param placeholder, `JdbcSink` supports upsert semantics through `insert into on duplicate ` or `replace into` grammer:
+
+```conf
+JdbcSink {
+    source_table_name = fake
+    driver = com.mysql.jdbc.Driver
+    url = "jdbc:mysql://localhost/test"
+    username = root
+    query = "insert into test(name,age) values(#{name}, #{age}) on duplicate key update name = #{name}, age = #{age}"
     batch_size = 2
 }
 ```
