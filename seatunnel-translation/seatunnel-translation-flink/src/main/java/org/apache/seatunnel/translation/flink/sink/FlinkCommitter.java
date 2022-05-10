@@ -15,14 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.translation.flink.sink;
+
+import org.apache.seatunnel.api.sink.SinkCommitter;
+
+import org.apache.flink.api.connector.sink.Committer;
 
 import java.io.IOException;
 import java.util.List;
 
-public interface SinkCommitter<CommitInfoT> {
+public class FlinkCommitter<CommT> implements Committer<CommT> {
 
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
+    private final SinkCommitter<CommT> sinkCommitter;
 
-    void abort() throws Exception;
+    FlinkCommitter(SinkCommitter<CommT> sinkCommitter) {
+        this.sinkCommitter = sinkCommitter;
+    }
+
+    @Override
+    public List<CommT> commit(List<CommT> committables) throws IOException {
+        return sinkCommitter.commit(committables);
+    }
+
+    @Override
+    public void close() throws Exception {
+    }
 }

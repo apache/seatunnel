@@ -17,12 +17,32 @@
 
 package org.apache.seatunnel.api.sink;
 
-import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 
-public interface SinkCommitter<CommitInfoT> {
+public class DefaultSinkWriterContext implements SinkWriter.Context {
 
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
+    private final Map<String, String> configuration;
+    private final int subtask;
+    private final int parallelism;
 
-    void abort() throws Exception;
+    public DefaultSinkWriterContext(Map<String, String> configuration, int subtask, int parallelism) {
+        this.configuration = configuration;
+        this.subtask = subtask;
+        this.parallelism = parallelism;
+    }
+
+    @Override
+    public Map<String, String> getConfiguration() {
+        return configuration;
+    }
+
+    @Override
+    public int getIndexOfSubtask() {
+        return subtask;
+    }
+
+    @Override
+    public int getNumberOfParallelSubtasks() {
+        return parallelism;
+    }
 }

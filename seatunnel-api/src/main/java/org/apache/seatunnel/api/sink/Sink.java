@@ -26,9 +26,10 @@ import java.util.Optional;
 
 public interface Sink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Serializable {
 
-    SinkWriter<IN, StateT> createWriter(SinkWriter.Context context) throws IOException;
+    SinkWriter<IN, CommitInfoT, StateT> createWriter(SinkWriter.Context context) throws IOException;
 
-    default SinkWriter<IN, StateT> restoreWriter(SinkWriter.Context context, List<StateT> states) throws IOException {
+    default SinkWriter<IN, CommitInfoT, StateT> restoreWriter(SinkWriter.Context context,
+                                                              List<StateT> states) throws IOException {
         return createWriter(context);
     }
 

@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.translation.flink.sink;
 
-import java.io.IOException;
-import java.util.List;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.translation.sink.SinkWriterConverter;
 
-public interface SinkCommitter<CommitInfoT> {
+public class FlinkSinkWriterConverter<InputT, CommT, WriterStateT> implements SinkWriterConverter<org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, WriterStateT>> {
 
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
-
-    void abort() throws Exception;
+    @Override
+    public org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, WriterStateT> convert(SinkWriter<?, ?, ?> sinkWriter) {
+        return new FlinkSinkWriter(sinkWriter);
+    }
 }
