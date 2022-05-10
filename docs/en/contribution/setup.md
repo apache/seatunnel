@@ -41,6 +41,11 @@ Now, you can open your JetBrains IntelliJ IDEA and explore the source code, but 
 you should also install JetBrains IntelliJ IDEA's [Scala plugin](https://plugins.jetbrains.com/plugin/1347-scala).
 See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
 
+### Install JetBrains IDEA Lombok Plugin
+
+Before running the following example, you should also install JetBrains IntelliJ IDEA's [Lombok plugin](https://plugins.jetbrains.com/plugin/6317-lombok).
+See [install plugins for IDEA](https://www.jetbrains.com/help/idea/managing-plugins.html#install-plugins) if you want to.
+
 ## Run Simple Example
 
 After all the above things are done, you just finish the environment setup and can run an example we provide to you out
