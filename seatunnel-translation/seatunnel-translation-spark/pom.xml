@@ -26,6 +26,8 @@
     <artifactId>seatunnel-translation-spark</artifactId>
 
     <properties>
+        <spark.version>2.4.0</spark.version>
+        <spark.scope>provided</spark.scope>
     </properties>
 
     <dependencies>
@@ -34,11 +36,27 @@
             <artifactId>seatunnel-translation-base</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- apache spark table -->
+
+        <!--spark-->
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-streaming_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>${spark.scope}</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>${spark.scope}</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-sql_${scala.binary.version}</artifactId>
-            <scope>provided</scope>
+            <version>${spark.version}</version>
+            <scope>${spark.scope}</scope>
         </dependency>
     </dependencies>
 </project>

@@ -18,17 +18,35 @@
 package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.state.CheckpointListener;
-import org.apache.seatunnel.common.constants.CollectionConstants;
 
+import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> extends CheckpointListener {
+public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> extends AutoCloseable, CheckpointListener {
 
-    void handleSplitRequest(int subtaskId, String requesterHostname);
+    void open();
+
+    void run();
+
+    /**
+     * Called to close the enumerator, in case it holds on to any resources, like threads or network
+     * connections.
+     */
+    @Override
+    void close() throws IOException;
+
+    /**
+     * Add a split back to the split enumerator. It will only happen when a {@link SourceReader}
+     * fails and there are splits assigned to it after the last successful checkpoint.
+     *
+     * @param splits    The split to add back to the enumerator for reassignment.
+     * @param subtaskId The id of the subtask to which the returned splits belong.
+     */
+    void addSplitsBack(List<SplitT> splits, int subtaskId);
+
+    void handleSplitRequest(int subtaskId);
 
     void registerReader(int subtaskId);
 
@@ -50,24 +68,20 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
 
         /**
          * Assign the splits.
-         *
-         * @param newSplitAssignments the new split assignments to add.
          */
-        void assignSplits(Map<Integer, List<SplitT>> newSplitAssignments);
+        void assignSplit(int subtaskId, List<SplitT> splits);
 
         /**
          * Assigns a single split.
          *
          * <p>When assigning multiple splits, it is more efficient to assign all of them in a single
-         * call to the {@link #assignSplits} method.
+         * call to the {@link #assignSplit} method.
          *
-         * @param split   The new split
-         * @param subtask The index of the operator's parallel subtask that shall receive the split.
+         * @param split     The new split
+         * @param subtaskId The index of the operator's parallel subtask that shall receive the split.
          */
-        default void assignSplit(SplitT split, int subtask) {
-            Map<Integer, List<SplitT>> splits = new HashMap<>(CollectionConstants.MAP_SIZE);
-            splits.put(subtask, Collections.singletonList(split));
-            assignSplits(splits);
+        default void assignSplit(int subtaskId, SplitT split) {
+            assignSplit(subtaskId, Collections.singletonList(split));
         }
 
         /**

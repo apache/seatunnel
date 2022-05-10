@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.source;
+package org.apache.seatunnel.translation.util;
 
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplit;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+public class ThreadPoolExecutorFactory {
+    private ThreadPoolExecutorFactory() {
+    }
 
-public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> {
-    protected volatile Map<Integer, SourceReader<T, SplitT>> readerMap = new ConcurrentHashMap<>();
-
+    public static ScheduledThreadPoolExecutor createScheduledThreadPoolExecutor(int corePoolSize, String name) {
+        AtomicInteger cnt = new AtomicInteger(0);
+        return new ScheduledThreadPoolExecutor(corePoolSize, runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName(name + "-" + cnt.incrementAndGet());
+            return thread;
+        });
+    }
 }

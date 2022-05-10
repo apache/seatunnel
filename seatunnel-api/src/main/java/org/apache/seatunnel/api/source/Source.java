@@ -39,9 +39,12 @@ public interface Source<T, SplitT extends SourceSplit, StateT> extends Serializa
 
     SourceReader<T, SplitT> createReader(SourceReader.Context readerContext) throws Exception;
 
+    Serializer<SplitT> getSplitSerializer();
+
     SourceSplitEnumerator<SplitT, StateT> createEnumerator(SourceSplitEnumerator.Context<SplitT> enumeratorContext) throws Exception;
 
     SourceSplitEnumerator<SplitT, StateT> restoreEnumerator(SourceSplitEnumerator.Context<SplitT> enumeratorContext, StateT checkpointState) throws Exception;
 
     Serializer<StateT> getEnumeratorStateSerializer();
+
 }
