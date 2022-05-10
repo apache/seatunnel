@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.translation.flink.sink;
 
-import java.io.IOException;
-import java.util.List;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.translation.sink.SinkAggregatedCommitterConverter;
 
-public interface SinkCommitter<CommitInfoT> {
+import org.apache.flink.api.connector.sink.GlobalCommitter;
 
-    List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
-
-    void abort() throws Exception;
+public class FlinkGlobalCommitterConverter<CommT, GlobalCommT> implements SinkAggregatedCommitterConverter<GlobalCommitter<CommT, GlobalCommT>> {
+    @Override
+    public GlobalCommitter<CommT, GlobalCommT> convert(SinkAggregatedCommitter<?, ?> sinkCommitter) {
+        return new FlinkGlobalCommitter(sinkCommitter);
+    }
 }

@@ -22,8 +22,9 @@ import java.util.List;
 
 public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> {
 
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo)
-            throws IOException, InterruptedException;
+    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException;
 
-    void abort() throws Exception;
+    void abort(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws Exception;
+
+    void close() throws IOException;
 }
