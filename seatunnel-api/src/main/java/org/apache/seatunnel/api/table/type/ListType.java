@@ -17,15 +17,15 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class ListType<T> implements DataType<T> {
+public class ListType<T> implements SeaTunnelDataType<T> {
 
-    private final DataType<T> elementType;
+    private final SeaTunnelDataType<T> elementType;
 
-    public ListType(DataType<T> elementType) {
+    public ListType(SeaTunnelDataType<T> elementType) {
         this.elementType = elementType;
     }
 
-    public DataType<T> getElementType() {
+    public SeaTunnelDataType<T> getElementType() {
         return elementType;
     }
 }

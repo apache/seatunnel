@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.translation.spark.types;
 
-/**
- * Logic data type of column in SeaTunnel.
- */
-public interface DataType<T> {
+import org.apache.seatunnel.api.table.type.PojoType;
 
+import org.apache.spark.sql.types.ObjectType;
 
+public class PojoTypeConverter<T1> implements SparkDataTypeConverter<PojoType<T1>, ObjectType> {
+    @Override
+    public ObjectType convert(PojoType<T1> seaTunnelDataType) {
+        return new ObjectType(seaTunnelDataType.getPojoClass());
+    }
 }
