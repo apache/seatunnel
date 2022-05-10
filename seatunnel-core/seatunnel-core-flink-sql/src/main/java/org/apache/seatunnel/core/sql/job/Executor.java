@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.sql.job;
 import org.apache.seatunnel.core.sql.splitter.SqlStatementSplitter;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -64,10 +65,10 @@ public class Executor {
 
         List<String> stmts = SqlStatementSplitter.normalizeStatements(workFlowContent);
         for (String stmt : stmts) {
-            Optional<String[]> optional = parseSetOperation(stmt);
+            Optional<Pair<String, String>> optional = parseSetOperation(stmt);
             if (optional.isPresent()) {
-                String[] setOptionStrs = optional.get();
-                callSetOperation(configuration, setOptionStrs[0], setOptionStrs[1]);
+                Pair<String, String> setOptionPair = optional.get();
+                callSetOperation(configuration, setOptionPair.getLeft(), setOptionPair.getRight());
                 continue;
             }
             Operation op = stEnv.getParser().parse(stmt).get(0);
@@ -81,7 +82,7 @@ public class Executor {
     }
 
     @VisibleForTesting
-    static Optional<String[]> parseSetOperation(String stmt) {
+    static Optional<Pair<String, String>> parseSetOperation(String stmt) {
         stmt = stmt.trim();
         Pattern pattern = Pattern.compile(FLINK_SQL_SET_MATCHING_REGEX, Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
         final Matcher matcher = pattern.matcher(stmt);
@@ -95,12 +96,12 @@ public class Executor {
         return Optional.empty();
     }
 
-    private static Optional<String[]> operandConverter(String[] operands){
+    private static Optional<Pair<String, String>> operandConverter(String[] operands){
         if (operands.length != FLINK_SQL_SET_OPERANDS) {
             return Optional.empty();
         }
 
-        return Optional.of(new String[]{operands[1].trim(), operands[2].trim()});
+        return Optional.of(Pair.of(operands[1].trim(), operands[2].trim()));
     }
 
     private static void callSetOperation(Configuration configuration, String key, String value) {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.sql.job;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -27,11 +28,10 @@ public class ExecutorTest {
     @Test
     public void testSetOperationParse() {
         String stmt = "SET parallelism.default = 1";
-        Optional<String[]> ops = Executor.parseSetOperation(stmt);
+        Optional<Pair<String, String>> ops = Executor.parseSetOperation(stmt);
         Assert.assertTrue(ops.isPresent());
-        Assert.assertEquals(2, ops.get().length);
-        Assert.assertEquals("parallelism.default", ops.get()[0]);
-        Assert.assertEquals("1", ops.get()[1]);
+        Assert.assertEquals("parallelism.default", ops.get().getLeft());
+        Assert.assertEquals("1", ops.get().getRight());
 
         stmt = "SET parallelism.default";
         ops = Executor.parseSetOperation(stmt);
