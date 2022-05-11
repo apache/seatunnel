@@ -28,13 +28,13 @@ import java.io.Serializable;
  * A base interface indicates belonging to SeaTunnel.
  * Plugin will be used as follows:
  * <pre>{@code
- *      Plugin<?> plugin = new PluginA<>();
- *      plugin.setConfig(Config);
- *      CheckResult checkResult = plugin.checkConfig();
- *      if (checkResult.getSuccess()) {
- *         plugin.prepare();
- *         // plugin execute code
- *         plugin.close();
+ *      try(Plugin<?> plugin = new PluginA<>()) {
+ *          plugin.setConfig(Config);
+ *          CheckResult checkResult = plugin.checkConfig();
+ *          if (checkResult.getSuccess()) {
+ *              plugin.prepare();
+ *              // plugin execute code
+ *          }
  *      }
  *
  * }</pre>

@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.api.table.connector;
 
-import org.apache.seatunnel.api.sink.Sink;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 
 public interface TableSink {
 
-    Sink<?, ?, ?, ?> createSink();
+    SeaTunnelSink<?, ?, ?, ?> createSink();
 }

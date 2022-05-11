@@ -17,14 +17,16 @@
 
 package org.apache.seatunnel.translation.sink;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+
 import java.util.Map;
 
 public interface SinkConverter<SeaTunnelSinkT, TargetSinkT> {
 
     /**
-     * Convert SeaTunnel {@link org.apache.seatunnel.api.sink.Sink} to target sink.
+     * Convert SeaTunnel {@link SeaTunnelSink} to target sink.
      *
-     * @param sink1         SeaTunnel {@link org.apache.seatunnel.api.sink.Sink}.
+     * @param sink1         SeaTunnel {@link SeaTunnelSink}.
      * @param configuration sink configuration.
      * @return target sink.
      */
