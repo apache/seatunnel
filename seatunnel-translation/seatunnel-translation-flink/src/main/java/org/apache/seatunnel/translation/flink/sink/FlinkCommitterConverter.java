@@ -22,11 +22,16 @@ import org.apache.seatunnel.translation.sink.SinkCommitterConverter;
 
 import org.apache.flink.api.connector.sink.Committer;
 
-public class FlinkCommitterConverter<CommT> implements SinkCommitterConverter<Committer<CommT>> {
+/**
+ * Convert {@link SinkCommitter} to Flink {@link Committer}.
+ *
+ * @param <CommT> committer info type.
+ */
+public class FlinkCommitterConverter<CommT>
+    implements SinkCommitterConverter<SinkCommitter<CommT>, Committer<CommT>> {
 
     @Override
-    public Committer<CommT> convert(SinkCommitter<?> sinkCommitter) {
-        return new FlinkCommitter(sinkCommitter);
+    public Committer<CommT> convert(SinkCommitter<CommT> sinkCommitter) {
+        return new FlinkCommitter<>(sinkCommitter);
     }
-
 }

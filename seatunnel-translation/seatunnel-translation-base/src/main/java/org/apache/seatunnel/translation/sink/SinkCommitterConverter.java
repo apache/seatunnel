@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.translation.sink;
 
-import org.apache.seatunnel.api.sink.SinkCommitter;
+public interface SinkCommitterConverter<SeaTunnelSinkCommitterT, TargetSinkCommitter2> {
 
-public interface SinkCommitterConverter<T> {
-
-    T convert(SinkCommitter<?> sinkCommitter);
+    /**
+     * Convert SeaTunnel {@link org.apache.seatunnel.api.sink.SinkCommitter} to target committer.
+     *
+     * @param sinkCommitter SeaTunnel sink committer.
+     * @return target committer.
+     */
+    TargetSinkCommitter2 convert(SeaTunnelSinkCommitterT sinkCommitter);
 }

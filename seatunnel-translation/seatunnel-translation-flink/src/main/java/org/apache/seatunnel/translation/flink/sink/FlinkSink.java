@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
@@ -24,7 +25,6 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
-import org.apache.flink.api.connector.sink.Sink.InitContext;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
@@ -45,10 +45,10 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     }
 
     @Override
-    public SinkWriter<InputT, CommT, WriterStateT> createWriter(InitContext context, List<WriterStateT> states) throws IOException {
+    public SinkWriter<InputT, CommT, WriterStateT> createWriter(org.apache.flink.api.connector.sink.Sink.InitContext context, List<WriterStateT> states) throws IOException {
         // TODO add subtask and parallelism.
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
-                new DefaultSinkWriterContext(configuration, 0, 0);
+            new DefaultSinkWriterContext(configuration, 0, 0);
 
         FlinkSinkWriterConverter<InputT, CommT, WriterStateT> converter = new FlinkSinkWriterConverter<>();
 
@@ -78,7 +78,9 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     @Override
     public Optional<SimpleVersionedSerializer<CommT>> getCommittableSerializer() {
         if (sink.getCommitInfoSerializer().isPresent()) {
-            return Optional.of(new FlinkSimpleVersionedSerializerConverter().convert(sink.getCommitInfoSerializer().get()));
+            final FlinkSimpleVersionedSerializerConverter<CommT> converter = new FlinkSimpleVersionedSerializerConverter<>();
+            final Serializer<CommT> commTSerializer = sink.getCommitInfoSerializer().get();
+            return Optional.of(converter.convert(commTSerializer));
         } else {
             return Optional.empty();
         }
@@ -87,7 +89,9 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     @Override
     public Optional<SimpleVersionedSerializer<GlobalCommT>> getGlobalCommittableSerializer() {
         if (sink.getAggregatedCommitInfoSerializer().isPresent()) {
-            return Optional.of(new FlinkSimpleVersionedSerializerConverter().convert(sink.getAggregatedCommitInfoSerializer().get()));
+            final Serializer<GlobalCommT> globalCommTSerializer = sink.getAggregatedCommitInfoSerializer().get();
+            final FlinkSimpleVersionedSerializerConverter<GlobalCommT> converter = new FlinkSimpleVersionedSerializerConverter<>();
+            return Optional.of(converter.convert(globalCommTSerializer));
         } else {
             return Optional.empty();
         }
@@ -96,7 +100,9 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     @Override
     public Optional<SimpleVersionedSerializer<WriterStateT>> getWriterStateSerializer() {
         if (sink.getWriterStateSerializer().isPresent()) {
-            return Optional.of(new FlinkSimpleVersionedSerializerConverter().convert(sink.getWriterStateSerializer().get()));
+            final Serializer<WriterStateT> writerStateTSerializer = sink.getWriterStateSerializer().get();
+            final FlinkSimpleVersionedSerializerConverter<WriterStateT> converter = new FlinkSimpleVersionedSerializerConverter<>();
+            return Optional.of(converter.convert(writerStateTSerializer));
         } else {
             return Optional.empty();
         }

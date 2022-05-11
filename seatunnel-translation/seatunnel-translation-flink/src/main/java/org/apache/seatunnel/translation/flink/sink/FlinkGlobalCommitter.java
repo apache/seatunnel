@@ -28,7 +28,7 @@ import java.util.List;
 
 public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter<CommT, GlobalCommT> {
 
-    private SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
+    private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
 
     FlinkGlobalCommitter(SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter) {
         this.aggregatedCommitter = aggregatedCommitter;
