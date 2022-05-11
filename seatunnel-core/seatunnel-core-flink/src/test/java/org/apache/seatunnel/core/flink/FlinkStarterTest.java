@@ -32,7 +32,6 @@ public class FlinkStarterTest {
         // since we cannot get the actual jar path, so we just check the command contains the command
         Assert.assertTrue(flinkExecuteCommand.contains("--config " + APP_CONF_PATH));
         Assert.assertTrue(flinkExecuteCommand.contains("-m yarn-cluster"));
-        Assert.assertTrue(flinkExecuteCommand.contains("-Dkey1=value1"));
         Assert.assertTrue(flinkExecuteCommand.contains("${FLINK_HOME}/bin/flink run"));
 
         String[] args1 = {"--config", APP_CONF_PATH, "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run-application"};
