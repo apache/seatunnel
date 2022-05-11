@@ -463,6 +463,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-flink-bundle_${scala.binary.version}</artifactId>
+                <version>${hudi.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
                 <version>${httpclient.version}</version>

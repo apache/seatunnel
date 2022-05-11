@@ -290,6 +290,7 @@ httpcore-4.4.4.jar
 httpcore-nio-4.4.4.jar
 httpmime-4.5.2.jar
 hudi-spark-bundle_2.11-0.10.0.jar
+hudi-flink-bundle_2.11-0.10.0.jar
 i18n-util-1.0.4.jar
 iceberg-api-0.13.1.jar
 iceberg-bundled-guava-0.13.1.jar
