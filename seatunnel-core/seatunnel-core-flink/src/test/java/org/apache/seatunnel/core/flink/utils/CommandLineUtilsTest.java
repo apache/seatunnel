@@ -54,13 +54,13 @@ public class CommandLineUtilsTest {
         String[] args = {"--detached", "-c", APP_CONF_PATH, "-t", "-i", "city=shenyang", "-i", "date=20200202",
             "-r", "run-application", "--unkown", "unkown-command"};
         FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
-        List<String> commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar", FlinkJobType.JAR);
+        List<String> commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar");
         Assert.assertEquals(commands,
             Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
                 "CLASS_NAME", "/path/to/jar", "--config", APP_CONF_PATH, "--check"));
 
         flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
-        commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar", FlinkJobType.JAR);
+        commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar");
         Assert.assertEquals(commands,
             Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
                 "CLASS_NAME", "/path/to/jar", "--config", APP_CONF_PATH, "--check"));
@@ -69,7 +69,7 @@ public class CommandLineUtilsTest {
             "-r", "run-application", "--unkown", "unkown-command"};
 
         List<String> command = CommandLineUtils.buildFlinkCommand(
-            CommandLineUtils.parseCommandArgs(args1, FlinkJobType.SQL), "CLASS_NAME", "/path/to/jar", FlinkJobType.JAR);
+            CommandLineUtils.parseCommandArgs(args1, FlinkJobType.SQL), "CLASS_NAME", "/path/to/jar");
         Assert.assertEquals(
             Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
                 "CLASS_NAME", "/path/to/jar", "--config", "app.conf", "--check"),
@@ -82,7 +82,7 @@ public class CommandLineUtilsTest {
         String[] args = {"--detached", "-c", SQL_CONF_PATH, "-t", "-i", "city=shenyang", "-i", "date=20200202",
             "-r", "run-application", "--unkown", "unkown-command"};
         FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
-        List<String> commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar", FlinkJobType.SQL);
+        List<String> commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar");
         Assert.assertEquals(commands,
             Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
                 "CLASS_NAME", "/path/to/jar", "--config", SQL_CONF_PATH, "--check"));
