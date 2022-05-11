@@ -51,6 +51,7 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Executor {
 
@@ -127,6 +128,14 @@ public class Executor {
         return statementSet;
     }
 
+    /*
+     * The loadConnector method is best-effort, and it will not throw exception if the connector is not found.
+     * If the table declared in 'create table' with connector 'xxx' and the table is not referenced in the job, namely,
+     * used in the 'insert into' statement, the connector 'xxx' will not be needed by Flink.
+     * So it might be ok fail to load it. If it's needed, we can see the error in Flink logs.
+     *
+     * Refer https://github.com/apache/incubator-seatunnel/pull/1850
+     */
     private static void loadConnector(String connectorType, Configuration configuration) {
         Iterator<Factory> factories = ServiceLoader.load(Factory.class, CLASSLOADER).iterator();
         while (factories.hasNext()) {
@@ -148,13 +157,19 @@ public class Executor {
             return;
         }
 
-        Optional<File> connectorFile = Arrays.stream(connectorDir.listFiles())
+        List<File> connectorFiles = Arrays.stream(connectorDir.listFiles())
             .filter(file -> file.getName().startsWith(CONNECTOR_JAR_PREFIX + connectorType))
-            .findFirst();
+            .collect(Collectors.toList());
 
-        if (connectorFile.isPresent()) {
+        if (connectorFiles.size() > 1) {
+            LOGGER.warn("Found more than one connector jars for {}. Only the first one will be loaded.", connectorType);
+        }
+
+        File connectorFile = connectorFiles.size() >= 1 ? connectorFiles.get(0) : null;
+
+        if (connectorFile != null) {
             // handleStatements need this.
-            CLASSLOADER.addJar(connectorFile.get().toPath());
+            CLASSLOADER.addJar(connectorFile.toPath());
 
             List<String> jars = configuration.get(PipelineOptions.JARS);
             jars = jars == null ? new ArrayList<>() : jars;
@@ -163,14 +178,14 @@ public class Executor {
             classpath = classpath == null ? new ArrayList<>() : classpath;
 
             try {
-                String connectorURL = connectorFile.get().toPath().toUri().toURL().toString();
+                String connectorURL = connectorFile.toPath().toUri().toURL().toString();
                 jars.add(connectorURL);
                 classpath.add(connectorURL);
 
                 configuration.set(PipelineOptions.JARS, jars);
                 configuration.set(PipelineOptions.CLASSPATHS, classpath);
             } catch (MalformedURLException ignored) {
-                LOGGER.error("Failed to load connector {}. Connector file: {}", connectorType, connectorFile.get().getAbsolutePath());
+                LOGGER.error("Failed to load connector {}. Connector file: {}", connectorType, connectorFile.getAbsolutePath());
             }
         }
     }

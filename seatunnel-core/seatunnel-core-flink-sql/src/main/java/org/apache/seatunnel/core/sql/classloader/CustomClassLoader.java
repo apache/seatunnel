@@ -25,6 +25,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 
+// TODO: maybe a unified plugin-style discovery mechanism is better.
 public class CustomClassLoader extends URLClassLoader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CustomClassLoader.class);
