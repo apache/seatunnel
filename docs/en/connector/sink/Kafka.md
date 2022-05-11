@@ -97,3 +97,14 @@ kafka {
     producer.bootstrap.servers = "localhost:9092"
 }
 ```
+
+```bash
+# kafka batch sink example
+# the data sink to kafka will been formatted as csv, and field delimiter is ';'
+  Kafka {
+    topics = "test_1"
+    producer.bootstrap.servers = "kafka:9092"
+    format.type = "csv"
+    format.csv.field_delimiter = ";"
+  }
+```
