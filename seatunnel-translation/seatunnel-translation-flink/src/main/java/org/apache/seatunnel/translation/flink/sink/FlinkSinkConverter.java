@@ -17,21 +17,23 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
-import org.apache.seatunnel.api.sink.Sink;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.translation.sink.SinkConverter;
+
+import org.apache.flink.api.connector.sink.Sink;
 
 import java.util.Map;
 
 public class FlinkSinkConverter<SeaTunnelRowT, FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>
     implements SinkConverter<
-    Sink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT>,
-    org.apache.flink.api.connector.sink.Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>> {
+    SeaTunnelSink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT>,
+    Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public org.apache.flink.api.connector.sink.Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT> convert(
-        Sink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT> sink, Map<String, String> configuration) {
-        return (org.apache.flink.api.connector.sink.Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>) new FlinkSink<>(sink, configuration);
+    public Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT> convert(
+        SeaTunnelSink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT> sink, Map<String, String> configuration) {
+        return (Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>) new FlinkSink<>(sink, configuration);
 
     }
 }

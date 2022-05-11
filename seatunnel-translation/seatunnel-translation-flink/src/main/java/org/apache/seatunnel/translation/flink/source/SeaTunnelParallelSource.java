@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.source;
 
-import org.apache.seatunnel.api.source.Source;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.KryoTypeInfo;
 import org.apache.seatunnel.translation.flink.serialization.WrappedRow;
@@ -48,7 +48,7 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<WrappedR
     private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelParallelSource.class);
     protected static final String PARALLEL_SOURCE_STATE_NAME = "parallel-source-states";
 
-    protected final Source<SeaTunnelRow, ?, ?> source;
+    protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected volatile ParallelSource<SeaTunnelRow, ?, ?> parallelSource;
 
     protected transient ListState<byte[]> sourceState;
@@ -59,7 +59,7 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<WrappedR
      */
     private volatile boolean running = true;
 
-    public SeaTunnelParallelSource(Source<SeaTunnelRow, ?, ?> source) {
+    public SeaTunnelParallelSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
         // TODO: Make sure the source is uncoordinated.
         this.source = source;
     }
@@ -101,6 +101,7 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<WrappedR
 
     @Override
     public TypeInformation<WrappedRow> getProducedType() {
+        // todo: add type transformation
         return new KryoTypeInfo<>(WrappedRow.class);
     }
 
