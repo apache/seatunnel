@@ -58,7 +58,7 @@ public class FlinkStarter implements Starter {
 
     @Override
     public List<String> buildCommands() throws Exception {
-        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, APP_NAME, appJar);
+        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, APP_NAME, appJar, FlinkJobType.JAR);
     }
 
 }

@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.fake;
+package org.apache.seatunnel.e2e.flink.sql.fake;
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.apache.seatunnel.e2e.flink.sql.FlinkContainer;
 
 import org.junit.Assert;
+import org.junit.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 
-/**
- * This test case is used to verify that the http source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
- */
-public class HttpSourceToConsoleIT extends SparkContainer {
+public class DatagenToConsoleIT extends FlinkContainer {
 
-    public void testHttpSourceToConsoleSine() throws IOException, InterruptedException {
-        // skip this test case, since there exist some problem to run streaming in e2e
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/http/httpsource_to_console.conf");
+    @Test
+    public void testDatagenToConsole() throws IOException, URISyntaxException, InterruptedException {
+        final String configFile = "/fake/flink.sql.conf";
+        Container.ExecResult execResult = executeSeaTunnelFlinkSqlJob(configFile);
         Assert.assertEquals(0, execResult.getExitCode());
     }
-
 }

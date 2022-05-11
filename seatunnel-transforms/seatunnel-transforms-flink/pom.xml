@@ -35,6 +35,7 @@
         <module>seatunnel-transform-flink-datastream2table</module>
         <module>seatunnel-transform-flink-sql</module>
         <module>seatunnel-transform-flink-split</module>
+        <module>seatunnel-transform-flink-udf</module>
     </modules>
 
 </project>
