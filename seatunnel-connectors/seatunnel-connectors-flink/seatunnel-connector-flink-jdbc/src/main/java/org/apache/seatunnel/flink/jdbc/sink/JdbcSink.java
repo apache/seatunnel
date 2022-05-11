@@ -145,10 +145,12 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
         executePreSql();
         Table table = env.getStreamTableEnvironment().fromDataStream(dataStream);
 
-        Map<String, TypeInformation> fieldTypeInformationMap = new HashMap<>();
-        Map<String, Integer> fieldSqlTypeMap = new HashMap<>();
-        Map<String, Integer> fieldPositionMap = new HashMap<>();
-        buildFieldNameMapping(table.getSchema(), fieldTypeInformationMap, fieldSqlTypeMap, fieldPositionMap);
+        TableSchema schema = table.getSchema();
+        int size = schema.getFieldNames().length;
+        Map<String, TypeInformation> fieldTypeInformationMap = new HashMap<>(size);
+        Map<String, Integer> fieldSqlTypeMap = new HashMap<>(size);
+        Map<String, Integer> fieldPositionMap = new HashMap<>(size);
+        buildFieldNameMapping(schema, fieldTypeInformationMap, fieldSqlTypeMap, fieldPositionMap);
 
         TypeInformation[] typeInformations = getTypeInfomationsArray(fieldTypeInformationMap);
         RowTypeInfo rowTypeInfo = new RowTypeInfo(typeInformations);
@@ -182,10 +184,12 @@ public class JdbcSink implements FlinkStreamSink, FlinkBatchSink {
         executePreSql();
         Table table = env.getBatchTableEnvironment().fromDataSet(dataSet);
 
-        Map<String, TypeInformation> fieldTypeInformationMap = new HashMap<>();
-        Map<String, Integer> fieldSqlTypeMap = new HashMap<>();
-        Map<String, Integer> fieldPositionMap = new HashMap<>();
-        buildFieldNameMapping(table.getSchema(), fieldTypeInformationMap, fieldSqlTypeMap, fieldPositionMap);
+        TableSchema schema = table.getSchema();
+        int size = schema.getFieldNames().length;
+        Map<String, TypeInformation> fieldTypeInformationMap = new HashMap<>(size);
+        Map<String, Integer> fieldSqlTypeMap = new HashMap<>(size);
+        Map<String, Integer> fieldPositionMap = new HashMap<>(size);
+        buildFieldNameMapping(schema, fieldTypeInformationMap, fieldSqlTypeMap, fieldPositionMap);
 
         TypeInformation[] typeInformations = getTypeInfomationsArray(fieldTypeInformationMap);
         RowTypeInfo rowTypeInfo = new RowTypeInfo(typeInformations);
