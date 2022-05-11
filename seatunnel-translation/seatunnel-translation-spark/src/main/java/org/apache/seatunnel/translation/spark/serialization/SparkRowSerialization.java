@@ -43,8 +43,7 @@ public class SparkRowSerialization implements RowSerialization<Row> {
     }
 
     public SeaTunnelRow deserialize(InternalRow engineRow) throws IOException {
-
-
+        // TODO get data type of row
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
             fields[i] = engineRow.get();

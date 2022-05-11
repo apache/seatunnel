@@ -42,7 +42,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Override
     public WriterCommitMessage commit() throws IOException {
-        return null;
+        sinkWriter.prepareCommit();
     }
 
     @Override
