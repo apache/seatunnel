@@ -22,12 +22,16 @@ import org.apache.seatunnel.translation.sink.SinkConverter;
 
 import java.util.Map;
 
-public class FlinkSinkConverter implements SinkConverter<org.apache.flink.api.connector.sink.Sink> {
+public class FlinkSinkConverter<SeaTunnelRowT, FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>
+    implements SinkConverter<
+    Sink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT>,
+    org.apache.flink.api.connector.sink.Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>> {
 
     @Override
-    public org.apache.flink.api.connector.sink.Sink convert(Sink<?, ?, ?, ?> sink, Map<String, String> configuration) {
-
-        return new FlinkSink(sink, configuration);
+    @SuppressWarnings("unchecked")
+    public org.apache.flink.api.connector.sink.Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT> convert(
+        Sink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT> sink, Map<String, String> configuration) {
+        return (org.apache.flink.api.connector.sink.Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>) new FlinkSink<>(sink, configuration);
 
     }
 }
