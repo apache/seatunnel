@@ -132,7 +132,11 @@ public class KafkaOutputFormat extends RichOutputFormat<Row> {
         LOG.warn("kafka output close.");
         // Set timeout to prevent blocking from close()
         if (Objects.nonNull(producer)) {
-            producer.close(KAFKA_PRODUCER_CLOSE_TIMEOUT, TimeUnit.SECONDS);
+            try {
+                producer.close(KAFKA_PRODUCER_CLOSE_TIMEOUT, TimeUnit.SECONDS);
+            } catch (Exception e){
+                LOG.warn("close kafka produce error, ", e);
+            }
         }
     }
 }

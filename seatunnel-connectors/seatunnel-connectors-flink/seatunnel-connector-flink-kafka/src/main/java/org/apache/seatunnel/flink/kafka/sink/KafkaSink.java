@@ -19,15 +19,16 @@ package org.apache.seatunnel.flink.kafka.sink;
 
 import static org.apache.seatunnel.flink.kafka.sink.KafkaSinkConstants.KAFKA_SINK_FORMAT_PREFIX;
 
-import org.apache.seatunnel.common.MapUtil;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.java.DataSet;
@@ -36,8 +37,10 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.types.Row;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 public class KafkaSink implements FlinkStreamSink, FlinkBatchSink {
     private static final long serialVersionUID = 3980751499724935230L;
@@ -92,7 +95,11 @@ public class KafkaSink implements FlinkStreamSink, FlinkBatchSink {
         kafkaParams.put("key.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         kafkaParams.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
-        this.formatProperties = MapUtil.setMap(config, KAFKA_SINK_FORMAT_PREFIX, true);
+        final Config subConfig = TypesafeConfigUtils.extractSubConfig(config, KAFKA_SINK_FORMAT_PREFIX, true);
+        final Set<Map.Entry<String, ConfigValue>> entries = subConfig.entrySet();
+        final Map<String, String> map = new HashMap<>(entries.size());
+        entries.forEach(entry -> map.put(entry.getKey(), String.valueOf(entry.getValue().unwrapped())));
+        this.formatProperties = map;
     }
 
     @Override

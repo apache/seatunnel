@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink.kafka;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.flink.FlinkKafkaContainer;
 
-import com.google.common.collect.Lists;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
@@ -31,62 +30,21 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.lifecycle.Startables;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.stream.Stream;
 
-public class FakeSourceToKafkaIT extends FlinkContainer {
-    private static final String KAFKA_DOCKER_IMAGE = "bitnami/kafka:latest";
-    private static final String ZOOKEEPER_DOCKER_IMAGE = "bitnami/zookeeper:latest";
+public class FakeSourceToKafkaIT extends FlinkKafkaContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToKafkaIT.class);
-    private GenericContainer<?> kafkaServer;
-    private GenericContainer<?> zookeeperServer;
     private Consumer<byte[], byte[]> consumer;
 
     @Before
     @SuppressWarnings("magicnumber")
-    public void startKafkaContainer() throws InterruptedException {
-        zookeeperServer = new GenericContainer<>(ZOOKEEPER_DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases("zookeeper")
-                .withLogConsumer(new Slf4jLogConsumer(LOGGER))
-                .withEnv("ALLOW_ANONYMOUS_LOGIN", "yes");
-        zookeeperServer.setPortBindings(Lists.newArrayList("2181:2181"));
-        zookeeperServer.setHostAccessible(true);
-
-        Startables.deepStart(Stream.of(zookeeperServer)).join();
-
-        LOGGER.info("Zookeeper container started");
-        // wait for zookeeper fully start
-        Thread.sleep(5000L);
-
-        kafkaServer = new GenericContainer<>(KAFKA_DOCKER_IMAGE)
-                .withNetwork(NETWORK)
-                .withNetworkAliases("kafka")
-                .withLogConsumer(new Slf4jLogConsumer(LOGGER))
-                .withEnv("KAFKA_CFG_ZOOKEEPER_CONNECT", "zookeeper:2181")
-                .withEnv("ALLOW_PLAINTEXT_LISTENER", "yes")
-                .withEnv("KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP", "CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT")
-                .withEnv("KAFKA_CFG_LISTENERS", "CLIENT://:9092,EXTERNAL://:9093")
-                .withEnv("KAFKA_CFG_ADVERTISED_LISTENERS", "CLIENT://kafka:9092,EXTERNAL://localhost:9093")
-                .withEnv("KAFKA_CFG_INTER_BROKER_LISTENER_NAME", "CLIENT")
-                ;
-
-        kafkaServer.setPortBindings(Lists.newArrayList("9092:9092", "9093:9093"));
-        kafkaServer.setHostAccessible(true);
-
-        Startables.deepStart(Stream.of(kafkaServer)).join();
-        LOGGER.info("Kafka container started");
-        // wait for Kafka fully start
-        Thread.sleep(5000L);
-
+    public void startKafkaContainer() {
+        LOGGER.info("init kafka consumer");
         createKafkaConsumer();
     }
 
@@ -137,12 +95,6 @@ public class FakeSourceToKafkaIT extends FlinkContainer {
 
     @After
     public void closeClickhouseContainer() {
-        if (kafkaServer != null) {
-            kafkaServer.stop();
-        }
-        if (zookeeperServer != null) {
-            zookeeperServer.stop();
-        }
         if (consumer != null) {
             consumer.close();
         }
