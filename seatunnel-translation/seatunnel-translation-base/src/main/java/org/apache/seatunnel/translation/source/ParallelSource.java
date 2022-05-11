@@ -19,7 +19,7 @@ package org.apache.seatunnel.translation.source;
 
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.Source;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -34,7 +34,7 @@ import java.util.concurrent.ExecutorService;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements AutoCloseable, CheckpointListener {
 
-    protected final Source<T, SplitT, StateT> source;
+    protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;
     protected final ParallelReaderContext readerContext;
     protected final Integer subtaskId;
@@ -54,7 +54,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
      */
     private volatile boolean running = true;
 
-    public ParallelSource(Source<T, SplitT, StateT> source,
+    public ParallelSource(SeaTunnelSource<T, SplitT, StateT> source,
                           List<byte[]> restoredState,
                           int parallelism,
                           int subtaskId) {
@@ -110,8 +110,10 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
         // set ourselves as not running;
         // this would let the main discovery loop escape as soon as possible
         running = false;
-        splitEnumerator.close();
-        reader.close();
+        try (SourceSplitEnumerator<SplitT, StateT> closed = splitEnumerator;
+             SourceReader<T, SplitT> closedReader = reader) {
+            // just close the resources
+        }
     }
 
     // --------------------------------------------------------------------------------------------

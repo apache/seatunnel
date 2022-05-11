@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.api.table.connector;
 
-import org.apache.seatunnel.api.source.Source;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 
 public interface TableSource {
 
-    Source<?, ?, ?> createSource();
+    SeaTunnelSource<?, ?, ?> createSource();
 }

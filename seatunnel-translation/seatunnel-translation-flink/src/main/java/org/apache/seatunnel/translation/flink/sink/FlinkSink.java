@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 
@@ -35,10 +36,10 @@ import java.util.Optional;
 
 public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink<InputT, CommT, WriterStateT, GlobalCommT> {
 
-    private final org.apache.seatunnel.api.sink.Sink<InputT, WriterStateT, CommT, GlobalCommT> sink;
+    private final SeaTunnelSink<InputT, WriterStateT, CommT, GlobalCommT> sink;
     private final Map<String, String> configuration;
 
-    FlinkSink(org.apache.seatunnel.api.sink.Sink<InputT, WriterStateT, CommT, GlobalCommT> sink,
+    FlinkSink(SeaTunnelSink<InputT, WriterStateT, CommT, GlobalCommT> sink,
               Map<String, String> configuration) {
         this.sink = sink;
         this.configuration = configuration;
