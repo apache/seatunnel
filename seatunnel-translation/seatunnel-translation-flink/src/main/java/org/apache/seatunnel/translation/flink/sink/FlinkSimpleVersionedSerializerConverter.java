@@ -23,10 +23,11 @@ import org.apache.seatunnel.translation.serialization.SerializerConverter;
 
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
-public class FlinkSimpleVersionedSerializerConverter<T> implements SerializerConverter<SimpleVersionedSerializer<T>> {
+public class FlinkSimpleVersionedSerializerConverter<T>
+    implements SerializerConverter<Serializer<T>, SimpleVersionedSerializer<T>> {
 
     @Override
-    public SimpleVersionedSerializer<T> convert(Serializer<?> serializer) {
-        return new FlinkSimpleVersionedSerializer(serializer);
+    public SimpleVersionedSerializer<T> convert(Serializer<T> serializer) {
+        return new FlinkSimpleVersionedSerializer<>(serializer);
     }
 }
