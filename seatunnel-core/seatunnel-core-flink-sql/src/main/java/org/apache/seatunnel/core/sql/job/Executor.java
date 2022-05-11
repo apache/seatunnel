@@ -17,29 +17,53 @@
 
 package org.apache.seatunnel.core.sql.job;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.core.sql.classloader.CustomClassLoader;
 import org.apache.seatunnel.core.sql.splitter.SqlStatementSplitter;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.StatementSet;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.api.internal.TableEnvironmentImpl;
+import org.apache.flink.table.factories.Factory;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.ddl.CreateTableOperation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Executor {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(Executor.class);
+
     private static final String FLINK_SQL_SET_MATCHING_REGEX = "SET(\\s+(\\S+)\\s*=(.*))?";
     private static final int FLINK_SQL_SET_OPERANDS = 3;
+
+    private static CustomClassLoader CLASSLOADER = new CustomClassLoader();
+
+    private static final String CONNECTOR_IDENTIFIER = "connector";
+    private static final String SQL_CONNECTOR_PREFIX = "flink-sql";
+    private static final String CONNECTOR_JAR_PREFIX = "flink-sql-connector-";
 
     private Executor() {
         throw new IllegalStateException("Utility class");
@@ -50,14 +74,31 @@ public class Executor {
         EnvironmentSettings fsSettings = EnvironmentSettings.newInstance().inStreamingMode().build();
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, fsSettings);
 
-        StatementSet statementSet = handleStatements(jobInfo.getJobContent(), tEnv);
-        statementSet.execute();
+        final Configuration executionEnvConfiguration;
+        try {
+            executionEnvConfiguration =
+                  (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
+                    "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
+                    "method: getConfiguration")).invoke(env);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(CLASSLOADER);
+
+            StatementSet statementSet = handleStatements(jobInfo.getJobContent(), tEnv, executionEnvConfiguration);
+            statementSet.execute();
+        } finally {
+            Thread.currentThread().setContextClassLoader(originalClassLoader);
+        }
     }
 
     /**
      * Handle each statement.
      */
-    private static StatementSet handleStatements(String workFlowContent, StreamTableEnvironment tEnv) {
+    private static StatementSet handleStatements(String workFlowContent, StreamTableEnvironment tEnv, Configuration executionEnvConfiguration) {
 
         StatementSet statementSet = tEnv.createStatementSet();
         TableEnvironmentImpl stEnv = (TableEnvironmentImpl) tEnv;
@@ -75,10 +116,63 @@ public class Executor {
             if (op instanceof CatalogSinkModifyOperation) {
                 statementSet.addInsertSql(stmt);
             } else {
+                if (op instanceof CreateTableOperation) {
+                    String connectorType = ((CreateTableOperation) op).getCatalogTable().getOptions().get(CONNECTOR_IDENTIFIER);
+                    loadConnector(connectorType, executionEnvConfiguration);
+                }
+
                 tEnv.executeSql(stmt);
             }
         }
         return statementSet;
+    }
+
+    private static void loadConnector(String connectorType, Configuration configuration) {
+        Iterator<Factory> factories = ServiceLoader.load(Factory.class, CLASSLOADER).iterator();
+        while (factories.hasNext()) {
+            Factory factory = factories.next();
+
+            /**
+             * Handle for two cases:
+             * 1. Flink built-in connectors.
+             * 2. Connectors have been placed in classpath.
+             */
+            if (factory.factoryIdentifier().equals(connectorType)) {
+                return;
+            }
+        }
+
+        Common.setDeployMode(DeployMode.CLIENT.getName());
+        File connectorDir = Common.connectorJarDir(SQL_CONNECTOR_PREFIX).toFile();
+        if (!connectorDir.exists() || connectorDir.listFiles() == null) {
+            return;
+        }
+
+        Optional<File> connectorFile = Arrays.stream(connectorDir.listFiles())
+            .filter(file -> file.getName().startsWith(CONNECTOR_JAR_PREFIX + connectorType))
+            .findFirst();
+
+        if (connectorFile.isPresent()) {
+            // handleStatements need this.
+            CLASSLOADER.addJar(connectorFile.get().toPath());
+
+            List<String> jars = configuration.get(PipelineOptions.JARS);
+            jars = jars == null ? new ArrayList<>() : jars;
+
+            List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
+            classpath = classpath == null ? new ArrayList<>() : classpath;
+
+            try {
+                String connectorURL = connectorFile.get().toPath().toUri().toURL().toString();
+                jars.add(connectorURL);
+                classpath.add(connectorURL);
+
+                configuration.set(PipelineOptions.JARS, jars);
+                configuration.set(PipelineOptions.CLASSPATHS, classpath);
+            } catch (MalformedURLException ignored) {
+                LOGGER.error("Failed to load connector {}. Connector file: {}", connectorType, connectorFile.get().getAbsolutePath());
+            }
+        }
     }
 
     @VisibleForTesting
