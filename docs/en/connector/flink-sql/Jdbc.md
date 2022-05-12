@@ -22,7 +22,7 @@ After downloading the driver jars, you need to place the jars into $FLINK_HOME/l
 Start mysql server locally, and create a database named "test" and a table named "test_table" in the database.
 
 The table "test_table" could be created by the following SQL:
-```bash
+```sql
 CREATE TABLE IF NOT EXISTS `test_table`(
    `id` INT UNSIGNED AUTO_INCREMENT,
    `name` VARCHAR(100) NOT NULL,
