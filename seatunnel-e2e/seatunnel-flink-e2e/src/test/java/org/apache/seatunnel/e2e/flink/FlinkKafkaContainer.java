@@ -47,7 +47,7 @@ public abstract class FlinkKafkaContainer extends FlinkContainer{
     }
 
     @After
-    public void close() {
+    public void closeKafka() {
         if (kafka != null) {
             kafka.stop();
         }
