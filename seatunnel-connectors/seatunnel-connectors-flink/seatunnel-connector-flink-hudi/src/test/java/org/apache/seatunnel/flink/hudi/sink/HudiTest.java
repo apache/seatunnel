@@ -44,7 +44,14 @@ public class HudiTest {
 
     @Test
     @SuppressWarnings("magicnumber")
-    public void test() throws Exception {
+    public void testWriteToHudi() throws Exception {
+        String os = System.getProperty("os.name");
+        //is windows
+        if (os != null && os.toLowerCase().startsWith("windows")) {
+            // Due to this is ut will thrown exception 'null\bin\winutils.exe in the Hadoop binaries' on windows
+            // So just skip it for windows os.
+            return;
+        }
         String configFile = getTestConfigFile("/fake_to_hudi.conf");
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
