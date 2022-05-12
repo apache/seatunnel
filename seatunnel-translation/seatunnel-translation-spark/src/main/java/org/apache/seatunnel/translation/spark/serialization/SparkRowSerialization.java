@@ -23,6 +23,7 @@ import org.apache.seatunnel.translation.serialization.RowSerialization;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.types.DataTypes;
 
 import java.io.IOException;
 
@@ -46,7 +47,7 @@ public class SparkRowSerialization implements RowSerialization<Row> {
         // TODO get data type of row
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
-            fields[i] = engineRow.get();
+            fields[i] = engineRow.get(i, DataTypes.StringType);
         }
         return new SeaTunnelRow(fields);
     }

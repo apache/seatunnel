@@ -17,14 +17,25 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.sink.SinkWriterConverter;
 
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter;
 
-public class SparkStreamWriterConverter implements SinkWriterConverter<StreamWriter> {
+import javax.annotation.Nullable;
+
+public class SparkStreamWriterConverter extends AbstractSparkWriterConverter
+        implements SinkWriterConverter<StreamWriter> {
+
+    SparkStreamWriterConverter(@Nullable SinkCommitter<?> sinkCommitter,
+                               @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter) {
+        super(sinkCommitter, sinkAggregatedCommitter);
+    }
+
     @Override
     public StreamWriter convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new SparkStreamWriter(sinkWriter);
+        return new SparkStreamWriter(sinkWriter, sinkCommitter, sinkAggregatedCommitter);
     }
 }

@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.Sink;
+
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.sources.v2.DataSourceOptions;
 import org.apache.spark.sql.sources.v2.StreamWriteSupport;
@@ -50,7 +51,8 @@ public class SparkSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> imple
                 new DefaultSinkWriterContext(configuration, 0, 0);
 
         try {
-            return new SparkStreamWriterConverter().convert(sink.createWriter(stContext));
+            return new SparkStreamWriterConverter(sink.createCommitter().orElse(null),
+                    sink.createAggregatedCommitter().orElse(null)).convert(sink.createWriter(stContext));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -63,7 +65,8 @@ public class SparkSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> imple
                 new DefaultSinkWriterContext(configuration, 0, 0);
 
         try {
-            return Optional.of(new SparkDataSourceWriterConverter().convert(sink.createWriter(stContext)));
+            return Optional.of(new SparkDataSourceWriterConverter(sink.createCommitter().orElse(null),
+                    sink.createAggregatedCommitter().orElse(null)).convert(sink.createWriter(stContext)));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }

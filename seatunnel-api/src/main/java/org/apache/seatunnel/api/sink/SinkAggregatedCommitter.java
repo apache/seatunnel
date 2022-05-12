@@ -24,6 +24,8 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> {
 
     List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException;
 
+    AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
+
     void abort(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws Exception;
 
     void close() throws IOException;

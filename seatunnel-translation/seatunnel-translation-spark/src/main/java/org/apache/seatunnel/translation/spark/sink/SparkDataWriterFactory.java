@@ -17,13 +17,29 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 
-public class SparkDataWriterFactory implements DataWriterFactory<InternalRow> {
+import javax.annotation.Nullable;
+
+public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory<InternalRow> {
+
+    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+    @Nullable
+    private final SinkCommitter<CommitInfoT> sinkCommitter;
+
+    SparkDataWriterFactory(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter, SinkCommitter<CommitInfoT> sinkCommitter) {
+        this.sinkWriter = sinkWriter;
+        this.sinkCommitter = sinkCommitter;
+    }
+
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
-        return new SparkDataWriter();
+        return new SparkDataWriter<>(sinkWriter, sinkCommitter);
     }
 }

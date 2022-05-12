@@ -24,5 +24,5 @@ public interface SinkCommitter<CommitInfoT> {
 
     List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
 
-    void abort() throws Exception;
+    void abort() throws IOException;
 }

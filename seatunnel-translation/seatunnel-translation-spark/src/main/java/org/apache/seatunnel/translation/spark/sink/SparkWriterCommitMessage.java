@@ -23,6 +23,10 @@ public class SparkWriterCommitMessage<T> implements WriterCommitMessage {
 
     private T message;
 
+    SparkWriterCommitMessage(T message) {
+        this.message = message;
+    }
+
     public T getMessage() {
         return message;
     }

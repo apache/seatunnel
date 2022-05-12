@@ -17,22 +17,31 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.serialization.SparkRowSerialization;
+
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
+import java.util.Collections;
 
 public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<InternalRow> {
 
     private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+
+    @Nullable
+    private final SinkCommitter<CommitInfoT> sinkCommitter;
     private final SparkRowSerialization rowSerialization = new SparkRowSerialization();
 
-    SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter) {
+    SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter, SinkCommitter<CommitInfoT> sinkCommitter) {
         this.sinkWriter = sinkWriter;
+        this.sinkCommitter = sinkCommitter;
     }
 
     @Override
@@ -42,11 +51,17 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Override
     public WriterCommitMessage commit() throws IOException {
-        sinkWriter.prepareCommit();
+        CommitInfoT commitInfo = sinkWriter.prepareCommit();
+        if (sinkCommitter != null) {
+            sinkCommitter.commit(Collections.singletonList(commitInfo));
+        }
+        return new SparkWriterCommitMessage<>(commitInfo);
     }
 
     @Override
     public void abort() throws IOException {
-
+        if (sinkCommitter != null) {
+            sinkCommitter.abort();
+        }
     }
 }

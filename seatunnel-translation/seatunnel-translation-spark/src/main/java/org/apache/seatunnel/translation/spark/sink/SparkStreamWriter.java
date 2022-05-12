@@ -17,29 +17,35 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter;
 
-public class SparkStreamWriter<T, CommitInfoT, StateT> implements StreamWriter {
+import javax.annotation.Nullable;
 
-    private SinkWriter<T, CommitInfoT, StateT> writer;
+public class SparkStreamWriter<CommitInfoT, StateT, AggregatedCommitInfoT> extends SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT>
+        implements StreamWriter {
 
-    SparkStreamWriter(SinkWriter<T, CommitInfoT, StateT> writer) {
-        this.writer = writer;
+    SparkStreamWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
+                      @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+                      @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter) {
+        super(sinkWriter, sinkCommitter, sinkAggregatedCommitter);
     }
 
     @Override
     public void commit(long epochId, WriterCommitMessage[] messages) {
-
+        super.commit(messages);
     }
 
     @Override
     public void abort(long epochId, WriterCommitMessage[] messages) {
-
+        super.abort(messages);
     }
 
     @Override
@@ -54,7 +60,7 @@ public class SparkStreamWriter<T, CommitInfoT, StateT> implements StreamWriter {
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return null;
+        return super.createWriterFactory();
     }
 
     @Override
