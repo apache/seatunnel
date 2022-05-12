@@ -22,14 +22,14 @@ import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
 
+import org.apache.hudi.common.table.timeline.HoodieInstant;
+import org.apache.hudi.util.FlinkClientUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class HudiTest {
@@ -58,7 +58,7 @@ public class HudiTest {
         //If there are data files, sink to hudi successfully
         Thread.sleep(15000L);
 
-        final long parquet = Files.list(Paths.get(new File("/tmp/seatunnel/hudi").toURI())).map(path -> path.getFileName().toString()).filter(p -> !p.startsWith(".")).filter(f -> f.endsWith("parquet")).count();
-        Assert.assertTrue(parquet > 0);
+        final long hasComplete = FlinkClientUtil.createMetaClient("file:///tmp/seatunnel/hudi").getCommitTimeline().getInstants().filter(HoodieInstant::isCompleted).count();
+        Assert.assertTrue(hasComplete > 0);
     }
 }
