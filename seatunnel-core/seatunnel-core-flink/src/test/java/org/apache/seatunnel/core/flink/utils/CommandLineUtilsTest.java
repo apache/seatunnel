@@ -30,6 +30,7 @@ import java.util.List;
 
 public class CommandLineUtilsTest {
     static final String APP_CONF_PATH = ClassLoader.getSystemResource("app.conf").getPath();
+    static final String SQL_CONF_PATH = ClassLoader.getSystemResource("sql.conf").getPath();
 
     @Test
     public void testParseCommandArgs() {
@@ -49,30 +50,41 @@ public class CommandLineUtilsTest {
     }
 
     @Test
-    public void testBuildFlinkCommand() throws FileNotFoundException {
+    public void testBuildFlinkJarCommand() throws FileNotFoundException {
         String[] args = {"--detached", "-c", APP_CONF_PATH, "-t", "-i", "city=shenyang", "-i", "date=20200202",
             "-r", "run-application", "--unkown", "unkown-command"};
         FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
         List<String> commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar");
         Assert.assertEquals(commands,
             Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
-                "CLASS_NAME", "/path/to/jar", "--config", APP_CONF_PATH, "--check", "-Dcity=shenyang", "-Ddate=20200202",
-                "-Dexecution.checkpoint.data-uri=hdfs://localhost:9000/checkpoint", "-Dexecution.checkpoint.interval=10000",
-                "-Dexecution.parallelism=1"));
+                "CLASS_NAME", "/path/to/jar", "--config", APP_CONF_PATH, "--check"));
 
-        flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
+        flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
         commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar");
         Assert.assertEquals(commands,
             Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
-                "CLASS_NAME", "/path/to/jar", "--config", APP_CONF_PATH, "--check", "-Dcity=shenyang", "-Ddate=20200202",
-                "-Dexecution.checkpoint.data-uri=hdfs://localhost:9000/checkpoint", "-Dexecution.checkpoint.interval=10000",
-                "-Dexecution.parallelism=1"));
+                "CLASS_NAME", "/path/to/jar", "--config", APP_CONF_PATH, "--check"));
 
         String[] args1 = {"--detached", "-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202",
             "-r", "run-application", "--unkown", "unkown-command"};
 
-        Assert.assertThrows(FileNotFoundException.class, () -> {
-            CommandLineUtils.buildFlinkCommand(CommandLineUtils.parseCommandArgs(args1, FlinkJobType.SQL), "CLASS_NAME", "/path/to/jar");
-        });
+        List<String> command = CommandLineUtils.buildFlinkCommand(
+            CommandLineUtils.parseCommandArgs(args1, FlinkJobType.SQL), "CLASS_NAME", "/path/to/jar");
+        Assert.assertEquals(
+            Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
+                "CLASS_NAME", "/path/to/jar", "--config", "app.conf", "--check"),
+            command);
+
+    }
+
+    @Test
+    public void testBuildFlinkSQLCommand() throws FileNotFoundException{
+        String[] args = {"--detached", "-c", SQL_CONF_PATH, "-t", "-i", "city=shenyang", "-i", "date=20200202",
+            "-r", "run-application", "--unkown", "unkown-command"};
+        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
+        List<String> commands = CommandLineUtils.buildFlinkCommand(flinkCommandArgs, "CLASS_NAME", "/path/to/jar");
+        Assert.assertEquals(commands,
+            Arrays.asList("${FLINK_HOME}/bin/flink", "run-application", "--detached", "--unkown", "unkown-command", "-c",
+                "CLASS_NAME", "/path/to/jar", "--config", SQL_CONF_PATH, "--check"));
     }
 }

@@ -32,6 +32,10 @@ else
     args=$@
 fi
 
+ENV_PARAMETERS=$(java -cp ${APP_JAR} org.apache.seatunnel.core.flink.FlinkEnvParameterParser ${args})
+echo "Export JVM_ARGS: ${ENV_PARAMETERS}"
+export JVM_ARGS="${ENV_PARAMETERS}"
+
 CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.core.flink.FlinkStarter ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage

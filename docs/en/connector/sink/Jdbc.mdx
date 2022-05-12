@@ -83,17 +83,20 @@ Configure when `saveMode` is specified as `update` , whether to show sql
 </TabItem>
 <TabItem value="flink">
 
-| name              | type   | required | default value |
-| ----------------- | ------ | -------- | ------------- |
-| driver            | string | yes      | -             |
-| url               | string | yes      | -             |
-| username          | string | yes      | -             |
-| password          | string | no       | -             |
-| query             | string | yes      | -             |
-| batch_size        | int    | no       | -             |
-| source_table_name | string | yes      | -             |
-| common-options    | string | no       | -             |
-| parallelism       | int    | no       | -             |
+| name                       | type    | required | default value |
+| -------------------------- | ------- | -------- | ------------- |
+| driver                     | string  | yes      | -             |
+| url                        | string  | yes      | -             |
+| username                   | string  | yes      | -             |
+| password                   | string  | no       | -             |
+| query                      | string  | yes      | -             |
+| batch_size                 | int     | no       | -             |
+| source_table_name          | string  | yes      | -             |
+| common-options             | string  | no       | -             |
+| parallelism                | int     | no       | -             |
+| pre_sql                    | string  | no       | -             |
+| post_sql                   | string  | no       | -             |
+| ignore_post_sql_exceptions | boolean | no       | -             |
 
 ### driver [string]
 
@@ -124,6 +127,18 @@ Number of writes per batch
 ### parallelism [int]
 
 The parallelism of an individual operator, for JdbcSink.
+
+### pre_sql [string]
+
+This sql can be executed before output.
+
+### post_sql [string]
+
+This sql can be executed after output, and just supports for batch job.
+
+### ignore_post_sql_exceptions [boolean]
+
+Whether to ignore post_sql exceptions.
 
 ### common options [string]
 
