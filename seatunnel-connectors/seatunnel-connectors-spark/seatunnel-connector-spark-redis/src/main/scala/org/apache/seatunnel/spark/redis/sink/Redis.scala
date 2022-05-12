@@ -18,7 +18,7 @@
 package org.apache.seatunnel.spark.redis.sink
 
 import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
-import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
+import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
@@ -56,7 +56,6 @@ class Redis extends SparkBatchSink with Logging {
   }
 
   override def checkConfig(): CheckResult = {
-    CheckConfigUtil.checkAllExists(config, HOST, PORT)
     if (config.hasPath(DATA_TYPE)) {
       val dataType = config.getString(DATA_TYPE)
       val dataTypeList = List("KV", "HASH", "SET", "ZSET", "LIST")
