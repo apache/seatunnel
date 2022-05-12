@@ -17,22 +17,22 @@
 
 package org.apache.seatunnel.flink.fake.source;
 
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
-
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.stream.FlinkStreamSource;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
-import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
+import static org.apache.seatunnel.flink.fake.Config.*;
 
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource {
 
@@ -60,7 +60,28 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     public Config getConfig() {
         return config;
     }
-
+    
+    @Override
+    public void prepare(FlinkEnvironment env) {
+        boolean mockDataEnable = config.getBoolean(MOCK_DATA_ENABLE);
+        boolean mockDataBounded = config.getBoolean(MOCK_DATA_BOUNDED);
+        List<MockSchema> mockDataSchema = config.getConfigList(MOCK_DATA_SCHEMA)
+            .stream()
+            .map(
+                schemaConfig->{
+                    MockSchema schema = new MockSchema();
+                    schema.setName(schemaConfig.getString(MOCK_DATA_SCHEMA_NAME));
+                    schema.setType(schemaConfig.getString(MOCK_DATA_SCHEMA_TYPE));
+                    schema.setMock(schemaConfig.getString(MOCK_DATA_SCHEMA_MOCK));
+                    return schema;
+                }
+            )
+            .collect(Collectors.toList());
+        long mockDataSize = config.getLong(MOCK_DATA_SIZE);
+        long mockDataInterval = config.getLong(MOCK_DATA_INTERVAL);
+        
+    }
+    
     @Override
     public String getPluginName() {
         return "FakeSourceStream";
@@ -75,6 +96,12 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
             Row row = Row.of(NAME_ARRAY[randomNum - 1], System.currentTimeMillis());
             ctx.collect(row);
             Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+        }
+    
+        List<MockSchema> mockDataSchema;
+    
+        for (MockSchema schema : mockDataSchema) {
+        
         }
     }
 
