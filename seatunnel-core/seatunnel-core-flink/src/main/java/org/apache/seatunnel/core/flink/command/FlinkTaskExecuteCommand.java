@@ -40,6 +40,8 @@ import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -83,8 +85,9 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
         }
     }
 
+    @VisibleForTesting
     @SuppressWarnings("unchecked")
-    private void checkPluginType(JobMode jobMode, List<? extends Plugin<FlinkEnvironment>>... plugins) {
+    void checkPluginType(JobMode jobMode, List<? extends Plugin<FlinkEnvironment>>... plugins) {
         Stream<? extends Plugin<?>> pluginStream = Arrays.stream(plugins).flatMap(List::stream);
         switch (jobMode) {
             case STREAMING:
