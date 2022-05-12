@@ -107,6 +107,8 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
                     }
                 });
                 break;
+            default:
+                throw new IllegalArgumentException("Unsupported job mode: " + jobMode);
         }
     }
 

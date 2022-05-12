@@ -112,6 +112,9 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
                             String.format("Current execute mode is StructuredStreaming, but %s is not StructuredStreaming plugin", plugin.getPluginName()));
                     }
                 });
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported job mode: " + jobMode);
         }
     }
 
