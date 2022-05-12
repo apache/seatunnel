@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -41,37 +42,40 @@ public final class FactoryUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
-    public static List<SeaTunnelSource> createAndPrepareSource(
-            List<CatalogTable> multipleTables,
-            Map<String, String> options,
-            ClassLoader classLoader,
-            String factoryIdentifier) {
+    public static <T, SplitT extends SourceSplit, StateT> List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
+        List<CatalogTable> multipleTables,
+        Map<String, String> options,
+        ClassLoader classLoader,
+        String factoryIdentifier) {
 
         try {
-
             final TableSourceFactory factory = discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
-            List<SeaTunnelSource> sources = new ArrayList<>(multipleTables.size());
+            List<SeaTunnelSource<T, SplitT, StateT>> sources = new ArrayList<>(multipleTables.size());
             if (factory instanceof SupportMultipleTable) {
                 TableFactoryContext context = new TableFactoryContext(multipleTables, options, classLoader);
                 SupportMultipleTable multipleTableSourceFactory = (SupportMultipleTable) factory;
                 // TODO: create all source
                 SupportMultipleTable.Result result = multipleTableSourceFactory.applyTables(context);
-                TableSource multipleTableSource = factory.createSource(new TableFactoryContext(result.getAcceptedTables(), options, classLoader));
+                TableSource<T, SplitT, StateT> multipleTableSource = factory.createSource(
+                    new TableFactoryContext(result.getAcceptedTables(), options, classLoader));
                 // TODO: handle reading metadata
-                SeaTunnelSource<?, ?, ?> source = multipleTableSource.createSource();
+                SeaTunnelSource<T, SplitT, StateT> source = multipleTableSource.createSource();
                 sources.add(source);
             }
             return sources;
         } catch (Throwable t) {
             throw new FactoryException(
-                    String.format(
-                            "Unable to create a source for identifier '%s'.", factoryIdentifier),
-                    t);
+                String.format(
+                    "Unable to create a source for identifier '%s'.", factoryIdentifier),
+                t);
         }
     }
 
-    public static List<SeaTunnelSink> createAndPrepareSink() {
-        return null;
+    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT> SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
+        ClassLoader classLoader, String factoryIdentifier) {
+        // todo: do we need to set table?
+        TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory = discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
+        return factory.createSink(null).createSink();
     }
 
     public static Catalog createCatalog(String catalogName,

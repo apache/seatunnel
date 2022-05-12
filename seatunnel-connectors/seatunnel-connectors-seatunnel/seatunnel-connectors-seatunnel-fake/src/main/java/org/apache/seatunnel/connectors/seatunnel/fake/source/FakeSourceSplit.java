@@ -15,12 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.connector.TableSource;
 
-public interface TableSourceFactory extends Factory {
+import java.io.Serializable;
 
-    <T, SplitT extends SourceSplit, StateT> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context);
+public class FakeSourceSplit implements SourceSplit, Serializable {
+
+    private static final long serialVersionUID = -1L;
+
+    private final String splitId;
+
+    public FakeSourceSplit(String splitId) {
+        this.splitId = splitId;
+    }
+
+    @Override
+    public String splitId() {
+        return splitId;
+    }
+
 }

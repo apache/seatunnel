@@ -15,12 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.source.SourceEvent;
 
-public interface TableSourceFactory extends Factory {
+public class FakeSourceEvent implements SourceEvent {
 
-    <T, SplitT extends SourceSplit, StateT> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context);
+    private final String name;
+    private final int age;
+    private final long timestamp;
+
+    public FakeSourceEvent(String name, int age, long timestamp) {
+        this.name = name;
+        this.age = age;
+        this.timestamp = timestamp;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
 }

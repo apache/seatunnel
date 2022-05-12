@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.table.connector;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 
-public interface TableSink {
+public interface TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> {
 
-    SeaTunnelSink<?, ?, ?, ?> createSink();
+    SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink();
 }
