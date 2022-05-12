@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
+import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
 
@@ -32,14 +33,19 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
     private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
     @Nullable
     private final SinkCommitter<CommitInfoT> sinkCommitter;
+    private final StructType schema;
 
-    SparkDataWriterFactory(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter, SinkCommitter<CommitInfoT> sinkCommitter) {
+    SparkDataWriterFactory(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
+                           @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+                           StructType schema) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
+        this.schema = schema;
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
-        return new SparkDataWriter<>(sinkWriter, sinkCommitter);
+        // TODO use partitionID, taskId, epochId information.
+        return new SparkDataWriter<>(sinkWriter, sinkCommitter, schema);
     }
 }

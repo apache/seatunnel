@@ -26,8 +26,10 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataSourceWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
+import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,18 +43,21 @@ public class SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT> i
     private final SinkCommitter<CommitInfoT> sinkCommitter;
     @Nullable
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter;
+    private final StructType schema;
 
     SparkDataSourceWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
                           @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                          @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter) {
+                          @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter,
+                          StructType schema) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
         this.sinkAggregatedCommitter = sinkAggregatedCommitter;
+        this.schema = schema;
     }
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sinkWriter, sinkCommitter);
+        return new SparkDataWriterFactory<>(sinkWriter, sinkCommitter, schema);
     }
 
     @Override

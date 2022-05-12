@@ -18,18 +18,24 @@
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.Sink;
-import org.apache.seatunnel.translation.sink.SinkConverter;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 
-import org.apache.spark.sql.sources.v2.WriteSupport;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.streaming.DataStreamWriter;
+import org.apache.spark.sql.streaming.OutputMode;
 
-import java.util.Map;
+import java.util.HashMap;
 
-public class SparkSinkConverter implements SinkConverter<WriteSupport> {
+public class SparkSinkInjector {
 
-    @Override
-    public WriteSupport convert(Sink<?, ?, ?, ?> sink, Map<String, String> configuration) {
-        throw new UnsupportedOperationException("Do not use SinkConverter to convert SeaTunnel Sink in " +
-                "Spark engine. Because Spark use refactor and SPI to load sink class. Use SparkSinkInjector" +
-                " instead.");
+    private static final String SPARK_SINK_CLASS_NAME = "org.apache.seatunnel.translation.spark.sink.SparkSink";
+
+    public static DataStreamWriter<Row> inject(Dataset<Row> dataset, Sink<?, ?, ?, ?> sink,
+                                               HashMap<String, String> configuration) {
+        return dataset.writeStream().format(SPARK_SINK_CLASS_NAME).outputMode(OutputMode.Append())
+                .option("configuration", SerializationUtils.objectToString(configuration)).option("sink",
+                        SerializationUtils.objectToString(sink));
     }
+
 }

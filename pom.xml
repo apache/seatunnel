@@ -143,6 +143,7 @@
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
+        <codec.version>1.14</codec.version>
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <httpcore-nio.version>4.4.4</httpcore-nio.version>
@@ -293,6 +294,12 @@
                 <groupId>com.norbitltd</groupId>
                 <artifactId>spoiwo_${scala.binary.version}</artifactId>
                 <version>${spoiwo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>${codec.version}</version>
             </dependency>
 
             <dependency>

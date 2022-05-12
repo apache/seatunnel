@@ -23,18 +23,21 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.sink.SinkWriterConverter;
 
 import org.apache.spark.sql.sources.v2.writer.DataSourceWriter;
+import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
 
 public class SparkDataSourceWriterConverter extends AbstractSparkWriterConverter
         implements SinkWriterConverter<DataSourceWriter> {
 
-    SparkDataSourceWriterConverter(@Nullable SinkCommitter<?> sinkCommitter, @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter) {
-        super(sinkCommitter, sinkAggregatedCommitter);
+    SparkDataSourceWriterConverter(@Nullable SinkCommitter<?> sinkCommitter,
+                                   @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter,
+                                   StructType schema) {
+        super(sinkCommitter, sinkAggregatedCommitter, schema);
     }
 
     @Override
     public DataSourceWriter convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new SparkDataSourceWriter(sinkWriter, sinkCommitter, sinkAggregatedCommitter);
+        return new SparkDataSourceWriter(sinkWriter, sinkCommitter, sinkAggregatedCommitter, schema);
     }
 }

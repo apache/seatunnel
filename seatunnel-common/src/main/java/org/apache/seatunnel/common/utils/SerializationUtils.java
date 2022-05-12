@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.sink;
+package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.api.sink.Sink;
-import org.apache.seatunnel.translation.sink.SinkConverter;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringUtils;
 
-import org.apache.spark.sql.sources.v2.WriteSupport;
+import java.io.Serializable;
 
-import java.util.Map;
+public class SerializationUtils {
 
-public class SparkSinkConverter implements SinkConverter<WriteSupport> {
+    public static String objectToString(Serializable obj) {
+        if (obj != null) {
+            return Base64.encodeBase64String(org.apache.commons.lang3.SerializationUtils.serialize(obj));
+        }
+        return null;
+    }
 
-    @Override
-    public WriteSupport convert(Sink<?, ?, ?, ?> sink, Map<String, String> configuration) {
-        throw new UnsupportedOperationException("Do not use SinkConverter to convert SeaTunnel Sink in " +
-                "Spark engine. Because Spark use refactor and SPI to load sink class. Use SparkSinkInjector" +
-                " instead.");
+    public static <T extends Serializable> T stringToObject(String str) {
+        if (StringUtils.isNotEmpty(str)) {
+            return org.apache.commons.lang3.SerializationUtils.deserialize(Base64.decodeBase64(str));
+        }
+        return null;
     }
 }

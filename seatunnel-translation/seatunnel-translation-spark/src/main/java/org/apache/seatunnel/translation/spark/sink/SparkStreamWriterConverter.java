@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.sink.SinkWriterConverter;
 
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter;
+import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
 
@@ -30,12 +31,13 @@ public class SparkStreamWriterConverter extends AbstractSparkWriterConverter
         implements SinkWriterConverter<StreamWriter> {
 
     SparkStreamWriterConverter(@Nullable SinkCommitter<?> sinkCommitter,
-                               @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter) {
-        super(sinkCommitter, sinkAggregatedCommitter);
+                               @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter,
+                               StructType schema) {
+        super(sinkCommitter, sinkAggregatedCommitter, schema);
     }
 
     @Override
     public StreamWriter convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new SparkStreamWriter(sinkWriter, sinkCommitter, sinkAggregatedCommitter);
+        return new SparkStreamWriter(sinkWriter, sinkCommitter, sinkAggregatedCommitter, schema);
     }
 }

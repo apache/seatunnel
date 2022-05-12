@@ -26,6 +26,7 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter;
+import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
 
@@ -34,8 +35,9 @@ public class SparkStreamWriter<CommitInfoT, StateT, AggregatedCommitInfoT> exten
 
     SparkStreamWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
                       @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                      @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter) {
-        super(sinkWriter, sinkCommitter, sinkAggregatedCommitter);
+                      @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter,
+                      StructType schema) {
+        super(sinkWriter, sinkCommitter, sinkAggregatedCommitter, schema);
     }
 
     @Override

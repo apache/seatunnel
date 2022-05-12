@@ -25,6 +25,7 @@ import org.apache.seatunnel.translation.spark.serialization.SparkRowSerializatio
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
+import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
 
@@ -37,16 +38,20 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Nullable
     private final SinkCommitter<CommitInfoT> sinkCommitter;
+    private final StructType schema;
     private final SparkRowSerialization rowSerialization = new SparkRowSerialization();
 
-    SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter, SinkCommitter<CommitInfoT> sinkCommitter) {
+    SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
+                    SinkCommitter<CommitInfoT> sinkCommitter,
+                    StructType schema) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
+        this.schema = schema;
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
-        sinkWriter.write(rowSerialization.deserialize(record));
+        sinkWriter.write(rowSerialization.deserialize(schema, record));
     }
 
     @Override
