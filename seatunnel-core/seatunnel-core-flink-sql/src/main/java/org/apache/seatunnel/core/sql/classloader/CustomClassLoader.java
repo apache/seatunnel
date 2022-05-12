@@ -34,6 +34,13 @@ public class CustomClassLoader extends URLClassLoader {
         super(new URL[0]);
     }
 
+    /*
+     * If the table declared in 'create table' with connector 'xxx' and the table is not referenced in the job, namely,
+     * used in the 'insert into' statement, the connector 'xxx' will not be needed by Flink.
+     * So it might be ok fail to load it. If it's needed, we can see the error in Flink logs.
+     *
+     * Refer https://github.com/apache/incubator-seatunnel/pull/1850
+     */
     public void addJar(Path jarPath) {
         try {
             this.addURL(jarPath.toUri().toURL());
