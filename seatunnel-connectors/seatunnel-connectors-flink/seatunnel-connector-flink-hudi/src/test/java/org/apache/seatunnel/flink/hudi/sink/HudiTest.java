@@ -61,9 +61,9 @@ public class HudiTest {
                 new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
         new Thread(() -> Seatunnel.run(flinkCommand)).start();
 
-        //Due to the stream job cannot be stopped, so checked if there are data files in the specified directory after 15 seconds.
+        //Due to the stream job cannot be stopped, so checked if there are data files in the specified directory after 20 seconds.
         //If there are data files, sink to hudi successfully
-        Thread.sleep(15000L);
+        Thread.sleep(20000L);
 
         final long hasComplete = FlinkClientUtil.createMetaClient("file:///tmp/seatunnel/hudi").getCommitTimeline().getInstants().filter(HoodieInstant::isCompleted).count();
         Assert.assertTrue(hasComplete > 0);
