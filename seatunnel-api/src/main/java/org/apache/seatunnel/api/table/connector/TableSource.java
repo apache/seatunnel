@@ -18,8 +18,9 @@
 package org.apache.seatunnel.api.table.connector;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-public interface TableSource {
+public interface TableSource<T, SplitT extends SourceSplit, StateT> {
 
-    SeaTunnelSource<?, ?, ?> createSource();
+    SeaTunnelSource<T, SplitT, StateT> createSource();
 }

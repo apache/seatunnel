@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.table.connector.TableSink;
 
-public interface TableSinkFactory extends Factory {
+public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Factory {
 
-    TableSink createSink(TableFactoryContext context);
+    TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context);
 }

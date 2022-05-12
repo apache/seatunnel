@@ -15,12 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
 
-public interface TableSourceFactory extends Factory {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    <T, SplitT extends SourceSplit, StateT> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context);
+public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommitInfo, ConsoleState> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSinkWriter.class);
+
+    @Override
+    @SuppressWarnings("checkstyle:RegexpSingleline")
+    public void write(SeaTunnelRow element) {
+        System.out.println(element.toString());
+    }
+
+    @Override
+    public ConsoleCommitInfo prepareCommit() {
+        return null;
+    }
+
+    @Override
+    public void close() {
+
+    }
 }
