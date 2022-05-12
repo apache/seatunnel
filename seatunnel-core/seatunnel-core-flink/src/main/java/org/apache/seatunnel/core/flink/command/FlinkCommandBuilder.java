@@ -30,7 +30,35 @@ public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
             throw new IllegalArgumentException(
                 String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
         }
-        return commandArgs.isCheckConfig() ? new FlinkConfValidateCommand(commandArgs)
-            : new FlinkTaskExecuteCommand(commandArgs);
+        switch (commandArgs.getApiType()) {
+            case ENGINE_API:
+                return new EngineAPICommandBuilder().buildCommand(commandArgs);
+            case SEATUNNEL_API:
+                return new SeaTunnelAPICommandBuilder().buildCommand(commandArgs);
+            default:
+                throw new IllegalArgumentException("Unsupported API type: " + commandArgs.getApiType());
+        }
+    }
+
+    /**
+     * Used to generate command for engine API.
+     */
+    private static class EngineAPICommandBuilder extends FlinkCommandBuilder {
+        @Override
+        public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
+            return commandArgs.isCheckConfig() ? new FlinkAPIConfValidateCommand(commandArgs)
+                : new FlinkAPITaskExecuteCommand(commandArgs);
+        }
+    }
+
+    /**
+     * Used to generate command for seaTunnel API.
+     */
+    private static class SeaTunnelAPICommandBuilder extends FlinkCommandBuilder {
+        @Override
+        public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
+            return commandArgs.isCheckConfig() ? new SeaTunnelAPIConfValidateCommand(commandArgs)
+                : new SeaTunnelAPITaskExecuteCommand(commandArgs);
+        }
     }
 }

@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.flink.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.base.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.base.config.APIType;
 import org.apache.seatunnel.core.base.config.EngineType;
 import org.apache.seatunnel.core.flink.config.FlinkRunMode;
 
@@ -33,6 +34,11 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         converter = RunModeConverter.class,
         description = "job run mode, run or run-application")
     private FlinkRunMode runMode = FlinkRunMode.RUN;
+
+    @Parameter(names = {"-api", "--api-type"},
+        converter = APITypeConverter.class,
+        description = "Api type, engine or seatunnel")
+    private APIType apiType = APIType.ENGINE_API;
 
     /**
      * Undefined parameters parsed will be stored here as flink command parameters.
@@ -65,6 +71,14 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         this.flinkParams = flinkParams;
     }
 
+    public APIType getApiType() {
+        return apiType;
+    }
+
+    public void setApiType(APIType apiType) {
+        this.apiType = apiType;
+    }
+
     /**
      * Used to convert the run mode string to the enum value.
      */
@@ -83,6 +97,28 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                 }
             }
             throw new IllegalArgumentException(String.format("Run mode %s not supported", value));
+        }
+    }
+
+    /**
+     * Used to convert the api type string to the enum value.
+     */
+    private static class APITypeConverter implements IStringConverter<APIType> {
+
+        /**
+         * If the '-api' is not set, then will not go into this convert method.
+         *
+         * @param value input value set by '-api' or '--api-type'
+         * @return api type enum value
+         */
+        @Override
+        public APIType convert(String value) {
+            for (APIType apiType : APIType.values()) {
+                if (apiType.getApiType().equalsIgnoreCase(value)) {
+                    return apiType;
+                }
+            }
+            throw new IllegalArgumentException(String.format("API type %s not supported", value));
         }
     }
 

@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.command;
+package org.apache.seatunnel.core.base.config;
 
-import org.apache.seatunnel.apis.base.command.CommandArgs;
-import org.apache.seatunnel.core.base.exception.CommandException;
+import org.apache.seatunnel.apis.base.env.RuntimeEnv;
+import org.apache.seatunnel.core.base.exception.ConfigCheckException;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 /**
- * Command interface.
+ * Check the config is valid.
  *
- * @param <T> args type
+ * @param <ENVIRONMENT>
  */
-@FunctionalInterface
-public interface Command<T extends CommandArgs> {
+public interface ConfigChecker<ENVIRONMENT extends RuntimeEnv> {
 
     /**
-     * Execute command
+     * Check if the config is validated, if check fails, throw exception.
+     *
+     * @param config given config.
      */
-    void execute() throws CommandException;
+    void checkConfig(Config config) throws ConfigCheckException;
 
 }

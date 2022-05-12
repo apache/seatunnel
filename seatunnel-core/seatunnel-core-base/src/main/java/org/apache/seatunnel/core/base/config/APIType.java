@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.command;
+package org.apache.seatunnel.core.base.config;
 
-import org.apache.seatunnel.apis.base.command.CommandArgs;
-import org.apache.seatunnel.core.base.exception.CommandException;
+public enum APIType {
+    ENGINE_API("engine"),
+    SEATUNNEL_API("seatunnel"),
+    ;
+    private final String apiType;
 
-/**
- * Command interface.
- *
- * @param <T> args type
- */
-@FunctionalInterface
-public interface Command<T extends CommandArgs> {
+    APIType(String apiType) {
+        this.apiType = apiType;
+    }
 
-    /**
-     * Execute command
-     */
-    void execute() throws CommandException;
-
+    public String getApiType() {
+        return apiType;
+    }
 }

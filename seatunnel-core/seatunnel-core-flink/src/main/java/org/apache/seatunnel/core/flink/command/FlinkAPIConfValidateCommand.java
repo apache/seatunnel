@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.command;
+package org.apache.seatunnel.core.flink.command;
 
 import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.config.SparkAPIConfigChecker;
+import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.config.FlinkAPIConfigChecker;
+import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,23 +31,23 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * Used to validate the spark task conf is validated.
+ * Used to check the Flink conf is validated.
  */
-public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
+public class FlinkAPIConfValidateCommand implements Command<FlinkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SparkConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkAPIConfValidateCommand.class);
 
-    private final SparkCommandArgs sparkCommandArgs;
+    private final FlinkCommandArgs flinkCommandArgs;
 
-    public SparkConfValidateCommand(SparkCommandArgs sparkCommandArgs) {
-        this.sparkCommandArgs = sparkCommandArgs;
+    public FlinkAPIConfValidateCommand(FlinkCommandArgs flinkCommandArgs) {
+        this.flinkCommandArgs = flinkCommandArgs;
     }
 
     @Override
     public void execute() throws ConfigCheckException {
-        Path confPath = FileUtils.getConfigPath(sparkCommandArgs);
-        ConfigBuilder configBuilder = new ConfigBuilder(confPath);
-        new SparkAPIConfigChecker().checkConfig(configBuilder.getConfig());
+        Path configPath = FileUtils.getConfigPath(flinkCommandArgs);
+        ConfigBuilder configBuilder = new ConfigBuilder(configPath);
+        new FlinkAPIConfigChecker().checkConfig(configBuilder.getConfig());
         LOGGER.info("config OK !");
     }
 }

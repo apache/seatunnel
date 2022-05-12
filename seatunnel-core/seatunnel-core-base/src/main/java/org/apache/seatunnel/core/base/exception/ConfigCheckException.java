@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.command;
+package org.apache.seatunnel.core.base.exception;
 
-import org.apache.seatunnel.apis.base.command.CommandArgs;
-import org.apache.seatunnel.core.base.exception.CommandException;
+public class ConfigCheckException extends CommandException {
 
-/**
- * Command interface.
- *
- * @param <T> args type
- */
-@FunctionalInterface
-public interface Command<T extends CommandArgs> {
+    public ConfigCheckException(String message) {
+        super(message);
+    }
 
-    /**
-     * Execute command
-     */
-    void execute() throws CommandException;
+    public ConfigCheckException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
 }

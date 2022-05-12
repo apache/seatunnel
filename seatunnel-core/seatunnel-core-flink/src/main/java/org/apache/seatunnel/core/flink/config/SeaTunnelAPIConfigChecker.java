@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.command;
+package org.apache.seatunnel.core.flink.config;
 
-import org.apache.seatunnel.apis.base.command.CommandArgs;
-import org.apache.seatunnel.core.base.exception.CommandException;
+import org.apache.seatunnel.core.base.config.ConfigChecker;
+import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 
-/**
- * Command interface.
- *
- * @param <T> args type
- */
-@FunctionalInterface
-public interface Command<T extends CommandArgs> {
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    /**
-     * Execute command
-     */
-    void execute() throws CommandException;
+public class SeaTunnelAPIConfigChecker implements ConfigChecker<SeaTunnelAPIEnvironment> {
 
+    @Override
+    public void checkConfig(Config config) throws ConfigCheckException {
+        // todo: implement
+    }
 }
