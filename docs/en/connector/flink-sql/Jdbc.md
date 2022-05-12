@@ -34,7 +34,7 @@ Insert some data into the table "test_table".
 
 ### 3. seatunnel config 
 Prepare a seatunnel config file with the following content:
-```text
+```sql
 SET table.dml-sync = true;
 
 CREATE TABLE test (
