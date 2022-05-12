@@ -22,7 +22,6 @@ import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
 
-import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.util.FlinkClientUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -65,7 +64,7 @@ public class HudiTest {
         //If there are data files, sink to hudi successfully
         Thread.sleep(20000L);
 
-        final long hasComplete = FlinkClientUtil.createMetaClient("file:///tmp/seatunnel/hudi").getCommitTimeline().getInstants().filter(HoodieInstant::isCompleted).count();
+        final long hasComplete = FlinkClientUtil.createMetaClient("file:///tmp/seatunnel/hudi").getCommitTimeline().getInstants().count();
         Assert.assertTrue(hasComplete > 0);
     }
 }
