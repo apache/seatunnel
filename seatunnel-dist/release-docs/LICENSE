@@ -577,6 +577,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) hadoop-yarn-server-common (org.apache.hadoop:hadoop-yarn-server-common:2.7.7 - no url defined)
      (Apache License, Version 2.0) htrace-core4 (org.apache.htrace:htrace-core4:4.2.0-incubating - http://incubator.apache.org/projects/htrace.html)
      (Apache License, Version 2.0) hudi-spark-bundle_2.11 (org.apache.hudi:hudi-spark-bundle_2.11:0.10.0 - https://github.com/apache/hudi/hudi-spark-bundle_2.11)
+     (Apache License, Version 2.0) hudi-flink-bundle_2.11 (org.apache.hudi:hudi-flink-bundle_2.11:0.10.0 - https://github.com/apache/hudi/hudi-flink-bundle_2.11)
      (Apache License, Version 2.0) java-xmlbuilder (com.jamesmurty.utils:java-xmlbuilder:0.4 - http://code.google.com/p/java-xmlbuilder/)
      (Apache License, Version 2.0) jcommander (com.beust:jcommander:1.81 - https://jcommander.org)
      (Apache License, Version 2.0) stream-lib (com.clearspring.analytics:stream:2.7.0 - https://github.com/addthis/stream-lib)
