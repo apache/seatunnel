@@ -21,22 +21,17 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
+        <artifactId>seatunnel-connectors</artifactId>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel</artifactId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
-    <artifactId>seatunnel-connectors</artifactId>
     <packaging>pom</packaging>
 
-    <modules>
-        <module>seatunnel-connectors-flink</module>
-        <module>seatunnel-connectors-flink-dist</module>
-        <module>seatunnel-connectors-spark</module>
-        <module>seatunnel-connectors-spark-dist</module>
-        <module>seatunnel-connectors-seatunnel</module>
-        <module>seatunnel-connectors-seatunnel-dist</module>
-    </modules>
+    <artifactId>seatunnel-connectors-seatunnel</artifactId>
 
+    <modules>
+        <module>seatunnel-connectors-seatunnel-console</module>
+        <module>seatunnel-connectors-seatunnel-fake</module>
+    </modules>
 </project>

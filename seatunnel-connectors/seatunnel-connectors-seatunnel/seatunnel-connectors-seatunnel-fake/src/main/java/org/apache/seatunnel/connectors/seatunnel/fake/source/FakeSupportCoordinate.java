@@ -15,12 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 
-public interface TableSourceFactory extends Factory {
-
-    <T, SplitT extends SourceSplit, StateT> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context);
+public class FakeSupportCoordinate implements SupportCoordinate {
 }

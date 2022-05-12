@@ -15,12 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.connector.TableSource;
-
-public interface TableSourceFactory extends Factory {
-
-    <T, SplitT extends SourceSplit, StateT> TableSource<T, SplitT, StateT> createSource(TableFactoryContext context);
+public class ConsoleAggregatedCommitInfo {
 }
