@@ -4367,6 +4367,18 @@ The Apache Software Foundation (http://www.apache.org/).
 
 =========================================================================
 
+Spark Excel NOTICE
+
+=========================================================================
+
+Spark Excel
+This product includes software from the spark-excel project
+ * Copyright https://github.com/crealytics/spark-excel
+ * Licensed under the Apache-2.0 License;
+
+=========================================================================
+
+
 
 
 =========================================================================

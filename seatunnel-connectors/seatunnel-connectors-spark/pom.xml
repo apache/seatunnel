@@ -54,6 +54,7 @@
         <module>seatunnel-connector-spark-feishu</module>
         <module>seatunnel-connector-spark-http</module>
         <module>seatunnel-connector-spark-webhook</module>
+        <module>seatunnel-connector-spark-excel</module>
     </modules>
 
 </project>

@@ -137,6 +137,7 @@
         <kudu-spark.version>1.7.0</kudu-spark.version>
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
+        <spark-excel.version>0.11.1</spark-excel.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
@@ -595,6 +596,12 @@
                 <groupId>org.scala-lang</groupId>
                 <artifactId>scala-library</artifactId>
                 <version>${scala.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.crealytics</groupId>
+                <artifactId>spark-excel_${scala.binary.version}</artifactId>
+                <version>${spark-excel.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

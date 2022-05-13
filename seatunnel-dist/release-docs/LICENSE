@@ -896,6 +896,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) transport-netty4 (org.elasticsearch.plugin:transport-netty4-client:7.5.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) x-content (org.elasticsearch:elasticsearch-x-content:6.3.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) zookeeper (org.apache.zookeeper:zookeeper:3.4.10 - no url defined)
+     (The Apache Software License, Version 2.0) spark-excel (com.crealytics:spark-excel_2.11:0.11.1 - https://github.com/crealytics/spark-excel)
 
 
 ========================================================================
