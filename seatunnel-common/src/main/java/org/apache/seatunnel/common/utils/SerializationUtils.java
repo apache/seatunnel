@@ -37,4 +37,13 @@ public class SerializationUtils {
         }
         return null;
     }
+
+    public static <T extends Serializable> byte[] serialize(T obj) {
+        return org.apache.commons.lang3.SerializationUtils.serialize(obj);
+    }
+
+    public static <T extends Serializable> T deserialize(byte[] bytes) {
+        return org.apache.commons.lang3.SerializationUtils.deserialize(bytes);
+    }
+
 }

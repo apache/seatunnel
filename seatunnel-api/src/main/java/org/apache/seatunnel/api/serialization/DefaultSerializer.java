@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.api.serialization;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 
-public class DefaultSerializer implements Serializer<String> {
+import java.io.IOException;
+import java.io.Serializable;
+
+public class DefaultSerializer<T extends Serializable> implements Serializer<T> {
 
     @Override
-    public byte[] serialize(String obj) throws IOException {
-        return obj.getBytes(StandardCharsets.UTF_8);
+    public byte[] serialize(T obj) throws IOException {
+        return SerializationUtils.serialize(obj);
     }
 
     @Override
-    public String deserialize(byte[] serialized) throws IOException {
-        return new String(serialized);
+    public T deserialize(byte[] serialized) throws IOException {
+        return SerializationUtils.deserialize(serialized);
     }
 }
