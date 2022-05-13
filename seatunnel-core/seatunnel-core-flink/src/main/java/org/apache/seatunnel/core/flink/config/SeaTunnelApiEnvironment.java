@@ -29,14 +29,14 @@ import org.slf4j.LoggerFactory;
 import java.net.URL;
 import java.util.List;
 
-public class SeaTunnelAPIEnvironment implements RuntimeEnv {
+public class SeaTunnelApiEnvironment implements RuntimeEnv {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelAPIEnvironment.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelApiEnvironment.class);
 
     private Config config;
 
     @Override
-    public SeaTunnelAPIEnvironment setConfig(Config config) {
+    public SeaTunnelApiEnvironment setConfig(Config config) {
         this.config = config;
         return this;
     }
@@ -53,13 +53,13 @@ public class SeaTunnelAPIEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public SeaTunnelAPIEnvironment prepare() {
+    public SeaTunnelApiEnvironment prepare() {
         // todo
         return null;
     }
 
     @Override
-    public SeaTunnelAPIEnvironment setJobMode(JobMode mode) {
+    public SeaTunnelApiEnvironment setJobMode(JobMode mode) {
         return null;
     }
 

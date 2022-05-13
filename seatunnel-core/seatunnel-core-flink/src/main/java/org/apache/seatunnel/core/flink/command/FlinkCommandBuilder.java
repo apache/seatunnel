@@ -32,9 +32,9 @@ public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
         }
         switch (commandArgs.getApiType()) {
             case ENGINE_API:
-                return new EngineAPICommandBuilder().buildCommand(commandArgs);
+                return new FlinkApiCommandBuilder().buildCommand(commandArgs);
             case SEATUNNEL_API:
-                return new SeaTunnelAPICommandBuilder().buildCommand(commandArgs);
+                return new SeaTunnelApiCommandBuilder().buildCommand(commandArgs);
             default:
                 throw new IllegalArgumentException("Unsupported API type: " + commandArgs.getApiType());
         }
@@ -43,22 +43,22 @@ public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
     /**
      * Used to generate command for engine API.
      */
-    private static class EngineAPICommandBuilder extends FlinkCommandBuilder {
+    private static class FlinkApiCommandBuilder extends FlinkCommandBuilder {
         @Override
         public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
-            return commandArgs.isCheckConfig() ? new FlinkAPIConfValidateCommand(commandArgs)
-                : new FlinkAPITaskExecuteCommand(commandArgs);
+            return commandArgs.isCheckConfig() ? new FlinkApiConfValidateCommand(commandArgs)
+                : new FlinkApiTaskExecuteCommand(commandArgs);
         }
     }
 
     /**
      * Used to generate command for seaTunnel API.
      */
-    private static class SeaTunnelAPICommandBuilder extends FlinkCommandBuilder {
+    private static class SeaTunnelApiCommandBuilder extends FlinkCommandBuilder {
         @Override
         public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
-            return commandArgs.isCheckConfig() ? new SeaTunnelAPIConfValidateCommand(commandArgs)
-                : new SeaTunnelAPITaskExecuteCommand(commandArgs);
+            return commandArgs.isCheckConfig() ? new SeaTunnelApiConfValidateCommand(commandArgs)
+                : new SeaTunnelApiTaskExecuteCommand(commandArgs);
         }
     }
 }

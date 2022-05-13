@@ -22,7 +22,7 @@ import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.config.SparkAPIConfigChecker;
+import org.apache.seatunnel.core.spark.config.SparkApiConfigChecker;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +46,7 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
     public void execute() throws ConfigCheckException {
         Path confPath = FileUtils.getConfigPath(sparkCommandArgs);
         ConfigBuilder configBuilder = new ConfigBuilder(confPath);
-        new SparkAPIConfigChecker().checkConfig(configBuilder.getConfig());
+        new SparkApiConfigChecker().checkConfig(configBuilder.getConfig());
         LOGGER.info("config OK !");
     }
 }

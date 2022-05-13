@@ -15,37 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.spark;
+package org.apache.seatunnel.example.flink;
 
-import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.base.Seatunnel;
 import org.apache.seatunnel.core.base.command.Command;
+import org.apache.seatunnel.core.base.config.ApiType;
 import org.apache.seatunnel.core.base.exception.CommandException;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.command.SparkCommandBuilder;
+import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 
-public class LocalSparkExample {
+public class SeaTunnelApiExample {
 
-    public static void main(String[] args) throws URISyntaxException, FileNotFoundException, CommandException {
-        String configFile = getTestConfigFile("/examples/spark.batch.conf");
-        SparkCommandArgs sparkArgs = new SparkCommandArgs();
-        sparkArgs.setConfigFile(configFile);
-        sparkArgs.setCheckConfig(false);
-        sparkArgs.setVariables(null);
-        sparkArgs.setDeployMode(DeployMode.CLIENT);
-        Command<SparkCommandArgs> sparkCommand = new SparkCommandBuilder().buildCommand(sparkArgs);
-        Seatunnel.run(sparkCommand);
+    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
+        String configFile = getTestConfigFile("/examples/fake_to_console.conf");
+        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
+        flinkCommandArgs.setConfigFile(configFile);
+        flinkCommandArgs.setCheckConfig(false);
+        flinkCommandArgs.setVariables(null);
+        flinkCommandArgs.setApiType(ApiType.SEATUNNEL_API);
+        Command<FlinkCommandArgs> flinkCommand =
+            new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
+        Seatunnel.run(flinkCommand);
     }
 
-    public static String getTestConfigFile(String configFile) throws URISyntaxException, FileNotFoundException {
-        URL resource = LocalSparkExample.class.getResource(configFile);
+    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
+        URL resource = LocalFlinkExample.class.getResource(configFile);
         if (resource == null) {
-            throw new FileNotFoundException("Could not find config file: " + configFile);
+            throw new FileNotFoundException("Can't find config file: " + configFile);
         }
         return Paths.get(resource.toURI()).toString();
     }

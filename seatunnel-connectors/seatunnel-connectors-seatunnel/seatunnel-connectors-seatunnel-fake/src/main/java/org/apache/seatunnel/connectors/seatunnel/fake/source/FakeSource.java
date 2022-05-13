@@ -22,9 +22,10 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeState;
 
-public class FakeSource implements SeaTunnelSource<FakeSourceEvent, FakeSourceSplit, FakeState> {
+public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeState> {
 
     @Override
     public Boundedness getBoundedness() {
@@ -32,7 +33,7 @@ public class FakeSource implements SeaTunnelSource<FakeSourceEvent, FakeSourceSp
     }
 
     @Override
-    public SourceReader<FakeSourceEvent, FakeSourceSplit> createReader(SourceReader.Context readerContext) {
+    public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(SourceReader.Context readerContext) {
         return new FakeSourceReader(readerContext);
     }
 

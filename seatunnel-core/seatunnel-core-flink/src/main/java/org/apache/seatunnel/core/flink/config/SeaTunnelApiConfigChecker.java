@@ -22,7 +22,7 @@ import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-public class SeaTunnelAPIConfigChecker implements ConfigChecker<SeaTunnelAPIEnvironment> {
+public class SeaTunnelApiConfigChecker implements ConfigChecker<SeaTunnelApiEnvironment> {
 
     @Override
     public void checkConfig(Config config) throws ConfigCheckException {

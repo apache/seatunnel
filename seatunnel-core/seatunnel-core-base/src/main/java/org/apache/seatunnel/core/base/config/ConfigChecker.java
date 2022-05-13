@@ -25,7 +25,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 /**
  * Check the config is valid.
  *
- * @param <ENVIRONMENT>
+ * @param <ENVIRONMENT> the environment type.
  */
 public interface ConfigChecker<ENVIRONMENT extends RuntimeEnv> {
 

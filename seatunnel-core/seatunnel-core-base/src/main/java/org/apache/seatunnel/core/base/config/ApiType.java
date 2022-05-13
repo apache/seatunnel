@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.config;
+package org.apache.seatunnel.core.base.config;
 
-import org.apache.seatunnel.core.base.config.ConfigChecker;
-import org.apache.seatunnel.core.base.exception.ConfigCheckException;
+public enum ApiType {
+    ENGINE_API("engine"),
+    SEATUNNEL_API("seatunnel"),
+    ;
+    private final String apiType;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+    ApiType(String apiType) {
+        this.apiType = apiType;
+    }
 
-public class SeaTunnelAPIConfigChecker implements ConfigChecker<SeaTunnelEnvironment> {
-
-    @Override
-    public void checkConfig(Config config) throws ConfigCheckException {
-        // todo: implement
+    public String getApiType() {
+        return apiType;
     }
 }

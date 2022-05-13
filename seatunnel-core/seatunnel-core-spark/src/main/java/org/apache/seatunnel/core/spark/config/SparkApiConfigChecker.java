@@ -27,7 +27,7 @@ import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-public class SparkAPIConfigChecker implements ConfigChecker<FlinkEnvironment> {
+public class SparkApiConfigChecker implements ConfigChecker<FlinkEnvironment> {
 
     @Override
     public void checkConfig(Config config) throws ConfigCheckException {

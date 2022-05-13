@@ -22,8 +22,7 @@ import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.config.SeaTunnelAPIConfigChecker;
-import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.core.flink.config.FlinkApiConfigChecker;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,24 +30,23 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * Use to validate the configuration of the SeaTunnel API.
+ * Used to check the Flink conf is validated.
  */
-public class SeaTunnelAPIConfValidateCommand implements Command<FlinkCommandArgs> {
+public class FlinkApiConfValidateCommand implements Command<FlinkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelAPIConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiConfValidateCommand.class);
 
     private final FlinkCommandArgs flinkCommandArgs;
 
-    public SeaTunnelAPIConfValidateCommand(FlinkCommandArgs flinkCommandArgs) {
+    public FlinkApiConfValidateCommand(FlinkCommandArgs flinkCommandArgs) {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 
     @Override
     public void execute() throws ConfigCheckException {
         Path configPath = FileUtils.getConfigPath(flinkCommandArgs);
-        // todo: validate the config by new api
         ConfigBuilder configBuilder = new ConfigBuilder(configPath);
-        new SeaTunnelAPIConfigChecker().checkConfig(configBuilder.getConfig());
+        new FlinkApiConfigChecker().checkConfig(configBuilder.getConfig());
         LOGGER.info("config OK !");
     }
 }

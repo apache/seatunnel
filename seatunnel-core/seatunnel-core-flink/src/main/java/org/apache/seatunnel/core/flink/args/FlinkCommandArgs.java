@@ -19,7 +19,7 @@ package org.apache.seatunnel.core.flink.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.base.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.base.config.APIType;
+import org.apache.seatunnel.core.base.config.ApiType;
 import org.apache.seatunnel.core.base.config.EngineType;
 import org.apache.seatunnel.core.flink.config.FlinkRunMode;
 
@@ -36,9 +36,9 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
     private FlinkRunMode runMode = FlinkRunMode.RUN;
 
     @Parameter(names = {"-api", "--api-type"},
-        converter = APITypeConverter.class,
+        converter = ApiTypeConverter.class,
         description = "Api type, engine or seatunnel")
-    private APIType apiType = APIType.ENGINE_API;
+    private ApiType apiType = ApiType.ENGINE_API;
 
     /**
      * Undefined parameters parsed will be stored here as flink command parameters.
@@ -71,11 +71,11 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         this.flinkParams = flinkParams;
     }
 
-    public APIType getApiType() {
+    public ApiType getApiType() {
         return apiType;
     }
 
-    public void setApiType(APIType apiType) {
+    public void setApiType(ApiType apiType) {
         this.apiType = apiType;
     }
 
@@ -103,7 +103,7 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
     /**
      * Used to convert the api type string to the enum value.
      */
-    private static class APITypeConverter implements IStringConverter<APIType> {
+    private static class ApiTypeConverter implements IStringConverter<ApiType> {
 
         /**
          * If the '-api' is not set, then will not go into this convert method.
@@ -112,8 +112,8 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
          * @return api type enum value
          */
         @Override
-        public APIType convert(String value) {
-            for (APIType apiType : APIType.values()) {
+        public ApiType convert(String value) {
+            for (ApiType apiType : ApiType.values()) {
                 if (apiType.getApiType().equalsIgnoreCase(value)) {
                     return apiType;
                 }

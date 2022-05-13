@@ -39,11 +39,11 @@ import java.util.List;
 /**
  * Used to execute Flink Job by Flink API.
  */
-public class FlinkAPITaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs, FlinkEnvironment> {
+public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs, FlinkEnvironment> {
 
     private final FlinkCommandArgs flinkCommandArgs;
 
-    public FlinkAPITaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
+    public FlinkApiTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 
