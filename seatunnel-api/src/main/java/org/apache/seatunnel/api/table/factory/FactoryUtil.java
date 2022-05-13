@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.sink.Sink;
-import org.apache.seatunnel.api.source.Source;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -41,15 +41,16 @@ public final class FactoryUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
-    public static List<Source> createAndPrepareSource(
+    public static List<SeaTunnelSource> createAndPrepareSource(
             List<CatalogTable> multipleTables,
             Map<String, String> options,
             ClassLoader classLoader,
             String factoryIdentifier) {
 
         try {
+
             final TableSourceFactory factory = discoverFactory(classLoader, TableSourceFactory.class, factoryIdentifier);
-            List<Source> sources = new ArrayList<>(multipleTables.size());
+            List<SeaTunnelSource> sources = new ArrayList<>(multipleTables.size());
             if (factory instanceof SupportMultipleTable) {
                 TableFactoryContext context = new TableFactoryContext(multipleTables, options, classLoader);
                 SupportMultipleTable multipleTableSourceFactory = (SupportMultipleTable) factory;
@@ -57,7 +58,7 @@ public final class FactoryUtil {
                 SupportMultipleTable.Result result = multipleTableSourceFactory.applyTables(context);
                 TableSource multipleTableSource = factory.createSource(new TableFactoryContext(result.getAcceptedTables(), options, classLoader));
                 // TODO: handle reading metadata
-                Source<?, ?, ?> source = multipleTableSource.createSource();
+                SeaTunnelSource<?, ?, ?> source = multipleTableSource.createSource();
                 sources.add(source);
             }
             return sources;
@@ -69,7 +70,7 @@ public final class FactoryUtil {
         }
     }
 
-    public static List<Sink> createAndPrepareSink() {
+    public static List<SeaTunnelSink> createAndPrepareSink() {
         return null;
     }
 

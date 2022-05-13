@@ -19,8 +19,14 @@ package org.apache.seatunnel.translation.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 
-public interface SinkAggregatedCommitterConverter<T> {
+public interface SinkAggregatedCommitterConverter<SeaTunnelAggregatedCommitterT, TargetAggregatedCommitterT> {
 
-    T convert(SinkAggregatedCommitter<?, ?> sinkCommitter);
+    /**
+     * Converts SeaTunnel {@link SinkAggregatedCommitter} to target aggregatedCommitter.
+     *
+     * @param sinkCommitter SeaTunnel {@link SinkAggregatedCommitter}
+     * @return target aggregatedCommitter
+     */
+    TargetAggregatedCommitterT convert(SeaTunnelAggregatedCommitterT sinkCommitter);
 
 }

@@ -17,13 +17,38 @@
 
 package org.apache.seatunnel.translation.source;
 
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplit;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+public class ParallelReaderContext implements SourceReader.Context {
 
-public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> {
-    protected volatile Map<Integer, SourceReader<T, SplitT>> readerMap = new ConcurrentHashMap<>();
+    protected final ParallelSource<?, ?, ?> parallelSource;
+    protected final Integer subtaskId;
 
+    public ParallelReaderContext(ParallelSource<?, ?, ?> parallelSource,
+                                 Integer subtaskId) {
+        this.parallelSource = parallelSource;
+        this.subtaskId = subtaskId;
+    }
+
+    @Override
+    public int getIndexOfSubtask() {
+        return subtaskId;
+    }
+
+    @Override
+    public void signalNoMoreElement() {
+        parallelSource.handleNoMoreElement();
+    }
+
+    @Override
+    public void sendSplitRequest() {
+        parallelSource.handleSplitRequest(subtaskId);
+    }
+
+    @Override
+    public void sendSourceEventToCoordinator(SourceEvent sourceEvent) {
+        // TODO: exception
+        throw new RuntimeException("");
+    }
 }

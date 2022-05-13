@@ -28,7 +28,7 @@ import java.io.Serializable;
  * @param <T>      The type of records produced by the source.
  * @param <SplitT> The type of splits handled by the source.
  */
-public interface Source<T, SplitT extends SourceSplit, StateT> extends Serializable {
+public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT> extends Serializable {
 
     /**
      * Get the boundedness of this source.
@@ -39,9 +39,12 @@ public interface Source<T, SplitT extends SourceSplit, StateT> extends Serializa
 
     SourceReader<T, SplitT> createReader(SourceReader.Context readerContext) throws Exception;
 
+    Serializer<SplitT> getSplitSerializer();
+
     SourceSplitEnumerator<SplitT, StateT> createEnumerator(SourceSplitEnumerator.Context<SplitT> enumeratorContext) throws Exception;
 
     SourceSplitEnumerator<SplitT, StateT> restoreEnumerator(SourceSplitEnumerator.Context<SplitT> enumeratorContext, StateT checkpointState) throws Exception;
 
     Serializer<StateT> getEnumeratorStateSerializer();
+
 }

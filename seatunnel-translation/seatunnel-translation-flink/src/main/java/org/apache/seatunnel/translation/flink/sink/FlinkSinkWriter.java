@@ -39,7 +39,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<
     }
 
     @Override
-    public void write(InputT element, Context context) throws IOException {
+    public void write(InputT element, org.apache.flink.api.connector.sink.SinkWriter.Context context) throws IOException {
         if (element instanceof Row) {
             sinkWriter.write(rowSerialization.deserialize((Row) element));
         } else {

@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.translation.serialization;
 
-import org.apache.seatunnel.api.serialization.Serializer;
+public interface SerializerConverter<SeaTunnelSerializerT, TargetSerializerT> {
 
-public interface SerializerConverter<T> {
-
-    T convert(Serializer<?> serializer);
+    /**
+     * Converts the SeaTunnel {@link org.apache.seatunnel.api.serialization.Serializer} to the target serializer.
+     *
+     * @param serializer SeaTunnel serializer.
+     * @return target serializer.
+     */
+    TargetSerializerT convert(SeaTunnelSerializerT serializer);
 }

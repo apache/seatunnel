@@ -22,9 +22,10 @@ import org.apache.seatunnel.translation.sink.SinkAggregatedCommitterConverter;
 
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 
-public class FlinkGlobalCommitterConverter<CommT, GlobalCommT> implements SinkAggregatedCommitterConverter<GlobalCommitter<CommT, GlobalCommT>> {
+public class FlinkGlobalCommitterConverter<CommT, GlobalCommT>
+    implements SinkAggregatedCommitterConverter<SinkAggregatedCommitter<CommT, GlobalCommT>, GlobalCommitter<CommT, GlobalCommT>> {
     @Override
-    public GlobalCommitter<CommT, GlobalCommT> convert(SinkAggregatedCommitter<?, ?> sinkCommitter) {
-        return new FlinkGlobalCommitter(sinkCommitter);
+    public GlobalCommitter<CommT, GlobalCommT> convert(SinkAggregatedCommitter<CommT, GlobalCommT> sinkCommitter) {
+        return new FlinkGlobalCommitter<>(sinkCommitter);
     }
 }
