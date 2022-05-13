@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.translation.spark.sink;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.List;
+import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 
-public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> extends Serializable {
+public class SparkWriterCommitMessage<T> implements WriterCommitMessage {
 
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException;
+    private T message;
 
-    AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
+    SparkWriterCommitMessage(T message) {
+        this.message = message;
+    }
 
-    void abort(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws Exception;
+    public T getMessage() {
+        return message;
+    }
 
-    void close() throws IOException;
+    public void setMessage(T message) {
+        this.message = message;
+    }
 }

@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,18 +40,11 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter
 
     @Override
     public GlobalCommT combine(List<CommT> committables) throws IOException {
-        // TODO add combine logic
-        return null;
+        return aggregatedCommitter.combine(committables);
     }
 
     @Override
     public List<GlobalCommT> commit(List<GlobalCommT> globalCommittables) throws IOException {
-        List<GlobalCommT> all = new ArrayList<>();
-        globalCommittables.forEach(c -> {
-            all.addAll((List) c);
-        });
-        globalCommittables.clear();
-        globalCommittables.addAll(all);
         return aggregatedCommitter.commit(globalCommittables);
     }
 
