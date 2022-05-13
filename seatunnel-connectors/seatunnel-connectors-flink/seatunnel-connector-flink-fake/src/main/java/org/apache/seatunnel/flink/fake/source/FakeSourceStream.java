@@ -17,22 +17,35 @@
 
 package org.apache.seatunnel.flink.fake.source;
 
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_BOUNDED;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_ENABLE;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_INTERVAL;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_INTERVAL_DEFAULT_VALUE;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_NAME;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_TYPE;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE_DEFAULT_VALUE;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
+import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
+
+import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.flink.FlinkEnvironment;
-import org.apache.seatunnel.flink.stream.FlinkStreamSource;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
-import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
-import static org.apache.seatunnel.flink.fake.Config.*;
 
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource {
 
@@ -42,11 +55,20 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     private Config config;
 
+    private List<MockSchema> mockDataSchema;
+    private boolean mockDataEnable;
+    private boolean mockDataBounded;
+    private long mockDataSize;
+    private long mockDataInterval;
+
     @Override
     public DataStream<Row> getData(FlinkEnvironment env) {
         DataStreamSource<Row> source = env.getStreamExecutionEnvironment().addSource(this);
         if (config.hasPath(PARALLELISM)) {
             source = source.setParallelism(config.getInt(PARALLELISM));
+        }
+        if (mockDataEnable) {
+            return source.returns(MockSchema.mockRowTypeInfo(mockDataSchema));
         }
         return source.returns(new RowTypeInfo(STRING_TYPE_INFO, LONG_TYPE_INFO));
     }
@@ -60,28 +82,47 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     public Config getConfig() {
         return config;
     }
-    
+
     @Override
     public void prepare(FlinkEnvironment env) {
-        boolean mockDataEnable = config.getBoolean(MOCK_DATA_ENABLE);
-        boolean mockDataBounded = config.getBoolean(MOCK_DATA_BOUNDED);
-        List<MockSchema> mockDataSchema = config.getConfigList(MOCK_DATA_SCHEMA)
-            .stream()
-            .map(
-                schemaConfig->{
+        mockDataEnable = config.hasPath(MOCK_DATA_ENABLE) && config.getBoolean(MOCK_DATA_ENABLE);
+        if (mockDataEnable) {
+            mockDataBounded = config.hasPath(MOCK_DATA_BOUNDED) && config.getBoolean(MOCK_DATA_BOUNDED);
+            if (config.hasPath(MOCK_DATA_SCHEMA)) {
+                mockDataSchema = config.getConfigList(MOCK_DATA_SCHEMA)
+                    .stream()
+                    .map(
+                        schemaConfig -> {
+                            MockSchema schema = new MockSchema();
+                            schema.setName(schemaConfig.getString(MOCK_DATA_SCHEMA_NAME));
+                            schema.setType(schemaConfig.getString(MOCK_DATA_SCHEMA_TYPE));
+                            if (schemaConfig.hasPath(MOCK_DATA_SCHEMA_MOCK)) {
+                                schema.setMockConfig(schemaConfig.getConfig(MOCK_DATA_SCHEMA_MOCK));
+                            }
+                            return schema;
+                        }
+                    )
+                    .collect(Collectors.toList());
+                mockDataSize =
+                    config.hasPath(MOCK_DATA_SIZE) ?
+                        config.getLong(MOCK_DATA_SIZE) :
+                        MOCK_DATA_SIZE_DEFAULT_VALUE;
+            } else {
+                mockDataSchema = new ArrayList<>(0);
+                for (String name : NAME_ARRAY) {
                     MockSchema schema = new MockSchema();
-                    schema.setName(schemaConfig.getString(MOCK_DATA_SCHEMA_NAME));
-                    schema.setType(schemaConfig.getString(MOCK_DATA_SCHEMA_TYPE));
-                    schema.setMock(schemaConfig.getString(MOCK_DATA_SCHEMA_MOCK));
-                    return schema;
+                    schema.setName(name);
+                    schema.setType("string");
+                    mockDataSchema.add(schema);
                 }
-            )
-            .collect(Collectors.toList());
-        long mockDataSize = config.getLong(MOCK_DATA_SIZE);
-        long mockDataInterval = config.getLong(MOCK_DATA_INTERVAL);
-        
+            }
+            mockDataInterval =
+                config.hasPath(MOCK_DATA_INTERVAL) ?
+                    config.getLong(MOCK_DATA_INTERVAL) :
+                    MOCK_DATA_INTERVAL_DEFAULT_VALUE;
+        }
     }
-    
+
     @Override
     public String getPluginName() {
         return "FakeSourceStream";
@@ -91,17 +132,23 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     @Override
     public void run(SourceContext<Row> ctx) throws Exception {
-        while (running) {
-            int randomNum = (int) (1 + Math.random() * NAME_ARRAY.length);
-            Row row = Row.of(NAME_ARRAY[randomNum - 1], System.currentTimeMillis());
-            ctx.collect(row);
-            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
-        }
-    
-        List<MockSchema> mockDataSchema;
-    
-        for (MockSchema schema : mockDataSchema) {
-        
+        if (!mockDataEnable) {
+            while (running) {
+                int randomNum = (int) (1 + Math.random() * NAME_ARRAY.length);
+                Row row = Row.of(NAME_ARRAY[randomNum - 1], System.currentTimeMillis());
+                ctx.collect(row);
+                Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+            }
+        } else {
+            int index = 0;
+            while (running && index < mockDataSize){
+                Row rowData = MockSchema.mockRowData(mockDataSchema);
+                ctx.collect(rowData);
+                if (mockDataBounded) {
+                    index++;
+                }
+                Thread.sleep(TimeUnit.SECONDS.toMillis(mockDataInterval));
+            }
         }
     }
 
