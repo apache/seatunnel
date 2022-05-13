@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark;
+package org.apache.seatunnel.core.base.config;
 
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.exception.CommandException;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.command.SparkCommandBuilder;
-import org.apache.seatunnel.core.spark.utils.CommandLineUtils;
+import org.apache.seatunnel.apis.base.env.RuntimeEnv;
+import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 
-public class SeatunnelSpark {
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    public static void main(String[] args) throws CommandException {
-        SparkCommandArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Command<SparkCommandArgs> sparkCommand =
-            new SparkCommandBuilder().buildCommand(sparkArgs);
-        Seatunnel.run(sparkCommand);
-    }
+/**
+ * Check the config is valid.
+ *
+ * @param <ENVIRONMENT> the environment type.
+ */
+public interface ConfigChecker<ENVIRONMENT extends RuntimeEnv> {
+
+    /**
+     * Check if the config is validated, if check fails, throw exception.
+     *
+     * @param config given config.
+     */
+    void checkConfig(Config config) throws ConfigCheckException;
+
 }

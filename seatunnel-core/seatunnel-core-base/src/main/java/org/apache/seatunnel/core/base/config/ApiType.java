@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark;
+package org.apache.seatunnel.core.base.config;
 
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.exception.CommandException;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.command.SparkCommandBuilder;
-import org.apache.seatunnel.core.spark.utils.CommandLineUtils;
+public enum ApiType {
+    ENGINE_API("engine"),
+    SEATUNNEL_API("seatunnel"),
+    ;
+    private final String apiType;
 
-public class SeatunnelSpark {
+    ApiType(String apiType) {
+        this.apiType = apiType;
+    }
 
-    public static void main(String[] args) throws CommandException {
-        SparkCommandArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
-        Command<SparkCommandArgs> sparkCommand =
-            new SparkCommandBuilder().buildCommand(sparkArgs);
-        Seatunnel.run(sparkCommand);
+    public String getApiType() {
+        return apiType;
     }
 }

@@ -43,6 +43,7 @@ public class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
         this.engine = engine;
     }
 
+    // todo:put this method into submodule to avoid dependency on the engine
     public synchronized ENVIRONMENT getEnvironment() {
         Config envConfig = config.getConfig("env");
         boolean enableHive = checkIsContainHive();
