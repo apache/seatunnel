@@ -17,16 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
 
 import java.util.List;
-import java.util.Optional;
 
 public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, ConsoleCommitInfo, ConsoleAggregatedCommitInfo> {
 
@@ -39,30 +35,5 @@ public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, Co
     public SinkWriter<SeaTunnelRow, ConsoleCommitInfo, ConsoleState> restoreWriter(
         SinkWriter.Context context, List<ConsoleState> states) {
         return restoreWriter(context, states);
-    }
-
-    @Override
-    public Optional<Serializer<ConsoleState>> getWriterStateSerializer() {
-        return getWriterStateSerializer();
-    }
-
-    @Override
-    public Optional<SinkCommitter<ConsoleCommitInfo>> createCommitter() {
-        return createCommitter();
-    }
-
-    @Override
-    public Optional<Serializer<ConsoleCommitInfo>> getCommitInfoSerializer() {
-        return getCommitInfoSerializer();
-    }
-
-    @Override
-    public Optional<SinkAggregatedCommitter<ConsoleCommitInfo, ConsoleAggregatedCommitInfo>> createAggregatedCommitter() {
-        return createAggregatedCommitter();
-    }
-
-    @Override
-    public Optional<Serializer<ConsoleAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return getAggregatedCommitInfoSerializer();
     }
 }

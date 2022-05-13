@@ -19,17 +19,26 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class FakeSourceReader implements SourceReader<FakeSourceEvent, FakeSourceSplit> {
+public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
     private final SourceReader.Context context;
+
+    private final String[] names = {"Wenjun", "Fanjia", "Zongwen", "CalvinKirs"};
+    private final int[] ages = {1024, 2048, 4096, 8192};
+    private final Random random = ThreadLocalRandom.current();
 
     public FakeSourceReader(SourceReader.Context context) {
         this.context = context;
@@ -47,8 +56,15 @@ public class FakeSourceReader implements SourceReader<FakeSourceEvent, FakeSourc
 
     @Override
     @SuppressWarnings("magicnumber")
-    public void pollNext(Collector<FakeSourceEvent> output) {
-        output.collect(new FakeSourceEvent("Tom", 19, System.currentTimeMillis()));
+    public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
+        Thread.sleep(1000L);
+        int i = random.nextInt(names.length);
+        Map<String, Object> fieldMap = new HashMap<>(4);
+        fieldMap.put("name", names[i]);
+        fieldMap.put("age", ages[i]);
+        fieldMap.put("timestamp", System.currentTimeMillis());
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[i], ages[i], System.currentTimeMillis()}, fieldMap);
+        output.collect(seaTunnelRow);
     }
 
     @Override

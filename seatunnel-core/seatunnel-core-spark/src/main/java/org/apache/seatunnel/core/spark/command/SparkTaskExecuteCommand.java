@@ -26,6 +26,7 @@ import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.EngineType;
 import org.apache.seatunnel.core.base.config.ExecutionContext;
 import org.apache.seatunnel.core.base.config.ExecutionFactory;
+import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.spark.SparkEnvironment;
@@ -44,11 +45,11 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
     }
 
     @Override
-    public void execute() {
+    public void execute() throws CommandExecuteException {
         EngineType engine = sparkCommandArgs.getEngineType();
         Path confFile = FileUtils.getConfigPath(sparkCommandArgs);
 
-        Config config = new ConfigBuilder<>(confFile, engine).getConfig();
+        Config config = new ConfigBuilder(confFile).getConfig();
         ExecutionContext<SparkEnvironment> executionContext = new ExecutionContext<>(config, engine);
 
         List<BaseSource<SparkEnvironment>> sources = executionContext.getSources();
@@ -66,7 +67,7 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);
         } catch (Exception e) {
-            throw new RuntimeException("Execute Spark task error", e);
+            throw new CommandExecuteException("Execute Spark task error", e);
         }
     }
 
