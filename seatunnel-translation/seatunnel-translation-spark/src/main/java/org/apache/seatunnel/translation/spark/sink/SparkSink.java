@@ -18,7 +18,7 @@
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
-import org.apache.seatunnel.api.sink.Sink;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.apache.spark.sql.SaveMode;
@@ -38,7 +38,7 @@ import java.util.Optional;
 public class SparkSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> implements WriteSupport,
         StreamWriteSupport, DataSourceV2 {
 
-    private Sink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    private SeaTunnelSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
     private Map<String, String> configuration;
 
     private void init(DataSourceOptions options) {

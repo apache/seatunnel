@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
-import org.apache.seatunnel.api.sink.Sink;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.translation.sink.SinkConverter;
 
 import org.apache.spark.sql.sources.v2.WriteSupport;
 
 import java.util.Map;
 
-public class SparkSinkConverter implements SinkConverter<WriteSupport> {
+public class SparkSinkConverter<Input, StateT, CommitInfoT, AggregatedCommitInfoT>
+        implements SinkConverter<SeaTunnelSink<Input, StateT, CommitInfoT, AggregatedCommitInfoT>, WriteSupport> {
 
     @Override
-    public WriteSupport convert(Sink<?, ?, ?, ?> sink, Map<String, String> configuration) {
+    public WriteSupport convert(SeaTunnelSink<Input, StateT, CommitInfoT, AggregatedCommitInfoT> sink, Map<String, String> configuration) {
         throw new UnsupportedOperationException("Do not use SinkConverter to convert SeaTunnel Sink in " +
                 "Spark engine. Because Spark use refactor and SPI to load sink class. Use SparkSinkInjector" +
                 " instead.");

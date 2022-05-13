@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
-import org.apache.seatunnel.api.sink.Sink;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.apache.spark.sql.Dataset;
@@ -31,7 +31,7 @@ public class SparkSinkInjector {
 
     private static final String SPARK_SINK_CLASS_NAME = "org.apache.seatunnel.translation.spark.sink.SparkSink";
 
-    public static DataStreamWriter<Row> inject(Dataset<Row> dataset, Sink<?, ?, ?, ?> sink,
+    public static DataStreamWriter<Row> inject(Dataset<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink,
                                                HashMap<String, String> configuration) {
         return dataset.writeStream().format(SPARK_SINK_CLASS_NAME).outputMode(OutputMode.Append())
                 .option("configuration", SerializationUtils.objectToString(configuration)).option("sink",
