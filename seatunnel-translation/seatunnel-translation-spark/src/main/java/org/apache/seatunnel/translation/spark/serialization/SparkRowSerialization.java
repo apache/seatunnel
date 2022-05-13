@@ -22,6 +22,8 @@ import org.apache.seatunnel.translation.serialization.RowSerialization;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
 
@@ -37,6 +39,14 @@ public class SparkRowSerialization implements RowSerialization<Row> {
         Object[] fields = new Object[engineRow.length()];
         for (int i = 0; i < engineRow.length(); i++) {
             fields[i] = engineRow.get(i);
+        }
+        return new SeaTunnelRow(fields);
+    }
+
+    public SeaTunnelRow deserialize(StructType schema, InternalRow engineRow) throws IOException {
+        Object[] fields = new Object[engineRow.numFields()];
+        for (int i = 0; i < engineRow.numFields(); i++) {
+            fields[i] = engineRow.get(i, schema.apply(i).dataType());
         }
         return new SeaTunnelRow(fields);
     }

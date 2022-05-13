@@ -18,8 +18,9 @@
 package org.apache.seatunnel.api.serialization;
 
 import java.io.IOException;
+import java.io.Serializable;
 
-public interface Serializer<T> {
+public interface Serializer<T> extends Serializable{
 
     /**
      * Serializes the given object.

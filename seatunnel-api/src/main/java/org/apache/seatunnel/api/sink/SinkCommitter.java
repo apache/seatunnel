@@ -18,11 +18,12 @@
 package org.apache.seatunnel.api.sink;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.List;
 
-public interface SinkCommitter<CommitInfoT> {
+public interface SinkCommitter<CommitInfoT> extends Serializable {
 
     List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
 
-    void abort() throws Exception;
+    void abort() throws IOException;
 }

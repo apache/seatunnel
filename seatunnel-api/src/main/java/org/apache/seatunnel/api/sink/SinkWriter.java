@@ -18,11 +18,12 @@
 package org.apache.seatunnel.api.sink;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public interface SinkWriter<T, CommitInfoT, StateT> {
+public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable{
 
     void write(T element) throws IOException;
 

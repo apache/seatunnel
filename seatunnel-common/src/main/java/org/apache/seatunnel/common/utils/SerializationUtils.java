@@ -15,19 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.common.utils;
 
-import java.io.IOException;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.Serializable;
-import java.util.List;
 
-public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> extends Serializable {
+public class SerializationUtils {
 
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException;
+    public static String objectToString(Serializable obj) {
+        if (obj != null) {
+            return Base64.encodeBase64String(org.apache.commons.lang3.SerializationUtils.serialize(obj));
+        }
+        return null;
+    }
 
-    AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
-
-    void abort(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws Exception;
-
-    void close() throws IOException;
+    public static <T extends Serializable> T stringToObject(String str) {
+        if (StringUtils.isNotEmpty(str)) {
+            return org.apache.commons.lang3.SerializationUtils.deserialize(Base64.decodeBase64(str));
+        }
+        return null;
+    }
 }
