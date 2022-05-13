@@ -20,7 +20,7 @@ package org.apache.seatunnel.translation.spark.sink;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
-import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.DataFrameWriter;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.streaming.DataStreamWriter;
 import org.apache.spark.sql.streaming.OutputMode;
@@ -31,9 +31,16 @@ public class SparkSinkInjector {
 
     private static final String SPARK_SINK_CLASS_NAME = "org.apache.seatunnel.translation.spark.sink.SparkSink";
 
-    public static DataStreamWriter<Row> inject(Dataset<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink,
+    public static DataStreamWriter<Row> inject(DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink,
                                                HashMap<String, String> configuration) {
-        return dataset.writeStream().format(SPARK_SINK_CLASS_NAME).outputMode(OutputMode.Append())
+        return dataset.format(SPARK_SINK_CLASS_NAME).outputMode(OutputMode.Append())
+                .option("configuration", SerializationUtils.objectToString(configuration)).option("sink",
+                        SerializationUtils.objectToString(sink));
+    }
+
+    public static DataFrameWriter<Row> inject(DataFrameWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink,
+                                              HashMap<String, String> configuration) {
+        return dataset.format(SPARK_SINK_CLASS_NAME)
                 .option("configuration", SerializationUtils.objectToString(configuration)).option("sink",
                         SerializationUtils.objectToString(sink));
     }
