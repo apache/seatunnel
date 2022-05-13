@@ -26,6 +26,7 @@ import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.EngineType;
 import org.apache.seatunnel.core.base.config.ExecutionContext;
 import org.apache.seatunnel.core.base.config.ExecutionFactory;
+import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.flink.FlinkEnvironment;
@@ -36,22 +37,22 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Used to execute Flink Job.
+ * Used to execute Flink Job by Flink API.
  */
-public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs, FlinkEnvironment> {
+public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs, FlinkEnvironment> {
 
     private final FlinkCommandArgs flinkCommandArgs;
 
-    public FlinkTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
+    public FlinkApiTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 
     @Override
-    public void execute() {
+    public void execute() throws CommandExecuteException {
         EngineType engine = flinkCommandArgs.getEngineType();
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
 
-        Config config = new ConfigBuilder<>(configFile, engine).getConfig();
+        Config config = new ConfigBuilder(configFile).getConfig();
         ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine);
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
@@ -68,7 +69,7 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);
         } catch (Exception e) {
-            throw new RuntimeException("Execute Flink task error", e);
+            throw new CommandExecuteException("Execute Flink task error", e);
         }
     }
 

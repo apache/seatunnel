@@ -19,11 +19,10 @@ package org.apache.seatunnel.core.flink.command;
 
 import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
-import org.apache.seatunnel.core.base.config.EngineType;
+import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.core.flink.config.FlinkApiConfigChecker;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,26 +30,23 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * Used to execute a SeaTunnelTask. This command is used to execute the Flink job by new API.
+ * Used to check the Flink conf is validated.
  */
-public class SeaTunnelTaskExecuteCommand implements Command<FlinkCommandArgs> {
+public class FlinkApiConfValidateCommand implements Command<FlinkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiConfValidateCommand.class);
 
     private final FlinkCommandArgs flinkCommandArgs;
 
-    public SeaTunnelTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
+    public FlinkApiConfValidateCommand(FlinkCommandArgs flinkCommandArgs) {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 
     @Override
-    public void execute() {
-        EngineType engine = flinkCommandArgs.getEngineType();
-        Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
-
-        Config config = new ConfigBuilder<>(configFile, engine).getConfig();
-        // initialize the new plugin.
-        // translate plugin to flink source/sink
-        // execute the flink job
+    public void execute() throws ConfigCheckException {
+        Path configPath = FileUtils.getConfigPath(flinkCommandArgs);
+        ConfigBuilder configBuilder = new ConfigBuilder(configPath);
+        new FlinkApiConfigChecker().checkConfig(configBuilder.getConfig());
+        LOGGER.info("config OK !");
     }
 }
