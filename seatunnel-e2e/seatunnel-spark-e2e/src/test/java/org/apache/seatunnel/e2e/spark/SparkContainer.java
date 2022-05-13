@@ -151,9 +151,7 @@ public abstract class SparkContainer {
     }
 
     private String getConnectorPath(String fileName) {
-        String path = Paths.get(CONNECTORS_PATH, "spark", fileName).toString();
-        // Running IT use cases under Windows requires replacing \ with /
-        return path.replaceAll("\\\\", "/");
+        return Paths.get(CONNECTORS_PATH, "spark", fileName).toString();
     }
 
     private List<File> getConnectorJarFiles() {
