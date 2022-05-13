@@ -103,8 +103,7 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
     val checkResult = checkAllExists(config, "topics")
     if (checkResult.isSuccess) {
       val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
-      checkAllExists(consumerConfig, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)
-      checkAllExists(consumerConfig, ConsumerConfig.GROUP_ID_CONFIG)
+      checkAllExists(consumerConfig, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, ConsumerConfig.GROUP_ID_CONFIG)
     } else {
       checkResult
     }
