@@ -591,6 +591,12 @@
                 <version>${iceberg.version}</version>
                 <scope>provided</scope>
             </dependency>
+            
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>${scala.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>com.crealytics</groupId>
