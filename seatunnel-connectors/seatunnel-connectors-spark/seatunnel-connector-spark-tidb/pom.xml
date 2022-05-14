@@ -60,6 +60,10 @@
                     <groupId>mysql</groupId>
                     <artifactId>mysql-connector-java</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.spark</groupId>
+                    <artifactId>spark-sql_${scala.binary.version}}</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
