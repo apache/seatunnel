@@ -30,16 +30,18 @@ import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE_DEFAULT_VALU
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
 
+import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
-import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.types.Row;
 
 import java.util.ArrayList;
@@ -47,6 +49,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@AutoService(BaseFlinkSource.class)
 public class FakeSourceStream extends RichParallelSourceFunction<Row> implements FlinkStreamSource {
 
     private static final long serialVersionUID = -3026082767246767679L;
@@ -131,7 +134,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
 
     @Override
-    public void run(SourceContext<Row> ctx) throws Exception {
+    public void run(SourceFunction.SourceContext<Row> ctx) throws Exception {
         if (!mockDataEnable) {
             while (running) {
                 int randomNum = (int) (1 + Math.random() * NAME_ARRAY.length);

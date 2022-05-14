@@ -21,6 +21,8 @@ import org.apache.seatunnel.apis.base.api.BaseSink;
 import org.apache.seatunnel.apis.base.api.BaseSource;
 import org.apache.seatunnel.apis.base.api.BaseTransform;
 import org.apache.seatunnel.apis.base.env.Execution;
+import org.apache.seatunnel.apis.base.plugin.Plugin;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.base.command.BaseTaskExecuteCommand;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.EngineType;
@@ -29,11 +31,21 @@ import org.apache.seatunnel.core.base.config.ExecutionFactory;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSink;
+import org.apache.seatunnel.flink.batch.FlinkBatchSource;
+import org.apache.seatunnel.flink.batch.FlinkBatchTransform;
+import org.apache.seatunnel.flink.stream.FlinkStreamSink;
+import org.apache.seatunnel.flink.stream.FlinkStreamSource;
+import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Used to execute Flink Job.
@@ -57,6 +69,7 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
         List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();
 
+        checkPluginType(executionContext.getJobMode(), sources, transforms, sinks);
         baseCheckConfig(sinks, transforms, sinks);
         showAsciiLogo();
 
@@ -69,6 +82,36 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
             close(sources, transforms, sinks);
         } catch (Exception e) {
             throw new RuntimeException("Execute Flink task error", e);
+        }
+    }
+
+    @VisibleForTesting
+    @SuppressWarnings("unchecked")
+    void checkPluginType(JobMode jobMode, List<? extends Plugin<FlinkEnvironment>>... plugins) {
+        Stream<? extends Plugin<?>> pluginStream = Arrays.stream(plugins).flatMap(List::stream);
+        switch (jobMode) {
+            case STREAMING:
+                pluginStream.forEach(plugin -> {
+                    boolean isStream = (plugin instanceof FlinkStreamSource)
+                        || (plugin instanceof FlinkStreamTransform)
+                        || (plugin instanceof FlinkStreamSink);
+                    if (!isStream) {
+                        throw new IllegalArgumentException(String.format("Cannot use batch plugin: %s in stream mode", plugin.getPluginName()));
+                    }
+                });
+                break;
+            case BATCH:
+                pluginStream.forEach(plugin -> {
+                    boolean isBatch = (plugin instanceof FlinkBatchSource)
+                        || (plugin instanceof FlinkBatchTransform)
+                        || (plugin instanceof FlinkBatchSink);
+                    if (!isBatch) {
+                        throw new IllegalArgumentException(String.format("Cannot use stream plugin: %s in batch mode", plugin.getPluginName()));
+                    }
+                });
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported job mode: " + jobMode);
         }
     }
 
