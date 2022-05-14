@@ -32,7 +32,6 @@ import java.nio.file.Path;
 /**
  * Used to build the {@link  Config} from file.
  *
- * @param <ENVIRONMENT> environment type.
  */
 public class ConfigBuilder {
 
