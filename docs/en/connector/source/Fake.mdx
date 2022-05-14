@@ -122,20 +122,33 @@ source {
         //{
         //    name = "name",
         //    type = "string"
-        //    mock_config = {
-        //       size_range = 6,10  //see https://github.com/jsonzou/jmockdata
+        //    mock_config = { //see https://github.com/jsonzou/jmockdata, next is all kind config, not all configurations are required
+        //       byte_range = [0,127]  // byte value will mock range between 0 and 127.
+        //       boolean_seed = [true, true, false] // boolean  value will mock random in this array.
+        //       char_seed = ['a','b','c'] // char value will mock random in this array.
+        //       date_range = ["1970-01-01", "2100-12-31"] // date value will mock random in this array.
+        //       decimal_scale = 2 // decimal's scale is 2
+        //       double_range = [0.0, 10000.0] // double value will mock range between 0.0 and 10000.0.
+        //       float_range = [0.0, 10000.0] // float value will mock range between 0.0 and 10000.0.
+        //       int_range = [0, 100] // int value will mock range between 0 and 100.
+        //       long_range = [0, 100000] // long value will mock range between 0 and 100000.
+        //       number_regex = "[1-9]{1}\\d?" // number value will mock use the regex template.
+        //       time_range = [0,24,0,60,0,60] // time value will mock in [0-24]:[0-60]:[0-60]
+        //       size_range = [6,10] // mock data length.
+        //       string_regex = "[a-z0-9]{5,15}\\@\\w{3,5}\\.[a-z]{2,3}" // string value will mock use the regex template.
+        //       string_seed = ["Gary", "Ricky Huo", "Kid Xiong"]   // string value will mock in this array. It like mock_data_enable = false.
         //    }
         //},
         //{
         //    name = "age",
         //    type = "int"
         //    mock_config = {
-        //       int_range = 20,30
+        //       int_range = [20,30]
         //    }
         //}
         //]
-        //mock_data_size = 300
-        //mock_data_interval = 1
+        //mock_data_size = 300 // data will mock until count 300.
+        //mock_data_interval = 1 // data will mock interval 1 second.
     }
 }
 ```
