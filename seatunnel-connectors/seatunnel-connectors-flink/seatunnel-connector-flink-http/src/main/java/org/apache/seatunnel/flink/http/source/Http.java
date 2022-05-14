@@ -20,6 +20,7 @@ package org.apache.seatunnel.flink.http.source;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
 import org.apache.seatunnel.flink.http.source.constant.Settings;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.flink.http.source.util.HttpClientUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auto.service.AutoService;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.operators.DataSource;
@@ -43,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@AutoService(BaseFlinkSource.class)
 public class Http implements FlinkBatchSource {
 
     private static final String GET = "GET";
