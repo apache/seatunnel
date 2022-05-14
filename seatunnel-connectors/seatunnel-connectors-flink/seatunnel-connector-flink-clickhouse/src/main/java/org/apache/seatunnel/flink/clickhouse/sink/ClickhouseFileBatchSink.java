@@ -30,7 +30,9 @@ import static org.apache.seatunnel.flink.clickhouse.ConfigKey.USERNAME;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.clickhouse.pojo.ClickhouseFileCopyMethod;
 import org.apache.seatunnel.flink.clickhouse.pojo.IntHolder;
 import org.apache.seatunnel.flink.clickhouse.pojo.Shard;
@@ -40,6 +42,7 @@ import org.apache.seatunnel.flink.clickhouse.sink.client.ClickhouseClient;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 import org.apache.flink.api.common.functions.MapPartitionFunction;
 import org.apache.flink.api.common.functions.Partitioner;
@@ -61,7 +64,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class ClickhouseFileBatchSink extends ClickhouseBatchSink {
+@AutoService(BaseFlinkSink.class)
+public class ClickhouseFileBatchSink implements FlinkBatchSink {
 
     private Config config;
     private ShardMetadata shardMetadata;
@@ -178,7 +182,7 @@ public class ClickhouseFileBatchSink extends ClickhouseBatchSink {
 
     @Override
     public void close() {
-        super.close();
+        // do nothing
     }
 
     @Override

@@ -32,6 +32,7 @@ import static org.apache.seatunnel.flink.clickhouse.ConfigKey.USERNAME;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.clickhouse.pojo.Shard;
@@ -41,6 +42,7 @@ import org.apache.seatunnel.flink.clickhouse.sink.client.ClickhouseClient;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.types.Row;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("magicnumber")
+@AutoService(BaseFlinkSink.class)
 public class ClickhouseBatchSink implements FlinkBatchSink {
 
     private ShardMetadata shardMetadata;
