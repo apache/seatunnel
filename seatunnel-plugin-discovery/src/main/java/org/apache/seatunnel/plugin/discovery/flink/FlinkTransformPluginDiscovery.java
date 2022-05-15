@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.config;
+package org.apache.seatunnel.plugin.discovery.flink;
 
-public enum PluginType {
-    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
+import org.apache.seatunnel.flink.BaseFlinkTransform;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
-    private final String type;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
-    PluginType(String type) {
-        this.type = type;
+public class FlinkTransformPluginDiscovery extends FlinkAbstractPluginDiscovery<BaseFlinkTransform> {
+
+    public FlinkTransformPluginDiscovery() {
+        super("flink");
     }
 
-    public String getType() {
-        return type;
+    @Override
+    public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
+        return new ArrayList<>();
+    }
+
+    @Override
+    protected Class<BaseFlinkTransform> getPluginBaseClass() {
+        return BaseFlinkTransform.class;
     }
 }

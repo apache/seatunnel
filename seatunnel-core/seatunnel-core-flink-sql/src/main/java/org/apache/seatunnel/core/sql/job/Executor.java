@@ -44,7 +44,6 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -137,21 +136,16 @@ public class Executor {
      * Refer https://github.com/apache/incubator-seatunnel/pull/1850
      */
     private static void loadConnector(String connectorType, Configuration configuration) {
-        Iterator<Factory> factories = ServiceLoader.load(Factory.class, CLASSLOADER).iterator();
-        while (factories.hasNext()) {
-            Factory factory = factories.next();
-
-            /**
-             * Handle for two cases:
-             * 1. Flink built-in connectors.
-             * 2. Connectors have been placed in classpath.
-             */
+        // Handle for two cases:
+        // 1. Flink built-in connectors.
+        // 2. Connectors have been placed in classpath.
+        for (Factory factory : ServiceLoader.load(Factory.class, CLASSLOADER)) {
             if (factory.factoryIdentifier().equals(connectorType)) {
                 return;
             }
         }
 
-        Common.setDeployMode(DeployMode.CLIENT.getName());
+        Common.setDeployMode(DeployMode.CLIENT);
         File connectorDir = Common.connectorJarDir(SQL_CONNECTOR_PREFIX).toFile();
         if (!connectorDir.exists() || connectorDir.listFiles() == null) {
             return;

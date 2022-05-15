@@ -26,10 +26,7 @@ public class SparkCommandBuilder implements CommandBuilder<SparkCommandArgs> {
 
     @Override
     public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
-        if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
-            throw new IllegalArgumentException(
-                String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
-        }
+        Common.setDeployMode(commandArgs.getDeployMode());
         return commandArgs.isCheckConfig() ? new SparkConfValidateCommand(commandArgs)
             : new SparkTaskExecuteCommand(commandArgs);
     }
