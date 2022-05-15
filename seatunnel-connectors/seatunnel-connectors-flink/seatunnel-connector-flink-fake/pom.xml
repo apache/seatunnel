@@ -24,7 +24,6 @@
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connectors-flink</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -49,11 +48,6 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.github.jsonzou</groupId>
-            <artifactId>jmockdata</artifactId>
-            <version>4.3.0</version>
         </dependency>
     </dependencies>
 
