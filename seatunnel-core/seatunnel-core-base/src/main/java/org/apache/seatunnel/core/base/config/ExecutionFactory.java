@@ -42,9 +42,9 @@ public class ExecutionFactory<ENVIRONMENT extends RuntimeEnv> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ExecutionFactory.class);
 
-    public ExecutionContext<ENVIRONMENT> executionContext;
+    public AbstractExecutionContext<ENVIRONMENT> executionContext;
 
-    public ExecutionFactory(ExecutionContext<ENVIRONMENT> executionContext) {
+    public ExecutionFactory(AbstractExecutionContext<ENVIRONMENT> executionContext) {
         this.executionContext = executionContext;
     }
 
