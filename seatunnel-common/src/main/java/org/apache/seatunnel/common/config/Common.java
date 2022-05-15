@@ -32,8 +32,13 @@ public class Common {
         throw new IllegalStateException("Utility class");
     }
 
+    /**
+     * Used to set the size when create a new collection(just to pass the checkstyle).
+     */
+    public static final int COLLECTION_SIZE = 16;
+
     private static final List<String> ALLOWED_MODES = Arrays.stream(DeployMode.values())
-            .map(DeployMode::getName).collect(Collectors.toList());
+        .map(DeployMode::getName).collect(Collectors.toList());
 
     private static Optional<String> MODE = Optional.empty();
 

@@ -24,11 +24,11 @@ import org.apache.seatunnel.apis.base.env.Execution;
 import org.apache.seatunnel.core.base.command.BaseTaskExecuteCommand;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.EngineType;
-import org.apache.seatunnel.core.base.config.ExecutionContext;
 import org.apache.seatunnel.core.base.config.ExecutionFactory;
 import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.spark.config.SparkExecutionContext;
 import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -50,7 +50,7 @@ public class SparkTaskExecuteCommand extends BaseTaskExecuteCommand<SparkCommand
         Path confFile = FileUtils.getConfigPath(sparkCommandArgs);
 
         Config config = new ConfigBuilder(confFile).getConfig();
-        ExecutionContext<SparkEnvironment> executionContext = new ExecutionContext<>(config, engine);
+        SparkExecutionContext executionContext = new SparkExecutionContext(config, engine);
 
         List<BaseSource<SparkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<SparkEnvironment>> transforms = executionContext.getTransforms();
