@@ -17,18 +17,13 @@
 
 package org.apache.seatunnel.plugin.discovery.spark;
 
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.spark.BaseSparkTransform;
 
 import java.net.URL;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.ServiceLoader;
-import java.util.stream.Collectors;
 
 /**
  * Transform plugin will load from the classpath.
@@ -41,24 +36,6 @@ public class SparkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseS
 
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return Collections.emptyList();
-    }
-
-    @Override
-    public List<BaseSparkTransform> getAllPlugins(List<PluginIdentifier> pluginIdentifiers) {
-        ServiceLoader<BaseSparkTransform> serviceLoader = ServiceLoader.load(getPluginBaseClass());
-        Map<String, BaseSparkTransform> sparkTransformMap = new HashMap<>(Common.COLLECTION_SIZE);
-        for (BaseSparkTransform sparkTransform : serviceLoader) {
-            sparkTransformMap.put(sparkTransform.getPluginName().toLowerCase(), sparkTransform);
-        }
-        return pluginIdentifiers.stream()
-            .map(pluginIdentifier -> {
-                BaseSparkTransform sparkTransform =
-                    sparkTransformMap.get(pluginIdentifier.getPluginName().toLowerCase());
-                if (sparkTransform == null) {
-                    throw new IllegalArgumentException("Cannot find plugin " + pluginIdentifier);
-                }
-                return sparkTransform;
-            }).collect(Collectors.toList());
     }
 
     @Override
