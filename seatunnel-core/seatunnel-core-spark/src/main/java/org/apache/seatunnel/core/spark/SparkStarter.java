@@ -215,7 +215,7 @@ public class SparkStarter implements Starter {
      * return connector's jars, which located in 'connectors/spark/*'.
      */
     private List<Path> getConnectorJarDependencies() {
-        Path pluginRootDir = Common.connectorJarDir("SPARK");
+        Path pluginRootDir = Common.connectorJarDir("spark");
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }

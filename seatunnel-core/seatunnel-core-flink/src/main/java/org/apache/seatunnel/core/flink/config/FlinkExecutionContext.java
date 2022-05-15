@@ -48,8 +48,9 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         this.flinkTransformPluginDiscovery = new FlinkTransformPluginDiscovery();
         this.flinkSinkPluginDiscovery = new FlinkSinkPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
+        // since we didn't split the transform plugin jars, we just need to register the source/sink plugin jars
         pluginJars.addAll(flinkSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SOURCE)));
-        pluginJars.addAll(flinkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.TRANSFORM)));
+        pluginJars.addAll(flinkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SINK)));
         this.pluginJars = pluginJars;
         this.getEnvironment().registerPlugin(pluginJars);
     }

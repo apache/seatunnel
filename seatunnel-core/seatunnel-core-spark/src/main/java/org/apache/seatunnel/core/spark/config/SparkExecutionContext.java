@@ -49,7 +49,7 @@ public class SparkExecutionContext extends AbstractExecutionContext<SparkEnviron
         this.sparkSinkPluginDiscovery = new SparkSinkPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         pluginJars.addAll(sparkSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SOURCE)));
-        pluginJars.addAll(sparkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.TRANSFORM)));
+        pluginJars.addAll(sparkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SINK)));
         this.pluginJars = pluginJars;
         this.getEnvironment().registerPlugin(pluginJars);
     }
