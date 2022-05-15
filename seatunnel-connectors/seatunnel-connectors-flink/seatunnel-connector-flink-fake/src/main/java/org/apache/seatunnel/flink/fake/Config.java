@@ -32,11 +32,6 @@ public final class Config {
     public static final String MOCK_DATA_ENABLE = "mock_data_enable";
 
     /**
-     * Enable bounded data mode in FakeSourceStream. It used when mock_data_enable = true
-     */
-    public static final String MOCK_DATA_BOUNDED = "mock_data_bounded";
-
-    /**
      * Configuration mock data schema in FakeSourceStream. It used when mock_data_enable = true
      */
     public static final String MOCK_DATA_SCHEMA = "mock_data_schema";

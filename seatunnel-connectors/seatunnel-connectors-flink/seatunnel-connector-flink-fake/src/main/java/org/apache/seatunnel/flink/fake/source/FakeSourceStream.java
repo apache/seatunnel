@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.fake.source;
 
-import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_BOUNDED;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_ENABLE;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_INTERVAL;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_INTERVAL_DEFAULT_VALUE;
@@ -25,8 +24,6 @@ import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_NAME;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_TYPE;
-import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE;
-import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE_DEFAULT_VALUE;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.LONG_TYPE_INFO;
 import static org.apache.flink.api.common.typeinfo.BasicTypeInfo.STRING_TYPE_INFO;
 
@@ -60,8 +57,6 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
 
     private List<MockSchema> mockDataSchema;
     private boolean mockDataEnable;
-    private boolean mockDataBounded;
-    private long mockDataSize;
     private long mockDataInterval;
 
     @Override
@@ -90,7 +85,6 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     public void prepare(FlinkEnvironment env) {
         mockDataEnable = config.hasPath(MOCK_DATA_ENABLE) && config.getBoolean(MOCK_DATA_ENABLE);
         if (mockDataEnable) {
-            mockDataBounded = config.hasPath(MOCK_DATA_BOUNDED) && config.getBoolean(MOCK_DATA_BOUNDED);
             if (config.hasPath(MOCK_DATA_SCHEMA)) {
                 mockDataSchema = config.getConfigList(MOCK_DATA_SCHEMA)
                     .stream()
@@ -106,10 +100,6 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
                         }
                     )
                     .collect(Collectors.toList());
-                mockDataSize =
-                    config.hasPath(MOCK_DATA_SIZE) ?
-                        config.getLong(MOCK_DATA_SIZE) :
-                        MOCK_DATA_SIZE_DEFAULT_VALUE;
             } else {
                 mockDataSchema = new ArrayList<>(0);
                 for (String name : NAME_ARRAY) {
@@ -143,13 +133,9 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
                 Thread.sleep(TimeUnit.SECONDS.toMillis(1));
             }
         } else {
-            int index = 0;
-            while (running && index < mockDataSize){
+            while (running){
                 Row rowData = MockSchema.mockRowData(mockDataSchema);
                 ctx.collect(rowData);
-                if (mockDataBounded) {
-                    index++;
-                }
                 Thread.sleep(TimeUnit.SECONDS.toMillis(mockDataInterval));
             }
         }
