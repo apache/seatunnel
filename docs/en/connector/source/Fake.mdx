@@ -51,10 +51,14 @@ Number of test cases generated per second
 </TabItem>
 <TabItem value="flink">
 
-| name           | type   | required | default value |
-| -------------- | ------ | -------- | ------------- |
-| parallelism    | `Int`  | no       | -             |
-| common-options |`string`| no       | -             |
+| name               | type                 | required | default value |
+|--------------------|----------------------|----------|---------------|
+| parallelism        | `Int`                | no       | -             |
+| common-options     | `string`             | no       | -             |
+| mock_data_enable   | boolean              | no       | false         |
+| mock_data_schema   | list [column_config] | no       | -             |
+| mock_data_size     | int                  | no       | 300           |
+| mock_data_interval | int (second)         | no       | 1             |
 
 ### parallelism [`Int`]
 
@@ -66,6 +70,49 @@ The parallelism of an individual operator, for Fake Source Stream
 ### common options [string]
 
 Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
+
+### mock_data_enable Option [boolean]
+
+Enable mock data mode.
+
+### mock_data_schema Option  [list[column_config]]
+
+Config mock data's schema. Each is column_config option.
+
+column_config option type.
+
+| name        | type        | required | default value | support values                                                                                                                                                                                                                                      |
+|-------------|-------------|----------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name        | string      | yes      | string        | -                                                                                                                                                                                                                                                   |
+| type        | string      | yes      | string        | int,integer,byte,boolean,char,<br/>character,short,long,float,double,<br/>date,timestamp,decimal,bigdecimal,<br/>bigint,biginteger,int[],byte[],<br/>boolean[],char[],character[],short[],<br/>long[],float[],double[],string[],<br/>binary,varchar |
+| mock_config | mock_config | no       | -             | -                                                                                                                                                                                                                                                   |
+
+mock_config Option
+
+| name          | type                  | required | default value | sample                                   |
+|---------------|-----------------------|----------|---------------|------------------------------------------|
+| byte_range    | list[byte] [size=2]   | no       | -             | [0,127]                                  |
+| boolean_seed  | list[boolean]         | no       | -             | [true, true, false]                      |
+| char_seed     | list[char] [size=2]   | no       | -             | ['a','b','c']                            |
+| date_range    | list[string] [size=2] | no       | -             | ["1970-01-01", "2100-12-31"]             |
+| decimal_scale | int                   | no       | -             | 2                                        |
+| double_range  | list[double] [size=2] | no       | -             | [0.0, 10000.0]                           |
+| float_range   | list[flout] [size=2]  | no       | -             | [0.0, 10000.0]                           |
+| int_range     | list[int] [size=2]    | no       | -             | [0, 100]                                 |
+| long_range    | list[long] [size=2]   | no       | -             | [0, 100000]                              |
+| number_regex  | string                | no       | -             | "[1-9]{1}\\d?"                           |
+| time_range    | list[int] [size=6]    | no       | -             | [0,24,0,60,0,60]                         |
+| size_range    | list[int] [size=2]    | no       | -             | [6,10]                                   |
+| string_regex  | string                | no       | -             | "[a-z0-9]{5}\\@\\w{3}\\.[a-z]{3}"        |
+| string_seed   | list[string]          | no       | -             | ["Gary", "Ricky Huo", "Kid Xiong"]       |
+
+### mock_data_size Option [int]
+
+Config mock data size.
+
+### mock_data_interval Option [int]
+
+Config the data can mock with interval, The unit is SECOND.
 
 ## Examples
 
@@ -111,16 +158,17 @@ The generated data is as follows, randomly extract the string from the `content`
 
 ### FakeSourceStream
 
+
+
 ```bash
 source {
     FakeSourceStream {
         result_table_name = "fake"
         field_name = "name,age"
         //mock_data_enable = true
-        //mock_data_bounded = true
         //mock_data_schema = [
         //{
-        //    name = "name",
+        //    name = "name"
         //    type = "string"
         //    mock_config = { //see https://github.com/jsonzou/jmockdata, next is all kind config, not all configurations are required
         //       byte_range = [0,127]  // byte value will mock range between 0 and 127.
@@ -140,14 +188,13 @@ source {
         //    }
         //},
         //{
-        //    name = "age",
+        //    name = "age"
         //    type = "int"
         //    mock_config = {
         //       int_range = [20,30]
         //    }
         //}
         //]
-        //mock_data_size = 300 // data will mock until count 300.
         //mock_data_interval = 1 // data will mock interval 1 second.
     }
 }
