@@ -41,7 +41,7 @@ public class FakeSource implements FlinkBatchSource {
     private Config config;
 
     private List<MockSchema> mockDataSchema;
-    private long mockDataSize;
+    private int mockDataSize;
 
     @Override
     public void setConfig(Config config) {
@@ -71,7 +71,7 @@ public class FakeSource implements FlinkBatchSource {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        List<Row> dataSet = new ArrayList<>(0);
+        List<Row> dataSet = new ArrayList<>(mockDataSize);
         for (long index = 0; index < mockDataSize; index++) {
             dataSet.add(MockSchema.mockRowData(mockDataSchema));
         }
