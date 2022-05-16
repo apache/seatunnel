@@ -23,8 +23,22 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable{
+/**
+ * The sink writer use to write data to third party data receiver. This class will run on taskManger/Worker.
+ *
+ * @param <T>           The data class by sink accept. Only support
+ *                      {@link org.apache.seatunnel.api.table.type.SeaTunnelRow} at now.
+ * @param <CommitInfoT> The type of commit message.
+ * @param <StateT>      The type of state.
+ */
+public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
 
+    /**
+     * write data to third party data receiver.
+     *
+     * @param element the date need be written.
+     * @throws IOException throw IOException when write data failed.
+     */
     void write(T element) throws IOException;
 
     /**
