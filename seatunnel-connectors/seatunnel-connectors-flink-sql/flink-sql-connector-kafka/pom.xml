@@ -16,22 +16,22 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <parent>
-    <artifactId>seatunnel-connectors-flink-sql</artifactId>
-    <groupId>org.apache.seatunnel</groupId>
-    <version>${revision}</version>
-  </parent>
-  <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>seatunnel-connectors-flink-sql</artifactId>
+        <groupId>org.apache.seatunnel</groupId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>flink-sql-connector-kafka</artifactId>
+    <artifactId>flink-sql-connector-kafka</artifactId>
 
-  <dependencies>
-    <dependency>
-      <groupId>org.apache.flink</groupId>
-      <artifactId>flink-connector-kafka_2.11</artifactId>
-      <version>${flink.version}</version>
-    </dependency>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-kafka_2.11</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
 
-  </dependencies>
+    </dependencies>
 
 </project>
