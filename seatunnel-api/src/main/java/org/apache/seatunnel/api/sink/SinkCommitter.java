@@ -21,9 +21,26 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * The committer to commit message.
+ *
+ * @param <CommitInfoT> The type of commit message.
+ */
 public interface SinkCommitter<CommitInfoT> extends Serializable {
 
+    /**
+     * Commit message to third party data receiver.
+     *
+     * @param committables The list of commit message
+     * @return The commit message need retry.
+     * @throws IOException throw IOException when commit failed.
+     */
     List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
 
+    /**
+     * Close this resource.
+     *
+     * @throws IOException throw IOException when close failed.
+     */
     void abort() throws IOException;
 }

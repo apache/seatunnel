@@ -21,13 +21,44 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * The committer combine taskManager/Worker Commit message. Then commit it use
+ * {@link SinkAggregatedCommitter#commit(List)}. This class will execute in single thread.
+ *
+ * @param <CommitInfoT>           The type of commit message.
+ * @param <AggregatedCommitInfoT> The type of commit message after combine.
+ */
 public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> extends Serializable {
 
+    /**
+     * Commit message to third party data receiver.
+     *
+     * @param aggregatedCommitInfo The list of combine commit message.
+     * @return The commit message which need retry.
+     * @throws IOException throw IOException when commit failed.
+     */
     List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws IOException;
 
+    /**
+     * The logic about how to combine commit message.
+     *
+     * @param commitInfos The list of commit message.
+     * @return The commit message after combine.
+     */
     AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
 
+    /**
+     * If commit failed, this method will be called.
+     *
+     * @param aggregatedCommitInfo The list of combine commit message.
+     * @throws Exception throw Exception when abort failed.
+     */
     void abort(List<AggregatedCommitInfoT> aggregatedCommitInfo) throws Exception;
 
+    /**
+     * Close this resource.
+     *
+     * @throws IOException throw IOException when close failed.
+     */
     void close() throws IOException;
 }

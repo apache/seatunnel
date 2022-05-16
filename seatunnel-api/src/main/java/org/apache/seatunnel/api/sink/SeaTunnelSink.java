@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 
 import java.io.IOException;
@@ -24,8 +25,29 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
-public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Serializable {
+/**
+ * The SeaTunnel sink interface, developer should implement this class when create a sink connector.
+ *
+ * @param <IN>                    The data class by sink accept. Only support
+ *                                {@link org.apache.seatunnel.api.table.type.SeaTunnelRow} at now.
+ * @param <StateT>                The state should be saved when job execute, this class should implement interface
+ *                                {@link Serializable}.
+ * @param <CommitInfoT>           The commit message class return by {@link SinkWriter#prepareCommit()}, then
+ *                                {@link SinkCommitter} or {@link SinkAggregatedCommitter} and handle it, this class should implement interface
+ *                                {@link Serializable}.
+ * @param <AggregatedCommitInfoT> The aggregated commit message class, combine by {@link CommitInfoT}.
+ *                                {@link SinkAggregatedCommitter} handle it, this class should implement interface {@link Serializable}.
+ */
+public interface SeaTunnelSink<IN, StateT extends Serializable, CommitInfoT extends Serializable,
+        AggregatedCommitInfoT extends Serializable> extends Serializable {
 
+    /**
+     * This method will be called to creat {@link SinkWriter}
+     *
+     * @param context The sink context
+     * @return Return sink writer instance
+     * @throws IOException throws IOException when createWriter failed.
+     */
     SinkWriter<IN, CommitInfoT, StateT> createWriter(SinkWriter.Context context) throws IOException;
 
     default SinkWriter<IN, CommitInfoT, StateT> restoreWriter(SinkWriter.Context context,
@@ -33,23 +55,50 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> e
         return createWriter(context);
     }
 
+    /**
+     * Get {@link StateT} serializer. So that {@link StateT} can be transferred across processes
+     *
+     * @return Serializer of {@link StateT}
+     */
     default Optional<Serializer<StateT>> getWriterStateSerializer() {
-        return Optional.empty();
+        return Optional.of(new DefaultSerializer<>());
     }
 
+    /**
+     * This method will be called to create {@link SinkCommitter}
+     *
+     * @return Return sink committer instance
+     * @throws IOException throws IOException when createCommitter failed.
+     */
     default Optional<SinkCommitter<CommitInfoT>> createCommitter() throws IOException {
         return Optional.empty();
     }
 
+    /**
+     * Get {@link CommitInfoT} serializer. So that {@link CommitInfoT} can be transferred across processes
+     *
+     * @return Serializer of {@link CommitInfoT}
+     */
     default Optional<Serializer<CommitInfoT>> getCommitInfoSerializer() {
-        return Optional.empty();
+        return Optional.of(new DefaultSerializer<>());
     }
 
+    /**
+     * This method will be called to create {@link SinkAggregatedCommitter}
+     *
+     * @return Return sink aggregated committer instance
+     * @throws IOException throws IOException when createAggregatedCommitter failed.
+     */
     default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>> createAggregatedCommitter() throws IOException {
         return Optional.empty();
     }
 
+    /**
+     * Get {@link AggregatedCommitInfoT} serializer. So that {@link AggregatedCommitInfoT} can be transferred across processes
+     *
+     * @return Serializer of {@link AggregatedCommitInfoT}
+     */
     default Optional<Serializer<AggregatedCommitInfoT>> getAggregatedCommitInfoSerializer() {
-        return Optional.empty();
+        return Optional.of(new DefaultSerializer<>());
     }
 }
