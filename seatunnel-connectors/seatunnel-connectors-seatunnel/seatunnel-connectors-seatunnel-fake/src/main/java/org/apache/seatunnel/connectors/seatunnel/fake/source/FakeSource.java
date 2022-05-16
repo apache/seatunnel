@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -25,6 +26,9 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeState;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(SeaTunnelSource.class)
 public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeState> {
 
     @Override
@@ -39,7 +43,7 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
 
     @Override
     public Serializer<FakeSourceSplit> getSplitSerializer() {
-        return new ObjectSerializer<>();
+        return new DefaultSerializer<>();
     }
 
     @Override
@@ -57,6 +61,6 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
 
     @Override
     public Serializer<FakeState> getEnumeratorStateSerializer() {
-        return new ObjectSerializer<>();
+        return new DefaultSerializer<>();
     }
 }

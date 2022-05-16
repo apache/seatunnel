@@ -109,6 +109,16 @@
             <outputDirectory>/connectors/spark</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>../seatunnel-connectors/seatunnel-connectors-seatunnel-dist/target/lib</directory>
+            <includes>
+                <include>seatunnel-connector-seatunnel*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/connectors/seatunnel</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>../seatunnel-connectors</directory>
             <includes>
                 <include>plugin-mapping.properties</include>

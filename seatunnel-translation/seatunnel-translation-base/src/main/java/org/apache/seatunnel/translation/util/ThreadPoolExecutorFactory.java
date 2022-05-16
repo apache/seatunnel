@@ -28,6 +28,7 @@ public class ThreadPoolExecutorFactory {
         AtomicInteger cnt = new AtomicInteger(0);
         return new ScheduledThreadPoolExecutor(corePoolSize, runnable -> {
             Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
             thread.setName(name + "-" + cnt.incrementAndGet());
             return thread;
         });

@@ -17,17 +17,20 @@
 
 package org.apache.seatunnel.translation.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 
 public class ParallelReaderContext implements SourceReader.Context {
 
     protected final ParallelSource<?, ?, ?> parallelSource;
+    protected final Boundedness boundedness;
     protected final Integer subtaskId;
 
     public ParallelReaderContext(ParallelSource<?, ?, ?> parallelSource,
                                  Integer subtaskId) {
         this.parallelSource = parallelSource;
+        this.boundedness = parallelSource.source.getBoundedness();
         this.subtaskId = subtaskId;
     }
 
@@ -37,7 +40,13 @@ public class ParallelReaderContext implements SourceReader.Context {
     }
 
     @Override
+    public Boundedness getBoundedness() {
+        return boundedness;
+    }
+
+    @Override
     public void signalNoMoreElement() {
+        // todo: if we have multiple subtasks, we need to know if all subtask is stopped
         parallelSource.handleNoMoreElement();
     }
 
