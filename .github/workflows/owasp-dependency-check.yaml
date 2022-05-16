@@ -37,7 +37,7 @@ jobs:
         with:
           java-version: 8
           distribution: 'adopt'
-      - name: Run SonarCloud Analysis
+      - name: Run OWASP Dependency Check
         run: ./mvnw dependency-check:check -DskipDepCheck=false -DskipUT=true -DskipIT=true -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true
       - name: Upload report
         uses: actions/upload-artifact@v3
