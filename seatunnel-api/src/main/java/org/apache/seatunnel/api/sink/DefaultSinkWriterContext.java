@@ -19,6 +19,9 @@ package org.apache.seatunnel.api.sink;
 
 import java.util.Map;
 
+/**
+ * The default {@link SinkWriter.Context} implement class.
+ */
 public class DefaultSinkWriterContext implements SinkWriter.Context {
 
     private final Map<String, String> configuration;
