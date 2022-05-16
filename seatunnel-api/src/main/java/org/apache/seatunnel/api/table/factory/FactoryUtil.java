@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -72,7 +71,7 @@ public final class FactoryUtil {
         }
     }
 
-    public static <IN, StateT extends Serializable, CommitInfoT extends Serializable, AggregatedCommitInfoT extends Serializable> SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
+    public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT> SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createAndPrepareSink(
         ClassLoader classLoader, String factoryIdentifier) {
         // todo: do we need to set table?
         TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory = discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);

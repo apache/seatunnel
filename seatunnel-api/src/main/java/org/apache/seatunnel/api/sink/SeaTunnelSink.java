@@ -38,8 +38,7 @@ import java.util.Optional;
  * @param <AggregatedCommitInfoT> The aggregated commit message class, combine by {@link CommitInfoT}.
  *                                {@link SinkAggregatedCommitter} handle it, this class should implement interface {@link Serializable}.
  */
-public interface SeaTunnelSink<IN, StateT extends Serializable, CommitInfoT extends Serializable,
-        AggregatedCommitInfoT extends Serializable> extends Serializable {
+public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Serializable {
 
     /**
      * This method will be called to creat {@link SinkWriter}
