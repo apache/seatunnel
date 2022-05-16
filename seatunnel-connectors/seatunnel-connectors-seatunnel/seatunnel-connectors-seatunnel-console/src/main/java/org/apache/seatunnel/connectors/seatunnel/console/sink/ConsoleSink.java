@@ -39,4 +39,9 @@ public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, Co
         SinkWriter.Context context, List<ConsoleState> states) {
         return restoreWriter(context, states);
     }
+
+    @Override
+    public String getPluginName() {
+        return "Console";
+    }
 }

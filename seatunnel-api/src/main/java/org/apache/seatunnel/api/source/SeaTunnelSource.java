@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.source;
 
+import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.serialization.Serializer;
 
 import java.io.Serializable;
@@ -29,7 +30,7 @@ import java.io.Serializable;
  * @param <SplitT> The type of splits handled by the source.
  * @param <StateT> The type of checkpoint states.
  */
-public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT> extends Serializable {
+public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT> extends Serializable, PluginIdentifierInterface {
 
     /**
      * Get the boundedness of this source.

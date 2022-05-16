@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.io.InvalidClassException;
 import java.io.Serializable;
 
-public class DefaultSerializer<T> implements Serializer<T> {
+public class DefaultSerializer<T extends Serializable> implements Serializer<T> {
 
     @Override
     public byte[] serialize(T obj) throws IOException {

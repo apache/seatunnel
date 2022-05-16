@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.plugin.discovery.seatunnel;
 
-/**
- * todo: use PluginIdentifier.
- * This is the SPI interface.
- */
-public interface Factory {
+import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+import org.apache.seatunnel.spark.BaseSparkTransform;
 
-    /**
-     * Returns a unique identifier among same factory interfaces.
-     *
-     * <p>For consistency, an identifier should be declared as one lower case word (e.g. {@code
-     * kafka}). If multiple factories exist for different versions, a version should be appended
-     * using "-" (e.g. {@code elasticsearch-7}).
-     */
-    String factoryIdentifier();
+public class SeaTunnelSparkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseSparkTransform> {
+    public SeaTunnelSparkTransformPluginDiscovery() {
+        super("seatunnel");
+    }
+
+    @Override
+    protected Class<BaseSparkTransform> getPluginBaseClass() {
+        return BaseSparkTransform.class;
+    }
 }

@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.api.common;
 
 /**
- * todo: use PluginIdentifier.
- * This is the SPI interface.
+ * todo: unified with Plugin
  */
-public interface Factory {
-
+public interface PluginIdentifierInterface {
     /**
      * Returns a unique identifier among same factory interfaces.
      *
@@ -30,5 +28,5 @@ public interface Factory {
      * kafka}). If multiple factories exist for different versions, a version should be appended
      * using "-" (e.g. {@code elasticsearch-7}).
      */
-    String factoryIdentifier();
+    String getPluginName();
 }

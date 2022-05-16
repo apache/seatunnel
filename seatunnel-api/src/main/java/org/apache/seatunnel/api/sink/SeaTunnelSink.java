@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.serialization.Serializer;
 
 import java.io.IOException;
@@ -38,7 +38,7 @@ import java.util.Optional;
  * @param <AggregatedCommitInfoT> The aggregated commit message class, combine by {@link CommitInfoT}.
  *                                {@link SinkAggregatedCommitter} handle it, this class should implement interface {@link Serializable}.
  */
-public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Serializable {
+public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Serializable, PluginIdentifierInterface {
 
     /**
      * This method will be called to creat {@link SinkWriter}
@@ -60,7 +60,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> e
      * @return Serializer of {@link StateT}
      */
     default Optional<Serializer<StateT>> getWriterStateSerializer() {
-        return Optional.of(new DefaultSerializer<>());
+        return Optional.empty();
     }
 
     /**
@@ -79,7 +79,7 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> e
      * @return Serializer of {@link CommitInfoT}
      */
     default Optional<Serializer<CommitInfoT>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
+        return Optional.empty();
     }
 
     /**
@@ -98,6 +98,6 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> e
      * @return Serializer of {@link AggregatedCommitInfoT}
      */
     default Optional<Serializer<AggregatedCommitInfoT>> getAggregatedCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
+        return Optional.empty();
     }
 }
