@@ -15,33 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source;
+package org.apache.seatunnel.translation.spark.serialization;
 
-import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.source.ParallelSource;
+import org.apache.seatunnel.translation.serialization.RowSerialization;
 
-import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
+import org.apache.spark.sql.catalyst.InternalRow;
 
-import java.util.List;
+import java.io.IOException;
 
-public class SparkState<SplitT extends SourceSplit, StateT> extends Offset {
+// TODO:
+public class InternalRowSerialization implements RowSerialization<InternalRow> {
 
-    protected final ParallelSource<SeaTunnelRow, SplitT, StateT> parallelSource;
-    protected volatile Integer checkpointId;
-
-    public SparkState(ParallelSource<SeaTunnelRow, SplitT, StateT> parallelSource, int checkpointId) {
-        this.parallelSource = parallelSource;
-        this.checkpointId = checkpointId;
+    @Override
+    public InternalRow serialize(SeaTunnelRow seaTunnelRow) throws IOException {
+        return null;
     }
 
     @Override
-    public String json() {
-        try {
-            List<byte[]> bytes = this.parallelSource.snapshotState(checkpointId);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public SeaTunnelRow deserialize(InternalRow engineRow) throws IOException {
         return null;
     }
 }
