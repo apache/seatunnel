@@ -19,7 +19,9 @@ package org.apache.seatunnel.api.table.connector;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 
-public interface TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> {
+import java.io.Serializable;
+
+public interface TableSink<IN, StateT extends Serializable, CommitInfoT extends Serializable, AggregatedCommitInfoT extends Serializable> {
 
     SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink();
 }

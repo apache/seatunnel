@@ -19,7 +19,9 @@ package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.table.connector.TableSink;
 
-public interface TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Factory {
+import java.io.Serializable;
+
+public interface TableSinkFactory<IN, StateT extends Serializable, CommitInfoT extends Serializable, AggregatedCommitInfoT extends Serializable> extends Factory {
 
     TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context);
 }
