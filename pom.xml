@@ -165,9 +165,11 @@
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
         <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
         <testcontainer.version>1.16.3</testcontainer.version>
+        <owasp-dependency-check-maven.version>7.0.4</owasp-dependency-check-maven.version>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
+        <skipDepCheck>true</skipDepCheck>
         <elasticsearch>7</elasticsearch>
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
@@ -942,7 +944,22 @@
                         <excludedScopes>test,provided</excludedScopes>
                     </configuration>
                 </plugin>
-
+                <plugin>
+                    <groupId>org.owasp</groupId>
+                    <artifactId>dependency-check-maven</artifactId>
+                    <version>${owasp-dependency-check-maven.version}</version>
+                    <configuration>
+                        <skip>${skipDepCheck}</skip>
+                        <failBuildOnCVSS>7</failBuildOnCVSS>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>aggregate</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -975,7 +992,11 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
             </plugin>
-
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+            </plugin>
+            
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
