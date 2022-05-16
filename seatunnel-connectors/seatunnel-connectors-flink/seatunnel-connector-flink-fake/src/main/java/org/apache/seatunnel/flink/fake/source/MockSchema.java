@@ -436,6 +436,12 @@ public class MockSchema implements Serializable {
         return Row.of(fieldByPosition);
     }
 
+    private static final String[] NAME_SEEDS = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
+
+    private static final Integer[] NAME_SIZE_RANGE = new Integer[]{1, 1};
+
+    private static final Integer[] AGE_RANGE = new Integer[]{1, 100};
+
     public static List<MockSchema> DEFAULT_MOCK_SCHEMAS = new ArrayList<>(0);
 
     static {
@@ -443,8 +449,8 @@ public class MockSchema implements Serializable {
         nameSchema.setName("name");
         nameSchema.setType("string");
         Map<String, Object> nameSchemaConfigMap = new HashMap<>(0);
-        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_STRING_SEED, Arrays.asList("Gary", "Ricky Huo", "Kid Xiong"));
-        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_SIZE_RANGE, Arrays.asList(1, 1));
+        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_STRING_SEED, Arrays.asList(NAME_SEEDS));
+        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_SIZE_RANGE, Arrays.asList(NAME_SIZE_RANGE));
         nameSchema.setMockConfig(
             ConfigFactory.parseMap(
                 nameSchemaConfigMap
@@ -455,7 +461,7 @@ public class MockSchema implements Serializable {
         ageSchema.setName("age");
         ageSchema.setType("int");
         Map<String, Object> ageSchemaConfigMap = new HashMap<>(0);
-        ageSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_INT_RANGE, Arrays.asList(1, 100));
+        ageSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_INT_RANGE, Arrays.asList(AGE_RANGE));
         ageSchema.setMockConfig(
             ConfigFactory.parseMap(
                 ageSchemaConfigMap
