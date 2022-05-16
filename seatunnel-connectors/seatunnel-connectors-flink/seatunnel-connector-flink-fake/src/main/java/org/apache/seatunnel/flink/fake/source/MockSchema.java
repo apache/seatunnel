@@ -57,6 +57,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -435,10 +436,6 @@ public class MockSchema implements Serializable {
         return Row.of(fieldByPosition);
     }
 
-    public static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
-
-    public static final int[] AGE_RANGE = new int[]{1, 100};
-
     public static List<MockSchema> DEFAULT_MOCK_SCHEMAS = new ArrayList<>(0);
 
     static {
@@ -446,7 +443,8 @@ public class MockSchema implements Serializable {
         nameSchema.setName("name");
         nameSchema.setType("string");
         Map<String, Object> nameSchemaConfigMap = new HashMap<>(0);
-        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_STRING_SEED, NAME_ARRAY);
+        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_STRING_SEED, Arrays.asList("Gary", "Ricky Huo", "Kid Xiong"));
+        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_SIZE_RANGE, Arrays.asList(1, 1));
         nameSchema.setMockConfig(
             ConfigFactory.parseMap(
                 nameSchemaConfigMap
@@ -457,7 +455,7 @@ public class MockSchema implements Serializable {
         ageSchema.setName("age");
         ageSchema.setType("int");
         Map<String, Object> ageSchemaConfigMap = new HashMap<>(0);
-        ageSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_INT_RANGE, AGE_RANGE);
+        ageSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_INT_RANGE, Arrays.asList(1, 100));
         ageSchema.setMockConfig(
             ConfigFactory.parseMap(
                 ageSchemaConfigMap

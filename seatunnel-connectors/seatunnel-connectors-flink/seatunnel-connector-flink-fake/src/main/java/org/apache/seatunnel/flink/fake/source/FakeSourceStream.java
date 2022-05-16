@@ -20,6 +20,7 @@ package org.apache.seatunnel.flink.fake.source;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_INTERVAL;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_INTERVAL_DEFAULT_VALUE;
 
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSource;
@@ -70,10 +71,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
     @Override
     public void prepare(FlinkEnvironment env) {
         mockDataSchema = MockSchema.resolveConfig(config);
-        mockDataInterval =
-            config.hasPath(MOCK_DATA_INTERVAL) ?
-                config.getLong(MOCK_DATA_INTERVAL) :
-                MOCK_DATA_INTERVAL_DEFAULT_VALUE;
+        mockDataInterval = TypesafeConfigUtils.getConfig(config, MOCK_DATA_INTERVAL, MOCK_DATA_INTERVAL_DEFAULT_VALUE);
     }
 
     @Override

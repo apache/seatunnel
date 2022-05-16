@@ -21,6 +21,7 @@ import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE_DEFAULT_VALUE;
 
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
@@ -55,10 +56,7 @@ public class FakeSource implements FlinkBatchSource {
     @Override
     public void prepare(FlinkEnvironment env) {
         mockDataSchema = MockSchema.resolveConfig(config);
-        mockDataSize =
-            config.hasPath(MOCK_DATA_SIZE) ?
-                config.getLong(MOCK_DATA_SIZE) :
-                MOCK_DATA_SIZE_DEFAULT_VALUE;
+        mockDataSize = TypesafeConfigUtils.getConfig(config, MOCK_DATA_SIZE, MOCK_DATA_SIZE_DEFAULT_VALUE);
     }
 
     @Override
