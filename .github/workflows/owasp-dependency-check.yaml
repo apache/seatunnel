@@ -38,7 +38,7 @@ jobs:
           java-version: 8
           distribution: 'adopt'
       - name: Run OWASP Dependency Check
-        run: ./mvnw dependency-check:check -DskipDepCheck=false -DskipUT=true -DskipIT=true -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true
+        run: ./mvnw -B clean install verify dependency-check:check -DskipDepCheck=false -DskipUT=true -DskipIT=true -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true
       - name: Upload report
         uses: actions/upload-artifact@v3
         if: ${{ cancelled() || failure() }}
