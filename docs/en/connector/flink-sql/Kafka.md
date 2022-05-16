@@ -8,7 +8,9 @@ With kafka connector, we can read data from kafka and write data to kafka using 
 ## Usage
 Let us have a brief example to show how to use the connector from end to end.
 
-### 1. download kafka
+### 1. kafka prepare
+If you have the kafka environment, you can directly go to step 3.
+
 We can download kafka distribution from [Apache Kafka](https://kafka.apache.org/downloads.html).
 
 After decompressing the kafka distribution, we can get the following files.
@@ -17,7 +19,6 @@ $ ls
 LICENSE   NOTICE    bin       config    libs      licenses  logs      site-docs
 ```
 
-### 2. start kafka server
 Before starting kafka server, we should start the zookeeper server by executing the following command.
 ```bash
 $ bin/zookeeper-server-start.sh config/zookeeper.properties
@@ -30,13 +31,12 @@ $ bin/kafka-server-start.sh config/server.properties
 
 If the shell process not exit, it means kafka server start successfully.
 
-### 3. create topic
+### 2. prepare data
 Create kafka topic by executing the following command.
 ```bash
 $ bin/kafka-topics.sh --create --topic quickstart-events --bootstrap-server localhost:9092
 ```
 
-### 4. produce data
 Start the producer process.
 ```bash
 $ bin/kafka-console-producer.sh --topic quickstart-events --bootstrap-server localhost:9092
@@ -51,13 +51,12 @@ After executing the command, we will come to the interactive mode. Print the fol
 >{"id":5,"name":"yui"}
 ```
 
-### 5. verify data
 Start the consumer process.
 ```bash
 $ bin/kafka-console-consumer.sh --topic quickstart-events --from-beginning --bootstrap-server localhost:9092
 ```
 
-When the consumer process start, we can see the data produced in step 4 in console.
+When the consumer process start, we can see the data produced above.
 ```bash
 {"id":1,"name":"abc"}
 {"id":2,"name":"def"}
@@ -66,7 +65,7 @@ When the consumer process start, we can see the data produced in step 4 in conso
 {"id":5,"name":"yui"}
 ```
 
-### 6. prepare seatunnel configuration
+### 3. prepare seatunnel configuration
 Here is a simple example of seatunnel configuration.
 ```sql
 SET table.dml-sync = true;
@@ -94,18 +93,18 @@ CREATE TABLE print_table (
 INSERT INTO print_table SELECT * FROM events;
 ```
 
-### 7. start flink local cluster
+### 4. start flink local cluster
 ```bash
 $ ${FLINK_HOME}/bin/start-cluster.sh
 ```
 
-### 8. start Flink SQL job
+### 5. start Flink SQL job
 Execute the following command in seatunnel home path to start the Flink SQL job.
 ```bash
 $ bin/start-seatunnel-sql.sh -c config/kafka.sql.conf
 ```
 
-### 9. verify result
+### 6. verify result
 After the job submitted, we can see the data printing by connector 'print' in taskmanager's log .
 ```text
 +I[1, abc]
