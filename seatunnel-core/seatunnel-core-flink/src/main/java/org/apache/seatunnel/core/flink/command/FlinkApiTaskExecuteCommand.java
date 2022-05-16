@@ -24,11 +24,11 @@ import org.apache.seatunnel.apis.base.env.Execution;
 import org.apache.seatunnel.core.base.command.BaseTaskExecuteCommand;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.EngineType;
-import org.apache.seatunnel.core.base.config.ExecutionContext;
 import org.apache.seatunnel.core.base.config.ExecutionFactory;
 import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.config.FlinkExecutionContext;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -53,7 +53,7 @@ public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkComm
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
 
         Config config = new ConfigBuilder(configFile).getConfig();
-        ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine);
+        FlinkExecutionContext executionContext = new FlinkExecutionContext(config, engine);
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();

@@ -20,8 +20,6 @@ package org.apache.seatunnel.core.spark.config;
 import org.apache.seatunnel.core.base.config.ConfigChecker;
 import org.apache.seatunnel.core.base.config.EngineType;
 import org.apache.seatunnel.core.base.config.EnvironmentFactory;
-import org.apache.seatunnel.core.base.config.PluginFactory;
-import org.apache.seatunnel.core.base.config.PluginType;
 import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
@@ -33,12 +31,12 @@ public class SparkApiConfigChecker implements ConfigChecker<FlinkEnvironment> {
     public void checkConfig(Config config) throws ConfigCheckException {
         try {
             // check environment
-            FlinkEnvironment environment = new EnvironmentFactory<FlinkEnvironment>(config, EngineType.FLINK).getEnvironment();
+            FlinkEnvironment environment = new EnvironmentFactory<FlinkEnvironment>(config, EngineType.SPARK).getEnvironment();
             // check plugins
-            PluginFactory<FlinkEnvironment> pluginFactory = new PluginFactory<>(config, EngineType.FLINK);
-            pluginFactory.createPlugins(PluginType.SOURCE);
-            pluginFactory.createPlugins(PluginType.TRANSFORM);
-            pluginFactory.createPlugins(PluginType.SINK);
+            SparkExecutionContext sparkExecutionContext = new SparkExecutionContext(config, EngineType.SPARK);
+            sparkExecutionContext.getSources();
+            sparkExecutionContext.getTransforms();
+            sparkExecutionContext.getSinks();
         } catch (Exception ex) {
             throw new ConfigCheckException("Config check fail", ex);
         }
