@@ -28,8 +28,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-kafka_2.11</artifactId>
-            <version>${flink.version}</version>
+            <artifactId>flink-connector-kafka_${scala.binary.version}</artifactId>
         </dependency>
 
     </dependencies>
