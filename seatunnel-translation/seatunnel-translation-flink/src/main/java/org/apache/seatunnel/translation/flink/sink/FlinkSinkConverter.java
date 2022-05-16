@@ -25,14 +25,13 @@ import org.apache.flink.api.connector.sink.Sink;
 import java.util.Map;
 
 public class FlinkSinkConverter<SeaTunnelRowT, FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>
-    implements SinkConverter<
-    SeaTunnelSink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT>,
-    Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>> {
+        implements SinkConverter<SeaTunnelSink<SeaTunnelRowT, StateT, CommitInfoT,
+        AggregatedCommitInfoT>, Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>> {
 
     @Override
     @SuppressWarnings("unchecked")
     public Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT> convert(
-        SeaTunnelSink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT> sink, Map<String, String> configuration) {
+            SeaTunnelSink<SeaTunnelRowT, StateT, CommitInfoT, AggregatedCommitInfoT> sink, Map<String, String> configuration) {
         return (Sink<FlinkRowT, StateT, CommitInfoT, AggregatedCommitInfoT>) new FlinkSink<>(sink, configuration);
 
     }
