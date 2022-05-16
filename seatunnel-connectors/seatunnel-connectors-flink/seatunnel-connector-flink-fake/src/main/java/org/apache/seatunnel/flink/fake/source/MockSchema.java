@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.flink.fake.source;
 
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK_BOOLEAN_SEED;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK_BYTE_RANGE;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK_CHAR_SEED;
@@ -31,8 +33,11 @@ import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK_SIZE_
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK_STRING_REGEX;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK_STRING_SEED;
 import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_MOCK_TIME_RANGE;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_NAME;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SCHEMA_TYPE;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import com.github.jsonzou.jmockdata.JMockData;
 import com.github.jsonzou.jmockdata.MockConfig;
@@ -51,8 +56,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * config param [mock_data_schema] json bean.
@@ -426,4 +435,54 @@ public class MockSchema implements Serializable {
         return Row.of(fieldByPosition);
     }
 
+    public static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
+
+    public static final int[] AGE_RANGE = new int[]{1, 100};
+
+    public static List<MockSchema> DEFAULT_MOCK_SCHEMAS = new ArrayList<>(0);
+
+    static {
+        MockSchema nameSchema = new MockSchema();
+        nameSchema.setName("name");
+        nameSchema.setType("string");
+        Map<String, Object> nameSchemaConfigMap = new HashMap<>(0);
+        nameSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_STRING_SEED, NAME_ARRAY);
+        nameSchema.setMockConfig(
+            ConfigFactory.parseMap(
+                nameSchemaConfigMap
+            )
+        );
+        DEFAULT_MOCK_SCHEMAS.add(nameSchema);
+        MockSchema ageSchema = new MockSchema();
+        ageSchema.setName("age");
+        ageSchema.setType("int");
+        Map<String, Object> ageSchemaConfigMap = new HashMap<>(0);
+        ageSchemaConfigMap.put(MOCK_DATA_SCHEMA_MOCK_INT_RANGE, AGE_RANGE);
+        ageSchema.setMockConfig(
+            ConfigFactory.parseMap(
+                ageSchemaConfigMap
+            )
+        );
+        DEFAULT_MOCK_SCHEMAS.add(ageSchema);
+    }
+
+    public static List<MockSchema> resolveConfig(Config config){
+        if (config.hasPath(MOCK_DATA_SCHEMA)) {
+            return config.getConfigList(MOCK_DATA_SCHEMA)
+                .stream()
+                .map(
+                    schemaConfig -> {
+                        MockSchema schema = new MockSchema();
+                        schema.setName(schemaConfig.getString(MOCK_DATA_SCHEMA_NAME));
+                        schema.setType(schemaConfig.getString(MOCK_DATA_SCHEMA_TYPE));
+                        if (schemaConfig.hasPath(MOCK_DATA_SCHEMA_MOCK)) {
+                            schema.setMockConfig(schemaConfig.getConfig(MOCK_DATA_SCHEMA_MOCK));
+                        }
+                        return schema;
+                    }
+                )
+                .collect(Collectors.toList());
+        }
+        return DEFAULT_MOCK_SCHEMAS;
+    }
 }
