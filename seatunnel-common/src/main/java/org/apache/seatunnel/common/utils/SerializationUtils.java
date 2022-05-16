@@ -33,17 +33,17 @@ public class SerializationUtils {
 
     public static <T extends Serializable> T stringToObject(String str) {
         if (StringUtils.isNotEmpty(str)) {
-            return SerializationUtils.deserialize(Base64.decodeBase64(str));
+            return org.apache.commons.lang3.SerializationUtils.deserialize(Base64.decodeBase64(str));
         }
         return null;
     }
 
     public static <T extends Serializable> byte[] serialize(T obj) {
-        return SerializationUtils.serialize(obj);
+        return org.apache.commons.lang3.SerializationUtils.serialize(obj);
     }
 
     public static <T extends Serializable> T deserialize(byte[] bytes) {
-        return SerializationUtils.deserialize(bytes);
+        return org.apache.commons.lang3.SerializationUtils.deserialize(bytes);
     }
 
 }
