@@ -63,4 +63,9 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     public Serializer<FakeState> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
     }
+
+    @Override
+    public String getPluginName() {
+        return "FakeSource";
+    }
 }

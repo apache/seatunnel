@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
+import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
 
@@ -159,10 +160,20 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         }
         ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
         for (T t : serviceLoader) {
-            // todo: add plugin identifier interface to support new api interface.
-            Plugin<?> pluginInstance = (Plugin<?>) t;
-            if (StringUtils.equalsIgnoreCase(pluginInstance.getPluginName(), pluginIdentifier.getPluginName())) {
-                return Optional.of((T) pluginInstance);
+            if (t instanceof Plugin) {
+                // old api
+                Plugin<?> pluginInstance = (Plugin<?>) t;
+                if (StringUtils.equalsIgnoreCase(pluginInstance.getPluginName(), pluginIdentifier.getPluginName())) {
+                    return Optional.of((T) pluginInstance);
+                }
+            } else if (t instanceof PluginIdentifierInterface) {
+                // new api
+                PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
+                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(), pluginIdentifier.getPluginName())) {
+                    return Optional.of((T) pluginIdentifierInstance);
+                }
+            } else {
+                throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
             }
         }
         return Optional.empty();

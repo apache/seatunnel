@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.plugin.discovery.seatunnel;
+
+import org.apache.seatunnel.flink.BaseFlinkTransform;
+import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
 /**
- * todo: use PluginIdentifier.
- * This is the SPI interface.
+ * Discovery for the SeaTunnel Flink transform.
  */
-public interface Factory {
+public class SeaTunnelFlinkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseFlinkTransform> {
 
-    /**
-     * Returns a unique identifier among same factory interfaces.
-     *
-     * <p>For consistency, an identifier should be declared as one lower case word (e.g. {@code
-     * kafka}). If multiple factories exist for different versions, a version should be appended
-     * using "-" (e.g. {@code elasticsearch-7}).
-     */
-    String factoryIdentifier();
+    public SeaTunnelFlinkTransformPluginDiscovery() {
+        super("seatunnel");
+    }
+
+    @Override
+    protected Class<BaseFlinkTransform> getPluginBaseClass() {
+        return BaseFlinkTransform.class;
+    }
 }
