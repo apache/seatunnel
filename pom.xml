@@ -172,6 +172,7 @@
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
+        <jmockdata.version>4.3.0</jmockdata.version>
     </properties>
 
     <dependencyManagement>
@@ -603,6 +604,12 @@
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.jsonzou</groupId>
+                <artifactId>jmockdata</artifactId>
+                <version>${jmockdata.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
