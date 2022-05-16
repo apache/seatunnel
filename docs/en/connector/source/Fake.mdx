@@ -180,7 +180,6 @@ source {
     FakeSourceStream {
         result_table_name = "fake"
         field_name = "name,age"
-        //mock_data_enable = true
         //mock_data_schema = [
         //{
         //    name = "name"
@@ -222,6 +221,7 @@ source {
     FakeSource {
         result_table_name = "fake"
         field_name = "name,age"
+        mock_data_size = 100 // data will mock until count is 100.
     }
 }
 ```
