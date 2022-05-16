@@ -22,8 +22,17 @@ import org.apache.seatunnel.api.state.CheckpointListener;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * The {@link SourceReader} is used to generate source record, and it will be running at worker.
+ *
+ * @param <T>      record type.
+ * @param <SplitT> source split type.
+ */
 public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseable, CheckpointListener {
 
+    /**
+     * Open the source reader.
+     */
     void open();
 
     /**
@@ -33,10 +42,28 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
     @Override
     void close() throws IOException;
 
+    /**
+     * Generate the next batch of records.
+     *
+     * @param output output collector.
+     * @throws Exception if error occurs.
+     */
     void pollNext(Collector<T> output) throws Exception;
 
+    /**
+     * Get the current split checkpoint state by checkpointId.
+     *
+     * @param checkpointId checkpoint Id.
+     * @return split checkpoint state.
+     * @throws Exception if error occurs.
+     */
     List<SplitT> snapshotState(long checkpointId) throws Exception;
 
+    /**
+     * Add the split checkpoint state to reader.
+     *
+     * @param splits split checkpoint state.
+     */
     void addSplits(List<SplitT> splits);
 
     /**
@@ -48,6 +75,11 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
      */
     void handleNoMoreSplits();
 
+    /**
+     * Handle the source event form {@link SourceSplitEnumerator}.
+     *
+     * @param sourceEvent source event.
+     */
     default void handleSourceEvent(SourceEvent sourceEvent) {
     }
 
@@ -59,7 +91,12 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
         int getIndexOfSubtask();
 
         /**
-         * Indicator that the input has reached the end of data.
+         * @return boundedness of this reader.
+         */
+        Boundedness getBoundedness();
+
+        /**
+         * Indicator that the input has reached the end of data. Then will cancel this reader.
          */
         void signalNoMoreElement();
 

@@ -22,8 +22,11 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
 
+import com.google.auto.service.AutoService;
+
 import java.util.List;
 
+@AutoService(SeaTunnelSink.class)
 public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, ConsoleCommitInfo, ConsoleAggregatedCommitInfo> {
 
     @Override

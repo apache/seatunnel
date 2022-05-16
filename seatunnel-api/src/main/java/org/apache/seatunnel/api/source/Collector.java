@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.api.source;
 
+/**
+ * A {@link Collector} is used to collect data from {@link SourceReader}.
+ *
+ * @param <T> data type.
+ */
 public interface Collector<T> {
 
     void collect(T record);

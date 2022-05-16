@@ -21,7 +21,17 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 
 import java.io.Serializable;
 
+/**
+ * This is an SPI interface, used to create {@link TableSink}. Each plugin need to have it own implementation.
+ * todo: now we have not use this interface, we directly use {@link org.apache.seatunnel.api.sink.SeaTunnelSink} as the SPI interface.
+ *
+ * @param <IN>                    row type
+ * @param <StateT>                state type
+ * @param <CommitInfoT>           commit info type
+ * @param <AggregatedCommitInfoT> aggregated commit info type
+ */
 public interface TableSinkFactory<IN, StateT extends Serializable, CommitInfoT extends Serializable, AggregatedCommitInfoT extends Serializable> extends Factory {
-
+  
     TableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> createSink(TableFactoryContext context);
+
 }
