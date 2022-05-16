@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+/**
+ * This is the SPI interface.
+ */
 public interface Factory {
 
     /**

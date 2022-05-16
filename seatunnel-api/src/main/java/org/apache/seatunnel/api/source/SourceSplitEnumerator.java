@@ -24,6 +24,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * The {@link SourceSplitEnumerator} is responsible for enumerating the splits of a source. It will run at master.
+ *
+ * @param <SplitT>       source split type
+ * @param <StateT>source split state type
+ */
 public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> extends AutoCloseable, CheckpointListener {
 
     void open();
@@ -52,6 +58,12 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
 
     StateT snapshotState(long checkpointId) throws Exception;
 
+    /**
+     * Handle the source event from {@link SourceReader}.
+     *
+     * @param subtaskId   The id of the subtask to which the source event from.
+     * @param sourceEvent source event.
+     */
     default void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {
     }
 

@@ -17,5 +17,7 @@
 
 package org.apache.seatunnel.api.state;
 
-public interface State {
+import java.io.Serializable;
+
+public interface State extends Serializable {
 }

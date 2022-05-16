@@ -30,9 +30,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements AutoCloseable, CheckpointListener {
+
+    private final long splitEnumeratorTimeInterval = 5L;
 
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;
@@ -47,7 +50,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
 
     protected transient volatile SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
     protected transient volatile SourceReader<T, SplitT> reader;
-    protected transient volatile ExecutorService executorService;
+    protected transient volatile ScheduledThreadPoolExecutor executorService;
 
     /**
      * Flag indicating whether the consumer is still running.
@@ -99,7 +102,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
     }
 
     public void run(Collector<T> collector) throws Exception {
-        executorService.execute(() -> splitEnumerator.run());
+        executorService.scheduleAtFixedRate(() -> splitEnumerator.run(), 0L, splitEnumeratorTimeInterval, TimeUnit.SECONDS);
         while (running) {
             reader.pollNext(collector);
         }
