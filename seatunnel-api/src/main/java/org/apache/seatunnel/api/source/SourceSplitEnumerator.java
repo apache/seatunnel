@@ -52,6 +52,8 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
      */
     void addSplitsBack(List<SplitT> splits, int subtaskId);
 
+    int currentUnassignedSplitSize();
+
     void handleSplitRequest(int subtaskId);
 
     void registerReader(int subtaskId);
