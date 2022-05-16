@@ -13,7 +13,7 @@ Engine Supported and plugin name
 
 * [x] Spark: Fake, FakeStream
 * [x] Flink: FakeSource, FakeSourceStream
-    * Flink `Fake Source` is mainly used to automatically generate data. The data has only two columns. The first column is of `String type` and the content is a random one from `["Gary", "Ricky Huo", "Kid Xiong"]` . The second column is of `Long type` , which is the current 13-digit timestamp is used as input for functional verification and testing of `seatunnel` .
+    * Flink `Fake Source` is mainly used to automatically generate data. The data has only two columns. The first column is of `String type` and the content is a random one from `["Gary", "Ricky Huo", "Kid Xiong"]` . The second column is of `Int type` , which is the current 13-digit timestamp is used as input for functional verification and testing of `seatunnel` .
 
 :::
 
@@ -55,8 +55,7 @@ Number of test cases generated per second
 |--------------------|----------------------|----------|---------------|
 | parallelism        | `Int`                | no       | -             |
 | common-options     | `string`             | no       | -             |
-| mock_data_enable   | boolean              | no       | false         |
-| mock_data_schema   | list [column_config] | no       | -             |
+| mock_data_schema   | list [column_config] | no       | see details.  |
 | mock_data_size     | int                  | no       | 300           |
 | mock_data_interval | int (second)         | no       | 1             |
 
@@ -71,13 +70,29 @@ The parallelism of an individual operator, for Fake Source Stream
 
 Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
 
-### mock_data_enable Option [boolean]
-
-Enable mock data mode.
-
 ### mock_data_schema Option  [list[column_config]]
 
 Config mock data's schema. Each is column_config option.
+
+When mock_data_schema is not defined. Data will generate with schema like this:
+```bash
+mock_data_schema = [
+  {
+    name = "name",
+    type = "string",
+    mock_config = {
+      string_seed = ["Gary", "Ricky Huo", "Kid Xiong"]
+    }
+  }
+  {
+    name = "age",
+    type = "int",
+    mock_config = {
+      int_range = [1, 100]
+    }
+  }
+]
+```
 
 column_config option type.
 
