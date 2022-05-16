@@ -28,6 +28,7 @@
 
   <modules>
     <module>flink-sql-connector-jdbc</module>
+    <module>flink-sql-connector-kafka</module>
   </modules>
 
 
