@@ -89,6 +89,7 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<FlinkCommandArgs>
 
     private SeaTunnelParallelSource getSource(Config config) {
         PluginIdentifier pluginIdentifier = getSourcePluginIdentifier();
+        // todo: use FactoryUtils to load the plugin
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
         return new SeaTunnelParallelSource(sourcePluginDiscovery.getPluginInstance(pluginIdentifier));
     }

@@ -28,7 +28,6 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.jvm.hotspot.utilities.UnsupportedPlatformException;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -174,7 +173,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                     return Optional.of((T) pluginIdentifierInstance);
                 }
             } else {
-                throw new UnsupportedPlatformException("Plugin instance: " + t + " is not supported.");
+                throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
             }
         }
         return Optional.empty();
