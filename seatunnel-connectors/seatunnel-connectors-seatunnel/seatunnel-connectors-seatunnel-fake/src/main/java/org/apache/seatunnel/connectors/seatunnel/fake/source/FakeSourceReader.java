@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -57,7 +58,6 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
-        Thread.sleep(1000L);
         int i = random.nextInt(names.length);
         Map<String, Object> fieldMap = new HashMap<>(4);
         fieldMap.put("name", names[i]);
@@ -65,6 +65,11 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
         fieldMap.put("timestamp", System.currentTimeMillis());
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[i], ages[i], System.currentTimeMillis()}, fieldMap);
         output.collect(seaTunnelRow);
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // signal to the source that we have reached the end of the data.
+            context.signalNoMoreElement();
+        }
+        Thread.sleep(1000L);
     }
 
     @Override
