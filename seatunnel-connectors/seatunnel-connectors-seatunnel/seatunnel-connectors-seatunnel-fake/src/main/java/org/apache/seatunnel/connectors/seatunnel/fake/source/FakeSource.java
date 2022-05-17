@@ -23,7 +23,10 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeState;
 
 import com.google.auto.service.AutoService;
@@ -34,6 +37,13 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
+    }
+
+    @Override
+    public SeaTunnelRowTypeInfo getRowTypeInfo() {
+        return new SeaTunnelRowTypeInfo(
+            new String[]{"name", "age", "timestamp"},
+            new SeaTunnelDataType<?>[]{BasicType.STRING, BasicType.INTEGER, BasicType.LONG});
     }
 
     @Override
