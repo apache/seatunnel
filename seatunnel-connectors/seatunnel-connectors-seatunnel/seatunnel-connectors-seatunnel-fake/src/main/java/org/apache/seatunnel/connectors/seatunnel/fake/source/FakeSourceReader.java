@@ -38,7 +38,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private final SourceReader.Context context;
 
     private final String[] names = {"Wenjun", "Fanjia", "Zongwen", "CalvinKirs"};
-    private final int[] ages = {1024, 2048, 4096, 8192};
+    private final int[] ages = {11, 22, 33, 44};
     private final Random random = ThreadLocalRandom.current();
 
     public FakeSourceReader(SourceReader.Context context) {
@@ -58,13 +58,16 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     @Override
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
-        int i = random.nextInt(names.length);
-        Map<String, Object> fieldMap = new HashMap<>(4);
-        fieldMap.put("name", names[i]);
-        fieldMap.put("age", ages[i]);
-        fieldMap.put("timestamp", System.currentTimeMillis());
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[i], ages[i], System.currentTimeMillis()}, fieldMap);
-        output.collect(seaTunnelRow);
+        // Generate a random number of rows to emit.
+        for (int i = 0; i < random.nextInt(10); i++) {
+            int randomIndex = random.nextInt(names.length);
+            Map<String, Object> fieldMap = new HashMap<>(4);
+            fieldMap.put("name", names[randomIndex]);
+            fieldMap.put("age", ages[randomIndex]);
+            fieldMap.put("timestamp", System.currentTimeMillis());
+            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[randomIndex], ages[randomIndex], System.currentTimeMillis()}, fieldMap);
+            output.collect(seaTunnelRow);
+        }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             context.signalNoMoreElement();

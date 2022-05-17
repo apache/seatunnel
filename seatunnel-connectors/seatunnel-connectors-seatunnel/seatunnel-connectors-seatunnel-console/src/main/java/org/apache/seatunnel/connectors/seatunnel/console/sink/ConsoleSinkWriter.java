@@ -24,6 +24,8 @@ import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+
 public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommitInfo, ConsoleState> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSinkWriter.class);
@@ -31,7 +33,7 @@ public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommit
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
-        System.out.println(element.toString());
+        System.out.println(Arrays.toString(element.getFields()));
     }
 
     @Override

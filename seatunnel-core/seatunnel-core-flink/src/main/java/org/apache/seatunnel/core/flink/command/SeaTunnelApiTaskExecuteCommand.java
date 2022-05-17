@@ -68,11 +68,12 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<FlinkCommandArgs>
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
 
         Config config = new ConfigBuilder(configFile).getConfig();
+        FlinkEnvironment flinkEnvironment = getFlinkEnvironment(config);
+
         SeaTunnelParallelSource source = getSource(config);
         // todo: add basic type
         Sink<WrappedRow, Object, Object, Object> flinkSink = getSink(config);
 
-        FlinkEnvironment flinkEnvironment = getFlinkEnvironment(config);
         registerPlugins(flinkEnvironment);
 
         StreamExecutionEnvironment streamExecutionEnvironment = flinkEnvironment.getStreamExecutionEnvironment();
@@ -129,7 +130,7 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<FlinkCommandArgs>
     private FlinkEnvironment getFlinkEnvironment(Config config) {
         FlinkEnvironment flinkEnvironment = new FlinkEnvironment();
         flinkEnvironment.setJobMode(JobMode.STREAMING);
-        flinkEnvironment.setConfig(config);
+        flinkEnvironment.setConfig(config.getConfig("env"));
         flinkEnvironment.prepare();
 
         return flinkEnvironment;
