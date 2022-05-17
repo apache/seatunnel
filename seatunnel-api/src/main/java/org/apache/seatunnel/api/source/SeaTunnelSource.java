@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 
 import java.io.Serializable;
 
@@ -38,6 +39,13 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT> extends 
      * @return the boundedness of this source.
      */
     Boundedness getBoundedness();
+
+    /**
+     * Get the row type information of the records produced by this source.
+     *
+     * @return SeaTunnel row type information.
+     */
+    SeaTunnelRowTypeInfo getRowTypeInfo();
 
     /**
      * Create source reader, used to produce data.

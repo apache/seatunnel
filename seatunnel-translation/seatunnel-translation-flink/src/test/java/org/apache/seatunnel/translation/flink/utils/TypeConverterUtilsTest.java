@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.translation.flink.utils;
 
-import java.io.Serializable;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
-/**
- * Logic data type of column in SeaTunnel.
- */
-public interface SeaTunnelDataType<T> extends Serializable {
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.junit.Assert;
+import org.junit.Test;
 
+public class TypeConverterUtilsTest {
 
+    @Test
+    public void convertType() {
+        SeaTunnelDataType<?> intBasicType = BasicType.INTEGER;
+        Assert.assertEquals(BasicTypeInfo.INT_TYPE_INFO, TypeConverterUtils.convertType(intBasicType));
+
+        BasicType<Long> longBasicType = BasicType.LONG;
+        Assert.assertEquals(BasicTypeInfo.LONG_TYPE_INFO, TypeConverterUtils.convertType(longBasicType));
+
+    }
 }

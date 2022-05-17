@@ -17,12 +17,19 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-/**
- * Logic data type of column in SeaTunnel.
- */
-public interface SeaTunnelDataType<T> extends Serializable {
-
+@Data
+@AllArgsConstructor
+public class SeaTunnelRowTypeInfo {
+    /**
+     * The field name of the {@link SeaTunnelRow}.
+     */
+    private final String[] fieldNames;
+    /**
+     * The type of the field.
+     */
+    private final SeaTunnelDataType<?>[] seaTunnelDataTypes;
 
 }

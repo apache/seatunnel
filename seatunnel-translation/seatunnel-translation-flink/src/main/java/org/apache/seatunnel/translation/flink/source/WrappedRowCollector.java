@@ -20,25 +20,25 @@ package org.apache.seatunnel.translation.flink.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowSerialization;
-import org.apache.seatunnel.translation.flink.serialization.WrappedRow;
 
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.types.Row;
 
 import java.io.IOException;
 
 public class WrappedRowCollector implements Collector<SeaTunnelRow> {
 
-    protected final SourceFunction.SourceContext<WrappedRow> internalCollector;
+    protected final SourceFunction.SourceContext<Row> internalCollector;
     protected final FlinkRowSerialization rowSerialization = new FlinkRowSerialization();
 
-    public WrappedRowCollector(SourceFunction.SourceContext<WrappedRow> internalCollector) {
+    public WrappedRowCollector(SourceFunction.SourceContext<Row> internalCollector) {
         this.internalCollector = internalCollector;
     }
 
     @Override
     public void collect(SeaTunnelRow record) {
         try {
-            internalCollector.collect(new WrappedRow(rowSerialization.serialize(record), ""));
+            internalCollector.collect(rowSerialization.serialize(record));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
