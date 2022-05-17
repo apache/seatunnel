@@ -47,6 +47,7 @@ The execution order of the lifecycle methods is: `checkConfig` -> `prepare` -> `
 ```java
 import java.util.Date;
 
+@AutoService(BaseSparkSource.class)
 public class Hello extends SparkBatchSource {
     @Override
     public Dataset<Row> getData(SparkEnvironment env) {
@@ -76,7 +77,6 @@ public class Hello extends SparkBatchSource {
     }
 }
 ```
-The `getPluginName` method is used to identify the plugin name.
 
 - The `getPluginName` method is used to identify the plugin name.
 - The `@AutoService` is used to generate the `META-INF/services/org.apache.seatunnel.BaseSparkSource` file
