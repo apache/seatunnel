@@ -89,10 +89,9 @@ fully qualified class name of your implementation.
 
 ## Add plugin to the distribution
 
-You need to add your plugin to the `seatunnel-connectors-spark-dist` module,then the plugin will in distribution.
+You need to add your plugin to the `seatunnel-connectors-spark-dist` module, then the plugin will in distribution.
 
 ```xml
-
 <dependency>
     <groupId>org.apache.seatunnel</groupId>
     <artifactId>seatunnel-connector-spark-hello</artifactId>
@@ -101,6 +100,12 @@ You need to add your plugin to the `seatunnel-connectors-spark-dist` module,then
 ```
 
 After you using `mvn package` to make a distribution, you can find the plugin in your ${distribution}/connectors/spark.
+
+## Add information to plugin-mapping.properties file
+
+SeaTunnel use `plugin-mapping.properties` file to locate the name of the jar package, the file is under module `seatunnel-connectors`, the key/value rule in
+properties is : `engineName.pluginType.pluginName=artifactId`. eg: `spark.source.hello=seatunnel-connector-spark-hello`.
+So that SeaTunnel can find plugin jar according to user's config file.
 
 # Contribute Flink Plugins
 
