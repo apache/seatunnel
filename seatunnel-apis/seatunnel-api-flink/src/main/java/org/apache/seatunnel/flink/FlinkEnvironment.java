@@ -121,7 +121,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
-        LOGGER.info("register plugins :" + pluginPaths);
+        pluginPaths.forEach(url -> LOGGER.info("register plugins : {}", url));
         Configuration configuration;
         try {
             if (isStreaming()) {
