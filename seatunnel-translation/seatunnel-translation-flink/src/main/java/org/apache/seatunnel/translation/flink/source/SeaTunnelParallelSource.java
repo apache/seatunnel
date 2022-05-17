@@ -19,8 +19,8 @@ package org.apache.seatunnel.translation.flink.source;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.serialization.KryoTypeInfo;
-import org.apache.seatunnel.translation.flink.serialization.WrappedRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 import org.apache.seatunnel.translation.source.ParallelSource;
 
 import org.apache.flink.api.common.state.CheckpointListener;
@@ -30,21 +30,24 @@ import org.apache.flink.api.common.state.OperatorStateStore;
 import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-public class SeaTunnelParallelSource extends RichParallelSourceFunction<WrappedRow>
-        implements CheckpointListener, ResultTypeQueryable<WrappedRow>, CheckpointedFunction {
+public class SeaTunnelParallelSource extends RichParallelSourceFunction<Row>
+    implements CheckpointListener, ResultTypeQueryable<Row>, CheckpointedFunction {
     private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelParallelSource.class);
     protected static final String PARALLEL_SOURCE_STATE_NAME = "parallel-source-states";
 
@@ -75,7 +78,7 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<WrappedR
     }
 
     @Override
-    public void run(SourceFunction.SourceContext<WrappedRow> sourceContext) throws Exception {
+    public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
         parallelSource.run(new WrappedRowCollector(sourceContext));
     }
 
@@ -100,9 +103,11 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<WrappedR
     }
 
     @Override
-    public TypeInformation<WrappedRow> getProducedType() {
-        // todo: add type transformation
-        return new KryoTypeInfo<>(WrappedRow.class);
+    public TypeInformation<Row> getProducedType() {
+        SeaTunnelRowTypeInfo rowTypeInfo = source.getRowTypeInfo();
+        TypeInformation<?>[] typeInformation = Arrays.stream(rowTypeInfo.getSeaTunnelDataTypes())
+            .map(TypeConverterUtils::convertType).toArray(TypeInformation[]::new);
+        return new RowTypeInfo(typeInformation, rowTypeInfo.getFieldNames());
     }
 
     @Override

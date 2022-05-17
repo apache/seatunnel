@@ -20,11 +20,14 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 
 @SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
-public abstract class Column {
+public abstract class Column implements Serializable {
+
+    private static final long serialVersionUID = -1L;
 
     /**
      * column name.

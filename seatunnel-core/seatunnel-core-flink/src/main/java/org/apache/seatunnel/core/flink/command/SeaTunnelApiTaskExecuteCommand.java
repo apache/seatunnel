@@ -26,10 +26,10 @@ import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.flink.FlinkEnvironment;
+import org.apache.seatunnel.flink.util.TableUtil;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.translation.flink.serialization.WrappedRow;
 import org.apache.seatunnel.translation.flink.sink.FlinkSinkConverter;
 import org.apache.seatunnel.translation.flink.source.SeaTunnelParallelSource;
 
@@ -37,8 +37,12 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
 import org.apache.flink.api.connector.sink.Sink;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.api.Table;
+import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,20 +76,39 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<FlinkCommandArgs>
 
         SeaTunnelParallelSource source = getSource(config);
         // todo: add basic type
-        Sink<WrappedRow, Object, Object, Object> flinkSink = getSink(config);
+        Sink<Row, Object, Object, Object> flinkSink = getSink(config);
 
         registerPlugins(flinkEnvironment);
 
         StreamExecutionEnvironment streamExecutionEnvironment = flinkEnvironment.getStreamExecutionEnvironment();
         // support multiple sources/sink
-        DataStreamSource<WrappedRow> dataStream = streamExecutionEnvironment.addSource(source);
+        DataStreamSource<Row> dataStream = streamExecutionEnvironment.addSource(source);
+        registerTable(dataStream, "fake_table", "name, age", flinkEnvironment);
         // todo: add transform
-        dataStream.sinkTo(flinkSink);
+        DataStream<Row> transformOutputStream = TableUtil.tableToDataStream(
+            flinkEnvironment.getStreamTableEnvironment(),
+            flinkEnvironment.getStreamTableEnvironment().sqlQuery("select * from fake_table"),
+            false);
+        // add sink
+        transformOutputStream.sinkTo(flinkSink);
         try {
             streamExecutionEnvironment.execute("SeaTunnelAPITaskExecuteCommand");
         } catch (Exception e) {
             throw new CommandExecuteException("SeaTunnelAPITaskExecuteCommand execute failed", e);
         }
+    }
+
+    private void registerTable(DataStream<Row> dataStream, String tableName, String fields, FlinkEnvironment flinkEnvironment) {
+        StreamTableEnvironment streamTableEnvironment = flinkEnvironment.getStreamTableEnvironment();
+        if (!TableUtil.tableExists(streamTableEnvironment, tableName)) {
+            streamTableEnvironment.registerDataStream(tableName, dataStream, fields);
+        }
+    }
+
+    private DataStream<Row> fromSourceTable(FlinkEnvironment flinkEnvironment, String tableName) {
+        StreamTableEnvironment streamTableEnvironment = flinkEnvironment.getStreamTableEnvironment();
+        Table fakeTable = streamTableEnvironment.scan(tableName);
+        return TableUtil.tableToDataStream(streamTableEnvironment, fakeTable, true);
     }
 
     private SeaTunnelParallelSource getSource(Config config) {
@@ -95,10 +118,10 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<FlinkCommandArgs>
         return new SeaTunnelParallelSource(sourcePluginDiscovery.getPluginInstance(pluginIdentifier));
     }
 
-    private Sink<WrappedRow, Object, Object, Object> getSink(Config config) {
+    private Sink<Row, Object, Object, Object> getSink(Config config) {
         PluginIdentifier pluginIdentifier = getSinkPluginIdentifier();
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        FlinkSinkConverter<SeaTunnelRow, WrappedRow, Object, Object, Object> flinkSinkConverter = new FlinkSinkConverter<>();
+        FlinkSinkConverter<SeaTunnelRow, Row, Object, Object, Object> flinkSinkConverter = new FlinkSinkConverter<>();
         return flinkSinkConverter.convert(sinkPluginDiscovery.getPluginInstance(pluginIdentifier), Collections.emptyMap());
     }
 
