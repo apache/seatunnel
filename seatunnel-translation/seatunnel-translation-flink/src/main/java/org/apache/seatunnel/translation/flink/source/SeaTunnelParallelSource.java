@@ -41,7 +41,6 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,15 +51,17 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<Row>
     protected static final String PARALLEL_SOURCE_STATE_NAME = "parallel-source-states";
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
-    protected volatile ParallelSource<SeaTunnelRow, ?, ?> parallelSource;
+    protected transient volatile ParallelSource<SeaTunnelRow, ?, ?> parallelSource;
 
     protected transient ListState<byte[]> sourceState;
-    private transient volatile List<byte[]> restoredState;
+    protected transient volatile List<byte[]> restoredState;
 
     /**
      * Flag indicating whether the consumer is still running.
      */
     private volatile boolean running = true;
+
+    private FlinkCheckpointLock checkpointLock = null;
 
     public SeaTunnelParallelSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
         // TODO: Make sure the source is uncoordinated.
@@ -79,7 +80,8 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<Row>
 
     @Override
     public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
-        parallelSource.run(new WrappedRowCollector(sourceContext));
+        checkpointLock = new FlinkCheckpointLock(sourceContext.getCheckpointLock(), getRuntimeContext().getIndexOfThisSubtask());
+        parallelSource.run(new RowCollector(sourceContext, checkpointLock));
     }
 
     @Override
@@ -87,7 +89,10 @@ public class SeaTunnelParallelSource extends RichParallelSourceFunction<Row>
         running = false;
         try {
             parallelSource.close();
-        } catch (IOException e) {
+            if (checkpointLock != null) {
+                checkpointLock.close();
+            }
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
