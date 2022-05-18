@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.spark.command;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.core.base.command.Command;
@@ -71,7 +72,7 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SparkCommandArgs>
                 .schema(TypeConverterUtils.convertRow(source.getRowTypeInfo())).load();
         SeaTunnelSink<?, ?, ?, ?> sink = getSink(config);
         try {
-            SparkSinkInjector.inject(dataset.write(), sink, new HashMap<>()).option(
+            SparkSinkInjector.inject(dataset.write(), sink, new HashMap<>(Common.COLLECTION_SIZE)).option(
                     "checkpointLocation", "/tmp").save();
         } catch (Exception e) {
             LOGGER.error("run seatunnel on spark failed.", e);
