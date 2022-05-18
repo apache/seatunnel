@@ -70,7 +70,7 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();
 
         checkPluginType(executionContext.getJobMode(), sources, transforms, sinks);
-        baseCheckConfig(sinks, transforms, sinks);
+        baseCheckConfig(sources, transforms, sinks);
         showAsciiLogo();
 
         try (Execution<BaseSource<FlinkEnvironment>,
