@@ -33,4 +33,9 @@ public class TimestampTypeConverter implements FlinkTypeConverter<TimestampType,
     public TimestampDataTypeInfo convert(TimestampType seaTunnelDataType) {
         return new TimestampDataTypeInfo(seaTunnelDataType.getPrecision());
     }
+
+    @Override
+    public TimestampType reconvert(TimestampDataTypeInfo typeInformation) {
+        return new TimestampType(typeInformation.getPrecision());
+    }
 }

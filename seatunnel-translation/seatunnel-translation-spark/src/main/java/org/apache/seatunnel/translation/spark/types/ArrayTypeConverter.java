@@ -31,4 +31,9 @@ public class ArrayTypeConverter<T1>
         DataType elementType = TypeConverterUtils.convert(seaTunnelDataType.getElementType());
         return DataTypes.createArrayType(elementType);
     }
+
+    @Override
+    public ArrayType<T1> reconvert(org.apache.spark.sql.types.ArrayType dataType) {
+        return null;
+    }
 }
