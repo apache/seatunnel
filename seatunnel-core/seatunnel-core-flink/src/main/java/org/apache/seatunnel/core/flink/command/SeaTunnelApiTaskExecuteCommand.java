@@ -53,7 +53,6 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<FlinkCommandArgs>
         SeaTunnelTaskExecution seaTunnelTaskExecution = new SeaTunnelTaskExecution(config);
         try {
             seaTunnelTaskExecution.execute();
-            LOGGER.info("Flink Execution Plan:{}", seaTunnelTaskExecution.getExecutionPlan());
         } catch (Exception e) {
             throw new CommandExecuteException("Flink job executed failed", e);
         }
