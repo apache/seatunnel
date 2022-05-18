@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -39,6 +40,15 @@ import java.util.Optional;
  *                                {@link SinkAggregatedCommitter} handle it, this class should implement interface {@link Serializable}.
  */
 public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends Serializable, PluginIdentifierInterface {
+
+    /**
+     * Set the row type info of sink row data. This method will be automatically called by translation.
+     *
+     * @param seaTunnelRowTypeInfo The row type info of sink.
+     */
+    default void setTypeInfo(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
+
+    }
 
     /**
      * This method will be called to creat {@link SinkWriter}

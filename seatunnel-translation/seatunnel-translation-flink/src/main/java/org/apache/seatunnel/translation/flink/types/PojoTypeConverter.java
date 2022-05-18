@@ -28,4 +28,9 @@ public class PojoTypeConverter<T1> implements FlinkTypeConverter<PojoType<T1>, P
         Class<T1> pojoClass = seaTunnelDataType.getPojoClass();
         return (PojoTypeInfo<T1>) PojoTypeInfo.of(pojoClass);
     }
+
+    @Override
+    public PojoType<T1> reconvert(PojoTypeInfo<T1> typeInformation) {
+        return new PojoType<>(typeInformation.getTypeClass());
+    }
 }

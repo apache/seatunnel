@@ -18,28 +18,32 @@
 package org.apache.seatunnel.core.flink.execution;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.translation.flink.sink.FlinkSinkConverter;
+import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
-import org.apache.flink.api.connector.sink.Sink;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import scala.Serializable;
 
-public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<Sink<Row, Serializable, Serializable, Serializable>> {
+public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
 
     protected SinkExecuteProcessor(FlinkEnvironment flinkEnvironment,
                                    List<? extends Config> pluginConfigs) {
@@ -47,19 +51,16 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<Sink<Ro
     }
 
     @Override
-    protected List<Sink<Row, Serializable, Serializable, Serializable>> initializePlugins(List<? extends Config> pluginConfigs) {
+    protected List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> initializePlugins(List<? extends Config> pluginConfigs) {
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
-        FlinkSinkConverter<SeaTunnelRow, Row, Serializable, Serializable, Serializable> flinkSinkConverter = new FlinkSinkConverter<>();
-        List<Sink<Row, Serializable, Serializable, Serializable>> sinks = pluginConfigs.stream().map(sinkConfig -> {
+        List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> sinks = pluginConfigs.stream().map(sinkConfig -> {
             PluginIdentifier pluginIdentifier = PluginIdentifier.of(
                 "seatunnel",
                 "sink",
                 sinkConfig.getString("plugin_name"));
             pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> pluginInstance =
-                sinkPluginDiscovery.getPluginInstance(pluginIdentifier);
-            return flinkSinkConverter.convert(pluginInstance, Collections.emptyMap());
+            return (SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>) sinkPluginDiscovery.getPluginInstance(pluginIdentifier);
         }).collect(Collectors.toList());
         flinkEnvironment.registerPlugin(pluginJars);
         return sinks;
@@ -68,12 +69,23 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<Sink<Ro
     @Override
     public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws Exception {
         DataStream<Row> input = upstreamDataStreams.get(0);
+        FlinkSinkConverter<SeaTunnelRow, Row, Serializable, Serializable, Serializable> flinkSinkConverter = new FlinkSinkConverter<>();
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);
+            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = plugins.get(i);
             DataStream<Row> stream = fromSourceTable(sinkConfig).orElse(input);
-            stream.sinkTo(plugins.get(i));
+            seaTunnelSink.setTypeInfo(getSeaTunnelRowTypeInfo(stream));
+            stream.sinkTo(flinkSinkConverter.convert(seaTunnelSink, Collections.emptyMap()));
         }
         // the sink is the last stream
         return null;
+    }
+
+    private SeaTunnelRowTypeInfo getSeaTunnelRowTypeInfo(DataStream<Row> stream) {
+        RowTypeInfo typeInformation = (RowTypeInfo) stream.getType();
+        String[] fieldNames = typeInformation.getFieldNames();
+        SeaTunnelDataType<?>[] seaTunnelDataTypes = Arrays.stream(typeInformation.getFieldTypes())
+            .map(TypeConverterUtils::convertType).toArray(SeaTunnelDataType[]::new);
+        return new SeaTunnelRowTypeInfo(fieldNames, seaTunnelDataTypes);
     }
 }

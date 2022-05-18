@@ -34,4 +34,9 @@ public class TimestampTypeConverter
     public org.apache.spark.sql.types.TimestampType convert(TimestampType seaTunnelDataType) {
         return (org.apache.spark.sql.types.TimestampType) DataTypes.TimestampType;
     }
+
+    @Override
+    public TimestampType reconvert(org.apache.spark.sql.types.TimestampType dataType) {
+        return new TimestampType(dataType.defaultSize());
+    }
 }
