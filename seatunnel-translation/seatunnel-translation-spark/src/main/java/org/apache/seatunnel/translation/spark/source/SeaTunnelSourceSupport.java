@@ -40,6 +40,7 @@ import java.util.Optional;
 public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroBatchReadSupport, ContinuousReadSupport, DataSourceRegister {
 
     public static final String SEA_TUNNEL_SOURCE_NAME = "SeaTunnelSource";
+    public static final Integer CHECKPOINT_INTERVAL_DEFAULT = 10000;
 
     @Override
     public String shortName() {
@@ -64,8 +65,10 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
         StructType rowType = checkRowType(rowTypeOptional);
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt("source.parallelism", 1);
+        Integer checkpointInterval = options.getInt("checkpoint.interval", CHECKPOINT_INTERVAL_DEFAULT);
+        Integer checkpointId = options.getInt("checkpoint.id", 1);
         // TODO: case coordinated source
-        return new MicroBatchParallelSourceReader(seaTunnelSource, parallelism, rowType);
+        return new MicroBatchParallelSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, rowType);
     }
 
     @Override

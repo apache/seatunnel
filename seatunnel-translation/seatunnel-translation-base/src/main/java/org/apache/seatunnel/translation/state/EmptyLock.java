@@ -15,32 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.continnous;
+package org.apache.seatunnel.translation.state;
 
-import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
+import org.apache.seatunnel.api.state.CheckpointLock;
 
-import java.util.List;
-
-public class ReaderState implements PartitionOffset {
-    private final List<byte[]> bytes;
-    private final Integer subtaskId;
-    private final Integer checkpointId;
-
-    public ReaderState(List<byte[]> bytes, Integer subtaskId, Integer checkpointId) {
-        this.bytes = bytes;
-        this.subtaskId = subtaskId;
-        this.checkpointId = checkpointId;
+public class EmptyLock implements CheckpointLock {
+    @Override
+    public void lock() {
+        // nothing
     }
 
-    public List<byte[]> getBytes() {
-        return bytes;
-    }
-
-    public Integer getSubtaskId() {
-        return subtaskId;
-    }
-
-    public Integer getCheckpointId() {
-        return checkpointId;
+    @Override
+    public void unlock() {
+        // nothing
     }
 }

@@ -15,15 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.state;
+package org.apache.seatunnel.translation.spark.source;
 
-/**
- * If the data flow is bounded, checkpoint is not triggered.
- */
-public interface CheckpointListener {
+import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
 
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+import java.util.List;
 
-    default void notifyCheckpointAborted(long checkpointId) throws Exception {
+public class ReaderState implements PartitionOffset {
+    private final List<byte[]> bytes;
+    private final Integer subtaskId;
+    private final Integer checkpointId;
+
+    public ReaderState(List<byte[]> bytes, Integer subtaskId, Integer checkpointId) {
+        this.bytes = bytes;
+        this.subtaskId = subtaskId;
+        this.checkpointId = checkpointId;
+    }
+
+    public List<byte[]> getBytes() {
+        return bytes;
+    }
+
+    public Integer getSubtaskId() {
+        return subtaskId;
+    }
+
+    public Integer getCheckpointId() {
+        return checkpointId;
     }
 }
