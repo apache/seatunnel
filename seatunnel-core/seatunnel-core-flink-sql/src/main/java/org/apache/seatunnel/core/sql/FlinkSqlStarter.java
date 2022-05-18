@@ -45,7 +45,7 @@ public class FlinkSqlStarter implements Starter {
 
     @Override
     public List<String> buildCommands() throws Exception {
-        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, CLASS_NAME, appJar, FlinkJobType.SQL);
+        return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, CLASS_NAME, appJar);
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")

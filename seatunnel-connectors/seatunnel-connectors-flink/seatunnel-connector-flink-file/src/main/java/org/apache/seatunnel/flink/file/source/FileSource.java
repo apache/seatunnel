@@ -19,6 +19,7 @@ package org.apache.seatunnel.flink.file.source;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
 import org.apache.seatunnel.flink.enums.FormatType;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
+import com.google.auto.service.AutoService;
 import org.apache.avro.Schema;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -45,6 +47,7 @@ import org.apache.parquet.schema.MessageType;
 import java.util.List;
 import java.util.Map;
 
+@AutoService(BaseFlinkSource.class)
 public class FileSource implements FlinkBatchSource {
 
     private static final long serialVersionUID = -5206798549756998426L;

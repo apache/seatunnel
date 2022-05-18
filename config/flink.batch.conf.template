@@ -26,10 +26,7 @@ env {
 
 source {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
-  FileSource {
-    path = "hdfs://localhost:9000/output/text"
-    format.type = "text"
-    schema = "string"
+  FakeSource {
     result_table_name = "test"
   }
 
