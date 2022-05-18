@@ -58,4 +58,9 @@ public class ArrayTypeConverter<T1, T2> implements FlinkTypeConverter<ArrayType<
         }
         throw new IllegalArgumentException("Unsupported basic type: " + elementType);
     }
+
+    @Override
+    public ArrayType<T1> reconvert(BasicArrayTypeInfo<T1, T2> typeInformation) {
+        return null;
+    }
 }

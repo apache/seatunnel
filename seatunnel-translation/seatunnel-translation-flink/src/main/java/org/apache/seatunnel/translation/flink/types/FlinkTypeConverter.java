@@ -36,4 +36,13 @@ public interface FlinkTypeConverter<T1, T2> extends Converter<T1, T2> {
     @Override
     T2 convert(T1 seaTunnelDataType);
 
+    /**
+     * Convert flink {@link TypeInformation} to SeaTunnel {@link SeaTunnelDataType}.
+     *
+     * @param typeInformation flink {@link TypeInformation}
+     * @return seatunnel {@link SeaTunnelDataType}
+     */
+    @Override
+    T1 reconvert(T2 typeInformation);
+
 }

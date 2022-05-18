@@ -31,6 +31,7 @@ import org.apache.seatunnel.translation.flink.types.PojoTypeConverter;
 import org.apache.seatunnel.translation.flink.types.TimestampTypeConverter;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.EnumTypeInfo;
 import org.apache.flink.api.java.typeutils.ListTypeInfo;
@@ -45,6 +46,14 @@ public class TypeConverterUtils {
 
     private TypeConverterUtils() {
         throw new UnsupportedOperationException("TypeConverterUtils is a utility class and cannot be instantiated");
+    }
+
+    public static <T1, T2> SeaTunnelDataType<T2> convertType(TypeInformation<T1> dataType) {
+        if (dataType instanceof BasicTypeInfo) {
+            return (SeaTunnelDataType<T2>) convertBasicType((BasicTypeInfo<T1>) dataType);
+        }
+        // todo:
+        throw new IllegalArgumentException("Unsupported data type: " + dataType);
     }
 
     @SuppressWarnings("unchecked")
@@ -144,6 +153,77 @@ public class TypeConverterUtils {
                 BasicTypeConverter.NULL_CONVERTER.convert(voidBasicType);
         }
         throw new IllegalArgumentException("Unsupported basic type: " + basicType);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T1> SeaTunnelDataType<T1> convertBasicType(BasicTypeInfo<T1> flinkDataType) {
+        Class<T1> physicalTypeClass = flinkDataType.getTypeClass();
+        if (physicalTypeClass == Boolean.class) {
+            TypeInformation<Boolean> booleanTypeInformation = (TypeInformation<Boolean>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.BOOLEAN_CONVERTER.reconvert(booleanTypeInformation);
+        }
+        if (physicalTypeClass == String.class) {
+            TypeInformation<String> stringBasicType = (TypeInformation<String>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.STRING_CONVERTER.reconvert(stringBasicType);
+        }
+        if (physicalTypeClass == Date.class) {
+            TypeInformation<Date> dateBasicType = (TypeInformation<Date>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.DATE_CONVERTER.reconvert(dateBasicType);
+        }
+        if (physicalTypeClass == Double.class) {
+            TypeInformation<Double> doubleBasicType = (TypeInformation<Double>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.DOUBLE_CONVERTER.reconvert(doubleBasicType);
+        }
+        if (physicalTypeClass == Integer.class) {
+            TypeInformation<Integer> integerBasicType = (TypeInformation<Integer>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.INTEGER_CONVERTER.reconvert(integerBasicType);
+        }
+        if (physicalTypeClass == Long.class) {
+            TypeInformation<Long> longBasicType = (TypeInformation<Long>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.LONG_CONVERTER.reconvert(longBasicType);
+        }
+        if (physicalTypeClass == Float.class) {
+            TypeInformation<Float> floatBasicType = (TypeInformation<Float>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.FLOAT_CONVERTER.reconvert(floatBasicType);
+        }
+        if (physicalTypeClass == Byte.class) {
+            TypeInformation<Byte> byteBasicType = (TypeInformation<Byte>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.BYTE_CONVERTER.reconvert(byteBasicType);
+        }
+        if (physicalTypeClass == Short.class) {
+            TypeInformation<Short> shortBasicType = (TypeInformation<Short>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.SHORT_CONVERTER.reconvert(shortBasicType);
+        }
+        if (physicalTypeClass == Character.class) {
+            TypeInformation<Character> characterBasicType = (TypeInformation<Character>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.CHARACTER_CONVERTER.reconvert(characterBasicType);
+        }
+        if (physicalTypeClass == BigInteger.class) {
+            TypeInformation<BigInteger> bigIntegerBasicType = (TypeInformation<BigInteger>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.BIG_INTEGER_CONVERTER.reconvert(bigIntegerBasicType);
+        }
+        if (physicalTypeClass == BigDecimal.class) {
+            TypeInformation<BigDecimal> bigDecimalBasicType = (TypeInformation<BigDecimal>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.BIG_DECIMAL_CONVERTER.reconvert(bigDecimalBasicType);
+        }
+        if (physicalTypeClass == Void.class) {
+            TypeInformation<Void> voidBasicType = (TypeInformation<Void>) flinkDataType;
+            return (SeaTunnelDataType<T1>)
+                BasicTypeConverter.NULL_CONVERTER.reconvert(voidBasicType);
+        }
+        throw new IllegalArgumentException("Unsupported flink type: " + flinkDataType);
     }
 
     public static <T1, T2> BasicArrayTypeInfo<T1, T2> convertArrayType(ArrayType<T1> arrayType) {

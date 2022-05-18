@@ -32,4 +32,7 @@ public interface SparkDataTypeConverter<T1, T2> extends Converter<T1, T2> {
      */
     @Override
     T2 convert(T1 seaTunnelDataType);
+
+    @Override
+    T1 reconvert(T2 dataType);
 }

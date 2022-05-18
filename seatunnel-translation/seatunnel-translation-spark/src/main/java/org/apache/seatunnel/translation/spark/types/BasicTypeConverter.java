@@ -126,4 +126,9 @@ public class BasicTypeConverter<T1>
     public DataType convert(BasicType<T1> seaTunnelDataType) {
         return sparkDataType;
     }
+
+    @Override
+    public BasicType<T1> reconvert(DataType dataType) {
+        return seatunnelDataType;
+    }
 }

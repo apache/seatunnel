@@ -20,9 +20,13 @@ package org.apache.seatunnel.api.table.type;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
 @AllArgsConstructor
-public class SeaTunnelRowTypeInfo {
+public class SeaTunnelRowTypeInfo implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     /**
      * The field name of the {@link SeaTunnelRow}.
      */
