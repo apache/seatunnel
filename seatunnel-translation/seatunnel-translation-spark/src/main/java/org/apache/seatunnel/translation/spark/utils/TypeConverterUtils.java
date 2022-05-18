@@ -17,15 +17,22 @@
 
 package org.apache.seatunnel.translation.spark.utils;
 
-import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.PojoType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.api.table.type.TimestampType;
 import org.apache.seatunnel.translation.spark.types.ArrayTypeConverter;
 import org.apache.seatunnel.translation.spark.types.BasicTypeConverter;
 import org.apache.seatunnel.translation.spark.types.PojoTypeConverter;
 import org.apache.seatunnel.translation.spark.types.TimestampTypeConverter;
 
-import org.apache.spark.sql.types.*;
+import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.Metadata;
+import org.apache.spark.sql.types.ObjectType;
+import org.apache.spark.sql.types.StructField;
+import org.apache.spark.sql.types.StructType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
