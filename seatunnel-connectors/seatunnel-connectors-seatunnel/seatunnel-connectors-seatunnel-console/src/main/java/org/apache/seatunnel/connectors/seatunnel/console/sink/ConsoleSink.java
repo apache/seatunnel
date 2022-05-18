@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.google.auto.service.AutoService;
 
 import java.util.List;
@@ -30,6 +32,7 @@ import java.util.List;
 @AutoService(SeaTunnelSink.class)
 public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, ConsoleCommitInfo, ConsoleAggregatedCommitInfo> {
 
+    private Config pluginConfig;
     private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
 
     @Override
@@ -51,5 +54,10 @@ public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, Co
     @Override
     public String getPluginName() {
         return "Console";
+    }
+
+    @Override
+    public void prepare(Config pluginConfig) {
+        this.pluginConfig = pluginConfig;
     }
 }

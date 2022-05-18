@@ -29,10 +29,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeState;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
 public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeState> {
+
+    private Config pluginConfig;
 
     @Override
     public Boundedness getBoundedness() {
@@ -77,5 +81,10 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     @Override
     public String getPluginName() {
         return "FakeSource";
+    }
+
+    @Override
+    public void prepare(Config pluginConfig) {
+        this.pluginConfig = pluginConfig;
     }
 }

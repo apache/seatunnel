@@ -34,6 +34,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<FlinkStreamTransform> {
+
+    private static final String PLUGIN_TYPE = "transform";
+
     protected TransformExecuteProcessor(FlinkEnvironment flinkEnvironment,
                                         List<? extends Config> pluginConfigs) {
         super(flinkEnvironment, pluginConfigs);
@@ -45,10 +48,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
         List<URL> pluginJars = new ArrayList<>();
         List<FlinkStreamTransform> transforms = pluginConfigs.stream()
             .map(transformConfig -> {
-                PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-                    "seatunnel",
-                    "transform",
-                    transformConfig.getString("plugin_name"));
+                PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
                 pluginJars.addAll(transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
                 FlinkStreamTransform pluginInstance = (FlinkStreamTransform) transformPluginDiscovery.getPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(transformConfig);
