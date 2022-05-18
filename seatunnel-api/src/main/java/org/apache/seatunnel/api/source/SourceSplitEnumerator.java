@@ -34,6 +34,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
 
     void open();
 
+    /**
+     * The method is executed by the engine only once.
+     */
     void run();
 
     /**
@@ -58,6 +61,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
 
     void registerReader(int subtaskId);
 
+    /**
+     * If the source is bounded, checkpoint is not triggered.
+     */
     StateT snapshotState(long checkpointId) throws Exception;
 
     /**

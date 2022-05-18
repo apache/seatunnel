@@ -19,9 +19,10 @@ package org.apache.seatunnel.translation.spark.source.continnous;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.source.ParallelSource;
+import org.apache.seatunnel.translation.spark.source.ReaderState;
 import org.apache.seatunnel.translation.spark.source.batch.BatchPartitionReader;
 
-import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.streaming.ContinuousInputPartitionReader;
 import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
@@ -40,7 +41,7 @@ public class ContinuousPartitionReader extends BatchPartitionReader implements C
     }
 
     @Override
-    protected InternalParallelSource<?, ?> createInternalParallelSource() {
+    protected ParallelSource<SeaTunnelRow, ?, ?> createParallelSource() {
         return new InternalParallelSource<>(source,
                 restoredState,
                 parallelism,
@@ -56,7 +57,6 @@ public class ContinuousPartitionReader extends BatchPartitionReader implements C
             throw new RuntimeException(e);
         }
         ReaderState readerState = new ReaderState(bytes, subtaskId, checkpointId++);
-        TaskContext.get();
         return readerState;
     }
 

@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements AutoCloseable, CheckpointListener {
 
@@ -68,7 +67,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
         this.parallelEnumeratorContext = new ParallelEnumeratorContext<>(this, parallelism, subtaskId);
-        this.readerContext = new ParallelReaderContext(this, subtaskId);
+        this.readerContext = new ParallelReaderContext(this, source.getBoundedness(), subtaskId);
 
         // Create or restore split enumerator & reader
         try {
@@ -102,7 +101,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
     }
 
     public void run(Collector<T> collector) throws Exception {
-        executorService.scheduleAtFixedRate(() -> splitEnumerator.run(), 0L, splitEnumeratorTimeInterval, TimeUnit.SECONDS);
+        executorService.execute(() -> splitEnumerator.run());
         while (running) {
             reader.pollNext(collector);
         }
@@ -113,6 +112,11 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
         // set ourselves as not running;
         // this would let the main discovery loop escape as soon as possible
         running = false;
+
+        if (executorService != null) {
+            executorService.shutdown();
+        }
+
         try (SourceSplitEnumerator<SplitT, StateT> closed = splitEnumerator;
              SourceReader<T, SplitT> closedReader = reader) {
             // just close the resources
