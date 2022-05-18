@@ -26,4 +26,9 @@ public class PojoTypeConverter<T1> implements SparkDataTypeConverter<PojoType<T1
     public ObjectType convert(PojoType<T1> seaTunnelDataType) {
         return new ObjectType(seaTunnelDataType.getPojoClass());
     }
+
+    @Override
+    public PojoType<T1> reconvert(ObjectType dataType) {
+        return new PojoType<>((Class<T1>) dataType.cls());
+    }
 }

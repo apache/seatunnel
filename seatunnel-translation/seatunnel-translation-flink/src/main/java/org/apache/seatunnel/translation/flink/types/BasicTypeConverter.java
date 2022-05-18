@@ -112,4 +112,10 @@ public class BasicTypeConverter<T1>
     public TypeInformation<T1> convert(BasicType<T1> seaTunnelDataType) {
         return flinkTypeInformation;
     }
+
+    @Override
+    public BasicType<T1> reconvert(TypeInformation<T1> dataType) {
+        return seaTunnelDataType;
+    }
+
 }

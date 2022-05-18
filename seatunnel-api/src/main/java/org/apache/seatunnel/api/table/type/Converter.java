@@ -20,4 +20,6 @@ package org.apache.seatunnel.api.table.type;
 public interface Converter<T1, T2> {
 
     T2 convert(T1 dataType);
+
+    T1 reconvert(T2 dataType);
 }

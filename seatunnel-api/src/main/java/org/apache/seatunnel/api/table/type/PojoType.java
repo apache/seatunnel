@@ -25,6 +25,10 @@ public class PojoType<T> implements SeaTunnelDataType<T> {
     private final Field[] fields;
     private final SeaTunnelDataType<?>[] fieldTypes;
 
+    public PojoType(Class<T> pojoClass) {
+        this(pojoClass, null, null);
+    }
+
     public PojoType(Class<T> pojoClass, Field[] fields, SeaTunnelDataType<?>[] fieldTypes) {
         this.pojoClass = pojoClass;
         this.fields = fields;
