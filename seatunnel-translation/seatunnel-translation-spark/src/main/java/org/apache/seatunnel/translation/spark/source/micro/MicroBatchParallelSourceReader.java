@@ -74,7 +74,7 @@ public class MicroBatchParallelSourceReader implements MicroBatchReader {
 
     @Override
     public StructType readSchema() {
-        return null;
+        return this.rowType;
     }
 
     @Override

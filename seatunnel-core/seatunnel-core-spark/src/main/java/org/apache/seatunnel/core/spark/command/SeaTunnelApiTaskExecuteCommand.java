@@ -17,29 +17,36 @@
 
 package org.apache.seatunnel.core.spark.command;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.EngineType;
+import org.apache.seatunnel.core.base.config.EnvironmentFactory;
 import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
+import org.apache.seatunnel.spark.SparkEnvironment;
+import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -58,51 +65,34 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SparkCommandArgs>
 
     @Override
     public void execute() throws CommandExecuteException {
-        EngineType engine = sparkCommandArgs.getEngineType();
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
 
         Config config = new ConfigBuilder(configFile).getConfig();
-        SeaTunnelParallelSource source = getSource(config);
-        // todo: add basic type
-        Sink<WrappedRow, Object, Object, Object> flinkSink = getSink(config);
-
-        FlinkEnvironment flinkEnvironment = getFlinkEnvironment(config);
-        registerPlugins(flinkEnvironment);
-
-        StreamExecutionEnvironment streamExecutionEnvironment = flinkEnvironment.getStreamExecutionEnvironment();
-        // support multiple sources/sink
-        DataStreamSource<WrappedRow> dataStream = streamExecutionEnvironment.addSource(source);
-        // todo: add transform
-        dataStream.sinkTo(flinkSink);
+        SparkEnvironment sparkEnvironment = getSparkEnvironment(config);
+        SeaTunnelSource<?, ?, ?> source = getSource(config);
+        Dataset<Row> dataset = sparkEnvironment.getSparkSession().read().format("SeaTunnelSource")
+                .option("source.serialization", SerializationUtils.objectToString(source))
+                .schema(TypeConverterUtils.convertRow(source.getRowTypeInfo())).load();
+        SeaTunnelSink<?, ?, ?, ?> sink = getSink(config);
         try {
-            streamExecutionEnvironment.execute("SeaTunnelAPITaskExecuteCommand");
+            SparkSinkInjector.inject(dataset.write(), sink, new HashMap<>()).option(
+                    "checkpointLocation", "/tmp").save();
         } catch (Exception e) {
-            throw new CommandExecuteException("SeaTunnelAPITaskExecuteCommand execute failed", e);
+            LOGGER.error("run seatunnel on spark failed.", e);
         }
     }
 
-    private SeaTunnelParallelSource getSource(Config config) {
+    private SeaTunnelSource<?, ?, ?> getSource(Config config) {
         PluginIdentifier pluginIdentifier = getSourcePluginIdentifier();
         // todo: use FactoryUtils to load the plugin
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
-        return new SeaTunnelParallelSource(sourcePluginDiscovery.getPluginInstance(pluginIdentifier));
+        return sourcePluginDiscovery.getPluginInstance(pluginIdentifier);
     }
 
-    private Sink<WrappedRow, Object, Object, Object> getSink(Config config) {
+    private SeaTunnelSink<?, ?, ?, ?> getSink(Config config) {
         PluginIdentifier pluginIdentifier = getSinkPluginIdentifier();
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        FlinkSinkConverter<SeaTunnelRow, WrappedRow, Object, Object, Object> flinkSinkConverter = new FlinkSinkConverter<>();
-        return flinkSinkConverter.convert(sinkPluginDiscovery.getPluginInstance(pluginIdentifier), Collections.emptyMap());
-    }
-
-    private List<URL> getSourPluginJars(PluginIdentifier pluginIdentifier) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
-        return sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
-    }
-
-    private List<URL> getSinkPluginJars(PluginIdentifier pluginIdentifier) {
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        return sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
+        return sinkPluginDiscovery.getPluginInstance(pluginIdentifier);
     }
 
     private PluginIdentifier getSourcePluginIdentifier() {
@@ -113,19 +103,12 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SparkCommandArgs>
         return PluginIdentifier.of("seatunnel", "sink", "Console");
     }
 
-    private void registerPlugins(FlinkEnvironment flinkEnvironment) {
-        List<URL> pluginJars = new ArrayList<>();
-        pluginJars.addAll(getSourPluginJars(getSourcePluginIdentifier()));
-        pluginJars.addAll(getSinkPluginJars(getSinkPluginIdentifier()));
-        flinkEnvironment.registerPlugin(pluginJars);
-    }
+    private SparkEnvironment getSparkEnvironment(Config config) {
+        SparkEnvironment sparkEnvironment = (SparkEnvironment) new EnvironmentFactory<>(config, EngineType.SPARK).getEnvironment();
+        sparkEnvironment.setJobMode(JobMode.STREAMING);
+        sparkEnvironment.setConfig(config);
+        sparkEnvironment.prepare();
 
-    private FlinkEnvironment getFlinkEnvironment(Config config) {
-        FlinkEnvironment flinkEnvironment = new FlinkEnvironment();
-        flinkEnvironment.setJobMode(JobMode.STREAMING);
-        flinkEnvironment.setConfig(config);
-        flinkEnvironment.prepare();
-
-        return flinkEnvironment;
+        return sparkEnvironment;
     }
 }

@@ -38,7 +38,7 @@ import java.util.Optional;
 public class SparkSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> implements WriteSupport,
         StreamWriteSupport, DataSourceV2 {
 
-    private SeaTunnelSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    private volatile SeaTunnelSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
     private Map<String, String> configuration;
 
     private void init(DataSourceOptions options) {
