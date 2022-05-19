@@ -30,12 +30,17 @@ import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 import org.apache.spark.sql.types.StructType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BatchPartitionReader.class);
+
     protected static final Integer INTERVAL = 100;
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
@@ -91,6 +96,8 @@ public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
                 parallelSource.run(collector);
             } catch (Exception e) {
                 handover.reportError(e);
+                LOGGER.error("ParallelSource execute failed.", e);
+                running = false;
             }
         });
         prepare = false;
