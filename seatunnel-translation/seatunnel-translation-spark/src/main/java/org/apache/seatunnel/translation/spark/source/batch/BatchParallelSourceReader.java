@@ -49,7 +49,7 @@ public class BatchParallelSourceReader implements DataSourceReader {
     public List<InputPartition<InternalRow>> planInputPartitions() {
         List<InputPartition<InternalRow>> virtualPartitions = new ArrayList<>(parallelism);
         for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-            virtualPartitions.add(new BatchPartition(source, parallelism, subtaskId));
+            virtualPartitions.add(new BatchPartition(source, parallelism, subtaskId, rowType));
         }
         return virtualPartitions;
     }

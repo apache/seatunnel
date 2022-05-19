@@ -109,7 +109,7 @@ public class ContinuousParallelSourceReader implements ContinuousReader {
         List<InputPartition<InternalRow>> virtualPartitions = new ArrayList<>(parallelism);
         for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
             ReaderState readerState = readerStateMap.get(subtaskId);
-            virtualPartitions.add(new ContinuousPartition(source, parallelism, subtaskId, checkpointId, readerState == null ? null : readerState.getBytes()));
+            virtualPartitions.add(new ContinuousPartition(source, parallelism, subtaskId, rowType, checkpointId, readerState == null ? null : readerState.getBytes()));
         }
         return virtualPartitions;
     }

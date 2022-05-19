@@ -20,7 +20,8 @@ package org.apache.seatunnel.translation.spark.sink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.spark.serialization.SparkRowSerialization;
+import org.apache.seatunnel.translation.serialization.RowSerialization;
+import org.apache.seatunnel.translation.spark.serialization.InternalRowSerialization;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
@@ -38,20 +39,19 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Nullable
     private final SinkCommitter<CommitInfoT> sinkCommitter;
-    private final StructType schema;
-    private final SparkRowSerialization rowSerialization = new SparkRowSerialization();
+    private final RowSerialization<InternalRow> rowSerialization;
 
     SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
                     SinkCommitter<CommitInfoT> sinkCommitter,
                     StructType schema) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
-        this.schema = schema;
+        this.rowSerialization = new InternalRowSerialization(schema);
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
-        sinkWriter.write(rowSerialization.deserialize(schema, record));
+        sinkWriter.write(rowSerialization.deserialize(record));
     }
 
     @Override
