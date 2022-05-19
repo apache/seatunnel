@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PojoType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.api.table.type.TimestampType;
 import org.apache.seatunnel.translation.spark.types.ArrayTypeConverter;
 import org.apache.seatunnel.translation.spark.types.BasicTypeConverter;
@@ -28,7 +29,10 @@ import org.apache.seatunnel.translation.spark.types.PojoTypeConverter;
 import org.apache.seatunnel.translation.spark.types.TimestampTypeConverter;
 
 import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.ObjectType;
+import org.apache.spark.sql.types.StructField;
+import org.apache.spark.sql.types.StructType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -42,7 +46,7 @@ public class TypeConverterUtils {
 
     public static <T> DataType convert(SeaTunnelDataType<T> seaTunnelDataType) {
         if (seaTunnelDataType instanceof BasicType) {
-            convertBasicType((BasicType<T>) seaTunnelDataType);
+            return convertBasicType((BasicType<T>) seaTunnelDataType);
         }
         if (seaTunnelDataType instanceof TimestampType) {
             return TimestampTypeConverter.INSTANCE.convert((TimestampType) seaTunnelDataType);
@@ -124,4 +128,14 @@ public class TypeConverterUtils {
         PojoTypeConverter<T> pojoTypeConverter = new PojoTypeConverter<>();
         return pojoTypeConverter.convert(pojoType);
     }
+
+    public static StructType convertRow(SeaTunnelRowTypeInfo typeInfo) {
+        StructField[] fields = new StructField[typeInfo.getFieldNames().length];
+        for (int i = 0; i < typeInfo.getFieldNames().length; i++) {
+            fields[i] = new StructField(typeInfo.getFieldNames()[i],
+                    convert(typeInfo.getSeaTunnelDataTypes()[i]), true, Metadata.empty());
+        }
+        return new StructType(fields);
+    }
+
 }

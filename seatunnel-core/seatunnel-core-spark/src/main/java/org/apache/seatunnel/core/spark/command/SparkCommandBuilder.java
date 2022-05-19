@@ -28,10 +28,42 @@ public class SparkCommandBuilder implements CommandBuilder<SparkCommandArgs> {
     public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
         if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
             throw new IllegalArgumentException(
-                String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
+                    String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
         }
-        return commandArgs.isCheckConfig() ? new SparkConfValidateCommand(commandArgs)
-            : new SparkTaskExecuteCommand(commandArgs);
+        switch (commandArgs.getApiType()) {
+            case ENGINE_API:
+                return new SparkApiCommandBuilder().buildCommand(commandArgs);
+            case SEATUNNEL_API:
+                return new SeaTunnelApiCommandBuilder().buildCommand(commandArgs);
+            default:
+                throw new IllegalArgumentException("Unsupported API type: " + commandArgs.getApiType());
+        }
+    }
+
+    /**
+     * Used to generate command for engine API.
+     */
+    private static class SparkApiCommandBuilder extends SparkCommandBuilder {
+        @Override
+        public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
+            if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
+                throw new IllegalArgumentException(
+                        String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
+            }
+            return commandArgs.isCheckConfig() ? new SparkConfValidateCommand(commandArgs)
+                    : new SparkTaskExecuteCommand(commandArgs);
+        }
+    }
+
+    /**
+     * Used to generate command for seaTunnel API.
+     */
+    private static class SeaTunnelApiCommandBuilder extends SparkCommandBuilder {
+        @Override
+        public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
+            return commandArgs.isCheckConfig() ? new SeaTunnelApiConfValidateCommand(commandArgs)
+                    : new SeaTunnelApiTaskExecuteCommand(commandArgs);
+        }
     }
 
 }

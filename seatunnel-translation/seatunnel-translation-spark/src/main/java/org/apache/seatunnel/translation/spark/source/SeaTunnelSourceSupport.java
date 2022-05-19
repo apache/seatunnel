@@ -86,7 +86,7 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     }
 
     private static StructType checkRowType(Optional<StructType> rowTypeOptional) {
-        return rowTypeOptional.orElseThrow(SeaTunnelSourceSupport::createUnspecifiedRowTypeException);
+        return rowTypeOptional.orElse(null);
     }
 
     private static RuntimeException createUnspecifiedRowTypeException() {

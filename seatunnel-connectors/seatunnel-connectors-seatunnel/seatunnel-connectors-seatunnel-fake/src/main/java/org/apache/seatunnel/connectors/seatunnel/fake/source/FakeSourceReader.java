@@ -59,7 +59,8 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         // Generate a random number of rows to emit.
-        for (int i = 0; i < random.nextInt(10); i++) {
+        int size = random.nextInt(10);
+        for (int i = 0; i < size; i++) {
             int randomIndex = random.nextInt(names.length);
             Map<String, Object> fieldMap = new HashMap<>(4);
             fieldMap.put("name", names[randomIndex]);
