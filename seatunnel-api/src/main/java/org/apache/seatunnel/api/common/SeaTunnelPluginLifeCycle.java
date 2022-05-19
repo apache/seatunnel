@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.state;
+package org.apache.seatunnel.api.common;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 /**
- * If the data flow is bounded, checkpoint is not triggered.
+ * This interface is the life cycle of a plugin, after a plugin created,
+ * will execute prepare method to do some initialize operation.
  */
-public interface CheckpointListener {
+public interface SeaTunnelPluginLifeCycle {
 
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+    /**
+     * Use the pluginConfig to do some initialize operation.
+     *
+     * @param pluginConfig plugin config.
+     */
+    void prepare(Config pluginConfig);
 
-    default void notifyCheckpointAborted(long checkpointId) throws Exception {
-    }
 }

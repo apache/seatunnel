@@ -15,15 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.state;
+package org.apache.seatunnel.translation.spark.source.micro;
 
-/**
- * If the data flow is bounded, checkpoint is not triggered.
- */
-public interface CheckpointListener {
+import org.apache.seatunnel.common.utils.SerializationUtils;
 
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
 
-    default void notifyCheckpointAborted(long checkpointId) throws Exception {
+import java.io.Serializable;
+
+public class MicroBatchState extends Offset implements Serializable {
+
+    protected final Integer checkpointId;
+
+    public MicroBatchState(Integer checkpointId) {
+        this.checkpointId = checkpointId;
+    }
+
+    @Override
+    public String json() {
+        return SerializationUtils.objectToString(this);
     }
 }

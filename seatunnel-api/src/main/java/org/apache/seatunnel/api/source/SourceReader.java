@@ -53,6 +53,8 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
     /**
      * Get the current split checkpoint state by checkpointId.
      *
+     * If the source is bounded, checkpoint is not triggered.
+     *
      * @param checkpointId checkpoint Id.
      * @return split checkpoint state.
      * @throws Exception if error occurs.

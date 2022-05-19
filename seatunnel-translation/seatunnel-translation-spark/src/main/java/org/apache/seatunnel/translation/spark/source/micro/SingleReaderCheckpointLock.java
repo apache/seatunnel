@@ -15,15 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.state;
+package org.apache.seatunnel.translation.spark.source.micro;
 
-/**
- * If the data flow is bounded, checkpoint is not triggered.
- */
-public interface CheckpointListener {
+import org.apache.seatunnel.api.state.CheckpointLock;
 
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+import java.util.concurrent.locks.ReentrantLock;
 
-    default void notifyCheckpointAborted(long checkpointId) throws Exception {
+public class SingleReaderCheckpointLock implements CheckpointLock {
+    private final ReentrantLock fairLock = new ReentrantLock(true);
+
+    @Override
+    public void lock() {
+        fairLock.lock();
+    }
+
+    @Override
+    public void unlock() {
+        fairLock.unlock();
     }
 }

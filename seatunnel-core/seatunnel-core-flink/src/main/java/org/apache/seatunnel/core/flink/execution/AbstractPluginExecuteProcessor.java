@@ -38,6 +38,8 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
     protected final FlinkEnvironment flinkEnvironment;
     protected final List<? extends Config> pluginConfigs;
     protected final List<T> plugins;
+    protected static final String ENGINE_TYPE = "seatunnel";
+    protected static final String PLUGIN_NAME = "plugin_name";
 
     protected AbstractPluginExecuteProcessor(FlinkEnvironment flinkEnvironment,
                                              List<? extends Config> pluginConfigs) {

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source.continnous;
 
 import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.source.ReaderState;
 
 import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
 
