@@ -92,7 +92,7 @@ public class MicroBatchParallelSourceReader implements MicroBatchReader {
         for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
             // TODO: get state
             List<byte[]> subtaskState = null;
-            virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, checkpointId, checkpointInterval, subtaskState));
+            virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, subtaskState));
         }
         checkpointId++;
         return virtualPartitions;

@@ -23,20 +23,23 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
+import org.apache.spark.sql.types.StructType;
 
 public class BatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final Integer subtaskId;
+    protected final StructType rowType;
 
-    public BatchPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+    public BatchPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
+        this.rowType = rowType;
     }
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new BatchPartitionReader(source, parallelism, subtaskId);
+        return new BatchPartitionReader(source, parallelism, subtaskId, rowType);
     }
 }

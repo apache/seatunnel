@@ -29,6 +29,7 @@ import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
+import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
 import java.util.List;
@@ -40,6 +41,7 @@ public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final Integer subtaskId;
+    protected final StructType rowType;
 
     protected final ExecutorService executorService;
     protected final Handover<InternalRow> handover;
@@ -50,10 +52,11 @@ public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
     protected volatile ParallelSource<SeaTunnelRow, ?, ?> parallelSource;
     protected volatile Collector<SeaTunnelRow> collector;
 
-    public BatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+    public BatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
+        this.rowType = rowType;
         this.executorService = ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(1, String.format("parallel-split-enumerator-executor-%s", subtaskId));
         this.handover = new Handover<>();
     }
@@ -94,7 +97,7 @@ public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
     }
 
     protected Collector<SeaTunnelRow> createCollector() {
-        return new InternalRowCollector(handover, new EmptyLock());
+        return new InternalRowCollector(handover, new EmptyLock(), rowType);
     }
 
     protected ParallelSource<SeaTunnelRow, ?, ?> createParallelSource() {

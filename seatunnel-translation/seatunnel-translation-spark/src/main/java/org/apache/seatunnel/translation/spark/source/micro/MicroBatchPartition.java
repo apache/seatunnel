@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
+import org.apache.spark.sql.types.StructType;
 
 import java.util.List;
 
@@ -30,6 +31,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final Integer subtaskId;
+    protected final StructType rowType;
     protected final Integer checkpointId;
     protected final Integer checkpointInterval;
     protected final List<byte[]> restoredState;
@@ -37,12 +39,14 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     public MicroBatchPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
                                Integer parallelism,
                                Integer subtaskId,
+                               StructType rowType,
                                Integer checkpointId,
                                Integer checkpointInterval,
                                List<byte[]> restoredState) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
+        this.rowType = rowType;
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
         this.restoredState = restoredState;
@@ -50,6 +54,6 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new MicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, restoredState);
+        return new MicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, restoredState);
     }
 }

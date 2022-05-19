@@ -27,6 +27,8 @@ import org.apache.seatunnel.translation.spark.source.ReaderState;
 import org.apache.seatunnel.translation.spark.source.batch.BatchPartitionReader;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import org.apache.spark.sql.types.StructType;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -41,8 +43,8 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
     protected final Integer checkpointInterval;
     protected ScheduledThreadPoolExecutor executor;
 
-    public MicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, Integer checkpointId, Integer checkpointInterval, List<byte[]> restoredState) {
-        super(source, parallelism, subtaskId);
+    public MicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType, Integer checkpointId, Integer checkpointInterval, List<byte[]> restoredState) {
+        super(source, parallelism, subtaskId, rowType);
         this.checkpointId = checkpointId;
         this.restoredState = restoredState;
         this.checkpointInterval = checkpointInterval;
@@ -58,7 +60,7 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
 
     @Override
     protected Collector<SeaTunnelRow> createCollector() {
-        return new InternalRowCollector(handover, checkpointLock);
+        return new InternalRowCollector(handover, checkpointLock, rowType);
     }
 
     @Override
