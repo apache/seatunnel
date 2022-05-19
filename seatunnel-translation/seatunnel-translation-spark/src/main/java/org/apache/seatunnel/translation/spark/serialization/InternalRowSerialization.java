@@ -23,6 +23,7 @@ import org.apache.seatunnel.translation.serialization.RowSerialization;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.unsafe.types.UTF8String;
 
 import java.io.IOException;
 
@@ -39,7 +40,7 @@ public final class InternalRowSerialization implements RowSerialization<Internal
         SpecificInternalRow sparkRow = new SpecificInternalRow(sparkSchema);
         Object[] fields = seaTunnelRow.getFields();
         for (int i = 0; i < fields.length; i++) {
-            setField(fields[i], i,  sparkRow);
+            setField(fields[i], i, sparkRow);
         }
         return sparkRow;
     }
@@ -70,6 +71,8 @@ public final class InternalRowSerialization implements RowSerialization<Internal
             sparkRow.setDouble(index, (double) field);
         } else if (field instanceof Float) {
             sparkRow.setFloat(index, (float) field);
+        } else if (field instanceof String) {
+            sparkRow.update(index, UTF8String.fromString(field.toString()));
         } else {
             throw new RuntimeException(String.format("Unsupported data type: %s", field.getClass()));
         }
