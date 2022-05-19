@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.common;
 
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.constants.JobMode;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -36,6 +37,8 @@ public final class SeaTunnelContext implements Serializable {
 
     // tableName -> tableSchema
     private Map<String, TableSchema> tableSchemaMap = new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+
+    private JobMode jobMode;
 
     public static SeaTunnelContext getContext() {
         return INSTANCE;
@@ -59,6 +62,15 @@ public final class SeaTunnelContext implements Serializable {
      */
     public Optional<TableSchema> getSchema(String tableName) {
         return Optional.ofNullable(tableSchemaMap.get(tableName));
+    }
+
+    public SeaTunnelContext setJobMode(JobMode jobMode) {
+        this.jobMode = jobMode;
+        return this;
+    }
+
+    public JobMode getJobMode() {
+        return jobMode;
     }
 
     private SeaTunnelContext() {

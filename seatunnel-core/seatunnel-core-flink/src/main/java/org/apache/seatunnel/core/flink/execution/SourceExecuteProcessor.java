@@ -37,6 +37,8 @@ import java.util.List;
 
 public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelParallelSource> {
 
+    private static final String PLUGIN_TYPE = "source";
+
     public SourceExecuteProcessor(FlinkEnvironment flinkEnvironment,
                                   List<? extends Config> sourceConfigs) {
         super(flinkEnvironment, sourceConfigs);
@@ -62,7 +64,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
         List<URL> jars = new ArrayList<>();
         for (Config sourceConfig : pluginConfigs) {
             PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-                "seatunnel", "source", sourceConfig.getString("plugin_name"));
+                ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
             jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
             SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.getPluginInstance(pluginIdentifier);
             seaTunnelSource.prepare(sourceConfig);
