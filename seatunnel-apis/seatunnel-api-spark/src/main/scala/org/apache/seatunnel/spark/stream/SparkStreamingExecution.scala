@@ -55,7 +55,7 @@ class SparkStreamingExecution(sparkEnvironment: SparkEnvironment)
 
         source.beforeOutput()
 
-        if (ds.take(1).length > 0) {
+        if (ds != null && ds.take(1).length > 0) {
           sinks.foreach(sink => {
             SparkEnvironment.sinkProcess(sparkEnvironment, sink, ds)
           })

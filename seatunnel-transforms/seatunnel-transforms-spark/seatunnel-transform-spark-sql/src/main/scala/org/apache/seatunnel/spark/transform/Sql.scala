@@ -25,7 +25,18 @@ import org.apache.spark.sql.{Dataset, Row}
 class Sql extends BaseSparkTransform {
 
   override def process(data: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
-    env.getSparkSession.sql(config.getString("sql"))
+    try{
+      env.getSparkSession.sql(config.getString("sql"))
+    }catch {
+      case e:Exception =>
+        val skip_error_lines = config.getBoolean("skip_error_lines")
+        if(skip_error_lines){
+          e.printStackTrace()
+          null
+        }else{
+          throw e
+        }
+    }
   }
 
   override def checkConfig(): CheckResult = {
