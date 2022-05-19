@@ -45,6 +45,8 @@ import scala.Serializable;
 
 public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> {
 
+    private static final String PLUGIN_TYPE = "sink";
+
     protected SinkExecuteProcessor(FlinkEnvironment flinkEnvironment,
                                    List<? extends Config> pluginConfigs) {
         super(flinkEnvironment, pluginConfigs);
@@ -55,12 +57,12 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
         SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
         List<URL> pluginJars = new ArrayList<>();
         List<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>> sinks = pluginConfigs.stream().map(sinkConfig -> {
-            PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-                "seatunnel",
-                "sink",
-                sinkConfig.getString("plugin_name"));
+            PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, sinkConfig.getString(PLUGIN_NAME));
             pluginJars.addAll(sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            return (SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>) sinkPluginDiscovery.getPluginInstance(pluginIdentifier);
+            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
+                sinkPluginDiscovery.getPluginInstance(pluginIdentifier);
+            seaTunnelSink.prepare(sinkConfig);
+            return seaTunnelSink;
         }).collect(Collectors.toList());
         flinkEnvironment.registerPlugin(pluginJars);
         return sinks;

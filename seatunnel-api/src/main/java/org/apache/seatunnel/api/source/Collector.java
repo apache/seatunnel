@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.source;
 
+import org.apache.seatunnel.api.state.CheckpointLock;
+
 /**
  * A {@link Collector} is used to collect data from {@link SourceReader}.
  *
@@ -26,4 +28,10 @@ public interface Collector<T> {
 
     void collect(T record);
 
+    /**
+     * Returns the checkpoint lock.
+     *
+     * @return The object to use as the lock
+     */
+    CheckpointLock getCheckpointLock();
 }

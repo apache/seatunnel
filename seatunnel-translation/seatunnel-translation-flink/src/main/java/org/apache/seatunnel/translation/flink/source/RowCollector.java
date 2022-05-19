@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.flink.source;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.state.CheckpointLock;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowSerialization;
 
@@ -26,13 +27,15 @@ import org.apache.flink.types.Row;
 
 import java.io.IOException;
 
-public class WrappedRowCollector implements Collector<SeaTunnelRow> {
+public class RowCollector implements Collector<SeaTunnelRow> {
 
     protected final SourceFunction.SourceContext<Row> internalCollector;
     protected final FlinkRowSerialization rowSerialization = new FlinkRowSerialization();
+    protected final CheckpointLock checkpointLock;
 
-    public WrappedRowCollector(SourceFunction.SourceContext<Row> internalCollector) {
+    public RowCollector(SourceFunction.SourceContext<Row> internalCollector, CheckpointLock checkpointLock) {
         this.internalCollector = internalCollector;
+        this.checkpointLock = checkpointLock;
     }
 
     @Override
@@ -42,5 +45,10 @@ public class WrappedRowCollector implements Collector<SeaTunnelRow> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public CheckpointLock getCheckpointLock() {
+        return this.checkpointLock;
     }
 }
