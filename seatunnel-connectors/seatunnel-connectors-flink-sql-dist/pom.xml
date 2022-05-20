@@ -37,6 +37,18 @@
       <artifactId>flink-sql-connector-kafka</artifactId>
       <version>${project.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.apache.seatunnel</groupId>
+      <artifactId>flink-sql-connector-elasticsearch-6</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.seatunnel</groupId>
+      <artifactId>flink-sql-connector-elasticsearch-7</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
