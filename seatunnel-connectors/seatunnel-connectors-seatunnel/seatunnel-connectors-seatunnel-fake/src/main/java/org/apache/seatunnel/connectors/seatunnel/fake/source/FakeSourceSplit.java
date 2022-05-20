@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
-import java.io.Serializable;
-
-public class FakeSourceSplit implements SourceSplit, Serializable {
+public class FakeSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;
 

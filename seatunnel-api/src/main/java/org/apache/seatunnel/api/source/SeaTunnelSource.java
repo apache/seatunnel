@@ -19,7 +19,9 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.state.State;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 
 import java.io.Serializable;
@@ -32,7 +34,7 @@ import java.io.Serializable;
  * @param <SplitT> The type of splits handled by the source.
  * @param <StateT> The type of checkpoint states.
  */
-public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
+public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends State>
     extends Serializable, PluginIdentifierInterface, SeaTunnelPluginLifeCycle {
 
     /**
@@ -63,7 +65,9 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
      *
      * @return split serializer.
      */
-    Serializer<SplitT> getSplitSerializer();
+    default Serializer<SplitT> getSplitSerializer() {
+        return new DefaultSerializer<>();
+    }
 
     /**
      * Create source split enumerator, used to generate splits. This method will be called only once when start a source.
@@ -91,6 +95,8 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
      *
      * @return enumerator state serializer.
      */
-    Serializer<StateT> getEnumeratorStateSerializer();
+    default Serializer<StateT> getEnumeratorStateSerializer() {
+        return new DefaultSerializer<>();
+    }
 
 }

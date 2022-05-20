@@ -38,9 +38,9 @@ public abstract class AbstractPluginExecuteProcessor<T> implements PluginExecute
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME = "plugin_name";
 
-    protected AbstractPluginExecuteProcessor(SparkEnvironment flinkEnvironment,
+    protected AbstractPluginExecuteProcessor(SparkEnvironment sparkEnvironment,
                                              List<? extends Config> pluginConfigs) {
-        this.sparkEnvironment = flinkEnvironment;
+        this.sparkEnvironment = sparkEnvironment;
         this.pluginConfigs = pluginConfigs;
         this.plugins = initializePlugins(pluginConfigs);
     }

@@ -18,8 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -59,11 +57,6 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     }
 
     @Override
-    public Serializer<FakeSourceSplit> getSplitSerializer() {
-        return new DefaultSerializer<>();
-    }
-
-    @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeState> createEnumerator(
         SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) {
         return new FakeSourceSplitEnumerator(enumeratorContext);
@@ -74,11 +67,6 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
         SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, FakeState checkpointState) {
         // todo:
         return null;
-    }
-
-    @Override
-    public Serializer<FakeState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
     }
 
     @Override
