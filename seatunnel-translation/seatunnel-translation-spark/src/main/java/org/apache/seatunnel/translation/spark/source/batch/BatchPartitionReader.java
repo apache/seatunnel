@@ -76,7 +76,7 @@ public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
                 throw new RuntimeException(e);
             }
         }
-        return running;
+        return running || !handover.isEmpty();
     }
 
     protected void prepare() {
