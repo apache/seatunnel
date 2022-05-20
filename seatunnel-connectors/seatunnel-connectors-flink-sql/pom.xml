@@ -35,5 +35,4 @@
     <module>flink-sql-connector-hbase-2.2</module>
   </modules>
 
-
 </project>

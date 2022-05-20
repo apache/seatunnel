@@ -25,7 +25,6 @@
 
   <artifactId>flink-sql-connector-hbase-2.2</artifactId>
 
-
   <dependencies>
     <dependency>
       <groupId>org.apache.flink</groupId>
