@@ -709,3 +709,15 @@ zookeeper-jute-3.5.9.jar
 zstd-jni-1.3.3-1.jar
 zstd-jni-1.4.3-1.jar
 spark-excel_2.11-0.11.1.jar
+curvesapi-1.04.jar
+icu4j-4.6.jar
+java-cup-10k.jar
+org.eclipse.wst.xml.xpath2.processor-2.1.100.jar
+poi-4.0.0.jar
+poi-ooxml-4.0.0.jar
+poi-ooxml-schemas-4.0.0.jar
+xerces2-xsd11-2.11.1.jar
+xlsx-streamer-2.0.0.jar
+xml-apis-1.4.01.jar
+xmlbeans-3.0.1.jar
+xml-resolver-1.2.jar
