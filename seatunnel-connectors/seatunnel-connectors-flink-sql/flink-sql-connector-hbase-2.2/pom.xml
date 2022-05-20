@@ -17,23 +17,20 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
-    <artifactId>seatunnel-connectors</artifactId>
+    <artifactId>seatunnel-connectors-flink-sql</artifactId>
     <groupId>org.apache.seatunnel</groupId>
     <version>${revision}</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>seatunnel-connectors-flink-sql</artifactId>
-  <packaging>pom</packaging>
-
-  <modules>
-    <module>flink-sql-connector-jdbc</module>
-    <module>flink-sql-connector-kafka</module>
-    <module>flink-sql-connector-elasticsearch-6</module>
-    <module>flink-sql-connector-elasticsearch-7</module>
-    <module>flink-sql-connector-hbase-1.4</module>
-    <module>flink-sql-connector-hbase-2.2</module>
-  </modules>
+  <artifactId>flink-sql-connector-hbase-2.2</artifactId>
 
 
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-connector-hbase-2.2_${scala.binary.version}</artifactId>
+      <version>${flink.version}</version>
+    </dependency>
+  </dependencies>
 </project>

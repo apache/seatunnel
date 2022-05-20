@@ -49,6 +49,18 @@
       <artifactId>flink-sql-connector-elasticsearch-7</artifactId>
       <version>${project.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.apache.seatunnel</groupId>
+      <artifactId>flink-sql-connector-hbase-1.4</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.seatunnel</groupId>
+      <artifactId>flink-sql-connector-hbase-2.2</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
