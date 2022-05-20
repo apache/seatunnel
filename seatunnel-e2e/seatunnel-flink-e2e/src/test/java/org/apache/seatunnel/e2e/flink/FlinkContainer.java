@@ -53,11 +53,13 @@ public abstract class FlinkContainer {
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
     private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
+    private static final String SEATUNNEL_FLINK_BIN = "start-seatunnel-flink.sh";
     private static final String SEATUNNEL_FLINK_JAR = "seatunnel-core-flink.jar";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String SEATUNNEL_HOME = "/tmp/flink/seatunnel";
-    private static final String FLINK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_FLINK_JAR).toString();
-    private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
+    private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
+    private static final String SEATUNNEL_LIB = Paths.get(SEATUNNEL_HOME, "lib").toString();
+    private static final String SEATUNNEL_CONNECTORS = Paths.get(SEATUNNEL_HOME, "connectors").toString();
 
     private static final int WAIT_FLINK_JOB_SUBMIT = 5000;
 
@@ -113,12 +115,9 @@ public abstract class FlinkContainer {
         jobManager.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
         // Running IT use cases under Windows requires replacing \ with /
-        String jar = FLINK_JAR_PATH.replaceAll("\\\\", "/");
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add("flink");
-        command.add("run");
-        command.add("-c org.apache.seatunnel.core.flink.SeatunnelFlink " + jar);
+        command.add(Paths.get(SEATUNNEL_HOME, "bin/start-seatunnel-flink.sh").toString());
         command.add("--config " + conf);
 
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
@@ -130,11 +129,20 @@ public abstract class FlinkContainer {
     }
 
     protected void copySeaTunnelFlinkFile() {
+        // copy lib
         String seatunnelCoreFlinkJarPath = PROJECT_ROOT_PATH
             + "/seatunnel-core/seatunnel-core-flink/target/seatunnel-core-flink.jar";
-        jobManager.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreFlinkJarPath), FLINK_JAR_PATH);
+        jobManager.copyFileToContainer(
+            MountableFile.forHostPath(seatunnelCoreFlinkJarPath),
+            Paths.get(SEATUNNEL_LIB, SEATUNNEL_FLINK_JAR).toString());
 
-        // copy connectors jar
+        // copy bin
+        String seatunnelFlinkBinPath = PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-core-flink/src/main/bin/start-seatunnel-flink.sh";
+        jobManager.copyFileToContainer(
+            MountableFile.forHostPath(seatunnelFlinkBinPath),
+            Paths.get(SEATUNNEL_BIN, SEATUNNEL_FLINK_BIN).toString());
+
+        // copy connectors
         File jars = new File(PROJECT_ROOT_PATH +
             "/seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib");
         Arrays.stream(Objects.requireNonNull(jars.listFiles(f -> f.getName().startsWith("seatunnel-connector-flink"))))
@@ -146,7 +154,7 @@ public abstract class FlinkContainer {
         // copy plugin-mapping.properties
         jobManager.copyFileToContainer(
             MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-connectors/plugin-mapping.properties"),
-            Paths.get(CONNECTORS_PATH, PLUGIN_MAPPING_FILE).toString());
+            Paths.get(SEATUNNEL_CONNECTORS, PLUGIN_MAPPING_FILE).toString());
     }
 
     private String getResource(String confFile) {
@@ -154,7 +162,7 @@ public abstract class FlinkContainer {
     }
 
     private String getConnectorPath(String fileName) {
-        return Paths.get(CONNECTORS_PATH.toString(), "flink", fileName).toString();
+        return Paths.get(SEATUNNEL_CONNECTORS, "flink", fileName).toString();
     }
 
 }
