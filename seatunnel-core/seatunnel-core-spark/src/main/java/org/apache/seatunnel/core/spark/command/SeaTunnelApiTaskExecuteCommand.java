@@ -17,21 +17,12 @@
 
 package org.apache.seatunnel.core.spark.command;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
-import org.apache.seatunnel.core.base.config.EngineType;
-import org.apache.seatunnel.core.base.config.EnvironmentFactory;
 import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.spark.execution.SeaTunnelTaskExecution;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -66,33 +57,4 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SparkCommandArgs>
         }
     }
 
-    private SeaTunnelSource<?, ?, ?> getSource(Config config) {
-        PluginIdentifier pluginIdentifier = getSourcePluginIdentifier();
-        // todo: use FactoryUtils to load the plugin
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
-        return sourcePluginDiscovery.getPluginInstance(pluginIdentifier);
-    }
-
-    private SeaTunnelSink<?, ?, ?, ?> getSink(Config config) {
-        PluginIdentifier pluginIdentifier = getSinkPluginIdentifier();
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        return sinkPluginDiscovery.getPluginInstance(pluginIdentifier);
-    }
-
-    private PluginIdentifier getSourcePluginIdentifier() {
-        return PluginIdentifier.of("seatunnel", "source", "FakeSource");
-    }
-
-    private PluginIdentifier getSinkPluginIdentifier() {
-        return PluginIdentifier.of("seatunnel", "sink", "Console");
-    }
-
-    private SparkEnvironment getSparkEnvironment(Config config) {
-        SparkEnvironment sparkEnvironment = (SparkEnvironment) new EnvironmentFactory<>(config, EngineType.SPARK).getEnvironment();
-        sparkEnvironment.setJobMode(JobMode.STREAMING);
-        sparkEnvironment.setConfig(config);
-        sparkEnvironment.prepare();
-
-        return sparkEnvironment;
-    }
 }
