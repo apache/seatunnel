@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -28,7 +26,6 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -39,12 +36,6 @@ import com.google.auto.service.AutoService;
 public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeState> {
 
     private Config pluginConfig;
-    private Boundedness boundedness;
-
-    @Override
-    public Boundedness getBoundedness() {
-        return boundedness;
-    }
 
     @Override
     public SeaTunnelRowTypeInfo getRowTypeInfo() {
@@ -89,7 +80,5 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     @Override
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
-        this.boundedness = JobMode.STREAMING.equals(SeaTunnelContext.getContext().getJobMode()) ?
-            Boundedness.UNBOUNDED : Boundedness.BOUNDED;
     }
 }
