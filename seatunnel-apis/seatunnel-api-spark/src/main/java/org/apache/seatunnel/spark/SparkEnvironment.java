@@ -97,7 +97,7 @@ public class SparkEnvironment implements RuntimeEnv {
         }
     }
 
-    private void createMetric(){
+    private void createMetric() {
         this.sparkSession.sparkContext().addSparkListener(new SparkMetricsListener(this.sparkSession));
     }
 }
