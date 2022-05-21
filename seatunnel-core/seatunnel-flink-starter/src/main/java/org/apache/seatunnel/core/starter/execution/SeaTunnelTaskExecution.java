@@ -1,0 +1,68 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.core.starter.execution;
+
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.flink.FlinkEnvironment;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.types.Row;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Used to execute a SeaTunnelTask.
+ */
+public class SeaTunnelTaskExecution {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelTaskExecution.class);
+
+    private final Config config;
+    private final FlinkEnvironment flinkEnvironment;
+    private final PluginExecuteProcessor sourcePluginExecuteProcessor;
+    private final PluginExecuteProcessor transformPluginExecuteProcessor;
+    private final PluginExecuteProcessor sinkPluginExecuteProcessor;
+
+    public SeaTunnelTaskExecution(Config config) {
+        this.config = config;
+        // todo: create the environment
+        this.flinkEnvironment = (FlinkEnvironment) new EnvironmentFactory<>(config, EngineType.FLINK).getEnvironment();
+        this.flinkEnvironment.setJobMode(JobMode.STREAMING);
+        this.flinkEnvironment.prepare();
+        this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, config.getConfigList("source"));
+        this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, config.getConfigList("transform"));
+        this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
+    }
+
+    public void execute() throws Exception {
+        List<DataStream<Row>> dataStreams = new ArrayList<>();
+        dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
+        dataStreams = transformPluginExecuteProcessor.execute(dataStreams);
+        sinkPluginExecuteProcessor.execute(dataStreams);
+
+        LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
+        flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
+    }
+}

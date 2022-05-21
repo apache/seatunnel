@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.example.flink;
 
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.exception.CommandException;
-import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
+
+import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.command.FlinkCommandBuilder;
+import org.apache.seatunnel.core.starter.exception.CommandException;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;

@@ -41,7 +41,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-core-flink</artifactId>
+            <artifactId>seatunnel-flink-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
 
