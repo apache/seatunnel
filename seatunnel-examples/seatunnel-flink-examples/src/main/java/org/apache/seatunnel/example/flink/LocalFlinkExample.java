@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.example.flink;
 
-
 import org.apache.seatunnel.core.starter.Seatunnel;
 import org.apache.seatunnel.core.starter.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
