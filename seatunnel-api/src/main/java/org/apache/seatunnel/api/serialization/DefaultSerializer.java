@@ -20,17 +20,16 @@ package org.apache.seatunnel.api.serialization;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import java.io.IOException;
-import java.io.InvalidClassException;
 import java.io.Serializable;
 
 public class DefaultSerializer<T extends Serializable> implements Serializer<T> {
 
     @Override
     public byte[] serialize(T obj) throws IOException {
-        if (obj instanceof Serializable) {
+        if (obj != null) {
             return SerializationUtils.serialize((Serializable) obj);
         } else {
-            throw new InvalidClassException(obj.getClass() + " must implement java.io.Serializable interface");
+            return null;
         }
     }
 

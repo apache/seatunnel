@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.state;
 
-import org.apache.seatunnel.api.state.State;
+import java.io.Serializable;
 
-public class FakeState implements State {
+public class FakeState implements Serializable {
 }

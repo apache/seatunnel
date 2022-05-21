@@ -50,11 +50,6 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     }
 
     @Override
-    public Serializer<FakeSourceSplit> getSplitSerializer() {
-        return new DefaultSerializer<>();
-    }
-
-    @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeState> createEnumerator(
         SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) {
         return new FakeSourceSplitEnumerator(enumeratorContext);

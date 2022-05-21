@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.state;
 
-import org.apache.seatunnel.api.state.State;
+import java.io.Serializable;
 
-public class ConsoleState implements State {
+public class ConsoleState implements Serializable {
 
 }
