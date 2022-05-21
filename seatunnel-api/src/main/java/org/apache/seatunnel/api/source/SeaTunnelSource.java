@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -67,7 +68,9 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
      *
      * @return split serializer.
      */
-    Serializer<SplitT> getSplitSerializer();
+    default Serializer<SplitT> getSplitSerializer() {
+        return new DefaultSerializer<>();
+    }
 
     /**
      * Create source split enumerator, used to generate splits. This method will be called only once when start a source.
