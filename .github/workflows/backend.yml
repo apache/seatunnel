@@ -101,7 +101,7 @@ jobs:
       - name: Check Style
         shell: cmd
         run: |
-          .\mvnw.cmd -T 2C -B checkstyle:check -nsu
+          .\mvnw.cmd -B checkstyle:check -nsu
       - name: Build and Package
         shell: cmd
         run: |
