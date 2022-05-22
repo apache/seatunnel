@@ -32,7 +32,6 @@ public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
         }
 
         return new FlinkApiCommandBuilder().buildCommand(commandArgs);
-        
     }
 
     /**
@@ -45,5 +44,4 @@ public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
                     : new FlinkApiTaskExecuteCommand(commandArgs);
         }
     }
-    
 }
