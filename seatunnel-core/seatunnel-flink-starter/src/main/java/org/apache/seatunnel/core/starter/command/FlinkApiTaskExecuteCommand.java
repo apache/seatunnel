@@ -19,9 +19,11 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.core.starter.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
-import org.apache.seatunnel.core.starter.config.SeaTunnelApiConfigChecker;
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
+import org.apache.seatunnel.core.starter.execution.FlinkTaskExecution;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,24 +31,30 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * Use to validate the configuration of the SeaTunnel API.
+ * todo: do we need to move these class to a new module? since this may cause version conflict with the old flink version.
+ * This command is used to execute the Flink job by SeaTunnel new API.
  */
-public class SeaTunnelApiConfValidateCommand implements Command<FlinkCommandArgs> {
+public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelApiConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiConfValidateCommand.class);
 
     private final FlinkCommandArgs flinkCommandArgs;
 
-    public SeaTunnelApiConfValidateCommand(FlinkCommandArgs flinkCommandArgs) {
+    public FlinkApiTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 
     @Override
-    public void execute() throws ConfigCheckException {
-        Path configPath = FileUtils.getConfigPath(flinkCommandArgs);
-        // todo: validate the config by new api
-        ConfigBuilder configBuilder = new ConfigBuilder(configPath);
-        new SeaTunnelApiConfigChecker().checkConfig(configBuilder.getConfig());
-        LOGGER.info("config OK !");
+    public void execute() throws CommandExecuteException {
+        Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
+
+        Config config = new ConfigBuilder(configFile).getConfig();
+        FlinkTaskExecution seaTunnelTaskExecution = new FlinkTaskExecution(config);
+        try {
+            seaTunnelTaskExecution.execute();
+        } catch (Exception e) {
+            throw new CommandExecuteException("Flink job executed failed", e);
+        }
     }
+
 }

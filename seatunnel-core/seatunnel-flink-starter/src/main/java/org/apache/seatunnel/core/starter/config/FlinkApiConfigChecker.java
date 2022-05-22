@@ -17,25 +17,14 @@
 
 package org.apache.seatunnel.core.starter.config;
 
-import org.apache.seatunnel.core.starter.env.FlinkEnvironment;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-public class FlinkApiConfigChecker implements ConfigChecker<FlinkEnvironment> {
+public class FlinkApiConfigChecker implements ConfigChecker<FlinkApiEnvironment> {
 
     @Override
     public void checkConfig(Config config) throws ConfigCheckException {
-        try {
-            // check environment
-            FlinkEnvironment environment = new EnvironmentFactory<FlinkEnvironment>(config, EngineType.FLINK).getEnvironment();
-            // check plugins
-            FlinkExecutionContext flinkExecutionContext = new FlinkExecutionContext(config, EngineType.FLINK);
-            flinkExecutionContext.getSources();
-            flinkExecutionContext.getTransforms();
-            flinkExecutionContext.getSinks();
-        } catch (Exception ex) {
-            throw new ConfigCheckException("Config check fail", ex);
-        }
+        // todo: implement
     }
 }

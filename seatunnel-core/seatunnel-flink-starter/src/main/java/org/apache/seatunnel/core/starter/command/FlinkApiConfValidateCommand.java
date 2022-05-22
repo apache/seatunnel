@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * Used to check the Flink conf is validated.
+ * Use to validate the configuration of the SeaTunnel API.
  */
 public class FlinkApiConfValidateCommand implements Command<FlinkCommandArgs> {
 
@@ -44,6 +44,7 @@ public class FlinkApiConfValidateCommand implements Command<FlinkCommandArgs> {
     @Override
     public void execute() throws ConfigCheckException {
         Path configPath = FileUtils.getConfigPath(flinkCommandArgs);
+        // todo: validate the config by new api
         ConfigBuilder configBuilder = new ConfigBuilder(configPath);
         new FlinkApiConfigChecker().checkConfig(configBuilder.getConfig());
         LOGGER.info("config OK !");
