@@ -630,6 +630,16 @@
                 <artifactId>snappy-java</artifactId>
                 <version>${snappy-java.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-connector-hbase-1.4_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-connector-hbase-2.2_${scala.binary.version}</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
