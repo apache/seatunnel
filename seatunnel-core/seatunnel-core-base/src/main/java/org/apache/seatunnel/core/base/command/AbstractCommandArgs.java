@@ -19,7 +19,6 @@ package org.apache.seatunnel.core.base.command;
 
 import org.apache.seatunnel.apis.base.command.CommandArgs;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.base.config.ApiType;
 import org.apache.seatunnel.core.base.config.EngineType;
 
 import com.beust.jcommander.IStringConverter;
@@ -44,11 +43,6 @@ public abstract class AbstractCommandArgs implements CommandArgs {
             description = "check config")
     private boolean checkConfig = false;
 
-    @Parameter(names = {"-api", "--api-type"},
-            converter = ApiTypeConverter.class,
-            description = "Api type, engine or seatunnel")
-    private ApiType apiType = ApiType.ENGINE_API;
-
     @Parameter(names = {"-h", "--help"},
             help = true,
             description = "Show the usage message")
@@ -68,14 +62,6 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setVariables(List<String> variables) {
         this.variables = variables;
-    }
-
-    public ApiType getApiType() {
-        return apiType;
-    }
-
-    public void setApiType(ApiType apiType) {
-        this.apiType = apiType;
     }
 
     public boolean isCheckConfig() {
@@ -100,28 +86,6 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public DeployMode getDeployMode() {
         throw new UnsupportedOperationException("abstract class CommandArgs not support this method");
-    }
-
-    /**
-     * Used to convert the api type string to the enum value.
-     */
-    private static class ApiTypeConverter implements IStringConverter<ApiType> {
-
-        /**
-         * If the '-api' is not set, then will not go into this convert method.
-         *
-         * @param value input value set by '-api' or '--api-type'
-         * @return api type enum value
-         */
-        @Override
-        public ApiType convert(String value) {
-            for (ApiType apiType : ApiType.values()) {
-                if (apiType.getApiType().equalsIgnoreCase(value)) {
-                    return apiType;
-                }
-            }
-            throw new IllegalArgumentException(String.format("API type %s not supported", value));
-        }
     }
 
 }
