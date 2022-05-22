@@ -70,10 +70,10 @@ jobs:
         run: bash ./tools/dependencies/checkLicense.sh
       - name: Run Unit tests
         run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
+          ./mvnw -B clean verify -Dmaven.test.skip=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
       - name: Run Integration tests
         run: |
-          ./mvnw -T 2C -B verify -DskipUT=true -DskipIT=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
+          ./mvnw -B verify -DskipUT=true -DskipIT=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
   build-on-windows:
     name: Build-on-windows
     runs-on: windows-latest
