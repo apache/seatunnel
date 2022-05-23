@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.utils;
+package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.base.command.AbstractCommandArgs;
+import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -50,7 +50,6 @@ public class FileUtilsTest {
             this.deployMode = deployMode;
         }
 
-        @Override
         public DeployMode getDeployMode() {
             return deployMode;
         }
