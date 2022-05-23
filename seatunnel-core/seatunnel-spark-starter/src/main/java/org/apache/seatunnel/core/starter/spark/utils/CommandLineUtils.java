@@ -15,32 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery.spark;
+package org.apache.seatunnel.core.starter.spark.utils;
 
-import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.spark.BaseSparkTransform;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 
-import java.net.URL;
-import java.util.Collections;
-import java.util.List;
+import com.beust.jcommander.JCommander;
 
-/**
- * Transform plugin will load from the classpath.
- */
-public class SparkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseSparkTransform> {
+public class CommandLineUtils {
 
-    public SparkTransformPluginDiscovery() {
-        super("spark");
+    private CommandLineUtils() {
+        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
     }
 
-    @Override
-    public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
-        return Collections.emptyList();
-    }
-
-    @Override
-    protected Class<BaseSparkTransform> getPluginBaseClass() {
-        return BaseSparkTransform.class;
+    public static SparkCommandArgs parseSparkArgs(String[] args) {
+        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
+        JCommander.newBuilder()
+            .addObject(sparkCommandArgs)
+            .build()
+            .parse(args);
+        return sparkCommandArgs;
     }
 }

@@ -15,32 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery.spark;
+package org.apache.seatunnel.core.starter.spark.config;
 
-import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.spark.BaseSparkTransform;
+import org.apache.seatunnel.core.starter.config.ConfigChecker;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
-import java.net.URL;
-import java.util.Collections;
-import java.util.List;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-/**
- * Transform plugin will load from the classpath.
- */
-public class SparkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseSparkTransform> {
-
-    public SparkTransformPluginDiscovery() {
-        super("spark");
-    }
+public class SparkApiConfigChecker implements ConfigChecker<SparkEnvironment> {
 
     @Override
-    public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
-        return Collections.emptyList();
-    }
-
-    @Override
-    protected Class<BaseSparkTransform> getPluginBaseClass() {
-        return BaseSparkTransform.class;
+    public void checkConfig(Config config) throws ConfigCheckException {
+        // todo: implement
     }
 }

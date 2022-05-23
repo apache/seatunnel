@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.command;
+package org.apache.seatunnel.core.starter.spark.command;
 
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.config.ConfigBuilder;
-import org.apache.seatunnel.core.base.exception.ConfigCheckException;
-import org.apache.seatunnel.core.base.utils.FileUtils;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.config.SeaTunnelApiConfigChecker;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.config.ConfigBuilder;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.spark.config.SparkApiConfigChecker;
+import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,13 +32,13 @@ import java.nio.file.Path;
 /**
  * Use to validate the configuration of the SeaTunnel API.
  */
-public class SeaTunnelApiConfValidateCommand implements Command<SparkCommandArgs> {
+public class SparkApiConfValidateCommand implements Command<SparkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelApiConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SparkApiConfValidateCommand.class);
 
     private final SparkCommandArgs sparkCommandArgs;
 
-    public SeaTunnelApiConfValidateCommand(SparkCommandArgs sparkCommandArgs) {
+    public SparkApiConfValidateCommand(SparkCommandArgs sparkCommandArgs) {
         this.sparkCommandArgs = sparkCommandArgs;
     }
 
@@ -47,7 +47,7 @@ public class SeaTunnelApiConfValidateCommand implements Command<SparkCommandArgs
         Path configPath = FileUtils.getConfigPath(sparkCommandArgs);
         // todo: validate the config by new api
         ConfigBuilder configBuilder = new ConfigBuilder(configPath);
-        new SeaTunnelApiConfigChecker().checkConfig(configBuilder.getConfig());
+        new SparkApiConfigChecker().checkConfig(configBuilder.getConfig());
         LOGGER.info("config OK !");
     }
 }

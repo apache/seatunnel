@@ -31,6 +31,7 @@ public class FlinkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseF
         super("flink");
     }
 
+    @Override
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return new ArrayList<>();
     }
