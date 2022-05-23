@@ -21,15 +21,24 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.state.CheckpointLock;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.source.ParallelSource;
 import org.apache.seatunnel.translation.spark.source.InternalRowCollector;
 import org.apache.seatunnel.translation.spark.source.ReaderState;
 import org.apache.seatunnel.translation.spark.source.batch.BatchPartitionReader;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.sql.types.StructType;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -38,16 +47,31 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
     protected static final Integer CHECKPOINT_SLEEP_INTERVAL = 10;
     protected volatile Integer checkpointId;
 
-    protected final List<byte[]> restoredState;
     protected final CheckpointLock checkpointLock = new SingleReaderCheckpointLock();
     protected final Integer checkpointInterval;
-    protected ScheduledThreadPoolExecutor executor;
+    protected final String checkpointPath;
+    protected final String hdfsRoot;
+    protected final String hdfsUser;
 
-    public MicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType, Integer checkpointId, Integer checkpointInterval, List<byte[]> restoredState) {
+    protected List<byte[]> restoredState;
+    protected ScheduledThreadPoolExecutor executor;
+    protected FileSystem fileSystem;
+
+    public MicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                                     Integer parallelism,
+                                     Integer subtaskId,
+                                     StructType rowType,
+                                     Integer checkpointId,
+                                     Integer checkpointInterval,
+                                     String checkpointPath,
+                                     String hdfsRoot,
+                                     String hdfsUser) {
         super(source, parallelism, subtaskId, rowType);
         this.checkpointId = checkpointId;
-        this.restoredState = restoredState;
         this.checkpointInterval = checkpointInterval;
+        this.checkpointPath = checkpointPath;
+        this.hdfsRoot = hdfsRoot;
+        this.hdfsUser = hdfsUser;
     }
 
     @Override
@@ -65,6 +89,14 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
 
     @Override
     protected void prepare() {
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", hdfsRoot);
+        try {
+            this.fileSystem = FileSystem.get(new URI(hdfsRoot), configuration, hdfsUser);
+            this.restoredState = restoreState(checkpointId - 1);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         super.prepare();
         prepareCheckpoint();
     }
@@ -95,8 +127,7 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
                 synchronized (handover) {
                     final int currentCheckpoint = checkpointId;
                     ReaderState readerState = snapshotState();
-                    // TODO: save state
-
+                    saveState(readerState, currentCheckpoint);
                     parallelSource.notifyCheckpointComplete(currentCheckpoint);
                     running = false;
                 }
@@ -108,8 +139,43 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
         }
     }
 
+    private List<byte[]> restoreState(int checkpointId) throws IOException {
+        Path hdfsPath = new Path(checkpointPath + File.separator + checkpointId);
+        if (!fileSystem.exists(hdfsPath)) {
+            return null;
+        }
+        try (FSDataInputStream inputStream = fileSystem.open(hdfsPath);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            int i = 0;
+            final int defaultLen = 1024;
+            byte[] buffer = new byte[defaultLen];
+            while ((i = inputStream.read(buffer)) != -1) {
+                out.write(buffer, 0, i);
+            }
+
+            return ((ReaderState) SerializationUtils.deserialize(out.toByteArray())).getBytes();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void saveState(ReaderState readerState, int checkpointId) throws IOException {
+        byte[] bytes = SerializationUtils.serialize(readerState);
+        Path hdfsPath = new Path(checkpointPath + File.separator + checkpointId);
+        if (!fileSystem.exists(hdfsPath)) {
+            fileSystem.createNewFile(hdfsPath);
+        }
+
+        try (FSDataOutputStream outputStream = fileSystem.append(hdfsPath)) {
+            outputStream.write(bytes);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public void close() throws IOException {
+        fileSystem.close();
         executor.shutdown();
         super.close();
     }
