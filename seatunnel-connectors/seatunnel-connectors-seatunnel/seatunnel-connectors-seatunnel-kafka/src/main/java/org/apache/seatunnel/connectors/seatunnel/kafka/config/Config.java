@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.connectors.seatunnel.kafka.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-/**
- * This interface is the life cycle of a plugin, after a plugin created,
- * will execute prepare method to do some initialize operation.
- */
-public interface SeaTunnelPluginLifeCycle {
+public class Config {
+    /**
+     * The topic of kafka.
+     */
+    public static final String TOPIC = "topic";
 
     /**
-     * Use the pluginConfig to do some initialize operation.
-     *
-     * @param pluginConfig plugin config.
-     * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will throw.
+     * The server address of kafka cluster.
      */
-    void prepare(Config pluginConfig) throws PrepareFailException;
-
+    public static final String BOOTSTRAP_SERVER = "bootstrap.server";
 }
