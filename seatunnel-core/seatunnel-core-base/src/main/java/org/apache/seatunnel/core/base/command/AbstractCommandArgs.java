@@ -31,23 +31,23 @@ import java.util.List;
 public abstract class AbstractCommandArgs implements CommandArgs {
 
     @Parameter(names = {"-c", "--config"},
-        description = "Config file",
-        required = true)
+            description = "Config file",
+            required = true)
     private String configFile;
 
     @Parameter(names = {"-i", "--variable"},
-        description = "variable substitution, such as -i city=beijing, or -i date=20190318")
+            description = "variable substitution, such as -i city=beijing, or -i date=20190318")
     private List<String> variables = Collections.emptyList();
-
-    // todo: use command type enum
-    @Parameter(names = {"-t", "--check"},
-            description = "check config")
-    private boolean checkConfig = false;
 
     @Parameter(names = {"-api", "--api-type"},
             converter = ApiTypeConverter.class,
             description = "Api type, engine or seatunnel")
     private ApiType apiType = ApiType.ENGINE_API;
+
+    // todo: use command type enum
+    @Parameter(names = {"-t", "--check"},
+            description = "check config")
+    private boolean checkConfig = false;
 
     @Parameter(names = {"-h", "--help"},
             help = true,
@@ -70,14 +70,6 @@ public abstract class AbstractCommandArgs implements CommandArgs {
         this.variables = variables;
     }
 
-    public ApiType getApiType() {
-        return apiType;
-    }
-
-    public void setApiType(ApiType apiType) {
-        this.apiType = apiType;
-    }
-
     public boolean isCheckConfig() {
         return checkConfig;
     }
@@ -92,6 +84,14 @@ public abstract class AbstractCommandArgs implements CommandArgs {
 
     public void setHelp(boolean help) {
         this.help = help;
+    }
+
+    public ApiType getApiType() {
+        return apiType;
+    }
+
+    public void setApiType(ApiType apiType) {
+        this.apiType = apiType;
     }
 
     public EngineType getEngineType() {
