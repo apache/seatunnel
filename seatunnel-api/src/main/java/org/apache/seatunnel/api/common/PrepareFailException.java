@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.config;
+package org.apache.seatunnel.api.common;
 
-public enum PluginType {
-    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
+import org.apache.seatunnel.common.constants.PluginType;
 
-    private final String type;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    PluginType(String type) {
-        this.type = type;
-    }
+/**
+ * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
+ */
+public class PrepareFailException extends RuntimeException {
 
-    public String getType() {
-        return type;
+    public PrepareFailException(String pluginName, PluginType type, String message) {
+        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
+                message));
     }
 }
