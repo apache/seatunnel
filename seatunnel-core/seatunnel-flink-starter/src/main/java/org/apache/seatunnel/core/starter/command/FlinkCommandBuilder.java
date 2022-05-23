@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink.command;
+package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.command.CommandBuilder;
-import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.args.FlinkCommandArgs;
 
 public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
 
@@ -30,12 +28,11 @@ public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
             throw new IllegalArgumentException(
                     String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
         }
-
         return new FlinkApiCommandBuilder().buildCommand(commandArgs);
     }
 
     /**
-     * Used to generate command for engine API.
+     * Used to generate command for seaTunnel API.
      */
     private static class FlinkApiCommandBuilder extends FlinkCommandBuilder {
         @Override

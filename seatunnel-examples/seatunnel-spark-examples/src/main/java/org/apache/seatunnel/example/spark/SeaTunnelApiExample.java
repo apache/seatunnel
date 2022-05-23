@@ -20,7 +20,6 @@ package org.apache.seatunnel.example.spark;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.base.Seatunnel;
 import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.config.ApiType;
 import org.apache.seatunnel.core.base.exception.CommandException;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.spark.command.SparkCommandBuilder;
@@ -38,7 +37,6 @@ public class SeaTunnelApiExample {
         sparkCommandArgs.setConfigFile(configFile);
         sparkCommandArgs.setCheckConfig(false);
         sparkCommandArgs.setVariables(null);
-        sparkCommandArgs.setApiType(ApiType.SEATUNNEL_API);
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
         Command<SparkCommandArgs> flinkCommand =
                 new SparkCommandBuilder().buildCommand(sparkCommandArgs);
