@@ -22,6 +22,7 @@ import org.apache.seatunnel.apis.base.api.BaseSource;
 import org.apache.seatunnel.apis.base.api.BaseTransform;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;

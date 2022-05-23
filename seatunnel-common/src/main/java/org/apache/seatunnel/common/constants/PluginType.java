@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+package org.apache.seatunnel.common.constants;
 
 /**
- * This interface is the life cycle of a plugin, after a plugin created,
- * will execute prepare method to do some initialize operation.
+ * The type of SeaTunnel plugin.
  */
-public interface SeaTunnelPluginLifeCycle {
+public enum PluginType {
 
-    /**
-     * Use the pluginConfig to do some initialize operation.
-     *
-     * @param pluginConfig plugin config.
-     * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will throw.
-     */
-    void prepare(Config pluginConfig) throws PrepareFailException;
+    SOURCE("source"), TRANSFORM("transform"), SINK("sink");
 
+    private final String type;
+
+    PluginType(String type) {
+        this.type = type;
+    }
+
+    public String getType() {
+        return type;
+    }
 }

@@ -15,22 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import java.io.Serializable;
 
-/**
- * This interface is the life cycle of a plugin, after a plugin created,
- * will execute prepare method to do some initialize operation.
- */
-public interface SeaTunnelPluginLifeCycle {
-
-    /**
-     * Use the pluginConfig to do some initialize operation.
-     *
-     * @param pluginConfig plugin config.
-     * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will throw.
-     */
-    void prepare(Config pluginConfig) throws PrepareFailException;
-
+public class KafkaState implements Serializable {
 }
