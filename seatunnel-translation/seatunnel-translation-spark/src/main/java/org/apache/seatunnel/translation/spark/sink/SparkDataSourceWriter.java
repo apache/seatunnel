@@ -28,12 +28,14 @@ import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 import org.apache.spark.sql.types.StructType;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT> implements DataSourceWriter {
@@ -64,7 +66,7 @@ public class SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT> i
     public void commit(WriterCommitMessage[] messages) {
         if (sinkAggregatedCommitter != null) {
             try {
-                sinkAggregatedCommitter.commit(combineCommitMessage(messages));
+                sinkAggregatedCommitter.commit(combineCommitMessage(extractCommitInfo(messages)));
             } catch (IOException e) {
                 throw new RuntimeException("commit failed in driver", e);
             }
@@ -73,18 +75,31 @@ public class SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT> i
 
     @Override
     public void abort(WriterCommitMessage[] messages) {
+        final List<CommitInfoT> commitInfos = extractCommitInfo(messages);
+        if (sinkCommitter != null) {
+            try {
+                sinkCommitter.abort(commitInfos);
+            } catch (IOException e) {
+                throw new RuntimeException("SinkCommitter abort failed in driver", e);
+            }
+        }
         if (sinkAggregatedCommitter != null) {
             try {
-                sinkAggregatedCommitter.abort(combineCommitMessage(messages));
+                sinkAggregatedCommitter.abort(combineCommitMessage(commitInfos));
             } catch (Exception e) {
-                throw new RuntimeException("abort failed in driver", e);
+                throw new RuntimeException("SinkAggregatedCommitter abort failed in driver", e);
             }
         }
     }
 
-    private List<AggregatedCommitInfoT> combineCommitMessage(WriterCommitMessage[] messages) {
-        return Collections.singletonList(sinkAggregatedCommitter.combine(
-                Arrays.stream(messages).map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
-                        .collect(Collectors.toList())));
+    private @Nonnull List<CommitInfoT> extractCommitInfo(WriterCommitMessage[] messages) {
+        return Arrays.stream(messages)
+            .map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    }
+
+    private @Nonnull List<AggregatedCommitInfoT> combineCommitMessage(List<CommitInfoT> commitInfos) {
+        return Collections.singletonList(sinkAggregatedCommitter.combine(commitInfos));
     }
 }
