@@ -38,22 +38,29 @@ public class MicroBatchParallelSourceReader implements MicroBatchReader {
     protected final StructType rowType;
 
     protected final Integer checkpointInterval;
+    protected final String checkpointPath;
+    protected final String hdfsRoot;
+    protected final String hdfsUser;
     protected Integer checkpointId;
     protected MicroBatchState startOffset;
     protected MicroBatchState endOffset;
 
-    public MicroBatchParallelSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer checkpointId, Integer checkpointInterval, StructType rowType) {
+    public MicroBatchParallelSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer checkpointId, Integer checkpointInterval, String checkpointPath, String hdfsRoot, String hdfsUser, StructType rowType) {
         this.source = source;
         this.parallelism = parallelism;
-        this.checkpointInterval = checkpointInterval;
-        this.rowType = rowType;
         this.checkpointId = checkpointId;
+        this.checkpointInterval = checkpointInterval;
+        this.checkpointPath = checkpointPath;
+        this.hdfsRoot = hdfsRoot;
+        this.hdfsUser = hdfsUser;
+        this.rowType = rowType;
     }
 
     @Override
     public void setOffsetRange(Optional<Offset> start, Optional<Offset> end) {
         startOffset = (MicroBatchState) start.orElse(new MicroBatchState(checkpointId));
-        endOffset = (MicroBatchState) end.orElse(new MicroBatchState(checkpointId + 1));
+        this.checkpointId = startOffset.getCheckpointId();
+        endOffset = (MicroBatchState) end.orElse(new MicroBatchState(startOffset.getCheckpointId() + 1));
     }
 
     @Override
@@ -90,9 +97,7 @@ public class MicroBatchParallelSourceReader implements MicroBatchReader {
     public List<InputPartition<InternalRow>> planInputPartitions() {
         List<InputPartition<InternalRow>> virtualPartitions = new ArrayList<>(parallelism);
         for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-            // TODO: get state
-            List<byte[]> subtaskState = null;
-            virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, subtaskState));
+            virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
         }
         checkpointId++;
         return virtualPartitions;

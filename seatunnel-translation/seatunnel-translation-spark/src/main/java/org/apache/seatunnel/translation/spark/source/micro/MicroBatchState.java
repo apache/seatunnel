@@ -25,7 +25,7 @@ import java.io.Serializable;
 
 public class MicroBatchState extends Offset implements Serializable {
 
-    protected final Integer checkpointId;
+    private final Integer checkpointId;
 
     public MicroBatchState(Integer checkpointId) {
         this.checkpointId = checkpointId;
@@ -34,5 +34,9 @@ public class MicroBatchState extends Offset implements Serializable {
     @Override
     public String json() {
         return SerializationUtils.objectToString(this);
+    }
+
+    public Integer getCheckpointId() {
+        return checkpointId;
     }
 }
