@@ -15,28 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.micro;
+package org.apache.seatunnel.core.starter.flink.args;
 
-import org.apache.seatunnel.common.utils.SerializationUtils;
+import com.beust.jcommander.JCommander;
+import org.junit.Assert;
+import org.junit.Test;
 
-import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
+import java.util.Arrays;
 
-import java.io.Serializable;
+public class FlinkCommandArgsTest {
 
-public class MicroBatchState extends Offset implements Serializable {
-
-    private final Integer checkpointId;
-
-    public MicroBatchState(Integer checkpointId) {
-        this.checkpointId = checkpointId;
+    @Test
+    public void testParseFlinkArgs() {
+        String[] args = {"-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202"};
+        FlinkCommandArgs flinkArgs = new FlinkCommandArgs();
+        JCommander.newBuilder()
+            .addObject(flinkArgs)
+            .build()
+            .parse(args);
+        Assert.assertEquals("app.conf", flinkArgs.getConfigFile());
+        Assert.assertTrue(flinkArgs.isCheckConfig());
+        Assert.assertEquals(Arrays.asList("city=shenyang", "date=20200202"), flinkArgs.getVariables());
     }
 
-    @Override
-    public String json() {
-        return SerializationUtils.objectToString(this);
-    }
-
-    public Integer getCheckpointId() {
-        return checkpointId;
-    }
 }

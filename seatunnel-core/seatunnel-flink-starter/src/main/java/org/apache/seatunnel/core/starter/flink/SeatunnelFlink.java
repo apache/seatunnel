@@ -15,37 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.flink;
+package org.apache.seatunnel.core.starter.flink;
 
 import org.apache.seatunnel.core.starter.Seatunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
+import org.apache.seatunnel.core.starter.flink.config.FlinkJobType;
+import org.apache.seatunnel.core.starter.flink.utils.CommandLineUtils;
 
-import java.io.FileNotFoundException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
+public class SeatunnelFlink {
 
-public class SeaTunnelApiExample {
-
-    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/seatunnel_fake_to_console.conf");
-        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        flinkCommandArgs.setConfigFile(configFile);
-        flinkCommandArgs.setCheckConfig(false);
-        flinkCommandArgs.setVariables(null);
-        Command<FlinkCommandArgs> flinkCommand =
-            new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
+    public static void main(String[] args) throws CommandException {
+        FlinkCommandArgs flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
+        Command<FlinkCommandArgs> flinkCommand = new FlinkCommandBuilder()
+            .buildCommand(flinkCommandArgs);
         Seatunnel.run(flinkCommand);
     }
 
-    public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
-        URL resource = SeaTunnelApiExample.class.getResource(configFile);
-        if (resource == null) {
-            throw new FileNotFoundException("Can't find config file: " + configFile);
-        }
-        return Paths.get(resource.toURI()).toString();
-    }
 }

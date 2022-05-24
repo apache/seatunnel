@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.micro;
+package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.types.Row;
 
-import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
+import java.util.List;
 
-import java.io.Serializable;
+public interface PluginExecuteProcessor {
 
-public class MicroBatchState extends Offset implements Serializable {
-
-    private final Integer checkpointId;
-
-    public MicroBatchState(Integer checkpointId) {
-        this.checkpointId = checkpointId;
-    }
-
-    @Override
-    public String json() {
-        return SerializationUtils.objectToString(this);
-    }
-
-    public Integer getCheckpointId() {
-        return checkpointId;
-    }
+    /**
+     * Execute the current plugins, and return the result data stream.
+     *
+     * @param upstreamDataStreams the upstream data streams.
+     * @return the result data stream
+     */
+    List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws Exception;
 }
