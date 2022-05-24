@@ -15,28 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.micro;
+package org.apache.seatunnel.core.starter.flink.config;
 
-import org.apache.seatunnel.common.utils.SerializationUtils;
+/**
+ * Flink run mode, used to determine whether to run in local or cluster mode.
+ * <a href="https://flink.apache.org/news/2020/07/14/application-mode.html">application-mode</a>
+ */
+public enum FlinkRunMode {
+    RUN("run"),
+    APPLICATION_RUN("run-application"),
+    ;
 
-import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
+    private final String mode;
 
-import java.io.Serializable;
-
-public class MicroBatchState extends Offset implements Serializable {
-
-    private final Integer checkpointId;
-
-    public MicroBatchState(Integer checkpointId) {
-        this.checkpointId = checkpointId;
+    FlinkRunMode(String mode) {
+        this.mode = mode;
     }
 
-    @Override
-    public String json() {
-        return SerializationUtils.objectToString(this);
-    }
-
-    public Integer getCheckpointId() {
-        return checkpointId;
+    public String getMode() {
+        return mode;
     }
 }

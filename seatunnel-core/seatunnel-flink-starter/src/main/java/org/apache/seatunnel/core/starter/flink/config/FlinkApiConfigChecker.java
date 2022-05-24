@@ -15,28 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.micro;
+package org.apache.seatunnel.core.starter.flink.config;
 
-import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.core.starter.config.ConfigChecker;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
-import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.io.Serializable;
-
-public class MicroBatchState extends Offset implements Serializable {
-
-    private final Integer checkpointId;
-
-    public MicroBatchState(Integer checkpointId) {
-        this.checkpointId = checkpointId;
-    }
+public class FlinkApiConfigChecker implements ConfigChecker<FlinkApiEnvironment> {
 
     @Override
-    public String json() {
-        return SerializationUtils.objectToString(this);
-    }
-
-    public Integer getCheckpointId() {
-        return checkpointId;
+    public void checkConfig(Config config) throws ConfigCheckException {
+        // todo: implement
     }
 }

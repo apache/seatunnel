@@ -25,8 +25,6 @@ import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 import org.apache.spark.sql.types.StructType;
 
-import java.util.List;
-
 public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
@@ -34,7 +32,9 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final StructType rowType;
     protected final Integer checkpointId;
     protected final Integer checkpointInterval;
-    protected final List<byte[]> restoredState;
+    protected final String checkpointPath;
+    protected final String hdfsRoot;
+    protected final String hdfsUser;
 
     public MicroBatchPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
                                Integer parallelism,
@@ -42,18 +42,22 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
                                StructType rowType,
                                Integer checkpointId,
                                Integer checkpointInterval,
-                               List<byte[]> restoredState) {
+                               String checkpointPath,
+                               String hdfsRoot,
+                               String hdfsUser) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
         this.rowType = rowType;
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
-        this.restoredState = restoredState;
+        this.checkpointPath = checkpointPath;
+        this.hdfsRoot = hdfsRoot;
+        this.hdfsUser = hdfsUser;
     }
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new MicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, restoredState);
+        return new MicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
     }
 }

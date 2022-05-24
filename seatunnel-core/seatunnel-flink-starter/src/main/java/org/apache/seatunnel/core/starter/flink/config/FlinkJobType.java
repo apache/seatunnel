@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.micro;
+package org.apache.seatunnel.core.starter.flink.config;
 
-import org.apache.seatunnel.common.utils.SerializationUtils;
+public enum FlinkJobType {
+    JAR("start-seatunnel-flink.sh"),
+    SQL("start-seatunnel-sql.sh"),
+    ;
 
-import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
+    private final String type;
 
-import java.io.Serializable;
-
-public class MicroBatchState extends Offset implements Serializable {
-
-    private final Integer checkpointId;
-
-    public MicroBatchState(Integer checkpointId) {
-        this.checkpointId = checkpointId;
+    FlinkJobType(String type) {
+        this.type = type;
     }
 
-    @Override
-    public String json() {
-        return SerializationUtils.objectToString(this);
-    }
-
-    public Integer getCheckpointId() {
-        return checkpointId;
+    public String getType() {
+        return this.type;
     }
 }
