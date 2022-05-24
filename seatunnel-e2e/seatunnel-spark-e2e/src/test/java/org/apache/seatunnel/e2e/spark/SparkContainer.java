@@ -52,16 +52,18 @@ public abstract class SparkContainer {
 
     protected GenericContainer<?> master;
     private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
+    private static final String SEATUNNEL_SPARK_BIN = "start-seatunnel-spark.sh";
     private static final String SEATUNNEL_SPARK_JAR = "seatunnel-core-spark.jar";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String SEATUNNEL_HOME = "/tmp/spark/seatunnel";
+    private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
     private static final String SPARK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_SPARK_JAR).toString();
     private static final String CONNECTORS_PATH = Paths.get(SEATUNNEL_HOME, "connectors").toString();
 
     private static final int WAIT_SPARK_JOB_SUBMIT = 5000;
 
     @Before
-    public void before() throws InterruptedException {
+    public void before() {
         master = new GenericContainer<>(SPARK_DOCKER_IMAGE)
             .withNetwork(NETWORK)
             .withNetworkAliases("spark-master")
@@ -93,31 +95,14 @@ public abstract class SparkContainer {
 
         // TODO: use start-seatunnel-spark.sh to run the spark job. Need to modified the SparkStarter can find the seatunnel-core-spark.jar.
         // Running IT use cases under Windows requires replacing \ with /
-        String jar = SPARK_JAR_PATH.replaceAll("\\\\", "/");
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add("spark-submit");
-        command.add("--class");
-        command.add("org.apache.seatunnel.core.spark.SeatunnelSpark");
-        command.add("--name");
-        command.add("SeaTunnel");
-        command.add("--master");
-        command.add("local");
-        command.add("--jars");
-        command.add(
-            getConnectorJarFiles()
-                .stream()
-                .map(j -> getConnectorPath(j.getName()))
-                .collect(Collectors.joining(",")));
-        command.add("--deploy-mode");
-        command.add("client");
-        command.add(jar);
-        command.add("-c");
-        command.add(conf);
+        command.add(Paths.get(SEATUNNEL_HOME, "bin/start-seatunnel-spark.sh").toString());
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
         command.add("client");
+        command.add("--config " + conf);
 
         Container.ExecResult execResult = master.execInContainer("bash", "-c", String.join(" ", command));
         LOG.info(execResult.getStdout());
@@ -128,12 +113,18 @@ public abstract class SparkContainer {
     }
 
     protected void copySeaTunnelSparkFile() {
-        // copy jar to container
+        // copy lib
         String seatunnelCoreSparkJarPath = PROJECT_ROOT_PATH
             + "/seatunnel-core/seatunnel-core-spark/target/seatunnel-core-spark.jar";
         master.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreSparkJarPath), SPARK_JAR_PATH);
 
-        // copy connectors jar
+        // copy bin
+        String seatunnelFlinkBinPath = PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-core-spark/src/main/bin/start-seatunnel-spark.sh";
+        master.copyFileToContainer(
+            MountableFile.forHostPath(seatunnelFlinkBinPath),
+            Paths.get(SEATUNNEL_BIN, SEATUNNEL_SPARK_BIN).toString());
+
+        // copy connectors
         getConnectorJarFiles()
             .forEach(jar ->
                 master.copyFileToContainer(
