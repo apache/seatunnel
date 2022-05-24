@@ -24,6 +24,10 @@ import org.apache.seatunnel.translation.spark.source.batch.BatchParallelSourceRe
 import org.apache.seatunnel.translation.spark.source.continnous.ContinuousParallelSourceReader;
 import org.apache.seatunnel.translation.spark.source.micro.MicroBatchParallelSourceReader;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.sources.v2.ContinuousReadSupport;
 import org.apache.spark.sql.sources.v2.DataSourceOptions;
@@ -66,9 +70,13 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt("source.parallelism", 1);
         Integer checkpointInterval = options.getInt("checkpoint.interval", CHECKPOINT_INTERVAL_DEFAULT);
+        String checkpointPath = StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
+        Configuration configuration = SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
+        String hdfsRoot = options.get("hdfs.root").orElse(FileSystem.getDefaultUri(configuration).toString());
+        String hdfsUser = options.get("hdfs.user").orElseThrow(() -> new UnsupportedOperationException("HDFS user is required."));
         Integer checkpointId = options.getInt("checkpoint.id", 1);
         // TODO: case coordinated source
-        return new MicroBatchParallelSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, rowType);
+        return new MicroBatchParallelSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser, rowType);
     }
 
     @Override
