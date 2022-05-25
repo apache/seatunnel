@@ -38,6 +38,7 @@ import org.apache.flink.table.descriptors.Json;
 import org.apache.flink.table.descriptors.Schema;
 import org.apache.flink.table.utils.TypeStringUtils;
 import org.apache.flink.types.Row;
+import scala.util.parsing.json.JSONObject;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
