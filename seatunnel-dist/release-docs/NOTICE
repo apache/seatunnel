@@ -4373,12 +4373,113 @@ Spark Excel NOTICE
 
 Spark Excel
 This product includes software from the spark-excel project
- * Copyright https://github.com/crealytics/spark-excel
+ * Copyright https://github.com/crealytics/spark-excel;
  * Licensed under the Apache-2.0 License;
 
 =========================================================================
 
-
-
+curvesapi NOTICE
 
 =========================================================================
+
+curvesapi
+ * Copyright https://github.com/virtuald/curvesapi;
+ * Licensed under the BSD License;
+
+=========================================================================
+
+icu4j NOTICE
+
+=========================================================================
+
+icu4j
+* Copyright http://icu-project.org/;
+* Licensed under the ICU License - ICU 1.8.1 and later;
+
+=========================================================================
+
+java-cup NOTICE
+
+=========================================================================
+
+java-cup
+ * Copyright http://www.cs.princeton.edu/~appel/modern/java/CUP/;
+ * Licensed under CUP Parser Generator Copyright Notice, License, and Disclaimer;
+
+=========================================================================
+
+org.eclipse.wst.xml.xpath2.processor NOTICE
+
+=========================================================================
+
+org.eclipse.wst.xml.xpath2.processor
+ * Copyright https://github.com/rackerlabs/olink-maven-plugin;
+ * Licensed under the Eclipse Public License Version 1.0;
+
+=========================================================================
+
+POI NOTICE
+
+=========================================================================
+
+poi
+ * Copyright https://poi.apache.org/
+ * Licensed under the Apache Software License, Version 2.0;
+
+The following jars are ASL2 licensed.
+ * poi-4.0.0.jar
+ * poi-ooxml-4.0.0.jar
+ * poi-ooxml-schemas-4.0.0.jar
+
+=========================================================================
+
+xerces2-xsd11 NOTICE
+
+=========================================================================
+
+xerces2-xsd11
+ * Copyright http://xerces.apache.org/xerces2-j/;
+ * Licensed under the Apache Software License, Version 2.0;
+
+=========================================================================
+
+xlsx-streamer NOTICE
+
+=========================================================================
+
+xlsx-streamer
+ * Copyright https://github.com/monitorjbl/excel-streaming-reader;
+ * Licensed under the Apache Software License, Version 2.0;
+
+=========================================================================
+
+xml-apis NOTICE
+
+=========================================================================
+
+xml-apis
+ * Copyright https://xerces.apache.org/xml-commons/components/external/;
+ * Licensed under the Apache Software License, Version 2.0;
+
+=========================================================================
+
+xmlbeans NOTICE
+
+=========================================================================
+
+xmlbeans
+ * Copyright https://xmlbeans.apache.org/;
+ * Licensed under the Apache Software License, Version 2.0;
+
+=========================================================================
+
+xml-resolver NOTICE
+
+=========================================================================
+
+xml-resolver
+ * Copyright http://xml.apache.org/commons/components/resolver/;
+ * Licensed under the Apache Software License, Version 2.0;
+
+=========================================================================
+
