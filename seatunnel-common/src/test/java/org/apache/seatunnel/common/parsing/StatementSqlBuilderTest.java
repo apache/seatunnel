@@ -21,7 +21,6 @@ import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
-import org.hamcrest.CoreMatchers;
 import org.junit.Test;
 
 import java.util.List;
@@ -29,6 +28,7 @@ import java.util.List;
 public class StatementSqlBuilderTest {
 
     @Test
+    @SuppressWarnings("magicnumber")
     public void testParse() {
         String originalSql = "insert into test (id, username, password, age, email) " +
             "values (#{id}, #{username}, #{password}, #{age}, #{email})";
@@ -41,6 +41,7 @@ public class StatementSqlBuilderTest {
     }
 
     @Test
+    @SuppressWarnings("magicnumber")
     public void testCharacterEscape() {
         String originalSql1 = "insert into test (id, username, password, age, email) " +
             "values (#{id}, \\#{username}, #{password}, #{age}, #{email})";
