@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
 import org.apache.seatunnel.flink.FlinkEnvironment;

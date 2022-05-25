@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.spark.execution;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.base.config.EngineType;
 import org.apache.seatunnel.core.base.config.EnvironmentFactory;
 import org.apache.seatunnel.spark.SparkEnvironment;
