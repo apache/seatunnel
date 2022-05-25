@@ -13,9 +13,6 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import ru.yandex.clickhouse.BalancedClickhouseDataSource;
-import ru.yandex.clickhouse.ClickHouseConnection;
-import ru.yandex.clickhouse.ClickHouseStatement;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -51,7 +48,7 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
             .withNetwork(NETWORK)
             .withNetworkAliases("mysql")
             .withEnv("MYSQL_ROOT_USER", USER)
-            .withEnv("MYSQL_ROOT_PASSWORD",PASSWORD)
+            .withEnv("MYSQL_ROOT_PASSWORD", PASSWORD)
             .withEnv("MYSQL_AUTHENTICATION_PLUGIN", "mysql_native_password")
             .withEnv("MYSQL_DATABASE", "seatunnel")
             .withLogConsumer(new Slf4jLogConsumer(LOGGER));
