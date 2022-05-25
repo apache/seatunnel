@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InvalidClassException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<InputT, CommT, WriterStateT> {
 
@@ -51,7 +52,8 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<
 
     @Override
     public List<CommT> prepareCommit(boolean flush) throws IOException {
-        return Collections.singletonList(sinkWriter.prepareCommit());
+        Optional<CommT> commTOptional = sinkWriter.prepareCommit();
+        return commTOptional.map(Collections::singletonList).orElse(Collections.emptyList());
     }
 
     @Override

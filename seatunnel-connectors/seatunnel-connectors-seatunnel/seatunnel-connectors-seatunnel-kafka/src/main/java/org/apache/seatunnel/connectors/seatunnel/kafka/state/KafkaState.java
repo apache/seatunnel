@@ -17,7 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
+import java.io.Serializable;
+import java.util.Properties;
+
+@Data
+@AllArgsConstructor
 public class KafkaState implements Serializable {
+
+    private final String transactionId;
+    private final Properties kafkaProperties;
+
 }

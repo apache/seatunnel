@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommitInfo, ConsoleState> {
 
@@ -44,8 +45,13 @@ public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommit
     }
 
     @Override
-    public ConsoleCommitInfo prepareCommit() {
-        return null;
+    public Optional<ConsoleCommitInfo> prepareCommit() {
+        return Optional.empty();
+    }
+
+    @Override
+    public void abort() {
+
     }
 
     @Override
