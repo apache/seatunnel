@@ -53,8 +53,10 @@ public abstract class FlinkContainer {
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
     private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
+    private static final String SEATUNNEL_FLINK_BIN = "start-seatunnel-sql.sh";
     private static final String SEATUNNEL_FLINK_SQL_JAR = "seatunnel-core-flink-sql.jar";
     private static final String SEATUNNEL_HOME = "/tmp/flink/seatunnel";
+    private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_FLINK_BIN).toString();
     private static final String FLINK_JAR_PATH = Paths.get(SEATUNNEL_HOME, "lib", SEATUNNEL_FLINK_SQL_JAR).toString();
 
     private static final int WAIT_FLINK_JOB_SUBMIT = 5000;
@@ -112,12 +114,9 @@ public abstract class FlinkContainer {
         jobManager.copyFileToContainer(MountableFile.forHostPath(confPath), targetConfInContainer);
 
         // Running IT use cases under Windows requires replacing \ with /
-        String jar = FLINK_JAR_PATH.replaceAll("\\\\", "/");
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add("flink");
-        command.add("run");
-        command.add("-c org.apache.seatunnel.core.sql.SeatunnelSql " + jar);
+        command.add(Paths.get(SEATUNNEL_HOME, "bin/start-seatunnel-sql.sh").toString());
         command.add("--config " + conf);
 
         Container.ExecResult execResult = jobManager.execInContainer("bash", "-c", String.join(" ", command));
@@ -129,8 +128,17 @@ public abstract class FlinkContainer {
     }
 
     protected void copySeaTunnelFlinkFile() {
+        // copy lib
         String seatunnelCoreFlinkJarPath = PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-core-flink-sql/target/" + SEATUNNEL_FLINK_SQL_JAR;
-        jobManager.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreFlinkJarPath), FLINK_JAR_PATH);
+        jobManager.copyFileToContainer(
+            MountableFile.forHostPath(seatunnelCoreFlinkJarPath),
+            FLINK_JAR_PATH);
+
+        // copy bin
+        String seatunnelFlinkBinPath = PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-core-flink-sql/src/main/bin/start-seatunnel-sql.sh";
+        jobManager.copyFileToContainer(
+            MountableFile.forHostPath(seatunnelFlinkBinPath),
+            Paths.get(SEATUNNEL_BIN).toString());
     }
 
 }
