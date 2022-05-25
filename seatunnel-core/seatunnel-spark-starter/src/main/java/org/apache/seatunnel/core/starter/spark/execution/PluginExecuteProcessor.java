@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.config;
+package org.apache.seatunnel.core.starter.spark.execution;
 
-import org.apache.seatunnel.core.base.config.ConfigChecker;
-import org.apache.seatunnel.core.base.exception.ConfigCheckException;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import java.util.List;
 
-public class SeaTunnelApiConfigChecker implements ConfigChecker<SeaTunnelEnvironment> {
+public interface PluginExecuteProcessor {
 
-    @Override
-    public void checkConfig(Config config) throws ConfigCheckException {
-        // todo: implement
-    }
+    /**
+     * Execute the current plugins, and return the result data stream.
+     *
+     * @param upstreamDataStreams the upstream data streams.
+     * @return the result data stream
+     */
+    List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws Exception;
 }

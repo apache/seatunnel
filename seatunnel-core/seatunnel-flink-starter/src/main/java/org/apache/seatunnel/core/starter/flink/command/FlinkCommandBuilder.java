@@ -26,7 +26,7 @@ public class FlinkCommandBuilder implements CommandBuilder<FlinkCommandArgs> {
 
     @Override
     public Command<FlinkCommandArgs> buildCommand(FlinkCommandArgs commandArgs) {
-        if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
+        if (Boolean.FALSE.equals(Common.setDeployMode(commandArgs.getDeployMode().getName()))) {
             throw new IllegalArgumentException(
                     String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
         }

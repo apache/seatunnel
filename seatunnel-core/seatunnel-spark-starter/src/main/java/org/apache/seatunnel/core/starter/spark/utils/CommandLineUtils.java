@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.base.config;
+package org.apache.seatunnel.core.starter.spark.utils;
 
-public enum ApiType {
-    ENGINE_API("engine"),
-    SEATUNNEL_API("seatunnel"),
-    ;
-    private final String apiType;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 
-    ApiType(String apiType) {
-        this.apiType = apiType;
+import com.beust.jcommander.JCommander;
+
+public class CommandLineUtils {
+
+    private CommandLineUtils() {
+        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
     }
 
-    public String getApiType() {
-        return apiType;
+    public static SparkCommandArgs parseSparkArgs(String[] args) {
+        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
+        JCommander.newBuilder()
+            .addObject(sparkCommandArgs)
+            .build()
+            .parse(args);
+        return sparkCommandArgs;
     }
 }

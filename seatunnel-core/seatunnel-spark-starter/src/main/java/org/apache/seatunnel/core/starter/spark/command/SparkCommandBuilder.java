@@ -15,39 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.command;
+package org.apache.seatunnel.core.starter.spark.command;
 
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.command.CommandBuilder;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.command.CommandBuilder;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 
 public class SparkCommandBuilder implements CommandBuilder<SparkCommandArgs> {
 
     @Override
     public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
-        if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
+        if (Boolean.FALSE.equals(Common.setDeployMode(commandArgs.getDeployMode().getName()))) {
             throw new IllegalArgumentException(
                     String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
         }
-
-        return new SparkApiCommandBuilder().buildCommand(commandArgs);
+        return new SeaTunnelApiCommandBuilder().buildCommand(commandArgs);
     }
 
     /**
-     * Used to generate command for engine API.
+     * Used to generate command for seaTunnel API.
      */
-    private static class SparkApiCommandBuilder extends SparkCommandBuilder {
+    private static class SeaTunnelApiCommandBuilder extends SparkCommandBuilder {
         @Override
         public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
-            if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
-                throw new IllegalArgumentException(
-                        String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
-            }
-            return commandArgs.isCheckConfig() ? new SparkConfValidateCommand(commandArgs)
-                    : new SparkTaskExecuteCommand(commandArgs);
+            return commandArgs.isCheckConfig() ? new SparkApiConfValidateCommand(commandArgs)
+                    : new SparkApiTaskExecuteCommand(commandArgs);
         }
     }
-
 }
 

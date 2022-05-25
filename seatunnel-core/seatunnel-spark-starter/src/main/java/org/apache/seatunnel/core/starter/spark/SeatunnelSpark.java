@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.execution;
+package org.apache.seatunnel.core.starter.spark;
 
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
+import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.exception.CommandException;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.spark.command.SparkCommandBuilder;
+import org.apache.seatunnel.core.starter.spark.utils.CommandLineUtils;
 
-import java.util.List;
+public class SeatunnelSpark {
 
-public interface PluginExecuteProcessor {
-
-    /**
-     * Execute the current plugins, and return the result data stream.
-     *
-     * @param upstreamDataStreams the upstream data streams.
-     * @return the result data stream
-     */
-    List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws Exception;
+    public static void main(String[] args) throws CommandException {
+        SparkCommandArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
+        Command<SparkCommandArgs> sparkCommand =
+            new SparkCommandBuilder().buildCommand(sparkArgs);
+        Seatunnel.run(sparkCommand);
+    }
 }

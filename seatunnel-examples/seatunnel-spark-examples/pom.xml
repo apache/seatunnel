@@ -34,7 +34,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-core-spark</artifactId>
+            <artifactId>seatunnel-spark-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
 
