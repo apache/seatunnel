@@ -32,8 +32,8 @@ import static org.apache.seatunnel.flink.jdbc.Config.USERNAME;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.common.parsing.StatementSqlBuilder;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
