@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-public class Config {
-    /**
-     * The topic of kafka.
-     */
-    public static final String TOPIC = "topic";
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-    /**
-     * The server address of kafka cluster.
-     */
-    public static final String BOOTSTRAP_SERVER = "bootstrap.server";
+import java.io.Serializable;
+import java.util.Properties;
 
-    public static final String KAFKA_CONFIG_PREFIX = "kafka.";
+@Data
+@AllArgsConstructor
+public class KafkaCommitInfo implements Serializable {
+
+    private final String transactionId;
+    private final Properties kafkaProperties;
+
 }

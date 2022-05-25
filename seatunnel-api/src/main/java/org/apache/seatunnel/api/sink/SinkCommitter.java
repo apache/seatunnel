@@ -38,9 +38,10 @@ public interface SinkCommitter<CommitInfoT> extends Serializable {
     List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
 
     /**
-     * Close this resource.
+     * Abort the transaction, this method will be called when the commit is failed.
      *
+     * @param commitInfos The list of commit message, used to abort the commit.
      * @throws IOException throw IOException when close failed.
      */
-    void abort() throws IOException;
+    void abort(List<CommitInfoT> commitInfos) throws IOException;
 }
