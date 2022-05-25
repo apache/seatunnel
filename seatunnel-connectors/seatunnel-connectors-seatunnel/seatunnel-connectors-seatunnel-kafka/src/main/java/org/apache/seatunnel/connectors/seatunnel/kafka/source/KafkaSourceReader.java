@@ -17,24 +17,33 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 
+import com.google.common.collect.Maps;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSourceSplit> {
@@ -48,10 +57,14 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final ConsumerMetadata metadata;
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<TopicPartition, Long> endOffset;
+    // TODO support user custom type
+    private SeaTunnelRowTypeInfo typeInfo;
 
-    KafkaSourceReader(ConsumerMetadata metadata, SourceReader.Context context) {
+    KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowTypeInfo typeInfo,
+                      SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
+        this.typeInfo = typeInfo;
         this.sourceSplits = new HashSet<>();
         this.endOffset = new HashMap<>();
     }
@@ -72,15 +85,17 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         Set<TopicPartition> partitions = convertToPartition(sourceSplits);
+        StringDeserializer stringDeserializer = new StringDeserializer();
+        stringDeserializer.configure(Maps.fromProperties(this.metadata.getProperties()), false);
         consumer.assign(partitions);
         while (true) {
             ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT));
             for (TopicPartition partition : partitions) {
                 for (ConsumerRecord<byte[], byte[]> record : records.records(partition)) {
 
-//                    record.value();
-//                    StringDeserializer
-
+                    String v = stringDeserializer.deserialize(partition.topic(), record.value());
+                    String t = partition.topic();
+                    output.collect(new SeaTunnelRow(new Object[]{t, v}));
 
                     if (record.offset() >= endOffset.get(partition)) {
                         break;

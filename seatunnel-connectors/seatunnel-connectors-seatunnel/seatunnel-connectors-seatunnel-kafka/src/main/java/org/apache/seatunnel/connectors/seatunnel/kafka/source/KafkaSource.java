@@ -47,6 +47,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
+    private SeaTunnelRowTypeInfo typeInfo;
 
     @Override
     public String getPluginName() {
@@ -75,17 +76,21 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
         TypesafeConfigUtils.extractSubConfig(config, "kafka.", false).entrySet().forEach(e -> {
             this.metadata.getProperties().put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
         });
+
+        // TODO support user custom row type
+        this.typeInfo = new SeaTunnelRowTypeInfo(new String[]{"topic", "raw_message"},
+                new SeaTunnelDataType[]{BasicType.STRING, BasicType.STRING});
+
     }
 
     @Override
     public SeaTunnelRowTypeInfo getRowTypeInfo() {
-        return new SeaTunnelRowTypeInfo(new String[]{"topic", "raw_message"},
-                new SeaTunnelDataType[]{BasicType.STRING, BasicType.STRING});
+        return this.typeInfo;
     }
 
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new KafkaSourceReader(this.metadata, readerContext);
+        return new KafkaSourceReader(this.metadata, this.typeInfo, readerContext);
     }
 
     @Override
