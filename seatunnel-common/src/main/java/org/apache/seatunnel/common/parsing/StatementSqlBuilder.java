@@ -46,7 +46,7 @@ public class StatementSqlBuilder {
         this.parameters = handler.getParameters();
     }
 
-    public static String removeExtraWhitespaces(String original) {
+    private String removeExtraWhitespaces(String original) {
         StringTokenizer tokenizer = new StringTokenizer(original);
         StringBuilder builder = new StringBuilder();
         boolean hasMoreTokens = tokenizer.hasMoreTokens();
