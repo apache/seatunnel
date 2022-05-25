@@ -79,16 +79,13 @@ public abstract class AbstractExecutionContext<ENVIRONMENT extends RuntimeEnv> {
 
     @SuppressWarnings("checkstyle:Indentation")
     protected List<PluginIdentifier> getPluginIdentifiers(PluginType... pluginTypes) {
-        return Arrays.stream(pluginTypes).flatMap(new Function<PluginType, Stream<PluginIdentifier>>() {
-            @Override
-            public Stream<PluginIdentifier> apply(PluginType pluginType) {
-                List<? extends Config> configList = config.getConfigList(pluginType.getType());
-                return configList.stream()
-                    .map(pluginConfig -> PluginIdentifier
-                        .of(engine.getEngine(),
-                            pluginType.getType(),
-                            pluginConfig.getString("plugin_name")));
-            }
+        return Arrays.stream(pluginTypes).flatMap((Function<PluginType, Stream<PluginIdentifier>>) pluginType -> {
+            List<? extends Config> configList = config.getConfigList(pluginType.getType());
+            return configList.stream()
+                .map(pluginConfig -> PluginIdentifier
+                    .of(engine.getEngine(),
+                        pluginType.getType(),
+                        pluginConfig.getString("plugin_name")));
         }).collect(Collectors.toList());
     }
 }

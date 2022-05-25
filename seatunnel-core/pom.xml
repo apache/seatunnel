@@ -37,5 +37,6 @@
         <module>seatunnel-core-flink-sql</module>
         <module>seatunnel-core-starter</module>
         <module>seatunnel-flink-starter</module>
+        <module>seatunnel-spark-starter</module>
     </modules>
 </project>
