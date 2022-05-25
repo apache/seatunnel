@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -138,7 +139,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     }
 
     private void assignSplit(Collection<Integer> taskIDList) {
-        Map<Integer, List<KafkaSourceSplit>> readySplit = new HashMap<>();
+        Map<Integer, List<KafkaSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
         for (int taskID : taskIDList) {
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
         }
