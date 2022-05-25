@@ -85,6 +85,7 @@
         <module>seatunnel-dist</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
+        <module>seatunnel-engine</module>
     </modules>
 
     <properties>

@@ -215,3 +215,14 @@ seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/impl/PathParser.java        from  https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/ConfigParseOptions.java     from https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/SimpleConfigObject.java     from https://github.com/lightbend/config
+
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/api/common/JobID.java                                                 from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/api/common/JobStatus.java                                             from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/executionplan/BaseExecutionPlan.java                                  from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/executionplan/Execution.java                                          from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/executionplan/ExecutionId.java                                        from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/executionplan/ExecutionState.java                                     from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/jobmanager/JobMasterId.java                                           from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/task/TaskExecutionState.java                                          from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/utils/AbstractID.java                                                 from https://github.com/apache/flink
+seatunnel-engine/src/main/java/org/apache/seatunnel/engine/utils/StringUtils.java                                                from https://github.com/apache/flink
