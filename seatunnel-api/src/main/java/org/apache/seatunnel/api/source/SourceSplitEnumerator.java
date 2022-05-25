@@ -37,7 +37,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> exten
     /**
      * The method is executed by the engine only once.
      */
-    void run();
+    void run() throws Exception;
 
     /**
      * Called to close the enumerator, in case it holds on to any resources, like threads or network

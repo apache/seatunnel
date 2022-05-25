@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -32,19 +34,19 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.Properties;
 
-public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaState> {
+public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState> {
 
+    private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 
-    private String topic;
-    private String bootstrapServer;
-    private Properties properties;
+    private final ConsumerMetadata metadata = new ConsumerMetadata();
 
     @Override
     public String getPluginName() {
@@ -57,10 +59,22 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        this.topic = config.getString(TOPIC);
-        this.bootstrapServer = config.getString(BOOTSTRAP_SERVER);
-        // TODO add user custom properties
-        this.properties = new Properties();
+        this.metadata.setTopic(config.getString(TOPIC));
+        if (config.hasPath(PATTERN)) {
+            this.metadata.setPattern(config.getBoolean(PATTERN));
+        }
+        this.metadata.setBootstrapServer(config.getString(BOOTSTRAP_SERVER));
+        this.metadata.setProperties(new Properties());
+
+        if (config.hasPath(CONSUMER_GROUP)) {
+            this.metadata.setConsumerGroup(config.getString(CONSUMER_GROUP));
+        } else {
+            this.metadata.setConsumerGroup(DEFAULT_CONSUMER_GROUP);
+        }
+
+        TypesafeConfigUtils.extractSubConfig(config, "kafka.", false).entrySet().forEach(e -> {
+            this.metadata.getProperties().put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
+        });
     }
 
     @Override
@@ -71,22 +85,21 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new KafkaSourceReader(this.topic, this.bootstrapServer);
+        return new KafkaSourceReader(this.metadata, readerContext);
     }
 
     @Override
-    public SourceSplitEnumerator<KafkaSourceSplit, KafkaState> createEnumerator(SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) throws Exception {
-        return new KafkaSourceSplitEnumerator(this.topic, this.bootstrapServer, this.properties);
+    public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) throws Exception {
+        return new KafkaSourceSplitEnumerator(this.metadata, enumeratorContext);
     }
 
     @Override
-    public SourceSplitEnumerator<KafkaSourceSplit, KafkaState> restoreEnumerator(SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext, KafkaState checkpointState) throws Exception {
-        // TODO support state restore
-        return new KafkaSourceSplitEnumerator(this.topic, this.bootstrapServer, this.properties);
+    public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> restoreEnumerator(SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext, KafkaSourceState checkpointState) throws Exception {
+        return new KafkaSourceSplitEnumerator(this.metadata, enumeratorContext, checkpointState);
     }
 
     @Override
-    public Serializer<KafkaState> getEnumeratorStateSerializer() {
+    public Serializer<KafkaSourceState> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
     }
 }

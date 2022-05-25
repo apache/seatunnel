@@ -24,7 +24,17 @@ public class Config {
     public static final String TOPIC = "topic";
 
     /**
+     * The topic of kafka is java pattern or list.
+     */
+    public static final String PATTERN = "pattern";
+
+    /**
      * The server address of kafka cluster.
      */
     public static final String BOOTSTRAP_SERVER = "bootstrap.server";
+
+    /**
+     * consumer group of kafka client consume message.
+     */
+    public static final String CONSUMER_GROUP = "consumer.group";
 }

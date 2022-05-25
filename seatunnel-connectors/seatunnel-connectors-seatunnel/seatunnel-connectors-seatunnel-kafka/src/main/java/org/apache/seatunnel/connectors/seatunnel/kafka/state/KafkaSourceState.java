@@ -17,7 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-import java.io.Serializable;
+import org.apache.kafka.common.TopicPartition;
 
-public class KafkaState implements Serializable {
+import java.io.Serializable;
+import java.util.Set;
+
+public class KafkaSourceState implements Serializable {
+
+    private Set<TopicPartition> assignedSplit;
+
+    public KafkaSourceState(Set<TopicPartition> assignedSplit) {
+        this.assignedSplit = assignedSplit;
+    }
+
+    public Set<TopicPartition> getAssignedSplit() {
+        return assignedSplit;
+    }
+
+    public void setAssignedSplit(Set<TopicPartition> assignedSplit) {
+        this.assignedSplit = assignedSplit;
+    }
 }
