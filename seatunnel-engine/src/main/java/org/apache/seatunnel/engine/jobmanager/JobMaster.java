@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.logicalplan.LogicalPlan;
 import org.apache.seatunnel.engine.scheduler.SchedulerFactory;
 import org.apache.seatunnel.engine.scheduler.SchedulerStrategy;
 import org.apache.seatunnel.engine.task.TaskExecutionState;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,9 +77,9 @@ public class JobMaster {
 
     public void run() {
         logger.info("begin run job '{}' ({}) in JobMaster id {}",
-                logicalPlan.getJobInformation().getJobName(),
-                logicalPlan.getJobInformation().getJobId(),
-                jobMasterId);
+            logicalPlan.getJobInformation().getJobName(),
+            logicalPlan.getJobInformation().getJobId(),
+            jobMasterId);
 
         schedulerStrategy.startScheduling(taskExecution);
 

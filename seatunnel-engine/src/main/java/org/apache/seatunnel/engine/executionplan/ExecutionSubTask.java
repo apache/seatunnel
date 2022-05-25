@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.api.sink.SinkWriter;
 import org.apache.seatunnel.engine.api.source.SourceReader;
 import org.apache.seatunnel.engine.api.transform.Transformation;
 import org.apache.seatunnel.engine.execution.TaskExecution;
+
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -53,11 +54,11 @@ public class ExecutionSubTask {
         this.sourceReader = sourceReader;
 
         this.taskNameWithSubtask =
-                String.format(
-                        "%s (%d/%d)",
-                        executionTask.getTaskName(),
-                        subTaskIndex + 1,
-                        executionTask.getParallelism());
+            String.format(
+                "%s (%d/%d)",
+                executionTask.getTaskName(),
+                subTaskIndex + 1,
+                executionTask.getParallelism());
 
         this.currentExecution = new Execution(executor, this, 1);
         this.executionTask.getExecutionPlan().addExecution(this.currentExecution);

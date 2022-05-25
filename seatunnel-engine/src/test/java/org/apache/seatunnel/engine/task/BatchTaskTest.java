@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.config.Configuration;
 import org.apache.seatunnel.engine.executionplan.ExecutionId;
 import org.apache.seatunnel.engine.executionplan.JobInformation;
 import org.apache.seatunnel.engine.utils.Collector;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -49,16 +50,15 @@ public class BatchTaskTest {
     private final Random random = ThreadLocalRandom.current();
     private final String[] names = {"Z3", "L4", "W5", "Mz"};
     private final int[] ages = {11, 22, 33, 44};
-
+    private final int transferSize = 100000;
+    private final int sleepTime = 2000;
 
     @Test
     public void testsendAndReceive() throws InterruptedException {
-        long transferSize = 100000;
 
         Queue<Row> seaTunnelRows = buildTestData(transferSize);
 
         Queue<Row> receiveRows = new LinkedList<>();
-
 
         SourceReader sourceReader = new TestSourceReader(new LinkedList<>(seaTunnelRows));
         SinkWriter sinkWriter = new TestSinkWriter(receiveRows);
@@ -73,29 +73,27 @@ public class BatchTaskTest {
         long end = System.currentTimeMillis();
         logger.info("Duration :{}ms ", String.valueOf(end - begin));
 
-
-        Thread.sleep(2000);
+        Thread.sleep(sleepTime);
 
         Assert.assertEquals(transferSize, receiveRows.size());
-
     }
 
     public BatchTask buildBatchTask(SourceReader sourceReader, SinkWriter sinkWriter) {
         JobInformation jobInformation = new JobInformation(new JobID(), "test", new Configuration(), Boundedness.BOUNDED);
         return new BatchTask(
-                jobInformation,
-                new ExecutionId(),
-                1,
-                sourceReader,
-                new ArrayList<>(),
-                sinkWriter);
+            jobInformation,
+            new ExecutionId(),
+            1,
+            sourceReader,
+            new ArrayList<>(),
+            sinkWriter);
     }
 
     public Queue<Row> buildTestData(long size) {
         LinkedList<Row> queue = new LinkedList<Row>();
         while (size-- > 0) {
             int randomIndex = random.nextInt(names.length);
-            Map<String, Object> fieldMap = new HashMap<>(4);
+            Map<String, Object> fieldMap = new HashMap<>();
             fieldMap.put("name", names[randomIndex]);
             fieldMap.put("age", ages[randomIndex]);
             fieldMap.put("timestamp", System.currentTimeMillis());
@@ -138,7 +136,6 @@ public class BatchTaskTest {
         }
     }
 
-
     static class TestSourceReader implements SourceReader {
 
         Queue<Row> sendData;
@@ -158,6 +155,7 @@ public class BatchTaskTest {
 
         }
 
+        @SuppressWarnings("checkstyle:MagicNumber")
         @Override
         public InputStatus pullNext(Collector<Row> output) throws Exception {
             for (int i = 0; i < random.nextInt(10); i++) {
@@ -181,5 +179,4 @@ public class BatchTaskTest {
 
         }
     }
-
 }

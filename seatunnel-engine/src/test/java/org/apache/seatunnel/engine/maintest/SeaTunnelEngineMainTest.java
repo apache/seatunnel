@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.jobmanager.JobMaster;
 import org.apache.seatunnel.engine.jobmanager.JobMasterId;
 import org.apache.seatunnel.engine.logicalplan.LogicalPlan;
 import org.apache.seatunnel.engine.utils.SeaTunnelExecutionThreadFactory;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-
 
 public class SeaTunnelEngineMainTest {
     protected final Logger logger = LoggerFactory.getLogger(SeaTunnelEngineMainTest.class);
@@ -52,8 +52,8 @@ public class SeaTunnelEngineMainTest {
     public void testBoundedJob() throws Exception {
         //shared executor service
         final ScheduledExecutorService futureExecutor =
-                Executors.newScheduledThreadPool(
-                        10, new SeaTunnelExecutionThreadFactory("st-engine-execution-"));
+            Executors.newScheduledThreadPool(
+                10, new SeaTunnelExecutionThreadFactory("st-engine-execution-"));
 
         //Create TaskExecution
         //It will have only one TaskExecution instance in a standalone mode(All Server run in a same JVM)
@@ -77,10 +77,10 @@ public class SeaTunnelEngineMainTest {
         // ----------------------------------------------------------------------------------------------//
 
         JobMaster jobMaster = new JobMaster(JobMasterId.generate(),
-                localExecutionContext.getConfiguration(),
-                logicalPlan,
-                futureExecutor,
-                System.currentTimeMillis());
+            localExecutionContext.getConfiguration(),
+            logicalPlan,
+            futureExecutor,
+            System.currentTimeMillis());
 
         // All jobMaster can only use the same taskExecution now
         jobMaster.registerTaskExecution(taskExecution);
@@ -88,6 +88,5 @@ public class SeaTunnelEngineMainTest {
         // TaskExecution can run many job
         taskExecution.registerJobMaster(logicalPlan.getJobInformation().getJobId(), jobMaster);
         jobMaster.run();
-
     }
 }

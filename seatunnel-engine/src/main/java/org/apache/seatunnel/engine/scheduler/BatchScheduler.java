@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.executionplan.ExecutionPlan;
 import org.apache.seatunnel.engine.executionplan.ExecutionSubTask;
 import org.apache.seatunnel.engine.executionplan.ExecutionTask;
 import org.apache.seatunnel.engine.task.TaskExecutionState;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,7 @@ import java.util.concurrent.ExecutionException;
 
 public class BatchScheduler implements SchedulerStrategy {
 
-    public  final Logger logger = LoggerFactory.getLogger(getClass());
+    public final Logger logger = LoggerFactory.getLogger(getClass());
 
     private ExecutionPlan executionPlan;
 

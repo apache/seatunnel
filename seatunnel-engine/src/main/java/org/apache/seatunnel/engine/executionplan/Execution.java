@@ -18,13 +18,14 @@
 
 package org.apache.seatunnel.engine.executionplan;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.engine.execution.TaskExecution;
 import org.apache.seatunnel.engine.execution.TaskInfo;
+
 import org.slf4j.Logger;
 
 import java.util.concurrent.Executor;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Execution {
 
@@ -65,9 +66,9 @@ public class Execution {
      * @param attemptNumber    The execution attempt number.
      */
     public Execution(
-            Executor executor,
-            ExecutionSubTask executionSubTask,
-            int attemptNumber) {
+        Executor executor,
+        ExecutionSubTask executionSubTask,
+        int attemptNumber) {
 
         this.executor = checkNotNull(executor);
         this.executionSubTask = checkNotNull(executionSubTask);
@@ -118,23 +119,23 @@ public class Execution {
                 // race condition, someone else beat us to the deploying call.
                 // this should actually not happen and indicates a race somewhere else
                 throw new IllegalStateException(
-                        "Cannot deploy task: Concurrent deployment call race.");
+                    "Cannot deploy task: Concurrent deployment call race.");
             }
         } else {
             // vertex may have been cancelled, or it was already scheduled
             throw new IllegalStateException(
-                    "The vertex must be in SCHEDULED state to be deployed. Found state "
-                            + this.state);
+                "The vertex must be in SCHEDULED state to be deployed. Found state "
+                    + this.state);
         }
         LOG.info("deploy subTask " + this.executionSubTask.getTaskNameWithSubtask());
         TaskInfo taskInfo = new TaskInfo(
-                executionSubTask.getExecutionTask().getExecutionPlan().getJobInformation(),
-                this.executionID,
-                executionSubTask.getSubTaskIndex(),
-                executionSubTask.getExecutionTask().getSource().getBoundedness(),
-                executionSubTask.getSourceReader(),
-                executionSubTask.getTransformations(),
-                executionSubTask.getSinkWriter());
+            executionSubTask.getExecutionTask().getExecutionPlan().getJobInformation(),
+            this.executionID,
+            executionSubTask.getSubTaskIndex(),
+            executionSubTask.getExecutionTask().getSource().getBoundedness(),
+            executionSubTask.getSourceReader(),
+            executionSubTask.getTransformations(),
+            executionSubTask.getSinkWriter());
         taskExecution.submit(taskInfo);
     }
 
@@ -219,9 +220,9 @@ public class Execution {
                 // we mark as failed and return false, which triggers the TaskManager
                 // to remove the task
                 fail(
-                        new Exception(
-                                "TaskManager sent illegal state update: "
-                                        + state));
+                    new Exception(
+                        "TaskManager sent illegal state update: "
+                            + state));
                 return false;
         }
     }
@@ -237,11 +238,11 @@ public class Execution {
     public boolean turnState(ExecutionState currentState, ExecutionState targetState) {
         if (currentState.isEnd()) {
             throw new IllegalStateException(
-                    "Cannot leave end state "
-                            + currentState
-                            + " to transition to "
-                            + targetState
-                            + '.');
+                "Cannot leave end state "
+                    + currentState
+                    + " to transition to "
+                    + targetState
+                    + '.');
         }
 
         if (state != currentState) {

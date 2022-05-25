@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.engine.executionplan;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.engine.api.common.JobStatus;
 import org.apache.seatunnel.engine.cache.CacheConfig;
 import org.apache.seatunnel.engine.cache.CachePartition;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.engine.cache.DataStreamCachePartitionBuilder;
 import org.apache.seatunnel.engine.config.Configuration;
 import org.apache.seatunnel.engine.logicalplan.LogicalTask;
 import org.apache.seatunnel.engine.task.TaskExecutionState;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BaseExecutionPlan implements ExecutionPlan {
 
@@ -133,7 +134,7 @@ public class BaseExecutionPlan implements ExecutionPlan {
     public void turnToRunning() {
         if (!updateJobState(JobStatus.CREATED, JobStatus.RUNNING)) {
             throw new IllegalStateException(
-                    "Job may only be scheduled from state " + JobStatus.CREATED);
+                "Job may only be scheduled from state " + JobStatus.CREATED);
         }
     }
 
@@ -150,11 +151,11 @@ public class BaseExecutionPlan implements ExecutionPlan {
         if (jobStatus == current) {
             jobStatus = targetState;
             LOG.info(
-                    "Job {} ({}) turn from state {} to {}.",
-                    jobInformation.getJobName(),
-                    jobInformation.getJobId(),
-                    current,
-                    targetState);
+                "Job {} ({}) turn from state {} to {}.",
+                jobInformation.getJobName(),
+                jobInformation.getJobId(),
+                current,
+                targetState);
 
             stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
             return true;
@@ -182,12 +183,12 @@ public class BaseExecutionPlan implements ExecutionPlan {
     private void createExecutionTasksFromLogicalTasks(List<LogicalTask> logicalTasks) {
         for (LogicalTask logicalTask : logicalTasks) {
             ExecutionTask executionTask = new ExecutionTask(
-                    "st_task",
-                    sourceParallelism,
-                    logicalTask.getSource(),
-                    logicalTask.getTransformations(),
-                    logicalTask.getSink(),
-                    this);
+                "st_task",
+                sourceParallelism,
+                logicalTask.getSource(),
+                logicalTask.getTransformations(),
+                logicalTask.getSink(),
+                this);
 
             executionTask.init();
             tasks.add(executionTask);
@@ -213,10 +214,10 @@ public class BaseExecutionPlan implements ExecutionPlan {
 
         if (execution != null && execution != execExecution) {
             throw new RuntimeException(new Exception(
-                    "remove execution "
-                            + execExecution
-                            + " failed. Found for same ID execution "
-                            + execution));
+                "remove execution "
+                    + execExecution
+                    + " failed. Found for same ID execution "
+                    + execution));
         }
     }
 

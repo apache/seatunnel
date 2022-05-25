@@ -18,11 +18,11 @@
 
 package org.apache.seatunnel.engine.executionplan;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.engine.api.common.JobID;
 import org.apache.seatunnel.engine.api.source.Boundedness;
 import org.apache.seatunnel.engine.config.Configuration;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JobInformation {
 
@@ -44,10 +44,10 @@ public class JobInformation {
     private final Boundedness boundedness;
 
     public JobInformation(
-            JobID jobId,
-            String jobName,
-            Configuration jobConfiguration,
-            Boundedness boundedness) {
+        JobID jobId,
+        String jobName,
+        Configuration jobConfiguration,
+        Boundedness boundedness) {
         this.jobId = checkNotNull(jobId);
         this.jobName = checkNotNull(jobName);
         this.jobConfiguration = checkNotNull(jobConfiguration);

@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.task.BatchTask;
 import org.apache.seatunnel.engine.task.StreamTask;
 import org.apache.seatunnel.engine.task.Task;
 import org.apache.seatunnel.engine.task.TaskExecutionState;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,23 +91,23 @@ public class TaskExecution {
 
     private Task buildTask(TaskInfo taskInfo, StateBackend stateBackend) {
         return Boundedness.BOUNDED.equals(taskInfo.boundedness) ?
-                new BatchTask(
-                        taskInfo.jobInformation,
-                        taskInfo.executionID,
-                        taskInfo.taskId,
-                        taskInfo.sourceReader,
-                        taskInfo.transformations,
-                        taskInfo.sinkWriter
-                ) :
-                new StreamTask(
-                        taskInfo.jobInformation,
-                        taskInfo.executionID,
-                        taskInfo.taskId,
-                        taskInfo.sourceReader,
-                        taskInfo.transformations,
-                        taskInfo.sinkWriter,
-                        stateBackend
-                );
+            new BatchTask(
+                taskInfo.jobInformation,
+                taskInfo.executionID,
+                taskInfo.taskId,
+                taskInfo.sourceReader,
+                taskInfo.transformations,
+                taskInfo.sinkWriter
+            ) :
+            new StreamTask(
+                taskInfo.jobInformation,
+                taskInfo.executionID,
+                taskInfo.taskId,
+                taskInfo.sourceReader,
+                taskInfo.transformations,
+                taskInfo.sinkWriter,
+                stateBackend
+            );
     }
 
     public void registerJobMaster(JobID jobID, JobMaster jobMaster) {
@@ -118,9 +119,9 @@ public class TaskExecution {
         if (jobMasterMap.containsKey(jobID)) {
             JobMaster jobMaster = jobMasterMap.get(jobID);
             jobMaster.updateExecutionState(new TaskExecutionState(
-                    executionID,
-                    executionState,
-                    throwable
+                executionID,
+                executionState,
+                throwable
             ));
         } else {
             logger.error("JobID: {}, can not find jobMaster ", jobID);

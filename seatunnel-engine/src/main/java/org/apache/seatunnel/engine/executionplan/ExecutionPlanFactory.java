@@ -18,14 +18,14 @@
 
 package org.apache.seatunnel.engine.executionplan;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.engine.api.source.Boundedness;
 import org.apache.seatunnel.engine.config.Configuration;
 import org.apache.seatunnel.engine.logicalplan.LogicalPlan;
 
 import java.util.concurrent.ScheduledExecutorService;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExecutionPlanFactory {
 

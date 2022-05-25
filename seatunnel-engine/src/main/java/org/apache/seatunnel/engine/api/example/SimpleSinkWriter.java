@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.api.example;
 
 import org.apache.seatunnel.engine.api.sink.SinkWriter;
 import org.apache.seatunnel.engine.api.type.Row;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +28,7 @@ import java.io.IOException;
 
 public class SimpleSinkWriter implements SinkWriter {
     protected final Logger logger = LoggerFactory.getLogger(SimpleSinkWriter.class);
+
     @Override
     public void open() {
 
