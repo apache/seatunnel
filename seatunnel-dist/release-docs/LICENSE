@@ -897,6 +897,15 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) x-content (org.elasticsearch:elasticsearch-x-content:6.3.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) zookeeper (org.apache.zookeeper:zookeeper:3.4.10 - no url defined)
      (The Apache Software License, Version 2.0) spark-excel (com.crealytics:spark-excel_2.11:0.11.1 - https://github.com/crealytics/spark-excel)
+     (Apache License, Version 2.0) Apache POI (org.apache.poi:poi-ooxml-schemas:4.0.0 - http://poi.apache.org/)
+     (Apache License, Version 2.0) Apache POI (org.apache.poi:poi-ooxml:4.0.0 - http://poi.apache.org/)
+     (Apache License, Version 2.0) Apache POI (org.apache.poi:poi:4.0.0 - http://poi.apache.org/)
+     (Apache License, Version 2.0) xerces2-xsd11 (com.rackspace.apache:xerces2-xsd11:2.11.1 - http://xerces.apache.org/xerces2-j/)
+     (Apache License, Version 2.0) xlsx-streamer (com.monitorjbl:xlsx-streamer:2.0.0 - https://github.com/monitorjbl/excel-streaming-reader)
+     (Apache License, Version 2.0) xml-apis (xml-apis:xml-apis:1.4.01 - https://xerces.apache.org/xml-commons/components/external/)
+     (Apache License, Version 2.0) xmlbeans (org.apache.xmlbeans:xmlbeans:1.4.01 - https://xmlbeans.apache.org/)
+     (Apache License, Version 2.0) xml-resolver (xml-resolver:xml-resolver:1.2 - http://xml.apache.org/commons/components/resolver/)
+
 
 
 ========================================================================
@@ -999,6 +1008,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (The BSD License) xmlenc Library (xmlenc:xmlenc:0.52 - http://xmlenc.sourceforge.net)
      (The New BSD License) Jodd Core (org.jodd:jodd-core:3.5.2 - http://jodd.org)
      (The New BSD License) Py4J (net.sf.py4j:py4j:0.10.7 - http://nexus.sonatype.org/oss-repository-hosting.html/py4j)
+     (The BSD License) curvesapi (com.github.virtuald:curvesapi:1.04 - https://github.com/virtuald/curvesapi)
 
 
 ========================================================================
@@ -1076,6 +1086,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (Eclipse Public License, Version 1.0) Aether Utilities (org.eclipse.aether:aether-util:0.9.0.M2 - http://www.eclipse.org/aether/aether-util/)
      (The Eclipse Public License, Version 1.0) OkHttp Aether Connector (io.tesla.aether:aether-connector-okhttp:0.0.9 - http://tesla.io/aether-connector-okhttp)
      (The Eclipse Public License, Version 1.0) tesla-aether (io.tesla.aether:tesla-aether:0.0.5 - http://tesla.io/tesla-aether)
+     (The Eclipse Public License, Version 1.0) org.eclipse.wst.xml.xpath2.processor (com.rackspace.eclipse.webtools.sourceediting:org.eclipse.wst.xml.xpath2.processor:2.1.100 - https://github.com/rackerlabs/olink-maven-plugin)
 
 
 ========================================================================
@@ -1114,6 +1125,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (Unicode/ICU License) ICU4J (com.ibm.icu:icu4j:60.2 - http://icu-project.org/)
      (Unicode/ICU License) ICU4J Charset Provider (com.ibm.icu:icu4j-charset:60.2 - http://icu-project.org/)
      (Unicode/ICU License) ICU4J Locale Service Provider (com.ibm.icu:icu4j-localespi:60.2 - http://icu-project.org/)
+     (ICU License) ICU4J (com.ibm.icu:icu4j:4.6 - http://icu-project.org/)
 
 
 ========================================================================
@@ -1124,5 +1136,14 @@ The following components are provided under the Go License. See project link for
 The text of each license is also included at licenses/LICENSE-[project].txt.
 
      (The Go license) re2j (com.google.re2j:re2j:1.1 - http://github.com/google/re2j)
+
+========================================================================
+CUP Parser Generator Copyright Notice, License, and Disclaimer
+========================================================================
+
+The following components are provided under the Go License. See project link for details.
+The text of each license is also included at licenses/LICENSE-[project].txt.
+
+     (CUP Parser Generator Copyright Notice, License, and Disclaimer) java-cup (edu.princeton.cup:java-cup:10k - http://www.cs.princeton.edu/~appel/modern/java/CUP/)
 
 
