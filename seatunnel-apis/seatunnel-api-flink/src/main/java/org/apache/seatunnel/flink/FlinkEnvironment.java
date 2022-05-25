@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink;
 
+import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -87,10 +88,10 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     @Override
     public FlinkEnvironment prepare() {
-        if (isStreaming()) {
-            createStreamEnvironment();
-            createStreamTableEnvironment();
-        } else {
+        // Batch/Streaming both use data stream api in SeaTunnel New API
+        createStreamEnvironment();
+        createStreamTableEnvironment();
+        if (!isStreaming()) {
             createExecutionEnvironment();
             createBatchTableEnvironment();
         }
@@ -200,6 +201,10 @@ public class FlinkEnvironment implements RuntimeEnv {
         if (config.hasPath(ConfigKeyName.MAX_PARALLELISM)) {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
+        }
+
+        if (this.jobMode.equals(JobMode.BATCH)) {
+            environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
         }
     }
 

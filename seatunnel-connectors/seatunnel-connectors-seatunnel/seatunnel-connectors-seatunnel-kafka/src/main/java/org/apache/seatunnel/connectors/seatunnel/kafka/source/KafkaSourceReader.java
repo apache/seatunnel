@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 
 public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSourceSplit> {
 
+    private static final long THREAD_WAIT_TIME = 500L;
     private static final long POLL_TIMEOUT = 10000L;
     private static final String CLIENT_ID_PREFIX = "seatunnel";
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceReader.class);
@@ -84,6 +85,10 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        if (sourceSplits.isEmpty() || sourceSplits.size() != this.endOffset.size()) {
+            Thread.sleep(THREAD_WAIT_TIME);
+            return;
+        }
         Set<TopicPartition> partitions = convertToPartition(sourceSplits);
         StringDeserializer stringDeserializer = new StringDeserializer();
         stringDeserializer.configure(Maps.fromProperties(this.metadata.getProperties()), false);

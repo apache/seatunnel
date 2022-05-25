@@ -66,6 +66,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     public void open() {
         this.adminClient = initAdminClient(this.metadata.getProperties());
         this.assignedSplit = new HashSet<>();
+        this.pendingSplit = new HashSet<>();
     }
 
     @Override
@@ -84,10 +85,10 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
 
     @Override
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
-
-        pendingSplit.addAll(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()));
-        assignSplit(Collections.singletonList(subtaskId));
-
+        if (!splits.isEmpty()) {
+            pendingSplit.addAll(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()));
+            assignSplit(Collections.singletonList(subtaskId));
+        }
     }
 
     @Override
@@ -119,7 +120,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
 
     private AdminClient initAdminClient(Properties properties) {
         Properties props = new Properties(properties);
-
+        props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, this.metadata.getBootstrapServer());
         props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-admin-client");
         return AdminClient.create(props);
     }

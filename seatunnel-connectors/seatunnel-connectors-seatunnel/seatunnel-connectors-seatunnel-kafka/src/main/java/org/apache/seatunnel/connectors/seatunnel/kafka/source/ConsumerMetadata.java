@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import java.io.Serializable;
 import java.util.Properties;
 
 /**
  * Kafka consumer metadata, include topic, bootstrap server etc.
  */
-public class ConsumerMetadata {
+public class ConsumerMetadata implements Serializable {
 
     private String topic;
     private boolean isPattern = false;

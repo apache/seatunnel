@@ -45,7 +45,8 @@ public class SeaTunnelTaskExecution {
 
     public SeaTunnelTaskExecution(Config config) {
         this.config = config;
-        this.sparkEnvironment = getSparkEnvironment(config);
+        this.sparkEnvironment = (SparkEnvironment) new EnvironmentFactory<>(config, EngineType.SPARK).getEnvironment();
+        SeaTunnelContext.getContext().setJobMode(sparkEnvironment.getJobMode());
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkEnvironment, config.getConfigList("source"));
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(sparkEnvironment, config.getConfigList("transform"));
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, config.getConfigList("sink"));
@@ -58,22 +59,5 @@ public class SeaTunnelTaskExecution {
         sinkPluginExecuteProcessor.execute(datasets);
 
         LOGGER.info("Spark Execution started");
-    }
-
-    private SparkEnvironment getSparkEnvironment(Config config) {
-        SparkEnvironment sparkEnvironment = (SparkEnvironment) new EnvironmentFactory<>(config, EngineType.SPARK).getEnvironment();
-
-        Config envConfig = config.getConfig("env");
-        JobMode jobMode = JobMode.STREAMING;
-        if (envConfig.hasPath("job.mode")) {
-            jobMode = envConfig.getEnum(JobMode.class, "job.mode");
-        }
-        SeaTunnelContext.getContext().setJobMode(jobMode);
-
-        sparkEnvironment.setJobMode(JobMode.STREAMING)
-            .setConfig(config)
-            .prepare();
-
-        return sparkEnvironment;
     }
 }
