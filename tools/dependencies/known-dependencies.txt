@@ -192,8 +192,6 @@ google-http-client-1.26.0.jar
 google-http-client-jackson2-1.26.0.jar
 google-oauth-client-1.26.0.jar
 gson-2.2.4.jar
-guava-13.0.1.jar
-guava-16.0.1.jar
 guava-19.0.jar
 guice-3.0.jar
 guice-4.1.0.jar
@@ -423,6 +421,7 @@ jline-0.9.94.jar
 jline-2.11.jar
 jline-2.12.jar
 jmespath-java-1.12.37.jar
+jmockdata-4.3.0.jar
 jna-4.5.1.jar
 joda-time-1.6.jar
 joda-time-2.10.3.jar
@@ -634,18 +633,11 @@ shims-0.9.0.jar
 shims-0.9.22.jar
 sigar-1.6.5.132.jar
 sketches-core-0.9.0.jar
-slf4j-api-1.7.15.jar
-slf4j-api-1.7.16.jar
-slf4j-api-1.7.21.jar
 slf4j-api-1.7.25.jar
-slf4j-log4j12-1.7.15.jar
-slf4j-log4j12-1.7.16.jar
 slf4j-log4j12-1.7.25.jar
 snakeyaml-1.17.jar
 snakeyaml-1.24.jar
 snappy-0.3.jar
-snappy-java-1.1.4.jar
-snappy-java-1.1.7.1.jar
 snappy-java-1.1.8.3.jar
 spark-catalyst_2.11-2.4.0.jar
 spark-hive-thriftserver_2.11-2.3.4.jar

@@ -18,12 +18,14 @@
 package org.apache.seatunnel.flink.console.sink;
 
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.configuration.Configuration;
@@ -32,6 +34,7 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@AutoService(BaseFlinkSink.class)
 public class ConsoleSink extends RichOutputFormat<Row> implements FlinkBatchSink, FlinkStreamSink {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSink.class);
