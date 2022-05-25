@@ -18,9 +18,10 @@
 package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.translation.spark.source.batch.BatchParallelSourceReader;
+import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
 import org.apache.seatunnel.translation.spark.source.continnous.ContinuousParallelSourceReader;
 import org.apache.seatunnel.translation.spark.source.micro.MicroBatchParallelSourceReader;
 
@@ -38,11 +39,13 @@ import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
 import org.apache.spark.sql.sources.v2.reader.streaming.ContinuousReader;
 import org.apache.spark.sql.sources.v2.reader.streaming.MicroBatchReader;
 import org.apache.spark.sql.types.StructType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
 public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroBatchReadSupport, ContinuousReadSupport, DataSourceRegister {
-
+    private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelSourceSupport.class);
     public static final String SEA_TUNNEL_SOURCE_NAME = "SeaTunnelSource";
     public static final Integer CHECKPOINT_INTERVAL_DEFAULT = 10000;
 
@@ -54,9 +57,12 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     @Override
     public DataSourceReader createReader(StructType rowType, DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        Integer parallelism = options.getInt("source.parallelism", 1);
-        // TODO: case coordinated source
-        return new BatchParallelSourceReader(seaTunnelSource, parallelism, rowType);
+        int parallelism = options.getInt("source.parallelism", 1);
+        if (seaTunnelSource instanceof SupportCoordinate && parallelism != 1) {
+            LOG.warn("The coordinated source parallelism must be 1.");
+            parallelism = 1;
+        }
+        return new BatchSourceReader(seaTunnelSource, parallelism, rowType);
     }
 
     @Override

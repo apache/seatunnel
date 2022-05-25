@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.ParallelSource;
 import org.apache.seatunnel.translation.spark.source.Handover;
 import org.apache.seatunnel.translation.spark.source.InternalRowCollector;
-import org.apache.seatunnel.translation.state.EmptyLock;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -35,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
@@ -104,7 +104,7 @@ public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
     }
 
     protected Collector<SeaTunnelRow> createCollector() {
-        return new InternalRowCollector(handover, new EmptyLock(), rowType);
+        return new InternalRowCollector(handover, new Object(), rowType);
     }
 
     protected ParallelSource<SeaTunnelRow, ?, ?> createParallelSource() {
@@ -132,7 +132,7 @@ public class BatchPartitionReader implements InputPartitionReader<InternalRow> {
 
     public class InternalParallelSource<SplitT extends SourceSplit, StateT> extends ParallelSource<SeaTunnelRow, SplitT, StateT> {
 
-        public InternalParallelSource(SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source, List<byte[]> restoredState, int parallelism, int subtaskId) {
+        public InternalParallelSource(SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source, Map<Integer, List<byte[]>> restoredState, int parallelism, int subtaskId) {
             super(source, restoredState, parallelism, subtaskId);
         }
 

@@ -21,43 +21,42 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 
-public class ParallelReaderContext implements SourceReader.Context {
+public class CoordinatedReaderContext implements SourceReader.Context {
 
-    protected final ParallelSource<?, ?, ?> parallelSource;
+    protected final CoordinatedSource<?, ?, ?> coordinatedSource;
     protected final Boundedness boundedness;
     protected final Integer subtaskId;
 
-    public ParallelReaderContext(ParallelSource<?, ?, ?> parallelSource,
-                                 Boundedness boundedness,
-                                 Integer subtaskId) {
-        this.parallelSource = parallelSource;
+    public CoordinatedReaderContext(CoordinatedSource<?, ?, ?> coordinatedSource,
+                                    Boundedness boundedness,
+                                    Integer subtaskId) {
+        this.coordinatedSource = coordinatedSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;
     }
 
     @Override
     public int getIndexOfSubtask() {
-        return subtaskId;
+        return this.subtaskId;
     }
 
     @Override
     public Boundedness getBoundedness() {
-        return boundedness;
+        return this.boundedness;
     }
 
     @Override
     public void signalNoMoreElement() {
-        parallelSource.handleNoMoreElement();
+        coordinatedSource.handleNoMoreElement(subtaskId);
     }
 
     @Override
     public void sendSplitRequest() {
-        parallelSource.handleSplitRequest(subtaskId);
+        coordinatedSource.handleSplitRequest(subtaskId);
     }
 
     @Override
     public void sendSourceEventToCoordinator(SourceEvent sourceEvent) {
-        // TODO: exception
-        throw new RuntimeException("");
+        coordinatedSource.handleReaderEvent(subtaskId, sourceEvent);
     }
 }

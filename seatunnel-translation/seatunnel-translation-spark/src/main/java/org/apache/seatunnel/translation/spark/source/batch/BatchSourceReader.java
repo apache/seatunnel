@@ -28,13 +28,13 @@ import org.apache.spark.sql.types.StructType;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BatchParallelSourceReader implements DataSourceReader {
+public class BatchSourceReader implements DataSourceReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final StructType rowType;
 
-    public BatchParallelSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
+    public BatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
         this.source = source;
         this.parallelism = parallelism;
         this.rowType = rowType;

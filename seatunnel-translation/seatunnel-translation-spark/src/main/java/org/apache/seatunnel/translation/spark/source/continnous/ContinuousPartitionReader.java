@@ -30,12 +30,13 @@ import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 public class ContinuousPartitionReader extends BatchPartitionReader implements ContinuousInputPartitionReader<InternalRow> {
     protected volatile Integer checkpointId;
-    protected final List<byte[]> restoredState;
+    protected final Map<Integer, List<byte[]>> restoredState;
 
-    public ContinuousPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType, Integer checkpointId, List<byte[]> restoredState) {
+    public ContinuousPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType, Integer checkpointId, Map<Integer, List<byte[]>> restoredState) {
         super(source, parallelism, subtaskId, rowType);
         this.checkpointId = checkpointId;
         this.restoredState = restoredState;
@@ -51,7 +52,7 @@ public class ContinuousPartitionReader extends BatchPartitionReader implements C
 
     @Override
     public PartitionOffset getOffset() {
-        List<byte[]> bytes;
+        Map<Integer, List<byte[]>> bytes;
         try {
             bytes = parallelSource.snapshotState(checkpointId);
         } catch (Exception e) {
