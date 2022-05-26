@@ -25,10 +25,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.CoordinatedSource;
 import org.apache.seatunnel.translation.spark.source.InternalRowCollector;
+import org.apache.seatunnel.translation.spark.source.ReaderState;
 
 import org.apache.spark.sql.types.StructType;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,6 +44,39 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(i, new InternalRowCollector(handover, new Object(), rowType));
+        }
+    }
+
+    @Override
+    public void virtualCheckpoint() {
+        try {
+            internalCheckpoint(collectorMap.values().iterator(), 0);
+        } catch (Exception e) {
+            throw new RuntimeException("An error occurred in virtual checkpoint execution.", e);
+        }
+    }
+
+    private void internalCheckpoint(Iterator<InternalRowCollector> iterator, int loop) throws Exception {
+        if (!iterator.hasNext()) {
+            return;
+        }
+        synchronized (iterator.next().getCheckpointLock()) {
+            internalCheckpoint(iterator, ++loop);
+            if (loop != this.parallelism) {
+                // Avoid backtracking calls
+                return;
+            }
+            while (!handover.isEmpty()) {
+                Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
+            }
+            // Block #next() method
+            synchronized (handover) {
+                final int currentCheckpoint = checkpointId;
+                ReaderState readerState = snapshotState();
+                saveState(readerState, currentCheckpoint);
+                internalSource.notifyCheckpointComplete(currentCheckpoint);
+                running = false;
+            }
         }
     }
 

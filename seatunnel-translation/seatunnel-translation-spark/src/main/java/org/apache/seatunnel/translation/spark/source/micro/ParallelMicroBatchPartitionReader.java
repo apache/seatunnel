@@ -157,7 +157,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
         }
     }
 
-    private void saveState(ReaderState readerState, int checkpointId) throws IOException {
+    protected void saveState(ReaderState readerState, int checkpointId) throws IOException {
         byte[] bytes = SerializationUtils.serialize(readerState);
         Path hdfsPath = getCheckpointPathWithId(checkpointId);
         if (!fileSystem.exists(hdfsPath)) {
