@@ -80,6 +80,12 @@
             <artifactId>seatunnel-transform-spark-uuid</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transform-spark-etl</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
