@@ -82,10 +82,10 @@
         <module>seatunnel-core</module>
         <module>seatunnel-transforms</module>
         <module>seatunnel-connectors</module>
+        <module>seatunnel-engine</module>
         <module>seatunnel-dist</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
-        <module>seatunnel-engine</module>
     </modules>
 
     <properties>
