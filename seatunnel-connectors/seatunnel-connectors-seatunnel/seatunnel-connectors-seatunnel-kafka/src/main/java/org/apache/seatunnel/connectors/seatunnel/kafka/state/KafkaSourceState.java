@@ -15,28 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-public class Config {
-    /**
-     * The topic of kafka.
-     */
-    public static final String TOPIC = "topic";
+import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplit;
 
-    /**
-     * The topic of kafka is java pattern or list.
-     */
-    public static final String PATTERN = "pattern";
+import java.io.Serializable;
+import java.util.Set;
 
-    /**
-     * The server address of kafka cluster.
-     */
-    public static final String BOOTSTRAP_SERVER = "bootstrap.server";
+public class KafkaSourceState implements Serializable {
 
-    public static final String KAFKA_CONFIG_PREFIX = "kafka.";
+    private Set<KafkaSourceSplit> assignedSplit;
 
-    /**
-     * consumer group of kafka client consume message.
-     */
-    public static final String CONSUMER_GROUP = "consumer.group";
+    public KafkaSourceState(Set<KafkaSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
+    }
+
+    public Set<KafkaSourceSplit> getAssignedSplit() {
+        return assignedSplit;
+    }
+
+    public void setAssignedSplit(Set<KafkaSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
+    }
 }

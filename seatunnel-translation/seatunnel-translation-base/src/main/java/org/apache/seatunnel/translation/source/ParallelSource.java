@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements AutoCloseable, CheckpointListener {
@@ -101,8 +102,18 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
     }
 
     public void run(Collector<T> collector) throws Exception {
-        executorService.execute(() -> splitEnumerator.run());
+        Future<?> future = executorService.submit(() -> {
+            try {
+                splitEnumerator.run();
+            } catch (Exception e) {
+                throw new RuntimeException("SourceSplitEnumerator run failed.", e);
+            }
+        });
+
         while (running) {
+            if (future.isDone()) {
+                future.get();
+            }
             reader.pollNext(collector);
         }
     }
@@ -117,9 +128,12 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
             executorService.shutdown();
         }
 
-        try (SourceSplitEnumerator<SplitT, StateT> closed = splitEnumerator;
-             SourceReader<T, SplitT> closedReader = reader) {
-            // just close the resources
+        if (splitEnumerator != null) {
+            splitEnumerator.close();
+        }
+
+        if (reader != null) {
+            reader.close();
         }
     }
 

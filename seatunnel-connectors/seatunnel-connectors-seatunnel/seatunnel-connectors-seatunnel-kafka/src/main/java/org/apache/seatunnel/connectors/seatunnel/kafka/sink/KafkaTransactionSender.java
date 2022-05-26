@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import com.google.common.collect.Lists;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -73,11 +73,11 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     }
 
     @Override
-    public void abortTransaction(List<KafkaState> kafkaStates) {
+    public void abortTransaction(List<KafkaSinkState> kafkaStates) {
         if (kafkaStates.isEmpty()) {
             return;
         }
-        for (KafkaState kafkaState : kafkaStates) {
+        for (KafkaSinkState kafkaState : kafkaStates) {
             // create the transaction producer
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Abort kafka transaction: {}", kafkaState.getTransactionId());
@@ -89,8 +89,8 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     }
 
     @Override
-    public List<KafkaState> snapshotState() {
-        return Lists.newArrayList(new KafkaState(transactionId, kafkaProperties));
+    public List<KafkaSinkState> snapshotState() {
+        return Lists.newArrayList(new KafkaSinkState(transactionId, kafkaProperties));
     }
 
     @Override

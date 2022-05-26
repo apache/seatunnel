@@ -25,7 +25,7 @@ import java.util.Properties;
 
 @Data
 @AllArgsConstructor
-public class KafkaState implements Serializable {
+public class KafkaSinkState implements Serializable {
 
     private final String transactionId;
     private final Properties kafkaProperties;

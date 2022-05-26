@@ -44,7 +44,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
     private CommitInfoT latestCommitInfoT;
 
     SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                    SinkCommitter<CommitInfoT> sinkCommitter,
+                    @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
                     StructType schema) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
