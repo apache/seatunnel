@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -39,7 +39,7 @@ import java.util.Optional;
  * Kafka Sink implementation by using SeaTunnel sink API.
  * This class contains the method to create {@link KafkaSinkWriter} and {@link KafkaSinkCommitter}.
  */
-public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
+public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
 
     private Config pluginConfig;
     private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
@@ -55,17 +55,17 @@ public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaState, KafkaC
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaState> createWriter(SinkWriter.Context context) {
+    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(SinkWriter.Context context) {
         return new KafkaSinkWriter(context, seaTunnelRowTypeInfo, pluginConfig, Collections.emptyList());
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaState> restoreWriter(SinkWriter.Context context, List<KafkaState> states) {
+    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(SinkWriter.Context context, List<KafkaSinkState> states) {
         return new KafkaSinkWriter(context, seaTunnelRowTypeInfo, pluginConfig, states);
     }
 
     @Override
-    public Optional<Serializer<KafkaState>> getWriterStateSerializer() {
+    public Optional<Serializer<KafkaSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 

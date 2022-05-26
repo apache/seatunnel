@@ -17,24 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-import org.apache.kafka.common.TopicPartition;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Set;
+import java.util.Properties;
 
-public class KafkaSourceState implements Serializable {
+@Data
+@AllArgsConstructor
+public class KafkaSinkState implements Serializable {
 
-    private Set<TopicPartition> assignedSplit;
+    private final String transactionId;
+    private final Properties kafkaProperties;
 
-    public KafkaSourceState(Set<TopicPartition> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
-
-    public Set<TopicPartition> getAssignedSplit() {
-        return assignedSplit;
-    }
-
-    public void setAssignedSplit(Set<TopicPartition> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
 }

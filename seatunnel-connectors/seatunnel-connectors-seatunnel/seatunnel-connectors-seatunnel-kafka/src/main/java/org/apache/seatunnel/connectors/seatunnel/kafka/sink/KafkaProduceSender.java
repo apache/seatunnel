@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,13 +51,13 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
      *
      * @param kafkaStates kafka states about the transaction info.
      */
-    void abortTransaction(List<KafkaState> kafkaStates);
+    void abortTransaction(List<KafkaSinkState> kafkaStates);
 
     /**
      * Get the current kafka state of the sender.
      *
      * @return kafka state List, or empty if no state is available.
      */
-    List<KafkaState> snapshotState();
+    List<KafkaSinkState> snapshotState();
 
 }
