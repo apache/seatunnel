@@ -102,7 +102,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                     String t = partition.topic();
                     output.collect(new SeaTunnelRow(new Object[]{t, v}));
 
-                    if (record.offset() >= endOffset.get(partition)) {
+                    if (Boundedness.BOUNDED.equals(context.getBoundedness()) &&
+                            record.offset() >= endOffset.get(partition)) {
                         break;
                     }
                 }
@@ -124,13 +125,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     @Override
     public void addSplits(List<KafkaSourceSplit> splits) {
         sourceSplits.addAll(splits);
-        Set<TopicPartition> partitions = convertToPartition(sourceSplits);
-        consumer.committed(partitions).forEach((partition, offset) -> {
-            if (offset != null) {
-                endOffset.put(partition, offset.offset());
-            } else {
-                endOffset.put(partition, -1L);
-            }
+        sourceSplits.forEach(partition -> {
+            endOffset.put(partition.getTopicPartition(), partition.getEndOffset());
         });
     }
 

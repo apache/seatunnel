@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.kafka.clients.admin.ListOffsetsResult;
+import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 
@@ -49,8 +50,8 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     private final Context<KafkaSourceSplit> context;
     private AdminClient adminClient;
 
-    private Set<TopicPartition> pendingSplit;
-    private Set<TopicPartition> assignedSplit;
+    private Set<KafkaSourceSplit> pendingSplit;
+    private Set<KafkaSourceSplit> assignedSplit;
 
     KafkaSourceSplitEnumerator(ConsumerMetadata metadata, Context<KafkaSourceSplit> context) {
         this.metadata = metadata;
@@ -72,8 +73,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
 
     @Override
     public void run() throws ExecutionException, InterruptedException {
-        pendingSplit = getTopicInfo().stream().flatMap(t -> t.partitions().stream()
-                .map(p -> new TopicPartition(t.name(), p.partition()))).collect(Collectors.toSet());
+        pendingSplit = getTopicInfo();
         assignSplit(context.registeredReaders());
     }
 
@@ -87,7 +87,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     @Override
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            pendingSplit.addAll(splits.stream().map(KafkaSourceSplit::getTopicPartition).collect(Collectors.toList()));
+            pendingSplit.addAll(splits);
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
@@ -126,7 +126,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         return AdminClient.create(props);
     }
 
-    private List<TopicDescription> getTopicInfo() throws ExecutionException, InterruptedException {
+    private Set<KafkaSourceSplit> getTopicInfo() throws ExecutionException, InterruptedException {
         Collection<String> topics;
         if (this.metadata.isPattern()) {
             Pattern pattern = Pattern.compile(this.metadata.getTopic());
@@ -135,7 +135,15 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         } else {
             topics = Arrays.asList(this.metadata.getTopic().split(","));
         }
-        return new ArrayList<>(adminClient.describeTopics(topics).allTopicNames().get().values());
+        Collection<TopicPartition> partitions =
+                adminClient.describeTopics(topics).allTopicNames().get().values().stream().flatMap(t -> t.partitions().stream()
+                        .map(p -> new TopicPartition(t.name(), p.partition()))).collect(Collectors.toSet());
+        return adminClient.listOffsets(partitions.stream().collect(Collectors.toMap(p -> p,
+                p -> OffsetSpec.latest()))).all().get().entrySet().stream().map(partition -> {
+                    KafkaSourceSplit split = new KafkaSourceSplit(partition.getKey());
+                    split.setEndOffset(partition.getValue().offset());
+                    return split;
+                }).collect(Collectors.toSet());
     }
 
     private void assignSplit(Collection<Integer> taskIDList) {
@@ -143,7 +151,8 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
         for (int taskID : taskIDList) {
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
         }
-        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s, taskIDList.size())).add(new KafkaSourceSplit(s)));
+        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.getTopicPartition(), taskIDList.size()))
+                .add(s));
 
         readySplit.forEach(context::assignSplit);
 

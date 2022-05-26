@@ -105,6 +105,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
             try {
                 splitEnumerator.run();
             } catch (Exception e) {
+                // TODO if split enumerator failed, the main thread will not shutdown.
                 throw new RuntimeException("SourceSplitEnumerator run failed.", e);
             }
         });
