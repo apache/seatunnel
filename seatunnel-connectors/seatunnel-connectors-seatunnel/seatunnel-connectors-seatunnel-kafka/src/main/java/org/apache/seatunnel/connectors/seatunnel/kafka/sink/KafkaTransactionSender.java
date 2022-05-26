@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
 
@@ -44,21 +42,17 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTransactionSender.class);
 
     private final KafkaProducer<K, V> kafkaProducer;
-    private final SeaTunnelRowSerializer<K, V> seaTunnelRowSerializer;
     private final String transactionId;
     private final Properties kafkaProperties;
 
-    public KafkaTransactionSender(Properties kafkaProperties,
-                                  SeaTunnelRowSerializer<K, V> seaTunnelRowSerializer) {
+    public KafkaTransactionSender(Properties kafkaProperties) {
         this.kafkaProperties = kafkaProperties;
-        this.seaTunnelRowSerializer = seaTunnelRowSerializer;
         this.transactionId = getTransactionId();
         this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
     }
 
     @Override
-    public void send(SeaTunnelRow seaTunnelRow) {
-        ProducerRecord<K, V> producerRecord = seaTunnelRowSerializer.serializeRow(seaTunnelRow);
+    public void send(ProducerRecord<K, V> producerRecord) {
         kafkaProducer.send(producerRecord);
     }
 

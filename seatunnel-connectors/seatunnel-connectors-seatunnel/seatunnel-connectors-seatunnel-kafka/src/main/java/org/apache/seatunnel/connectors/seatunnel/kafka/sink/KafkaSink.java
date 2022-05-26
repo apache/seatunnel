@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +41,7 @@ import java.util.Optional;
  * Kafka Sink implementation by using SeaTunnel sink API.
  * This class contains the method to create {@link KafkaSinkWriter} and {@link KafkaSinkCommitter}.
  */
+@AutoService(SeaTunnelSink.class)
 public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
 
     private Config pluginConfig;
