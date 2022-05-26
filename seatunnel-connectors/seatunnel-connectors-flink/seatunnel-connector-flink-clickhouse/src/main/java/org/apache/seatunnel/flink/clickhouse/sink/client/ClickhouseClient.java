@@ -196,6 +196,15 @@ public class ClickhouseClient {
             DistributedEngine distributedEngine = null;
             if ("Distributed".equals(engine)) {
                 distributedEngine = getClickhouseDistributedTable(connection, database, table);
+                String localTableSQL = String.format("select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
+                        distributedEngine.getDatabase(), distributedEngine.getTable());
+                ResultSet rs = statement.executeQuery(localTableSQL);
+                if (!rs.next()) {
+                    throw new RuntimeException("Cannot get table from clickhouse, resultSet is empty");
+                }
+                String localEngine = rs.getString(1);
+                String createLocalTableDDL = rs.getString(2);
+                createTableDDL = localizationEngine(localEngine, createLocalTableDDL);
             }
             return new ClickhouseTable(
                 database,
@@ -210,6 +219,22 @@ public class ClickhouseClient {
             throw new RuntimeException("Cannot get clickhouse table", e);
         }
 
+    }
+
+    /**
+     * Localization the engine in clickhouse local table's createTableDDL to support specific engine.
+     * For example: change ReplicatedMergeTree to MergeTree.
+     * @param engine original engine of clickhouse local table
+     * @param ddl createTableDDL of clickhouse local table
+     * @return createTableDDL of clickhouse local table which can support specific engine
+     * TODO: support more engine
+     */
+    public String localizationEngine(String engine, String ddl) {
+        if ("ReplicatedMergeTree".equalsIgnoreCase(engine)) {
+            return ddl.replaceAll("ReplicatedMergeTree(\\([^\\)]*\\))", "MergeTree()");
+        } else {
+            return ddl;
+        }
     }
 
 }

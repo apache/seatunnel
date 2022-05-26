@@ -38,6 +38,7 @@ class Table(val name: String, val database: String, val engine: String, val crea
   var tableSchema: util.LinkedHashMap[String, String] = new util.LinkedHashMap[String, String]()
   var shardKeyType: String = _
   var localCreateTableDDL: String = createTableDDL
+  var localTableEngine: String = _
 
   def initTableInfo(hosts: List[HostAndPort], conn: ClickHouseConnectionImpl): Unit = {
     if (shards.size() == 0) {
@@ -51,7 +52,9 @@ class Table(val name: String, val database: String, val engine: String, val crea
           weight += elem.shardWeight
         }
         this.shardWeightCount = weight
-        this.localCreateTableDDL = getClickhouseTableInfo(conn, localTable.database, localTable.table)._2.createTableDDL
+        val localTableInfo = getClickhouseTableInfo(conn, localTable.database, localTable.table)._2
+        this.localTableEngine = localTableInfo.engine
+        this.localCreateTableDDL = localizationEngine(this.localTableEngine, localTableInfo.createTableDDL)
       } else {
         this.shards.put(0, Shard(1, 1, 1, hosts.head.host, hosts.head.host, hosts.head.port, database))
       }
@@ -102,4 +105,19 @@ class Table(val name: String, val database: String, val engine: String, val crea
       CheckResult.success()
     }
   }
+
+  /**
+   * Localization the engine in clickhouse local table's createTableDDL to support specific engine.
+   * For example: change ReplicatedMergeTree to MergeTree.
+   * @param engine original engine of clickhouse local table
+   * @param ddl createTableDDL of clickhouse local table
+   * @return createTableDDL of clickhouse local table which can support specific engine
+   * TODO: support more engine
+   */
+  def localizationEngine(engine: String, ddl: String): String = {
+    if ("ReplicatedMergeTree".equalsIgnoreCase(engine)) {
+      ddl.replaceAll("""ReplicatedMergeTree(\([^\)]*\))""", "MergeTree()")
+    } else ddl
+  }
+
 }
