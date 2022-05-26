@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.config;
+package org.apache.seatunnel.core.starter.spark.config;
 
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -27,10 +27,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import java.net.URL;
 import java.util.List;
 
-public class SeaTunnelEnvironment implements RuntimeEnv {
+public class SparkEnvironment implements RuntimeEnv {
 
     @Override
-    public SeaTunnelEnvironment setConfig(Config config) {
+    public SparkEnvironment setConfig(Config config) {
         return null;
     }
 
@@ -45,12 +45,12 @@ public class SeaTunnelEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public SeaTunnelEnvironment prepare() {
+    public SparkEnvironment prepare() {
         return null;
     }
 
     @Override
-    public SeaTunnelEnvironment setJobMode(JobMode mode) {
+    public SparkEnvironment setJobMode(JobMode mode) {
         return null;
     }
 

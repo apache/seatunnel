@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+package org.apache.seatunnel.core.starter.spark.config;
 
-public class Config {
-    /**
-     * The topic of kafka.
-     */
-    public static final String TOPIC = "topic";
+import org.apache.seatunnel.core.starter.config.ConfigChecker;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
-    /**
-     * The server address of kafka cluster.
-     */
-    public static final String BOOTSTRAP_SERVER = "bootstrap.server";
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-    public static final String KAFKA_CONFIG_PREFIX = "kafka.";
+public class SparkApiConfigChecker implements ConfigChecker<SparkEnvironment> {
+
+    @Override
+    public void checkConfig(Config config) throws ConfigCheckException {
+        // todo: implement
+    }
 }

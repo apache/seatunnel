@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.command;
+package org.apache.seatunnel.core.starter.spark.command;
 
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.config.ConfigBuilder;
-import org.apache.seatunnel.core.base.exception.CommandExecuteException;
-import org.apache.seatunnel.core.base.utils.FileUtils;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.execution.SeaTunnelTaskExecution;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.config.ConfigBuilder;
+import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.spark.execution.SparkTaskExecution;
+import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -35,13 +35,13 @@ import java.nio.file.Path;
  * todo: do we need to move these class to a new module? since this may cause version conflict with the old flink version.
  * This command is used to execute the Flink job by SeaTunnel new API.
  */
-public class SeaTunnelApiTaskExecuteCommand implements Command<SparkCommandArgs> {
+public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelApiTaskExecuteCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SparkApiTaskExecuteCommand.class);
 
     private final SparkCommandArgs sparkCommandArgs;
 
-    public SeaTunnelApiTaskExecuteCommand(SparkCommandArgs sparkCommandArgs) {
+    public SparkApiTaskExecuteCommand(SparkCommandArgs sparkCommandArgs) {
         this.sparkCommandArgs = sparkCommandArgs;
     }
 
@@ -50,7 +50,7 @@ public class SeaTunnelApiTaskExecuteCommand implements Command<SparkCommandArgs>
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
         Config config = new ConfigBuilder(configFile).getConfig();
         try {
-            SeaTunnelTaskExecution seaTunnelTaskExecution = new SeaTunnelTaskExecution(config);
+            SparkTaskExecution seaTunnelTaskExecution = new SparkTaskExecution(config);
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {
             LOGGER.error("Run SeaTunnel on spark failed.", e);

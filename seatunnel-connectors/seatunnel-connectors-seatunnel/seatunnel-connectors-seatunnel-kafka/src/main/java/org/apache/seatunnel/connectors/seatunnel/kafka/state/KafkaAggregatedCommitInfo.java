@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-public class Config {
-    /**
-     * The topic of kafka.
-     */
-    public static final String TOPIC = "topic";
+import java.io.Serializable;
 
-    /**
-     * The server address of kafka cluster.
-     */
-    public static final String BOOTSTRAP_SERVER = "bootstrap.server";
-
-    public static final String KAFKA_CONFIG_PREFIX = "kafka.";
+/**
+ * Right now, we don't need aggregated commit in kafka.
+ * Todo: we need to add a default implementation of this state.
+ */
+public class KafkaAggregatedCommitInfo implements Serializable {
 }

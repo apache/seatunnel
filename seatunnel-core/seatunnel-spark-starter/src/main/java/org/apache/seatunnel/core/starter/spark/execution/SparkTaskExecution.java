@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.execution;
+package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.core.base.config.EngineType;
-import org.apache.seatunnel.core.base.config.EnvironmentFactory;
+import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
 import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -33,9 +33,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SeaTunnelTaskExecution {
+public class SparkTaskExecution {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SeaTunnelTaskExecution.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SparkTaskExecution.class);
 
     private final Config config;
     private final SparkEnvironment sparkEnvironment;
@@ -43,7 +43,7 @@ public class SeaTunnelTaskExecution {
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
     private final PluginExecuteProcessor sinkPluginExecuteProcessor;
 
-    public SeaTunnelTaskExecution(Config config) {
+    public SparkTaskExecution(Config config) {
         this.config = config;
         this.sparkEnvironment = getSparkEnvironment(config);
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(sparkEnvironment, config.getConfigList("source"));

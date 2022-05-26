@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.execution;
+package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSparkTransformPluginDiscovery;

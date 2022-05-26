@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The sink writer use to write data to third party data receiver. This class will run on taskManger/Worker.
@@ -42,11 +43,12 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
     void write(T element) throws IOException;
 
     /**
-     * prepare the commit, will be called before {@link #snapshotState()}
+     * prepare the commit, will be called before {@link #snapshotState()}.
+     * If you need to use 2pc, you can return the commit info in this method, and receive the commit info in {@link SinkCommitter#commit(List)}.
      *
      * @return the commit info need to commit
      */
-    CommitInfoT prepareCommit() throws IOException;
+    Optional<CommitInfoT> prepareCommit() throws IOException;
 
     /**
      * @return The writer's state.
@@ -55,6 +57,12 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
     default List<StateT> snapshotState() throws IOException {
         return Collections.emptyList();
     }
+
+    /**
+     * Used to abort the prepareCommit, if the prepareCommit failed,
+     * there is no CommitInfoT, so the rollback work cannot be done by {@link SinkCommitter}.
+     */
+    void abort();
 
     /**
      * call it when SinkWriter close

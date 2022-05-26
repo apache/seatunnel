@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark;
+package org.apache.seatunnel.core.starter.spark;
 
 import static org.junit.Assert.assertEquals;
 

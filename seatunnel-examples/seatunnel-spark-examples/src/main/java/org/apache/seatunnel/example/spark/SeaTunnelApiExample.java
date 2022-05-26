@@ -18,11 +18,11 @@
 package org.apache.seatunnel.example.spark;
 
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.base.Seatunnel;
-import org.apache.seatunnel.core.base.command.Command;
-import org.apache.seatunnel.core.base.exception.CommandException;
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.spark.command.SparkCommandBuilder;
+import org.apache.seatunnel.core.starter.Seatunnel;
+import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.exception.CommandException;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.spark.command.SparkCommandBuilder;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -44,7 +44,7 @@ public class SeaTunnelApiExample {
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
-        URL resource = LocalSparkExample.class.getResource(configFile);
+        URL resource = SeaTunnelApiExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }
