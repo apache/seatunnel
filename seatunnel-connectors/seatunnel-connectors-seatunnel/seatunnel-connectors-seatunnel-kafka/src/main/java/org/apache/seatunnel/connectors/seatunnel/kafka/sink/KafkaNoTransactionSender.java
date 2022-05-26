@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -63,12 +63,12 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     }
 
     @Override
-    public void abortTransaction(List<KafkaState> kafkaStates) {
+    public void abortTransaction(List<KafkaSinkState> kafkaStates) {
         // no-op
     }
 
     @Override
-    public List<KafkaState> snapshotState() {
+    public List<KafkaSinkState> snapshotState() {
         kafkaProducer.flush();
         return Collections.emptyList();
     }

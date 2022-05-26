@@ -25,7 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaState;
+import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -40,7 +40,7 @@ import java.util.Properties;
 /**
  * KafkaSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Kafka.
  */
-public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaState> {
+public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> {
 
     private final SinkWriter.Context context;
     private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
@@ -61,7 +61,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         SinkWriter.Context context,
         SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
         Config pluginConfig,
-        List<KafkaState> kafkaStates) {
+        List<KafkaSinkState> kafkaStates) {
         this.context = context;
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
@@ -77,7 +77,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     @Override
-    public List<KafkaState> snapshotState() {
+    public List<KafkaSinkState> snapshotState() {
         return kafkaProducerSender.snapshotState();
     }
 
