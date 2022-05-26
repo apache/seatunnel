@@ -26,11 +26,16 @@ import org.apache.seatunnel.engine.config.Configuration;
 import org.apache.seatunnel.engine.executionplan.ExecutionId;
 import org.apache.seatunnel.engine.executionplan.JobInformation;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.ArrayList;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class TaskExecutionTest {
 
@@ -40,15 +45,30 @@ public class TaskExecutionTest {
         JobInformation jobInformation = new JobInformation(new JobID(), "test fake job", new Configuration(), Boundedness.BOUNDED);
 
         TaskInfo taskInfo = new TaskInfo(
-            jobInformation,
-            new ExecutionId(),
-            1,
-            Boundedness.BOUNDED,
-            new SimpleSourceReader(),
-            new ArrayList<>(),
-            new SimpleSinkWriter());
+                jobInformation,
+                new ExecutionId(),
+                1,
+                Boundedness.BOUNDED,
+                new SimpleSourceReader(),
+                new ArrayList<>(),
+                new SimpleSinkWriter());
 
-        TaskExecution taskExecution = new TaskExecution(Executors.newFixedThreadPool(2), null);
+        // set batchTask thread name
+        ThreadFactory batchTaskThreadFactory = new ThreadFactoryBuilder()
+                .setNameFormat("test-batch-task-pool-%d").build();
+
+        // build batchTask thread pool
+
+        ExecutorService executorService = new ThreadPoolExecutor(
+                2,
+                2,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(2),
+                batchTaskThreadFactory,
+                new ThreadPoolExecutor.AbortPolicy());
+
+        TaskExecution taskExecution = new TaskExecution(executorService, null);
 
         taskExecution.submit(taskInfo);
 
@@ -59,6 +79,5 @@ public class TaskExecutionTest {
         Thread.sleep(5000L);
 
         Assert.assertEquals(taskExecution.aliveTaskSize(), 0);
-
     }
 }

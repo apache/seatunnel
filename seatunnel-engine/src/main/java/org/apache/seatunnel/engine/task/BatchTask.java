@@ -27,10 +27,14 @@ import org.apache.seatunnel.engine.api.type.TerminateRow;
 import org.apache.seatunnel.engine.executionplan.ExecutionId;
 import org.apache.seatunnel.engine.executionplan.JobInformation;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class BatchTask implements Task {
@@ -58,7 +62,20 @@ public class BatchTask implements Task {
         this.sinkWriter = sinkWriter;
         this.channel = new MemoryBufferedChannel(jobInformation);
 
-        this.executorService = Executors.newFixedThreadPool(2);
+        // set batchTask thread name
+        ThreadFactory batchTaskThreadFactory = new ThreadFactoryBuilder()
+            .setNameFormat("batch-task-pool-%d").build();
+
+        // build batchTask thread pool
+
+        this.executorService = new ThreadPoolExecutor(
+            2,
+            2,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>(2),
+            batchTaskThreadFactory,
+            new ThreadPoolExecutor.AbortPolicy());
     }
 
     @Override
