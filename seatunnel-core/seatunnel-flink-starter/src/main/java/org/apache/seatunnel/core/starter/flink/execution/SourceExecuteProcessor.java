@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -35,6 +36,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelParallelSource> {
+
+    private static final String PLUGIN_TYPE = "source";
 
     public SourceExecuteProcessor(FlinkEnvironment flinkEnvironment,
                                   List<? extends Config> sourceConfigs) {
@@ -61,11 +64,11 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
         List<URL> jars = new ArrayList<>();
         for (Config sourceConfig : pluginConfigs) {
             PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-                "seatunnel",
-                "source",
-                sourceConfig.getString("plugin_name"));
+                ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
             jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            sources.add(new SeaTunnelParallelSource(sourcePluginDiscovery.getPluginInstance(pluginIdentifier)));
+            SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.getPluginInstance(pluginIdentifier);
+            seaTunnelSource.prepare(sourceConfig);
+            sources.add(new SeaTunnelParallelSource(seaTunnelSource));
         }
         flinkEnvironment.registerPlugin(jars);
         return sources;
