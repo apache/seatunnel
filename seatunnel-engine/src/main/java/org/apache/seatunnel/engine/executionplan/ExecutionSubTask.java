@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.executionplan;
 
 import org.apache.seatunnel.engine.api.sink.SinkWriter;
 import org.apache.seatunnel.engine.api.source.SourceReader;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.execution.TaskExecution;
 
 import org.slf4j.Logger;
@@ -36,7 +36,7 @@ public class ExecutionSubTask {
 
     private final int subTaskIndex;
 
-    private List<Transformation> transformations;
+    private List<AbstractTransformation> transformations;
 
     private SinkWriter sinkWriter;
 
@@ -46,7 +46,7 @@ public class ExecutionSubTask {
 
     private Execution currentExecution; // this field must never be null
 
-    public ExecutionSubTask(Executor executor, ExecutionTask executionTask, int subTaskIndex, SourceReader sourceReader, List<Transformation> transformations, SinkWriter sinkWriter) {
+    public ExecutionSubTask(Executor executor, ExecutionTask executionTask, int subTaskIndex, SourceReader sourceReader, List<AbstractTransformation> transformations, SinkWriter sinkWriter) {
         this.executionTask = executionTask;
         this.subTaskIndex = subTaskIndex;
         this.transformations = transformations;
@@ -84,7 +84,7 @@ public class ExecutionSubTask {
         return subTaskIndex;
     }
 
-    public List<Transformation> getTransformations() {
+    public List<AbstractTransformation> getTransformations() {
         return transformations;
     }
 

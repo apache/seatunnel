@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.jobmanager;
 
 import org.apache.seatunnel.engine.api.sink.Sink;
 import org.apache.seatunnel.engine.api.source.Source;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.cache.DataStreamCache;
 
 import java.util.List;
@@ -36,7 +36,7 @@ public class TemplateAnalyze {
         return null;
     }
 
-    public List<Transformation> analyzeTransformations() {
+    public List<AbstractTransformation> analyzeTransformations() {
         return null;
     }
 

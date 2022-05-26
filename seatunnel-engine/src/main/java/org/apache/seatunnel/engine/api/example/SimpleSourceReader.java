@@ -36,6 +36,7 @@ public class SimpleSourceReader implements SourceReader {
     private final int[] ages = {11, 22, 33, 44};
     private int pollNumber = 2;
     private final int sleepTime = 1000;
+    private final int mapInitSize = 16;
 
     @Override
     public void open() {
@@ -52,7 +53,7 @@ public class SimpleSourceReader implements SourceReader {
         final int bound = 10;
         for (int i = 0; i < random.nextInt(bound); i++) {
             int randomIndex = random.nextInt(names.length);
-            Map<String, Object> fieldMap = new HashMap<>();
+            Map<String, Object> fieldMap = new HashMap<>(mapInitSize);
             fieldMap.put("name", names[randomIndex]);
             fieldMap.put("age", ages[randomIndex]);
             fieldMap.put("timestamp", System.currentTimeMillis());

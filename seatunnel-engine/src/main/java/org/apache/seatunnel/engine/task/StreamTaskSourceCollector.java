@@ -19,7 +19,7 @@
 package org.apache.seatunnel.engine.task;
 
 import org.apache.seatunnel.engine.api.sink.SinkWriter;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.api.type.Row;
 import org.apache.seatunnel.engine.utils.Collector;
 
@@ -28,10 +28,10 @@ import java.util.List;
 
 public class StreamTaskSourceCollector implements Collector<Row> {
 
-    private List<Transformation> transformations;
+    private List<AbstractTransformation> transformations;
     private SinkWriter sinkWriter;
 
-    public StreamTaskSourceCollector(List<Transformation> transformations, SinkWriter sinkWriter) {
+    public StreamTaskSourceCollector(List<AbstractTransformation> transformations, SinkWriter sinkWriter) {
         this.transformations = transformations;
         this.sinkWriter = sinkWriter;
     }

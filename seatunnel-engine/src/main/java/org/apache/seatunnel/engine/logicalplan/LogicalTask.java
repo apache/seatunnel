@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.logicalplan;
 
 import org.apache.seatunnel.engine.api.sink.Sink;
 import org.apache.seatunnel.engine.api.source.Source;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.cache.CacheConfig;
 
 import java.util.List;
@@ -31,13 +31,13 @@ public class LogicalTask {
 
     private final Source source;
 
-    private final List<Transformation> transformations;
+    private final List<AbstractTransformation> transformations;
 
     private final Sink sink;
 
     private CacheConfig cacheConfig;
 
-    public LogicalTask(LogicalPlan logicalPlan, Source source, List<Transformation> transformations, Sink sink, CacheConfig cacheConfig) {
+    public LogicalTask(LogicalPlan logicalPlan, Source source, List<AbstractTransformation> transformations, Sink sink, CacheConfig cacheConfig) {
         this.logicalPlan = logicalPlan;
         this.source = source;
         this.transformations = transformations;
@@ -57,7 +57,7 @@ public class LogicalTask {
         return source;
     }
 
-    public List<Transformation> getTransformations() {
+    public List<AbstractTransformation> getTransformations() {
         return transformations;
     }
 

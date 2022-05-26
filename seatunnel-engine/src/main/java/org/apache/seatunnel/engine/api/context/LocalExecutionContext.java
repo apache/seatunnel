@@ -21,7 +21,7 @@ package org.apache.seatunnel.engine.api.context;
 import org.apache.seatunnel.engine.api.common.JobID;
 import org.apache.seatunnel.engine.api.sink.Sink;
 import org.apache.seatunnel.engine.api.source.Source;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.cache.CacheConfig;
 import org.apache.seatunnel.engine.cache.DataStreamCache;
 import org.apache.seatunnel.engine.config.Configuration;
@@ -35,7 +35,7 @@ import java.util.List;
 public class LocalExecutionContext{
     private Source source;
 
-    private List<Transformation> transformations;
+    private List<AbstractTransformation> transformations;
 
     private Sink sink;
 
@@ -55,9 +55,9 @@ public class LocalExecutionContext{
         this.configuration = configuration;
     }
 
-    public void addTransformation(Transformation transformation) {
+    public void addTransformation(AbstractTransformation transformation) {
         if (transformations == null) {
-            transformations = new ArrayList<Transformation>();
+            transformations = new ArrayList<AbstractTransformation>();
         }
         this.transformations.add(transformation);
     }
@@ -70,11 +70,11 @@ public class LocalExecutionContext{
         this.source = source;
     }
 
-    public List<Transformation> getTransformations() {
+    public List<AbstractTransformation> getTransformations() {
         return transformations;
     }
 
-    public void setTransformations(List<Transformation> transformations) {
+    public void setTransformations(List<AbstractTransformation> transformations) {
         this.transformations = transformations;
     }
 

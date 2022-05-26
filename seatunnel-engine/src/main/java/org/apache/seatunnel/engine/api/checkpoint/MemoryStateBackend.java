@@ -25,13 +25,14 @@ import java.util.HashMap;
 public class MemoryStateBackend implements StateBackend {
 
     HashMap<JobID, HashMap<Integer, byte[]>> stateMap = new HashMap<>();
+    private final int mapInitSize = 16;
 
     @Override
     public void set(JobID jobId, int taskId, byte[] state) {
         if (stateMap.containsKey(jobId)) {
             stateMap.get(jobId).put(taskId, state);
         } else {
-            HashMap<Integer, byte[]> jobState = new HashMap<>();
+            HashMap<Integer, byte[]> jobState = new HashMap<>(mapInitSize);
             jobState.put(taskId, state);
             stateMap.put(jobId, jobState);
         }

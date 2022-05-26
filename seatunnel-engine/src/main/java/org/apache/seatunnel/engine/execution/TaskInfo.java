@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.api.serialization.Serializer;
 import org.apache.seatunnel.engine.api.sink.SinkWriter;
 import org.apache.seatunnel.engine.api.source.Boundedness;
 import org.apache.seatunnel.engine.api.source.SourceReader;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.executionplan.ExecutionId;
 import org.apache.seatunnel.engine.executionplan.JobInformation;
 
@@ -36,10 +36,10 @@ public class TaskInfo implements Serializer<TaskInfo> {
     public final int taskId;
     public final Boundedness boundedness;
     public final SourceReader sourceReader;
-    public final List<Transformation> transformations;
+    public final List<AbstractTransformation> transformations;
     public final SinkWriter sinkWriter;
 
-    public TaskInfo(JobInformation jobInformation, ExecutionId executionID, int taskId, Boundedness boundedness, SourceReader sourceReader, List<Transformation> transformations, SinkWriter sinkWriter) {
+    public TaskInfo(JobInformation jobInformation, ExecutionId executionID, int taskId, Boundedness boundedness, SourceReader sourceReader, List<AbstractTransformation> transformations, SinkWriter sinkWriter) {
         this.jobInformation = jobInformation;
         this.executionID = executionID;
         this.taskId = taskId;

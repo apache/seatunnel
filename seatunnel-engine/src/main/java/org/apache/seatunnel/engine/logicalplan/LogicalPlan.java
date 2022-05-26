@@ -21,7 +21,7 @@ package org.apache.seatunnel.engine.logicalplan;
 import org.apache.seatunnel.engine.api.sink.Sink;
 import org.apache.seatunnel.engine.api.source.Boundedness;
 import org.apache.seatunnel.engine.api.source.Source;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.cache.DataStreamCache;
 import org.apache.seatunnel.engine.config.Configuration;
 import org.apache.seatunnel.engine.executionplan.JobInformation;
@@ -35,7 +35,7 @@ public interface LogicalPlan {
 
     Source getSource();
 
-    List<Transformation> getTransformations();
+    List<AbstractTransformation> getTransformations();
 
     Sink getSink();
 

@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.api.checkpoint.StateBackend;
 import org.apache.seatunnel.engine.api.sink.SinkWriter;
 import org.apache.seatunnel.engine.api.source.InputStatus;
 import org.apache.seatunnel.engine.api.source.SourceReader;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.executionplan.ExecutionId;
 import org.apache.seatunnel.engine.executionplan.JobInformation;
 
@@ -34,7 +34,7 @@ public class StreamTask implements Task {
     private ExecutionId executionID;
     private int taskId;
     private SourceReader sourceReader;
-    private List<Transformation> transformations;
+    private List<AbstractTransformation> transformations;
     private SinkWriter sinkWriter;
     private StateBackend stateBackend;
 
@@ -45,7 +45,7 @@ public class StreamTask implements Task {
     private boolean isRunning;
     private final int sleepTimeMs = 500;
 
-    public StreamTask(JobInformation jobInformation, ExecutionId executionID, int taskId, SourceReader sourceReader, List<Transformation> transformations, SinkWriter sinkWriter, StateBackend stateBackend) {
+    public StreamTask(JobInformation jobInformation, ExecutionId executionID, int taskId, SourceReader sourceReader, List<AbstractTransformation> transformations, SinkWriter sinkWriter, StateBackend stateBackend) {
         this.jobInformation = jobInformation;
         this.executionID = executionID;
         this.taskId = taskId;

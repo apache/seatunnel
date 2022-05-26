@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.api.sink.Sink;
 import org.apache.seatunnel.engine.api.sink.SinkWriter;
 import org.apache.seatunnel.engine.api.source.Source;
 import org.apache.seatunnel.engine.api.source.SourceReader;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 
 import org.slf4j.Logger;
 
@@ -42,7 +42,7 @@ public class ExecutionTask {
 
     private final Source source;
 
-    private final List<Transformation> transformations;
+    private final List<AbstractTransformation> transformations;
 
     private final Sink sink;
 
@@ -51,7 +51,7 @@ public class ExecutionTask {
     public ExecutionTask(String taskName,
                          int parallelism,
                          Source source,
-                         List<Transformation> transformations,
+                         List<AbstractTransformation> transformations,
                          Sink sink,
                          ExecutionPlan executionPlan) {
         this.taskName = taskName;
@@ -99,7 +99,7 @@ public class ExecutionTask {
         return source;
     }
 
-    public List<Transformation> getTransformations() {
+    public List<AbstractTransformation> getTransformations() {
         return transformations;
     }
 

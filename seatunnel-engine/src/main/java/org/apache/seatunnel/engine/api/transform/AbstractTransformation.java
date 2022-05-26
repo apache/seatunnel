@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.api.transform;
 
 import org.apache.seatunnel.engine.api.type.Row;
 
-public abstract class Transformation {
+public abstract class AbstractTransformation {
     private String name;
 
     public String getTransformationName() {

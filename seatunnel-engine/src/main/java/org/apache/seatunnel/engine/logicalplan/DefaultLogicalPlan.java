@@ -21,7 +21,7 @@ package org.apache.seatunnel.engine.logicalplan;
 import org.apache.seatunnel.engine.api.sink.Sink;
 import org.apache.seatunnel.engine.api.source.Boundedness;
 import org.apache.seatunnel.engine.api.source.Source;
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.cache.CacheConfig;
 import org.apache.seatunnel.engine.cache.DataStreamCache;
 import org.apache.seatunnel.engine.config.Configuration;
@@ -39,7 +39,7 @@ public class DefaultLogicalPlan implements LogicalPlan {
 
     private Source source;
 
-    private List<Transformation> transformations;
+    private List<AbstractTransformation> transformations;
 
     private Sink sink;
 
@@ -51,7 +51,7 @@ public class DefaultLogicalPlan implements LogicalPlan {
 
     private List<LogicalTask> logicalTasks;
 
-    public DefaultLogicalPlan(Configuration configuration, CacheConfig cacheConfig, JobInformation jobInformation, Source source, List<Transformation> transformations, Sink sink, int maxParallelism, DataStreamCache dataStreamCache) {
+    public DefaultLogicalPlan(Configuration configuration, CacheConfig cacheConfig, JobInformation jobInformation, Source source, List<AbstractTransformation> transformations, Sink sink, int maxParallelism, DataStreamCache dataStreamCache) {
         this.configuration = configuration;
         this.cacheConfig = cacheConfig;
         this.jobInformation = jobInformation;
@@ -100,7 +100,7 @@ public class DefaultLogicalPlan implements LogicalPlan {
     }
 
     @Override
-    public List<Transformation> getTransformations() {
+    public List<AbstractTransformation> getTransformations() {
         return transformations;
     }
 

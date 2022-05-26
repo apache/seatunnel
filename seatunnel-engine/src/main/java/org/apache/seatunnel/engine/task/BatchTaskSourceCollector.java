@@ -18,17 +18,17 @@
 
 package org.apache.seatunnel.engine.task;
 
-import org.apache.seatunnel.engine.api.transform.Transformation;
+import org.apache.seatunnel.engine.api.transform.AbstractTransformation;
 import org.apache.seatunnel.engine.api.type.Row;
 import org.apache.seatunnel.engine.utils.Collector;
 
 import java.util.List;
 
 public class BatchTaskSourceCollector implements Collector<Row> {
-    private List<Transformation> transformations;
+    private List<AbstractTransformation> transformations;
     private Channel channel;
 
-    public BatchTaskSourceCollector(List<Transformation> transformations, Channel channel) {
+    public BatchTaskSourceCollector(List<AbstractTransformation> transformations, Channel channel) {
         this.transformations = transformations;
         this.channel = channel;
     }
