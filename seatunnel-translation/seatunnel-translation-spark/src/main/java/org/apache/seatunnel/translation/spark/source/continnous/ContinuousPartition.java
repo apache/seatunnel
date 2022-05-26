@@ -52,6 +52,6 @@ public class ContinuousPartition implements InputPartition<InternalRow> {
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new ContinuousPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, restoredState);
+        return new ParallelContinuousPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, restoredState);
     }
 }

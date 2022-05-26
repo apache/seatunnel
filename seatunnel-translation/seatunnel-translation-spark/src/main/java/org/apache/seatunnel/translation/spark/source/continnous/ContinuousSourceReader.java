@@ -35,19 +35,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class ContinuousParallelSourceReader implements ContinuousReader {
+public class ContinuousSourceReader implements ContinuousReader {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     private final Integer parallelism;
     private final StructType rowType;
-    private Map<Integer, ReaderState> readerStateMap = new HashMap<>();
+    private final Map<Integer, ReaderState> readerStateMap = new HashMap<>();
     private CoordinationState coordinationState;
     private int checkpointId = 1;
 
-    public ContinuousParallelSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
+    public ContinuousSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
         this.source = source;
         this.parallelism = parallelism;
         this.rowType = rowType;
+        throw new UnsupportedOperationException("Continuous source is not currently supported.");
     }
 
     @Override

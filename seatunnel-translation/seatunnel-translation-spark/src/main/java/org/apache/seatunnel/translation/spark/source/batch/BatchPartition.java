@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source.batch;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -40,6 +41,10 @@ public class BatchPartition implements InputPartition<InternalRow> {
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new BatchPartitionReader(source, parallelism, subtaskId, rowType);
+        if (source instanceof SupportCoordinate) {
+            return new CoordinatedBatchPartitionReader(source, parallelism, subtaskId, rowType);
+        } else {
+            return new ParallelBatchPartitionReader(source, parallelism, subtaskId, rowType);
+        }
     }
 }

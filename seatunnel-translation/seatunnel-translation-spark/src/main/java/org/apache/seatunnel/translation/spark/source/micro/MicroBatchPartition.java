@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source.micro;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -58,6 +59,10 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new MicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+        if (source instanceof SupportCoordinate) {
+            return new CoordinatedMicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+        } else {
+            return new ParallelMicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+        }
     }
 }

@@ -18,12 +18,11 @@
 package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
-import org.apache.seatunnel.translation.spark.source.continnous.ContinuousParallelSourceReader;
-import org.apache.seatunnel.translation.spark.source.micro.MicroBatchParallelSourceReader;
+import org.apache.seatunnel.translation.spark.source.continnous.ContinuousSourceReader;
+import org.apache.seatunnel.translation.spark.source.micro.MicroBatchSourceReader;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -58,10 +57,6 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     public DataSourceReader createReader(StructType rowType, DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         int parallelism = options.getInt("source.parallelism", 1);
-        if (seaTunnelSource instanceof SupportCoordinate && parallelism != 1) {
-            LOG.warn("The coordinated source parallelism must be 1.");
-            parallelism = 1;
-        }
         return new BatchSourceReader(seaTunnelSource, parallelism, rowType);
     }
 
@@ -79,10 +74,9 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
         String checkpointPath = StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
         Configuration configuration = SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
         String hdfsRoot = options.get("hdfs.root").orElse(FileSystem.getDefaultUri(configuration).toString());
-        String hdfsUser = options.get("hdfs.user").orElseThrow(() -> new UnsupportedOperationException("HDFS user is required."));
+        String hdfsUser = options.get("hdfs.user").orElse("");
         Integer checkpointId = options.getInt("checkpoint.id", 1);
-        // TODO: case coordinated source
-        return new MicroBatchParallelSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser, rowType);
+        return new MicroBatchSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser, rowType);
     }
 
     @Override
@@ -90,8 +84,7 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
         StructType rowType = checkRowType(rowTypeOptional);
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt("source.parallelism", 1);
-        // TODO: case coordinated source
-        return new ContinuousParallelSourceReader(seaTunnelSource, parallelism, rowType);
+        return new ContinuousSourceReader(seaTunnelSource, parallelism, rowType);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {

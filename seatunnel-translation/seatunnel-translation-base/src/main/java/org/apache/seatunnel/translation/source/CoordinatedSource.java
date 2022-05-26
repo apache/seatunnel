@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements BaseSourceFunction<T> {
-    private final long sleepTimeInterval = 5L;
+    protected static final long SLEEP_TIME_INTERVAL = 5L;
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final Map<Integer, List<byte[]>> restoredState;
     protected final Integer parallelism;
@@ -59,7 +59,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements
     /**
      * Flag indicating whether the consumer is still running.
      */
-    private volatile boolean running = true;
+    protected volatile boolean running = true;
 
     public CoordinatedSource(SeaTunnelSource<T, SplitT, StateT> source,
                              Map<Integer, List<byte[]>> restoredState,
@@ -149,12 +149,12 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements
         });
         splitEnumerator.run();
         while (running) {
-            Thread.sleep(sleepTimeInterval);
+            Thread.sleep(SLEEP_TIME_INTERVAL);
         }
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() throws IOException {
         running = false;
 
         for (Map.Entry<Integer, SourceReader<T, SplitT>> entry : readerMap.entrySet()) {
