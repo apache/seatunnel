@@ -126,7 +126,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     }
 
     private Set<KafkaSourceSplit> getTopicInfo() throws ExecutionException, InterruptedException {
-        Collection<String> topics = null;
+        Collection<String> topics;
         if (this.metadata.isPattern()) {
             Pattern pattern = Pattern.compile(this.metadata.getTopic());
             topics = this.adminClient.listTopics().names().get().stream()
