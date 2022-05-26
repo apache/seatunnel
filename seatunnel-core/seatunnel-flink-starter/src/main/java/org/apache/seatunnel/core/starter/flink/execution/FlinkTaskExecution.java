@@ -18,7 +18,8 @@
 package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.core.starter.config.EngineType;
+import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -46,7 +47,8 @@ public class FlinkTaskExecution {
 
     public FlinkTaskExecution(Config config) {
         this.config = config;
-        this.flinkEnvironment = createFlinkEnvironment();
+        this.flinkEnvironment = (FlinkEnvironment) new EnvironmentFactory<>(config, EngineType.FLINK).getEnvironment();
+        SeaTunnelContext.getContext().setJobMode(flinkEnvironment.getJobMode());
         this.sourcePluginExecuteProcessor = new SourceExecuteProcessor(flinkEnvironment, config.getConfigList("source"));
         this.transformPluginExecuteProcessor = new TransformExecuteProcessor(flinkEnvironment, config.getConfigList("transform"));
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
@@ -60,26 +62,5 @@ public class FlinkTaskExecution {
 
         LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
         flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
-    }
-
-    private FlinkEnvironment createFlinkEnvironment() {
-        // todo: we need to split the new api into a separate module.
-        // we override the environment here, since we need to create StreamExecutionEnvironment.
-        FlinkEnvironment flinkEnvironment = new FlinkEnvironment() {
-            @Override
-            public boolean isStreaming() {
-                return true;
-            }
-        };
-        Config envConfig = config.getConfig("env");
-        JobMode jobMode = JobMode.STREAMING;
-        if (envConfig.hasPath("job.mode")) {
-            jobMode = envConfig.getEnum(JobMode.class, "job.mode");
-        }
-        SeaTunnelContext.getContext().setJobMode(jobMode);
-        flinkEnvironment.setConfig(envConfig)
-            .setJobMode(jobMode)
-            .prepare();
-        return flinkEnvironment;
     }
 }

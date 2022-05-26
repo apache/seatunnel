@@ -19,10 +19,54 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
+import org.apache.kafka.common.TopicPartition;
+
+import java.util.Objects;
+
 public class KafkaSourceSplit implements SourceSplit {
+
+    private TopicPartition topicPartition;
+    private long endOffset = -1L;
+
+    public KafkaSourceSplit(TopicPartition topicPartition) {
+        this.topicPartition = topicPartition;
+    }
+
+    public long getEndOffset() {
+        return endOffset;
+    }
+
+    public void setEndOffset(long endOffset) {
+        this.endOffset = endOffset;
+    }
+
+    public TopicPartition getTopicPartition() {
+        return topicPartition;
+    }
+
+    public void setTopicPartition(TopicPartition topicPartition) {
+        this.topicPartition = topicPartition;
+    }
 
     @Override
     public String splitId() {
-        return null;
+        return topicPartition.topic() + "-" + topicPartition.partition();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        KafkaSourceSplit that = (KafkaSourceSplit) o;
+        return Objects.equals(topicPartition, that.topicPartition);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(topicPartition, endOffset);
     }
 }
