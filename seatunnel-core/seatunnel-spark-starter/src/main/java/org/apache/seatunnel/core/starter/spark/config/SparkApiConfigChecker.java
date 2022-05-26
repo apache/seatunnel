@@ -15,25 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.state;
+package org.apache.seatunnel.core.starter.spark.config;
 
-import org.apache.kafka.common.TopicPartition;
+import org.apache.seatunnel.core.starter.config.ConfigChecker;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.io.Serializable;
-import java.util.Set;
+public class SparkApiConfigChecker implements ConfigChecker<SparkEnvironment> {
 
-@Data
-@AllArgsConstructor
-public class KafkaSourceState implements Serializable {
-    private final String transactionId;
-    private final Properties kafkaProperties;
-    private Set<TopicPartition> assignedSplit;
-
-    public KafkaSourceState(Set<TopicPartition> assignedSplit) {
-        this.assignedSplit = assignedSplit;
+    @Override
+    public void checkConfig(Config config) throws ConfigCheckException {
+        // todo: implement
     }
-
 }

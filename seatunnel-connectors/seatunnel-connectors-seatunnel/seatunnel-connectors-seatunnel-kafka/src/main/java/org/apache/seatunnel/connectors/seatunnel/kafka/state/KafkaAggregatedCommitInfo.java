@@ -17,23 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.state;
 
-import org.apache.kafka.common.TopicPartition;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
 import java.io.Serializable;
-import java.util.Set;
 
-@Data
-@AllArgsConstructor
-public class KafkaSourceState implements Serializable {
-    private final String transactionId;
-    private final Properties kafkaProperties;
-    private Set<TopicPartition> assignedSplit;
-
-    public KafkaSourceState(Set<TopicPartition> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
-
+/**
+ * Right now, we don't need aggregated commit in kafka.
+ * Todo: we need to add a default implementation of this state.
+ */
+public class KafkaAggregatedCommitInfo implements Serializable {
 }

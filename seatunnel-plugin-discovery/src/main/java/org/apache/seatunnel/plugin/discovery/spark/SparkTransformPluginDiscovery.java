@@ -34,6 +34,7 @@ public class SparkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseS
         super("spark");
     }
 
+    @Override
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return Collections.emptyList();
     }

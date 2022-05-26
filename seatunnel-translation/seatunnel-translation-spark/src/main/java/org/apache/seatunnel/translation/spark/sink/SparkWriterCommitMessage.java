@@ -19,9 +19,11 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 
+import javax.annotation.Nullable;
+
 public class SparkWriterCommitMessage<T> implements WriterCommitMessage {
 
-    private T message;
+    private @Nullable T message;
 
     SparkWriterCommitMessage(T message) {
         this.message = message;

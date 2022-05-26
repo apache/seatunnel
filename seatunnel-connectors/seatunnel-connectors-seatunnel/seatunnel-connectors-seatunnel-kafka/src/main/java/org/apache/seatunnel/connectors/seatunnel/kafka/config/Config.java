@@ -33,6 +33,8 @@ public class Config {
      */
     public static final String BOOTSTRAP_SERVER = "bootstrap.server";
 
+    public static final String KAFKA_CONFIG_PREFIX = "kafka.";
+
     /**
      * consumer group of kafka client consume message.
      */

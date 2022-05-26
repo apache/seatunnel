@@ -40,6 +40,11 @@
             <artifactId>seatunnel-connectors-seatunnel-console</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connectors-seatunnel-kafka</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
