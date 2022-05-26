@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
@@ -39,16 +37,13 @@ import java.util.Properties;
 public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     private final KafkaProducer<K, V> kafkaProducer;
-    private final SeaTunnelRowSerializer<K, V> seaTunnelRowSerializer;
 
-    public KafkaNoTransactionSender(Properties properties, SeaTunnelRowSerializer<K, V> seaTunnelRowSerializer) {
-        this.seaTunnelRowSerializer = seaTunnelRowSerializer;
+    public KafkaNoTransactionSender(Properties properties) {
         this.kafkaProducer = new KafkaProducer<>(properties);
     }
 
     @Override
-    public void send(SeaTunnelRow seaTunnelRow) {
-        ProducerRecord<K, V> producerRecord = seaTunnelRowSerializer.serializeRow(seaTunnelRow);
+    public void send(ProducerRecord<K, V> producerRecord) {
         kafkaProducer.send(producerRecord);
     }
 

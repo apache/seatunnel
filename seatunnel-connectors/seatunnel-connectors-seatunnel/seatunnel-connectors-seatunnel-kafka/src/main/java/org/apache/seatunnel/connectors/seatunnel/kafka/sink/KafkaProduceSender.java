@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
+
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +31,7 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
      *
      * @param seaTunnelRow data to send
      */
-    void send(SeaTunnelRow seaTunnelRow);
+    void send(ProducerRecord<K, V> producerRecord);
 
     void beginTransaction();
 

@@ -29,6 +29,10 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringSerializer;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -42,7 +46,16 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
     private final Config pluginConfig;
 
-    private KafkaProduceSender<?, ?> kafkaProducerSender;
+    private KafkaProduceSender<String, String> kafkaProducerSender;
+
+    // check config
+    @Override
+    public void write(SeaTunnelRow element) {
+        ProducerRecord<String, String> producerRecord = seaTunnelRowSerializer.serializeRow(element);
+        kafkaProducerSender.send(producerRecord);
+    }
+
+    private SeaTunnelRowSerializer<String, String> seaTunnelRowSerializer;
 
     public KafkaSinkWriter(
         SinkWriter.Context context,
@@ -52,23 +65,15 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         this.context = context;
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
+        this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowTypeInfo);
         if (KafkaSemantics.AT_LEAST_ONCE.equals(getKafkaSemantics(pluginConfig))) {
             // the recover state
-            this.kafkaProducerSender = new KafkaTransactionSender<>(
-                getKafkaProperties(pluginConfig),
-                getSerializer(pluginConfig));
+            this.kafkaProducerSender = new KafkaTransactionSender<>(getKafkaProperties(pluginConfig));
             this.kafkaProducerSender.abortTransaction(kafkaStates);
             this.kafkaProducerSender.beginTransaction();
         } else {
-            this.kafkaProducerSender = new KafkaNoTransactionSender<>(
-                getKafkaProperties(pluginConfig),
-                getSerializer(pluginConfig));
+            this.kafkaProducerSender = new KafkaNoTransactionSender<>(getKafkaProperties(pluginConfig));
         }
-    }
-
-    @Override
-    public void write(SeaTunnelRow element) {
-        kafkaProducerSender.send(element);
     }
 
     @Override
@@ -102,11 +107,15 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
         });
+        kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, pluginConfig.getString(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+        kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        kafkaProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         return kafkaProperties;
     }
 
-    private SeaTunnelRowSerializer<?, ?> getSerializer(Config pluginConfig) {
-        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topic"));
+    // todo: parse the target field from config
+    private SeaTunnelRowSerializer<String, String> getSerializer(Config pluginConfig, SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
+        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topics"), seaTunnelRowTypeInfo);
     }
 
     private KafkaSemantics getKafkaSemantics(Config pluginConfig) {
