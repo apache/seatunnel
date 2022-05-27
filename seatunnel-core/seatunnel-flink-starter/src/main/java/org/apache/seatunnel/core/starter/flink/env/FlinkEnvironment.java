@@ -28,7 +28,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
@@ -40,7 +39,6 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableConfig;
-import org.apache.flink.table.api.bridge.java.BatchTableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.TernaryBoolean;
 import org.slf4j.Logger;
@@ -61,10 +59,6 @@ public class FlinkEnvironment implements RuntimeEnv {
     private StreamExecutionEnvironment environment;
 
     private StreamTableEnvironment tableEnvironment;
-
-    private ExecutionEnvironment batchEnvironment;
-
-    private BatchTableEnvironment batchTableEnvironment;
 
     private JobMode jobMode;
 
@@ -91,10 +85,6 @@ public class FlinkEnvironment implements RuntimeEnv {
         // Batch/Streaming both use data stream api in SeaTunnel New API
         createStreamEnvironment();
         createStreamTableEnvironment();
-        if (!isStreaming()) {
-            createExecutionEnvironment();
-            createBatchTableEnvironment();
-        }
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
@@ -103,10 +93,6 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     public String getJobName() {
         return jobName;
-    }
-
-    public boolean isStreaming() {
-        return JobMode.STREAMING.equals(jobMode);
     }
 
     @Override
@@ -125,16 +111,12 @@ public class FlinkEnvironment implements RuntimeEnv {
         pluginPaths.forEach(url -> LOGGER.info("register plugins : {}", url));
         Configuration configuration;
         try {
-            if (isStreaming()) {
-                configuration =
-                        (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
-                                "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
-                                "method: getConfiguration")).invoke(this.environment);
-            } else {
-                configuration = batchEnvironment.getConfiguration();
-            }
+            configuration =
+                (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
+                    "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
+                    "method: getConfiguration")).invoke(this.environment);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Get flink configuration from environment failed", e);
         }
         List<String> jars = configuration.get(PipelineOptions.JARS);
         if (jars == null) {
@@ -206,27 +188,6 @@ public class FlinkEnvironment implements RuntimeEnv {
         if (this.jobMode.equals(JobMode.BATCH)) {
             environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
         }
-    }
-
-    public ExecutionEnvironment getBatchEnvironment() {
-        return batchEnvironment;
-    }
-
-    public BatchTableEnvironment getBatchTableEnvironment() {
-        return batchTableEnvironment;
-    }
-
-    private void createExecutionEnvironment() {
-        batchEnvironment = ExecutionEnvironment.getExecutionEnvironment();
-        if (config.hasPath(ConfigKeyName.PARALLELISM)) {
-            int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
-            batchEnvironment.setParallelism(parallelism);
-        }
-        EnvironmentUtil.setRestartStrategy(config, batchEnvironment.getConfig());
-    }
-
-    private void createBatchTableEnvironment() {
-        batchTableEnvironment = BatchTableEnvironment.create(batchEnvironment);
     }
 
     private void setTimeCharacteristic() {

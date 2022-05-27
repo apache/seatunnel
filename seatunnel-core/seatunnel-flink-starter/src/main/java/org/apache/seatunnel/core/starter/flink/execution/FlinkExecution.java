@@ -37,9 +37,9 @@ import java.util.List;
 /**
  * Used to execute a SeaTunnelTask.
  */
-public class FlinkTaskExecution implements TaskExecution {
+public class FlinkExecution implements TaskExecution {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkTaskExecution.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkExecution.class);
 
     private final Config config;
     private final FlinkEnvironment flinkEnvironment;
@@ -47,7 +47,7 @@ public class FlinkTaskExecution implements TaskExecution {
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
     private final PluginExecuteProcessor sinkPluginExecuteProcessor;
 
-    public FlinkTaskExecution(Config config) {
+    public FlinkExecution(Config config) {
         this.config = config;
         this.flinkEnvironment = (FlinkEnvironment) new EnvironmentFactory<>(config, EngineType.FLINK).getEnvironment();
         SeaTunnelContext.getContext().setJobMode(flinkEnvironment.getJobMode());
