@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.spark.execution;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.spark.SparkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -32,9 +33,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SparkTaskExecution {
+public class SparkExecution {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SparkTaskExecution.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SparkExecution.class);
 
     private final Config config;
     private final SparkEnvironment sparkEnvironment;
@@ -42,7 +43,7 @@ public class SparkTaskExecution {
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
     private final PluginExecuteProcessor sinkPluginExecuteProcessor;
 
-    public SparkTaskExecution(Config config) {
+    public SparkExecution(Config config) {
         this.config = config;
         this.sparkEnvironment = (SparkEnvironment) new EnvironmentFactory<>(config, EngineType.SPARK).getEnvironment();
         SeaTunnelContext.getContext().setJobMode(sparkEnvironment.getJobMode());
@@ -51,7 +52,7 @@ public class SparkTaskExecution {
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(sparkEnvironment, config.getConfigList("sink"));
     }
 
-    public void execute() throws Exception {
+    public void execute() throws TaskExecuteException {
         List<Dataset<Row>> datasets = new ArrayList<>();
         datasets = sourcePluginExecuteProcessor.execute(datasets);
         datasets = transformPluginExecuteProcessor.execute(datasets);

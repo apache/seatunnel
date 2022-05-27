@@ -28,25 +28,10 @@ public class SparkCommandBuilder implements CommandBuilder<SparkCommandArgs> {
     public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
         if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
             throw new IllegalArgumentException(
-                    String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
+                String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
         }
-
-        return new SparkApiCommandBuilder().buildCommand(commandArgs);
-    }
-
-    /**
-     * Used to generate command for engine API.
-     */
-    private static class SparkApiCommandBuilder extends SparkCommandBuilder {
-        @Override
-        public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
-            if (!Common.setDeployMode(commandArgs.getDeployMode().getName())) {
-                throw new IllegalArgumentException(
-                        String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
-            }
-            return commandArgs.isCheckConfig() ? new SparkConfValidateCommand(commandArgs)
-                    : new SparkTaskExecuteCommand(commandArgs);
-        }
+        return commandArgs.isCheckConfig() ? new SparkConfValidateCommand(commandArgs)
+            : new SparkTaskExecuteCommand(commandArgs);
     }
 
 }

@@ -20,6 +20,8 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.core.starter.config.EnvironmentFactory;
+import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -35,9 +37,9 @@ import java.util.List;
 /**
  * Used to execute a SeaTunnelTask.
  */
-public class FlinkTaskExecution {
+public class FlinkExecution implements TaskExecution {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkTaskExecution.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkExecution.class);
 
     private final Config config;
     private final FlinkEnvironment flinkEnvironment;
@@ -45,7 +47,7 @@ public class FlinkTaskExecution {
     private final PluginExecuteProcessor transformPluginExecuteProcessor;
     private final PluginExecuteProcessor sinkPluginExecuteProcessor;
 
-    public FlinkTaskExecution(Config config) {
+    public FlinkExecution(Config config) {
         this.config = config;
         this.flinkEnvironment = (FlinkEnvironment) new EnvironmentFactory<>(config, EngineType.FLINK).getEnvironment();
         SeaTunnelContext.getContext().setJobMode(flinkEnvironment.getJobMode());
@@ -54,13 +56,17 @@ public class FlinkTaskExecution {
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
     }
 
-    public void execute() throws Exception {
+    public void execute() throws TaskExecuteException {
         List<DataStream<Row>> dataStreams = new ArrayList<>();
         dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
         dataStreams = transformPluginExecuteProcessor.execute(dataStreams);
         sinkPluginExecuteProcessor.execute(dataStreams);
 
         LOGGER.info("Flink Execution Plan:{}", flinkEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
-        flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
+        try {
+            flinkEnvironment.getStreamExecutionEnvironment().execute(flinkEnvironment.getJobName());
+        } catch (Exception e) {
+            throw new TaskExecuteException("Execute Flink job error", e);
+        }
     }
 }
