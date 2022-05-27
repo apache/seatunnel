@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamTransform;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -60,20 +61,25 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
     }
 
     @Override
-    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws Exception {
+    public List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws TaskExecuteException {
         if (plugins.isEmpty()) {
             return upstreamDataStreams;
         }
         DataStream<Row> input = upstreamDataStreams.get(0);
         List<DataStream<Row>> result = new ArrayList<>();
         for (int i = 0; i < plugins.size(); i++) {
-            FlinkStreamTransform transform = plugins.get(i);
-            Config pluginConfig = pluginConfigs.get(i);
-            DataStream<Row> stream = fromSourceTable(pluginConfig).orElse(input);
-            input = transform.processStream(flinkEnvironment, stream);
-            registerResultTable(pluginConfig, input);
-            transform.registerFunction(flinkEnvironment);
-            result.add(input);
+            try {
+                FlinkStreamTransform transform = plugins.get(i);
+                Config pluginConfig = pluginConfigs.get(i);
+                DataStream<Row> stream = fromSourceTable(pluginConfig).orElse(input);
+                input = transform.processStream(flinkEnvironment, stream);
+                registerResultTable(pluginConfig, input);
+                transform.registerFunction(flinkEnvironment);
+                result.add(input);
+            } catch (Exception e) {
+                throw new TaskExecuteException(
+                    String.format("SeaTunnel transform task: %s execute error", plugins.get(i).getPluginName()), e);
+            }
         }
         return result;
     }

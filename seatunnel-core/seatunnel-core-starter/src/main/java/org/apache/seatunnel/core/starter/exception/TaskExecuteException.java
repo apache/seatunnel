@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.execution;
+package org.apache.seatunnel.core.starter.exception;
 
-import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+public class TaskExecuteException extends Exception {
 
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
+    public TaskExecuteException(String message) {
+        super(message);
+    }
 
-import java.util.List;
-
-public interface PluginExecuteProcessor {
-
-    /**
-     * Execute the current plugins, and return the result data stream.
-     *
-     * @param upstreamDataStreams the upstream data streams.
-     * @return the result data stream
-     */
-    List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws TaskExecuteException;
+    public TaskExecuteException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
