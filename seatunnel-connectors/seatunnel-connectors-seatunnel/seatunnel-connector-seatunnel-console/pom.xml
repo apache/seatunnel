@@ -25,7 +25,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connectors-seatunnel-console</artifactId>
+    <artifactId>seatunnel-connector-seatunnel-console</artifactId>
 
     <dependencies>
         <dependency>
