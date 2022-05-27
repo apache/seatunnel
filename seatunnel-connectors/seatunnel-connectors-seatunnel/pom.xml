@@ -34,5 +34,6 @@
         <module>seatunnel-connectors-seatunnel-console</module>
         <module>seatunnel-connectors-seatunnel-fake</module>
         <module>seatunnel-connectors-seatunnel-kafka</module>
+        <module>seatunnel-connectors-seatunnel-hive</module>
     </modules>
 </project>
