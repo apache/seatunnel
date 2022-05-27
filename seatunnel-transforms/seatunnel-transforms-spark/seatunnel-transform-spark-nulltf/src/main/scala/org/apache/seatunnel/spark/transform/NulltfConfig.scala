@@ -17,11 +17,9 @@
 
 package org.apache.seatunnel.spark.transform
 
-object EtlConfig {
-  val PLUGIN_NAME = "etl"
+object NulltfConfig {
+  val PLUGIN_NAME = "nulltf"
 
   val FIELDS = "fields"
-
-  val TYPE = "etl_type"
 
 }

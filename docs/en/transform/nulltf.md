@@ -1,4 +1,4 @@
-# Etl
+# Nulltf
 
 ## Description
 
@@ -15,7 +15,6 @@ This transform only supported by engine Spark.
 | name                | type    | required | default value |
 | ------------------- | ------- | -------- | ------------- |
 | fields              | array   | no       | -             |
-| etl_type            | String  | yes      | -             |
 
 ### fields [list]
 
@@ -23,22 +22,17 @@ A list of fields whose default value will be set.
 The default value of the field can be set in the form of "=value" after the field name. 
 If there is no "=value" after the field name, the default value will be set according to the field type.
 
-### etl_type [string]
-
-The type of data processing, currently only supports setting the default value for the null field, so the etlType value is fixed as "default".
-
 ## Examples
 
 the configuration
 
 ```bash
-  etl {
-      fields = ["name","price=0","num=100","flag","dt_timestamp=2022-05-18 13:51:40.603","dt_date=2022-05-19"],
-      etlType = "default"
+  nulltf {
+      fields = ["name","price=0","num=100","flag","dt_timestamp=2022-05-18 13:51:40.603","dt_date=2022-05-19"]
   }
 ```
 
-before use etl default
+before use nulltf transform
 
 ```bash
 +-----+-----+----+-----+--------------------+----------+
@@ -54,7 +48,7 @@ before use etl default
 +-----+-----+----+-----+--------------------+----------+
 ```
 
-after use etl default
+after use nulltf transform
 
 ```bash
 +-----+-----+----+-----+--------------------+----------+

@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.spark.transform.Etl
+org.apache.seatunnel.spark.transform.Nulltf
