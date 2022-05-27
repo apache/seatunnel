@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSparkTransformPluginDiscovery;
 import org.apache.seatunnel.spark.BaseSparkTransform;
@@ -60,7 +61,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Ba
     }
 
     @Override
-    public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws Exception {
+    public List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws TaskExecuteException {
         if (plugins.isEmpty()) {
             return upstreamDataStreams;
         }

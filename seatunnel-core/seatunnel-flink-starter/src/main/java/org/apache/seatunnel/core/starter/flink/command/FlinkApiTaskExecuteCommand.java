@@ -37,7 +37,7 @@ import java.nio.file.Path;
  */
 public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiTaskExecuteCommand.class);
 
     private final FlinkCommandArgs flinkCommandArgs;
 

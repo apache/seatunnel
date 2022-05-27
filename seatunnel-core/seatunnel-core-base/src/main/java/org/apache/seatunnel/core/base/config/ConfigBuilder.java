@@ -37,7 +37,6 @@ public class ConfigBuilder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
-    private static final String PLUGIN_NAME_KEY = "plugin_name";
     private final Path configFile;
     private final Config config;
 
