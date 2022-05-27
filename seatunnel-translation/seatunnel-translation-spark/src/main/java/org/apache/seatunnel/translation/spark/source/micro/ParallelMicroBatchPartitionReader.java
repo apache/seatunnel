@@ -17,17 +17,15 @@
 
 package org.apache.seatunnel.translation.spark.source.micro;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.state.CheckpointLock;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.translation.source.ParallelSource;
-import org.apache.seatunnel.translation.spark.source.InternalRowCollector;
+import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.spark.source.ReaderState;
-import org.apache.seatunnel.translation.spark.source.batch.BatchPartitionReader;
+import org.apache.seatunnel.translation.spark.source.batch.ParallelBatchPartitionReader;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -39,33 +37,33 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public class MicroBatchPartitionReader extends BatchPartitionReader {
+public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionReader {
     protected static final Integer CHECKPOINT_SLEEP_INTERVAL = 10;
     protected volatile Integer checkpointId;
-
-    protected final CheckpointLock checkpointLock = new SingleReaderCheckpointLock();
     protected final Integer checkpointInterval;
     protected final String checkpointPath;
     protected final String hdfsRoot;
     protected final String hdfsUser;
 
-    protected List<byte[]> restoredState;
+    protected Map<Integer, List<byte[]>> restoredState;
     protected ScheduledThreadPoolExecutor executor;
     protected FileSystem fileSystem;
 
-    public MicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
-                                     Integer parallelism,
-                                     Integer subtaskId,
-                                     StructType rowType,
-                                     Integer checkpointId,
-                                     Integer checkpointInterval,
-                                     String checkpointPath,
-                                     String hdfsRoot,
-                                     String hdfsUser) {
+    public ParallelMicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                                             Integer parallelism,
+                                             Integer subtaskId,
+                                             StructType rowType,
+                                             Integer checkpointId,
+                                             Integer checkpointInterval,
+                                             String checkpointPath,
+                                             String hdfsRoot,
+                                             String hdfsUser) {
         super(source, parallelism, subtaskId, rowType);
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
@@ -75,7 +73,7 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
     }
 
     @Override
-    protected ParallelSource<SeaTunnelRow, ?, ?> createParallelSource() {
+    protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
         return new InternalParallelSource<>(source,
             restoredState,
             parallelism,
@@ -83,16 +81,9 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
     }
 
     @Override
-    protected Collector<SeaTunnelRow> createCollector() {
-        return new InternalRowCollector(handover, checkpointLock, rowType);
-    }
-
-    @Override
     protected void prepare() {
-        Configuration configuration = new Configuration();
-        configuration.set("fs.defaultFS", hdfsRoot);
         try {
-            this.fileSystem = FileSystem.get(new URI(hdfsRoot), configuration, hdfsUser);
+            this.fileSystem = getFileSystem();
             this.restoredState = restoreState(checkpointId - 1);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -101,10 +92,20 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
         prepareCheckpoint();
     }
 
+    protected FileSystem getFileSystem() throws URISyntaxException, IOException, InterruptedException {
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", hdfsRoot);
+        if (StringUtils.isNotBlank(hdfsUser)) {
+            return FileSystem.get(new URI(hdfsRoot), configuration, hdfsUser);
+        } else {
+            return FileSystem.get(new URI(hdfsRoot), configuration);
+        }
+    }
+
     protected ReaderState snapshotState() {
-        List<byte[]> bytes;
+        Map<Integer, List<byte[]>> bytes;
         try {
-            bytes = parallelSource.snapshotState(checkpointId);
+            bytes = internalSource.snapshotState(checkpointId);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -117,9 +118,8 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
     }
 
     public void virtualCheckpoint() {
-        checkpointLock.lock();
         try {
-            synchronized (collector) {
+            synchronized (checkpointLock) {
                 while (!handover.isEmpty()) {
                     Thread.sleep(CHECKPOINT_SLEEP_INTERVAL);
                 }
@@ -128,19 +128,17 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
                     final int currentCheckpoint = checkpointId;
                     ReaderState readerState = snapshotState();
                     saveState(readerState, currentCheckpoint);
-                    parallelSource.notifyCheckpointComplete(currentCheckpoint);
+                    internalSource.notifyCheckpointComplete(currentCheckpoint);
                     running = false;
                 }
             }
         } catch (Exception e) {
             throw new RuntimeException("An error occurred in virtual checkpoint execution.", e);
-        } finally {
-            checkpointLock.unlock();
         }
     }
 
-    private List<byte[]> restoreState(int checkpointId) throws IOException {
-        Path hdfsPath = new Path(checkpointPath + File.separator + checkpointId);
+    private Map<Integer, List<byte[]>> restoreState(int checkpointId) throws IOException {
+        Path hdfsPath = getCheckpointPathWithId(checkpointId);
         if (!fileSystem.exists(hdfsPath)) {
             return null;
         }
@@ -159,9 +157,9 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
         }
     }
 
-    private void saveState(ReaderState readerState, int checkpointId) throws IOException {
+    protected void saveState(ReaderState readerState, int checkpointId) throws IOException {
         byte[] bytes = SerializationUtils.serialize(readerState);
-        Path hdfsPath = new Path(checkpointPath + File.separator + checkpointId);
+        Path hdfsPath = getCheckpointPathWithId(checkpointId);
         if (!fileSystem.exists(hdfsPath)) {
             fileSystem.createNewFile(hdfsPath);
         }
@@ -171,6 +169,10 @@ public class MicroBatchPartitionReader extends BatchPartitionReader {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Path getCheckpointPathWithId(int checkpointId) {
+        return new Path(this.checkpointPath + File.separator + this.subtaskId + File.separator + checkpointId);
     }
 
     @Override

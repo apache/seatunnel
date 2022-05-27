@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source.batch;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -28,13 +29,13 @@ import org.apache.spark.sql.types.StructType;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BatchParallelSourceReader implements DataSourceReader {
+public class BatchSourceReader implements DataSourceReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final StructType rowType;
 
-    public BatchParallelSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
+    public BatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
         this.source = source;
         this.parallelism = parallelism;
         this.rowType = rowType;
@@ -47,9 +48,15 @@ public class BatchParallelSourceReader implements DataSourceReader {
 
     @Override
     public List<InputPartition<InternalRow>> planInputPartitions() {
-        List<InputPartition<InternalRow>> virtualPartitions = new ArrayList<>(parallelism);
-        for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-            virtualPartitions.add(new BatchPartition(source, parallelism, subtaskId, rowType));
+        List<InputPartition<InternalRow>> virtualPartitions;
+        if (source instanceof SupportCoordinate) {
+            virtualPartitions = new ArrayList<>(1);
+            virtualPartitions.add(new BatchPartition(source, parallelism, 0, rowType));
+        } else {
+            virtualPartitions = new ArrayList<>(parallelism);
+            for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
+                virtualPartitions.add(new BatchPartition(source, parallelism, subtaskId, rowType));
+            }
         }
         return virtualPartitions;
     }

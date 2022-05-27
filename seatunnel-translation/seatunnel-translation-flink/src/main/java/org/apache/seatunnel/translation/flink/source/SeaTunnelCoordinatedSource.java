@@ -20,30 +20,24 @@ package org.apache.seatunnel.translation.flink.source;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
-import org.apache.seatunnel.translation.source.ParallelSource;
+import org.apache.seatunnel.translation.source.CoordinatedSource;
 
-import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
-import org.apache.flink.types.Row;
+public class SeaTunnelCoordinatedSource extends BaseSeaTunnelSourceFunction {
 
-public class SeaTunnelParallelSource extends BaseSeaTunnelSourceFunction implements ParallelSourceFunction<Row> {
+    protected static final String COORDINATED_SOURCE_STATE_NAME = "coordinated-source-states";
 
-    protected static final String PARALLEL_SOURCE_STATE_NAME = "parallel-source-states";
-
-    public SeaTunnelParallelSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
-        // TODO: Make sure the source is uncoordinated.
+    public SeaTunnelCoordinatedSource(SeaTunnelSource<SeaTunnelRow, ?, ?> source) {
+        // TODO: Make sure the source is coordinated.
         super(source);
     }
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new ParallelSource<>(source,
-            restoredState,
-            getRuntimeContext().getNumberOfParallelSubtasks(),
-            getRuntimeContext().getIndexOfThisSubtask());
+        return new CoordinatedSource<>(source, restoredState, getRuntimeContext().getNumberOfParallelSubtasks());
     }
 
     @Override
     protected String getStateName() {
-        return PARALLEL_SOURCE_STATE_NAME;
+        return COORDINATED_SOURCE_STATE_NAME;
     }
 }

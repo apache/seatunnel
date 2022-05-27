@@ -20,9 +20,9 @@ package org.apache.seatunnel.translation.spark.source;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.translation.spark.source.batch.BatchParallelSourceReader;
-import org.apache.seatunnel.translation.spark.source.continnous.ContinuousParallelSourceReader;
-import org.apache.seatunnel.translation.spark.source.micro.MicroBatchParallelSourceReader;
+import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
+import org.apache.seatunnel.translation.spark.source.continnous.ContinuousSourceReader;
+import org.apache.seatunnel.translation.spark.source.micro.MicroBatchSourceReader;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -38,11 +38,13 @@ import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
 import org.apache.spark.sql.sources.v2.reader.streaming.ContinuousReader;
 import org.apache.spark.sql.sources.v2.reader.streaming.MicroBatchReader;
 import org.apache.spark.sql.types.StructType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
 public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroBatchReadSupport, ContinuousReadSupport, DataSourceRegister {
-
+    private static final Logger LOG = LoggerFactory.getLogger(SeaTunnelSourceSupport.class);
     public static final String SEA_TUNNEL_SOURCE_NAME = "SeaTunnelSource";
     public static final Integer CHECKPOINT_INTERVAL_DEFAULT = 10000;
 
@@ -54,9 +56,8 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     @Override
     public DataSourceReader createReader(StructType rowType, DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        Integer parallelism = options.getInt("source.parallelism", 1);
-        // TODO: case coordinated source
-        return new BatchParallelSourceReader(seaTunnelSource, parallelism, rowType);
+        int parallelism = options.getInt("source.parallelism", 1);
+        return new BatchSourceReader(seaTunnelSource, parallelism, rowType);
     }
 
     @Override
@@ -73,10 +74,9 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
         String checkpointPath = StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
         Configuration configuration = SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
         String hdfsRoot = options.get("hdfs.root").orElse(FileSystem.getDefaultUri(configuration).toString());
-        String hdfsUser = options.get("hdfs.user").orElseThrow(() -> new UnsupportedOperationException("HDFS user is required."));
+        String hdfsUser = options.get("hdfs.user").orElse("");
         Integer checkpointId = options.getInt("checkpoint.id", 1);
-        // TODO: case coordinated source
-        return new MicroBatchParallelSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser, rowType);
+        return new MicroBatchSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser, rowType);
     }
 
     @Override
@@ -84,8 +84,7 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
         StructType rowType = checkRowType(rowTypeOptional);
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt("source.parallelism", 1);
-        // TODO: case coordinated source
-        return new ContinuousParallelSourceReader(seaTunnelSource, parallelism, rowType);
+        return new ContinuousSourceReader(seaTunnelSource, parallelism, rowType);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {

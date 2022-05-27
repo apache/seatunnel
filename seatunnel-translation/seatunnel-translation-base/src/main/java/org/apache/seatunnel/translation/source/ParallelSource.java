@@ -23,19 +23,18 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.state.CheckpointListener;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements AutoCloseable, CheckpointListener {
-
-    private final long splitEnumeratorTimeInterval = 5L;
+public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements BaseSourceFunction<T> {
 
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;
@@ -48,8 +47,8 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
 
     protected final List<SplitT> restoredSplitState;
 
-    protected transient volatile SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
-    protected transient volatile SourceReader<T, SplitT> reader;
+    protected final SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
+    protected final SourceReader<T, SplitT> reader;
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
     /**
@@ -58,7 +57,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
     private volatile boolean running = true;
 
     public ParallelSource(SeaTunnelSource<T, SplitT, StateT> source,
-                          List<byte[]> restoredState,
+                          Map<Integer, List<byte[]>> restoredState,
                           int parallelism,
                           int subtaskId) {
         this.source = source;
@@ -73,10 +72,10 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
         // Create or restore split enumerator & reader
         try {
             if (restoredState != null && restoredState.size() > 0) {
-                StateT restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(0));
-                restoredSplitState = new ArrayList<>(restoredState.size());
-                for (int i = 1; i < restoredState.size(); i++) {
-                    restoredSplitState.add(splitSerializer.deserialize(restoredState.get(i)));
+                StateT restoredEnumeratorState = enumeratorStateSerializer.deserialize(restoredState.get(-1).get(0));
+                restoredSplitState = new ArrayList<>(restoredState.get(subtaskId).size());
+                for (byte[] splitBytes : restoredState.get(subtaskId)) {
+                    restoredSplitState.add(splitSerializer.deserialize(splitBytes));
                 }
 
                 splitEnumerator = source.restoreEnumerator(parallelEnumeratorContext, restoredEnumeratorState);
@@ -90,17 +89,19 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
         }
     }
 
-    private transient volatile Thread splitEnumeratorThread;
-
+    @Override
     public void open() throws Exception {
         executorService = ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(1, String.format("parallel-split-enumerator-executor-%s", subtaskId));
         splitEnumerator.open();
-        splitEnumerator.addSplitsBack(restoredSplitState, subtaskId);
+        if (restoredSplitState.size() > 0) {
+            splitEnumerator.addSplitsBack(restoredSplitState, subtaskId);
+        }
         reader.open();
         parallelEnumeratorContext.register();
         splitEnumerator.registerReader(subtaskId);
     }
 
+    @Override
     public void run(Collector<T> collector) throws Exception {
         Future<?> future = executorService.submit(() -> {
             try {
@@ -161,16 +162,22 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Au
         reader.handleNoMoreSplits();
     }
 
-    public List<byte[]> snapshotState(long checkpointId) throws Exception {
-        StateT enumeratorState = splitEnumerator.snapshotState(checkpointId);
-        byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(enumeratorState);
+    // --------------------------------------------------------------------------------------------
+    // Checkpoint & state
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
+        byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(splitEnumerator.snapshotState(checkpointId));
         List<SplitT> splitStates = reader.snapshotState(checkpointId);
-        final List<byte[]> rawValues = new ArrayList<>(splitStates.size() + 1);
-        rawValues.add(enumeratorStateBytes);
+        final List<byte[]> readerStateBytes = new ArrayList<>(splitStates.size());
         for (SplitT splitState : splitStates) {
-            rawValues.add(splitSerializer.serialize(splitState));
+            readerStateBytes.add(splitSerializer.serialize(splitState));
         }
-        return rawValues;
+        Map<Integer, List<byte[]>> allStates = new HashMap<>(2);
+        allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
+        allStates.put(subtaskId, readerStateBytes);
+        return allStates;
     }
 
     @Override

@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.state;
+package org.apache.seatunnel.translation.source;
 
-import org.apache.seatunnel.api.state.CheckpointLock;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.state.CheckpointListener;
 
-public class EmptyLock implements CheckpointLock {
-    @Override
-    public void lock() {
-        // nothing
-    }
+import java.util.List;
+import java.util.Map;
 
-    @Override
-    public void unlock() {
-        // nothing
-    }
+public interface BaseSourceFunction<T> extends AutoCloseable, CheckpointListener {
+
+    void open() throws Exception;
+
+    void run(Collector<T> collector) throws Exception;
+
+    Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception;
 }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.source.micro;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
@@ -31,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class MicroBatchParallelSourceReader implements MicroBatchReader {
+public class MicroBatchSourceReader implements MicroBatchReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
@@ -45,7 +46,7 @@ public class MicroBatchParallelSourceReader implements MicroBatchReader {
     protected MicroBatchState startOffset;
     protected MicroBatchState endOffset;
 
-    public MicroBatchParallelSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer checkpointId, Integer checkpointInterval, String checkpointPath, String hdfsRoot, String hdfsUser, StructType rowType) {
+    public MicroBatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer checkpointId, Integer checkpointInterval, String checkpointPath, String hdfsRoot, String hdfsUser, StructType rowType) {
         this.source = source;
         this.parallelism = parallelism;
         this.checkpointId = checkpointId;
@@ -95,9 +96,15 @@ public class MicroBatchParallelSourceReader implements MicroBatchReader {
 
     @Override
     public List<InputPartition<InternalRow>> planInputPartitions() {
-        List<InputPartition<InternalRow>> virtualPartitions = new ArrayList<>(parallelism);
-        for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-            virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
+        List<InputPartition<InternalRow>> virtualPartitions;
+        if (source instanceof SupportCoordinate) {
+            virtualPartitions = new ArrayList<>(1);
+            virtualPartitions.add(new MicroBatchPartition(source, parallelism, 0, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
+        } else {
+            virtualPartitions = new ArrayList<>(parallelism);
+            for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
+                virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
+            }
         }
         checkpointId++;
         return virtualPartitions;
