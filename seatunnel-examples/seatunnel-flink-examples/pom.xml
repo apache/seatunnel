@@ -41,7 +41,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-flink-starter</artifactId>
+            <artifactId>seatunnel-core-flink</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -54,16 +54,6 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-connector-flink-console</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-seatunnel-fake</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-seatunnel-console</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!--   seatunnel connectors   -->
