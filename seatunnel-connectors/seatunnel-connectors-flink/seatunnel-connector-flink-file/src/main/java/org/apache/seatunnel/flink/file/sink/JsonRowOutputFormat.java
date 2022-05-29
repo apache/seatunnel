@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.flink.file.sink;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.typeinfo.AtomicType;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -86,32 +88,36 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
 
     @Override
     public void writeRecord(Row record) throws IOException {
-        final JSONObject json = getJson(record, rowTypeInfo);
+        final ObjectNode json = getJson(record, rowTypeInfo);
         byte[] bytes = json.toString().getBytes(charset);
         this.stream.write(bytes);
         this.stream.write(NEWLINE);
     }
 
-    private JSONObject getJson(Row record, RowTypeInfo rowTypeInfo) {
+    /**
+     * todo confirm
+     */
+    private ObjectNode getJson(Row record, RowTypeInfo rowTypeInfo) {
         String[] fieldNames = rowTypeInfo.getFieldNames();
         int i = 0;
-        JSONObject json = new JSONObject();
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode json = mapper.createObjectNode();
         for (String name : fieldNames) {
             Object field = record.getField(i);
             final TypeInformation type = rowTypeInfo.getTypeAt(i);
             if (type instanceof AtomicType) {
-                json.put(name, field);
+                json.put(name, (JsonNode) field);
             } else if (type instanceof ObjectArrayTypeInfo) {
                 ObjectArrayTypeInfo arrayTypeInfo = (ObjectArrayTypeInfo) type;
                 TypeInformation componentInfo = arrayTypeInfo.getComponentInfo();
-                JSONArray jsonArray = new JSONArray();
+                ArrayNode jsonArray = mapper.createArrayNode();
                 if (componentInfo instanceof RowTypeInfo) {
                     final Row[] rows = (Row[]) field;
                     for (Row r : rows) {
                         jsonArray.add(getJson(r, (RowTypeInfo) componentInfo));
                     }
                 } else {
-                    jsonArray.addAll(Arrays.asList((Object[]) field));
+                    jsonArray.addAll(Arrays.asList((JsonNode) field));
                 }
                 json.put(name, jsonArray);
             } else if (type instanceof RowTypeInfo) {

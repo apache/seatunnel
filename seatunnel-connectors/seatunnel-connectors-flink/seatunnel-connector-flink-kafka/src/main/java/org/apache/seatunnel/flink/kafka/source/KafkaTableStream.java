@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.enums.FormatType;
@@ -30,8 +31,6 @@ import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.parser.Feature;
 import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -51,7 +50,7 @@ import java.util.Properties;
 @AutoService(BaseFlinkSource.class)
 public class KafkaTableStream implements FlinkStreamSource {
 
-    private static final long   serialVersionUID = 5287018194573371428L;
+    private static final long serialVersionUID = 5287018194573371428L;
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTableStream.class);
 
     private Config config;
@@ -111,7 +110,7 @@ public class KafkaTableStream implements FlinkStreamSource {
         }
         String schemaContent = config.getString(SCHEMA);
         format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
-        schemaInfo = JSONObject.parse(schemaContent, Feature.OrderedField);
+        schemaInfo = JsonUtils.parseObject(schemaContent);
     }
 
     @Override
@@ -158,9 +157,10 @@ public class KafkaTableStream implements FlinkStreamSource {
                     kafka.startFromEarliest();
                     break;
                 case "specific":
+                    //todo Is json format?
                     String offset = config.getString("offset.reset.specific");
                     HashMap<Integer, Long> map = new HashMap<>(DEFAULT_INITIAL_CAPACITY);
-                    JSONObject.parseObject(offset).forEach((k, v) -> map.put(Integer.valueOf(k), Long.valueOf(v.toString())));
+                    JsonUtils.toMap(offset).forEach((k, v) -> map.put(Integer.valueOf(String.valueOf(k)), Long.valueOf(v)));
                     kafka.startFromSpecificOffsets(map);
                     break;
                 default:

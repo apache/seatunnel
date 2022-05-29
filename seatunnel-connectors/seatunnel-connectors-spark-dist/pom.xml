@@ -146,11 +146,11 @@
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
+<!--        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-connector-spark-feishu</artifactId>
             <version>${project.version}</version>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

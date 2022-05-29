@@ -16,25 +16,27 @@
  */
 package org.apache.seatunnel.spark.feishu
 
-import scala.collection.mutable.ArrayBuffer
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 
-import com.alibaba.fastjson.{JSON, JSONArray, JSONObject}
+import scala.collection.mutable.ArrayBuffer
 import org.apache.http.{HttpEntity, HttpHeaders}
 import org.apache.http.client.methods.{CloseableHttpResponse, RequestBuilder}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.apache.http.util.EntityUtils
+import org.apache.seatunnel.common.utils.JsonUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.slf4j.{Logger, LoggerFactory}
 
 class FeishuClient(appId: String, appSecret: String) {
-  val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  /*val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def getToken: String = {
     val url = Config.TOKEN_URL.format(appId, appSecret)
     val result = this.requestFeishuApi(url, null)
     logger.info(s"Request token and get result $result")
-    result.getString(Config.TENANT_ACCESS_TOKEN)
+    result.get(Config.TENANT_ACCESS_TOKEN).toString
   }
 
   def getSheetId(sheetToken: String, sheetNum: Int): String = {
@@ -45,16 +47,16 @@ class FeishuClient(appId: String, appSecret: String) {
         "Did not get any sheet in Feishu, please make sure there is correct sheet token!")
     }
 
-    val sheets = data.getJSONArray(Config.SHEETS)
+    val sheets = data.get(Config.SHEETS)
     if (null == sheets || sheets.size() < sheetNum) {
       throw new RuntimeException(s"The sheet $sheetNum is does not exists")
     }
 
-    val sheetInfo = sheets.getJSONObject(sheetNum - 1)
-    sheetInfo.getString(Config.SHEET_ID)
+    val sheetInfo = sheets.get(sheetNum - 1)
+    sheetInfo.get(Config.SHEET_ID).toString
   }
 
-  def getSheetData(sheetToken: String, range: String, sheetId: String): JSONArray = {
+  def getSheetData(sheetToken: String, range: String, sheetId: String): ArrayNode = {
     var rangeNew = range
     // the range format is xxx!A1:C3
     if (!"".equals(rangeNew)) {
@@ -66,19 +68,19 @@ class FeishuClient(appId: String, appSecret: String) {
       throw new RuntimeException("The data is empty, please make sure some data in sheet.")
     }
 
-    val valueRange = data.getJSONObject(Config.VALUE_RANGE)
+    val valueRange = data.get(Config.VALUE_RANGE)
     if (null == valueRange) {
       throw new RuntimeException("The data is empty, please make sure some data in sheet.")
     }
-    valueRange.getJSONArray(Config.VALUES)
+    valueRange.get(Config.VALUES)
   }
 
   def getDataset(
-      sheetToken: String,
-      range: String,
-      titleLineNum: Int,
-      ignoreTitleLine: Boolean,
-      sheetNum: Int): (ArrayBuffer[Row], StructType) = {
+                  sheetToken: String,
+                  range: String,
+                  titleLineNum: Int,
+                  ignoreTitleLine: Boolean,
+                  sheetNum: Int): (ArrayBuffer[Row], StructType) = {
     val sheetId = this.getSheetId(sheetToken, sheetNum)
     val values = getSheetData(sheetToken, range, sheetId)
     if (values.size() < titleLineNum) {
@@ -92,24 +94,24 @@ class FeishuClient(appId: String, appSecret: String) {
     }
 
     var schema: StructType = null
-    val schemaData = values.getJSONArray(titleLineNum - 1)
+    val schemaData = values.get(titleLineNum - 1)
     val fields = ArrayBuffer[StructField]()
     for (index <- 0 until schemaData.size()) {
-      val titleName = schemaData.getString(index)
+      val titleName = schemaData.get(index)
       if (null == titleName) {
         throw new RuntimeException("The title name is not allowed null")
       }
-      val field = DataTypes.createStructField(titleName, DataTypes.StringType, true)
-      fields += field
+      //val field = DataTypes.createStructField(titleName, DataTypes.StringType, true)
+      //fields += field fixme
     }
     schema = DataTypes.createStructType(fields.toArray)
 
     val rows = ArrayBuffer[Row]()
     for (index <- start until values.size()) {
-      val jsonArr = values.getJSONArray(index)
+      val jsonArr = values.get(index)
       val arr = ArrayBuffer[String]()
       for (indexInner <- 0 until jsonArr.size()) {
-        arr += jsonArr.getString(indexInner)
+        arr += jsonArr.get(indexInner)
       }
 
       val row = Row.fromSeq(arr)
@@ -118,12 +120,12 @@ class FeishuClient(appId: String, appSecret: String) {
     (rows, schema)
   }
 
-  def requestFeishuApiAndGetData(url: String): JSONObject = {
+  def requestFeishuApiAndGetData(url: String): JsonNode = {
     val result = this.requestFeishuApi(url, this.getToken)
-    result.getJSONObject(Config.DATA)
+    result.get(Config.DATA)
   }
 
-  def requestFeishuApi(url: String, token: String): JSONObject = {
+  def requestFeishuApi(url: String, token: String): ObjectNode = {
     val httpGet = RequestBuilder.get()
       .setUri(url)
       .setHeader(HttpHeaders.AUTHORIZATION, s"Bearer $token")
@@ -148,13 +150,13 @@ class FeishuClient(appId: String, appSecret: String) {
       }
     }
 
-    val result = JSON.parseObject(resultStr)
-    val code = result.getIntValue(Config.CODE)
+    val result = JsonUtils.parseObject(resultStr)
+    val code = result.get(Config.CODE).asInt()
     if (code != 0) {
-      val errorMessage = result.getString(Config.MSG)
+      val errorMessage = result.get(Config.MSG).toString
       throw new RuntimeException(
         s"Request feishu api error, the code is: $code and msg is: $errorMessage")
     }
     result
-  }
+  }*/
 }
