@@ -39,7 +39,11 @@ public final class TableUtil {
         if (isAppend) {
             return tableEnvironment.toAppendStream(table, typeInfo);
         }
-        return tableEnvironment.toChangelogStream(table);
+        return tableEnvironment
+                .toRetractStream(table, typeInfo)
+                .filter(row -> row.f0)
+                .map(row -> row.f1)
+                .returns(typeInfo);
     }
 
     public static DataSet<Row> tableToDataSet(BatchTableEnvironment tableEnvironment, Table table) {
