@@ -58,5 +58,7 @@ if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
 #### SinkAggregatedCommitter.java
 用于处理`SinkWriter.prepareCommit`返回的数据信息，包含需要提交的事务信息等，但是会在单个节点一起处理，这样可以避免阶段二部分失败导致状态不一致的问题。
 - `combine` 用于将`SinkWriter.prepareCommit`返回的事务信息进行聚合，然后生成聚合的事务信息。
+#### 我应该实现SinkCommitter还是SinkAggregatedCommitter？
+当前版本推荐将实现SinkAggregatedCommitter作为首选，可以在Flink/Spark中提供较强的一致性保证，同时commit应该要实现幂等性，保存引擎重试能够正常运作。
 ## 实现
 所有的Connector实现都应该在`seatunnel-connectors/seatunnel-connectors-seatuunel`模块下，现阶段可参考的示例均在此模块下。
