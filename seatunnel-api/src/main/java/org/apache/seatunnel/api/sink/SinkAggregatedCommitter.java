@@ -31,7 +31,7 @@ import java.util.List;
 public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> extends Serializable {
 
     /**
-     * Commit message to third party data receiver.
+     * Commit message to third party data receiver, The method need to achieve idempotency.
      *
      * @param aggregatedCommitInfo The list of combine commit message.
      * @return The commit message which need retry.
