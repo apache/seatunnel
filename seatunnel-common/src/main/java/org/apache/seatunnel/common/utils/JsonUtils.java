@@ -21,11 +21,9 @@ import static com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_EMPTY
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static com.fasterxml.jackson.databind.DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_AS_NULL;
 import static com.fasterxml.jackson.databind.MapperFeature.REQUIRE_SETTERS_FOR_GETTERS;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -48,7 +46,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.TimeZone;
 
 public class JsonUtils {
@@ -127,22 +124,6 @@ public class JsonUtils {
     }
 
     /**
-     * deserialize
-     *
-     * @param src   byte array
-     * @param clazz class
-     * @param <T>   deserialize type
-     * @return deserialize type
-     */
-    public static <T> T parseObject(byte[] src, Class<T> clazz) {
-        if (src == null) {
-            return null;
-        }
-        String json = new String(src, UTF_8);
-        return parseObject(json, clazz);
-    }
-
-    /**
      * json to list
      *
      * @param json  json string
@@ -163,28 +144,6 @@ public class JsonUtils {
         }
 
         return Collections.emptyList();
-    }
-
-    /**
-     * check json object valid
-     *
-     * @param json json
-     * @return true if valid
-     */
-    public static boolean checkJsonValid(String json) {
-
-        if (StringUtils.isEmpty(json)) {
-            return false;
-        }
-
-        try {
-            OBJECT_MAPPER.readTree(json);
-            return true;
-        } catch (IOException e) {
-            LOGGER.error("check json object valid exception!", e);
-        }
-
-        return false;
     }
 
     /**
@@ -250,26 +209,6 @@ public class JsonUtils {
     }
 
     /**
-     * from the key-value generated json  to get the str value no matter the real type of value
-     *
-     * @param json     the json str
-     * @param nodeName key
-     * @return the str value of key
-     */
-    public static String getNodeString(String json, String nodeName) {
-        try {
-            JsonNode rootNode = OBJECT_MAPPER.readTree(json);
-            JsonNode jsonNode = rootNode.findValue(nodeName);
-            if (Objects.isNull(jsonNode)) {
-                return "";
-            }
-            return jsonNode.isTextual() ? jsonNode.asText() : jsonNode.toString();
-        } catch (JsonProcessingException e) {
-            return "";
-        }
-    }
-
-    /**
      * json to object
      *
      * @param json json string
@@ -303,27 +242,6 @@ public class JsonUtils {
         } catch (Exception e) {
             throw new RuntimeException("Object json deserialization exception.", e);
         }
-    }
-
-    /**
-     * serialize to json byte
-     *
-     * @param obj object
-     * @param <T> object type
-     * @return byte array
-     */
-    public static <T> byte[] toJsonByteArray(T obj) {
-        if (obj == null) {
-            return null;
-        }
-        String json = "";
-        try {
-            json = toJsonString(obj);
-        } catch (Exception e) {
-            LOGGER.error("json serialize exception.", e);
-        }
-
-        return json.getBytes(UTF_8);
     }
 
     public static ObjectNode parseObject(String text) {
