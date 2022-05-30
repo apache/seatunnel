@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -36,6 +37,7 @@ import com.google.auto.service.AutoService;
 public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeState> {
 
     private Config pluginConfig;
+    private SeaTunnelContext seaTunnelContext;
 
     @Override
     public SeaTunnelRowTypeInfo getRowTypeInfo() {
@@ -75,5 +77,15 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     @Override
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
+    }
+
+    @Override
+    public SeaTunnelContext getSeaTunnelContext() {
+        return seaTunnelContext;
+    }
+
+    @Override
+    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
+        this.seaTunnelContext = seaTunnelContext;
     }
 }

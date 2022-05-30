@@ -52,8 +52,8 @@ public abstract class SparkContainer {
 
     protected GenericContainer<?> master;
     private static final Path PROJECT_ROOT_PATH = Paths.get(System.getProperty("user.dir")).getParent().getParent();
-    private static final String SEATUNNEL_SPARK_BIN = "start-seatunnel-spark.sh";
-    private static final String SEATUNNEL_SPARK_JAR = "seatunnel-core-spark.jar";
+    private static final String SEATUNNEL_SPARK_BIN = "start-seatunnel-spark-new-connector.sh";
+    private static final String SEATUNNEL_SPARK_JAR = "seatunnel-spark-starter.jar";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
     private static final String SEATUNNEL_HOME = "/tmp/spark/seatunnel";
     private static final String SEATUNNEL_BIN = Paths.get(SEATUNNEL_HOME, "bin").toString();
@@ -97,7 +97,7 @@ public abstract class SparkContainer {
         // Running IT use cases under Windows requires replacing \ with /
         String conf = targetConfInContainer.replaceAll("\\\\", "/");
         final List<String> command = new ArrayList<>();
-        command.add(Paths.get(SEATUNNEL_HOME, "bin/start-seatunnel-spark.sh").toString());
+        command.add(Paths.get(SEATUNNEL_HOME, "bin", SEATUNNEL_SPARK_BIN).toString());
         command.add("--master");
         command.add("local");
         command.add("--deploy-mode");
@@ -114,12 +114,13 @@ public abstract class SparkContainer {
 
     protected void copySeaTunnelSparkFile() {
         // copy lib
-        String seatunnelCoreSparkJarPath = PROJECT_ROOT_PATH
-            + "/seatunnel-core/seatunnel-core-spark/target/seatunnel-core-spark.jar";
+        String seatunnelCoreSparkJarPath = Paths.get(PROJECT_ROOT_PATH.toString(),
+            "seatunnel-core", "seatunnel-spark-starter", "target", SEATUNNEL_SPARK_JAR).toString();
         master.copyFileToContainer(MountableFile.forHostPath(seatunnelCoreSparkJarPath), SPARK_JAR_PATH);
 
         // copy bin
-        String seatunnelFlinkBinPath = PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-core-spark/src/main/bin/start-seatunnel-spark.sh";
+        String seatunnelFlinkBinPath = Paths.get(PROJECT_ROOT_PATH.toString(),
+            "seatunnel-core", "seatunnel-spark-starter", "src", "main", "bin", SEATUNNEL_SPARK_BIN).toString();
         master.copyFileToContainer(
             MountableFile.forHostPath(seatunnelFlinkBinPath),
             Paths.get(SEATUNNEL_BIN, SEATUNNEL_SPARK_BIN).toString());
@@ -142,16 +143,16 @@ public abstract class SparkContainer {
     }
 
     private String getConnectorPath(String fileName) {
-        return Paths.get(CONNECTORS_PATH, "spark", fileName).toString();
+        return Paths.get(CONNECTORS_PATH, "seatunnel", fileName).toString();
     }
 
     private List<File> getConnectorJarFiles() {
         File jars = new File(PROJECT_ROOT_PATH +
-            "/seatunnel-connectors/seatunnel-connectors-spark-dist/target/lib");
+            "/seatunnel-connectors/seatunnel-connectors-seatunnel-dist/target/lib");
         return Arrays.stream(
                 Objects.requireNonNull(
                     jars.listFiles(
-                        f -> f.getName().contains("seatunnel-connector-spark"))))
+                        f -> f.getName().contains("seatunnel-connector-seatunnel"))))
             .collect(Collectors.toList());
     }
 }
