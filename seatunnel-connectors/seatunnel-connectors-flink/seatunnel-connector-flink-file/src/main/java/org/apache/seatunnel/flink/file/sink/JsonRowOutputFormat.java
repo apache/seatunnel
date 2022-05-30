@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.flink.file.sink;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -28,13 +30,11 @@ import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.common.utils.JsonUtils;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.UnsupportedCharsetException;
-import java.util.Arrays;
 
 public class JsonRowOutputFormat extends FileOutputFormat<Row> {
 
