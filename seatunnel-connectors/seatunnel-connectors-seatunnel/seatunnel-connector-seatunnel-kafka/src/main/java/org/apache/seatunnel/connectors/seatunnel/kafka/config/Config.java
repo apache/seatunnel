@@ -39,4 +39,10 @@ public class Config {
      * consumer group of kafka client consume message.
      */
     public static final String CONSUMER_GROUP = "consumer.group";
+
+
+    /**
+     * consumer group of kafka client consume message.
+     */
+    public static final String COMMIT_ON_CHECKPOINT = "commit_on_checkpoint";
 }

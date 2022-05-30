@@ -29,7 +29,7 @@ import java.util.List;
 public interface SinkCommitter<CommitInfoT> extends Serializable {
 
     /**
-     * Commit message to third party data receiver.
+     * Commit message to third party data receiver, The method need to achieve idempotency.
      *
      * @param committables The list of commit message
      * @return The commit message need retry.
