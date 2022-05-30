@@ -28,6 +28,7 @@ import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.types.Row;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -101,9 +102,10 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
         ObjectNode json = mapper.createObjectNode();
         for (String name : fieldNames) {
             Object field = record.getField(i);
+            JsonNode fieldNode = JsonUtils.toJsonNode(field);
             final TypeInformation type = rowTypeInfo.getTypeAt(i);
             if (type instanceof AtomicType) {
-                json.put(name, (JsonNode) field);
+                json.set(name, fieldNode);
             } else if (type instanceof ObjectArrayTypeInfo) {
                 ObjectArrayTypeInfo arrayTypeInfo = (ObjectArrayTypeInfo) type;
                 TypeInformation componentInfo = arrayTypeInfo.getComponentInfo();
@@ -114,12 +116,12 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
                         jsonArray.add(getJson(r, (RowTypeInfo) componentInfo));
                     }
                 } else {
-                    jsonArray.addAll(Arrays.asList((JsonNode) field));
+                    jsonArray.add(fieldNode);
                 }
-                json.put(name, jsonArray);
+                json.set(name, jsonArray);
             } else if (type instanceof RowTypeInfo) {
                 RowTypeInfo typeInfo = (RowTypeInfo) type;
-                json.put(name, getJson((Row) field, typeInfo));
+                json.set(name, getJson((Row) field, typeInfo));
             }
             i++;
         }
