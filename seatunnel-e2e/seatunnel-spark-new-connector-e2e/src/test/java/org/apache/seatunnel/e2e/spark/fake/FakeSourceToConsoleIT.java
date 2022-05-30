@@ -34,18 +34,6 @@ public class FakeSourceToConsoleIT extends SparkContainer {
     @Test
     @SuppressWarnings("magicnumber")
     public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
-        long startTime = System.currentTimeMillis();
-        // todo: add basic batch it class
-        Thread batchCheckThread = new Thread(() -> {
-            while (true) {
-                if (System.currentTimeMillis() - startTime > 10_000L) {
-                    super.close();
-                    Assert.fail("Batch job did not finish in 10 seconds");
-                }
-            }
-        }, "BatchCheckThread");
-        batchCheckThread.setDaemon(true);
-        batchCheckThread.start();
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }

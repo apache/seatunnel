@@ -23,6 +23,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATT
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -51,6 +52,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private SeaTunnelRowTypeInfo typeInfo;
+    private SeaTunnelContext seaTunnelContext;
 
     @Override
     public String getPluginName() {
@@ -109,5 +111,15 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     @Override
     public Serializer<KafkaSourceState> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
+    }
+
+    @Override
+    public SeaTunnelContext getSeaTunnelContext() {
+        return seaTunnelContext;
+    }
+
+    @Override
+    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
+        this.seaTunnelContext = seaTunnelContext;
     }
 }

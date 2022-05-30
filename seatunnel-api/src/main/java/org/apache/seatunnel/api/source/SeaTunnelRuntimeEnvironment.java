@@ -29,7 +29,7 @@ public interface SeaTunnelRuntimeEnvironment {
      *
      * @return seaTunnelContext
      */
-    default SeaTunnelContext getSeaTunnelContext() {
-        return SeaTunnelContext.getContext();
-    }
+    SeaTunnelContext getSeaTunnelContext();
+
+    void setSeaTunnelContext(SeaTunnelContext seaTunnelContext);
 }
