@@ -21,7 +21,7 @@ import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.execution.FlinkTaskExecution;
+import org.apache.seatunnel.core.starter.flink.execution.FlinkExecution;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -37,7 +37,7 @@ import java.nio.file.Path;
  */
 public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiConfValidateCommand.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkApiTaskExecuteCommand.class);
 
     private final FlinkCommandArgs flinkCommandArgs;
 
@@ -50,7 +50,7 @@ public class FlinkApiTaskExecuteCommand implements Command<FlinkCommandArgs> {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
 
         Config config = new ConfigBuilder(configFile).getConfig();
-        FlinkTaskExecution seaTunnelTaskExecution = new FlinkTaskExecution(config);
+        FlinkExecution seaTunnelTaskExecution = new FlinkExecution(config);
         try {
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {

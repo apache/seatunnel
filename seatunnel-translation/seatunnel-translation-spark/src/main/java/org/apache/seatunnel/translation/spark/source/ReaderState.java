@@ -20,19 +20,20 @@ package org.apache.seatunnel.translation.spark.source;
 import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
 
 import java.util.List;
+import java.util.Map;
 
 public class ReaderState implements PartitionOffset {
-    private final List<byte[]> bytes;
+    private final Map<Integer, List<byte[]>> bytes;
     private final Integer subtaskId;
     private final Integer checkpointId;
 
-    public ReaderState(List<byte[]> bytes, Integer subtaskId, Integer checkpointId) {
+    public ReaderState(Map<Integer, List<byte[]>> bytes, Integer subtaskId, Integer checkpointId) {
         this.bytes = bytes;
         this.subtaskId = subtaskId;
         this.checkpointId = checkpointId;
     }
 
-    public List<byte[]> getBytes() {
+    public Map<Integer, List<byte[]>> getBytes() {
         return bytes;
     }
 

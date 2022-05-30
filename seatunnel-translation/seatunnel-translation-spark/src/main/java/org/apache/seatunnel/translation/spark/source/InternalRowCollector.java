@@ -18,7 +18,6 @@
 package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.state.CheckpointLock;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowSerialization;
 
@@ -27,10 +26,10 @@ import org.apache.spark.sql.types.StructType;
 
 public class InternalRowCollector implements Collector<SeaTunnelRow> {
     private final Handover<InternalRow> handover;
-    private final CheckpointLock checkpointLock;
+    private final Object checkpointLock;
     private final InternalRowSerialization rowSerialization;
 
-    public InternalRowCollector(Handover<InternalRow> handover, CheckpointLock checkpointLock, StructType sparkSchema) {
+    public InternalRowCollector(Handover<InternalRow> handover, Object checkpointLock, StructType sparkSchema) {
         this.handover = handover;
         this.checkpointLock = checkpointLock;
         this.rowSerialization = new InternalRowSerialization(sparkSchema);
@@ -39,15 +38,16 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
     @Override
     public void collect(SeaTunnelRow record) {
         try {
-            // TODO: Lock InternalRowCollector while checkpoint is running
-            handover.produce(rowSerialization.serialize(record));
+            synchronized (checkpointLock) {
+                handover.produce(rowSerialization.serialize(record));
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public CheckpointLock getCheckpointLock() {
+    public Object getCheckpointLock() {
         return this.checkpointLock;
     }
 }

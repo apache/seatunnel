@@ -47,7 +47,6 @@ public class ParallelReaderContext implements SourceReader.Context {
 
     @Override
     public void signalNoMoreElement() {
-        // todo: if we have multiple subtasks, we need to know if all subtask is stopped
         parallelSource.handleNoMoreElement();
     }
 

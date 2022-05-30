@@ -26,6 +26,7 @@ import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 import org.apache.spark.sql.types.StructType;
 
 import java.util.List;
+import java.util.Map;
 
 public class ContinuousPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
@@ -33,14 +34,14 @@ public class ContinuousPartition implements InputPartition<InternalRow> {
     protected final Integer subtaskId;
     protected final StructType rowType;
     protected final Integer checkpointId;
-    protected final List<byte[]> restoredState;
+    protected final Map<Integer, List<byte[]>> restoredState;
 
     public ContinuousPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
                                Integer parallelism,
                                Integer subtaskId,
                                StructType rowType,
                                Integer checkpointId,
-                               List<byte[]> restoredState) {
+                               Map<Integer, List<byte[]>> restoredState) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
@@ -51,6 +52,6 @@ public class ContinuousPartition implements InputPartition<InternalRow> {
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new ContinuousPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, restoredState);
+        return new ParallelContinuousPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, restoredState);
     }
 }

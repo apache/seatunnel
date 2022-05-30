@@ -34,7 +34,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-spark-starter</artifactId>
+            <artifactId>seatunnel-core-spark</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -47,17 +47,6 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-connector-spark-console</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-seatunnel-fake</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-seatunnel-console</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!--   seatunnel connectors   -->

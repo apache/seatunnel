@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.spark.execution;
 
+import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 
@@ -30,5 +32,5 @@ public interface PluginExecuteProcessor {
      * @param upstreamDataStreams the upstream data streams.
      * @return the result data stream
      */
-    List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws Exception;
+    List<Dataset<Row>> execute(List<Dataset<Row>> upstreamDataStreams) throws TaskExecuteException;
 }

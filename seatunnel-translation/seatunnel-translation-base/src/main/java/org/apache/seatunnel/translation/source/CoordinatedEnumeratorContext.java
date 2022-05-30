@@ -34,27 +34,27 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit> implements
 
     @Override
     public int currentParallelism() {
-        return 0;
+        return coordinatedSource.currentReaderCount();
     }
 
     @Override
     public Set<Integer> registeredReaders() {
-        return null;
+        return coordinatedSource.registeredReaders();
     }
 
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
-
+        coordinatedSource.addSplits(subtaskId, splits);
     }
 
     @Override
     public void signalNoMoreSplits(int subtaskId) {
-
+        coordinatedSource.handleNoMoreSplits(subtaskId);
     }
 
     @Override
     public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
-
+        coordinatedSource.handleEnumeratorEvent(subtaskId, event);
     }
 
 }
