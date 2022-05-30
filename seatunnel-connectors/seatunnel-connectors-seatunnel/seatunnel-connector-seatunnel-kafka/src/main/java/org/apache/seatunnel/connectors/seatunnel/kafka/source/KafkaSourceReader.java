@@ -73,7 +73,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     @Override
     public void open() {
         this.consumer = initConsumer(this.metadata.getBootstrapServer(), this.metadata.getConsumerGroup(),
-                this.metadata.getProperties());
+                this.metadata.getProperties(), !this.metadata.isCommitOnCheckpoint());
     }
 
     @Override
@@ -137,11 +137,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        // TODO commit offset
+        if (this.metadata.isCommitOnCheckpoint()) {
+            consumer.commitSync();
+        }
     }
 
     private KafkaConsumer<byte[], byte[]> initConsumer(String bootstrapServer, String consumerGroup,
-                                                       Properties properties) {
+                                                       Properties properties, boolean autoCommit) {
         Properties props = new Properties(properties);
         props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, consumerGroup);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
@@ -151,6 +153,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                 ByteArrayDeserializer.class.getName());
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 ByteArrayDeserializer.class.getName());
+        props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, String.valueOf(autoCommit));
 
         // Disable auto create topics feature
         props.setProperty(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, "false");

@@ -30,6 +30,15 @@ public class ConsumerMetadata implements Serializable {
     private String bootstrapServer;
     private Properties properties;
     private String consumerGroup;
+    private boolean commitOnCheckpoint = false;
+
+    public boolean isCommitOnCheckpoint() {
+        return commitOnCheckpoint;
+    }
+
+    public void setCommitOnCheckpoint(boolean commitOnCheckpoint) {
+        this.commitOnCheckpoint = commitOnCheckpoint;
+    }
 
     public String getTopic() {
         return topic;
