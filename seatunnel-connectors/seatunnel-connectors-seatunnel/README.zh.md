@@ -4,7 +4,7 @@ Because SeaTunnel design new API for connectors, 所以通过这篇文章来介�
 现阶段所有相关代码保存在`api-draft`分支上。
 为了和老的代码分开，方便现阶段的并行开发，以及降低merge的难度。我们为新的执行流程定义了新的模块
 ### Example
-我们已经在`seatunnel-examples`中准备好了新版本的可本地执行Example程序，直接调用`seatunnel-flink-examples`或`seatunnel-spark-examples`中的`SeaTunnelApiExample`即可。这也是本地开发Connector经常会用到的调试方式。
+我们已经在`seatunnel-examples`中准备好了新版本的可本地执行Example程序，直接调用`seatunnel-flink-new-connector-example`或`seatunnel-spark-new-connector-example`中的`SeaTunnelApiExample`即可。这也是本地开发Connector经常会用到的调试方式。
 对应的配置文件保存在同模块的`resources/examples`文件夹下，和以前一样。
 ### 启动类
 和老的启动类分开，我们创建了两个新的启动类工程，分别是`seatunnel-core/seatunnel-flink-starter`和`seatunnel-core/seatunnel-spark-starter`. 可以在这里找到如何将配置文件解析为可以执行的Flink/Spark流程。
