@@ -93,10 +93,7 @@ public class JsonRowOutputFormat extends FileOutputFormat<Row> {
         this.stream.write(bytes);
         this.stream.write(NEWLINE);
     }
-
-    /**
-     * todo confirm
-     */
+    
     private ObjectNode getJson(Row record, RowTypeInfo rowTypeInfo) {
         String[] fieldNames = rowTypeInfo.getFieldNames();
         int i = 0;

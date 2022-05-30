@@ -122,7 +122,6 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
         mapper.configure(MapperFeature.AUTO_DETECT_SETTERS, false);
         mapper.configure(SerializationFeature.INDENT_OUTPUT, false);
         mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        //todo confrim
         String taskJSON = mapper.writeValueAsString(indexTask);
         ObjectNode jsonObject = JsonUtils.parseObject(taskJSON);
         jsonObject.remove("id");
