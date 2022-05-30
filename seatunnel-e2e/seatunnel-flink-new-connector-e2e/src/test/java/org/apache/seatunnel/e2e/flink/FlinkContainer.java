@@ -114,13 +114,13 @@ public abstract class FlinkContainer {
     protected void copySeaTunnelFlinkFile() {
         // copy lib
         String seatunnelCoreFlinkJarPath = PROJECT_ROOT_PATH
-            + "/seatunnel-core/seatunnel-core-flink/target/" + SEATUNNEL_FLINK_JAR;
+            + "/seatunnel-core/seatunnel-flink-starter/target/" + SEATUNNEL_FLINK_JAR;
         jobManager.copyFileToContainer(
             MountableFile.forHostPath(seatunnelCoreFlinkJarPath),
             Paths.get(SEATUNNEL_LIB, SEATUNNEL_FLINK_JAR).toString());
 
         // copy bin
-        String seatunnelFlinkBinPath = PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-core-flink/src/main/bin/" + SEATUNNEL_FLINK_BIN;
+        String seatunnelFlinkBinPath = PROJECT_ROOT_PATH + "/seatunnel-core/seatunnel-flink-starter/src/main/bin/" + SEATUNNEL_FLINK_BIN;
         jobManager.copyFileToContainer(
             MountableFile.forHostPath(seatunnelFlinkBinPath),
             Paths.get(SEATUNNEL_BIN, SEATUNNEL_FLINK_BIN).toString());

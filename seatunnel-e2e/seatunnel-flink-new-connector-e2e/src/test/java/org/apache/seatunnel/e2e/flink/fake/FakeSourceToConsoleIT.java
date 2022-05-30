@@ -28,7 +28,19 @@ import java.io.IOException;
 public class FakeSourceToConsoleIT extends FlinkContainer {
 
     @Test
+    @SuppressWarnings("magicnumber")
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
+        long startTime = System.currentTimeMillis();
+        Thread batchCheckThread = new Thread(() -> {
+            while (true) {
+                if (System.currentTimeMillis() - startTime > 10_000L) {
+                    super.close();
+                    Assert.fail("Batch job did not finish in 10 seconds");
+                }
+            }
+        }, "BatchCheckThread");
+        batchCheckThread.setDaemon(true);
+        batchCheckThread.start();
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
