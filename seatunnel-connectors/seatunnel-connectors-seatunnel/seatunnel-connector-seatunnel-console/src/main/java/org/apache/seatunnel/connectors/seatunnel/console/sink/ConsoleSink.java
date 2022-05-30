@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -33,6 +34,7 @@ import java.util.List;
 public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, ConsoleCommitInfo, ConsoleAggregatedCommitInfo> {
 
     private Config pluginConfig;
+    private SeaTunnelContext seaTunnelContext;
     private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
 
     @Override
@@ -59,5 +61,15 @@ public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, Co
     @Override
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
+    }
+
+    @Override
+    public SeaTunnelContext getSeaTunnelContext() {
+        return seaTunnelContext;
+    }
+
+    @Override
+    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
+        this.seaTunnelContext = seaTunnelContext;
     }
 }

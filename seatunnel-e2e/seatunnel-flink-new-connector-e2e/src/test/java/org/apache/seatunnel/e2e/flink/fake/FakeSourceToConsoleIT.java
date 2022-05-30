@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.e2e.flink.fake;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-/**
- * This interface defines the runtime environment of the SeaTunnel application.
- */
-public interface SeaTunnelRuntimeEnvironment {
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
 
-    /**
-     * Returns the SeaTunnel runtime context.
-     *
-     * @return seaTunnelContext
-     */
-    SeaTunnelContext getSeaTunnelContext();
+import java.io.IOException;
 
-    void setSeaTunnelContext(SeaTunnelContext seaTunnelContext);
+public class FakeSourceToConsoleIT extends FlinkContainer {
+
+    @Test
+    @SuppressWarnings("magicnumber")
+    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
 }

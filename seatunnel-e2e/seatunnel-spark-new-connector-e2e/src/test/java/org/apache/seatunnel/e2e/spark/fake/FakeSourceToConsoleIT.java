@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.e2e.spark.fake;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.e2e.spark.SparkContainer;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
+
+import java.io.IOException;
 
 /**
- * This interface defines the runtime environment of the SeaTunnel application.
+ * This test case is used to verify that the fake source is able to send data to the console.
+ * Make sure the SeaTunnel job can submit successfully on spark engine.
  */
-public interface SeaTunnelRuntimeEnvironment {
+public class FakeSourceToConsoleIT extends SparkContainer {
 
-    /**
-     * Returns the SeaTunnel runtime context.
-     *
-     * @return seaTunnelContext
-     */
-    SeaTunnelContext getSeaTunnelContext();
-
-    void setSeaTunnelContext(SeaTunnelContext seaTunnelContext);
+    @Test
+    @SuppressWarnings("magicnumber")
+    public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
 }

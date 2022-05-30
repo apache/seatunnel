@@ -71,6 +71,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
+            LOGGER.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
         Thread.sleep(1000L);
