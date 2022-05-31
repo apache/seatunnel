@@ -126,7 +126,7 @@ public final class SchemaUtil {
                 schema.field(key, Types.JAVA_BIG_DEC());
             } else if (value instanceof ObjectNode) {
                 schema.field(key, getTypeInformation((ObjectNode) value));
-            } else if (value instanceof ObjectNode) {
+            } else if (value instanceof ArrayNode) {
                 Object obj = ((ArrayNode) value).get(0);
                 if (obj instanceof ObjectNode) {
                     schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation((ObjectNode) obj)));

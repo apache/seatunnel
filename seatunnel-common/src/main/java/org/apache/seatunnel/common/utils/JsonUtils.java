@@ -38,8 +38,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,8 +47,6 @@ import java.util.Map;
 import java.util.TimeZone;
 
 public class JsonUtils {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(JsonUtils.class);
 
     /**
      * can use static singleton, inject: just make sure to reuse!
@@ -90,10 +86,8 @@ public class JsonUtils {
             ObjectWriter writer = OBJECT_MAPPER.writer(feature);
             return writer.writeValueAsString(object);
         } catch (Exception e) {
-            LOGGER.error("object to json exception!", e);
+            throw new RuntimeException("Object to json exception!", e);
         }
-
-        return null;
     }
 
     /**
@@ -118,9 +112,8 @@ public class JsonUtils {
         try {
             return OBJECT_MAPPER.readValue(json, clazz);
         } catch (Exception e) {
-            LOGGER.error("parse object exception!", e);
+            throw new RuntimeException("Json parse object exception!", e);
         }
-        return null;
     }
 
     /**
@@ -140,10 +133,8 @@ public class JsonUtils {
             CollectionType listType = OBJECT_MAPPER.getTypeFactory().constructCollectionType(ArrayList.class, clazz);
             return OBJECT_MAPPER.readValue(json, listType);
         } catch (Exception e) {
-            LOGGER.error("parse list exception!", e);
+            throw new RuntimeException("Json parse list exception!", e);
         }
-
-        return Collections.emptyList();
     }
 
     /**
@@ -202,10 +193,8 @@ public class JsonUtils {
             return OBJECT_MAPPER.readValue(json, new TypeReference<Map<K, V>>() {
             });
         } catch (Exception e) {
-            LOGGER.error("json to map exception!", e);
+            throw new RuntimeException("json to map exception!", e);
         }
-
-        return Collections.emptyMap();
     }
 
     /**
@@ -224,10 +213,8 @@ public class JsonUtils {
         try {
             return OBJECT_MAPPER.readValue(json, type);
         } catch (Exception e) {
-            LOGGER.error("json to map exception!", e);
+            throw new RuntimeException("Json parse object exception.", e);
         }
-
-        return null;
     }
 
     /**
