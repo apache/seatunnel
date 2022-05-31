@@ -66,6 +66,10 @@ Basic mode, currently supports `overwrite` , `append` , `ignore` and `error` . F
 
 Configure when `saveMode` is specified as `update` , whether to enable ssl, the default value is `false`
 
+### isolationLevel [string]
+
+The transaction isolation level, which applies to current connection. The default value is `READ_UNCOMMITTED`
+
 ### customUpdateStmt [string]
 
 Configure when `saveMode` is specified as `update` , which is used to specify the update statement template for key conflicts
