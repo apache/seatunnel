@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
-import org.apache.seatunnel.spark.redis.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT, HASH_NAME, HOST, LIST_NAME, PORT, SET_NAME, TIMEOUT, ZSET_NAME}
+import org.apache.seatunnel.spark.redis.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_TIMEOUT, DEFAULT_TTL, HASH_NAME, HOST, LIST_NAME, PORT, SET_NAME, TIMEOUT, ZSET_NAME, TTL}
 import org.apache.seatunnel.spark.redis.common.RedisDataType
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
@@ -47,11 +47,11 @@ class Redis extends SparkBatchSink with Logging {
     implicit val sc: SparkContext = env.getSparkSession.sparkContext
 
     redisDataType match {
-      case RedisDataType.KV => dealWithKV(data)(sc = sc, redisConfig = redisConfigs)
-      case RedisDataType.HASH => dealWithHASH(data, config.getString(HASH_NAME))(sc = sc, redisConfig = redisConfigs)
-      case RedisDataType.SET => dealWithSet(data, config.getString(SET_NAME))(sc = sc, redisConfig = redisConfigs)
-      case RedisDataType.ZSET => dealWithZSet(data, config.getString(ZSET_NAME))(sc = sc, redisConfig = redisConfigs)
-      case RedisDataType.LIST => dealWithList(data, config.getString(LIST_NAME))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.KV => dealWithKV(data, config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.HASH => dealWithHASH(data, config.getString(HASH_NAME), config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.SET => dealWithSet(data, config.getString(SET_NAME), config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.ZSET => dealWithZSet(data, config.getString(ZSET_NAME), config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
+      case RedisDataType.LIST => dealWithList(data, config.getString(LIST_NAME), config.getInt(TTL))(sc = sc, redisConfig = redisConfigs)
     }
   }
 
@@ -78,34 +78,35 @@ class Redis extends SparkBatchSink with Logging {
         AUTH -> DEFAULT_AUTH,
         DB_NUM -> DEFAULT_DB_NUM,
         DATA_TYPE -> DEFAULT_DATA_TYPE,
-        TIMEOUT -> DEFAULT_TIMEOUT
+        TIMEOUT -> DEFAULT_TIMEOUT,
+        TTL -> DEFAULT_TTL
       ))
     config = config.withFallback(defaultConfig)
   }
 
-  def dealWithKV(data: Dataset[Row])(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
+  def dealWithKV(data: Dataset[Row], ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
-    sc.toRedisKV(value)(redisConfig = redisConfig)
+    sc.toRedisKV(value, ttl)(redisConfig = redisConfig)
   }
 
-  def dealWithList(data: Dataset[Row], listName: String)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
+  def dealWithList(data: Dataset[Row], listName: String, ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
     val value = data.rdd.map(x => x.getString(0))
-    sc.toRedisLIST(value, listName)(redisConfig = redisConfig)
+    sc.toRedisLIST(value, listName, ttl)(redisConfig = redisConfig)
   }
 
-  def dealWithSet(data: Dataset[Row], setName: String)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
+  def dealWithSet(data: Dataset[Row], setName: String, ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
     val value = data.rdd.map(x => x.getString(0))
-    sc.toRedisSET(value, setName)(redisConfig = redisConfig)
+    sc.toRedisSET(value, setName, ttl)(redisConfig = redisConfig)
   }
 
-  def dealWithZSet(data: Dataset[Row], setName: String)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
+  def dealWithZSet(data: Dataset[Row], setName: String, ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
-    sc.toRedisZSET(value, setName)(redisConfig = redisConfig)
+    sc.toRedisZSET(value, setName, ttl)(redisConfig = redisConfig)
   }
 
-  def dealWithHASH(data: Dataset[Row], hashName: String)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
+  def dealWithHASH(data: Dataset[Row], hashName: String, ttl: Int)(implicit sc: SparkContext, redisConfig: RedisConfig): Unit = {
     val value = data.rdd.map(x => (x.getString(0), x.getString(1)))
-    sc.toRedisHASH(value, hashName)(redisConfig = redisConfig)
+    sc.toRedisHASH(value, hashName, ttl)(redisConfig = redisConfig)
   }
 
   override def getPluginName: String = "Redis"
