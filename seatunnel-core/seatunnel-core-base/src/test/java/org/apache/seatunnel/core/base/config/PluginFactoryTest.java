@@ -28,7 +28,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
-import java.lang.reflect.Method;
 import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.Optional;
@@ -50,20 +49,16 @@ public class PluginFactoryTest {
 
         PluginFactory<SparkEnvironment> factory = new PluginFactory<>(config, EngineType.SPARK);
 
-        Method method = factory.getClass().getDeclaredMethod("getPluginMappingValue", Config.class,
-                PluginType.class, String.class);
-        method.setAccessible(true);
-
-        Object jarPrefix = method.invoke(factory, pluginMapping, PluginType.SOURCE, "fake");
+        Object jarPrefix = factory.getPluginMappingValue(pluginMapping, PluginType.SOURCE, "fake");
         Assert.assertEquals(jarPrefix, Optional.of("seatunnel-connector-spark-fake"));
 
-        Object jarPrefix2 = method.invoke(factory, pluginMapping, PluginType.SINK, "console");
+        Object jarPrefix2 = factory.getPluginMappingValue(pluginMapping, PluginType.SINK, "console");
         Assert.assertEquals(jarPrefix2, Optional.of("seatunnel-connector-spark-console"));
 
-        Object jarPrefix3 = method.invoke(factory, pluginMapping, PluginType.SOURCE, "FaKE");
+        Object jarPrefix3 = factory.getPluginMappingValue(pluginMapping, PluginType.SOURCE, "FaKE");
         Assert.assertEquals(jarPrefix3, Optional.of("seatunnel-connector-spark-fake"));
 
-        Object jarPrefix4 = method.invoke(factory, pluginMapping, PluginType.SINK, "HbASe");
+        Object jarPrefix4 = factory.getPluginMappingValue(pluginMapping, PluginType.SINK, "HbASe");
         Assert.assertEquals(jarPrefix4, Optional.of("seatunnel-connector-spark-hbase"));
     }
 
