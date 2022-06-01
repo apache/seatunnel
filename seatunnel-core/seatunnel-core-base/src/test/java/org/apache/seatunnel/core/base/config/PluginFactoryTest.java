@@ -31,6 +31,7 @@ import java.io.File;
 import java.lang.reflect.Method;
 import java.nio.file.Paths;
 import java.util.Objects;
+import java.util.Optional;
 
 public class PluginFactoryTest {
 
@@ -53,17 +54,17 @@ public class PluginFactoryTest {
                 PluginType.class, String.class);
         method.setAccessible(true);
 
-        String jarPrefix = method.invoke(factory, pluginMapping, PluginType.SOURCE, "fake").toString();
-        Assert.assertEquals(jarPrefix, "seatunnel-connector-spark-fake");
+        Object jarPrefix = method.invoke(factory, pluginMapping, PluginType.SOURCE, "fake");
+        Assert.assertEquals(jarPrefix, Optional.of("seatunnel-connector-spark-fake"));
 
-        String jarPrefix2 = method.invoke(factory, pluginMapping, PluginType.SINK, "console").toString();
-        Assert.assertEquals(jarPrefix2, "seatunnel-connector-spark-console");
+        Object jarPrefix2 = method.invoke(factory, pluginMapping, PluginType.SINK, "console");
+        Assert.assertEquals(jarPrefix2, Optional.of("seatunnel-connector-spark-console"));
 
-        String jarPrefix3 = method.invoke(factory, pluginMapping, PluginType.SOURCE, "FaKE").toString();
-        Assert.assertEquals(jarPrefix3, "seatunnel-connector-spark-fake");
+        Object jarPrefix3 = method.invoke(factory, pluginMapping, PluginType.SOURCE, "FaKE");
+        Assert.assertEquals(jarPrefix3, Optional.of("seatunnel-connector-spark-fake"));
 
-        String jarPrefix4 = method.invoke(factory, pluginMapping, PluginType.SINK, "HbASe").toString();
-        Assert.assertEquals(jarPrefix4, "seatunnel-connector-spark-hbase");
+        Object jarPrefix4 = method.invoke(factory, pluginMapping, PluginType.SINK, "HbASe");
+        Assert.assertEquals(jarPrefix4, Optional.of("seatunnel-connector-spark-hbase"));
     }
 
 }

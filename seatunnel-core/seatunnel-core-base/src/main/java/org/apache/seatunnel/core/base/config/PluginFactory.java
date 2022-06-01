@@ -41,15 +41,7 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -117,12 +109,12 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
                     List<URL> pluginList = new ArrayList<>();
                     List<? extends Config> configList = config.getConfigList(type.getType());
                     configList.forEach(pluginConfig -> {
-
-                        if (containPluginMappingValue(pluginMapping, type, pluginConfig.getString(PLUGIN_NAME_KEY))) {
+                        Optional<String> mappingValue = getPluginMappingValue(pluginMapping, type,
+                                pluginConfig.getString(PLUGIN_NAME_KEY));
+                        if (mappingValue.isPresent()) {
                             try {
                                 for (File plugin : plugins) {
-                                    if (plugin.getName().startsWith(getPluginMappingValue(pluginMapping, type,
-                                            pluginConfig.getString(PLUGIN_NAME_KEY)))) {
+                                    if (plugin.getName().startsWith(mappingValue.get())) {
                                         pluginList.add(plugin.toURI().toURL());
                                         break;
                                     }
@@ -155,23 +147,12 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
 
     }
 
-    private String getPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
+    private Optional<String> getPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
 
         return pluginMapping.getConfig(this.engineType.getEngine()).getConfig(type.getType()).entrySet()
                 .stream().filter(entry -> entry.getKey().equalsIgnoreCase(pluginName))
-                .collect(Collectors.toList()).get(0).getValue().unwrapped().toString();
+                .map(entry -> entry.getValue().unwrapped().toString()).findAny();
 
-    }
-
-    private boolean containPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
-        if (pluginMapping.hasPath(this.engineType.getEngine())) {
-            Config engine = pluginMapping.getConfig(this.engineType.getEngine());
-            if (engine.hasPath(type.getType())) {
-                Config plugins = engine.getConfig(type.getType());
-                return plugins.hasPath(pluginName);
-            }
-        }
-        return false;
     }
 
     /**
