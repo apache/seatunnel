@@ -48,6 +48,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -117,12 +118,12 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
                     List<URL> pluginList = new ArrayList<>();
                     List<? extends Config> configList = config.getConfigList(type.getType());
                     configList.forEach(pluginConfig -> {
-
-                        if (containPluginMappingValue(pluginMapping, type, pluginConfig.getString(PLUGIN_NAME_KEY))) {
+                        Optional<String> mappingValue = getPluginMappingValue(pluginMapping, type,
+                                pluginConfig.getString(PLUGIN_NAME_KEY));
+                        if (mappingValue.isPresent()) {
                             try {
                                 for (File plugin : plugins) {
-                                    if (plugin.getName().startsWith(getPluginMappingValue(pluginMapping, type,
-                                            pluginConfig.getString(PLUGIN_NAME_KEY)))) {
+                                    if (plugin.getName().startsWith(mappingValue.get())) {
                                         pluginList.add(plugin.toURI().toURL());
                                         break;
                                     }
@@ -155,19 +156,12 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
 
     }
 
-    private String getPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
-        return pluginMapping.getConfig(this.engineType.getEngine()).getConfig(type.getType()).getString(pluginName);
-    }
+    Optional<String> getPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
 
-    private boolean containPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
-        if (pluginMapping.hasPath(this.engineType.getEngine())) {
-            Config engine = pluginMapping.getConfig(this.engineType.getEngine());
-            if (engine.hasPath(type.getType())) {
-                Config plugins = engine.getConfig(type.getType());
-                return plugins.hasPath(pluginName);
-            }
-        }
-        return false;
+        return pluginMapping.getConfig(this.engineType.getEngine()).getConfig(type.getType()).entrySet()
+                .stream().filter(entry -> entry.getKey().equalsIgnoreCase(pluginName))
+                .map(entry -> entry.getValue().unwrapped().toString()).findAny();
+
     }
 
     /**
