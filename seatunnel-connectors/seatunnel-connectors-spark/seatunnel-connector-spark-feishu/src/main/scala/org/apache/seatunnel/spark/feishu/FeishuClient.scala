@@ -18,19 +18,19 @@ package org.apache.seatunnel.spark.feishu
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
-
-import scala.collection.mutable.ArrayBuffer
-import org.apache.http.{HttpEntity, HttpHeaders}
 import org.apache.http.client.methods.{CloseableHttpResponse, RequestBuilder}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.apache.http.util.EntityUtils
+import org.apache.http.{HttpEntity, HttpHeaders}
 import org.apache.seatunnel.common.utils.JsonUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.mutable.ArrayBuffer
+
 class FeishuClient(appId: String, appSecret: String) {
-  /*val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def getToken: String = {
     val url = Config.TOKEN_URL.format(appId, appSecret)
@@ -63,7 +63,7 @@ class FeishuClient(appId: String, appSecret: String) {
       rangeNew = "!" + rangeNew
     }
     val url = Config.SHEET_DATA_URL.format(sheetToken, sheetId, rangeNew)
-    val data = this.requestFeishuApiAndGetData(url)
+    val data = this.requestFeishuApiAndGetData(url).asInstanceOf[ArrayNode]
     if (null == data) {
       throw new RuntimeException("The data is empty, please make sure some data in sheet.")
     }
@@ -72,9 +72,10 @@ class FeishuClient(appId: String, appSecret: String) {
     if (null == valueRange) {
       throw new RuntimeException("The data is empty, please make sure some data in sheet.")
     }
-    valueRange.get(Config.VALUES)
+    valueRange.get(Config.VALUES).asInstanceOf[ArrayNode]
   }
 
+  // todo: add UT
   def getDataset(
                   sheetToken: String,
                   range: String,
@@ -94,24 +95,24 @@ class FeishuClient(appId: String, appSecret: String) {
     }
 
     var schema: StructType = null
-    val schemaData = values.get(titleLineNum - 1)
+    val schemaData = values.get(titleLineNum - 1).asInstanceOf[ArrayNode]
     val fields = ArrayBuffer[StructField]()
     for (index <- 0 until schemaData.size()) {
       val titleName = schemaData.get(index)
       if (null == titleName) {
         throw new RuntimeException("The title name is not allowed null")
       }
-      //val field = DataTypes.createStructField(titleName, DataTypes.StringType, true)
-      //fields += field fixme
+      val field = DataTypes.createStructField(titleName.toString, DataTypes.StringType, true)
+      fields += field
     }
     schema = DataTypes.createStructType(fields.toArray)
 
     val rows = ArrayBuffer[Row]()
     for (index <- start until values.size()) {
-      val jsonArr = values.get(index)
+      val jsonArr = values.get(index).asInstanceOf[ArrayNode]
       val arr = ArrayBuffer[String]()
       for (indexInner <- 0 until jsonArr.size()) {
-        arr += jsonArr.get(indexInner)
+        arr += jsonArr.get(indexInner).toString
       }
 
       val row = Row.fromSeq(arr)
@@ -158,5 +159,5 @@ class FeishuClient(appId: String, appSecret: String) {
         s"Request feishu api error, the code is: $code and msg is: $errorMessage")
     }
     result
-  }*/
+  }
 }

@@ -31,6 +31,7 @@ import org.apache.seatunnel.flink.util.TableUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -44,7 +45,7 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 @AutoService(BaseFlinkSource.class)
@@ -159,8 +160,8 @@ public class KafkaTableStream implements FlinkStreamSource {
                 case "specific":
                     //todo Is json format?
                     String offset = config.getString("offset.reset.specific");
-                    HashMap<Integer, Long> map = new HashMap<>(DEFAULT_INITIAL_CAPACITY);
-                    JsonUtils.toMap(offset).forEach((k, v) -> map.put(Integer.valueOf(String.valueOf(k)), Long.valueOf(v)));
+                    Map<Integer, Long> map = JsonUtils.parseObject(offset, new TypeReference<Map<Integer, Long>>() {
+                    });
                     kafka.startFromSpecificOffsets(map);
                     break;
                 default:
