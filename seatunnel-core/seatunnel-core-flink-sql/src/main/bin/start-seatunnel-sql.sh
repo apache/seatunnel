@@ -32,19 +32,24 @@ else
     args=$@
 fi
 
-ENV_PARAMETERS=$(java -cp ${APP_JAR} org.apache.seatunnel.core.sql.FlinkEnvParameterParser ${args})
-echo "Export JVM_ARGS: ${ENV_PARAMETERS}"
-export JVM_ARGS="${ENV_PARAMETERS}"
+ENV_PARAMETERS_OR_ERROR=$(java -cp ${APP_JAR} org.apache.seatunnel.core.flink.FlinkEnvParameterParser ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+if [ ${EXIT_CODE} -eq 0 ]; then
+  echo "Export JVM_ARGS: ${ENV_PARAMETERS_OR_ERROR}"
+  export JVM_ARGS="${ENV_PARAMETERS_OR_ERROR}"
+else
+    echo "${ENV_PARAMETERS_OR_ERROR}"
+    exit ${EXIT_CODE}
+fi
 
 CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.core.sql.FlinkSqlStarter ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
-    echo ${CMD}
+    echo "${CMD}"
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
     echo "Execute SeaTunnel Flink SQL Job: ${CMD}"
     eval ${CMD}
 else
-    echo ${CMD}
+    echo "${CMD}"
     exit ${EXIT_CODE}
 fi
