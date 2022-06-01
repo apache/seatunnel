@@ -19,6 +19,7 @@ package org.apache.seatunnel.flink.file.source;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
@@ -27,8 +28,8 @@ import org.apache.seatunnel.flink.util.SchemaUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auto.service.AutoService;
 import org.apache.avro.Schema;
 import org.apache.flink.api.common.io.InputFormat;
@@ -94,7 +95,7 @@ public class FileSource implements FlinkBatchSource {
         Path filePath = new Path(path);
         switch (format) {
             case JSON:
-                JSONObject jsonSchemaInfo = JSONObject.parseObject(config.getString(SCHEMA));
+                ObjectNode jsonSchemaInfo = JsonUtils.parseObject(config.getString(SCHEMA));
                 RowTypeInfo jsonInfo = SchemaUtil.getTypeInformation(jsonSchemaInfo);
                 inputFormat = new JsonRowInputFormat(filePath, null, jsonInfo);
                 break;
@@ -107,7 +108,7 @@ public class FileSource implements FlinkBatchSource {
                 this.inputFormat = new OrcRowInputFormat(path, config.getString(SCHEMA), null, DEFAULT_BATCH_SIZE);
                 break;
             case CSV:
-                List<Map<String, String>> csvSchemaInfo = JSONObject.parseObject(config.getString(SCHEMA),
+                List<Map<String, String>> csvSchemaInfo = JsonUtils.parseObject(config.getString(SCHEMA),
                         new TypeReference<List<Map<String, String>>>() {
                         });
                 TypeInformation<?>[] csvType = SchemaUtil.getCsvType(csvSchemaInfo);

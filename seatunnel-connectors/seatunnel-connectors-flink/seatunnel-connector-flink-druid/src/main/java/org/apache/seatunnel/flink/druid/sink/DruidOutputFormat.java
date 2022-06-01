@@ -20,12 +20,13 @@ package org.apache.seatunnel.flink.druid.sink;
 import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_FIELD_DELIMITER;
 import static org.apache.flink.api.java.io.CsvInputFormat.DEFAULT_LINE_DELIMITER;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import org.apache.seatunnel.common.utils.JsonUtils;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.druid.data.input.MaxSizeSplitHintSpec;
 import org.apache.druid.data.input.impl.CsvInputFormat;
 import org.apache.druid.data.input.impl.DimensionsSpec;
@@ -122,14 +123,15 @@ public class DruidOutputFormat extends RichOutputFormat<Row> {
         mapper.configure(SerializationFeature.INDENT_OUTPUT, false);
         mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         String taskJSON = mapper.writeValueAsString(indexTask);
-        JSONObject jsonObject = JSON.parseObject(taskJSON);
+        ObjectNode jsonObject = JsonUtils.parseObject(taskJSON);
         jsonObject.remove("id");
         jsonObject.remove("groupId");
         jsonObject.remove("resource");
-        JSONObject spec = jsonObject.getJSONObject("spec");
+
+        ObjectNode spec = (ObjectNode) jsonObject.get("spec");
         spec.remove("tuningConfig");
         jsonObject.put("spec", spec);
-        taskJSON = jsonObject.toJSONString();
+        taskJSON = jsonObject.toString();
 
         URL url = new URL(this.coordinatorURL + "druid/indexer/v1/task");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
