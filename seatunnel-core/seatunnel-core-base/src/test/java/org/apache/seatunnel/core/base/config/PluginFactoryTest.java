@@ -38,11 +38,11 @@ public class PluginFactoryTest {
     public void getPluginMappingValueTest() throws Exception {
 
         Common.setDeployMode("cluster");
-        Config config = new ConfigBuilder<>(Paths.get(Objects.requireNonNull(PluginFactoryTest.class.getResource("/flink.batch" +
-                ".conf")).getPath()), EngineType.SPARK).getConfig();
+        Config config = new ConfigBuilder<>(Paths.get(Objects.requireNonNull(ClassLoader.getSystemResource("flink.batch" +
+                ".conf")).toURI()), EngineType.SPARK).getConfig();
 
         Config pluginMapping = ConfigFactory
-                .parseFile(new File(Objects.requireNonNull(PluginFactoryTest.class.getResource("/plugin-mapping.properties")).getPath()))
+                .parseFile(new File(Objects.requireNonNull(ClassLoader.getSystemResource("plugin-mapping.properties")).toURI()))
                 .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                 .resolveWith(ConfigFactory.systemProperties(),
                         ConfigResolveOptions.defaults().setAllowUnresolved(true));
