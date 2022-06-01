@@ -38,5 +38,6 @@
         <module>seatunnel-connector-seatunnel-jdbc</module>
         <module>seatunnel-connector-seatunnel-socket</module>
         <module>seatunnel-connector-seatunnel-clickhouse</module>
+        <module>seatunnel-connector-seatunnel-pulsar</module>
     </modules>
 </project>
