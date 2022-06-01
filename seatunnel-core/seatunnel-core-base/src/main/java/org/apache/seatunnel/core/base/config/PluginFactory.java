@@ -156,7 +156,11 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     }
 
     private String getPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
-        return pluginMapping.getConfig(this.engineType.getEngine()).getConfig(type.getType()).getString(pluginName);
+
+        return pluginMapping.getConfig(this.engineType.getEngine()).getConfig(type.getType()).entrySet()
+                .stream().filter(entry -> entry.getKey().equalsIgnoreCase(pluginName))
+                .collect(Collectors.toList()).get(0).getValue().unwrapped().toString();
+
     }
 
     private boolean containPluginMappingValue(Config pluginMapping, PluginType type, String pluginName) {
