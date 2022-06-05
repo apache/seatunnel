@@ -151,6 +151,7 @@ public class PulsarSource implements SeaTunnelSource<SeaTunnelRow, PulsarPartiti
         setStartCursor(config);
         setStopCursor(config);
         setPartitionDiscoverer(config);
+        setDeserialization(config);
 
         if ((partitionDiscoverer instanceof TopicPatternDiscoverer)
             && partitionDiscoveryIntervalMs > 0
@@ -221,6 +222,11 @@ public class PulsarSource implements SeaTunnelSource<SeaTunnelRow, PulsarPartiti
         if (this.partitionDiscoverer == null) {
             throw new IllegalArgumentException(String.format("The properties '%s' or '%s' is required.", PULSAR_TOPIC, PULSAR_TOPIC_PATTERN));
         }
+    }
+
+    private void setDeserialization(Config config) {
+        String format = config.getString("format");
+        // TODO: json format
     }
 
     @Override

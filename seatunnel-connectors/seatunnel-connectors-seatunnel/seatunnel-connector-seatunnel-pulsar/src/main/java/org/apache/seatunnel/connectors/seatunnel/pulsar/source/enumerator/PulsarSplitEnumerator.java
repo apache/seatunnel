@@ -78,7 +78,7 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
     private boolean noMoreNewPartitionSplits = false;
 
     public PulsarSplitEnumerator(
-        Context<PulsarPartitionSplit> context,
+        SourceSplitEnumerator.Context<PulsarPartitionSplit> context,
         PulsarAdminConfig adminConfig,
         PulsarDiscoverer partitionDiscoverer,
         long partitionDiscoveryIntervalMs,
@@ -96,7 +96,7 @@ public class PulsarSplitEnumerator implements SourceSplitEnumerator<PulsarPartit
             Collections.emptySet());
     }
 
-    public PulsarSplitEnumerator(Context<PulsarPartitionSplit> context,
+    public PulsarSplitEnumerator(SourceSplitEnumerator.Context<PulsarPartitionSplit> context,
                                  PulsarAdminConfig adminConfig,
                                  PulsarDiscoverer partitionDiscoverer,
                                  long partitionDiscoveryIntervalMs,

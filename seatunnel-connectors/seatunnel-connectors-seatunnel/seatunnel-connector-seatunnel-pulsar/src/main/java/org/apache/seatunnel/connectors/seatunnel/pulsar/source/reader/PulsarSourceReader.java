@@ -75,7 +75,7 @@ public class PulsarSourceReader implements SourceReader<SeaTunnelRow, PulsarPart
      */
     private boolean noMoreSplitsAssignment = false;
 
-    public PulsarSourceReader(Context context,
+    public PulsarSourceReader(SourceReader.Context context,
                               PulsarClientConfig clientConfig,
                               PulsarConsumerConfig consumerConfig,
                               StartCursor startCursor,
