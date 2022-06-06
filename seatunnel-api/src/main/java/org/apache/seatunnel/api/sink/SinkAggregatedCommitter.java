@@ -22,7 +22,7 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * The committer combine taskManager/Worker Commit message. Then commit it use
+ * The committer combine taskManager/Worker Commit message. Then commit it uses
  * {@link SinkAggregatedCommitter#commit(List)}. This class will execute in single thread.
  *
  * @param <CommitInfoT>           The type of commit message.

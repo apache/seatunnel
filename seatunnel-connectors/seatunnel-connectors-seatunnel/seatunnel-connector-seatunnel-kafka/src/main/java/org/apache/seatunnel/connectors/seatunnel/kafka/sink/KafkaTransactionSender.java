@@ -63,6 +63,8 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     @Override
     public Optional<KafkaCommitInfo> prepareCommit() {
+        // TODO kafka can't use transactionId to commit on different producer directly, we should find
+        //  another way
         KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties);
         return Optional.of(kafkaCommitInfo);
     }
@@ -85,6 +87,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
             KafkaProducer<K, V> historyProducer = getTransactionProducer(kafkaProperties, kafkaState.getTransactionId());
             historyProducer.initTransactions();
             historyProducer.abortTransaction();
+            historyProducer.close();
         }
     }
 
@@ -102,7 +105,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     }
 
     private KafkaProducer<K, V> getTransactionProducer(Properties properties, String transactionId) {
-        Properties transactionProperties = new Properties(properties);
+        Properties transactionProperties = (Properties) properties.clone();
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
         KafkaProducer<K, V> transactionProducer = new KafkaProducer<>(transactionProperties);
         transactionProducer.initTransactions();
