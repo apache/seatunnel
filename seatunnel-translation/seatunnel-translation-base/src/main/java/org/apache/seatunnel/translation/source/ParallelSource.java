@@ -170,13 +170,17 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Ba
     public Map<Integer, List<byte[]>> snapshotState(long checkpointId) throws Exception {
         byte[] enumeratorStateBytes = enumeratorStateSerializer.serialize(splitEnumerator.snapshotState(checkpointId));
         List<SplitT> splitStates = reader.snapshotState(checkpointId);
-        final List<byte[]> readerStateBytes = new ArrayList<>(splitStates.size());
-        for (SplitT splitState : splitStates) {
-            readerStateBytes.add(splitSerializer.serialize(splitState));
-        }
         Map<Integer, List<byte[]>> allStates = new HashMap<>(2);
-        allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
-        allStates.put(subtaskId, readerStateBytes);
+        if (enumeratorStateBytes != null) {
+            allStates.put(-1, Collections.singletonList(enumeratorStateBytes));
+        }
+        if (splitStates != null) {
+            final List<byte[]> readerStateBytes = new ArrayList<>(splitStates.size());
+            for (SplitT splitState : splitStates) {
+                readerStateBytes.add(splitSerializer.serialize(splitState));
+            }
+            allStates.put(subtaskId, readerStateBytes);
+        }
         return allStates;
     }
 
