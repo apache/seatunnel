@@ -62,9 +62,11 @@ public class Common {
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
+        } else if (DeployMode.CLUSTER == MODE) {
+            return Paths.get("");
+        } else {
+            throw new IllegalStateException("deploy mode not support : " + MODE);
         }
-        // deploy mode: cluster
-        return Paths.get("");
     }
 
     public static Path appLibDir() {
