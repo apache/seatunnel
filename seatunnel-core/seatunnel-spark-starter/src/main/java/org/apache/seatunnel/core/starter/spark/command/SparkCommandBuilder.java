@@ -26,10 +26,7 @@ public class SparkCommandBuilder implements CommandBuilder<SparkCommandArgs> {
 
     @Override
     public Command<SparkCommandArgs> buildCommand(SparkCommandArgs commandArgs) {
-        if (Boolean.FALSE.equals(Common.setDeployMode(commandArgs.getDeployMode().getName()))) {
-            throw new IllegalArgumentException(
-                    String.format("Deploy mode: %s is Illegal", commandArgs.getDeployMode()));
-        }
+        Common.setDeployMode(commandArgs.getDeployMode());
         return new SeaTunnelApiCommandBuilder().buildCommand(commandArgs);
     }
 
