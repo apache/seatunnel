@@ -20,12 +20,17 @@ package org.apache.seatunnel.translation.flink.sink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 
 import org.apache.flink.api.connector.sink.GlobalCommitter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter<CommT, GlobalCommT> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkGlobalCommitter.class);
 
     private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
 
@@ -45,7 +50,12 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter
 
     @Override
     public List<GlobalCommT> commit(List<GlobalCommT> globalCommittables) throws IOException {
-        return aggregatedCommitter.commit(globalCommittables);
+        List<GlobalCommT> reCommittable = aggregatedCommitter.commit(globalCommittables);
+        if (reCommittable != null && !reCommittable.isEmpty()) {
+            LOGGER.warn("this version not support re-commit when use flink engine");
+        }
+        // TODO re-commit the data
+        return new ArrayList<>();
     }
 
     @Override

@@ -66,7 +66,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
         this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowTypeInfo);
-        if (KafkaSemantics.AT_LEAST_ONCE.equals(getKafkaSemantics(pluginConfig))) {
+        if (KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig))) {
             // the recover state
             this.kafkaProducerSender = new KafkaTransactionSender<>(getKafkaProperties(pluginConfig));
             this.kafkaProducerSender.abortTransaction(kafkaStates);

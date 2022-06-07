@@ -29,7 +29,7 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
     /**
      * Send data to kafka.
      *
-     * @param seaTunnelRow data to send
+     * @param producerRecord data to send
      */
     void send(ProducerRecord<K, V> producerRecord);
 
