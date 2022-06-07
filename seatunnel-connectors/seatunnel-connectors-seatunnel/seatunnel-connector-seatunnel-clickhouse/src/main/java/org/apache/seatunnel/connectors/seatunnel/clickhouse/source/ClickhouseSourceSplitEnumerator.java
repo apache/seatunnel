@@ -21,10 +21,22 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 public class ClickhouseSourceSplitEnumerator implements
         SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
+
+    private final Context<ClickhouseSourceSplit> context;
+    private final Set<Integer> readers;
+    private volatile int assigned = -1;
+
+    ClickhouseSourceSplitEnumerator(Context<ClickhouseSourceSplit> enumeratorContext) {
+        this.context = enumeratorContext;
+        this.readers = new HashSet<>();
+    }
 
     @Override
     public void open() {
@@ -43,12 +55,22 @@ public class ClickhouseSourceSplitEnumerator implements
 
     @Override
     public void addSplitsBack(List<ClickhouseSourceSplit> splits, int subtaskId) {
-
+        if (splits.isEmpty()) {
+            return;
+        }
+        if (subtaskId == assigned) {
+            Optional<Integer> otherReader = readers.stream().filter(r -> r != subtaskId).findAny();
+            if (otherReader.isPresent()) {
+                context.assignSplit(otherReader.get(), splits);
+            } else {
+                assigned = -1;
+            }
+        }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return 0;
+        return assigned < 0 ? 0 : 1;
     }
 
     @Override
@@ -58,7 +80,11 @@ public class ClickhouseSourceSplitEnumerator implements
 
     @Override
     public void registerReader(int subtaskId) {
-
+        readers.add(subtaskId);
+        if (assigned < 0) {
+            assigned = subtaskId;
+            context.assignSplit(subtaskId, new ClickhouseSourceSplit());
+        }
     }
 
     @Override

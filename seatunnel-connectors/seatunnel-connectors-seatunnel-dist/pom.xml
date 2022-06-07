@@ -45,6 +45,11 @@
             <artifactId>seatunnel-connector-seatunnel-kafka</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-seatunnel-clickhouse</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -17,28 +17,41 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import com.clickhouse.client.*;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SQL;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.*;
+import com.clickhouse.client.ClickHouseClient;
+import com.clickhouse.client.ClickHouseException;
+import com.clickhouse.client.ClickHouseFormat;
+import com.clickhouse.client.ClickHouseNode;
+import com.clickhouse.client.ClickHouseProtocol;
+import com.clickhouse.client.ClickHouseResponse;
+import com.google.auto.service.AutoService;
 
+@AutoService(SeaTunnelSource.class)
 public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
 
     private ClickHouseNode server;
     private SeaTunnelRowTypeInfo rowTypeInfo;
+    private String sql;
 
     @Override
     public String getPluginName() {
@@ -54,14 +67,23 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
         String[] nodeAndPort = config.getString(NODE_ADDRESS).split(":", 2);
         server = ClickHouseNode.of(nodeAndPort[0], ClickHouseProtocol.HTTP,
                 Integer.parseInt(nodeAndPort[1]), config.getString(DATABASE));
+        sql = config.getString(SQL);
         try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
              ClickHouseResponse response =
                      client.connect(server).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                              .query(modifySQLToLimit1(config.getString(SQL))).executeAndWait()) {
 
-            for (int i = 0; i < response.getColumns().size(); i++) {
+            int columnSize = response.getColumns().size();
+            String[] fieldNames = new String[columnSize];
+            SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType[columnSize];
 
+            for (int i = 0; i < columnSize; i++) {
+                fieldNames[i] = response.getColumns().get(i).getColumnName();
+                seaTunnelDataTypes[i] = TypeConvertUtil.convert(response.getColumns().get(i).getDataType());
             }
+
+            this.rowTypeInfo = new SeaTunnelRowTypeInfo(fieldNames, seaTunnelDataTypes);
+
         } catch (ClickHouseException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, e.getMessage());
         }
@@ -74,22 +96,22 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
     @Override
     public SeaTunnelRowTypeInfo getRowTypeInfo() {
-        return null;
+        return this.rowTypeInfo;
     }
 
     @Override
     public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new ClickhouseSourceReader();
+        return new ClickhouseSourceReader(server, readerContext, this.rowTypeInfo, sql);
     }
 
     @Override
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext) throws Exception {
-        return new ClickhouseSourceSplitEnumerator();
+        return new ClickhouseSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext, ClickhouseSourceState checkpointState) throws Exception {
-        return new ClickhouseSourceSplitEnumerator();
+        return new ClickhouseSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override

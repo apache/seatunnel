@@ -109,6 +109,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                     while (flag.get()) {
                         try {
                             reader.pollNext(rowCollector);
+                            Thread.sleep(SLEEP_TIME_INTERVAL);
                         } catch (Exception e) {
                             this.running = false;
                             flag.set(false);

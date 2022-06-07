@@ -81,6 +81,7 @@ public class TypeConverterUtils {
         if (dataType instanceof PojoType) {
             return (TypeInformation<T2>) convertPojoType((PojoType<T1>) dataType);
         }
+        // TODO add LocalDateTime convert
         throw new IllegalArgumentException("Unsupported data type: " + dataType);
     }
 
