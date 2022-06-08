@@ -50,7 +50,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     public HiveSinkWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
                           Config pluginConfig,
-                          Context context,
+                          SinkWriter.Context context,
                           long jobId,
                           HiveSinkState hiveSinkState) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
@@ -64,7 +64,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     public HiveSinkWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
                           Config pluginConfig,
-                          Context context,
+                          SinkWriter.Context context,
                           long jobId) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
