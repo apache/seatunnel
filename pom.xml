@@ -615,17 +615,12 @@
                 <version>${guava.version}</version>
             </dependency>
 
-            <!-- hdfs dependency -->
             <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-common</artifactId>
-                <version>${hadoop.version}</version>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-shaded-hadoop-2</artifactId>
+                <version>${flink-shaded-hadoop-2.version}</version>
             </dependency>
-            <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-hdfs</artifactId>
-                <version>${hadoop.version}</version>
-            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
