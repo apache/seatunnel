@@ -25,10 +25,10 @@ import org.apache.spark.sql.types.DataType;
 public interface SparkDataTypeConverter<T1, T2> extends Converter<T1, T2> {
 
     /**
-     * Convert SeaTunnel {@link SeaTunnelDataType} to flink {@link DataType}.
+     * Convert SeaTunnel {@link SeaTunnelDataType} to spark {@link DataType}.
      *
      * @param seaTunnelDataType SeaTunnel {@link SeaTunnelDataType}
-     * @return flink {@link DataType}
+     * @return spark {@link DataType}
      */
     @Override
     T2 convert(T1 seaTunnelDataType);

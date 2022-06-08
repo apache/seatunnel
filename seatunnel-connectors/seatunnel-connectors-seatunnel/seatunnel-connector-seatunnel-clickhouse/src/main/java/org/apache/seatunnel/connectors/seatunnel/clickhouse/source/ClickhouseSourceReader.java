@@ -32,21 +32,22 @@ import com.clickhouse.client.ClickHouseResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, ClickhouseSourceSplit> {
 
-    private final ClickHouseNode server;
+    private final List<ClickHouseNode> servers;
     private ClickHouseClient client;
-    private SeaTunnelRowTypeInfo rowTypeInfo;
-    private SourceReader.Context readerContext;
-    private ClickHouseRequest request;
+    private final SeaTunnelRowTypeInfo rowTypeInfo;
+    private final SourceReader.Context readerContext;
+    private ClickHouseRequest<?> request;
     private String sql;
 
     private final List<ClickhouseSourceSplit> splits;
 
-    ClickhouseSourceReader(ClickHouseNode server, SourceReader.Context readerContext,
+    ClickhouseSourceReader(List<ClickHouseNode> servers, SourceReader.Context readerContext,
                            SeaTunnelRowTypeInfo rowTypeInfo, String sql) {
-        this.server = server;
+        this.servers = servers;
         this.readerContext = readerContext;
         this.rowTypeInfo = rowTypeInfo;
         this.sql = sql;
@@ -55,6 +56,8 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
 
     @Override
     public void open() {
+        Random random = new Random();
+        ClickHouseNode server = servers.get(random.nextInt(servers.size()));
         client = ClickHouseClient.newInstance(server.getProtocol());
         request = client.connect(server).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
     }

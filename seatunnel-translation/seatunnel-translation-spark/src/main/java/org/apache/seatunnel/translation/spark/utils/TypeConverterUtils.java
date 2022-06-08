@@ -17,12 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.utils;
 
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.PojoType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
-import org.apache.seatunnel.api.table.type.TimestampType;
+import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.translation.spark.types.ArrayTypeConverter;
 import org.apache.seatunnel.translation.spark.types.BasicTypeConverter;
 import org.apache.seatunnel.translation.spark.types.PojoTypeConverter;
@@ -36,6 +31,9 @@ import org.apache.spark.sql.types.StructType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Date;
 
 public class TypeConverterUtils {
@@ -58,7 +56,23 @@ public class TypeConverterUtils {
             return convertPojoType((PojoType<T>) seaTunnelDataType);
         }
 
+        if (seaTunnelDataType instanceof LocalTimeType) {
+            return convertLocalTimeType((LocalTimeType<T>) seaTunnelDataType);
+        }
+
         throw new IllegalArgumentException("Unsupported data type: " + seaTunnelDataType);
+    }
+
+    private static <T> DataType convertLocalTimeType(LocalTimeType<T> localTimeType) {
+        Class<T> physicalTypeClass = localTimeType.getPhysicalTypeClass();
+        if (physicalTypeClass.equals(LocalDate.class)) {
+
+        } else if (physicalTypeClass.equals(LocalDateTime.class)) {
+
+        } else if (physicalTypeClass.equals(LocalTime.class)) {
+
+        }
+        throw new IllegalArgumentException("Unsupported local time type: " + physicalTypeClass);
     }
 
     @SuppressWarnings("unchecked")

@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
+package org.apache.seatunnel.translation.spark.types;
 
-/**
- * The config of clickhouse
- */
-public class Config {
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.spark.sql.types.DataType;
 
-    public static final String NODE_ADDRESS = "node_address";
+public class LocalTimeTypeConverter<T1> implements SparkDataTypeConverter<LocalTimeType<T1>, DataType> {
 
-    public static final String DATABASE = "database";
 
-    public static final String SQL = "sql";
+    private LocalTimeType<T1> seaTunnelDataType;
+    private DataType dataType;
 
-    public static final String USERNAME = "username";
+    @Override
+    public DataType convert(LocalTimeType<T1> seaTunnelDataType) {
+        return dataType;
+    }
 
-    public static final String PASSWORD = "password";
+    @Override
+    public LocalTimeType<T1> reconvert(DataType dataType) {
+        return seaTunnelDataType;
+    }
 
 }

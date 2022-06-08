@@ -19,11 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -39,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.clickhouse.client.ClickHouseClient;
+import com.clickhouse.client.ClickHouseCredentials;
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseFormat;
 import com.clickhouse.client.ClickHouseNode;
@@ -46,10 +51,15 @@ import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @AutoService(SeaTunnelSource.class)
 public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
 
-    private ClickHouseNode server;
+    private SeaTunnelContext seaTunnelContext;
+    private List<ClickHouseNode> servers;
     private SeaTunnelRowTypeInfo rowTypeInfo;
     private String sql;
 
@@ -60,17 +70,22 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, NODE_ADDRESS, DATABASE, SQL);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, NODE_ADDRESS, DATABASE, SQL, USERNAME, PASSWORD);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        String[] nodeAndPort = config.getString(NODE_ADDRESS).split(":", 2);
-        server = ClickHouseNode.of(nodeAndPort[0], ClickHouseProtocol.HTTP,
-                Integer.parseInt(nodeAndPort[1]), config.getString(DATABASE));
+        servers = Arrays.stream(config.getString(NODE_ADDRESS).split(",")).map(address -> {
+            String[] nodeAndPort = address.split(":", 2);
+            return ClickHouseNode.builder().host(nodeAndPort[0]).port(ClickHouseProtocol.HTTP,
+                            Integer.parseInt(nodeAndPort[1])).database(config.getString(DATABASE))
+                    .credentials(ClickHouseCredentials.fromUserAndPassword(config.getString(USERNAME),
+                            config.getString(PASSWORD))).build();
+        }).collect(Collectors.toList());
+
         sql = config.getString(SQL);
-        try (ClickHouseClient client = ClickHouseClient.newInstance(server.getProtocol());
+        try (ClickHouseClient client = ClickHouseClient.newInstance(servers.get(0).getProtocol());
              ClickHouseResponse response =
-                     client.connect(server).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                     client.connect(servers.get(0)).format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                              .query(modifySQLToLimit1(config.getString(SQL))).executeAndWait()) {
 
             int columnSize = response.getColumns().size();
@@ -95,13 +110,18 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
     }
 
     @Override
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
+    }
+
+    @Override
     public SeaTunnelRowTypeInfo getRowTypeInfo() {
         return this.rowTypeInfo;
     }
 
     @Override
     public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new ClickhouseSourceReader(server, readerContext, this.rowTypeInfo, sql);
+        return new ClickhouseSourceReader(servers, readerContext, this.rowTypeInfo, sql);
     }
 
     @Override
@@ -117,5 +137,15 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
     @Override
     public Serializer<ClickhouseSourceState> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
+    }
+
+    @Override
+    public SeaTunnelContext getSeaTunnelContext() {
+        return seaTunnelContext;
+    }
+
+    @Override
+    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
+        this.seaTunnelContext = seaTunnelContext;
     }
 }
