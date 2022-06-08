@@ -39,6 +39,25 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
     }
 
     @Override
+    public void abortMore() {
+        // delete files
+        beingWrittenOutputStream.keySet().stream().forEach(file -> {
+            try {
+                boolean deleted = HdfsUtils.deleteFile(file);
+                if (!deleted) {
+                    LOGGER.error("delete file {} error", file);
+                    throw new IOException(String.format("delete file {} error", file));
+                }
+            } catch (IOException e) {
+                LOGGER.error("delete file {} error", file);
+                throw new RuntimeException(e);
+            }
+        });
+
+        this.beingWrittenOutputStream = new HashMap<>();
+    }
+
+    @Override
     public void write(SeaTunnelRow seaTunnelRow) {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);

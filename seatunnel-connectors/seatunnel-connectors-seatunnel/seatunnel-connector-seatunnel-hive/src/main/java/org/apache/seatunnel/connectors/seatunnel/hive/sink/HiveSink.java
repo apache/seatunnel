@@ -6,6 +6,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -24,10 +25,16 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     private Config config;
     private long sinkId;
+    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
 
     @Override
     public String getPluginName() {
         return "Hive";
+    }
+
+    @Override
+    public void setTypeInfo(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
+        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
     }
 
     @Override
@@ -38,7 +45,12 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     @Override
     public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        return null;
+        return new HiveSinkWriter(seaTunnelRowTypeInfo, config, context, System.currentTimeMillis());
+    }
+
+    @Override
+    public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> restoreWriter(SinkWriter.Context context, List<HiveSinkState> states) throws IOException {
+        return new HiveSinkWriter(seaTunnelRowTypeInfo, config, context, System.currentTimeMillis());
     }
 
     @Override
@@ -54,10 +66,5 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
     @Override
     public Optional<SinkAggregatedCommitter<HiveCommitInfo, HiveAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
         return Optional.of(new HiveSinkAggregatedCommitter());
-    }
-
-    @Override
-    public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> restoreWriter(SinkWriter.Context context, List<HiveSinkState> states) throws IOException {
-        return SeaTunnelSink.super.restoreWriter(context, states);
     }
 }

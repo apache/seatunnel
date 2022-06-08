@@ -24,4 +24,6 @@ public interface FileWriter {
      * @param checkpointId checkpointId
      */
     void resetFileWriter(String checkpointId);
+
+    void abort();
 }

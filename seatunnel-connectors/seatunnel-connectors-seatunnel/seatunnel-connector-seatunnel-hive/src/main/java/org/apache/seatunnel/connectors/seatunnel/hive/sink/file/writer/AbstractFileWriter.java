@@ -112,4 +112,12 @@ public abstract class AbstractFileWriter implements FileWriter {
     }
 
     public abstract void resetMoreFileWriter(String checkpointId);
+
+    public void abort() {
+        this.needMoveFiles = new HashMap<>();
+        this.beingWrittenFile = new HashMap<>();
+        this.abortMore();
+    }
+
+    public abstract void abortMore();
 }
