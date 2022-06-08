@@ -46,7 +46,7 @@ public class FlinkStarter implements Starter {
     FlinkStarter(String[] args) {
         this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.JAR);
         // set the deployment mode, used to get the job jar path.
-        Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());
+        Common.setDeployMode(flinkCommandArgs.getDeployMode());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
     }
 

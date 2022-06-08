@@ -143,7 +143,7 @@ public class SparkStarter implements Starter {
     @Override
     public List<String> buildCommands() throws IOException {
         setSparkConf();
-        Common.setDeployMode(commandArgs.getDeployMode().getName());
+        Common.setDeployMode(commandArgs.getDeployMode());
         this.jars.addAll(getPluginsJarDependencies());
         this.jars.addAll(listJars(Common.appLibDir()));
         this.jars.addAll(getConnectorJarDependencies());
@@ -395,7 +395,7 @@ public class SparkStarter implements Starter {
 
         @Override
         public List<String> buildCommands() throws IOException {
-            Common.setDeployMode(commandArgs.getDeployMode().getName());
+            Common.setDeployMode(commandArgs.getDeployMode());
             Path pluginTarball = Common.pluginTarball();
             if (Files.notExists(pluginTarball)) {
                 CompressionUtils.tarGzip(Common.pluginRootDir(), pluginTarball);
