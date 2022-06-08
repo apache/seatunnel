@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
-import com.alibaba.fastjson.JSON;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.HashMap;
@@ -45,6 +45,6 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<Str
         for (int i = 0; i < fieldNames.length; i++) {
             map.put(fieldNames[i], fields[i]);
         }
-        return new ProducerRecord<>(topic, null, JSON.toJSONString(map));
+        return new ProducerRecord<>(topic, null, JsonUtils.toJsonString(map));
     }
 }
