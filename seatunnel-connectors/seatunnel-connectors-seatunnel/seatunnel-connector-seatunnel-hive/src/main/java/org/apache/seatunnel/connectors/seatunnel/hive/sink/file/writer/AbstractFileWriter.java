@@ -85,14 +85,9 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     private String getBeingWrittenFileKey(SeaTunnelRow seaTunnelRow) {
         if (this.hiveSinkConfig.getPartitionFieldNames() != null && this.hiveSinkConfig.getPartitionFieldNames().size() > 0) {
-            List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> {
-                StringBuilder sbd = new StringBuilder(partitionKey);
-                sbd.append("=").append(seaTunnelRow.getFieldMap().get(partitionKey));
-                return sbd.toString();
-            }).collect(Collectors.toList());
+            List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> partitionKey + "=" + seaTunnelRow.getFieldMap().get(partitionKey)).collect(Collectors.toList());
 
-            String beingWrittenFileKey = String.join("/", collect);
-            return beingWrittenFileKey;
+            return String.join("/", collect);
         } else {
             // If there is no partition field in data, We use the fixed value NON_PARTITION as the partition directory
             return NON_PARTITION;
@@ -121,6 +116,7 @@ public abstract class AbstractFileWriter implements FileWriter {
         return tmpPath.replaceAll(NON_PARTITION + "/", "");
     }
 
+    @Override
     public void resetFileWriter(String checkpointId) {
         this.checkpointId = checkpointId;
         this.needMoveFiles = new HashMap<>();
@@ -130,6 +126,7 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     public abstract void resetMoreFileWriter(String checkpointId);
 
+    @Override
     public void abort() {
         this.needMoveFiles = new HashMap<>();
         this.beingWrittenFile = new HashMap<>();

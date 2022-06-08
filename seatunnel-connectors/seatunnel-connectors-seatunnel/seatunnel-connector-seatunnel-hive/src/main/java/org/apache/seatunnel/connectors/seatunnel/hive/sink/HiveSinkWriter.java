@@ -86,7 +86,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
         /**
          * We will clear the needMoveFiles in {@link #snapshotState()}, So we need copy the needMoveFiles map here.
          */
-        Map<String, String> commitInfoMap = new HashMap<>();
+        Map<String, String> commitInfoMap = new HashMap<>(fileWriter.getNeedMoveFiles().size());
         commitInfoMap.putAll(fileWriter.getNeedMoveFiles());
         return Optional.of(new HiveCommitInfo(commitInfoMap));
     }
@@ -103,7 +103,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     @Override
     public List<HiveSinkState> snapshotState() throws IOException {
-        Map<String, String> commitInfoMap = new HashMap<>();
+        Map<String, String> commitInfoMap = new HashMap<>(fileWriter.getNeedMoveFiles().size());
 
         // snapshotState called after prepareCommit, so all files have been added to needMoveFiles
         commitInfoMap.putAll(fileWriter.getNeedMoveFiles());
