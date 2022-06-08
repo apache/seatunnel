@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,14 +92,9 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     private String getBeingWrittenFileKey(@NonNull SeaTunnelRow seaTunnelRow) {
         if (this.hiveSinkConfig.getPartitionFieldNames() != null && this.hiveSinkConfig.getPartitionFieldNames().size() > 0) {
-            List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> {
-                StringBuilder sbd = new StringBuilder(partitionKey);
-                sbd.append("=").append(seaTunnelRow.getFieldMap().get(partitionKey));
-                return sbd.toString();
-            }).collect(Collectors.toList());
+            List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> partitionKey + "=" + seaTunnelRow.getFieldMap().get(partitionKey)).collect(Collectors.toList());
 
-            String beingWrittenFileKey = String.join("/", collect);
-            return beingWrittenFileKey;
+            return String.join("/", collect);
         } else {
             // If there is no partition field in data, We use the fixed value NON_PARTITION as the partition directory
             return NON_PARTITION;
@@ -112,6 +124,7 @@ public abstract class AbstractFileWriter implements FileWriter {
         return tmpPath.replaceAll(NON_PARTITION + "/", "");
     }
 
+    @Override
     public void resetFileWriter(@NonNull String checkpointId) {
         this.checkpointId = checkpointId;
         this.needMoveFiles = new HashMap<>();
@@ -121,6 +134,7 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     public abstract void resetMoreFileWriter(@NonNull String checkpointId);
 
+    @Override
     public void abort() {
         this.needMoveFiles = new HashMap<>();
         this.beingWrittenFile = new HashMap<>();

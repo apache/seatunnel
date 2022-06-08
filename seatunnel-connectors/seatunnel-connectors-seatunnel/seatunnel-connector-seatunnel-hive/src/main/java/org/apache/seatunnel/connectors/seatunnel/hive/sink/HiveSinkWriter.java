@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -9,7 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.HdfsTxtFi
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
-import lombok.Data;
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,9 +48,9 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     private HiveSinkConfig hiveSinkConfig;
 
-    public HiveSinkWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
-                          Config pluginConfig,
-                          Context context,
+    public HiveSinkWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+                          @NonNull Config pluginConfig,
+                          @NonNull SinkWriter.Context context,
                           long jobId) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
@@ -58,7 +75,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
         /**
          * We will clear the needMoveFiles in {@link #snapshotState()}, So we need copy the needMoveFiles map here.
          */
-        Map<String, String> commitInfoMap = new HashMap<>();
+        Map<String, String> commitInfoMap = new HashMap<>(fileWriter.getNeedMoveFiles().size());
         commitInfoMap.putAll(fileWriter.getNeedMoveFiles());
         return Optional.of(new HiveCommitInfo(commitInfoMap));
     }
@@ -75,7 +92,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     @Override
     public List<HiveSinkState> snapshotState() throws IOException {
-        //clear the map
+        //reset FileWrite
         fileWriter.resetFileWriter(System.currentTimeMillis() + "");
         return Lists.newArrayList(new HiveSinkState(hiveSinkConfig));
     }
