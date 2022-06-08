@@ -1,8 +1,12 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
+
+import lombok.NonNull;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,10 +27,13 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     protected String checkpointId;
 
-    public AbstractFileWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
-                              HiveSinkConfig hiveSinkConfig,
+    public AbstractFileWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+                              @NonNull HiveSinkConfig hiveSinkConfig,
                               long jobId,
                               int subTaskIndex) {
+        checkArgument(jobId > 0);
+        checkArgument(subTaskIndex > -1);
+
         this.needMoveFiles = new HashMap<>();
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.jobId = jobId;
@@ -36,7 +43,7 @@ public abstract class AbstractFileWriter implements FileWriter {
         this.beingWrittenFile = new HashMap<>();
     }
 
-    public String getOrCreateFilePathBeingWritten(SeaTunnelRow seaTunnelRow) {
+    public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
         String beingWrittenFileKey = getBeingWrittenFileKey(seaTunnelRow);
         // get filePath from beingWrittenFile
         String beingWrittenFilePath = beingWrittenFile.get(beingWrittenFileKey);
@@ -66,7 +73,7 @@ public abstract class AbstractFileWriter implements FileWriter {
         }
     }
 
-    private String getBeingWrittenFileKey(SeaTunnelRow seaTunnelRow) {
+    private String getBeingWrittenFileKey(@NonNull SeaTunnelRow seaTunnelRow) {
         if (this.hiveSinkConfig.getPartitionFieldNames() != null && this.hiveSinkConfig.getPartitionFieldNames().size() > 0) {
             List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> {
                 StringBuilder sbd = new StringBuilder(partitionKey);
@@ -87,9 +94,10 @@ public abstract class AbstractFileWriter implements FileWriter {
      *
      * @return
      */
+    @NonNull
     public abstract String getFileSuffix();
 
-    public String getHiveLocation(String seaTunnelFilePath) {
+    public String getHiveLocation(@NonNull String seaTunnelFilePath) {
         StringBuilder sbf = new StringBuilder(hiveSinkConfig.getSinkTmpFsRootPath());
         sbf.append("/")
             .append(SEATUNNEL)
@@ -104,14 +112,14 @@ public abstract class AbstractFileWriter implements FileWriter {
         return tmpPath.replaceAll(NON_PARTITION + "/", "");
     }
 
-    public void resetFileWriter(String checkpointId) {
+    public void resetFileWriter(@NonNull String checkpointId) {
         this.checkpointId = checkpointId;
         this.needMoveFiles = new HashMap<>();
         this.beingWrittenFile = new HashMap<>();
         this.resetMoreFileWriter(checkpointId);
     }
 
-    public abstract void resetMoreFileWriter(String checkpointId);
+    public abstract void resetMoreFileWriter(@NonNull String checkpointId);
 
     public void abort() {
         this.needMoveFiles = new HashMap<>();

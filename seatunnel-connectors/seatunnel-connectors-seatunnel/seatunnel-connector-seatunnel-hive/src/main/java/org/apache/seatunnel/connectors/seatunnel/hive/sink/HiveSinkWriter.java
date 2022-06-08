@@ -5,11 +5,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.FileWriter;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.HdfsTxtFileWriter;
-import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.HdfsUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.common.collect.Lists;
+import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +25,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
     private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
     private Config pluginConfig;
     private SinkWriter.Context context;
-    private HiveSinkState hiveSinkState;
-    private long sinkId;
+    private long jobId;
 
     private FileWriter fileWriter;
 
@@ -35,28 +34,17 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
     public HiveSinkWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
                           Config pluginConfig,
                           Context context,
-                          long jobId,
-                          HiveSinkState hiveSinkState) {
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
-        this.pluginConfig = pluginConfig;
-        this.context = context;
-        this.sinkId = jobId;
-        this.hiveSinkState = hiveSinkState;
-        hiveSinkConfig = new HiveSinkConfig(pluginConfig);
-        fileWriter = new HdfsTxtFileWriter(seaTunnelRowTypeInfo, hiveSinkConfig, jobId, context.getIndexOfSubtask());
-    }
-
-    public HiveSinkWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
-                          Config pluginConfig,
-                          Context context,
                           long jobId) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
         this.context = context;
-        this.sinkId = jobId;
+        this.jobId = jobId;
 
-        hiveSinkConfig = new HiveSinkConfig(pluginConfig);
-        fileWriter = new HdfsTxtFileWriter(seaTunnelRowTypeInfo, hiveSinkConfig, jobId, context.getIndexOfSubtask());
+        hiveSinkConfig = new HiveSinkConfig(this.pluginConfig);
+        fileWriter = new HdfsTxtFileWriter(this.seaTunnelRowTypeInfo,
+            hiveSinkConfig,
+            this.jobId,
+            this.context.getIndexOfSubtask());
     }
 
     @Override
@@ -87,13 +75,8 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     @Override
     public List<HiveSinkState> snapshotState() throws IOException {
-        Map<String, String> commitInfoMap = new HashMap<>();
-
-        // snapshotState called after prepareCommit, so all files have been added to needMoveFiles
-        commitInfoMap.putAll(fileWriter.getNeedMoveFiles());
-
         //clear the map
         fileWriter.resetFileWriter(System.currentTimeMillis() + "");
-        return Lists.newArrayList(new HiveSinkState(commitInfoMap, hiveSinkConfig));
+        return Lists.newArrayList(new HiveSinkState(hiveSinkConfig));
     }
 }

@@ -2,12 +2,15 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import lombok.NonNull;
+
 import java.util.Map;
 
 public interface FileWriter {
 
-    void write(SeaTunnelRow seaTunnelRow);
+    void write(@NonNull SeaTunnelRow seaTunnelRow);
 
+    @NonNull
     Map<String, String> getNeedMoveFiles();
 
     /**
@@ -23,7 +26,7 @@ public interface FileWriter {
      *
      * @param checkpointId checkpointId
      */
-    void resetFileWriter(String checkpointId);
+    void resetFileWriter(@NonNull String checkpointId);
 
     void abort();
 }

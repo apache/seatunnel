@@ -24,7 +24,7 @@ import java.util.Optional;
 public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, HiveCommitInfo, HiveAggregatedCommitInfo> {
 
     private Config config;
-    private long sinkId;
+    private long jobId;
     private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
 
     @Override
@@ -40,7 +40,7 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.config = pluginConfig;
-        this.sinkId = System.currentTimeMillis();
+        this.jobId = System.currentTimeMillis();
     }
 
     @Override

@@ -1,8 +1,13 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.Data;
+import lombok.NonNull;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 
@@ -25,9 +30,9 @@ public class HiveSinkConfig {
 
     private static final String HIVE_TXT_FILE_LINE_DELIMITER = "hive_txt_file_line_delimiter";
 
-    private SaveMode saveMode;
+    private SaveMode saveMode = SaveMode.APPEND;
 
-    private String sinkTmpFsRootPath;
+    private String sinkTmpFsRootPath = "/tmp/seatunnel";
 
     private List<String> partitionFieldNames;
 
@@ -37,9 +42,9 @@ public class HiveSinkConfig {
 
     private String hiveTableFsPath;
 
-    private String hiveTxtFileFieldDelimiter;
+    private String hiveTxtFileFieldDelimiter = String.valueOf('\001');
 
-    private String hiveTxtFileLineDelimiter;
+    private String hiveTxtFileLineDelimiter = "\n";
 
     public enum SaveMode {
         APPEND(),
@@ -54,13 +59,31 @@ public class HiveSinkConfig {
         }
     }
 
-    public HiveSinkConfig(Config pluginConfig) {
-        this.saveMode = SaveMode.fromStr(pluginConfig.getString(HIVE_SAVE_MODE));
-        this.sinkTmpFsRootPath = pluginConfig.getString(SINK_TMP_FS_ROOT_PATH);
+    public HiveSinkConfig(@NonNull Config pluginConfig) {
+        checkNotNull(pluginConfig.getString(HIVE_RESULT_TABLE_NAME));
+        checkNotNull(pluginConfig.getString(HIVE_TABLE_FS_PATH));
         this.hiveTableName = pluginConfig.getString(HIVE_RESULT_TABLE_NAME);
+        this.hiveTableFsPath = pluginConfig.getString(HIVE_TABLE_FS_PATH);
+
+        this.saveMode = StringUtils.isBlank(pluginConfig.getString(HIVE_SAVE_MODE)) ? SaveMode.APPEND : SaveMode.fromStr(pluginConfig.getString(HIVE_SAVE_MODE));
+        if (!StringUtils.isBlank(pluginConfig.getString(SINK_TMP_FS_ROOT_PATH))) {
+            this.sinkTmpFsRootPath = pluginConfig.getString(SINK_TMP_FS_ROOT_PATH);
+        }
+
         this.partitionFieldNames = pluginConfig.getStringList(HIVE_PARTITION_BY);
         this.sinkColumns = pluginConfig.getStringList(HIVE_SINK_COLUMNS);
-        this.hiveTxtFileFieldDelimiter = pluginConfig.getString(HIVE_TXT_FILE_FIELD_DELIMITER);
-        this.hiveTxtFileLineDelimiter = pluginConfig.getString(HIVE_TXT_FILE_FIELD_DELIMITER);
+
+        if (!StringUtils.isBlank(pluginConfig.getString(HIVE_TXT_FILE_FIELD_DELIMITER))) {
+            this.hiveTxtFileFieldDelimiter = pluginConfig.getString(HIVE_TXT_FILE_FIELD_DELIMITER);
+        }
+
+        if (!StringUtils.isBlank(pluginConfig.getString(HIVE_TXT_FILE_LINE_DELIMITER))) {
+            this.hiveTxtFileLineDelimiter = pluginConfig.getString(HIVE_TXT_FILE_LINE_DELIMITER);
+        }
+
+        // partition fields must in sink columns
+        if (!CollectionUtils.isEmpty(this.sinkColumns) && !CollectionUtils.isEmpty(this.partitionFieldNames) && !this.sinkColumns.containsAll(this.partitionFieldNames)) {
+            throw new RuntimeException("partition fields must in sink columns");
+        }
     }
 }

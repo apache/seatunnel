@@ -4,6 +4,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
 
+import lombok.Lombok;
+import lombok.NonNull;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +19,6 @@ import java.util.stream.Collectors;
 
 public class HdfsTxtFileWriter extends AbstractFileWriter {
     private static final Logger LOGGER = LoggerFactory.getLogger(HdfsTxtFileWriter.class);
-
     private Map<String, FSDataOutputStream> beingWrittenOutputStream;
 
     public HdfsTxtFileWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
@@ -29,12 +30,13 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
     }
 
     @Override
+    @NonNull
     public String getFileSuffix() {
         return "txt";
     }
 
     @Override
-    public void resetMoreFileWriter(String checkpointId) {
+    public void resetMoreFileWriter(@NonNull String checkpointId) {
         this.beingWrittenOutputStream = new HashMap<>();
     }
 
@@ -58,7 +60,8 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
     }
 
     @Override
-    public void write(SeaTunnelRow seaTunnelRow) {
+    public void write(@NonNull SeaTunnelRow seaTunnelRow) {
+        Lombok.checkNotNull(seaTunnelRow, "seaTunnelRow is null");
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         String line = transformRowToLine(seaTunnelRow);
@@ -71,6 +74,7 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
         }
     }
 
+    @NonNull
     @Override
     public Map<String, String> getNeedMoveFiles() {
         return this.needMoveFiles;
@@ -96,7 +100,7 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
         });
     }
 
-    private FSDataOutputStream getOrCreateOutputStream(String filePath) {
+    private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
@@ -110,7 +114,7 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
         return fsDataOutputStream;
     }
 
-    private String transformRowToLine(SeaTunnelRow seaTunnelRow) {
+    private String transformRowToLine(@NonNull SeaTunnelRow seaTunnelRow) {
         String line = null;
         List<String> sinkColumns = hiveSinkConfig.getSinkColumns();
         if (sinkColumns == null || sinkColumns.size() == 0) {

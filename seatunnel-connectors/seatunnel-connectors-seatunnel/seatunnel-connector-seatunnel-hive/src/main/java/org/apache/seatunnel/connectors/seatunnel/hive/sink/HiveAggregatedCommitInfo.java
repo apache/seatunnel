@@ -1,7 +1,13 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NonNull;
+
 import java.util.Map;
 
+@Data
+@AllArgsConstructor
 public class HiveAggregatedCommitInfo {
 
     /**
@@ -10,5 +16,4 @@ public class HiveAggregatedCommitInfo {
      * V is the target file path of the data file.
      */
     private Map<String, String> needMoveFiles;
-
 }

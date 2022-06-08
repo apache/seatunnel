@@ -1,5 +1,6 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
+import lombok.NonNull;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -14,7 +15,7 @@ public class HdfsUtils {
 
     public static final int WRITE_BUFFER_SIZE = 2048;
 
-    public static FileSystem getHdfsFs(String path)
+    public static FileSystem getHdfsFs(@NonNull String path)
         throws IOException {
         Configuration conf = new Configuration();
         conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
@@ -22,14 +23,14 @@ public class HdfsUtils {
         return FileSystem.get(conf);
     }
 
-    public static FSDataOutputStream getOutputStream(String outFilePath) throws IOException {
+    public static FSDataOutputStream getOutputStream(@NonNull String outFilePath) throws IOException {
         FileSystem hdfsFs = getHdfsFs(outFilePath);
         Path path = new Path(outFilePath);
         FSDataOutputStream fsDataOutputStream = hdfsFs.create(path, true, WRITE_BUFFER_SIZE);
         return fsDataOutputStream;
     }
 
-    public static boolean deleteFile(String file) throws IOException {
+    public static boolean deleteFile(@NonNull String file) throws IOException {
         FileSystem hdfsFs = getHdfsFs(file);
         return hdfsFs.delete(new Path(file), true);
     }
@@ -42,7 +43,7 @@ public class HdfsUtils {
      * @param rmWhenExist if this is true, we will delete the target file when it already exists
      * @throws IOException throw IOException
      */
-    public static void renameFile(String oldName, String newName, boolean rmWhenExist) throws IOException {
+    public static void renameFile(@NonNull String oldName, @NonNull String newName, boolean rmWhenExist) throws IOException {
         FileSystem hdfsFs = getHdfsFs(newName);
         LOGGER.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
 
@@ -61,7 +62,7 @@ public class HdfsUtils {
         hdfsFs.rename(oldPath, newPath);
     }
 
-    public static boolean createDir(String filePath)
+    public static boolean createDir(@NonNull String filePath)
         throws IOException {
 
         FileSystem hdfsFs = getHdfsFs(filePath);
@@ -69,7 +70,7 @@ public class HdfsUtils {
         return hdfsFs.mkdirs(dfs);
     }
 
-    public static boolean fileExist(String filePath)
+    public static boolean fileExist(@NonNull String filePath)
         throws IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         Path fileName = new Path(filePath);
