@@ -12,7 +12,7 @@ import TabItem from '@theme/TabItem';
 Engine Supported and plugin name
 
 * [x] Spark: SocketStream
-* [x] Flink: Socket
+* [x] Flink: SocketStream
 
 :::
 
@@ -81,8 +81,10 @@ Source plugin common parameters, please refer to [Source Plugin](common-options.
 <TabItem value="spark">
 
 ```bash
-socketStream {
-  port = 9999
+source {
+    SocketStream {
+      port = 9999
+    }
 }
 ```
 
