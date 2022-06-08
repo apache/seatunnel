@@ -92,9 +92,14 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     private String getBeingWrittenFileKey(@NonNull SeaTunnelRow seaTunnelRow) {
         if (this.hiveSinkConfig.getPartitionFieldNames() != null && this.hiveSinkConfig.getPartitionFieldNames().size() > 0) {
-            List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> partitionKey + "=" + seaTunnelRow.getFieldMap().get(partitionKey)).collect(Collectors.toList());
+            List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> {
+                StringBuilder sbd = new StringBuilder(partitionKey);
+                sbd.append("=").append(seaTunnelRow.getFieldMap().get(partitionKey));
+                return sbd.toString();
+            }).collect(Collectors.toList());
 
-            return String.join("/", collect);
+            String beingWrittenFileKey = String.join("/", collect);
+            return beingWrittenFileKey;
         } else {
             // If there is no partition field in data, We use the fixed value NON_PARTITION as the partition directory
             return NON_PARTITION;

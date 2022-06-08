@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NonNull;
 
 import java.util.Map;
 
