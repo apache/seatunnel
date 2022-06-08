@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
+import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
+
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
 
@@ -30,5 +32,5 @@ public interface PluginExecuteProcessor {
      * @param upstreamDataStreams the upstream data streams.
      * @return the result data stream
      */
-    List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws Exception;
+    List<DataStream<Row>> execute(List<DataStream<Row>> upstreamDataStreams) throws TaskExecuteException;
 }

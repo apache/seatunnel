@@ -31,7 +31,7 @@ import java.util.List;
 public class FlinkStarter implements Starter {
 
     private static final String APP_NAME = SeatunnelFlink.class.getName();
-    private static final String APP_JAR_NAME = "seatunnel-core-flink.jar";
+    private static final String APP_JAR_NAME = "seatunnel-flink-starter.jar";
 
     /**
      * SeaTunnel parameters, used by SeaTunnel application. e.g. `-c config.conf`

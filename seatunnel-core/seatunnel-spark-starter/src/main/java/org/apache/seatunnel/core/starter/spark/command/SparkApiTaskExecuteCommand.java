@@ -21,7 +21,7 @@ import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.starter.spark.execution.SparkTaskExecution;
+import org.apache.seatunnel.core.starter.spark.execution.SparkExecution;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -50,7 +50,7 @@ public class SparkApiTaskExecuteCommand implements Command<SparkCommandArgs> {
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
         Config config = new ConfigBuilder(configFile).getConfig();
         try {
-            SparkTaskExecution seaTunnelTaskExecution = new SparkTaskExecution(config);
+            SparkExecution seaTunnelTaskExecution = new SparkExecution(config);
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {
             LOGGER.error("Run SeaTunnel on spark failed.", e);
