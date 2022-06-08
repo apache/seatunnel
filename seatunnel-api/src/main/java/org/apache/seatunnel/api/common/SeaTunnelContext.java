@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -36,9 +37,11 @@ public final class SeaTunnelContext implements Serializable {
     private static final SeaTunnelContext INSTANCE = new SeaTunnelContext();
 
     // tableName -> tableSchema
-    private Map<String, TableSchema> tableSchemaMap = new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+    private final Map<String, TableSchema> tableSchemaMap = new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
     private JobMode jobMode;
+
+    private final String jobId;
 
     public static SeaTunnelContext getContext() {
         return INSTANCE;
@@ -73,8 +76,12 @@ public final class SeaTunnelContext implements Serializable {
         return jobMode;
     }
 
+    public String getJobId() {
+        return this.jobId;
+    }
+
     private SeaTunnelContext() {
-        // no-op
+        this.jobId = UUID.randomUUID().toString().replace("-", "");
     }
 
 }
