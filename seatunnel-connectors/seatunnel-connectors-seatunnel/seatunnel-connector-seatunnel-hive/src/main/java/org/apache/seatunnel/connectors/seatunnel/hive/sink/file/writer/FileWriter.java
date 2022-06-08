@@ -1,7 +1,6 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkWriter;
 
 import java.util.Map;
 
@@ -17,10 +16,12 @@ public interface FileWriter {
      * 2. Close output stream.
      * 3. Add the mapping relationship between seatunnel file path and hive file path to needMoveFiles.
      */
-    void finishWriteFile();
+    void finishAndCloseWriteFile();
 
     /**
-     * called by {@link HiveSinkWriter#close()}
+     * The writer needs to be reset after each checkpoint is completed
+     *
+     * @param checkpointId checkpointId
      */
-    void close();
+    void resetFileWriter(String checkpointId);
 }

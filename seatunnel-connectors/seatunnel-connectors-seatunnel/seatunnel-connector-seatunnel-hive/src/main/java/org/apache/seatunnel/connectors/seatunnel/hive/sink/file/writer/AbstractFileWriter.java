@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 public abstract class AbstractFileWriter implements FileWriter {
     protected Map<String, String> needMoveFiles;
     protected SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
-    protected long sinkId;
+    protected long jobId;
     protected int subTaskIndex;
     protected HiveSinkConfig hiveSinkConfig;
 
@@ -25,11 +25,11 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     public AbstractFileWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
                               HiveSinkConfig hiveSinkConfig,
-                              long sinkId,
+                              long jobId,
                               int subTaskIndex) {
         this.needMoveFiles = new HashMap<>();
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
-        this.sinkId = sinkId;
+        this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         this.hiveSinkConfig = hiveSinkConfig;
 
@@ -47,13 +47,15 @@ public abstract class AbstractFileWriter implements FileWriter {
             sbf.append("/")
                 .append(SEATUNNEL)
                 .append("/")
-                .append(sinkId)
+                .append(jobId)
+                .append("/")
+                .append(checkpointId)
                 .append("/")
                 .append(hiveSinkConfig.getHiveTableName())
                 .append("/")
                 .append(beingWrittenFileKey)
                 .append("/")
-                .append(sinkId)
+                .append(jobId)
                 .append("_")
                 .append(subTaskIndex)
                 .append(".")
@@ -92,11 +94,22 @@ public abstract class AbstractFileWriter implements FileWriter {
         sbf.append("/")
             .append(SEATUNNEL)
             .append("/")
-            .append(sinkId)
+            .append(jobId)
+            .append("/")
+            .append(checkpointId)
             .append("/")
             .append(hiveSinkConfig.getHiveTableName());
         String seaTunnelPath = sbf.toString();
         String tmpPath = seaTunnelFilePath.replaceAll(seaTunnelPath, hiveSinkConfig.getHiveTableFsPath());
         return tmpPath.replaceAll(NON_PARTITION + "/", "");
     }
+
+    public void resetFileWriter(String checkpointId) {
+        this.checkpointId = checkpointId;
+        this.needMoveFiles = new HashMap<>();
+        this.beingWrittenFile = new HashMap<>();
+        this.resetMoreFileWriter(checkpointId);
+    }
+
+    public abstract void resetMoreFileWriter(String checkpointId);
 }

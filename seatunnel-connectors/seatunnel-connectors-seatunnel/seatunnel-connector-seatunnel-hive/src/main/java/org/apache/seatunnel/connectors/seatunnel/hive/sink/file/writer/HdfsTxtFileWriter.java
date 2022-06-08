@@ -34,6 +34,11 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
     }
 
     @Override
+    public void resetMoreFileWriter(String checkpointId) {
+        this.beingWrittenOutputStream = new HashMap<>();
+    }
+
+    @Override
     public void write(SeaTunnelRow seaTunnelRow) {
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
@@ -53,14 +58,7 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
     }
 
     @Override
-    public void finishWriteFile() {
-        closeAllOutputStream();
-        beingWrittenOutputStream.entrySet().forEach(entry -> {
-            needMoveFiles.put(entry.getKey(), getHiveLocation(entry.getKey()));
-        });
-    }
-
-    private void closeAllOutputStream() {
+    public void finishAndCloseWriteFile() {
         beingWrittenOutputStream.entrySet().forEach(entry -> {
             try {
                 entry.getValue().flush();
@@ -74,12 +72,9 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
                     LOGGER.error("error when close output stream {}", entry.getKey());
                 }
             }
-        });
-    }
 
-    @Override
-    public void close() {
-        closeAllOutputStream();
+            needMoveFiles.put(entry.getKey(), getHiveLocation(entry.getKey()));
+        });
     }
 
     private FSDataOutputStream getOrCreateOutputStream(String filePath) {
