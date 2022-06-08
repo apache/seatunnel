@@ -70,6 +70,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-connector-spark-phoenix</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.thrift</groupId>
+                    <artifactId>libthrift</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
