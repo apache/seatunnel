@@ -29,14 +29,18 @@ import java.io.InvalidClassException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<InputT, CommT, WriterStateT> {
+public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> {
 
     private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter;
     private final FlinkRowSerialization rowSerialization = new FlinkRowSerialization();
+    private long checkpointId;
 
-    FlinkSinkWriter(org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter) {
+    FlinkSinkWriter(org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
+                    long checkpointId) {
         this.sinkWriter = sinkWriter;
+        this.checkpointId = checkpointId;
     }
 
     @Override
@@ -57,8 +61,11 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<
     }
 
     @Override
-    public List<WriterStateT> snapshotState() throws IOException {
-        return sinkWriter.snapshotState();
+    public List<FlinkWriterState<WriterStateT>> snapshotState() throws IOException {
+        List<FlinkWriterState<WriterStateT>> states = sinkWriter.snapshotState(this.checkpointId)
+                .stream().map(state -> new FlinkWriterState<>(this.checkpointId, state)).collect(Collectors.toList());
+        this.checkpointId++;
+        return states;
     }
 
     @Override

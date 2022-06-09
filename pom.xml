@@ -609,6 +609,13 @@
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-shaded-hadoop-2</artifactId>
+                <version>${flink-shaded-hadoop-2.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -853,42 +860,7 @@
                         </execution>
                     </executions>
                 </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-pmd-plugin</artifactId>
-                    <version>${maven-pmd-plugin.version}</version>
-                    <configuration>
-                        <rulesets>
-                            <ruleset>rulesets/java/ali-concurrent.xml</ruleset>
-                            <ruleset>rulesets/java/ali-exception.xml</ruleset>
-                            <ruleset>rulesets/java/ali-flowcontrol.xml</ruleset>
-                            <ruleset>rulesets/java/ali-naming.xml</ruleset>
-                            <ruleset>rulesets/java/ali-oop.xml</ruleset>
-                            <ruleset>rulesets/java/ali-orm.xml</ruleset>
-                            <ruleset>rulesets/java/ali-other.xml</ruleset>
-                            <ruleset>rulesets/java/ali-set.xml</ruleset>
-                        </rulesets>
-                        <printFailingErrors>true</printFailingErrors>
-                        <skip>${skip.pmd.check}</skip>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>validate</id>
-                            <phase>validate</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <dependencies>
-                        <dependency>
-                            <groupId>com.alibaba.p3c</groupId>
-                            <artifactId>p3c-pmd</artifactId>
-                            <version>${p3c-pmd.version}</version>
-                        </dependency>
-                    </dependencies>
-                </plugin>
+                
                 <!-- checkstyle (End) -->
 
                 <plugin>
@@ -1006,11 +978,6 @@
             <plugin>
                 <groupId>org.scalastyle</groupId>
                 <artifactId>scalastyle-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-pmd-plugin</artifactId>
             </plugin>
 
             <plugin>

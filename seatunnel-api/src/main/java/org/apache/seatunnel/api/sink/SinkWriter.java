@@ -43,7 +43,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
     void write(T element) throws IOException;
 
     /**
-     * prepare the commit, will be called before {@link #snapshotState()}.
+     * prepare the commit, will be called before {@link #snapshotState(long checkpointId)}.
      * If you need to use 2pc, you can return the commit info in this method, and receive the commit info in {@link SinkCommitter#commit(List)}.
      * If this method failed (by throw exception), **Only** Spark engine will call {@link #abortPrepare()}
      *
@@ -55,7 +55,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
      * @return The writer's state.
      * @throws IOException if fail to snapshot writer's state.
      */
-    default List<StateT> snapshotState() throws IOException {
+    default List<StateT> snapshotState(long checkpointId) throws IOException {
         return Collections.emptyList();
     }
 

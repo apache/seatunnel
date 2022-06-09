@@ -60,6 +60,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final Map<TopicPartition, Long> endOffset;
     // TODO support user custom type
     private SeaTunnelRowTypeInfo typeInfo;
+    private volatile boolean isRunning;
 
     KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowTypeInfo typeInfo,
                       SourceReader.Context context) {
@@ -74,10 +75,12 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     public void open() {
         this.consumer = initConsumer(this.metadata.getBootstrapServer(), this.metadata.getConsumerGroup(),
                 this.metadata.getProperties(), !this.metadata.isCommitOnCheckpoint());
+        isRunning = true;
     }
 
     @Override
     public void close() throws IOException {
+        isRunning = false;
         if (consumer != null) {
             consumer.close();
         }
@@ -93,7 +96,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
         StringDeserializer stringDeserializer = new StringDeserializer();
         stringDeserializer.configure(Maps.fromProperties(this.metadata.getProperties()), false);
         consumer.assign(partitions);
-        while (true) {
+        while (isRunning) {
             ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT));
             for (TopicPartition partition : partitions) {
                 for (ConsumerRecord<byte[], byte[]> record : records.records(partition)) {
