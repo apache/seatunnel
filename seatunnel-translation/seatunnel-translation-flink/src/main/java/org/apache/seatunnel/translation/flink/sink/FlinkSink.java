@@ -37,7 +37,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
-public class FlinkSink<InputT, WriterStateT, CommT, GlobalCommT> implements Sink<InputT, Serializable, Serializable, Serializable> {
+public class FlinkSink<InputT, WriterStateT, CommT, GlobalCommT> implements Sink<InputT, Serializable,
+        FlinkWriterState<WriterStateT>, Serializable> {
 
     private final SeaTunnelSink<InputT, WriterStateT, CommT, GlobalCommT> sink;
     private final Map<String, String> configuration;
@@ -49,17 +50,20 @@ public class FlinkSink<InputT, WriterStateT, CommT, GlobalCommT> implements Sink
     }
 
     @Override
-    public SinkWriter<InputT, Serializable, Serializable> createWriter(org.apache.flink.api.connector.sink.Sink.InitContext context, List<Serializable> states) throws IOException {
+    public SinkWriter<InputT, Serializable, FlinkWriterState<WriterStateT>> createWriter(org.apache.flink.api.connector.sink.Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
         // TODO add subtask and parallelism.
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new DefaultSinkWriterContext(configuration, 0, 0);
 
-        FlinkSinkWriterConverter<InputT, Serializable, Serializable> converter = new FlinkSinkWriterConverter<>();
-
         if (states == null || states.isEmpty()) {
+            FlinkSinkWriterConverter<InputT, Serializable, WriterStateT> converter =
+                    new FlinkSinkWriterConverter<>(1);
             return converter.convert(sink.createWriter(stContext));
         } else {
-            return converter.convert(sink.restoreWriter(stContext, states.stream().map(s -> (WriterStateT) s).collect(Collectors.toList())));
+            FlinkSinkWriterConverter<InputT, Serializable, WriterStateT> converter =
+                    new FlinkSinkWriterConverter<>(states.get(0).getCheckpointId());
+            return converter.convert(sink.restoreWriter(stContext,
+                    states.stream().map(FlinkWriterState::getState).collect(Collectors.toList())));
         }
     }
 
@@ -95,9 +99,9 @@ public class FlinkSink<InputT, WriterStateT, CommT, GlobalCommT> implements Sink
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<Serializable>> getWriterStateSerializer() {
-        final FlinkSimpleVersionedSerializerConverter<Serializable> converter = new FlinkSimpleVersionedSerializerConverter<>();
+    public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>> getWriterStateSerializer() {
+        final FlinkSimpleVersionedSerializerConverter<FlinkWriterState<WriterStateT>> converter = new FlinkSimpleVersionedSerializerConverter<>();
         final Optional<Serializer<WriterStateT>> writerStateTSerializer = sink.getWriterStateSerializer();
-        return writerStateTSerializer.map(serializer -> converter.convert((Serializer<Serializable>) serializer));
+        return writerStateTSerializer.map(serializer -> converter.convert((Serializer<FlinkWriterState<WriterStateT>>) serializer));
     }
 }
