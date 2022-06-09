@@ -45,7 +45,7 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
-        // TODO use partitionID, taskId, epochId information.
-        return new SparkDataWriter<>(sinkWriter, sinkCommitter, schema);
+        // TODO use partitionID, taskId information.
+        return new SparkDataWriter<>(sinkWriter, sinkCommitter, schema, epochId);
     }
 }
