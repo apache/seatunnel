@@ -17,19 +17,32 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.translation.sink.SinkWriterConverter;
+import java.io.Serializable;
 
-public class FlinkSinkWriterConverter<InputT, CommT, WriterStateT> implements SinkWriterConverter<org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>>> {
+public class FlinkWriterState<StateT> implements Serializable {
 
-    private final long checkpointId;
+    private long checkpointId = 0;
 
-    FlinkSinkWriterConverter(long checkpointId) {
+    private StateT state;
+
+    public FlinkWriterState(long checkpointId, StateT state) {
+        this.checkpointId = checkpointId;
+        this.state = state;
+    }
+
+    public long getCheckpointId() {
+        return checkpointId;
+    }
+
+    public void setCheckpointId(long checkpointId) {
         this.checkpointId = checkpointId;
     }
 
-    @Override
-    public org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new FlinkSinkWriter(sinkWriter, this.checkpointId);
+    public StateT getState() {
+        return state;
+    }
+
+    public void setState(StateT state) {
+        this.state = state;
     }
 }

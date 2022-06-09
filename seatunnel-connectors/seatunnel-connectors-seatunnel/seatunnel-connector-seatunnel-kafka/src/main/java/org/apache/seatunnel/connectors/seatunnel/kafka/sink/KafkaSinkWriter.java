@@ -77,7 +77,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     @Override
-    public List<KafkaSinkState> snapshotState() {
+    public List<KafkaSinkState> snapshotState(long checkpointId) {
         return kafkaProducerSender.snapshotState();
     }
 
