@@ -24,6 +24,8 @@ import java.util.List;
 /**
  * The committer combine taskManager/Worker Commit message. Then commit it uses
  * {@link SinkAggregatedCommitter#commit(List)}. This class will execute in single thread.
+ * <p>
+ * See Also {@link SinkCommitter}
  *
  * @param <CommitInfoT>           The type of commit message.
  * @param <AggregatedCommitInfoT> The type of commit message after combine.
@@ -48,7 +50,7 @@ public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> ext
     AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
 
     /**
-     * If commit failed, this method will be called.
+     * If {@link #commit(List)} failed, this method will be called (**Only** on Spark engine at now).
      *
      * @param aggregatedCommitInfo The list of combine commit message.
      * @throws Exception throw Exception when abort failed.

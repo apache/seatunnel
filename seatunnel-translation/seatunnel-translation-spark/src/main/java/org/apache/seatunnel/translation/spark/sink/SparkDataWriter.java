@@ -80,7 +80,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Override
     public void abort() throws IOException {
-        sinkWriter.abort();
+        sinkWriter.abortPrepare();
         if (sinkCommitter != null) {
             if (latestCommitInfoT == null) {
                 sinkCommitter.abort(Collections.emptyList());
