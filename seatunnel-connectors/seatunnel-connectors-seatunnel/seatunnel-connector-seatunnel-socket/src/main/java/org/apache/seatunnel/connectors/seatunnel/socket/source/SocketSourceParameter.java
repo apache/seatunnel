@@ -2,9 +2,10 @@ package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class SocketSourceParameter {
+public class SocketSourceParameter implements Serializable {
 
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 9999;

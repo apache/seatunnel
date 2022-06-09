@@ -1,6 +1,5 @@
 package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -13,8 +12,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.connectors.seatunnel.socket.state.SocketState;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigBeanFactory;
+
+import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
 public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceSplit, SocketState> {
@@ -49,7 +51,7 @@ public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceS
 
     @Override
     public SourceReader<SeaTunnelRow, SocketSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new SocketSourceReader(this.parameter);
+        return new SocketSourceReader(this.parameter, readerContext);
     }
 
     @Override
