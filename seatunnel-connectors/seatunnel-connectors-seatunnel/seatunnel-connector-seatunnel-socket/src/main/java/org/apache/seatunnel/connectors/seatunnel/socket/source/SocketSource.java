@@ -61,9 +61,7 @@ public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceS
 
     @Override
     public SeaTunnelRowTypeInfo getRowTypeInfo() {
-        return new SeaTunnelRowTypeInfo(
-                new String[]{"value"},
-                new SeaTunnelDataType<?>[]{BasicType.STRING});
+        return new SeaTunnelRowTypeInfo(new String[]{"value"}, new SeaTunnelDataType<?>[]{BasicType.STRING});
     }
 
     @Override
