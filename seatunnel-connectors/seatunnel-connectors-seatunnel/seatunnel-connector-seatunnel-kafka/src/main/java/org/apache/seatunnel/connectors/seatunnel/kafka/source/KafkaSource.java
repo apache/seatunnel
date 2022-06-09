@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
@@ -52,7 +52,7 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
 
     private final ConsumerMetadata metadata = new ConsumerMetadata();
-    private SeaTunnelRowTypeInfo typeInfo;
+    private SeaTunnelRowType typeInfo;
     private SeaTunnelContext seaTunnelContext;
 
     @Override
@@ -88,13 +88,13 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
         });
 
         // TODO support user custom row type
-        this.typeInfo = new SeaTunnelRowTypeInfo(new String[]{"topic", "raw_message"},
-                new SeaTunnelDataType[]{BasicType.STRING, BasicType.STRING});
+        this.typeInfo = new SeaTunnelRowType(new String[]{"topic", "raw_message"},
+                new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.STRING_TYPE});
 
     }
 
     @Override
-    public SeaTunnelRowTypeInfo getRowTypeInfo() {
+    public SeaTunnelRowType getProducedType() {
         return this.typeInfo;
     }
 

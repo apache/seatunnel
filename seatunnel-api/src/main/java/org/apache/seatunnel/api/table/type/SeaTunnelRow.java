@@ -17,53 +17,90 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import org.apache.seatunnel.api.table.factory.SupportMultipleTable;
+
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.Map;
+import java.util.Objects;
 
 /**
  * SeaTunnel row type.
  */
 public final class SeaTunnelRow implements Serializable {
     private static final long serialVersionUID = -1L;
-    private final int tableId;
-    // todo: add row kind
+    /** Table identifier, used for the source connector that {@link SupportMultipleTable}. */
+    private int tableId = -1;
+    /** The kind of change that a row describes in a changelog. */
+    private RowKind kind = RowKind.INSERT;
+    /** The array to store the actual internal format values. */
     private final Object[] fields;
-    private final Map<String, Object> fieldMap;
+
+    public SeaTunnelRow(int arity) {
+        this.fields = new Object[arity];
+    }
 
     public SeaTunnelRow(Object[] fields) {
-        this(fields, null);
-
-    }
-
-    public SeaTunnelRow(Object[] fields, Map<String, Object> fieldMap) {
-        this(fields, fieldMap, -1);
-    }
-
-    public SeaTunnelRow(Object[] fields, Map<String, Object> fieldMap, int tableId) {
         this.fields = fields;
-        this.fieldMap = fieldMap;
+    }
+
+    public void setField(int pos, Object value) {
+        this.fields[pos] = value;
+    }
+
+    public void setTableId(int tableId) {
         this.tableId = tableId;
+    }
+
+    public void setRowKind(RowKind kind) {
+        this.kind = kind;
+    }
+
+    public int getArity() {
+        return fields.length;
     }
 
     public int getTableId() {
         return tableId;
     }
 
+    public RowKind geRowKind() {
+        return this.kind;
+    }
+
     public Object[] getFields() {
         return fields;
     }
 
-    public Map<String, Object> getFieldMap() {
-        return fieldMap;
+    public Object getField(int pos) {
+        return this.fields[pos];
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof SeaTunnelRow)) {
+            return false;
+        }
+        SeaTunnelRow that = (SeaTunnelRow) o;
+        return tableId == that.tableId && kind == that.kind && Arrays.deepEquals(fields, that.fields);
+    }
+
+    @SuppressWarnings("magicnumber")
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(tableId, kind);
+        result = 31 * result + Arrays.deepHashCode(fields);
+        return result;
     }
 
     @Override
     public String toString() {
         return "SeaTunnelRow{" +
             "tableId=" + tableId +
+            ", kind=" + kind.shortString() +
             ", fields=" + Arrays.toString(fields) +
-            ", fieldMap=" + fieldMap +
             '}';
     }
 }

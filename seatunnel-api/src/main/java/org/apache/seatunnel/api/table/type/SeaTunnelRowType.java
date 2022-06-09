@@ -17,33 +17,33 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 
-public class PojoType<T> implements CompositeType<T> {
+public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
+    private static final long serialVersionUID = 2L;
 
-    private final Class<T> pojoClass;
-    private final Field[] fields;
+    /**
+     * The field name of the {@link SeaTunnelRow}.
+     */
+    private final String[] fieldNames;
+    /**
+     * The type of the field.
+     */
     private final SeaTunnelDataType<?>[] fieldTypes;
 
-    public PojoType(Class<T> pojoClass) {
-        this(pojoClass, null, null);
-    }
-
-    public PojoType(Class<T> pojoClass, Field[] fields, SeaTunnelDataType<?>[] fieldTypes) {
-        this.pojoClass = pojoClass;
-        this.fields = fields;
+    public SeaTunnelRowType(String[] fieldNames, SeaTunnelDataType<?>[] fieldTypes) {
+        this.fieldNames = fieldNames;
         this.fieldTypes = fieldTypes;
     }
 
     @Override
-    public Class<T> getTypeClass() {
-        return pojoClass;
+    public Class<SeaTunnelRow> getTypeClass() {
+        return SeaTunnelRow.class;
     }
 
-    public Field[] getFields() {
-        return fields;
+    public String[] getFieldNames() {
+        return fieldNames;
     }
 
     public SeaTunnelDataType<?>[] getFieldTypes() {
@@ -53,5 +53,17 @@ public class PojoType<T> implements CompositeType<T> {
     @Override
     public List<SeaTunnelDataType<?>> getChildren() {
         return Arrays.asList(fieldTypes);
+    }
+
+    public int getTotalFields() {
+        return fieldTypes.length;
+    }
+
+    public String getFieldName(int index) {
+        return fieldNames[index];
+    }
+
+    public SeaTunnelDataType<?> getFieldType(int index) {
+        return fieldTypes[index];
     }
 }

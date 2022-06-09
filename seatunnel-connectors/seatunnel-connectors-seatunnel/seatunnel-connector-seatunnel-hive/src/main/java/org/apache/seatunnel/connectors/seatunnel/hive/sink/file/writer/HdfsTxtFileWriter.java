@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
 
 import lombok.Lombok;
@@ -38,11 +38,11 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
     private static final Logger LOGGER = LoggerFactory.getLogger(HdfsTxtFileWriter.class);
     private Map<String, FSDataOutputStream> beingWrittenOutputStream;
 
-    public HdfsTxtFileWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public HdfsTxtFileWriter(SeaTunnelRowType seaTunnelRowType,
                              HiveSinkConfig hiveSinkConfig,
                              long sinkId,
                              int subTaskIndex) {
-        super(seaTunnelRowTypeInfo, hiveSinkConfig, sinkId, subTaskIndex);
+        super(seaTunnelRowType, hiveSinkConfig, sinkId, subTaskIndex);
         beingWrittenOutputStream = new HashMap<>();
     }
 

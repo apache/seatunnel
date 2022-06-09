@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class ListType<T> implements SeaTunnelDataType<T> {
+import java.util.Collections;
+import java.util.List;
+
+public class ListType<T> implements CompositeType<List<T>> {
 
     private final SeaTunnelDataType<T> elementType;
 
@@ -27,5 +30,31 @@ public class ListType<T> implements SeaTunnelDataType<T> {
 
     public SeaTunnelDataType<T> getElementType() {
         return elementType;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Class<List<T>> getTypeClass() {
+        return (Class<List<T>>) (Class<?>) List.class;
+    }
+
+    @Override
+    public int hashCode() {
+        return elementType.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof ListType) {
+            ListType<?> other = (ListType<?>) obj;
+            return elementType.equals(other.elementType);
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public List<SeaTunnelDataType<?>> getChildren() {
+        return Collections.singletonList(this.elementType);
     }
 }

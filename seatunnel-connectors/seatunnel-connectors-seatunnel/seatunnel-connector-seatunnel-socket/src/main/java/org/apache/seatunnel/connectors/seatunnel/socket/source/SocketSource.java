@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.socket.state.SocketState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -60,8 +60,8 @@ public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceS
     }
 
     @Override
-    public SeaTunnelRowTypeInfo getRowTypeInfo() {
-        return new SeaTunnelRowTypeInfo(new String[]{"value"}, new SeaTunnelDataType<?>[]{BasicType.STRING});
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return new SeaTunnelRowType(new String[]{"value"}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
     }
 
     @Override

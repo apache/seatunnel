@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
 
 import lombok.NonNull;
@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractFileWriter implements FileWriter {
     protected Map<String, String> needMoveFiles;
-    protected SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    protected SeaTunnelRowType seaTunnelRowType;
     protected long jobId;
     protected int subTaskIndex;
     protected HiveSinkConfig hiveSinkConfig;
@@ -44,7 +44,7 @@ public abstract class AbstractFileWriter implements FileWriter {
 
     protected String checkpointId;
 
-    public AbstractFileWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public AbstractFileWriter(@NonNull SeaTunnelRowType seaTunnelRowType,
                               @NonNull HiveSinkConfig hiveSinkConfig,
                               long jobId,
                               int subTaskIndex) {
@@ -52,7 +52,7 @@ public abstract class AbstractFileWriter implements FileWriter {
         checkArgument(subTaskIndex > -1);
 
         this.needMoveFiles = new HashMap<>();
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+        this.seaTunnelRowType = seaTunnelRowType;
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         this.hiveSinkConfig = hiveSinkConfig;

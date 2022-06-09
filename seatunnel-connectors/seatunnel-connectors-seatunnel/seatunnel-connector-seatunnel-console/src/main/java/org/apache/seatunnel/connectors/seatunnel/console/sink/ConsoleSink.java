@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -35,16 +35,16 @@ public class ConsoleSink implements SeaTunnelSink<SeaTunnelRow, ConsoleState, Co
 
     private Config pluginConfig;
     private SeaTunnelContext seaTunnelContext;
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private SeaTunnelRowType seaTunnelRowType;
 
     @Override
-    public void setTypeInfo(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, ConsoleCommitInfo, ConsoleState> createWriter(SinkWriter.Context context) {
-        return new ConsoleSinkWriter(seaTunnelRowTypeInfo);
+        return new ConsoleSinkWriter(seaTunnelRowType);
     }
 
     @Override
