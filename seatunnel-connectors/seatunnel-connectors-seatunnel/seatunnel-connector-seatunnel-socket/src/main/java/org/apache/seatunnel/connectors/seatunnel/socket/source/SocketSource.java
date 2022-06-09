@@ -41,7 +41,7 @@ public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceS
     private SeaTunnelContext seaTunnelContext;
     @Override
     public String getPluginName() {
-        return "SocketSource";
+        return "Socket";
     }
 
     @Override

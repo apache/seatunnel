@@ -39,7 +39,6 @@ public class SocketSourceReader implements SourceReader<SeaTunnelRow, SocketSour
     private final SourceReader.Context context;
     private Socket socket;
     private String delimiter = "\n";
-    private volatile boolean isRunning;
     SocketSourceReader(SocketSourceParameter parameter, SourceReader.Context context) {
         this.parameter = parameter;
         this.context = context;
@@ -50,12 +49,10 @@ public class SocketSourceReader implements SourceReader<SeaTunnelRow, SocketSour
         socket = new Socket();
         LOGGER.info("connect socket server, host:[{}], port:[{}] ", this.parameter.getHost(), this.parameter.getPort());
         socket.connect(new InetSocketAddress(this.parameter.getHost(), this.parameter.getPort()), 0);
-        isRunning = true;
     }
 
     @Override
     public void close() throws IOException {
-        isRunning = false;
         if (socket != null) {
             socket.close();
         }
@@ -64,27 +61,25 @@ public class SocketSourceReader implements SourceReader<SeaTunnelRow, SocketSour
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         StringBuilder buffer = new StringBuilder();
-        while (this.isRunning) {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-                char[] buf = new char[CHAR_BUFFER_SIZE];
-                int bytesRead;
-                while ((bytesRead = reader.read(buf)) != -1) {
-                    buffer.append(buf, 0, bytesRead);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+            char[] buf = new char[CHAR_BUFFER_SIZE];
+            int bytesRead;
+            while ((bytesRead = reader.read(buf)) != -1) {
+                buffer.append(buf, 0, bytesRead);
 
-                    int delimPos;
-                    while (buffer.length() >= this.delimiter.length() && (delimPos = buffer.indexOf(this.delimiter)) != -1) {
-                        String record = buffer.substring(0, delimPos);
-                        if (this.delimiter.equals("\n") && record.endsWith("\r")) {
-                            record = record.substring(0, record.length() - 1);
-                        }
-                        output.collect(new SeaTunnelRow(new Object[]{record}));
-                        buffer.delete(0, delimPos + this.delimiter.length());
+                int delimPos;
+                while (buffer.length() >= this.delimiter.length() && (delimPos = buffer.indexOf(this.delimiter)) != -1) {
+                    String record = buffer.substring(0, delimPos);
+                    if (this.delimiter.equals("\n") && record.endsWith("\r")) {
+                        record = record.substring(0, record.length() - 1);
                     }
-                    if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-                        // signal to the source that we have reached the end of the data.
-                        context.signalNoMoreElement();
-                        break;
-                    }
+                    output.collect(new SeaTunnelRow(new Object[]{record}));
+                    buffer.delete(0, delimPos + this.delimiter.length());
+                }
+                if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+                    // signal to the source that we have reached the end of the data.
+                    context.signalNoMoreElement();
+                    break;
                 }
             }
         }
