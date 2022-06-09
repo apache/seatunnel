@@ -90,7 +90,6 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
         fileWriter.finishAndCloseWriteFile();
     }
 
-    @Override
     public List<HiveSinkState> snapshotState() {
         //reset FileWrite
         fileWriter.resetFileWriter(System.currentTimeMillis() + "");
