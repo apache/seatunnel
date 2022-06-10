@@ -85,7 +85,6 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
                 LOGGER.debug("Abort kafka transaction: {}", kafkaState.getTransactionId());
             }
             KafkaProducer<K, V> historyProducer = getTransactionProducer(kafkaProperties, kafkaState.getTransactionId());
-            historyProducer.initTransactions();
             historyProducer.abortTransaction();
             historyProducer.close();
         }
