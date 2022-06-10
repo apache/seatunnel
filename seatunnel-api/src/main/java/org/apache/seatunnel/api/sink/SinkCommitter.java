@@ -22,7 +22,10 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * The committer to commit message.
+ * The committer to commit message. We strongly recommend implementing {@link SinkAggregatedCommitter} first,
+ * as the current version of {@link SinkAggregatedCommitter} can provide more consistent behavior.
+ * <p>
+ * See Also {@link SinkAggregatedCommitter}
  *
  * @param <CommitInfoT> The type of commit message.
  */
@@ -38,7 +41,7 @@ public interface SinkCommitter<CommitInfoT> extends Serializable {
     List<CommitInfoT> commit(List<CommitInfoT> committables) throws IOException;
 
     /**
-     * Abort the transaction, this method will be called when the commit is failed.
+     * Abort the transaction, this method will be called (**Only** on Spark engine) when the commit is failed.
      *
      * @param commitInfos The list of commit message, used to abort the commit.
      * @throws IOException throw IOException when close failed.
