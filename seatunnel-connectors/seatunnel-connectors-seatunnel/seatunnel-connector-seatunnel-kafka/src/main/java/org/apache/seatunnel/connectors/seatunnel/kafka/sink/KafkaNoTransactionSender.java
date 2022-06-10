@@ -48,7 +48,7 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     }
 
     @Override
-    public void beginTransaction() {
+    public void beginTransaction(String transactionId) {
         // no-op
     }
 
@@ -68,7 +68,7 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     }
 
     @Override
-    public List<KafkaSinkState> snapshotState() {
+    public List<KafkaSinkState> snapshotState(long checkpointId) {
         kafkaProducer.flush();
         return Collections.emptyList();
     }

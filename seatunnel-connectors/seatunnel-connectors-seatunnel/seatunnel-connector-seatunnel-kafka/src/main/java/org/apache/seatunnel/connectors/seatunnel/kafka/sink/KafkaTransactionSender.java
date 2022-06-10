@@ -41,14 +41,14 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTransactionSender.class);
 
-    private final KafkaProducer<K, V> kafkaProducer;
-    private final String transactionId;
+    private KafkaProducer<K, V> kafkaProducer;
+    private String transactionId;
+    private final String transactionPrefix;
     private final Properties kafkaProperties;
 
-    public KafkaTransactionSender(Properties kafkaProperties) {
+    public KafkaTransactionSender(String transactionPrefix, Properties kafkaProperties) {
+        this.transactionPrefix = transactionPrefix;
         this.kafkaProperties = kafkaProperties;
-        this.transactionId = getTransactionId();
-        this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
     }
 
     @Override
@@ -57,14 +57,14 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     }
 
     @Override
-    public void beginTransaction() {
+    public void beginTransaction(String transactionId) {
+        this.transactionId = transactionId;
+        this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
         kafkaProducer.beginTransaction();
     }
 
     @Override
     public Optional<KafkaCommitInfo> prepareCommit() {
-        // TODO kafka can't use transactionId to commit on different producer directly, we should find
-        //  another way
         KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties);
         return Optional.of(kafkaCommitInfo);
     }
@@ -85,15 +85,15 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
                 LOGGER.debug("Abort kafka transaction: {}", kafkaState.getTransactionId());
             }
             KafkaProducer<K, V> historyProducer = getTransactionProducer(kafkaProperties, kafkaState.getTransactionId());
-            historyProducer.initTransactions();
             historyProducer.abortTransaction();
             historyProducer.close();
         }
     }
 
     @Override
-    public List<KafkaSinkState> snapshotState() {
-        return Lists.newArrayList(new KafkaSinkState(transactionId, kafkaProperties));
+    public List<KafkaSinkState> snapshotState(long checkpointId) {
+        return Lists.newArrayList(new KafkaSinkState(transactionId, transactionPrefix, checkpointId,
+                kafkaProperties));
     }
 
     @Override
@@ -112,8 +112,4 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         return transactionProducer;
     }
 
-    // todo: use a better way to generate the transaction id
-    private String getTransactionId() {
-        return "SeaTunnel-" + System.currentTimeMillis();
-    }
 }

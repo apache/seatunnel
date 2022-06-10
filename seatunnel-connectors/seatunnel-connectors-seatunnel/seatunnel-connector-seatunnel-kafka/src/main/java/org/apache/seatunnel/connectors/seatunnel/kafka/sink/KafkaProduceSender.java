@@ -33,7 +33,7 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
      */
     void send(ProducerRecord<K, V> producerRecord);
 
-    void beginTransaction();
+    void beginTransaction(String transactionId);
 
     /**
      * Prepare a transaction commit.
@@ -59,6 +59,6 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
      *
      * @return kafka state List, or empty if no state is available.
      */
-    List<KafkaSinkState> snapshotState();
+    List<KafkaSinkState> snapshotState(long checkpointId);
 
 }
