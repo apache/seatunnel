@@ -42,13 +42,15 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
     private final SinkCommitter<CommitInfoT> sinkCommitter;
     private final RowSerialization<InternalRow> rowSerialization;
     private CommitInfoT latestCommitInfoT;
+    private long epochId;
 
     SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
                     @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                    StructType schema) {
+                    StructType schema, long epochId) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
         this.rowSerialization = new InternalRowSerialization(schema);
+        this.epochId = epochId == 0 ? 1 : epochId;
     }
 
     @Override
@@ -66,6 +68,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         //   2.1. We have the commit info, we need to execute the sinkCommitter#abort to rollback the transaction.
         Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit();
         commitInfoTOptional.ifPresent(commitInfoT -> latestCommitInfoT = commitInfoT);
+        sinkWriter.snapshotState(epochId++);
         if (sinkCommitter != null) {
             if (latestCommitInfoT == null) {
                 sinkCommitter.commit(Collections.emptyList());
@@ -80,7 +83,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Override
     public void abort() throws IOException {
-        sinkWriter.abort();
+        sinkWriter.abortPrepare();
         if (sinkCommitter != null) {
             if (latestCommitInfoT == null) {
                 sinkCommitter.abort(Collections.emptyList());
