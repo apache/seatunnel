@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.org.apache.seatunnel.connectors.seatunnel.http.state;
+package org.apache.seatunnel.connectors.seatunnel.http.state;
 
 import java.io.Serializable;
 
 public class HttpState implements Serializable {
+
 }
