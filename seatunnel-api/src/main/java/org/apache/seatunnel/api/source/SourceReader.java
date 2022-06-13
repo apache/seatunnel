@@ -33,7 +33,7 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
     /**
      * Open the source reader.
      */
-    void open();
+    void open() throws Exception;
 
     /**
      * Called to close the reader, in case it holds on to any resources, like threads or network
