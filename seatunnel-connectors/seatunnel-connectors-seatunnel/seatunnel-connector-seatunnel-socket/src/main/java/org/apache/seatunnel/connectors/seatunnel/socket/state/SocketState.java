@@ -15,21 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.sink;
+package org.apache.seatunnel.connectors.seatunnel.socket.state;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.translation.sink.SinkWriterConverter;
+import java.io.Serializable;
 
-public class FlinkSinkWriterConverter<InputT, CommT, WriterStateT> implements SinkWriterConverter<org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>>> {
-
-    private final long checkpointId;
-
-    FlinkSinkWriterConverter(long checkpointId) {
-        this.checkpointId = checkpointId;
-    }
-
-    @Override
-    public org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new FlinkSinkWriter(sinkWriter, this.checkpointId);
-    }
+public class SocketState implements Serializable {
 }

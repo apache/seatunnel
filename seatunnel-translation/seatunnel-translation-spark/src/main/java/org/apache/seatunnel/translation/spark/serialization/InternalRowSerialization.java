@@ -22,6 +22,8 @@ import org.apache.seatunnel.translation.serialization.RowSerialization;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
+import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.StringType;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
 
@@ -49,7 +51,11 @@ public final class InternalRowSerialization implements RowSerialization<Internal
     public SeaTunnelRow deserialize(InternalRow engineRow) throws IOException {
         Object[] fields = new Object[engineRow.numFields()];
         for (int i = 0; i < engineRow.numFields(); i++) {
-            fields[i] = engineRow.get(i, sparkSchema.apply(i).dataType());
+            DataType type = sparkSchema.apply(i).dataType();
+            fields[i] = engineRow.get(i, type);
+            if (type instanceof StringType) {
+                fields[i] = fields[i].toString();
+            }
         }
         return new SeaTunnelRow(fields);
     }

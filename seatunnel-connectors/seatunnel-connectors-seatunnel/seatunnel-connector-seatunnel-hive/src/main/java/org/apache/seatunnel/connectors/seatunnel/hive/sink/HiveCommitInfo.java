@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.sink;
+package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.translation.sink.SinkWriterConverter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-public class FlinkSinkWriterConverter<InputT, CommT, WriterStateT> implements SinkWriterConverter<org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>>> {
+import java.io.Serializable;
+import java.util.Map;
 
-    private final long checkpointId;
+@Data
+@AllArgsConstructor
+public class HiveCommitInfo implements Serializable {
 
-    FlinkSinkWriterConverter(long checkpointId) {
-        this.checkpointId = checkpointId;
-    }
-
-    @Override
-    public org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new FlinkSinkWriter(sinkWriter, this.checkpointId);
-    }
+    /**
+     * Storage the commit info in map.
+     * K is the file path need to be moved to hive data dir.
+     * V is the target file path of the data file.
+     */
+    private Map<String, String> needMoveFiles;
 }

@@ -15,21 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.sink;
+package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.translation.sink.SinkWriterConverter;
+import org.apache.commons.lang3.StringUtils;
 
-public class FlinkSinkWriterConverter<InputT, CommT, WriterStateT> implements SinkWriterConverter<org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>>> {
+import java.io.Serializable;
+import java.util.Objects;
 
-    private final long checkpointId;
+public class SocketSourceParameter implements Serializable {
 
-    FlinkSinkWriterConverter(long checkpointId) {
-        this.checkpointId = checkpointId;
+    private static final String DEFAULT_HOST = "localhost";
+    private static final int DEFAULT_PORT = 9999;
+    private String host;
+    private Integer port;
+
+    public String getHost() {
+        return StringUtils.isBlank(host) ? DEFAULT_HOST : host;
     }
 
-    @Override
-    public org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new FlinkSinkWriter(sinkWriter, this.checkpointId);
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    public Integer getPort() {
+        return Objects.isNull(port) ? DEFAULT_PORT : port;
+    }
+
+    public void setPort(Integer port) {
+        this.port = port;
     }
 }

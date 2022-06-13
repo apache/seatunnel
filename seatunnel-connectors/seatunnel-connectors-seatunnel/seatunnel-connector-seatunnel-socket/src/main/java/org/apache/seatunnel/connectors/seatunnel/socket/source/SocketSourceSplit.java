@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.sink;
+package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.translation.sink.SinkWriterConverter;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-public class FlinkSinkWriterConverter<InputT, CommT, WriterStateT> implements SinkWriterConverter<org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>>> {
+public class SocketSourceSplit implements SourceSplit {
+    private final String splitId;
 
-    private final long checkpointId;
-
-    FlinkSinkWriterConverter(long checkpointId) {
-        this.checkpointId = checkpointId;
+    public SocketSourceSplit(String splitId) {
+        this.splitId = splitId;
     }
 
     @Override
-    public org.apache.flink.api.connector.sink.SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new FlinkSinkWriter(sinkWriter, this.checkpointId);
+    public String splitId() {
+        return splitId;
     }
 }
