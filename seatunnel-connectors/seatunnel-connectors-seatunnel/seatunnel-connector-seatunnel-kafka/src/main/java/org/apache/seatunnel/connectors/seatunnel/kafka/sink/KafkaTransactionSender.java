@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkWriter.generateTransactionId;
+
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
@@ -67,7 +69,6 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     public Optional<KafkaCommitInfo> prepareCommit() {
         KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties,
                 this.kafkaProducer.getProducerId(), this.kafkaProducer.getEpoch());
-        this.kafkaProducer.close();
         return Optional.of(kafkaCommitInfo);
     }
 
@@ -77,18 +78,26 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     }
 
     @Override
-    public void abortTransaction(List<KafkaSinkState> kafkaStates) {
-        if (kafkaStates.isEmpty()) {
-            return;
+    public void abortTransaction(long checkpointId) {
+
+        KafkaInternalProducer<K, V> producer;
+        if (this.kafkaProducer != null) {
+            producer = this.kafkaProducer;
+        } else {
+            producer = getTransactionProducer(this.kafkaProperties,
+                    generateTransactionId(this.transactionPrefix, checkpointId));
         }
-        for (KafkaSinkState kafkaState : kafkaStates) {
-            // create the transaction producer
+
+        for (long i = checkpointId; ; i++) {
+            String transactionId = generateTransactionId(this.transactionPrefix, i);
+            producer.setTransactionalId(transactionId);
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Abort kafka transaction: {}", kafkaState.getTransactionId());
+                LOGGER.debug("Abort kafka transaction: {}", transactionId);
             }
-            KafkaProducer<K, V> historyProducer = getTransactionProducer(kafkaProperties, kafkaState.getTransactionId());
-            historyProducer.abortTransaction();
-            historyProducer.close();
+            producer.flush();
+            if (producer.getEpoch() == 0) {
+                break;
+            }
         }
     }
 

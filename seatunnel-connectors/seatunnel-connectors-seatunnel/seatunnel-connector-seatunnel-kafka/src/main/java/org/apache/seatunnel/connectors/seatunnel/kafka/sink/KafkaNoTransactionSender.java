@@ -63,7 +63,7 @@ public class KafkaNoTransactionSender<K, V> implements KafkaProduceSender<K, V> 
     }
 
     @Override
-    public void abortTransaction(List<KafkaSinkState> kafkaStates) {
+    public void abortTransaction(long checkpointId) {
         // no-op
     }
 

@@ -80,12 +80,13 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         restoreState(kafkaStates);
         this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowTypeInfo);
         if (KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig))) {
-            // the recover state
             this.kafkaProducerSender =
                     new KafkaTransactionSender<>(this.transactionPrefix, getKafkaProperties(pluginConfig));
-            // TODO abort all transaction number bigger than current transaction, cause they will commit
-            //  transaction again.
-            this.kafkaProducerSender.abortTransaction(kafkaStates);
+            // abort all transaction number bigger than current transaction, because they maybe already start
+            //  transaction.
+            if (!kafkaStates.isEmpty()) {
+                this.kafkaProducerSender.abortTransaction(kafkaStates.get(0).getCheckpointId() + 1);
+            }
             this.kafkaProducerSender.beginTransaction(generateTransactionId(this.transactionPrefix,
                     this.lastCheckpointId + 1));
         } else {
@@ -146,7 +147,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         return KafkaSemantics.NON;
     }
 
-    private String generateTransactionId(String transactionPrefix, long checkpointId) {
+    protected static String generateTransactionId(String transactionPrefix, long checkpointId) {
         return transactionPrefix + "-" + checkpointId;
     }
 

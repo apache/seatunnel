@@ -50,9 +50,9 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
     /**
      * Abort the given transaction.
      *
-     * @param kafkaStates kafka states about the transaction info.
+     * @param checkpointId the id of the last checkpoint of the last run
      */
-    void abortTransaction(List<KafkaSinkState> kafkaStates);
+    void abortTransaction(long checkpointId);
 
     /**
      * Get the current kafka state of the sender.
