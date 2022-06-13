@@ -70,6 +70,7 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             Config sinkConfig = pluginConfigs.get(i);
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink = plugins.get(i);
             Dataset<Row> dataset = fromSourceTable(sinkConfig, sparkEnvironment).orElse(input);
+            // TODO modify checkpoint location
             SparkSinkInjector.inject(dataset.write(), seaTunnelSink, new HashMap<>(Common.COLLECTION_SIZE)).option(
                 "checkpointLocation", "/tmp").save();
         }

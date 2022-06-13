@@ -109,7 +109,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     @Override
-    public void abort() {
+    public void abortPrepare() {
         kafkaProducerSender.abortTransaction();
     }
 

@@ -50,7 +50,7 @@ public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommit
     }
 
     @Override
-    public void abort() {
+    public void abortPrepare() {
 
     }
 
