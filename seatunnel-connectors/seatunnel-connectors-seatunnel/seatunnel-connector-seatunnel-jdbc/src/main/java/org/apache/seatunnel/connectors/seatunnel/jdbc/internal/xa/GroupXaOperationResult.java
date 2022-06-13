@@ -67,7 +67,7 @@ public class GroupXaOperationResult<T> {
 
     void throwIfAnyFailed(String action) {
         failure.map(
-                f ->
+            f ->
                     wrapFailure(
                         f,
                         "failed to " + action + " %d transactions out of %d",
