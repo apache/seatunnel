@@ -50,6 +50,11 @@
             <artifactId>seatunnel-connector-seatunnel-hive</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-seatunnel-socket</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
