@@ -41,7 +41,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTransactionSender.class);
 
-    private KafkaProducer<K, V> kafkaProducer;
+    private KafkaInternalProducer<K, V> kafkaProducer;
     private String transactionId;
     private final String transactionPrefix;
     private final Properties kafkaProperties;
@@ -65,7 +65,9 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     @Override
     public Optional<KafkaCommitInfo> prepareCommit() {
-        KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties);
+        KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties,
+                this.kafkaProducer.getProducerId(), this.kafkaProducer.getEpoch());
+        this.kafkaProducer.close();
         return Optional.of(kafkaCommitInfo);
     }
 
@@ -104,10 +106,10 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         }
     }
 
-    private KafkaProducer<K, V> getTransactionProducer(Properties properties, String transactionId) {
+    private KafkaInternalProducer<K, V> getTransactionProducer(Properties properties, String transactionId) {
         Properties transactionProperties = (Properties) properties.clone();
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
-        KafkaProducer<K, V> transactionProducer = new KafkaProducer<>(transactionProperties);
+        KafkaInternalProducer<K, V> transactionProducer = new KafkaInternalProducer<>(transactionProperties, transactionId);
         transactionProducer.initTransactions();
         return transactionProducer;
     }

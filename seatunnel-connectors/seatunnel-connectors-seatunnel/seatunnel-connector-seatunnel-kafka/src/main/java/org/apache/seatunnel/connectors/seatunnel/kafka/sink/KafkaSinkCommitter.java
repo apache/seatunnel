@@ -36,6 +36,8 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
 
     private final Config pluginConfig;
 
+    private KafkaInternalProducer<?, ?> kafkaProducer;
+
     public KafkaSinkCommitter(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
     }
@@ -52,6 +54,7 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
             }
             KafkaProducer<?, ?> producer = getProducer(commitInfo);
             producer.commitTransaction();
+            producer.flush();
         }
         return commitInfos;
     }
@@ -67,11 +70,16 @@ public class KafkaSinkCommitter implements SinkCommitter<KafkaCommitInfo> {
         }
     }
 
-    private KafkaProducer<?, ?> getProducer(KafkaCommitInfo kafkaCommitInfo) {
-        Properties kafkaProperties = kafkaCommitInfo.getKafkaProperties();
-        kafkaProperties.setProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG, kafkaCommitInfo.getTransactionId());
-        KafkaProducer<?, ?> kafkaProducer = new KafkaProducer<>(kafkaCommitInfo.getKafkaProperties());
-        kafkaProducer.initTransactions();
+    private KafkaInternalProducer<?, ?> getProducer(KafkaCommitInfo commitInfo) {
+        if (this.kafkaProducer != null) {
+            this.kafkaProducer.setTransactionalId(commitInfo.getTransactionId());
+        } else {
+            Properties kafkaProperties = commitInfo.getKafkaProperties();
+            kafkaProperties.setProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG, commitInfo.getTransactionId());
+            kafkaProducer =
+                    new KafkaInternalProducer<>(commitInfo.getKafkaProperties(), commitInfo.getTransactionId());
+        }
+        kafkaProducer.resumeTransaction(commitInfo.getProducerId(), commitInfo.getEpoch());
         return kafkaProducer;
     }
 }
