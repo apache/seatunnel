@@ -93,7 +93,7 @@ public class SimpleJdbcConnectionProvider
         Class<?> clazz =
             Class.forName(driverName, true, Thread.currentThread().getContextClassLoader());
         try {
-            return (Driver) clazz.newInstance();
+            return (Driver) clazz.getDeclaredConstructor().newInstance();
         } catch (Exception ex) {
             throw new SQLException("Fail to create driver of class " + driverName, ex);
         }
