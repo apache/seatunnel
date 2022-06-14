@@ -30,4 +30,9 @@ public class TimestampType implements SeaTunnelDataType<Timestamp> {
     public int getPrecision() {
         return precision;
     }
+
+    @Override
+    public Class<Timestamp> getTypeClass() {
+        return Timestamp.class;
+    }
 }

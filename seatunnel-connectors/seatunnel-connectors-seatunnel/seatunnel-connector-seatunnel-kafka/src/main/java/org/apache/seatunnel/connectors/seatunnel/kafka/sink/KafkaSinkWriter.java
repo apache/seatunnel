@@ -21,7 +21,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRAN
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
@@ -66,7 +66,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     public KafkaSinkWriter(
             SinkWriter.Context context,
-            SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+            SeaTunnelRowType seaTunnelRowType,
             Config pluginConfig,
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
@@ -78,7 +78,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             this.transactionPrefix = String.format("SeaTunnel%04d", random.nextInt(PREFIX_RANGE));
         }
         restoreState(kafkaStates);
-        this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowTypeInfo);
+        this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowType);
         if (KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig))) {
             this.kafkaProducerSender =
                     new KafkaTransactionSender<>(this.transactionPrefix, getKafkaProperties(pluginConfig));
@@ -136,8 +136,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     // todo: parse the target field from config
-    private SeaTunnelRowSerializer<String, String> getSerializer(Config pluginConfig, SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
-        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topics"), seaTunnelRowTypeInfo);
+    private SeaTunnelRowSerializer<String, String> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topics"), seaTunnelRowType);
     }
 
     private KafkaSemantics getKafkaSemantics(Config pluginConfig) {

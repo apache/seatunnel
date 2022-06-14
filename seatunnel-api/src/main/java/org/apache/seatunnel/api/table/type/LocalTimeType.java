@@ -17,30 +17,48 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class EnumType<T extends Enum<T>> implements SeaTunnelDataType<T> {
-    private final Class<T> enumClass;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.Temporal;
 
-    public EnumType(Class<T> enumClass) {
-        this.enumClass = enumClass;
+public class LocalTimeType<T extends Temporal> implements SeaTunnelDataType<T> {
+    private static final long serialVersionUID = 1L;
+
+    public static final LocalTimeType<LocalDate> LOCAL_DATE_TYPE = new LocalTimeType<>(LocalDate.class);
+    public static final LocalTimeType<LocalTime> LOCAL_TIME_TYPE = new LocalTimeType<>(LocalTime.class);
+    public static final LocalTimeType<LocalDateTime> LOCAL_DATE_TIME_TYPE = new LocalTimeType<>(LocalDateTime.class);
+
+    private final Class<T> typeClass;
+
+    private LocalTimeType(Class<T> typeClass) {
+        this.typeClass = typeClass;
     }
 
     @Override
     public Class<T> getTypeClass() {
-        return enumClass;
+        return typeClass;
     }
 
     @Override
     public int hashCode() {
-        return enumClass.hashCode();
+        return typeClass.hashCode();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof EnumType) {
-            return enumClass == ((EnumType<T>) obj).enumClass;
+        if (obj instanceof LocalTimeType) {
+            LocalTimeType<?> other = (LocalTimeType<?>) obj;
+            return typeClass == other.typeClass;
         } else {
             return false;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "LocalTimeType{" +
+            "typeClass=" + typeClass +
+            '}';
     }
 }
