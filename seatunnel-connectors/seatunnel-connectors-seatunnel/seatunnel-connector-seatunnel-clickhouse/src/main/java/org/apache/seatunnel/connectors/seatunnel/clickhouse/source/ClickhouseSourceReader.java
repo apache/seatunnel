@@ -41,7 +41,7 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     private final SeaTunnelRowTypeInfo rowTypeInfo;
     private final SourceReader.Context readerContext;
     private ClickHouseRequest<?> request;
-    private String sql;
+    private final String sql;
 
     private final List<ClickhouseSourceSplit> splits;
 

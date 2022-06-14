@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Objects;
 
 public class BasicType<T> implements SeaTunnelDataType<T> {
 
@@ -61,15 +62,15 @@ public class BasicType<T> implements SeaTunnelDataType<T> {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
+    public boolean equals(Object o) {
+        if (this == o) {
             return true;
         }
-        if (obj == null) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        BasicType<?> other = (BasicType<?>) obj;
-        return this.physicalTypeClass.equals(other.physicalTypeClass);
+        BasicType<?> basicType = (BasicType<?>) o;
+        return Objects.equals(physicalTypeClass, basicType.physicalTypeClass);
     }
 
     @Override
