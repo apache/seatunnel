@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.types;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
-import org.apache.seatunnel.api.table.type.PojoType;
+import java.sql.Connection;
+import java.sql.SQLException;
 
-import org.apache.spark.sql.types.ObjectType;
+/** Executes the given JDBC statement in batch for the accumulated records. */
+public interface JdbcBatchStatementExecutor<T> {
 
-public class PojoTypeConverter<T1> implements SparkDataTypeConverter<PojoType<T1>, ObjectType> {
-    @Override
-    public ObjectType convert(PojoType<T1> seaTunnelDataType) {
-        return new ObjectType(seaTunnelDataType.getPojoClass());
-    }
+    /** Create statements from connection. */
+    void prepareStatements(Connection connection) throws SQLException;
 
-    @Override
-    public PojoType<T1> reconvert(ObjectType dataType) {
-        return new PojoType<>((Class<T1>) dataType.cls());
-    }
+    void addToBatch(T record) throws SQLException;
+
+    /** Submits a batch of commands to the database for execution. */
+    void executeBatch() throws SQLException;
+
+    /** Close JDBC related statements. */
+    void closeStatements() throws SQLException;
 }

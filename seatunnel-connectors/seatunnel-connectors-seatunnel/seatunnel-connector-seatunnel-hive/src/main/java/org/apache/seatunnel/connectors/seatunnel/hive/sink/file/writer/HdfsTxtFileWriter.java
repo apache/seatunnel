@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
 
 import lombok.Lombok;
@@ -33,17 +33,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class HdfsTxtFileWriter extends AbstractFileWriter {
     private static final Logger LOGGER = LoggerFactory.getLogger(HdfsTxtFileWriter.class);
     private Map<String, FSDataOutputStream> beingWrittenOutputStream;
+    protected final int[] sinkColumnIndexes;
 
-    public HdfsTxtFileWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public HdfsTxtFileWriter(SeaTunnelRowType seaTunnelRowType,
                              HiveSinkConfig hiveSinkConfig,
                              long sinkId,
                              int subTaskIndex) {
-        super(seaTunnelRowTypeInfo, hiveSinkConfig, sinkId, subTaskIndex);
+        super(seaTunnelRowType, hiveSinkConfig, sinkId, subTaskIndex);
         beingWrittenOutputStream = new HashMap<>();
+        List<String> sinkColumns = hiveSinkConfig.getSinkColumns();
+        if (sinkColumns == null || sinkColumns.size() == 0) {
+            this.sinkColumnIndexes = IntStream.range(0, seaTunnelRowType.getTotalFields()).toArray();
+        } else {
+            this.sinkColumnIndexes = IntStream.range(0, seaTunnelRowType.getTotalFields())
+                .filter(i -> sinkColumns.contains(seaTunnelRowType.getFieldName(i)))
+                .toArray();
+        }
     }
 
     @Override
@@ -132,22 +142,10 @@ public class HdfsTxtFileWriter extends AbstractFileWriter {
     }
 
     private String transformRowToLine(@NonNull SeaTunnelRow seaTunnelRow) {
-        String line = null;
-        List<String> sinkColumns = hiveSinkConfig.getSinkColumns();
-        if (sinkColumns == null || sinkColumns.size() == 0) {
-            line = Arrays.stream(seaTunnelRow.getFields())
-                .map(column -> column == null ? "" : column.toString())
-                .collect(Collectors.joining(hiveSinkConfig.getHiveTxtFileFieldDelimiter()));
-        } else {
-            line = sinkColumns.stream().map(column -> {
-                String valueStr = "";
-                Object value = seaTunnelRow.getFieldMap().get(column);
-                if (value != null) {
-                    valueStr = value.toString();
-                }
-                return valueStr;
-            }).collect(Collectors.joining(hiveSinkConfig.getHiveTxtFileFieldDelimiter()));
-        }
-        return line;
+        return Arrays.stream(sinkColumnIndexes)
+            .boxed()
+            .map(seaTunnelRow::getField)
+            .map(value -> value == null ? "" : value.toString())
+            .collect(Collectors.joining(hiveSinkConfig.getHiveTxtFileFieldDelimiter()));
     }
 }

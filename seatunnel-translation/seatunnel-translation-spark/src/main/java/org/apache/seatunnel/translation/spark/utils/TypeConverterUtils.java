@@ -17,139 +17,87 @@
 
 package org.apache.seatunnel.translation.spark.utils;
 
-import org.apache.seatunnel.api.table.type.*;
-import org.apache.seatunnel.translation.spark.types.ArrayTypeConverter;
-import org.apache.seatunnel.translation.spark.types.BasicTypeConverter;
-import org.apache.seatunnel.translation.spark.types.PojoTypeConverter;
-import org.apache.seatunnel.translation.spark.types.TimestampTypeConverter;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.ListType;
+import org.apache.seatunnel.api.table.type.PojoType;
+import org.apache.seatunnel.api.table.type.PrimitiveArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.TimestampType;
 
 import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.DecimalType;
 import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.ObjectType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.types.VarcharType;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TypeConverterUtils {
+
+    private static final Map<SeaTunnelDataType<?>, DataType> SEA_TUNNEL_TO_SPARK_TYPES = new HashMap<>(16);
+
+    static {
+        // basic types
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.STRING_TYPE, DataTypes.StringType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BOOLEAN_TYPE, DataTypes.BooleanType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BYTE_TYPE, DataTypes.ByteType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.SHORT_TYPE, DataTypes.ShortType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.INT_TYPE, DataTypes.IntegerType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.LONG_TYPE, DataTypes.LongType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.FLOAT_TYPE, DataTypes.FloatType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.DOUBLE_TYPE, DataTypes.DoubleType);
+        // todo: need to confirm
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.CHAR_TYPE, new VarcharType(1));
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BIG_INT_TYPE, DataTypes.LongType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BIG_DECIMAL_TYPE, new DecimalType());
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.VOID_TYPE, DataTypes.NullType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.DATE_TYPE, DataTypes.DateType);
+        SEA_TUNNEL_TO_SPARK_TYPES.put(PrimitiveArrayType.PRIMITIVE_BYTE_ARRAY_TYPE, DataTypes.BinaryType);
+    }
 
     private TypeConverterUtils() {
         throw new UnsupportedOperationException("TypeConverterUtils is a utility class and cannot be instantiated");
     }
 
-    public static <T> DataType convert(SeaTunnelDataType<T> seaTunnelDataType) {
-        if (seaTunnelDataType instanceof BasicType) {
-            return convertBasicType((BasicType<T>) seaTunnelDataType);
+    public static DataType convert(SeaTunnelDataType<?> dataType) {
+        DataType sparkType = SEA_TUNNEL_TO_SPARK_TYPES.get(dataType);
+        if (sparkType != null) {
+            return sparkType;
         }
-        if (seaTunnelDataType instanceof TimestampType) {
-            return TimestampTypeConverter.INSTANCE.convert((TimestampType) seaTunnelDataType);
+        if (dataType instanceof TimestampType) {
+            return DataTypes.TimestampType;
         }
-        if (seaTunnelDataType instanceof ArrayType) {
-            return convertArrayType((ArrayType<T>) seaTunnelDataType);
+        if (dataType instanceof ArrayType) {
+            return createArrayType(((ArrayType<?, ?>) dataType).getElementType());
         }
-        if (seaTunnelDataType instanceof PojoType) {
-            return convertPojoType((PojoType<T>) seaTunnelDataType);
+        if (dataType instanceof ListType) {
+            return createArrayType(((ListType<?>) dataType).getElementType());
         }
-
-        if (seaTunnelDataType instanceof LocalTimeType) {
-            return convertLocalTimeType((LocalTimeType<T>) seaTunnelDataType);
+        if (dataType instanceof PojoType) {
+            return new ObjectType(dataType.getTypeClass());
         }
-
-        throw new IllegalArgumentException("Unsupported data type: " + seaTunnelDataType);
+        if (dataType instanceof SeaTunnelRowType) {
+            return convert((SeaTunnelRowType) dataType);
+        }
+        throw new IllegalArgumentException("Unsupported data type: " + dataType);
     }
 
-    private static <T> DataType convertLocalTimeType(LocalTimeType<T> localTimeType) {
-        Class<T> physicalTypeClass = localTimeType.getPhysicalTypeClass();
-        if (physicalTypeClass.equals(LocalDate.class)) {
-
-        } else if (physicalTypeClass.equals(LocalDateTime.class)) {
-
-        } else if (physicalTypeClass.equals(LocalTime.class)) {
-
-        }
-        throw new IllegalArgumentException("Unsupported local time type: " + physicalTypeClass);
+    private static org.apache.spark.sql.types.ArrayType createArrayType(SeaTunnelDataType<?> dataType) {
+        return DataTypes.createArrayType(convert(dataType));
     }
 
-    @SuppressWarnings("unchecked")
-    public static <T> DataType convertBasicType(BasicType<T> basicType) {
-        Class<T> physicalTypeClass = basicType.getPhysicalTypeClass();
-        if (physicalTypeClass == Boolean.class) {
-            BasicType<Boolean> booleanBasicType = (BasicType<Boolean>) basicType;
-            return BasicTypeConverter.BOOLEAN_CONVERTER.convert(booleanBasicType);
-        }
-        if (physicalTypeClass == String.class) {
-            BasicType<String> stringBasicType = (BasicType<String>) basicType;
-            return BasicTypeConverter.STRING_CONVERTER.convert(stringBasicType);
-        }
-        if (physicalTypeClass == Date.class) {
-            BasicType<Date> dateBasicType = (BasicType<Date>) basicType;
-            return BasicTypeConverter.DATE_CONVERTER.convert(dateBasicType);
-        }
-        if (physicalTypeClass == Double.class) {
-            BasicType<Double> doubleBasicType = (BasicType<Double>) basicType;
-            return BasicTypeConverter.DOUBLE_CONVERTER.convert(doubleBasicType);
-        }
-        if (physicalTypeClass == Integer.class) {
-            BasicType<Integer> integerBasicType = (BasicType<Integer>) basicType;
-            return BasicTypeConverter.INTEGER_CONVERTER.convert(integerBasicType);
-        }
-        if (physicalTypeClass == Long.class) {
-            BasicType<Long> longBasicType = (BasicType<Long>) basicType;
-            return BasicTypeConverter.LONG_CONVERTER.convert(longBasicType);
-        }
-        if (physicalTypeClass == Float.class) {
-            BasicType<Float> floatBasicType = (BasicType<Float>) basicType;
-            return BasicTypeConverter.FLOAT_CONVERTER.convert(floatBasicType);
-        }
-        if (physicalTypeClass == Byte.class) {
-            BasicType<Byte> byteBasicType = (BasicType<Byte>) basicType;
-            return BasicTypeConverter.BYTE_CONVERTER.convert(byteBasicType);
-        }
-        if (physicalTypeClass == Short.class) {
-            BasicType<Short> shortBasicType = (BasicType<Short>) basicType;
-            return BasicTypeConverter.SHORT_CONVERTER.convert(shortBasicType);
-        }
-        if (physicalTypeClass == Character.class) {
-            BasicType<Character> characterBasicType = (BasicType<Character>) basicType;
-            return BasicTypeConverter.CHARACTER_CONVERTER.convert(characterBasicType);
-        }
-        if (physicalTypeClass == BigInteger.class) {
-            BasicType<BigInteger> bigIntegerBasicType = (BasicType<BigInteger>) basicType;
-            return BasicTypeConverter.BIG_INTEGER_CONVERTER.convert(bigIntegerBasicType);
-        }
-        if (physicalTypeClass == BigDecimal.class) {
-            BasicType<BigDecimal> bigDecimalBasicType = (BasicType<BigDecimal>) basicType;
-            return BasicTypeConverter.BID_DECIMAL_CONVERTER.convert(bigDecimalBasicType);
-        }
-        if (physicalTypeClass == Void.class) {
-            BasicType<Void> voidBasicType = (BasicType<Void>) basicType;
-            return BasicTypeConverter.NULL_CONVERTER.convert(voidBasicType);
-        }
-        throw new IllegalArgumentException("Unsupported basic type: " + basicType);
-    }
-
-    public static <T1> org.apache.spark.sql.types.ArrayType convertArrayType(ArrayType<T1> arrayType) {
-        ArrayTypeConverter<T1> arrayTypeConverter = new ArrayTypeConverter<>();
-        return arrayTypeConverter.convert(arrayType);
-    }
-
-    public static <T> ObjectType convertPojoType(PojoType<T> pojoType) {
-        PojoTypeConverter<T> pojoTypeConverter = new PojoTypeConverter<>();
-        return pojoTypeConverter.convert(pojoType);
-    }
-
-    public static StructType convertRow(SeaTunnelRowTypeInfo typeInfo) {
-        StructField[] fields = new StructField[typeInfo.getFieldNames().length];
-        for (int i = 0; i < typeInfo.getFieldNames().length; i++) {
-            fields[i] = new StructField(typeInfo.getFieldNames()[i],
-                    convert(typeInfo.getSeaTunnelDataTypes()[i]), true, Metadata.empty());
+    private static StructType convert(SeaTunnelRowType rowType) {
+        StructField[] fields = new StructField[rowType.getFieldNames().length];
+        for (int i = 0; i < rowType.getFieldNames().length; i++) {
+            fields[i] = new StructField(rowType.getFieldNames()[i],
+                convert(rowType.getFieldTypes()[i]), true, Metadata.empty());
         }
         return new StructType(fields);
     }
-
 }

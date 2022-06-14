@@ -20,51 +20,45 @@ package org.apache.seatunnel.api.table.type;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Objects;
+import java.time.temporal.Temporal;
 
-public class LocalTimeType<T> implements SeaTunnelDataType<T> {
+public class LocalTimeType<T extends Temporal> implements SeaTunnelDataType<T> {
+    private static final long serialVersionUID = 1L;
 
-    private final Class<T> physicalTypeClass;
+    public static final LocalTimeType<LocalDate> LOCAL_DATE_TYPE = new LocalTimeType<>(LocalDate.class);
+    public static final LocalTimeType<LocalTime> LOCAL_TIME_TYPE = new LocalTimeType<>(LocalTime.class);
+    public static final LocalTimeType<LocalDateTime> LOCAL_DATE_TIME_TYPE = new LocalTimeType<>(LocalDateTime.class);
 
-    public static final LocalTimeType<LocalDateTime> LOCAL_DATE_TIME =
-            new LocalTimeType<>(LocalDateTime.class);
+    private final Class<T> typeClass;
 
-    public static final LocalTimeType<LocalDate> LOCAL_DATE = new LocalTimeType<>(LocalDate.class);
-
-    public static final LocalTimeType<LocalTime> LOCAL_TIME = new LocalTimeType<>(LocalTime.class);
-
-    public LocalTimeType(Class<T> physicalTypeClass) {
-        if (physicalTypeClass == null) {
-            throw new IllegalArgumentException("physicalTypeClass cannot be null");
-        }
-        this.physicalTypeClass = physicalTypeClass;
-    }
-
-    public Class<T> getPhysicalTypeClass() {
-        return this.physicalTypeClass;
+    private LocalTimeType(Class<T> typeClass) {
+        this.typeClass = typeClass;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        LocalTimeType<?> that = (LocalTimeType<?>) o;
-        return Objects.equals(physicalTypeClass, that.physicalTypeClass);
+    public Class<T> getTypeClass() {
+        return typeClass;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(physicalTypeClass);
+        return typeClass.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof LocalTimeType) {
+            LocalTimeType<?> other = (LocalTimeType<?>) obj;
+            return typeClass == other.typeClass;
+        } else {
+            return false;
+        }
     }
 
     @Override
     public String toString() {
         return "LocalTimeType{" +
-                "physicalTypeClass=" + physicalTypeClass +
-                '}';
+            "typeClass=" + typeClass +
+            '}';
     }
 }

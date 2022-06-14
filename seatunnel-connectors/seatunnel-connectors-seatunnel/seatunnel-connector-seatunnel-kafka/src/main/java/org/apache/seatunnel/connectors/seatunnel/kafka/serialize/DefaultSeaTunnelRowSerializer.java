@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
@@ -30,17 +30,17 @@ import java.util.Map;
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<String, String> {
 
     private final String topic;
-    private final SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private final SeaTunnelRowType seaTunnelRowType;
 
-    public DefaultSeaTunnelRowSerializer(String topic, SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
+    public DefaultSeaTunnelRowSerializer(String topic, SeaTunnelRowType seaTunnelRowType) {
         this.topic = topic;
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
     public ProducerRecord<String, String> serializeRow(SeaTunnelRow row) {
         Map<Object, Object> map = new HashMap<>(Common.COLLECTION_SIZE);
-        String[] fieldNames = seaTunnelRowTypeInfo.getFieldNames();
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
         Object[] fields = row.getFields();
         for (int i = 0; i < fieldNames.length; i++) {
             map.put(fieldNames[i], fields[i]);

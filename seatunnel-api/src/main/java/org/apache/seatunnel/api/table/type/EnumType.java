@@ -24,7 +24,23 @@ public class EnumType<T extends Enum<T>> implements SeaTunnelDataType<T> {
         this.enumClass = enumClass;
     }
 
-    public Class<T> getEnumClass() {
+    @Override
+    public Class<T> getTypeClass() {
         return enumClass;
+    }
+
+    @Override
+    public int hashCode() {
+        return enumClass.hashCode();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof EnumType) {
+            return enumClass == ((EnumType<T>) obj).enumClass;
+        } else {
+            return false;
+        }
     }
 }

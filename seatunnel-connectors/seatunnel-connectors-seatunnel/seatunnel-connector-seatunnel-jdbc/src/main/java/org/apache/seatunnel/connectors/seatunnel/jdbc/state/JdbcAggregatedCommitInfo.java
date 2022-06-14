@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.types;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
 
-import org.apache.seatunnel.api.table.type.Converter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import org.apache.spark.sql.types.DataType;
+import java.io.Serializable;
+import java.util.List;
 
-public interface SparkDataTypeConverter<T1, T2> extends Converter<T1, T2> {
-
-    /**
-     * Convert SeaTunnel {@link SeaTunnelDataType} to spark {@link DataType}.
-     *
-     * @param seaTunnelDataType SeaTunnel {@link SeaTunnelDataType}
-     * @return spark {@link DataType}
-     */
-    @Override
-    T2 convert(T1 seaTunnelDataType);
-
-    @Override
-    T1 reconvert(T2 dataType);
+@Data
+@AllArgsConstructor
+public class JdbcAggregatedCommitInfo implements Serializable {
+    private final List<XidInfo> xidInfoList;
 }

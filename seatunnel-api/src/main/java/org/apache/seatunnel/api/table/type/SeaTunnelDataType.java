@@ -24,5 +24,5 @@ import java.io.Serializable;
  */
 public interface SeaTunnelDataType<T> extends Serializable {
 
-
+    Class<T> getTypeClass();
 }

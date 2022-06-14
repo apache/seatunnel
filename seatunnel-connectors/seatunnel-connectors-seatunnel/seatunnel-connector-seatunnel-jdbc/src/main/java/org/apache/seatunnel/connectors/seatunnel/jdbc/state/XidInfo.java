@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.types;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
 
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import org.apache.spark.sql.types.DataType;
-import org.apache.spark.sql.types.DataTypes;
+import javax.transaction.xa.Xid;
 
-public class ArrayTypeConverter<T1>
-    implements SparkDataTypeConverter<ArrayType<T1>, org.apache.spark.sql.types.ArrayType> {
+import java.io.Serializable;
 
-    @Override
-    public org.apache.spark.sql.types.ArrayType convert(ArrayType<T1> seaTunnelDataType) {
-        DataType elementType = TypeConverterUtils.convert(seaTunnelDataType.getElementType());
-        return DataTypes.createArrayType(elementType);
-    }
+@Data
+@AllArgsConstructor
+public class XidInfo implements Serializable {
 
-    @Override
-    public ArrayType<T1> reconvert(org.apache.spark.sql.types.ArrayType dataType) {
-        return null;
+    final Xid xid;
+    final int attempts;
+
+    public XidInfo withAttemptsIncremented() {
+        return new XidInfo(xid, attempts + 1);
     }
 }

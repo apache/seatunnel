@@ -15,25 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+
+import javax.transaction.xa.Xid;
 
 import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class SeaTunnelRowTypeInfo implements Serializable {
-    private static final long serialVersionUID = 1L;
-
-    /**
-     * The field name of the {@link SeaTunnelRow}.
-     */
-    private final String[] fieldNames;
-    /**
-     * The type of the field.
-     */
-    private final SeaTunnelDataType<?>[] seaTunnelDataTypes;
-
+public class JdbcSinkState implements Serializable {
+    private final Xid xid;
 }

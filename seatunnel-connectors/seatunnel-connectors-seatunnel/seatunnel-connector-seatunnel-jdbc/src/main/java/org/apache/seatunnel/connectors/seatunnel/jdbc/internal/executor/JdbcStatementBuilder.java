@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
-public interface Converter<T1, T2> {
+import java.io.Serializable;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
-    T2 convert(T1 dataType);
-
-    T1 reconvert(T2 dataType);
-}
+/**
+ * Sets {@link PreparedStatement} parameters to use in JDBC Sink based on a specific type of
+ * StreamRecord.
+ */
+public interface JdbcStatementBuilder<T>
+        extends BiConsumerWithException<PreparedStatement, T, SQLException>, Serializable {}

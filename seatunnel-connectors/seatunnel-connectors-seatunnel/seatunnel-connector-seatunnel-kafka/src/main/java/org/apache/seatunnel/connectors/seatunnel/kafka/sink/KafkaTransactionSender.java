@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkWriter.generateTransactionId;
+
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
@@ -41,14 +43,14 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaTransactionSender.class);
 
-    private final KafkaProducer<K, V> kafkaProducer;
-    private final String transactionId;
+    private KafkaInternalProducer<K, V> kafkaProducer;
+    private String transactionId;
+    private final String transactionPrefix;
     private final Properties kafkaProperties;
 
-    public KafkaTransactionSender(Properties kafkaProperties) {
+    public KafkaTransactionSender(String transactionPrefix, Properties kafkaProperties) {
+        this.transactionPrefix = transactionPrefix;
         this.kafkaProperties = kafkaProperties;
-        this.transactionId = getTransactionId();
-        this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
     }
 
     @Override
@@ -57,15 +59,16 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     }
 
     @Override
-    public void beginTransaction() {
+    public void beginTransaction(String transactionId) {
+        this.transactionId = transactionId;
+        this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
         kafkaProducer.beginTransaction();
     }
 
     @Override
     public Optional<KafkaCommitInfo> prepareCommit() {
-        // TODO kafka can't use transactionId to commit on different producer directly, we should find
-        //  another way
-        KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties);
+        KafkaCommitInfo kafkaCommitInfo = new KafkaCommitInfo(transactionId, kafkaProperties,
+                this.kafkaProducer.getProducerId(), this.kafkaProducer.getEpoch());
         return Optional.of(kafkaCommitInfo);
     }
 
@@ -75,24 +78,33 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     }
 
     @Override
-    public void abortTransaction(List<KafkaSinkState> kafkaStates) {
-        if (kafkaStates.isEmpty()) {
-            return;
+    public void abortTransaction(long checkpointId) {
+
+        KafkaInternalProducer<K, V> producer;
+        if (this.kafkaProducer != null) {
+            producer = this.kafkaProducer;
+        } else {
+            producer = getTransactionProducer(this.kafkaProperties,
+                    generateTransactionId(this.transactionPrefix, checkpointId));
         }
-        for (KafkaSinkState kafkaState : kafkaStates) {
-            // create the transaction producer
+
+        for (long i = checkpointId; ; i++) {
+            String transactionId = generateTransactionId(this.transactionPrefix, i);
+            producer.setTransactionalId(transactionId);
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Abort kafka transaction: {}", kafkaState.getTransactionId());
+                LOGGER.debug("Abort kafka transaction: {}", transactionId);
             }
-            KafkaProducer<K, V> historyProducer = getTransactionProducer(kafkaProperties, kafkaState.getTransactionId());
-            historyProducer.abortTransaction();
-            historyProducer.close();
+            producer.flush();
+            if (producer.getEpoch() == 0) {
+                break;
+            }
         }
     }
 
     @Override
-    public List<KafkaSinkState> snapshotState() {
-        return Lists.newArrayList(new KafkaSinkState(transactionId, kafkaProperties));
+    public List<KafkaSinkState> snapshotState(long checkpointId) {
+        return Lists.newArrayList(new KafkaSinkState(transactionId, transactionPrefix, checkpointId,
+                kafkaProperties));
     }
 
     @Override
@@ -103,16 +115,12 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         }
     }
 
-    private KafkaProducer<K, V> getTransactionProducer(Properties properties, String transactionId) {
+    private KafkaInternalProducer<K, V> getTransactionProducer(Properties properties, String transactionId) {
         Properties transactionProperties = (Properties) properties.clone();
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
-        KafkaProducer<K, V> transactionProducer = new KafkaProducer<>(transactionProperties);
+        KafkaInternalProducer<K, V> transactionProducer = new KafkaInternalProducer<>(transactionProperties, transactionId);
         transactionProducer.initTransactions();
         return transactionProducer;
     }
 
-    // todo: use a better way to generate the transaction id
-    private String getTransactionId() {
-        return "SeaTunnel-" + System.currentTimeMillis();
-    }
 }

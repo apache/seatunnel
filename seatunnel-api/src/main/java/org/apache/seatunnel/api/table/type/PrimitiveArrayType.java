@@ -15,22 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.types;
+package org.apache.seatunnel.api.table.type;
 
-import org.apache.seatunnel.api.table.type.PojoType;
+public class PrimitiveArrayType<T> implements SeaTunnelDataType<T> {
+    public static final PrimitiveArrayType<byte[]> PRIMITIVE_BYTE_ARRAY_TYPE =
+        new PrimitiveArrayType<>(byte[].class);
 
-import org.apache.flink.api.java.typeutils.PojoTypeInfo;
+    /** The class of the array. */
+    private final Class<T> arrayClass;
 
-public class PojoTypeConverter<T1> implements FlinkTypeConverter<PojoType<T1>, PojoTypeInfo<T1>> {
-
-    @Override
-    public PojoTypeInfo<T1> convert(PojoType<T1> seaTunnelDataType) {
-        Class<T1> pojoClass = seaTunnelDataType.getPojoClass();
-        return (PojoTypeInfo<T1>) PojoTypeInfo.of(pojoClass);
+    private PrimitiveArrayType(Class<T> arrayClass) {
+        this.arrayClass = arrayClass;
     }
 
     @Override
-    public PojoType<T1> reconvert(PojoTypeInfo<T1> typeInformation) {
-        return new PojoType<>(typeInformation.getTypeClass());
+    public Class<T> getTypeClass() {
+        return this.arrayClass;
+    }
+
+    @Override
+    public int hashCode() {
+        return arrayClass.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof PrimitiveArrayType) {
+            PrimitiveArrayType<?> other = (PrimitiveArrayType<?>) obj;
+            return arrayClass == other.arrayClass;
+        } else {
+            return false;
+        }
     }
 }

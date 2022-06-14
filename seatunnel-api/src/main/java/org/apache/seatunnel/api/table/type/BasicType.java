@@ -24,35 +24,38 @@ import java.util.Date;
 import java.util.Objects;
 
 public class BasicType<T> implements SeaTunnelDataType<T> {
+    private static final long serialVersionUID = 1L;
 
-    public static final BasicType<Boolean> BOOLEAN = new BasicType<>(Boolean.class);
-    public static final BasicType<String> STRING = new BasicType<>(String.class);
-    public static final BasicType<Date> DATE = new BasicType<>(Date.class);
-    public static final BasicType<Double> DOUBLE = new BasicType<>(Double.class);
-    public static final BasicType<Integer> INTEGER = new BasicType<>(Integer.class);
-    public static final BasicType<Long> LONG = new BasicType<>(Long.class);
-    public static final BasicType<Float> FLOAT = new BasicType<>(Float.class);
-    public static final BasicType<Byte> BYTE = new BasicType<>(Byte.class);
-    public static final BasicType<Short> SHORT = new BasicType<>(Short.class);
-    public static final BasicType<Character> CHARACTER = new BasicType<>(Character.class);
-    public static final BasicType<BigInteger> BIG_INTEGER = new BasicType<>(BigInteger.class);
-    public static final BasicType<BigDecimal> BIG_DECIMAL = new BasicType<>(BigDecimal.class);
-    public static final BasicType<Instant> INSTANT = new BasicType<>(Instant.class);
-    public static final BasicType<Void> NULL = new BasicType<>(Void.class);
+    public static final BasicType<String> STRING_TYPE = new BasicType<>(String.class);
+    public static final BasicType<Boolean> BOOLEAN_TYPE = new BasicType<>(Boolean.class);
+    public static final BasicType<Byte> BYTE_TYPE = new BasicType<>(Byte.class);
+    public static final BasicType<Short> SHORT_TYPE = new BasicType<>(Short.class);
+    public static final BasicType<Integer> INT_TYPE = new BasicType<>(Integer.class);
+    public static final BasicType<Long> LONG_TYPE = new BasicType<>(Long.class);
+    public static final BasicType<Float> FLOAT_TYPE = new BasicType<>(Float.class);
+    public static final BasicType<Double> DOUBLE_TYPE = new BasicType<>(Double.class);
+    public static final BasicType<Character> CHAR_TYPE = new BasicType<>(Character.class);
+
+    public static final BasicType<BigInteger> BIG_INT_TYPE = new BasicType<>(BigInteger.class);
+    public static final BasicType<BigDecimal> BIG_DECIMAL_TYPE = new BasicType<>(BigDecimal.class);
+    public static final BasicType<Instant> INSTANT_TYPE = new BasicType<>(Instant.class);
+    public static final BasicType<Void> VOID_TYPE = new BasicType<>(Void.class);
+    public static final BasicType<Date> DATE_TYPE = new BasicType<>(Date.class);
 
     /**
      * The physical type class.
      */
     private final Class<T> physicalTypeClass;
 
-    public BasicType(Class<T> physicalTypeClass) {
+    private BasicType(Class<T> physicalTypeClass) {
         if (physicalTypeClass == null) {
             throw new IllegalArgumentException("physicalTypeClass cannot be null");
         }
         this.physicalTypeClass = physicalTypeClass;
     }
 
-    public Class<T> getPhysicalTypeClass() {
+    @Override
+    public Class<T> getTypeClass() {
         return this.physicalTypeClass;
     }
 
