@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -60,7 +60,7 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
     private SeaTunnelContext seaTunnelContext;
     private List<ClickHouseNode> servers;
-    private SeaTunnelRowTypeInfo rowTypeInfo;
+    private SeaTunnelRowType rowTypeInfo;
     private String sql;
 
     @Override
@@ -97,7 +97,7 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
                 seaTunnelDataTypes[i] = TypeConvertUtil.convert(response.getColumns().get(i).getDataType());
             }
 
-            this.rowTypeInfo = new SeaTunnelRowTypeInfo(fieldNames, seaTunnelDataTypes);
+            this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
 
         } catch (ClickHouseException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, e.getMessage());
@@ -115,7 +115,7 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
     }
 
     @Override
-    public SeaTunnelRowTypeInfo getRowTypeInfo() {
+    public SeaTunnelRowType getProducedType() {
         return this.rowTypeInfo;
     }
 

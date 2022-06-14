@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
 import com.clickhouse.client.ClickHouseClient;
@@ -38,7 +38,7 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
 
     private final List<ClickHouseNode> servers;
     private ClickHouseClient client;
-    private final SeaTunnelRowTypeInfo rowTypeInfo;
+    private final SeaTunnelRowType rowTypeInfo;
     private final SourceReader.Context readerContext;
     private ClickHouseRequest<?> request;
     private final String sql;
@@ -46,7 +46,7 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     private final List<ClickhouseSourceSplit> splits;
 
     ClickhouseSourceReader(List<ClickHouseNode> servers, SourceReader.Context readerContext,
-                           SeaTunnelRowTypeInfo rowTypeInfo, String sql) {
+                           SeaTunnelRowType rowTypeInfo, String sql) {
         this.servers = servers;
         this.readerContext = readerContext;
         this.rowTypeInfo = rowTypeInfo;
@@ -77,7 +77,7 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
                     Object[] values = new Object[this.rowTypeInfo.getFieldNames().length];
                     for (int i = 0; i < record.size(); i++) {
                         values[i] = TypeConvertUtil.valueUnwrap(
-                                this.rowTypeInfo.getSeaTunnelDataTypes()[i], record.getValue(i));
+                                this.rowTypeInfo.getFieldType(i), record.getValue(i));
                     }
                     output.collect(new SeaTunnelRow(values));
                 });

@@ -38,33 +38,33 @@ public class TypeConvertUtil {
     public static SeaTunnelDataType<?> convert(ClickHouseDataType dataType) {
         Class<?> type = dataType.getObjectClass();
         if (Integer.class.equals(type)) {
-            return BasicType.INTEGER;
+            return BasicType.INT_TYPE;
         } else if (Long.class.equals(type)) {
-            return BasicType.LONG;
+            return BasicType.LONG_TYPE;
         } else if (Short.class.equals(type)) {
-            return BasicType.SHORT;
+            return BasicType.SHORT_TYPE;
         } else if (BigInteger.class.equals(type)) {
-            return BasicType.BIG_INTEGER;
+            return BasicType.BIG_INT_TYPE;
         } else if (Byte.class.equals(type)) {
-            return BasicType.BYTE;
+            return BasicType.BYTE_TYPE;
         } else if (Boolean.class.equals(type)) {
-            return BasicType.BOOLEAN;
+            return BasicType.BOOLEAN_TYPE;
         } else if (LocalDate.class.equals(type)) {
-            return LocalTimeType.LOCAL_DATE;
+            return LocalTimeType.LOCAL_DATE_TYPE;
         } else if (LocalDateTime.class.equals(type)) {
-            return LocalTimeType.LOCAL_DATE_TIME;
+            return LocalTimeType.LOCAL_DATE_TIME_TYPE;
         } else if (BigDecimal.class.equals(type)) {
-            return BasicType.BIG_DECIMAL;
+            return BasicType.BIG_DECIMAL_TYPE;
         } else if (String.class.equals(type)) {
-            return BasicType.STRING;
+            return BasicType.STRING_TYPE;
         } else if (Float.class.equals(type)) {
-            return BasicType.FLOAT;
+            return BasicType.FLOAT_TYPE;
         } else if (Double.class.equals(type)) {
-            return BasicType.DOUBLE;
+            return BasicType.DOUBLE_TYPE;
         } else if (Map.class.equals(type)) {
-            return new MapType<>(BasicType.STRING, BasicType.STRING);
+            return new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
         } else if (List.class.equals(type)) {
-            return new ListType<>(BasicType.STRING);
+            return new ListType<>(BasicType.STRING_TYPE);
         } else {
             // TODO support pojo
             throw new IllegalArgumentException("not supported data type: " + dataType);
@@ -73,29 +73,29 @@ public class TypeConvertUtil {
 
     public static Object valueUnwrap(SeaTunnelDataType<?> dataType, ClickHouseValue record) {
 
-        if (dataType.equals(BasicType.BIG_DECIMAL)) {
+        if (dataType.equals(BasicType.BIG_DECIMAL_TYPE)) {
             return record.asBigDecimal();
-        } else if (dataType.equals(BasicType.BIG_INTEGER)) {
+        } else if (dataType.equals(BasicType.BIG_INT_TYPE)) {
             return record.asBigInteger();
-        } else if (dataType.equals(BasicType.BOOLEAN)) {
+        } else if (dataType.equals(BasicType.BOOLEAN_TYPE)) {
             return record.asBoolean();
-        } else if (dataType.equals(BasicType.INTEGER)) {
+        } else if (dataType.equals(BasicType.INT_TYPE)) {
             return record.asInteger();
-        } else if (dataType.equals(BasicType.LONG)) {
+        } else if (dataType.equals(BasicType.LONG_TYPE)) {
             return record.asLong();
-        } else if (dataType.equals(BasicType.SHORT)) {
+        } else if (dataType.equals(BasicType.SHORT_TYPE)) {
             return record.asShort();
-        } else if (dataType.equals(BasicType.BYTE)) {
+        } else if (dataType.equals(BasicType.BYTE_TYPE)) {
             return record.asByte();
-        } else if (dataType.equals(LocalTimeType.LOCAL_DATE)) {
+        } else if (dataType.equals(LocalTimeType.LOCAL_DATE_TYPE)) {
             return record.asDate();
-        } else if (dataType.equals(LocalTimeType.LOCAL_DATE_TIME)) {
+        } else if (dataType.equals(LocalTimeType.LOCAL_DATE_TIME_TYPE)) {
             return record.asDateTime();
-        } else if (dataType.equals(BasicType.STRING)) {
+        } else if (dataType.equals(BasicType.STRING_TYPE)) {
             return record.asString();
-        } else if (dataType.equals(BasicType.FLOAT)) {
+        } else if (dataType.equals(BasicType.FLOAT_TYPE)) {
             return record.asFloat();
-        } else if (dataType.equals(BasicType.DOUBLE)) {
+        } else if (dataType.equals(BasicType.DOUBLE_TYPE)) {
             return record.asDouble();
         } else if (dataType instanceof MapType) {
             return record.asMap();
