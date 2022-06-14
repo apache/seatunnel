@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
+import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.BODY;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.HEADERS;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.METHOD;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.METHOD_DEFAULT_VALUE;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.PARAMS;
+import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.URL;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -28,16 +35,22 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.http.state.HttpState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigBeanFactory;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @AutoService(SeaTunnelSource.class)
 public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit, HttpState> {
-    private HttpSourceParameter parameter;
+    private final HttpSourceParameter parameter = new HttpSourceParameter();
+    private SeaTunnelRowTypeInfo rowType;
     private SeaTunnelContext seaTunnelContext;
     @Override
     public String getPluginName() {
@@ -46,7 +59,31 @@ public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.parameter = ConfigBeanFactory.create(pluginConfig, HttpSourceParameter.class);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL);
+        if (!result.isSuccess()) {
+            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
+        }
+        this.parameter.setUrl(pluginConfig.getString(URL));
+
+        if (pluginConfig.hasPath(METHOD)) {
+            this.parameter.setMethod(pluginConfig.getString(METHOD));
+        } else {
+            this.parameter.setMethod(METHOD_DEFAULT_VALUE);
+        }
+
+        if (pluginConfig.hasPath(HEADERS)) {
+            this.parameter.setHeaders(pluginConfig.getConfig(HEADERS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+        }
+
+        if (pluginConfig.hasPath(PARAMS)) {
+            this.parameter.setHeaders(pluginConfig.getConfig(PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+        }
+
+        if (pluginConfig.hasPath(BODY)) {
+            this.parameter.setBody(pluginConfig.getString(BODY));
+        }
+        // TODO support user custom row type
+        this.rowType = new SeaTunnelRowTypeInfo(new String[]{"content"}, new SeaTunnelDataType<?>[]{BasicType.STRING});
     }
 
     @Override
@@ -61,8 +98,7 @@ public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit
 
     @Override
     public SeaTunnelRowTypeInfo getRowTypeInfo() {
-        // TODO Support for custom fields
-        return new SeaTunnelRowTypeInfo(new String[]{"content"}, new SeaTunnelDataType<?>[]{BasicType.STRING});
+        return this.rowType;
     }
 
     @Override

@@ -59,7 +59,9 @@ public class HttpClientProvider implements AutoCloseable {
     }
 
     public HttpResponse execute(String url, String method, Map<String, String> headers, Map<String, String> params) throws Exception {
-
+        if ("POST".equals(method)) {
+            return doPost(url, headers, params);
+        }
         return doGet(url, headers, params);
     }
 
