@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
@@ -46,7 +46,7 @@ import java.util.Optional;
 public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
 
     private Config pluginConfig;
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private SeaTunnelRowType seaTunnelRowType;
     private SeaTunnelContext seaTunnelContext;
 
     @Override
@@ -55,18 +55,18 @@ public class KafkaSink implements SeaTunnelSink<SeaTunnelRow, KafkaSinkState, Ka
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(SinkWriter.Context context) {
-        return new KafkaSinkWriter(context, seaTunnelRowTypeInfo, pluginConfig, Collections.emptyList());
+        return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, Collections.emptyList());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(SinkWriter.Context context, List<KafkaSinkState> states) {
-        return new KafkaSinkWriter(context, seaTunnelRowTypeInfo, pluginConfig, states);
+        return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, states);
     }
 
     @Override

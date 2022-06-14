@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -40,10 +40,10 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     private SeaTunnelContext seaTunnelContext;
 
     @Override
-    public SeaTunnelRowTypeInfo getRowTypeInfo() {
-        return new SeaTunnelRowTypeInfo(
+    public SeaTunnelRowType getProducedType() {
+        return new SeaTunnelRowType(
             new String[]{"name", "age", "timestamp"},
-            new SeaTunnelDataType<?>[]{BasicType.STRING, BasicType.INTEGER, BasicType.LONG});
+            new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.LONG_TYPE});
     }
 
     @Override

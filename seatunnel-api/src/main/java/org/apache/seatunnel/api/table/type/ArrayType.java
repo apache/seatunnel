@@ -17,16 +17,62 @@
 
 package org.apache.seatunnel.api.table.type;
 
-public class ArrayType<T> implements SeaTunnelDataType<T> {
+import java.util.Objects;
 
-    private final BasicType<T> elementType;
+public class ArrayType<T, E> implements SeaTunnelDataType<T> {
+    private static final long serialVersionUID = 1L;
 
-    public ArrayType(BasicType<T> elementType) {
+    public static final ArrayType<String[], String> STRING_ARRAY_TYPE =
+        new ArrayType<>(String[].class, BasicType.STRING_TYPE);
+    public static final ArrayType<Boolean[], Boolean> BOOLEAN_ARRAY_TYPE =
+        new ArrayType<>(Boolean[].class, BasicType.BOOLEAN_TYPE);
+    public static final ArrayType<Byte[], Byte> BYTE_ARRAY_TYPE =
+        new ArrayType<>(Byte[].class, BasicType.BYTE_TYPE);
+    public static final ArrayType<Short[], Short> SHORT_ARRAY_TYPE =
+        new ArrayType<>(Short[].class, BasicType.SHORT_TYPE);
+    public static final ArrayType<Integer[], Integer> INT_ARRAY_TYPE =
+        new ArrayType<>(Integer[].class, BasicType.INT_TYPE);
+    public static final ArrayType<Long[], Long> LONG_ARRAY_TYPE =
+        new ArrayType<>(Long[].class, BasicType.LONG_TYPE);
+    public static final ArrayType<Float[], Float> FLOAT_ARRAY_TYPE =
+        new ArrayType<>(Float[].class, BasicType.FLOAT_TYPE);
+    public static final ArrayType<Double[], Double> DOUBLE_ARRAY_TYPE =
+        new ArrayType<>(Double[].class, BasicType.DOUBLE_TYPE);
+    public static final ArrayType<Character[], Character> CHAR_ARRAY_TYPE =
+        new ArrayType<>(Character[].class, BasicType.CHAR_TYPE);
+
+    // --------------------------------------------------------------------------------------------
+
+    private final Class<T> arrayClass;
+    private final BasicType<E> elementType;
+
+    private ArrayType(Class<T> arrayClass, BasicType<E> elementType) {
+        this.arrayClass = arrayClass;
         this.elementType = elementType;
     }
 
-    public BasicType<T> getElementType() {
+    public BasicType<E> getElementType() {
         return elementType;
     }
 
+    @Override
+    public Class<T> getTypeClass() {
+        return arrayClass;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(arrayClass, elementType);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof ArrayType) {
+            ArrayType<?, ?> other = (ArrayType<?, ?>) obj;
+            return arrayClass == other.arrayClass
+                && elementType.equals(other.elementType);
+        } else {
+            return false;
+        }
+    }
 }

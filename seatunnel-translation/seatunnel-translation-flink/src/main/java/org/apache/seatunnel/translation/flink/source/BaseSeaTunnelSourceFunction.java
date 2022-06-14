@@ -19,7 +19,6 @@ package org.apache.seatunnel.translation.flink.source;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 
@@ -31,7 +30,6 @@ import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -42,7 +40,6 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,12 +97,10 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
         internalSource.notifyCheckpointAborted(checkpointId);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public TypeInformation<Row> getProducedType() {
-        SeaTunnelRowTypeInfo rowTypeInfo = source.getRowTypeInfo();
-        TypeInformation<?>[] typeInformation = Arrays.stream(rowTypeInfo.getSeaTunnelDataTypes())
-            .map(TypeConverterUtils::convertType).toArray(TypeInformation[]::new);
-        return new RowTypeInfo(typeInformation, rowTypeInfo.getFieldNames());
+        return (TypeInformation<Row>) TypeConverterUtils.convert(source.getProducedType());
     }
 
     @Override

@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import com.google.common.collect.Maps;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -59,10 +59,10 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<TopicPartition, Long> endOffset;
     // TODO support user custom type
-    private SeaTunnelRowTypeInfo typeInfo;
+    private SeaTunnelRowType typeInfo;
     private volatile boolean isRunning;
 
-    KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowTypeInfo typeInfo,
+    KafkaSourceReader(ConsumerMetadata metadata, SeaTunnelRowType typeInfo,
                       SourceReader.Context context) {
         this.metadata = metadata;
         this.context = context;
