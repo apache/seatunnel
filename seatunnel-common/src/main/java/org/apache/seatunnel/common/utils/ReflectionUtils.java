@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Optional;
 
@@ -37,6 +39,53 @@ public class ReflectionUtils {
         }
 
         return method;
+    }
+
+    public static Optional<Object> getField(Object object, Class<?> clazz, String fieldName) {
+        try {
+            Field field = clazz.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return Optional.of(field.get(object));
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<Object> getField(Object object, String fieldName) {
+        return getField(object, object.getClass(), fieldName);
+    }
+
+    public static void setField(Object object, Class<?> clazz, String fieldName, Object value) {
+        try {
+            Field field = clazz.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(object, value);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException("Incompatible KafkaProducer version", e);
+        }
+    }
+
+    public static void setField(Object object, String fieldName, Object value) {
+        setField(object, object.getClass(), fieldName, value);
+    }
+
+    public static Object invoke(Object object, String methodName, Object... args) {
+        Class<?>[] argTypes = new Class[args.length];
+        for (int i = 0; i < args.length; i++) {
+            argTypes[i] = args[i].getClass();
+        }
+        return invoke(object, methodName, argTypes, args);
+    }
+
+    public static Object invoke(
+            Object object, String methodName, Class<?>[] argTypes, Object[] args) {
+        try {
+            Method method = object.getClass().getDeclaredMethod(methodName, argTypes);
+            method.setAccessible(true);
+            return method.invoke(object, args);
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+            throw new RuntimeException("method invoke failed", e);
+        }
     }
 
 }
