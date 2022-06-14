@@ -45,6 +45,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
     /**
      * prepare the commit, will be called before {@link #snapshotState(long checkpointId)}.
      * If you need to use 2pc, you can return the commit info in this method, and receive the commit info in {@link SinkCommitter#commit(List)}.
+     * If this method failed (by throw exception), **Only** Spark engine will call {@link #abortPrepare()}
      *
      * @return the commit info need to commit
      */
@@ -59,10 +60,12 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
     }
 
     /**
-     * Used to abort the prepareCommit, if the prepareCommit failed,
-     * there is no CommitInfoT, so the rollback work cannot be done by {@link SinkCommitter}.
+     * Used to abort the {@link #prepareCommit()}, if the prepareCommit failed,
+     * there is no CommitInfoT, so the rollback work cannot be done by {@link SinkCommitter}. But we can
+     * use this method to rollback side effects of {@link #prepareCommit()}. Only use it in Spark engine at
+     * now.
      */
-    void abort();
+    void abortPrepare();
 
     /**
      * call it when SinkWriter close

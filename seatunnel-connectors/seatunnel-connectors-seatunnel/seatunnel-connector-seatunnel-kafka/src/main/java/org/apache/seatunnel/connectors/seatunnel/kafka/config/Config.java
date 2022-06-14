@@ -45,4 +45,9 @@ public class Config {
      * consumer group of kafka client consume message.
      */
     public static final String COMMIT_ON_CHECKPOINT = "commit_on_checkpoint";
+
+    /**
+     * The prefix of kafka's transactionId, make sure different job use different prefix.
+     */
+    public static final String TRANSACTION_PREFIX = "transaction_prefix";
 }

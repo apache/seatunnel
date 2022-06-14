@@ -81,7 +81,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
     }
 
     @Override
-    public void abort() {
+    public void abortPrepare() {
         fileWriter.abort();
     }
 
@@ -91,7 +91,7 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
     }
 
     @Override
-    public List<HiveSinkState> snapshotState() throws IOException {
+    public List<HiveSinkState> snapshotState(long checkpointId) throws IOException {
         //reset FileWrite
         fileWriter.resetFileWriter(System.currentTimeMillis() + "");
         return Lists.newArrayList(new HiveSinkState(hiveSinkConfig));
