@@ -30,6 +30,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import com.google.common.collect.Lists;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.types.StructType;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -53,7 +54,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
                 .read()
                 .format(SeaTunnelSource.class.getSimpleName())
                 .option("source.serialization", SerializationUtils.objectToString(source))
-                .schema(TypeConverterUtils.convertRow(source.getRowTypeInfo())).load();
+                .schema((StructType) TypeConverterUtils.convert(source.getProducedType())).load();
             sources.add(dataset);
             registerInputTempView(pluginConfigs.get(i), dataset);
         }

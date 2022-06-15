@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import com.google.common.collect.Lists;
+
+import java.util.List;
 import java.util.Map;
 
-public class MapType<K, V> implements SeaTunnelDataType<Map<K, V>> {
+public class MapType<K, V> implements CompositeType<Map<K, V>> {
 
     private final SeaTunnelDataType<K> keyType;
     private final SeaTunnelDataType<V> valueType;
@@ -43,4 +46,14 @@ public class MapType<K, V> implements SeaTunnelDataType<Map<K, V>> {
         return valueType;
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public Class<Map<K, V>> getTypeClass() {
+        return (Class<Map<K, V>>) (Class<?>) Map.class;
+    }
+
+    @Override
+    public List<SeaTunnelDataType<?>> getChildren() {
+        return Lists.newArrayList(this.keyType, this.valueType);
+    }
 }

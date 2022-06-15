@@ -15,25 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.types;
+package org.apache.seatunnel.api.table.type;
 
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
+public class PrimitiveArrayType<T> implements SeaTunnelDataType<T> {
+    public static final PrimitiveArrayType<byte[]> PRIMITIVE_BYTE_ARRAY_TYPE =
+        new PrimitiveArrayType<>(byte[].class);
 
-import org.apache.spark.sql.types.DataType;
-import org.apache.spark.sql.types.DataTypes;
+    /** The class of the array. */
+    private final Class<T> arrayClass;
 
-public class ArrayTypeConverter<T1>
-    implements SparkDataTypeConverter<ArrayType<T1>, org.apache.spark.sql.types.ArrayType> {
-
-    @Override
-    public org.apache.spark.sql.types.ArrayType convert(ArrayType<T1> seaTunnelDataType) {
-        DataType elementType = TypeConverterUtils.convert(seaTunnelDataType.getElementType());
-        return DataTypes.createArrayType(elementType);
+    private PrimitiveArrayType(Class<T> arrayClass) {
+        this.arrayClass = arrayClass;
     }
 
     @Override
-    public ArrayType<T1> reconvert(org.apache.spark.sql.types.ArrayType dataType) {
-        return null;
+    public Class<T> getTypeClass() {
+        return this.arrayClass;
+    }
+
+    @Override
+    public int hashCode() {
+        return arrayClass.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof PrimitiveArrayType) {
+            PrimitiveArrayType<?> other = (PrimitiveArrayType<?>) obj;
+            return arrayClass == other.arrayClass;
+        } else {
+            return false;
+        }
     }
 }

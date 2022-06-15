@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcStatementBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectorOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
@@ -48,7 +48,7 @@ public class JdbcSink
 
     private Config pluginConfig;
 
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private SeaTunnelRowType seaTunnelRowType;
 
     private SeaTunnelContext seaTunnelContext;
 
@@ -116,8 +116,8 @@ public class JdbcSink
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override

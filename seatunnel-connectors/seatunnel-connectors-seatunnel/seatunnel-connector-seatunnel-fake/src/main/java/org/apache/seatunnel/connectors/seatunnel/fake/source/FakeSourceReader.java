@@ -25,9 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -62,11 +60,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
         int size = random.nextInt(10);
         for (int i = 0; i < size; i++) {
             int randomIndex = random.nextInt(names.length);
-            Map<String, Object> fieldMap = new HashMap<>(4);
-            fieldMap.put("name", names[randomIndex]);
-            fieldMap.put("age", ages[randomIndex]);
-            fieldMap.put("timestamp", System.currentTimeMillis());
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[randomIndex], ages[randomIndex], System.currentTimeMillis()}, fieldMap);
+            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[randomIndex], ages[randomIndex], System.currentTimeMillis()});
             output.collect(seaTunnelRow);
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
