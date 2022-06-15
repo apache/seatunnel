@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.source;
 
+import static org.apache.seatunnel.translation.source.CoordinatedSource.SLEEP_TIME_INTERVAL;
+
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -116,6 +118,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Ba
                 future.get();
             }
             reader.pollNext(collector);
+            Thread.sleep(SLEEP_TIME_INTERVAL);
         }
     }
 
