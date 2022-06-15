@@ -34,7 +34,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -50,7 +50,7 @@ import java.util.stream.Collectors;
 @AutoService(SeaTunnelSource.class)
 public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit, HttpState> {
     private final HttpSourceParameter parameter = new HttpSourceParameter();
-    private SeaTunnelRowTypeInfo rowType;
+    private SeaTunnelRowType rowType;
     private SeaTunnelContext seaTunnelContext;
     @Override
     public String getPluginName() {
@@ -83,7 +83,7 @@ public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit
             this.parameter.setBody(pluginConfig.getString(BODY));
         }
         // TODO support user custom row type
-        this.rowType = new SeaTunnelRowTypeInfo(new String[]{"content"}, new SeaTunnelDataType<?>[]{BasicType.STRING});
+        this.rowType = new SeaTunnelRowType(new String[]{"content"}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
     }
 
     @Override
@@ -97,7 +97,7 @@ public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit
     }
 
     @Override
-    public SeaTunnelRowTypeInfo getRowTypeInfo() {
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return this.rowType;
     }
 
