@@ -44,6 +44,7 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +52,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -68,7 +70,7 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
     private static final String PLUGIN_NAME_KEY = "plugin_name";
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
 
-    private final List<URL> pluginJarPaths;
+    private final Set<URL> pluginJarPaths;
     private final ClassLoader defaultClassLoader;
 
     static {
@@ -93,17 +95,17 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
         this.defaultClassLoader = initClassLoaderWithPaths(this.pluginJarPaths);
     }
 
-    private ClassLoader initClassLoaderWithPaths(List<URL> pluginJarPaths) {
+    private ClassLoader initClassLoaderWithPaths(Set<URL> pluginJarPaths) {
         return new URLClassLoader(pluginJarPaths.toArray(new URL[0]),
                 Thread.currentThread().getContextClassLoader());
     }
 
     @Nonnull
-    private List<URL> searchPluginJar() {
+    private Set<URL> searchPluginJar() {
 
         File pluginDir = Common.connectorJarDir(this.engineType.getEngine()).toFile();
         if (!pluginDir.exists() || pluginDir.listFiles() == null) {
-            return new ArrayList<>();
+            return new HashSet<>();
         }
         Config pluginMapping = ConfigFactory
                 .parseFile(new File(getPluginMappingPath()))
@@ -140,10 +142,10 @@ public class PluginFactory<ENVIRONMENT extends RuntimeEnv> {
 
                     });
                     return pluginList.stream();
-                }).collect(Collectors.toList());
+                }).collect(Collectors.toSet());
     }
 
-    public List<URL> getPluginJarPaths() {
+    public Set<URL> getPluginJarPaths() {
         return this.pluginJarPaths;
     }
 
