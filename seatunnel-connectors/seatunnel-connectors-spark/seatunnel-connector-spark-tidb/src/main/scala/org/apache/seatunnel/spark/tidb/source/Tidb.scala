@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.seatunnel.spark.tidb.Config.{DATABASE, PRE_SQL}
 import org.apache.spark.sql.{Dataset, Row}
 
 class Tidb extends SparkBatchSource {
@@ -28,13 +29,13 @@ class Tidb extends SparkBatchSource {
   override def prepare(env: SparkEnvironment): Unit = {}
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "pre_sql", "database")
+    checkAllExists(config, PRE_SQL, DATABASE)
   }
 
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     val spark = env.getSparkSession
-    spark.sql("use " + config.getString("database"))
-    spark.sql(config.getString("pre_sql"))
+    spark.sql("use " + config.getString(DATABASE))
+    spark.sql(config.getString(PRE_SQL))
   }
 
   override def getPluginName: String = "TiDB"

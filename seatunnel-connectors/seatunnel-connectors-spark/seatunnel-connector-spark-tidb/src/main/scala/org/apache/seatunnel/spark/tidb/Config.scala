@@ -14,29 +14,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.seatunnel.core.flink.config;
+package org.apache.seatunnel.spark.tidb
 
 /**
- * Flink run mode, used to determine whether to run in local or cluster mode.
- * <a href="https://flink.apache.org/news/2020/07/14/application-mode.html">application-mode</a>
+ * Configuration parameters for TiDB source and sink
  */
-public enum FlinkRunMode {
-    RUN("run"),
-    APPLICATION_RUN("run-application"),
-    ;
+object Config extends Serializable {
 
-    private final String mode;
+  /**
+   * Address config parameter
+   */
+  val ADDR = "addr"
 
-    FlinkRunMode(String mode) {
-        this.mode = mode;
-    }
+  /**
+   * Port config parameter
+   */
+  val PORT = "port"
 
-    public String getMode() {
-        return mode;
-    }
+  /**
+   * User config parameter
+   */
+  val USER = "user"
 
-    public String toString() {
-        return mode;
-    }
+  /**
+   * Password config parameter
+   */
+  val PASSWORD = "password"
+
+  /**
+   * Database config parameter
+   */
+  val DATABASE = "database"
+
+  /**
+   * Table config parameter
+   */
+  val TABLE = "table"
+
+  /**
+   * Pre sql config parameter
+   */
+  val PRE_SQL = "pre_sql"
+
 }
