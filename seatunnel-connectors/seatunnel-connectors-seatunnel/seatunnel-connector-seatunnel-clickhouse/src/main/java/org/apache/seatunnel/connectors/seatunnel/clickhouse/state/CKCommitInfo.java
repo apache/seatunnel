@@ -15,23 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
 
-/**
- * The config of clickhouse
- */
-public class Config {
+import java.io.Serializable;
 
-    public static final String NODE_ADDRESS = "node_address";
-
-    public static final String DATABASE = "database";
-
-    public static final String SQL = "sql";
-
-    public static final String USERNAME = "username";
-
-    public static final String PASSWORD = "password";
-
-    public static final String TABLE = "table";
-
+public class CKCommitInfo implements Serializable {
 }
