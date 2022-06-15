@@ -88,6 +88,7 @@
         <module>seatunnel-api</module>
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
+        <module>seatunnel-formats</module>
     </modules>
 
     <properties>
