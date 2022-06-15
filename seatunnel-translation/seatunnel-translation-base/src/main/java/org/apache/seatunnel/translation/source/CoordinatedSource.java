@@ -139,6 +139,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements
                 while (flag.get()) {
                     try {
                         reader.pollNext(collector);
+                        Thread.sleep(SLEEP_TIME_INTERVAL);
                     } catch (Exception e) {
                         running = false;
                         flag.set(false);

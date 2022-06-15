@@ -95,7 +95,6 @@ public class TypeConverterUtils {
         throw new UnsupportedOperationException("TypeConverterUtils is a utility class and cannot be instantiated");
     }
 
-    @SuppressWarnings("unchecked")
     public static SeaTunnelDataType<?> convert(TypeInformation<?> dataType) {
         BridgedType bridgedType = BRIDGED_TYPES.get(dataType.getTypeClass());
         if (bridgedType != null) {

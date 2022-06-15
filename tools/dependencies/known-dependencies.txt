@@ -60,6 +60,8 @@ checker-qual-3.4.0.jar
 chill-java-0.9.3.jar
 chill_2.11-0.9.3.jar
 classmate-1.1.0.jar
+clickhouse-client-0.3.2-patch9.jar
+clickhouse-http-client-0.3.2-patch9.jar
 clickhouse-jdbc-0.2.jar
 commons-beanutils-1.7.0.jar
 commons-beanutils-1.9.3.jar
