@@ -27,11 +27,11 @@ public class HttpSourceSplitEnumerator implements SourceSplitEnumerator<HttpSour
     private SourceSplitEnumerator.Context<HttpSourceSplit> enumeratorContext;
     private HttpState httpState;
 
-    public HttpSourceSplitEnumerator(Context<HttpSourceSplit> enumeratorContext) {
+    public HttpSourceSplitEnumerator(SourceSplitEnumerator.Context<HttpSourceSplit> enumeratorContext) {
         this.enumeratorContext = enumeratorContext;
     }
 
-    public HttpSourceSplitEnumerator(Context<HttpSourceSplit> enumeratorContext, HttpState httpState) {
+    public HttpSourceSplitEnumerator(SourceSplitEnumerator.Context<HttpSourceSplit> enumeratorContext, HttpState httpState) {
         this.enumeratorContext = enumeratorContext;
         this.httpState = httpState;
     }

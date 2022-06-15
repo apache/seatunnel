@@ -103,7 +103,7 @@ public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit
 
     @Override
     public SourceReader<SeaTunnelRow, HttpSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new HttpSourceReader(readerContext, this.parameter);
+        return new HttpSourceReader(this.parameter, readerContext);
     }
 
     @Override

@@ -40,7 +40,7 @@ public class HttpSourceReader implements SourceReader<SeaTunnelRow, HttpSourceSp
     private final HttpSourceParameter parameter;
     private HttpClientProvider httpClient;
 
-    public HttpSourceReader(Context context, HttpSourceParameter parameter) {
+    public HttpSourceReader(HttpSourceParameter parameter, SourceReader.Context context) {
         this.context = context;
         this.parameter = parameter;
     }
