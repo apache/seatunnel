@@ -42,13 +42,13 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -65,7 +65,6 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discov
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicListDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicPatternDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.serializer.PulsarDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -77,9 +76,9 @@ import java.util.Arrays;
 import java.util.regex.Pattern;
 
 @AutoService(SeaTunnelSource.class)
-public class PulsarSource implements SeaTunnelSource<SeaTunnelRow, PulsarPartitionSplit, PulsarSplitEnumeratorState> {
+public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit, PulsarSplitEnumeratorState> {
     public static final String IDENTIFIER = "pulsar";
-    private PulsarDeserializationSchema deserialization;
+    private DeserializationSchema<T> deserialization;
     private SeaTunnelContext seaTunnelContext;
 
     private PulsarAdminConfig adminConfig;
@@ -240,13 +239,13 @@ public class PulsarSource implements SeaTunnelSource<SeaTunnelRow, PulsarPartiti
     }
 
     @Override
-    public SeaTunnelRowTypeInfo getRowTypeInfo() {
+    public SeaTunnelDataType<T> getProducedType() {
         return deserialization.getProducedType();
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, PulsarPartitionSplit> createReader(SourceReader.Context readerContext) throws Exception {
-        return new PulsarSourceReader(readerContext,
+    public SourceReader<T, PulsarPartitionSplit> createReader(SourceReader.Context readerContext) throws Exception {
+        return new PulsarSourceReader<>(readerContext,
             clientConfig,
             consumerConfig,
             startCursor,

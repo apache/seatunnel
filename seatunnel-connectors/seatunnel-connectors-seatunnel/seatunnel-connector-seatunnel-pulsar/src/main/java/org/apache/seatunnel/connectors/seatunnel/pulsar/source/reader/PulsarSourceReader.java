@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.serializer.PulsarDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 
 import org.apache.pulsar.client.api.Message;
@@ -46,7 +45,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-public class PulsarSourceReader implements SourceReader<SeaTunnelRow, PulsarPartitionSplit> {
+public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSplit> {
     private static final Logger LOG = LoggerFactory.getLogger(PulsarSourceReader.class);
     protected final SourceReader.Context context;
     protected final PulsarClientConfig clientConfig;
@@ -60,7 +59,7 @@ public class PulsarSourceReader implements SourceReader<SeaTunnelRow, PulsarPart
     protected final Map<String, MessageId> pendingCursorsToFinish;
     protected final Set<String> finishedSplits;
 
-    protected final PulsarDeserializationSchema deserialization;
+    protected final DeserializationSchema<T> deserialization;
 
     /**
      * The maximum number of milliseconds to wait for a fetch batch.
@@ -79,7 +78,7 @@ public class PulsarSourceReader implements SourceReader<SeaTunnelRow, PulsarPart
                               PulsarClientConfig clientConfig,
                               PulsarConsumerConfig consumerConfig,
                               StartCursor startCursor,
-                              PulsarDeserializationSchema deserialization,
+                              DeserializationSchema<T> deserialization,
                               int pollTimeout,
                               long pollInterval,
                               int batchSize) {
@@ -119,7 +118,7 @@ public class PulsarSourceReader implements SourceReader<SeaTunnelRow, PulsarPart
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void pollNext(Collector<T> output) throws Exception {
         for (int i = 0; i < batchSize; i++) {
             Optional<RecordWithSplitId> recordWithSplitId = handover.pollNext();
             if (recordWithSplitId.isPresent()) {
