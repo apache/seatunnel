@@ -60,6 +60,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.Pulsar
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.PulsarSplitEnumeratorState;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.SubscriptionStartCursor;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.NeverStopCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.StopCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.PulsarDiscoverer;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.TopicListDiscoverer;
@@ -226,6 +227,11 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
     private void setDeserialization(Config config) {
         String format = config.getString("format");
         // TODO: json format
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return this.stopCursor instanceof NeverStopCursor ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
     }
 
     @Override
