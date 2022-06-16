@@ -128,6 +128,9 @@ const sidebars = {
         'transform/sql',
         'transform/split',
         'transform/json',
+        'transform/replace',
+        'transform/udf',
+        'transform/uuid',
       ],
     },
     {
