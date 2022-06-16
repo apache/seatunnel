@@ -17,9 +17,100 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.factory.Factory;
+
+import java.util.List;
+import java.util.Optional;
+
 /**
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
  * the implementation of Catalog.
  */
 public interface Catalog {
+
+    default Optional<Factory> getFactory() {
+        return Optional.empty();
+    }
+
+    /**
+     * Open the catalog. Used for any required preparation in initialization phase.
+     *
+     * @throws CatalogException in case of any runtime exception
+     */
+    void open() throws CatalogException;
+
+    /**
+     * Close the catalog when it is no longer needed and release any resource that it might be
+     * holding.
+     *
+     * @throws CatalogException in case of any runtime exception
+     */
+    void close() throws CatalogException;
+
+    // --------------------------------------------------------------------------------------------
+    // database
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Get the name of the default database for this catalog. The default database will be the
+     * current database for the catalog when user's session doesn't specify a current database. The
+     * value probably comes from configuration, will not change for the life time of the catalog
+     * instance.
+     *
+     * @return the name of the current database
+     * @throws CatalogException in case of any runtime exception
+     */
+    String getDefaultDatabase() throws CatalogException;
+
+    /**
+     * Check if a database exists in this catalog.
+     *
+     * @param databaseName Name of the database
+     * @return true if the given database exists in the catalog false otherwise
+     * @throws CatalogException in case of any runtime exception
+     */
+    boolean databaseExists(String databaseName) throws CatalogException;
+
+    /**
+     * Get the names of all databases in this catalog.
+     *
+     * @return a list of the names of all databases
+     * @throws CatalogException in case of any runtime exception
+     */
+    List<String> listDatabases() throws CatalogException;
+
+    // --------------------------------------------------------------------------------------------
+    // table
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Get names of all tables under this database. An empty list is returned if none
+     * exists.
+     *
+     * @return a list of the names of all tables in this database
+     * @throws CatalogException in case of any runtime exception
+     */
+    List<String> listTables(String databaseName) throws CatalogException, DatabaseNotExistException;
+
+    /**
+     * Check if a table exist in this catalog.
+     *
+     * @param tablePath Path of the table
+     * @return true if the given table exists in the catalog false otherwise
+     * @throws CatalogException in case of any runtime exception
+     */
+    boolean tableExists(TablePath tablePath) throws CatalogException;
+
+    /**
+     * Return a {@link CatalogTable}  identified by the given {@link
+     * TablePath}. The framework will resolve the metadata objects when necessary.
+     *
+     * @param tablePath Path of the table
+     * @return The requested table
+     * @throws CatalogException in case of any runtime exception
+     */
+    CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException;
 }

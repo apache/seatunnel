@@ -42,6 +42,13 @@
         <module>seatunnel-connector-hadoop-shade</module>
     </modules>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+    </dependencies>
+
     <profiles>
         <profile>
             <id>jdk8</id>
