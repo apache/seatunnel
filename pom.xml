@@ -139,6 +139,7 @@
         <hbase-spark.version>1.0.0</hbase-spark.version>
         <kudu-spark.version>1.7.0</kudu-spark.version>
         <mongo-spark.version>2.2.0</mongo-spark.version>
+        <mongodb.version>3.12.11</mongodb.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
@@ -327,6 +328,12 @@
                 <groupId>org.mongodb.spark</groupId>
                 <artifactId>mongo-spark-connector_${scala.binary.version}</artifactId>
                 <version>${mongo-spark.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mongodb</groupId>
+                <artifactId>mongodb-driver</artifactId>
+                <version>${mongodb.version}</version>
             </dependency>
 
             <dependency>
