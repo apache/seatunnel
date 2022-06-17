@@ -17,21 +17,95 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-/**
- * The config of clickhouse
- */
 public class Config {
 
-    public static final String NODE_ADDRESS = "node_address";
+    /**
+     * Bulk size of clickhouse jdbc
+     */
+    public static final String BULK_SIZE = "bulk_size";
 
-    public static final String DATABASE = "database";
+    /**
+     * Clickhouse jdbc retry time
+     */
+    public static final String RETRY = "retry";
+
+    /**
+     * Clickhouse fields
+     */
+    public static final String FIELDS = "fields";
 
     public static final String SQL = "sql";
 
+    /**
+     * Clickhouse server host
+     */
+    public static final String HOST = "host";
+
+    /**
+     * Clickhouse table name
+     */
+    public static final String TABLE = "table";
+
+    /**
+     * Clickhouse database name
+     */
+    public static final String DATABASE = "database";
+
+    /**
+     * Clickhouse server username
+     */
     public static final String USERNAME = "username";
 
+    /**
+     * Clickhouse server password
+     */
     public static final String PASSWORD = "password";
 
-    public static final String TABLE = "table";
+    /**
+     * Split mode when table is distributed engine
+     */
+    public static final String SPLIT_MODE = "split_mode";
+
+    /**
+     * When split_mode is true, the sharding_key use for split
+     */
+    public static final String SHARDING_KEY = "sharding_key";
+
+    /**
+     * The retry code when use clickhouse jdbc
+     */
+    public static final String RETRY_CODES = "retry_codes";
+
+    /**
+     * ClickhouseFile sink connector used clickhouse-local program's path
+     */
+    public static final String CLICKHOUSE_LOCAL_PATH = "clickhouse_local_path";
+
+    /**
+     * The method of copy Clickhouse file
+     */
+    public static final String COPY_METHOD = "copy_method";
+
+    /**
+     * The size of each batch read temporary data into local file.
+     */
+    public static final String TMP_BATCH_CACHE_LINE = "tmp_batch_cache_line";
+
+    /**
+     * Clickhouse server node is free-password.
+     */
+    public static final String NODE_FREE_PASSWORD = "node_free_password";
+
+    /**
+     * The password of Clickhouse server node
+     */
+    public static final String NODE_PASS = "node_pass";
+
+    /**
+     * The address of Clickhouse server node
+     */
+    public static final String NODE_ADDRESS = "node_address";
+
+    public static final String CLICKHOUSE_PREFIX = "clickhouse.";
 
 }

@@ -17,39 +17,42 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
+import java.io.Serializable;
 
-import java.io.IOException;
-import java.util.Optional;
+public class DistributedEngine implements Serializable {
 
-public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
+    private static final long serialVersionUID = -1L;
+    private String clusterName;
+    private String database;
+    private String table;
 
-    private SinkWriter.Context context;
-
-    ClickhouseSinkWriter(SinkWriter.Context context) {
-        this.context = context;
+    public DistributedEngine(String clusterName, String database, String table) {
+        this.clusterName = clusterName;
+        this.database = database;
+        this.table = table;
     }
 
-    @Override
-    public void write(SeaTunnelRow element) throws IOException {
-
+    public String getClusterName() {
+        return clusterName;
     }
 
-    @Override
-    public Optional<CKCommitInfo> prepareCommit() throws IOException {
-        return Optional.empty();
+    public void setClusterName(String clusterName) {
+        this.clusterName = clusterName;
     }
 
-    @Override
-    public void abortPrepare() {
-
+    public String getDatabase() {
+        return database;
     }
 
-    @Override
-    public void close() throws IOException {
+    public void setDatabase(String database) {
+        this.database = database;
+    }
 
+    public String getTable() {
+        return table;
+    }
+
+    public void setTable(String table) {
+        this.table = table;
     }
 }
