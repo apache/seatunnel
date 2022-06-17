@@ -50,12 +50,16 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
 
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> inDataSet) {
-        inDataSet.map(row -> {
-            System.out.println(row);
+        inDataSet.reduce((row1, row2) -> {
             ASSERT_EXECUTOR
-                    .fail(row, assertFieldRules)
+                    .fail(row1, assertFieldRules)
                     .ifPresent(failRule -> {
-                        throw new IllegalStateException("row :" + row + " fail rule: " + failRule);
+                        throw new IllegalStateException("row :" + row1 + " fail rule: " + failRule);
+                    });
+            ASSERT_EXECUTOR
+                    .fail(row2, assertFieldRules)
+                    .ifPresent(failRule -> {
+                        throw new IllegalStateException("row :" + row2 + " fail rule: " + failRule);
                     });
             return null;
         });
@@ -64,7 +68,6 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
     @Override
     public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         dataStream.map(row -> {
-            System.out.println(row);
             ASSERT_EXECUTOR
                     .fail(row, assertFieldRules)
                     .ifPresent(failRule -> {
