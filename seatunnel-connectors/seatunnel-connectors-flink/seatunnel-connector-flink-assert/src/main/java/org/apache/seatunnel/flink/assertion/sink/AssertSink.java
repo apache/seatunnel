@@ -17,20 +17,24 @@
 
 package org.apache.seatunnel.flink.assertion.sink;
 
-import com.google.auto.service.AutoService;
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.flink.api.java.DataSet;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.BaseFlinkSink;
+
 import org.apache.seatunnel.flink.FlinkEnvironment;
+
 import org.apache.seatunnel.flink.assertion.AssertExecutor;
 import org.apache.seatunnel.flink.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.flink.assertion.rule.AssertRuleParser;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.types.Row;
 
 import java.util.List;
 
@@ -50,17 +54,12 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
 
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> inDataSet) {
-        inDataSet.reduce((row1, row2) -> {
+        inDataSet.map(row -> {
             ASSERT_EXECUTOR
-                    .fail(row1, assertFieldRules)
-                    .ifPresent(failRule -> {
-                        throw new IllegalStateException("row :" + row1 + " fail rule: " + failRule);
-                    });
-            ASSERT_EXECUTOR
-                    .fail(row2, assertFieldRules)
-                    .ifPresent(failRule -> {
-                        throw new IllegalStateException("row :" + row2 + " fail rule: " + failRule);
-                    });
+                .fail(row, assertFieldRules)
+                .ifPresent(failRule -> {
+                    throw new IllegalStateException("row :" + row + " fail rule: " + failRule);
+                });
             return null;
         });
     }
@@ -69,10 +68,10 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
     public void outputStream(FlinkEnvironment env, DataStream<Row> dataStream) {
         dataStream.map(row -> {
             ASSERT_EXECUTOR
-                    .fail(row, assertFieldRules)
-                    .ifPresent(failRule -> {
-                        throw new IllegalStateException("row :" + row + "field name of the fail rule: " + failRule.getFieldName());
-                    });
+                .fail(row, assertFieldRules)
+                .ifPresent(failRule -> {
+                    throw new IllegalStateException("row :" + row + "field name of the fail rule: " + failRule.getFieldName());
+                });
             return null;
         });
     }

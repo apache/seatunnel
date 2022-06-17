@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.flink.assertion;
 
+import org.apache.seatunnel.flink.assertion.rule.AssertFieldRule;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.flink.assertion.rule.AssertFieldRule;
 
 import java.util.List;
 import java.util.Objects;
@@ -42,8 +43,8 @@ public class AssertExecutor {
      */
     public Optional<AssertFieldRule> fail(Row row, List<AssertFieldRule> assertFieldRules) {
         return assertFieldRules.stream()
-                .filter(assertFieldRule -> !pass(row, assertFieldRule))
-                .findFirst();
+            .filter(assertFieldRule -> !pass(row, assertFieldRule))
+            .findFirst();
     }
 
     private boolean pass(Row row, AssertFieldRule assertFieldRule) {
@@ -65,9 +66,9 @@ public class AssertExecutor {
     private Boolean checkValue(Object value, List<AssertFieldRule.AssertValueRule> fieldValueRules) {
         if (CollectionUtils.isNotEmpty(fieldValueRules)) {
             AssertFieldRule.AssertValueRule failValueRule = fieldValueRules.stream()
-                    .filter(valueRule -> !pass(value, valueRule))
-                    .findFirst()
-                    .orElse(null);
+                .filter(valueRule -> !pass(value, valueRule))
+                .findFirst()
+                .orElse(null);
             if (Objects.nonNull(failValueRule)) {
                 return Boolean.FALSE;
             }

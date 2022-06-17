@@ -17,14 +17,16 @@
 
 package org.apache.seatunnel.flink.assertion;
 
+import org.apache.seatunnel.flink.assertion.rule.AssertFieldRule;
+
 import junit.framework.TestCase;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.types.Row;
-import org.apache.seatunnel.flink.assertion.rule.AssertFieldRule;
 
 import java.util.List;
 
+@SuppressWarnings("magicnumber")
 public class AssertExecutorTest extends TestCase {
     Row row = Row.withNames();
     AssertExecutor assertExecutor = new AssertExecutor();
@@ -34,6 +36,7 @@ public class AssertExecutorTest extends TestCase {
         row.setField("name", "jared");
         row.setField("age", 17);
     }
+
     public void testFailWithType() {
         List<AssertFieldRule> rules = Lists.newArrayList();
         AssertFieldRule rule1 = new AssertFieldRule();
@@ -44,6 +47,7 @@ public class AssertExecutorTest extends TestCase {
         AssertFieldRule failRule = assertExecutor.fail(row, rules).orElse(null);
         assertNotNull(failRule);
     }
+
     public void testFailWithValue() {
         List<AssertFieldRule> rules = Lists.newArrayList();
         AssertFieldRule rule1 = getFieldRule4Name();
@@ -78,6 +82,7 @@ public class AssertExecutorTest extends TestCase {
         rule.setFieldValueRules(valueRules);
         return rule;
     }
+
     private AssertFieldRule getFieldRule4Name() {
         AssertFieldRule rule = new AssertFieldRule();
         rule.setFieldName("name");

@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.flink.assertion.rule;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import com.google.common.collect.Maps;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.util.List;
 import java.util.Map;
@@ -30,30 +31,30 @@ public class AssertRuleParser {
 
     public List<AssertFieldRule> parseRules(List<? extends Config> ruleConfigList) {
         return ruleConfigList.stream()
-                .map(config -> {
-                    AssertFieldRule fieldRule = new AssertFieldRule();
-                    fieldRule.setFieldName(config.getString("field_name"));
-                    fieldRule.setFieldType(getFieldType(config.getString("field_type")));
-                    List<AssertFieldRule.AssertValueRule> fieldValueRules = assembleFieldValueRules(config.getConfigList("field_value"));
-                    fieldRule.setFieldValueRules(fieldValueRules);
-                    return fieldRule;
-                })
-                .collect(Collectors.toList());
+            .map(config -> {
+                AssertFieldRule fieldRule = new AssertFieldRule();
+                fieldRule.setFieldName(config.getString("field_name"));
+                fieldRule.setFieldType(getFieldType(config.getString("field_type")));
+                List<AssertFieldRule.AssertValueRule> fieldValueRules = assembleFieldValueRules(config.getConfigList("field_value"));
+                fieldRule.setFieldValueRules(fieldValueRules);
+                return fieldRule;
+            })
+            .collect(Collectors.toList());
     }
 
     private List<AssertFieldRule.AssertValueRule> assembleFieldValueRules(List<? extends Config> fieldValueConfigList) {
         return fieldValueConfigList.stream()
-                .map(config -> {
-                    AssertFieldRule.AssertValueRule valueRule = new AssertFieldRule.AssertValueRule();
-                    if (config.hasPath("rule_type")) {
-                        valueRule.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.valueOf(config.getString("rule_type")));
-                    }
-                    if (config.hasPath("rule_value")) {
-                        valueRule.setFieldValueRuleValue(config.getDouble("rule_value"));
-                    }
-                    return valueRule;
-                })
-                .collect(Collectors.toList());
+            .map(config -> {
+                AssertFieldRule.AssertValueRule valueRule = new AssertFieldRule.AssertValueRule();
+                if (config.hasPath("rule_type")) {
+                    valueRule.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.valueOf(config.getString("rule_type")));
+                }
+                if (config.hasPath("rule_value")) {
+                    valueRule.setFieldValueRuleValue(config.getDouble("rule_value"));
+                }
+                return valueRule;
+            })
+            .collect(Collectors.toList());
     }
 
     private TypeInformation<?> getFieldType(String fieldTypeStr) {
