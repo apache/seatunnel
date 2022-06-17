@@ -22,6 +22,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 
 import java.io.Serializable;
 import java.util.List;
+
 @Data
 public class AssertFieldRule implements Serializable {
     private String fieldName;
