@@ -19,9 +19,7 @@ package org.apache.seatunnel.flink.assertion.sink;
 
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.flink.BaseFlinkSink;
-
 import org.apache.seatunnel.flink.FlinkEnvironment;
-
 import org.apache.seatunnel.flink.assertion.AssertExecutor;
 import org.apache.seatunnel.flink.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.flink.assertion.rule.AssertRuleParser;
