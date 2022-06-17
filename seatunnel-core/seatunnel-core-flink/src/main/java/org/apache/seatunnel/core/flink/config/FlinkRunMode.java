@@ -37,6 +37,8 @@ public enum FlinkRunMode {
     }
 
     public String toString() {
-        return mode;
+        return "FlinkRunMode{" +
+            "mode='" + mode + '\'' +
+            '}';
     }
 }
