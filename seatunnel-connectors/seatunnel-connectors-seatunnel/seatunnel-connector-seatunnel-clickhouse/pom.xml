@@ -36,6 +36,11 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.sshd</groupId>
+            <artifactId>sshd-scp</artifactId>
+        </dependency>
+
         <!-- TODO add to dependency management after version unify -->
         <dependency>
             <groupId>com.clickhouse</groupId>
