@@ -175,8 +175,8 @@
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
-        <hadoop2.version>2.7.7</hadoop2.version>
-        <hadoop3.version>3.1.4</hadoop3.version>
+        <hadoop2.version>2.6.5</hadoop2.version>
+        <hadoop3.version>3.0.0</hadoop3.version>
     </properties>
 
     <dependencyManagement>
