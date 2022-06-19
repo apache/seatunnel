@@ -40,6 +40,6 @@
         <module>seatunnel-connector-seatunnel-socket</module>
         <module>seatunnel-connector-seatunnel-clickhouse</module>
         <module>seatunnel-connector-seatunnel-pulsar</module>
-        <module>seatunnel-connectors-common</module>
+        <module>seatunnel-connector-hadoop-shade</module>
     </modules>
 </project>

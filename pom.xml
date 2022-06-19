@@ -177,6 +177,7 @@
         <auto-service.version>1.0.1</auto-service.version>
         <hadoop2.version>2.6.5</hadoop2.version>
         <hadoop3.version>3.0.0</hadoop3.version>
+        <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
     </properties>
 
     <dependencyManagement>

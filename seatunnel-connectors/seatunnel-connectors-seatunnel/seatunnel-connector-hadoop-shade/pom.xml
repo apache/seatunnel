@@ -27,10 +27,26 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connectors-common</artifactId>
+    <artifactId>seatunnel-connector-hadoop-shade</artifactId>
     <packaging>pom</packaging>
     <modules>
         <module>seatunnel-hadoop2-shade</module>
         <module>seatunnel-hadoop3-shade</module>
     </modules>
+
+    <profiles>
+        <profile>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <id>jdk8</id>
+        </profile>
+        <profile>
+            <id>jdk11</id>
+            <modules>
+                <module>seatunnel-hadoop3-shade</module>
+            </modules>
+        </profile>
+    </profiles>
+
 </project>
