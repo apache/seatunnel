@@ -37,7 +37,7 @@ field name（string）
 
 ### field_type
 
-field type (string),  e.g. `short/int/long/string/boolean`
+field type (string),  e.g. `string,boolean,byte,short,int,long,float,double,char,void,BigInteger,BigDecimal,Instant`
 
 ### field_value
 
