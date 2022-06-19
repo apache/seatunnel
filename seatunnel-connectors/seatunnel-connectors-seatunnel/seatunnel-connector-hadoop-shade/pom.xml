@@ -30,19 +30,24 @@
     <artifactId>seatunnel-connector-hadoop-shade</artifactId>
     <packaging>pom</packaging>
     <modules>
-        <module>seatunnel-hadoop2-shade</module>
-        <module>seatunnel-hadoop3-shade</module>
     </modules>
 
     <profiles>
         <profile>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
             <id>jdk8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <modules>
+                <module>seatunnel-hadoop2-shade</module>
+                <module>seatunnel-hadoop3-shade</module>
+            </modules>
         </profile>
         <profile>
             <id>jdk11</id>
+            <activation>
+                <jdk>11</jdk>
+            </activation>
             <modules>
                 <module>seatunnel-hadoop3-shade</module>
             </modules>
