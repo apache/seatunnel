@@ -22,29 +22,34 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-connectors</artifactId>
+        <artifactId>seatunnel-connectors-flink</artifactId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connectors-flink</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>seatunnel-connector-flink-assert</artifactId>
 
-    <modules>
-        <module>seatunnel-connector-flink-console</module>
-        <module>seatunnel-connector-flink-druid</module>
-        <module>seatunnel-connector-flink-elasticsearch6</module>
-        <module>seatunnel-connector-flink-elasticsearch7</module>
-        <module>seatunnel-connector-flink-file</module>
-        <module>seatunnel-connector-flink-jdbc</module>
-        <module>seatunnel-connector-flink-kafka</module>
-        <module>seatunnel-connector-flink-fake</module>
-        <module>seatunnel-connector-flink-socket</module>
-        <module>seatunnel-connector-flink-doris</module>
-        <module>seatunnel-connector-flink-influxdb</module>
-        <module>seatunnel-connector-flink-clickhouse</module>
-        <module>seatunnel-connector-flink-http</module>
-        <module>seatunnel-connector-flink-assert</module>
-    </modules>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api-flink</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
+        </dependency>
+
+    </dependencies>
 
 </project>
