@@ -28,7 +28,7 @@ header:
     - mvnw.cmd
     - .mvn
     - .gitattributes
-    - '**/known-dependencies.txt'
+    - '**/known-dependencies-*.txt'
     - '**/*.md'
     - '**/*.mdx'
     - '**/*.json'

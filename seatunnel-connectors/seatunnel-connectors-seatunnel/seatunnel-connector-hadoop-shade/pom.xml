@@ -21,26 +21,36 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel-connectors</artifactId>
+        <artifactId>seatunnel-connectors-seatunnel</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>seatunnel-connector-hadoop-shade</artifactId>
     <packaging>pom</packaging>
 
-    <artifactId>seatunnel-connectors-seatunnel</artifactId>
+    <profiles>
+        <profile>
+            <id>jdk8</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <jdk>1.8</jdk>
+            </activation>
+            <modules>
+                <module>seatunnel-hadoop2-shade</module>
+                <module>seatunnel-hadoop3-shade</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>jdk11</id>
+            <activation>
+                <jdk>11</jdk>
+            </activation>
+            <modules>
+                <module>seatunnel-hadoop3-shade</module>
+            </modules>
+        </profile>
+    </profiles>
 
-    <modules>
-        <module>seatunnel-connector-seatunnel-hive</module>
-        <module>seatunnel-connector-seatunnel-console</module>
-        <module>seatunnel-connector-seatunnel-fake</module>
-        <module>seatunnel-connector-seatunnel-kafka</module>
-        <module>seatunnel-connector-seatunnel-http</module>
-        <module>seatunnel-connector-seatunnel-jdbc</module>
-        <module>seatunnel-connector-seatunnel-socket</module>
-        <module>seatunnel-connector-seatunnel-clickhouse</module>
-        <module>seatunnel-connector-seatunnel-pulsar</module>
-        <module>seatunnel-connector-hadoop-shade</module>
-        <module>seatunnel-connector-seatunnel-mongodb</module>
-    </modules>
 </project>
