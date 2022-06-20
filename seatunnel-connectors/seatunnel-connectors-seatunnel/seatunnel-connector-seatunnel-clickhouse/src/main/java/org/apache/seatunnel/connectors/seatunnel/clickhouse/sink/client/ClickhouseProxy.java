@@ -45,7 +45,7 @@ public class ClickhouseProxy {
     private final ClickHouseRequest<?> clickhouseRequest;
     private final ClickHouseClient client;
 
-    private Map<Shard, ClickHouseClient> shardToDataSource = new ConcurrentHashMap<>(16);
+    private final Map<Shard, ClickHouseClient> shardToDataSource = new ConcurrentHashMap<>(16);
 
     public ClickhouseProxy(ClickHouseNode node) {
         this.client = ClickHouseClient.newInstance(node.getProtocol());
