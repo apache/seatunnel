@@ -32,7 +32,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReader {
 
@@ -59,7 +58,6 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
     }
 
     public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT> extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
-        protected final AtomicInteger completedReader = new AtomicInteger(0);
 
         public InternalCoordinatedSource(SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source, Map<Integer, List<byte[]>> restoredState, int parallelism) {
             super(source, restoredState, parallelism);
