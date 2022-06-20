@@ -67,7 +67,7 @@ jobs:
                  -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
                  --no-snapshot-updates
       - name: Check dependency license
-        run: bash ./tools/dependencies/checkLicense.sh
+        run: bash ./tools/dependencies/checkLicense.sh jdk${{ matrix.java }}
       - name: Run Unit tests
         run: |
           ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
