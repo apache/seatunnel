@@ -17,18 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
-import java.util.Optional;
 
-public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommitInfo, ConsoleState> {
+public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSinkWriter.class);
 
@@ -45,17 +43,7 @@ public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommit
     }
 
     @Override
-    public Optional<ConsoleCommitInfo> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public void abortPrepare() {
-
-    }
-
-    @Override
     public void close() {
-
+        // nothing
     }
 }

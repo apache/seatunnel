@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
@@ -54,6 +56,11 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private SeaTunnelRowType typeInfo;
     private SeaTunnelContext seaTunnelContext;
+
+    @Override
+    public Boundedness getBoundedness() {
+        return JobMode.BATCH.equals(seaTunnelContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+    }
 
     @Override
     public String getPluginName() {
@@ -116,11 +123,6 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     @Override
     public Serializer<KafkaSourceState> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
-    }
-
-    @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return seaTunnelContext;
     }
 
     @Override
