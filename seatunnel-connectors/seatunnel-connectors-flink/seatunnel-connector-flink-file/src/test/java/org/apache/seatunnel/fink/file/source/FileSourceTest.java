@@ -46,6 +46,7 @@ public class FileSourceTest {
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
         try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
+            fileSource.prepare(flinkEnvironment);
             DataSet<Row> data = fileSource.getData(flinkEnvironment);
             Assert.assertNotNull(data);
         }
@@ -57,6 +58,7 @@ public class FileSourceTest {
         FlinkEnvironment flinkEnvironment = createFlinkStreamEnvironment(configFile);
 
         try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
+            fileSource.prepare(flinkEnvironment);
             DataSet<Row> data = fileSource.getData(flinkEnvironment);
             Assert.assertNotNull(data);
         }
