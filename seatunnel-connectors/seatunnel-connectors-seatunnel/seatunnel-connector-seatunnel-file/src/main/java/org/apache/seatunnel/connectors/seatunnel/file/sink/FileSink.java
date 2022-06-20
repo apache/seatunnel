@@ -85,7 +85,7 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
     @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && textFileSinkConfig.getSaveMode().equals(SaveMode.OVERWRITE)) {
-            throw new RuntimeException("only batch job can overwrite hive table");
+            throw new RuntimeException("only batch job can overwrite mode");
         }
         this.seaTunnelContext = seaTunnelContext;
         this.jobId = seaTunnelContext.getJobId();

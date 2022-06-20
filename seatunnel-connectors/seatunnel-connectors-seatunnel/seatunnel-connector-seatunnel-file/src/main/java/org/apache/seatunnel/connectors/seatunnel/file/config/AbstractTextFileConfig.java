@@ -26,6 +26,7 @@ import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
+import java.util.Locale;
 
 @Data
 public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, Serializable {
@@ -63,7 +64,7 @@ public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, 
         }
 
         if (config.hasPath(Constant.FILE_FORMAT) && !StringUtils.isBlank(config.getString(Constant.FILE_FORMAT))) {
-            this.fileFormat = FileFormat.valueOf(config.getString(Constant.FILE_FORMAT));
+            this.fileFormat = FileFormat.valueOf(config.getString(Constant.FILE_FORMAT).toUpperCase(Locale.ROOT));
         }
     }
 
