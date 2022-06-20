@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
 
@@ -40,7 +40,7 @@ public class HdfsTxtTransactionStateFileWriter extends AbstractTransactionStateF
     private String fieldDelimiter;
     private String rowDelimiter;
 
-    public HdfsTxtTransactionStateFileWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public HdfsTxtTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                                              @NonNull TransactionFileNameGenerator transactionFileNameGenerator,
                                              @NonNull PartitionDirNameGenerator partitionDirNameGenerator,
                                              @NonNull List<Integer> sinkColumnsIndexInRow,

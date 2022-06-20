@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.AbstractTextFileConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
@@ -65,11 +65,11 @@ public class TextFileSinkConfig extends AbstractTextFileConfig implements Partit
 
     private List<Integer> partitionFieldsIndexInRow;
 
-    public TextFileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
+    public TextFileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(!CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
 
-        if (!CollectionUtils.isEmpty(config.getStringList(Constant.SINK_COLUMNS))) {
+        if (config.hasPath(Constant.FILE_FORMAT) && !CollectionUtils.isEmpty(config.getStringList(Constant.SINK_COLUMNS))) {
             this.sinkColumnList = config.getStringList(Constant.SINK_COLUMNS);
         }
 
@@ -78,31 +78,31 @@ public class TextFileSinkConfig extends AbstractTextFileConfig implements Partit
             this.sinkColumnList = Arrays.asList(seaTunnelRowTypeInfo.getFieldNames());
         }
 
-        if (!CollectionUtils.isEmpty(config.getStringList(Constant.PARTITION_BY))) {
+        if (config.hasPath(Constant.PARTITION_BY) && !CollectionUtils.isEmpty(config.getStringList(Constant.PARTITION_BY))) {
             this.partitionFieldList = config.getStringList(Constant.PARTITION_BY);
         }
 
-        if (!StringUtils.isBlank(config.getString(Constant.PARTITION_DIR_EXPRESSION))) {
+        if (config.hasPath(Constant.PARTITION_DIR_EXPRESSION) && !StringUtils.isBlank(config.getString(Constant.PARTITION_DIR_EXPRESSION))) {
             this.partitionDirExpression = config.getString(Constant.PARTITION_DIR_EXPRESSION);
         }
 
-        if (config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
+        if (config.hasPath(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE) && config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE)) {
             this.isPartitionFieldWriteInFile = config.getBoolean(Constant.IS_PARTITION_FIELD_WRITE_IN_FILE);
         }
 
-        if (!StringUtils.isBlank(config.getString(Constant.TMP_PATH))) {
+        if (config.hasPath(Constant.TMP_PATH) && !StringUtils.isBlank(config.getString(Constant.TMP_PATH))) {
             this.tmpPath = config.getString(Constant.TMP_PATH);
         }
 
-        if (!StringUtils.isBlank(config.getString(Constant.SAVE_MODE))) {
+        if (config.hasPath(Constant.SAVE_MODE) && !StringUtils.isBlank(config.getString(Constant.SAVE_MODE))) {
             this.saveMode = SaveMode.fromStr(config.getString(Constant.SAVE_MODE));
         }
 
-        if (!StringUtils.isBlank(config.getString(Constant.FILENAME_TIME_FORMAT))) {
+        if (config.hasPath(Constant.FILENAME_TIME_FORMAT) && !StringUtils.isBlank(config.getString(Constant.FILENAME_TIME_FORMAT))) {
             this.fileNameTimeFormat = config.getString(Constant.FILENAME_TIME_FORMAT);
         }
 
-        if (!config.getBoolean(Constant.IS_ENABLE_TRANSACTION)) {
+        if (config.hasPath(Constant.IS_ENABLE_TRANSACTION) && !config.getBoolean(Constant.IS_ENABLE_TRANSACTION)) {
             this.isEnableTransaction = isEnableTransaction();
         }
 

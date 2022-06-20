@@ -75,6 +75,7 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
                     while (flag.get()) {
                         try {
                             reader.pollNext(rowCollector);
+                            Thread.sleep(SLEEP_TIME_INTERVAL);
                         } catch (Exception e) {
                             this.running = false;
                             flag.set(false);

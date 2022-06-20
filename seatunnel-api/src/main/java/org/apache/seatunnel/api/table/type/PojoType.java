@@ -18,8 +18,10 @@
 package org.apache.seatunnel.api.table.type;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.List;
 
-public class PojoType<T> implements SeaTunnelDataType<T> {
+public class PojoType<T> implements CompositeType<T> {
 
     private final Class<T> pojoClass;
     private final Field[] fields;
@@ -35,7 +37,8 @@ public class PojoType<T> implements SeaTunnelDataType<T> {
         this.fieldTypes = fieldTypes;
     }
 
-    public Class<T> getPojoClass() {
+    @Override
+    public Class<T> getTypeClass() {
         return pojoClass;
     }
 
@@ -45,5 +48,10 @@ public class PojoType<T> implements SeaTunnelDataType<T> {
 
     public SeaTunnelDataType<?>[] getFieldTypes() {
         return fieldTypes;
+    }
+
+    @Override
+    public List<SeaTunnelDataType<?>> getChildren() {
+        return Arrays.asList(fieldTypes);
     }
 }

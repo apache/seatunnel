@@ -29,5 +29,7 @@ public class KafkaCommitInfo implements Serializable {
 
     private final String transactionId;
     private final Properties kafkaProperties;
+    private final long producerId;
+    private final short epoch;
 
 }

@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import java.io.Serializable;
@@ -52,7 +52,7 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
      *
      * @return SeaTunnel row type information.
      */
-    SeaTunnelRowTypeInfo getRowTypeInfo();
+    SeaTunnelDataType<T> getProducedType();
 
     /**
      * Create source reader, used to produce data.

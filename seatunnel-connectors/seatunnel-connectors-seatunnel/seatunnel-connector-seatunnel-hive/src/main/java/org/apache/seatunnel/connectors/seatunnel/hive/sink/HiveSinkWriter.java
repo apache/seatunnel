@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.FileWriter;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.HdfsTxtFileWriter;
 
@@ -39,7 +39,7 @@ import java.util.Optional;
 public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HiveSinkWriter.class);
 
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
     private SinkWriter.Context context;
     private long jobId;
@@ -48,17 +48,17 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     private HiveSinkConfig hiveSinkConfig;
 
-    public HiveSinkWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public HiveSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowType,
                           @NonNull Config pluginConfig,
                           @NonNull SinkWriter.Context context,
                           long jobId) {
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+        this.seaTunnelRowType = seaTunnelRowType;
         this.pluginConfig = pluginConfig;
         this.context = context;
         this.jobId = jobId;
 
         hiveSinkConfig = new HiveSinkConfig(this.pluginConfig);
-        fileWriter = new HdfsTxtFileWriter(this.seaTunnelRowTypeInfo,
+        fileWriter = new HdfsTxtFileWriter(this.seaTunnelRowType,
             hiveSinkConfig,
             this.jobId,
             this.context.getIndexOfSubtask());

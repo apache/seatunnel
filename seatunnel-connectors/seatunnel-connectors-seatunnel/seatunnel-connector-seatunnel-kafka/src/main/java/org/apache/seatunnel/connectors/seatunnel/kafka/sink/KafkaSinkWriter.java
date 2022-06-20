@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRANSACTION_PREFIX;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSemantics;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
@@ -36,6 +38,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Random;
 
 /**
  * KafkaSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Kafka.
@@ -43,10 +46,14 @@ import java.util.Properties;
 public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> {
 
     private final SinkWriter.Context context;
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
     private final Config pluginConfig;
 
-    private KafkaProduceSender<String, String> kafkaProducerSender;
+    private String transactionPrefix;
+    private long lastCheckpointId = 0;
+
+    private final KafkaProduceSender<String, String> kafkaProducerSender;
+
+    private static final int PREFIX_RANGE = 10000;
 
     // check config
     @Override
@@ -55,22 +62,33 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         kafkaProducerSender.send(producerRecord);
     }
 
-    private SeaTunnelRowSerializer<String, String> seaTunnelRowSerializer;
+    private final SeaTunnelRowSerializer<String, String> seaTunnelRowSerializer;
 
     public KafkaSinkWriter(
-        SinkWriter.Context context,
-        SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
-        Config pluginConfig,
-        List<KafkaSinkState> kafkaStates) {
+            SinkWriter.Context context,
+            SeaTunnelRowType seaTunnelRowType,
+            Config pluginConfig,
+            List<KafkaSinkState> kafkaStates) {
         this.context = context;
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
-        this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowTypeInfo);
+        if (pluginConfig.hasPath(TRANSACTION_PREFIX)) {
+            this.transactionPrefix = pluginConfig.getString(TRANSACTION_PREFIX);
+        } else {
+            Random random = new Random();
+            this.transactionPrefix = String.format("SeaTunnel%04d", random.nextInt(PREFIX_RANGE));
+        }
+        restoreState(kafkaStates);
+        this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowType);
         if (KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig))) {
-            // the recover state
-            this.kafkaProducerSender = new KafkaTransactionSender<>(getKafkaProperties(pluginConfig));
-            this.kafkaProducerSender.abortTransaction(kafkaStates);
-            this.kafkaProducerSender.beginTransaction();
+            this.kafkaProducerSender =
+                    new KafkaTransactionSender<>(this.transactionPrefix, getKafkaProperties(pluginConfig));
+            // abort all transaction number bigger than current transaction, because they maybe already start
+            //  transaction.
+            if (!kafkaStates.isEmpty()) {
+                this.kafkaProducerSender.abortTransaction(kafkaStates.get(0).getCheckpointId() + 1);
+            }
+            this.kafkaProducerSender.beginTransaction(generateTransactionId(this.transactionPrefix,
+                    this.lastCheckpointId + 1));
         } else {
             this.kafkaProducerSender = new KafkaNoTransactionSender<>(getKafkaProperties(pluginConfig));
         }
@@ -78,7 +96,11 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     @Override
     public List<KafkaSinkState> snapshotState(long checkpointId) {
-        return kafkaProducerSender.snapshotState();
+        List<KafkaSinkState> states = kafkaProducerSender.snapshotState(checkpointId);
+        this.lastCheckpointId = checkpointId;
+        this.kafkaProducerSender.beginTransaction(generateTransactionId(this.transactionPrefix,
+                this.lastCheckpointId + 1));
+        return states;
     }
 
     @Override
@@ -102,7 +124,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
     private Properties getKafkaProperties(Config pluginConfig) {
         Config kafkaConfig = TypesafeConfigUtils.extractSubConfig(pluginConfig,
-            org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, true);
+                org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG_PREFIX, true);
         Properties kafkaProperties = new Properties();
         kafkaConfig.entrySet().forEach(entry -> {
             kafkaProperties.put(entry.getKey(), entry.getValue().unwrapped());
@@ -114,8 +136,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
     }
 
     // todo: parse the target field from config
-    private SeaTunnelRowSerializer<String, String> getSerializer(Config pluginConfig, SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
-        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topics"), seaTunnelRowTypeInfo);
+    private SeaTunnelRowSerializer<String, String> getSerializer(Config pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        return new DefaultSeaTunnelRowSerializer(pluginConfig.getString("topics"), seaTunnelRowType);
     }
 
     private KafkaSemantics getKafkaSemantics(Config pluginConfig) {
@@ -124,4 +146,16 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
         return KafkaSemantics.NON;
     }
+
+    protected static String generateTransactionId(String transactionPrefix, long checkpointId) {
+        return transactionPrefix + "-" + checkpointId;
+    }
+
+    private void restoreState(List<KafkaSinkState> states) {
+        if (!states.isEmpty()) {
+            this.transactionPrefix = states.get(0).getTransactionIdPrefix();
+            this.lastCheckpointId = states.get(0).getCheckpointId();
+        }
+    }
+
 }

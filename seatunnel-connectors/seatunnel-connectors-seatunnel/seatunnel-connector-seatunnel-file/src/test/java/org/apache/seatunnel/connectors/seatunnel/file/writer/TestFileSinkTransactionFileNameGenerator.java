@@ -33,14 +33,14 @@ public class TestFileSinkTransactionFileNameGenerator {
 
     @Test
     public void testGenerateFileName() {
-        FileSinkTransactionFileNameGenerator fileNameGenerator = new FileSinkTransactionFileNameGenerator(FileFormat.Text, "test_${transactionId}_${uuid}_${now}", "yyyy.MM.dd");
+        FileSinkTransactionFileNameGenerator fileNameGenerator = new FileSinkTransactionFileNameGenerator(FileFormat.TEXT, "test_${transactionId}_${uuid}_${now}", "yyyy.MM.dd");
         DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy.MM.dd");
         final String formattedDate = df.format(ZonedDateTime.now());
         String fileName = fileNameGenerator.generateFileName("T_12345678_1_0");
         Assert.assertTrue(fileName.startsWith("test_T_12345678_1_0_"));
         Assert.assertTrue(fileName.endsWith(formattedDate + ".txt"));
 
-        fileNameGenerator = new FileSinkTransactionFileNameGenerator(FileFormat.Text, null, "yyyy.MM.dd");
+        fileNameGenerator = new FileSinkTransactionFileNameGenerator(FileFormat.TEXT, null, "yyyy.MM.dd");
         fileName = fileNameGenerator.generateFileName("T_12345678_1_0");
         Assert.assertEquals("T_12345678_1_0.txt", fileName);
     }

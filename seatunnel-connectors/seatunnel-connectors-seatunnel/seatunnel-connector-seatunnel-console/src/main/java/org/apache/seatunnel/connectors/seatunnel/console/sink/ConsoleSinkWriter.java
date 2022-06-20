@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.console.state.ConsoleState;
 
 import org.slf4j.Logger;
@@ -32,10 +32,10 @@ public class ConsoleSinkWriter implements SinkWriter<SeaTunnelRow, ConsoleCommit
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSinkWriter.class);
 
-    private final SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private final SeaTunnelRowType seaTunnelRowType;
 
-    public ConsoleSinkWriter(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+    public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override

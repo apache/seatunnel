@@ -20,19 +20,20 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
 
 import lombok.NonNull;
 
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public abstract class AbstractFileWriter implements FileWriter {
     protected Map<String, String> needMoveFiles;
-    protected SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    protected SeaTunnelRowType seaTunnelRowType;
     protected long jobId;
     protected int subTaskIndex;
     protected HiveSinkConfig hiveSinkConfig;
@@ -43,8 +44,9 @@ public abstract class AbstractFileWriter implements FileWriter {
     protected Map<String, String> beingWrittenFile;
 
     protected String checkpointId;
+    protected final int[] partitionKeyIndexes;
 
-    public AbstractFileWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public AbstractFileWriter(@NonNull SeaTunnelRowType seaTunnelRowType,
                               @NonNull HiveSinkConfig hiveSinkConfig,
                               long jobId,
                               int subTaskIndex) {
@@ -52,12 +54,19 @@ public abstract class AbstractFileWriter implements FileWriter {
         checkArgument(subTaskIndex > -1);
 
         this.needMoveFiles = new HashMap<>();
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+        this.seaTunnelRowType = seaTunnelRowType;
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         this.hiveSinkConfig = hiveSinkConfig;
 
         this.beingWrittenFile = new HashMap<>();
+        if (this.hiveSinkConfig.getPartitionFieldNames() == null) {
+            this.partitionKeyIndexes = new int[0];
+        } else {
+            this.partitionKeyIndexes = IntStream.range(0, seaTunnelRowType.getTotalFields())
+                .filter(i -> hiveSinkConfig.getPartitionFieldNames().contains(seaTunnelRowType.getFieldName(i)))
+                .toArray();
+        }
     }
 
     public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
@@ -91,15 +100,11 @@ public abstract class AbstractFileWriter implements FileWriter {
     }
 
     private String getBeingWrittenFileKey(@NonNull SeaTunnelRow seaTunnelRow) {
-        if (this.hiveSinkConfig.getPartitionFieldNames() != null && this.hiveSinkConfig.getPartitionFieldNames().size() > 0) {
-            List<String> collect = this.hiveSinkConfig.getPartitionFieldNames().stream().map(partitionKey -> {
-                StringBuilder sbd = new StringBuilder(partitionKey);
-                sbd.append("=").append(seaTunnelRow.getFieldMap().get(partitionKey));
-                return sbd.toString();
-            }).collect(Collectors.toList());
-
-            String beingWrittenFileKey = String.join("/", collect);
-            return beingWrittenFileKey;
+        if (partitionKeyIndexes.length > 0) {
+            return Arrays.stream(partitionKeyIndexes)
+                .boxed()
+                .map(i -> seaTunnelRowType.getFieldName(i) + "=" + seaTunnelRow.getField(i))
+                .collect(Collectors.joining("/"));
         } else {
             // If there is no partition field in data, We use the fixed value NON_PARTITION as the partition directory
             return NON_PARTITION;

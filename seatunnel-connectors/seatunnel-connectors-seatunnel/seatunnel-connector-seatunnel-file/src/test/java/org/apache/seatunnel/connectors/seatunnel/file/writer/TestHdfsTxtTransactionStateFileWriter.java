@@ -20,13 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.HdfsTxtTransactionStateFileWriter;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -45,8 +45,8 @@ public class TestHdfsTxtTransactionStateFileWriter {
     @Test
     public void testHdfsTextTransactionStateFileWriter() throws Exception {
         String[] fieldNames = new String[]{"c1", "c2", "c3", "c4"};
-        SeaTunnelDataType[] seaTunnelDataTypes = new SeaTunnelDataType[]{BasicType.BOOLEAN, BasicType.INTEGER, BasicType.STRING, BasicType.STRING};
-        SeaTunnelRowTypeInfo seaTunnelRowTypeInfo = new SeaTunnelRowTypeInfo(fieldNames, seaTunnelDataTypes);
+        SeaTunnelDataType[] seaTunnelDataTypes = new SeaTunnelDataType[]{BasicType.BOOLEAN_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE};
+        SeaTunnelRowType seaTunnelRowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
 
         List<Integer> sinkColumnIndexInRow = new ArrayList<>();
         sinkColumnIndexInRow.add(0);
@@ -65,7 +65,7 @@ public class TestHdfsTxtTransactionStateFileWriter {
         String tmpPath = "/tmp/seatunnel";
 
         TransactionStateFileWriter fileWriter = new HdfsTxtTransactionStateFileWriter(seaTunnelRowTypeInfo,
-            new FileSinkTransactionFileNameGenerator(FileFormat.Text, null, "yyyy.MM.dd"),
+            new FileSinkTransactionFileNameGenerator(FileFormat.TEXT, null, "yyyy.MM.dd"),
             new FileSinkPartitionDirNameGenerator(hivePartitionFieldList, partitionFieldIndexInRow, "${k0}=${v0}/${k1}=${v1}"),
             sinkColumnIndexInRow,
             tmpPath,

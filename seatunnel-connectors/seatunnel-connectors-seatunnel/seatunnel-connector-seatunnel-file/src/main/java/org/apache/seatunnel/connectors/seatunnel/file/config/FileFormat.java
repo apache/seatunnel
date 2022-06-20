@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 public enum FileFormat {
     CSV("csv"),
-    Text("txt");
+    TEXT("text");
 
     private String suffix;
 

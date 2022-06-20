@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -42,7 +42,7 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     private Config config;
     private long jobId;
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private SeaTunnelRowType seaTunnelRowType;
 
     @Override
     public String getPluginName() {
@@ -50,8 +50,8 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
-        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
@@ -62,12 +62,12 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     @Override
     public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        return new HiveSinkWriter(seaTunnelRowTypeInfo, config, context, System.currentTimeMillis());
+        return new HiveSinkWriter(seaTunnelRowType, config, context, System.currentTimeMillis());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> restoreWriter(SinkWriter.Context context, List<HiveSinkState> states) throws IOException {
-        return new HiveSinkWriter(seaTunnelRowTypeInfo, config, context, System.currentTimeMillis());
+        return new HiveSinkWriter(seaTunnelRowType, config, context, System.currentTimeMillis());
     }
 
     @Override

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.PartitionDirNameGenerator;
@@ -40,8 +40,8 @@ public class TestFileSinkPartitionDirNameGenerator {
     @Test
     public void testPartitionDirNameGenerator() {
         String[] fieldNames = new String[]{"c1", "c2", "c3", "c4"};
-        SeaTunnelDataType[] seaTunnelDataTypes = new SeaTunnelDataType[]{BasicType.BOOLEAN, BasicType.INTEGER, BasicType.STRING, BasicType.INTEGER};
-        SeaTunnelRowTypeInfo seaTunnelRowTypeInfo = new SeaTunnelRowTypeInfo(fieldNames, seaTunnelDataTypes);
+        SeaTunnelDataType[] seaTunnelDataTypes = new SeaTunnelDataType[]{BasicType.BOOLEAN_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE};
+        SeaTunnelRowType seaTunnelRowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
 
         Object[] row1 = new Object[]{true, 1, "test", 3};
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(row1);

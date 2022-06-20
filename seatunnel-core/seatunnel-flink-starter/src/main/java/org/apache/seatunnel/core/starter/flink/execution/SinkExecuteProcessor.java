@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
@@ -86,11 +86,11 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
         return null;
     }
 
-    private SeaTunnelRowTypeInfo getSeaTunnelRowTypeInfo(DataStream<Row> stream) {
+    private SeaTunnelRowType getSeaTunnelRowTypeInfo(DataStream<Row> stream) {
         RowTypeInfo typeInformation = (RowTypeInfo) stream.getType();
         String[] fieldNames = typeInformation.getFieldNames();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = Arrays.stream(typeInformation.getFieldTypes())
-            .map(TypeConverterUtils::convertType).toArray(SeaTunnelDataType[]::new);
-        return new SeaTunnelRowTypeInfo(fieldNames, seaTunnelDataTypes);
+            .map(TypeConverterUtils::convert).toArray(SeaTunnelDataType[]::new);
+        return new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
     }
 }

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
@@ -39,7 +39,7 @@ import java.util.Optional;
 public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkWriter.class);
 
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private SeaTunnelRowType seaTunnelRowTypeInfo;
     private Config pluginConfig;
     private Context context;
     private String jobId;
@@ -48,7 +48,7 @@ public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, 
 
     private TextFileSinkConfig textFileSinkConfig;
 
-    public FileSinkWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public FileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                           @NonNull Config pluginConfig,
                           @NonNull SinkWriter.Context context,
                           @NonNull TextFileSinkConfig textFileSinkConfig,
@@ -79,7 +79,7 @@ public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, 
         fileWriter.beginTransaction(1L);
     }
 
-    public FileSinkWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public FileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                           @NonNull Config pluginConfig,
                           @NonNull SinkWriter.Context context,
                           @NonNull TextFileSinkConfig textFileSinkConfig,

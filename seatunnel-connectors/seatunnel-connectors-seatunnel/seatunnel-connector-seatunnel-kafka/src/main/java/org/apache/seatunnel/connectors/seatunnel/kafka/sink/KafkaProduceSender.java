@@ -33,7 +33,7 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
      */
     void send(ProducerRecord<K, V> producerRecord);
 
-    void beginTransaction();
+    void beginTransaction(String transactionId);
 
     /**
      * Prepare a transaction commit.
@@ -50,15 +50,15 @@ public interface KafkaProduceSender<K, V> extends AutoCloseable {
     /**
      * Abort the given transaction.
      *
-     * @param kafkaStates kafka states about the transaction info.
+     * @param checkpointId the id of the last checkpoint of the last run
      */
-    void abortTransaction(List<KafkaSinkState> kafkaStates);
+    void abortTransaction(long checkpointId);
 
     /**
      * Get the current kafka state of the sender.
      *
      * @return kafka state List, or empty if no state is available.
      */
-    List<KafkaSinkState> snapshotState();
+    List<KafkaSinkState> snapshotState(long checkpointId);
 
 }

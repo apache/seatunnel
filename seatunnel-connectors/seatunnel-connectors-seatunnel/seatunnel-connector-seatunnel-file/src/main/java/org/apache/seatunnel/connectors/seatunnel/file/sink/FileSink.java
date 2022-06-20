@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.SaveMode;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
@@ -46,17 +46,17 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
     private Config config;
     private String jobId;
     private Long checkpointId;
-    private SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    private SeaTunnelRowType seaTunnelRowTypeInfo;
     private SeaTunnelContext seaTunnelContext;
     private TextFileSinkConfig textFileSinkConfig;
 
     @Override
     public String getPluginName() {
-        return "Hive";
+        return "File";
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowTypeInfo seaTunnelRowTypeInfo) {
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowTypeInfo) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
     }

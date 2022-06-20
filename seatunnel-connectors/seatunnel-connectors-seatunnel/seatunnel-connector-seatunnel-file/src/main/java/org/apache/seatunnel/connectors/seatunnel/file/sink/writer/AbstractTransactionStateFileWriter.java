@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowTypeInfo;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkState;
@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractTransactionStateFileWriter implements TransactionStateFileWriter {
     protected Map<String, String> needMoveFiles;
-    protected SeaTunnelRowTypeInfo seaTunnelRowTypeInfo;
+    protected SeaTunnelRowType seaTunnelRowTypeInfo;
     protected String jobId;
     protected int subTaskIndex;
 
@@ -65,7 +65,7 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
     private PartitionDirNameGenerator partitionDirNameGenerator;
 
-    public AbstractTransactionStateFileWriter(@NonNull SeaTunnelRowTypeInfo seaTunnelRowTypeInfo,
+    public AbstractTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                                               @NonNull TransactionFileNameGenerator transactionFileNameGenerator,
                                               @NonNull PartitionDirNameGenerator partitionDirNameGenerator,
                                               @NonNull List<Integer> sinkColumnsIndexInRow,
