@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.transaction;
 
-public interface TransactionFileNameGenerator {
+import java.io.Serializable;
+
+public interface TransactionFileNameGenerator extends Serializable {
     String generateFileName(String transactionId);
 }

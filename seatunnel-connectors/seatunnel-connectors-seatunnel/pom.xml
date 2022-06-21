@@ -32,25 +32,15 @@
 
     <modules>
 <!--        <module>seatunnel-connector-seatunnel-hive</module>-->
-<!--        <module>seatunnel-connector-seatunnel-console</module>-->
+        <module>seatunnel-connector-seatunnel-console</module>
         <module>seatunnel-connector-seatunnel-fake</module>
-<<<<<<< HEAD
+        <module>seatunnel-connector-seatunnel-file</module>
 <!--        <module>seatunnel-connector-seatunnel-kafka</module>-->
 <!--        <module>seatunnel-connector-seatunnel-http</module>-->
 <!--        <module>seatunnel-connector-seatunnel-jdbc</module>-->
 <!--        <module>seatunnel-connector-seatunnel-socket</module>-->
 <!--        <module>seatunnel-connector-seatunnel-clickhouse</module>-->
 <!--        <module>seatunnel-connector-seatunnel-pulsar</module>-->
-        <module>seatunnel-connectors-common</module>
-        <module>seatunnel-connector-seatunnel-file</module>
-=======
-        <module>seatunnel-connector-seatunnel-kafka</module>
-        <module>seatunnel-connector-seatunnel-http</module>
-        <module>seatunnel-connector-seatunnel-jdbc</module>
-        <module>seatunnel-connector-seatunnel-socket</module>
-        <module>seatunnel-connector-seatunnel-clickhouse</module>
-        <module>seatunnel-connector-seatunnel-pulsar</module>
         <module>seatunnel-connector-hadoop-shade</module>
->>>>>>> apache/api-draft
     </modules>
 </project>

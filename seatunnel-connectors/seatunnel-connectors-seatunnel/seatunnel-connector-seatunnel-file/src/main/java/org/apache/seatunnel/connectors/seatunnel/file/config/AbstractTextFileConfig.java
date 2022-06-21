@@ -30,6 +30,8 @@ import java.util.Locale;
 
 @Data
 public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, Serializable {
+    private static final long serialVersionUID = 1L;
+
     protected String compressCodec;
 
     protected String fieldDelimiter = String.valueOf('\001');

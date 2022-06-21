@@ -26,10 +26,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkWriter;
 
 import lombok.NonNull;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
-public interface Transaction {
+public interface Transaction extends Serializable {
     /**
      * A new transaction needs to be started after each checkpoint is completed.
      *

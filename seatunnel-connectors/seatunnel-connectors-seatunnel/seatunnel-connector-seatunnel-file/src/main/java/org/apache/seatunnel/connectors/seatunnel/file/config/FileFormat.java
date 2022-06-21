@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-public enum FileFormat {
+import java.io.Serializable;
+
+public enum FileFormat implements Serializable {
     CSV("csv"),
     TEXT("text");
 

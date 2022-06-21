@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
 
-public interface FileWriter {
+import java.io.Serializable;
+
+public interface FileWriter extends Serializable {
 
     void write(@NonNull SeaTunnelRow seaTunnelRow);
 

@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink;
+package org.apache.seatunnel.e2e.spark.file;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.e2e.spark.SparkContainer;
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
 
-import java.io.Serializable;
-import java.util.Map;
+import java.io.IOException;
 
-@Data
-@AllArgsConstructor
-public class FileAggregatedCommitInfo implements Serializable {
+/**
+ * This test case is used to verify that the fake source is able to send data to the console.
+ * Make sure the SeaTunnel job can submit successfully on spark engine.
+ */
+public class FakeSourceToFileIT extends SparkContainer {
 
-    /**
-     * Storage the commit info in map.
-     * K is the file path need to be moved to target dir.
-     * V is the target file path of the data file.
-     */
-    private Map<String, Map<String, String>> transactionMap;
+    @Test
+    @SuppressWarnings("magicnumber")
+    public void testFakeSourceToFile() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_file.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
 }

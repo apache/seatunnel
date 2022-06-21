@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-public interface PartitionDirNameGenerator {
+import java.io.Serializable;
+
+public interface PartitionDirNameGenerator extends Serializable {
     String generatorPartitionDir(SeaTunnelRow seaTunnelRow);
 }

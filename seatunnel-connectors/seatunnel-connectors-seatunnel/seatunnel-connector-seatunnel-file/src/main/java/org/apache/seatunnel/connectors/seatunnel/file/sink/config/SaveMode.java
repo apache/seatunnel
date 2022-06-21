@@ -19,9 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
 import lombok.NonNull;
 
+import java.io.Serializable;
 import java.util.Locale;
 
-public enum SaveMode {
+public enum SaveMode implements Serializable {
     APPEND(),
     OVERWRITE(),
     IGNORE(),
