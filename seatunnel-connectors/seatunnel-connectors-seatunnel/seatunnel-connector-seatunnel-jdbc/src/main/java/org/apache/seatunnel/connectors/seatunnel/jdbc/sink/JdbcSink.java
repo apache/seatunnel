@@ -26,8 +26,8 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcStatementBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectorOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
@@ -52,18 +52,18 @@ public class JdbcSink
 
     private SeaTunnelContext seaTunnelContext;
 
-    private JdbcConnectorOptions jdbcConnectorOptions;
+    private JdbcSinkOptions jdbcSinkOptions;
 
     @Override
     public String getPluginName() {
-        return "jdbc";
+        return "Jdbc";
     }
 
     @Override
     public void prepare(Config pluginConfig)
         throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        this.jdbcConnectorOptions = new JdbcConnectorOptions(this.pluginConfig);
+        this.jdbcSinkOptions = new JdbcSinkOptions(this.pluginConfig);
     }
 
     @Override
@@ -72,19 +72,19 @@ public class JdbcSink
         SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
         // TODO SeatunnelTyoeInfo is not good enough to get typesArray
         JdbcStatementBuilder<SeaTunnelRow> statementBuilder = (st, row) -> JdbcUtils.setRecordToStatement(st, null, row);
-        if (jdbcConnectorOptions.isExactlyOnce()) {
+        if (jdbcSinkOptions.isExactlyOnce()) {
             sinkWriter = new JdbcExactlyOnceSinkWriter(
                 context,
                 seaTunnelContext,
                 statementBuilder,
-                jdbcConnectorOptions,
+                jdbcSinkOptions,
                 new ArrayList<>()
             );
         } else {
             sinkWriter = new JdbcSinkWriter(
                 context,
                 statementBuilder,
-                jdbcConnectorOptions);
+                jdbcSinkOptions);
         }
 
         return sinkWriter;
@@ -93,13 +93,13 @@ public class JdbcSink
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(SinkWriter.Context context, List<JdbcSinkState> states)
         throws IOException {
-        if (jdbcConnectorOptions.isExactlyOnce()) {
+        if (jdbcSinkOptions.isExactlyOnce()) {
             JdbcStatementBuilder<SeaTunnelRow> statementBuilder = (st, row) -> JdbcUtils.setRecordToStatement(st, null, row);
             return new JdbcExactlyOnceSinkWriter(
                 context,
                 seaTunnelContext,
                 statementBuilder,
-                jdbcConnectorOptions,
+                jdbcSinkOptions,
                 states
             );
         }
@@ -109,8 +109,8 @@ public class JdbcSink
     @Override
     public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>> createAggregatedCommitter()
         throws IOException {
-        if (jdbcConnectorOptions.isExactlyOnce()) {
-            return Optional.of(new JdbcSinkAggregatedCommitter(jdbcConnectorOptions));
+        if (jdbcSinkOptions.isExactlyOnce()) {
+            return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkOptions));
         }
         return Optional.empty();
     }
