@@ -41,6 +41,16 @@
             <artifactId>sshd-scp</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
+
         <!-- TODO add to dependency management after version unify -->
         <dependency>
             <groupId>com.clickhouse</groupId>

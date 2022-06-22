@@ -54,7 +54,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseRequest;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 
@@ -106,11 +105,13 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         clickhouseProperties.put("password", config.getString(PASSWORD));
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
-        ClickHouseRequest<?> request = proxy.getClickhouseConnection();
-        Map<String, String> tableSchema = proxy.getClickhouseTableSchema(request, config.getString(TABLE));
-        String shardKey = TypesafeConfigUtils.getConfig(config, SHARDING_KEY, "");
-        String shardKeyType = tableSchema.get(shardKey);
-
+        Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE));
+        String shardKey = null;
+        String shardKeyType = null;
+        if (config.hasPath(SHARDING_KEY)) {
+            shardKey = config.getString(SHARDING_KEY);
+            shardKeyType = tableSchema.get(shardKey);
+        }
         ShardMetadata metadata = new ShardMetadata(
                 shardKey,
                 shardKeyType,
@@ -130,6 +131,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         } else {
             fields.addAll(tableSchema.keySet());
         }
+        proxy.close();
         this.option = new ReaderOption(metadata, seaTunnelRowType, clickhouseProperties, fields,
                 config.getIntList(RETRY_CODES), tableSchema, config.getInt(RETRY), config.getInt(BULK_SIZE));
     }
