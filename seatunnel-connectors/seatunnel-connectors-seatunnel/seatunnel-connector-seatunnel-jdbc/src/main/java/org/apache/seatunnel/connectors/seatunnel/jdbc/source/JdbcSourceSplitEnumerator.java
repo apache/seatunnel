@@ -30,12 +30,12 @@ import java.util.stream.Collectors;
 
 public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> {
 
-    Context<JdbcSourceSplit> enumeratorContext;
+    SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext;
     List<JdbcSourceSplit> allSplit = new ArrayList<>();
     JdbcSourceOptions jdbcSourceOptions;
     PartitionParameter partitionParameter;
 
-    public JdbcSourceSplitEnumerator(Context<JdbcSourceSplit> enumeratorContext, JdbcSourceOptions jdbcSourceOptions, PartitionParameter partitionParameter) {
+    public JdbcSourceSplitEnumerator(SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext, JdbcSourceOptions jdbcSourceOptions, PartitionParameter partitionParameter) {
         this.enumeratorContext = enumeratorContext;
         this.jdbcSourceOptions = jdbcSourceOptions;
         this.partitionParameter = partitionParameter;
