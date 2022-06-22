@@ -18,8 +18,9 @@
 package org.apache.seatunnel.spark.utils;
 
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
-import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
@@ -32,13 +33,14 @@ public final class SparkStructTypeUtil {
     private SparkStructTypeUtil() {
     }
 
-    public static StructType getStructType(StructType schema, JSONObject json) {
+    public static StructType getStructType(StructType schema, ObjectNode json) {
         StructType newSchema = schema.copy(schema.fields());
-        for (Map.Entry<String, Object> entry : json.entrySet()) {
+        Map<String, Object> jsonMap = JsonUtils.toMap(json);
+        for (Map.Entry<String, Object> entry : jsonMap.entrySet()) {
             String field = entry.getKey();
             Object type = entry.getValue();
-            if (type instanceof JSONObject) {
-                StructType st = getStructType(new StructType(), (JSONObject) type);
+            if (type instanceof ObjectNode) {
+                StructType st = getStructType(new StructType(), (ObjectNode) type);
                 newSchema = newSchema.add(field, st);
             } else if (type instanceof List) {
                 List list = (List) type;
@@ -47,8 +49,8 @@ public final class SparkStructTypeUtil {
                     newSchema = newSchema.add(field, DataTypes.createArrayType(null, true));
                 } else {
                     Object o = list.get(0);
-                    if (o instanceof JSONObject) {
-                        StructType st = getStructType(new StructType(), (JSONObject) o);
+                    if (o instanceof ObjectNode) {
+                        StructType st = getStructType(new StructType(), (ObjectNode) o);
                         newSchema = newSchema.add(field, DataTypes.createArrayType(st, true));
                     } else {
                         DataType st = getType(o.toString());

@@ -51,7 +51,7 @@ public class FlinkStarter implements Starter {
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         FlinkStarter flinkStarter = new FlinkStarter(args);
         System.out.println(String.join(" ", flinkStarter.buildCommands()));
     }

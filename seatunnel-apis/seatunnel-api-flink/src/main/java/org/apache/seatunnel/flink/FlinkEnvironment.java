@@ -49,6 +49,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class FlinkEnvironment implements RuntimeEnv {
@@ -120,7 +121,7 @@ public class FlinkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void registerPlugin(List<URL> pluginPaths) {
+    public void registerPlugin(Set<URL> pluginPaths) {
         LOGGER.info("register plugins :" + pluginPaths);
         Configuration configuration;
         try {

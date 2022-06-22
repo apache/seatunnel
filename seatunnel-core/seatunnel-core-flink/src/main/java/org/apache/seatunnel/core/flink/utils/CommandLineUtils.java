@@ -27,21 +27,11 @@ import com.beust.jcommander.UnixStyleUsageFormatter;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class CommandLineUtils {
 
     private CommandLineUtils() {
         throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
-    }
-
-    public static FlinkCommandArgs parseFlinkArgs(String[] args) {
-        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(flinkCommandArgs)
-            .build()
-            .parse(args);
-        return flinkCommandArgs;
     }
 
     public static FlinkCommandArgs parseCommandArgs(String[] args, FlinkJobType jobType) {
@@ -76,12 +66,7 @@ public class CommandLineUtils {
         if (flinkCommandArgs.isCheckConfig()) {
             command.add("--check");
         }
-        // set System properties
-        flinkCommandArgs.getVariables().stream()
-          .filter(Objects::nonNull)
-          .map(String::trim)
-          .forEach(variable -> command.add("-D" + variable));
-        return command;
 
+        return command;
     }
 }

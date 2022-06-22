@@ -20,6 +20,8 @@ import java.util.Properties
 
 import scala.collection.JavaConversions._
 
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
@@ -38,7 +40,7 @@ class Kafka extends SparkBatchSink with Logging {
 
     val producerConfig = TypesafeConfigUtils.extractSubConfig(config, producerPrefix, false)
 
-    if (config.hasPath("topic") && producerConfig.hasPath("bootstrap.servers")) {
+    if (config.hasPath("topic") && producerConfig.hasPath(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
       CheckResult.success()
     } else {
       CheckResult.error("please specify [topic] and [producer.bootstrap.servers]")
@@ -49,8 +51,8 @@ class Kafka extends SparkBatchSink with Logging {
     val defaultConfig = ConfigFactory.parseMap(
       Map(
         "format" -> "json",
-        producerPrefix + "key.serializer" -> "org.apache.kafka.common.serialization.StringSerializer",
-        producerPrefix + "value.serializer" -> "org.apache.kafka.common.serialization.StringSerializer"))
+        producerPrefix + ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG -> classOf[StringSerializer].getName,
+        producerPrefix + ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG -> classOf[StringSerializer].getName))
 
     config = config.withFallback(defaultConfig)
 

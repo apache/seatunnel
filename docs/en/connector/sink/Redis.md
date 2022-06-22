@@ -27,6 +27,7 @@ Engine Supported and plugin name
 | set_name  | string | no       |               |
 | zset_name | string | no       |               |
 | timeout   | int    | no       | 2000          |
+| ttl       | int    | no       | 0             |
 
 ### host [string]
 
@@ -67,6 +68,10 @@ if redis data type is ZSET must config zset name
 ### set_name [string]
 
 if redis data type is SET must config set name
+
+### ttl [int]
+
+redis data expiration ttl, 0 means no expiration.
 
 ## Examples
 

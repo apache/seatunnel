@@ -17,11 +17,10 @@
 package org.apache.seatunnel.spark.mongodb.source
 
 import scala.collection.JavaConversions._
-
-import com.alibaba.fastjson.JSON
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
 import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult, TypesafeConfigUtils}
+import org.apache.seatunnel.common.utils.JsonUtils
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
 import org.apache.seatunnel.spark.utils.SparkStructTypeUtil
@@ -49,7 +48,7 @@ class MongoDB extends SparkBatchSource {
       })
 
     if (config.hasPath("schema")) {
-      val schemaJson = JSON.parseObject(config.getString("schema"))
+      val schemaJson = JsonUtils.parseObject(config.getString("schema"))
       schema = SparkStructTypeUtil.getStructType(schema, schemaJson)
     }
 

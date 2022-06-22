@@ -56,6 +56,11 @@
             <artifactId>seatunnel-connector-flink-console</artifactId>
             <version>${project.version}</version>
         </dependency>
+       <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-flink-assert</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!--   seatunnel connectors   -->
 
         <!--flink-->
@@ -93,7 +98,6 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
-            <version>${slf4j.version}</version>
         </dependency>
     </dependencies>
 

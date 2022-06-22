@@ -32,15 +32,16 @@ else
     args=$@
 fi
 
+
 CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.core.sql.FlinkSqlStarter ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
-    echo ${CMD}
+    echo "${CMD}"
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
     echo "Execute SeaTunnel Flink SQL Job: ${CMD}"
     eval ${CMD}
 else
-    echo ${CMD}
+    echo "${CMD}"
     exit ${EXIT_CODE}
 fi
