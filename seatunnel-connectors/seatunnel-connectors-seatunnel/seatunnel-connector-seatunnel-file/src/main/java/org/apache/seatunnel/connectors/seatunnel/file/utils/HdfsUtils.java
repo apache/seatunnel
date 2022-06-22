@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.utils;
 
+import org.apache.seatunnel.shade.org.apache.hadoop.conf.Configuration;
+import org.apache.seatunnel.shade.org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.seatunnel.shade.org.apache.hadoop.fs.FileStatus;
+import org.apache.seatunnel.shade.org.apache.hadoop.fs.FileSystem;
+import org.apache.seatunnel.shade.org.apache.hadoop.fs.Path;
+
 import lombok.NonNull;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +39,7 @@ public class HdfsUtils {
     public static final int WRITE_BUFFER_SIZE = 2048;
 
     public static FileSystem getHdfsFs(@NonNull String path)
-            throws IOException {
+        throws IOException {
         Configuration conf = new Configuration();
         LOGGER.info(System.getenv("HADOOP_CONF_DIR"));
         conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"));
@@ -100,7 +101,7 @@ public class HdfsUtils {
     }
 
     public static void createDir(@NonNull String filePath)
-            throws IOException {
+        throws IOException {
 
         FileSystem hdfsFs = getHdfsFs(filePath);
         Path dfs = new Path(filePath);
@@ -110,7 +111,7 @@ public class HdfsUtils {
     }
 
     public static boolean fileExist(@NonNull String filePath)
-            throws IOException {
+        throws IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         Path fileName = new Path(filePath);
         return hdfsFs.exists(fileName);
@@ -120,7 +121,7 @@ public class HdfsUtils {
      * get the dir in filePath
      */
     public static List<Path> dirList(@NonNull String filePath)
-            throws FileNotFoundException, IOException {
+        throws FileNotFoundException, IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         List<Path> pathList = new ArrayList<Path>();
         Path fileName = new Path(filePath);

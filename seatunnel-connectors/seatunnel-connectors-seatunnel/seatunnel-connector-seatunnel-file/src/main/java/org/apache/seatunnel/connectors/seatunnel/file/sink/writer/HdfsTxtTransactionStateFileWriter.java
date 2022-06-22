@@ -22,8 +22,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
 
+import org.apache.seatunnel.shade.org.apache.hadoop.fs.FSDataOutputStream;
+
 import lombok.NonNull;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

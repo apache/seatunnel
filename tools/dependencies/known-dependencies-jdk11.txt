@@ -676,7 +676,6 @@ woodstox-core-5.0.3.jar
 xbean-asm6-shaded-4.10.jar
 xbean-asm6-shaded-4.8.jar
 xercesImpl-2.9.1.jar
-xml-apis-1.3.04.jar
 xmlbeans-3.1.0.jar
 xmlenc-0.52.jar
 xz-1.0.jar

@@ -28,10 +28,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.Transacti
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
 
+import org.apache.seatunnel.shade.org.apache.hadoop.fs.Path;
+
 import com.google.common.collect.Lists;
 import lombok.NonNull;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;

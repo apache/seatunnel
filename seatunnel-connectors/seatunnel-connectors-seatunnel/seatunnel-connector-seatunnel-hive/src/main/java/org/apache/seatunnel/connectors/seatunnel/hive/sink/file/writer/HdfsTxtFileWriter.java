@@ -21,9 +21,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
 
+import org.apache.seatunnel.shade.org.apache.hadoop.fs.FSDataOutputStream;
+
 import lombok.Lombok;
 import lombok.NonNull;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
