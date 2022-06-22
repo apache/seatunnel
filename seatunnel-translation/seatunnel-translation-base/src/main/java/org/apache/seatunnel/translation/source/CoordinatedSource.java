@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements BaseSourceFunction<T> {
@@ -54,6 +55,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements
     protected transient volatile SourceSplitEnumerator<SplitT, StateT> splitEnumerator;
     protected transient Map<Integer, SourceReader<T, SplitT>> readerMap = new ConcurrentHashMap<>();
     protected final Map<Integer, AtomicBoolean> readerRunningMap;
+    protected final AtomicInteger completedReader = new AtomicInteger(0);
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
     /**
@@ -108,6 +110,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements
         for (int subtaskId = 0; subtaskId < this.parallelism; subtaskId++) {
             CoordinatedReaderContext readerContext = new CoordinatedReaderContext(this, source.getBoundedness(), subtaskId);
             readerContextMap.put(subtaskId, readerContext);
+            readerRunningMap.put(subtaskId, new AtomicBoolean(true));
             SourceReader<T, SplitT> reader = source.createReader(readerContext);
             readerMap.put(subtaskId, reader);
         }
@@ -231,6 +234,9 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT> implements
     protected void handleNoMoreElement(int subtaskId) {
         readerRunningMap.get(subtaskId).set(false);
         readerContextMap.remove(subtaskId);
+        if (completedReader.incrementAndGet() == this.parallelism) {
+            this.running = false;
+        }
     }
 
     protected void handleSplitRequest(int subtaskId) {

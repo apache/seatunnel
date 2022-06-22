@@ -20,11 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Map;
 
 @Data
 @AllArgsConstructor
-public class HiveAggregatedCommitInfo {
+public class HiveAggregatedCommitInfo implements Serializable {
 
     /**
      * Storage the commit info in map.

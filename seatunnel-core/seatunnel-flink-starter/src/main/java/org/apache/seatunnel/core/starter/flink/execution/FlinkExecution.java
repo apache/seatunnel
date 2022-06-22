@@ -56,6 +56,7 @@ public class FlinkExecution implements TaskExecution {
         this.sinkPluginExecuteProcessor = new SinkExecuteProcessor(flinkEnvironment, config.getConfigList("sink"));
     }
 
+    @Override
     public void execute() throws TaskExecuteException {
         List<DataStream<Row>> dataStreams = new ArrayList<>();
         dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
