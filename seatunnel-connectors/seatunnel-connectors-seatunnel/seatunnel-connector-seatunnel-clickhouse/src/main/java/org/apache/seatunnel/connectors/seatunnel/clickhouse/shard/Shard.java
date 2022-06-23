@@ -69,7 +69,7 @@ public class Shard implements Serializable {
     }
 
     public String getJdbcUrl() {
-        return "jdbc:clickhouse://" + node.getAddress().getAddress().getHostAddress()
+        return "jdbc:clickhouse://" + node.getAddress().getHostName()
                 + ":" + node.getAddress().getPort() + "/" + node.getDatabase().get();
     }
 

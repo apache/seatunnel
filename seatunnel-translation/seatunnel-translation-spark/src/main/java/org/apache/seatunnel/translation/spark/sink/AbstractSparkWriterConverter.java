@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.api.sink.SinkWriter;
 
 import org.apache.spark.sql.types.StructType;
 
@@ -26,15 +27,19 @@ import javax.annotation.Nullable;
 
 public abstract class AbstractSparkWriterConverter {
 
+    protected final SinkWriter.Context context;
     protected final SinkCommitter<?> sinkCommitter;
     protected final SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter;
     protected final StructType schema;
+    protected final String sinkString;
 
-    AbstractSparkWriterConverter(@Nullable SinkCommitter<?> sinkCommitter,
+    AbstractSparkWriterConverter(SinkWriter.Context context, SinkCommitter<?> sinkCommitter,
                                  @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter,
-                                 StructType schema) {
+                                 StructType schema, String sinkString) {
+        this.context = context;
         this.sinkCommitter = sinkCommitter;
         this.sinkAggregatedCommitter = sinkAggregatedCommitter;
         this.schema = schema;
+        this.sinkString = sinkString;
     }
 }

@@ -20,11 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
 
 import java.sql.SQLException;
-import java.util.regex.Pattern;
 
 public class StringInjectFunction implements ClickhouseFieldInjectFunction {
-
-    private static final Pattern LOW_CARDINALITY_PATTERN = Pattern.compile("LowCardinality\\((.*)\\)");
 
     @Override
     public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
@@ -33,6 +30,6 @@ public class StringInjectFunction implements ClickhouseFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "String".equals(fieldType) || LOW_CARDINALITY_PATTERN.matcher(fieldType).matches();
+        return "String".equals(fieldType);
     }
 }

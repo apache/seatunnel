@@ -96,9 +96,9 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
     private void nodePasswordCheck() {
         if (!this.readerOption.isNodeFreePass()) {
             shardRouter.getShards().values().forEach(shard -> {
-                if (!this.readerOption.getNodePassword().containsKey(shard.getNode().getAddress().getAddress().getHostAddress())
-                        && !this.readerOption.getNodePassword().containsKey(shard.getNode().getAddress().getHostName())) {
-                    throw new RuntimeException("Cannot find password of shard " + shard.getNode().getAddress().getAddress().getHostAddress());
+                if (!this.readerOption.getNodePassword().containsKey(shard.getNode().getAddress().getHostName())
+                        && !this.readerOption.getNodePassword().containsKey(shard.getNode().getHost())) {
+                    throw new RuntimeException("Cannot find password of shard " + shard.getNode().getAddress().getHostName());
                 }
             });
         }
@@ -127,7 +127,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
     private void flush(Shard shard, List<SeaTunnelRow> rows) {
         try {
             // generate clickhouse local file
-            List<String> clickhouseLocalFiles = generateClickhouseLocalFiles(shard, rows);
+            List<String> clickhouseLocalFiles = generateClickhouseLocalFiles(rows);
             // move file to server
             attachClickhouseLocalFileToServer(shard, clickhouseLocalFiles);
             // clear local file
@@ -137,7 +137,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
         }
     }
 
-    private List<String> generateClickhouseLocalFiles(Shard shard, List<SeaTunnelRow> rows) throws IOException,
+    private List<String> generateClickhouseLocalFiles(List<SeaTunnelRow> rows) throws IOException,
             InterruptedException {
         if (rows.isEmpty()) {
             return Collections.emptyList();

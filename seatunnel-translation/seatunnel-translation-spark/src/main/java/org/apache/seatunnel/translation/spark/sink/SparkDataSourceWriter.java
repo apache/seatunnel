@@ -20,7 +20,6 @@ package org.apache.seatunnel.translation.spark.sink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataSourceWriter;
@@ -40,26 +39,27 @@ import java.util.stream.Collectors;
 
 public class SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT> implements DataSourceWriter {
 
-    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+    private final SinkWriter.Context context;
     @Nullable
     private final SinkCommitter<CommitInfoT> sinkCommitter;
     @Nullable
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter;
     private final StructType schema;
+    private final String sinkString;
 
-    SparkDataSourceWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                          @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+    SparkDataSourceWriter(SinkWriter.Context context, @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
                           @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter,
-                          StructType schema) {
-        this.sinkWriter = sinkWriter;
+                          StructType schema, String sinkString) {
+        this.context = context;
         this.sinkCommitter = sinkCommitter;
         this.sinkAggregatedCommitter = sinkAggregatedCommitter;
+        this.sinkString = sinkString;
         this.schema = schema;
     }
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sinkWriter, sinkCommitter, schema);
+        return new SparkDataWriterFactory(context, schema, sinkString);
     }
 
     @Override
@@ -93,10 +93,10 @@ public class SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT> i
     }
 
     private @Nonnull List<CommitInfoT> extractCommitInfo(WriterCommitMessage[] messages) {
-        return Arrays.stream(messages)
-            .map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+        return Arrays.stream(messages).filter(Objects::nonNull)
+                .map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     private @Nonnull List<AggregatedCommitInfoT> combineCommitMessage(List<CommitInfoT> commitInfos) {

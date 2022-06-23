@@ -39,13 +39,15 @@ public class SparkSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> imple
         StreamWriteSupport, DataSourceV2 {
 
     private volatile SeaTunnelSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+
+    private String sinkString;
     private Map<String, String> configuration;
 
     private void init(DataSourceOptions options) {
         if (sink == null) {
-            this.sink = SerializationUtils.stringToObject(
-                    options.get("sink").orElseThrow(() -> new IllegalArgumentException("can not find sink " +
-                            "class string in DataSourceOptions")));
+            sinkString = options.get("sink").orElseThrow(() -> new IllegalArgumentException("can not find " +
+                    "sink class string in DataSourceOptions"));
+            this.sink = SerializationUtils.stringToObject(sinkString);
             this.configuration = SerializationUtils.stringToObject(
                     options.get("configuration").orElseThrow(() -> new IllegalArgumentException("can not " +
                             "find configuration class string in DataSourceOptions")));
@@ -61,8 +63,8 @@ public class SparkSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> imple
                 new DefaultSinkWriterContext(configuration, 0, 0);
 
         try {
-            return new SparkStreamWriterConverter(sink.createCommitter().orElse(null),
-                    sink.createAggregatedCommitter().orElse(null), schema).convert(sink.createWriter(stContext));
+            return new SparkStreamWriterConverter(stContext, sink.createCommitter().orElse(null),
+                    sink.createAggregatedCommitter().orElse(null), schema, sinkString).convert(sink.createWriter(stContext));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -77,8 +79,8 @@ public class SparkSink<InputT, StateT, CommitInfoT, AggregatedCommitInfoT> imple
                 new DefaultSinkWriterContext(configuration, 0, 0);
 
         try {
-            return Optional.of(new SparkDataSourceWriterConverter(sink.createCommitter().orElse(null),
-                    sink.createAggregatedCommitter().orElse(null), schema).convert(sink.createWriter(stContext)));
+            return Optional.of(new SparkDataSourceWriterConverter(stContext, sink.createCommitter().orElse(null),
+                    sink.createAggregatedCommitter().orElse(null), schema, sinkString).convert(sink.createWriter(stContext)));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }

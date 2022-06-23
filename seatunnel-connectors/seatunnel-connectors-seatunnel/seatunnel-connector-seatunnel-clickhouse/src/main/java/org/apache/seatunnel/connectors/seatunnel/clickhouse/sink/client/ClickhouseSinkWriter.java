@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.ArrayInjectFunction;
@@ -53,6 +52,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
 
@@ -60,25 +61,19 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
 
     private final SinkWriter.Context context;
     private final ReaderOption option;
-    private transient RetryUtils.RetryMaterial retryMaterial;
     private final ShardRouter shardRouter;
-    private final ClickhouseProxy proxy;
+    private final transient ClickhouseProxy proxy;
     private final String prepareSql;
     private final Map<Shard, ClickhouseBatchStatement> statementMap;
     private final Map<String, ClickhouseFieldInjectFunction> fieldInjectFunctionMap;
     private static final ClickhouseFieldInjectFunction DEFAULT_INJECT_FUNCTION = new StringInjectFunction();
 
+    private static final Pattern NULLABLE = Pattern.compile("Nullable\\((.*)\\)");
+    private static final Pattern LOW_CARDINALITY = Pattern.compile("LowCardinality\\((.*)\\)");
+
     ClickhouseSinkWriter(ReaderOption option, SinkWriter.Context context) {
         this.option = option;
         this.context = context;
-
-        retryMaterial = new RetryUtils.RetryMaterial(option.getRetry(), true, exception -> {
-            if (exception instanceof SQLException) {
-                SQLException sqlException = (SQLException) exception;
-                return option.getRetryCodes().contains(sqlException.getErrorCode());
-            }
-            return false;
-        });
 
         this.proxy = new ClickhouseProxy(option.getShardMetadata().getDefaultShard().getNode());
         this.fieldInjectFunctionMap = initFieldInjectFunctionMap();
@@ -158,12 +153,8 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
     }
 
     private void flush(ClickHouseStatement clickHouseStatement) {
-        RetryUtils.Execution<Void, Exception> execution = () -> {
-            clickHouseStatement.executeBatch();
-            return null;
-        };
         try {
-            RetryUtils.retryWithException(execution, retryMaterial);
+            clickHouseStatement.executeBatch();
         } catch (Exception e) {
             throw new RuntimeException("Clickhouse execute batch statement error", e);
         }
@@ -218,14 +209,26 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
             ClickhouseFieldInjectFunction function = defaultFunction;
             String fieldType = this.option.getTableSchema().get(field);
             for (ClickhouseFieldInjectFunction clickhouseFieldInjectFunction : clickhouseFieldInjectFunctions) {
-                if (clickhouseFieldInjectFunction.isCurrentFieldType(fieldType)) {
+                if (clickhouseFieldInjectFunction.isCurrentFieldType(unwrapCommonPrefix(fieldType))) {
                     function = clickhouseFieldInjectFunction;
                     break;
                 }
             }
-            result.put(field, function);
+            result.put(fieldType, function);
         }
         return result;
+    }
+
+    private String unwrapCommonPrefix(String fieldType) {
+        Matcher nullMatcher = NULLABLE.matcher(fieldType);
+        Matcher lowMatcher = LOW_CARDINALITY.matcher(fieldType);
+        if (nullMatcher.matches()) {
+            return nullMatcher.group(1);
+        } else if (lowMatcher.matches()) {
+            return lowMatcher.group(1);
+        } else {
+            return fieldType;
+        }
     }
 
 }

@@ -25,11 +25,6 @@ public class Config {
     public static final String BULK_SIZE = "bulk_size";
 
     /**
-     * Clickhouse jdbc retry time
-     */
-    public static final String RETRY = "retry";
-
-    /**
      * Clickhouse fields
      */
     public static final String FIELDS = "fields";
@@ -70,11 +65,6 @@ public class Config {
      * When split_mode is true, the sharding_key use for split
      */
     public static final String SHARDING_KEY = "sharding_key";
-
-    /**
-     * The retry code when use clickhouse jdbc
-     */
-    public static final String RETRY_CODES = "retry_codes";
 
     /**
      * ClickhouseFile sink connector used clickhouse-local program's path

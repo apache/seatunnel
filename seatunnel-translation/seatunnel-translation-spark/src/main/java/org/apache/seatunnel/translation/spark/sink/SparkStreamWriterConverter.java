@@ -30,14 +30,14 @@ import javax.annotation.Nullable;
 public class SparkStreamWriterConverter extends AbstractSparkWriterConverter
         implements SinkWriterConverter<StreamWriter> {
 
-    SparkStreamWriterConverter(@Nullable SinkCommitter<?> sinkCommitter,
+    SparkStreamWriterConverter(SinkWriter.Context context, @Nullable SinkCommitter<?> sinkCommitter,
                                @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter,
-                               StructType schema) {
-        super(sinkCommitter, sinkAggregatedCommitter, schema);
+                               StructType schema, String sinkString) {
+        super(context, sinkCommitter, sinkAggregatedCommitter, schema, sinkString);
     }
 
     @Override
     public StreamWriter convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new SparkStreamWriter(sinkWriter, sinkCommitter, sinkAggregatedCommitter, schema);
+        return new SparkStreamWriter(context, sinkCommitter, sinkAggregatedCommitter, schema, sinkString);
     }
 }

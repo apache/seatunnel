@@ -30,14 +30,14 @@ import javax.annotation.Nullable;
 public class SparkDataSourceWriterConverter extends AbstractSparkWriterConverter
         implements SinkWriterConverter<DataSourceWriter> {
 
-    SparkDataSourceWriterConverter(@Nullable SinkCommitter<?> sinkCommitter,
+    SparkDataSourceWriterConverter(SinkWriter.Context context, @Nullable SinkCommitter<?> sinkCommitter,
                                    @Nullable SinkAggregatedCommitter<?, ?> sinkAggregatedCommitter,
-                                   StructType schema) {
-        super(sinkCommitter, sinkAggregatedCommitter, schema);
+                                   StructType schema, String sinkString) {
+        super(context, sinkCommitter, sinkAggregatedCommitter, schema, sinkString);
     }
 
     @Override
     public DataSourceWriter convert(SinkWriter<?, ?, ?> sinkWriter) {
-        return new SparkDataSourceWriter(sinkWriter, sinkCommitter, sinkAggregatedCommitter, schema);
+        return new SparkDataSourceWriter(context, sinkCommitter, sinkAggregatedCommitter, schema, sinkString);
     }
 }

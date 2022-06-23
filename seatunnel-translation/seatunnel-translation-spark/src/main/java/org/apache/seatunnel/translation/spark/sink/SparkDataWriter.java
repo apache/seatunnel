@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.serialization.RowSerialization;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowSerialization;
 
@@ -36,19 +38,24 @@ import java.util.Optional;
 
 public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<InternalRow> {
 
-    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+    private SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
     @Nullable
-    private final SinkCommitter<CommitInfoT> sinkCommitter;
+    private SinkCommitter<CommitInfoT> sinkCommitter = null;
     private final RowSerialization<InternalRow> rowSerialization;
     private CommitInfoT latestCommitInfoT;
     private long epochId;
 
-    SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                    @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                    StructType schema, long epochId) {
-        this.sinkWriter = sinkWriter;
-        this.sinkCommitter = sinkCommitter;
+    SparkDataWriter(SinkWriter.Context context,
+                    StructType schema, long epochId, String sinkString) {
+        try {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink = SerializationUtils.stringToObject(sinkString);
+            this.sinkWriter = sink.createWriter(context);
+            Optional<SinkCommitter<CommitInfoT>> optionalSinkCommitter = sink.createCommitter();
+            optionalSinkCommitter.ifPresent(commitInfoTSinkCommitter -> this.sinkCommitter = commitInfoTSinkCommitter);
+        } catch (Exception e) {
+            throw new RuntimeException("failed create SparkDataWriter", e);
+        }
         this.rowSerialization = new InternalRowSerialization(schema);
         this.epochId = epochId == 0 ? 1 : epochId;
     }

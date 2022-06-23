@@ -19,12 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
 import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
 
+import java.io.Serializable;
 import java.sql.SQLException;
 
 /**
  * Injects a field into a ClickHouse statement, used to transform a java type into a ClickHouse type.
  */
-public interface ClickhouseFieldInjectFunction {
+public interface ClickhouseFieldInjectFunction extends Serializable {
 
     /**
      * Inject the value into the statement.

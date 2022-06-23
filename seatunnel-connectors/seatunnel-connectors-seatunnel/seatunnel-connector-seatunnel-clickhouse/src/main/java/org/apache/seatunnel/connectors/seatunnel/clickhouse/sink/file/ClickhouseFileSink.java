@@ -54,6 +54,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import com.clickhouse.client.ClickHouseNode;
+import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
@@ -63,10 +64,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@AutoService(SeaTunnelSink.class)
 public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
 
     private SeaTunnelContext seaTunnelContext;
-    private SeaTunnelRowType seaTunnelRowType;
     private FileReaderOption readerOption;
 
     @Override
@@ -125,12 +126,12 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
         proxy.close();
         this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH),
                 ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD)),
-                TypesafeConfigUtils.getConfig(config, NODE_FREE_PASSWORD, true), nodePassword, this.seaTunnelRowType);
+                TypesafeConfigUtils.getConfig(config, NODE_FREE_PASSWORD, true), nodePassword);
     }
 
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.readerOption.setSeaTunnelRowType(seaTunnelRowType);
     }
 
     @Override

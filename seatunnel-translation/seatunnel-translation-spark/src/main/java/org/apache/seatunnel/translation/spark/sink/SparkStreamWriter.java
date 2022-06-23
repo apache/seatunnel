@@ -20,7 +20,6 @@ package org.apache.seatunnel.translation.spark.sink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
@@ -33,11 +32,10 @@ import javax.annotation.Nullable;
 public class SparkStreamWriter<CommitInfoT, StateT, AggregatedCommitInfoT> extends SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT>
         implements StreamWriter {
 
-    SparkStreamWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                      @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+    SparkStreamWriter(SinkWriter.Context context, @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
                       @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter,
-                      StructType schema) {
-        super(sinkWriter, sinkCommitter, sinkAggregatedCommitter, schema);
+                      StructType schema, String sinkString) {
+        super(context, sinkCommitter, sinkAggregatedCommitter, schema, sinkString);
     }
 
     @Override

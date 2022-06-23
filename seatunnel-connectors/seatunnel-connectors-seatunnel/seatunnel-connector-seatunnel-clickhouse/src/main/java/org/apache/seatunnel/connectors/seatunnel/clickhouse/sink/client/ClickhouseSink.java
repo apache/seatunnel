@@ -23,8 +23,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.RETRY;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.RETRY_CODES;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SPLIT_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.TABLE;
@@ -45,6 +43,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
@@ -68,7 +67,6 @@ import java.util.Properties;
 public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
 
     private SeaTunnelContext seaTunnelContext;
-    private SeaTunnelRowType seaTunnelRowType;
     private ReaderOption option;
 
     @Override
@@ -85,8 +83,6 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         }
         Map<String, Object> defaultConfig = ImmutableMap.<String, Object>builder()
                 .put(BULK_SIZE, 20_000)
-                .put(RETRY_CODES, new ArrayList<>())
-                .put(RETRY, 1)
                 .put(SPLIT_MODE, false)
                 .build();
 
@@ -108,9 +104,17 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
         Map<String, String> tableSchema = proxy.getClickhouseTableSchema(config.getString(TABLE));
         String shardKey = null;
         String shardKeyType = null;
-        if (config.hasPath(SHARDING_KEY)) {
-            shardKey = config.getString(SHARDING_KEY);
-            shardKeyType = tableSchema.get(shardKey);
+        if (config.getBoolean(SPLIT_MODE)) {
+            ClickhouseTable table = proxy.getClickhouseTable(config.getString(DATABASE),
+                    config.getString(TABLE));
+            if (!"Distributed".equals(table.getEngine())) {
+                throw new IllegalArgumentException("split mode only support table which engine is " +
+                        "'Distributed' engine at now");
+            }
+            if (config.hasPath(SHARDING_KEY)) {
+                shardKey = config.getString(SHARDING_KEY);
+                shardKeyType = tableSchema.get(shardKey);
+            }
         }
         ShardMetadata metadata = new ShardMetadata(
                 shardKey,
@@ -132,8 +136,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
             fields.addAll(tableSchema.keySet());
         }
         proxy.close();
-        this.option = new ReaderOption(metadata, seaTunnelRowType, clickhouseProperties, fields,
-                config.getIntList(RETRY_CODES), tableSchema, config.getInt(RETRY), config.getInt(BULK_SIZE));
+        this.option = new ReaderOption(metadata, clickhouseProperties, fields, tableSchema, config.getInt(BULK_SIZE));
     }
 
     @Override
@@ -153,7 +156,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
 
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.option.setSeaTunnelRowType(seaTunnelRowType);
     }
 
     @Override

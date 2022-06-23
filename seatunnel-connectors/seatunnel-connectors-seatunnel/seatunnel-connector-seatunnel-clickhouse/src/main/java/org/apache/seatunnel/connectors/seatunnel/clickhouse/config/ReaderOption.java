@@ -28,26 +28,19 @@ import java.util.Properties;
 public class ReaderOption implements Serializable {
 
     private ShardMetadata shardMetadata;
-    private List<Integer> retryCodes;
-
     private List<String> fields;
 
     private Map<String, String> tableSchema;
     private SeaTunnelRowType seaTunnelRowType;
     private Properties properties;
-    private int retry;
     private int bulkSize;
 
-    public ReaderOption(ShardMetadata shardMetadata, SeaTunnelRowType seaTunnelRowType,
-                        Properties properties, List<String> fields,
-                        List<Integer> retryCodes, Map<String, String> tableSchema, int retry, int bulkSize) {
+    public ReaderOption(ShardMetadata shardMetadata,
+                        Properties properties, List<String> fields, Map<String, String> tableSchema, int bulkSize) {
         this.shardMetadata = shardMetadata;
         this.properties = properties;
-        this.seaTunnelRowType = seaTunnelRowType;
         this.fields = fields;
-        this.retryCodes = retryCodes;
         this.tableSchema = tableSchema;
-        this.retry = retry;
         this.bulkSize = bulkSize;
     }
 
@@ -89,22 +82,6 @@ public class ReaderOption implements Serializable {
 
     public void setFields(List<String> fields) {
         this.fields = fields;
-    }
-
-    public List<Integer> getRetryCodes() {
-        return retryCodes;
-    }
-
-    public void setRetryCodes(List<Integer> retryCodes) {
-        this.retryCodes = retryCodes;
-    }
-
-    public int getRetry() {
-        return retry;
-    }
-
-    public void setRetry(int retry) {
-        this.retry = retry;
     }
 
     public int getBulkSize() {

@@ -45,7 +45,7 @@ public class ShardRouter implements Serializable {
     private final String shardKeyType;
     private final boolean splitMode;
 
-    private final XXHash64 hashInstance = XXHashFactory.fastestInstance().hash64();
+    private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
     private final ThreadLocalRandom threadLocalRandom = ThreadLocalRandom.current();
 
     public ShardRouter(ClickhouseProxy proxy, ShardMetadata shardMetadata) {
@@ -86,7 +86,7 @@ public class ShardRouter implements Serializable {
         if (StringUtils.isEmpty(shardKey) || shardValue == null) {
             return shards.lowerEntry(threadLocalRandom.nextInt(shardWeightCount + 1)).getValue();
         }
-        int offset = (int) (hashInstance.hash(ByteBuffer.wrap(shardValue.toString().getBytes(StandardCharsets.UTF_8)),
+        int offset = (int) (HASH_INSTANCE.hash(ByteBuffer.wrap(shardValue.toString().getBytes(StandardCharsets.UTF_8)),
                 0) & Long.MAX_VALUE % shardWeightCount);
         return shards.lowerEntry(offset + 1).getValue();
     }
