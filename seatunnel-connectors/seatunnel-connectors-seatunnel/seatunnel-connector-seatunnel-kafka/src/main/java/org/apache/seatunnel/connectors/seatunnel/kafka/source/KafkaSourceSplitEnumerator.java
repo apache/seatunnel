@@ -73,7 +73,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     @Override
     public void run() throws ExecutionException, InterruptedException {
         pendingSplit = getTopicInfo();
-        assignSplit(context.registeredReaders());
+        assignSplit();
     }
 
     @Override
@@ -87,7 +87,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             pendingSplit.addAll(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            assignSplit();
         }
     }
 
@@ -104,7 +104,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     @Override
     public void registerReader(int subtaskId) {
         if (!pendingSplit.isEmpty()) {
-            assignSplit(Collections.singletonList(subtaskId));
+            assignSplit();
         }
     }
 
@@ -145,7 +145,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
                 }).collect(Collectors.toSet());
     }
 
-    private void assignSplit(Collection<Integer> taskIDList) {
+    private void assignSplit() {
         Map<Integer, List<KafkaSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
         for (int taskID = 0;  taskID < context.currentParallelism(); taskID++) {
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
