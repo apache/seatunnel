@@ -27,8 +27,8 @@
     <packaging>pom</packaging>
 
     <modules>
-<!--        <module>seatunnel-flink-e2e</module>-->
-<!--        <module>seatunnel-spark-e2e</module>-->
+        <module>seatunnel-flink-e2e</module>
+        <module>seatunnel-spark-e2e</module>
         <module>seatunnel-flink-new-connector-e2e</module>
         <module>seatunnel-spark-new-connector-e2e</module>
     </modules>

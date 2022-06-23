@@ -31,10 +31,10 @@
     <packaging>pom</packaging>
 
     <modules>
-<!--        <module>seatunnel-connectors-flink</module>-->
-<!--        <module>seatunnel-connectors-flink-dist</module>-->
-<!--        <module>seatunnel-connectors-spark</module>-->
-<!--        <module>seatunnel-connectors-spark-dist</module>-->
+        <module>seatunnel-connectors-flink</module>
+        <module>seatunnel-connectors-flink-dist</module>
+        <module>seatunnel-connectors-spark</module>
+        <module>seatunnel-connectors-spark-dist</module>
         <module>seatunnel-connectors-seatunnel</module>
         <module>seatunnel-connectors-seatunnel-dist</module>
     </modules>
