@@ -95,6 +95,18 @@ public abstract class RowConverter<T> {
                     return validate(entry.getKey(), mapType.getKeyType())
                         && validate(entry.getValue(), mapType.getValueType());
                 }
+            case ROW:
+                if (!(field instanceof SeaTunnelRow)) {
+                    return false;
+                }
+                SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) dataType).getFieldTypes();
+                SeaTunnelRow seaTunnelRow = (SeaTunnelRow) field;
+                for (int i = 0; i < fieldTypes.length; i++) {
+                    if (!validate(seaTunnelRow.getField(i), fieldTypes[i])) {
+                        return false;
+                    }
+                }
+                return true;
             default:
                 return false;
         }
