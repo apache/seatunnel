@@ -85,7 +85,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     private static boolean hasDecimalType(SeaTunnelDataType<?> dataType) {
-        if (SqlType.of(dataType) == SqlType.DECIMAL) {
+        if (dataType.getSqlType() == SqlType.DECIMAL) {
             return true;
         }
         if (dataType instanceof CompositeType) {

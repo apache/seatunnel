@@ -17,69 +17,63 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.util.Date;
 import java.util.Objects;
 
 public class BasicType<T> implements SeaTunnelDataType<T> {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
-    public static final BasicType<String> STRING_TYPE = new BasicType<>(String.class);
-    public static final BasicType<Boolean> BOOLEAN_TYPE = new BasicType<>(Boolean.class);
-    public static final BasicType<Byte> BYTE_TYPE = new BasicType<>(Byte.class);
-    public static final BasicType<Short> SHORT_TYPE = new BasicType<>(Short.class);
-    public static final BasicType<Integer> INT_TYPE = new BasicType<>(Integer.class);
-    public static final BasicType<Long> LONG_TYPE = new BasicType<>(Long.class);
-    public static final BasicType<Float> FLOAT_TYPE = new BasicType<>(Float.class);
-    public static final BasicType<Double> DOUBLE_TYPE = new BasicType<>(Double.class);
-    public static final BasicType<Character> CHAR_TYPE = new BasicType<>(Character.class);
+    public static final BasicType<String> STRING_TYPE = new BasicType<>(String.class, SqlType.STRING);
+    public static final BasicType<Boolean> BOOLEAN_TYPE = new BasicType<>(Boolean.class, SqlType.BOOLEAN);
+    public static final BasicType<Byte> BYTE_TYPE = new BasicType<>(Byte.class, SqlType.TINYINT);
+    public static final BasicType<Short> SHORT_TYPE = new BasicType<>(Short.class, SqlType.SMALLINT);
+    public static final BasicType<Integer> INT_TYPE = new BasicType<>(Integer.class, SqlType.INT);
+    public static final BasicType<Long> LONG_TYPE = new BasicType<>(Long.class, SqlType.BIGINT);
+    public static final BasicType<Float> FLOAT_TYPE = new BasicType<>(Float.class, SqlType.FLOAT);
+    public static final BasicType<Double> DOUBLE_TYPE = new BasicType<>(Double.class, SqlType.DOUBLE);
+    public static final BasicType<Void> VOID_TYPE = new BasicType<>(Void.class, SqlType.NULL);
 
-    public static final BasicType<BigInteger> BIG_INT_TYPE = new BasicType<>(BigInteger.class);
-    public static final BasicType<BigDecimal> BIG_DECIMAL_TYPE = new BasicType<>(BigDecimal.class);
-    public static final BasicType<Instant> INSTANT_TYPE = new BasicType<>(Instant.class);
-    public static final BasicType<Void> VOID_TYPE = new BasicType<>(Void.class);
-    public static final BasicType<Date> DATE_TYPE = new BasicType<>(Date.class);
+    // --------------------------------------------------------------------------------------------
 
     /**
      * The physical type class.
      */
-    private final Class<T> physicalTypeClass;
+    private final Class<T> typeClass;
+    private final SqlType sqlType;
 
-    private BasicType(Class<T> physicalTypeClass) {
-        if (physicalTypeClass == null) {
-            throw new IllegalArgumentException("physicalTypeClass cannot be null");
-        }
-        this.physicalTypeClass = physicalTypeClass;
+    protected BasicType(Class<T> typeClass, SqlType sqlType) {
+        this.typeClass = typeClass;
+        this.sqlType = sqlType;
     }
 
     @Override
     public Class<T> getTypeClass() {
-        return this.physicalTypeClass;
+        return this.typeClass;
+    }
+
+    @Override
+    public SqlType getSqlType() {
+        return this.sqlType;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof BasicType)) {
+            return false;
+        }
+        BasicType<?> that = (BasicType<?>) obj;
+        return Objects.equals(typeClass, that.typeClass);
     }
 
     @Override
     public int hashCode() {
-        return this.physicalTypeClass.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        BasicType<?> basicType = (BasicType<?>) o;
-        return Objects.equals(physicalTypeClass, basicType.physicalTypeClass);
+        return Objects.hash(typeClass);
     }
 
     @Override
     public String toString() {
-        return "BasicType{" +
-            "physicalTypeClass=" + physicalTypeClass +
-            '}';
+        return sqlType.toString();
     }
 }

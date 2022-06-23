@@ -26,8 +26,6 @@ import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.CoordinatedSource;
 import org.apache.seatunnel.translation.spark.source.InternalRowCollector;
 
-import org.apache.spark.sql.types.StructType;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,11 +35,11 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
 
     protected final Map<Integer, InternalRowCollector> collectorMap;
 
-    public CoordinatedBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType) {
-        super(source, parallelism, subtaskId, rowType);
+    public CoordinatedBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+        super(source, parallelism, subtaskId);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
-            collectorMap.put(i, new InternalRowCollector(handover, new Object(), rowType));
+            collectorMap.put(i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
         }
     }
 

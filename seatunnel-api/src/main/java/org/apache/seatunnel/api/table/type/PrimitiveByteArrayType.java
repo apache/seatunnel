@@ -15,29 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.serialization;
+package org.apache.seatunnel.api.table.type;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+public class PrimitiveByteArrayType implements SeaTunnelDataType<byte[]> {
+    public static final PrimitiveByteArrayType INSTANCE = new PrimitiveByteArrayType();
 
-import java.io.IOException;
+    private PrimitiveByteArrayType() {
+    }
 
-public interface RowSerialization<T> {
+    @Override
+    public Class<byte[]> getTypeClass() {
+        return byte[].class;
+    }
 
-    /**
-     * Serializes the given object.
-     *
-     * @param seaTunnelRow The object to serialize.
-     * @return The serialized data (bytes).
-     * @throws IOException Thrown, if the serialization fails.
-     */
-    T serialize(SeaTunnelRow seaTunnelRow) throws IOException;
+    @Override
+    public SqlType getSqlType() {
+        return SqlType.BYTES;
+    }
 
-    /**
-     * De-serializes the given data (bytes).
-     *
-     * @param engineRow The internal engine row
-     * @return The SeaTunnel Row
-     * @throws IOException Thrown, if the deserialization fails.
-     */
-    SeaTunnelRow deserialize(T engineRow) throws IOException;
+    @Override
+    public int hashCode() {
+        return byte[].class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) {
+            return true;
+        }
+        return obj instanceof PrimitiveByteArrayType;
+    }
+
+    @Override
+    public String toString() {
+        return SqlType.BYTES.toString();
+    }
 }

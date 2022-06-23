@@ -94,7 +94,7 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
             for (int i = 0; i < columnSize; i++) {
                 fieldNames[i] = response.getColumns().get(i).getColumnName();
-                seaTunnelDataTypes[i] = TypeConvertUtil.convert(response.getColumns().get(i).getDataType());
+                seaTunnelDataTypes[i] = TypeConvertUtil.convert(response.getColumns().get(i));
             }
 
             this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
