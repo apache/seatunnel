@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.apache.hadoop.fs.Path;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
@@ -27,8 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
-
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.Path;
 
 import com.google.common.collect.Lists;
 import lombok.NonNull;

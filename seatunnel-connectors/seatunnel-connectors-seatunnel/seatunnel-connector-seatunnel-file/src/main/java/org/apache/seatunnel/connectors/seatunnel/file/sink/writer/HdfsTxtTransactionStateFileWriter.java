@@ -17,12 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
-
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.FSDataOutputStream;
 
 import lombok.NonNull;
 import org.slf4j.Logger;

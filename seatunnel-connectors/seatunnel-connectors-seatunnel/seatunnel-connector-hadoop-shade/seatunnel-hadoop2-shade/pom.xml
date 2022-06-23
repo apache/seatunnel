@@ -56,7 +56,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <configuration>
-                    <minimizeJar>true</minimizeJar>
+                    <minimizeJar>false</minimizeJar>
                     <createSourcesJar>true</createSourcesJar>
                     <shadeSourcesContent>true</shadeSourcesContent>
                     <shadedArtifactAttached>false</shadedArtifactAttached>

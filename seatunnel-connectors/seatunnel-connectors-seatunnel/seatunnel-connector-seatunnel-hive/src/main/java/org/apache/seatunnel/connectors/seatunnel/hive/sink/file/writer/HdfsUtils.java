@@ -17,12 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
-import org.apache.seatunnel.shade.org.apache.hadoop.conf.Configuration;
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.FileSystem;
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.Path;
-
 import lombok.NonNull;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -21,7 +21,7 @@ import java.io.Serializable;
 
 public enum FileFormat implements Serializable {
     CSV("csv"),
-    TEXT("text");
+    TEXT("txt");
 
     private String suffix;
 
