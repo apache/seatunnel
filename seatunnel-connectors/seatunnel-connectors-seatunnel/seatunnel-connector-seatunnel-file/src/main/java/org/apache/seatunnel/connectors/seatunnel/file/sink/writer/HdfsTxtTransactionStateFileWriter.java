@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import org.apache.hadoop.fs.FSDataOutputStream;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
 
 import lombok.NonNull;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,16 +40,7 @@ public class HdfsTxtTransactionStateFileWriter extends AbstractTransactionStateF
     private String fieldDelimiter;
     private String rowDelimiter;
 
-    public HdfsTxtTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
-                                             @NonNull TransactionFileNameGenerator transactionFileNameGenerator,
-                                             @NonNull PartitionDirNameGenerator partitionDirNameGenerator,
-                                             @NonNull List<Integer> sinkColumnsIndexInRow,
-                                             @NonNull String tmpPath,
-                                             @NonNull String targetPath,
-                                             @NonNull String jobId,
-                                             int subTaskIndex,
-                                             @NonNull String fieldDelimiter,
-                                             @NonNull String rowDelimiter) {
+    public HdfsTxtTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo, @NonNull TransactionFileNameGenerator transactionFileNameGenerator, @NonNull PartitionDirNameGenerator partitionDirNameGenerator, @NonNull List<Integer> sinkColumnsIndexInRow, @NonNull String tmpPath, @NonNull String targetPath, @NonNull String jobId, int subTaskIndex, @NonNull String fieldDelimiter, @NonNull String rowDelimiter) {
         super(seaTunnelRowTypeInfo, transactionFileNameGenerator, partitionDirNameGenerator, sinkColumnsIndexInRow, tmpPath, targetPath, jobId, subTaskIndex);
 
         this.fieldDelimiter = fieldDelimiter;
@@ -117,8 +107,6 @@ public class HdfsTxtTransactionStateFileWriter extends AbstractTransactionStateF
     }
 
     private String transformRowToLine(@NonNull SeaTunnelRow seaTunnelRow) {
-        return this.sinkColumnsIndexInRow.stream()
-            .map(index -> seaTunnelRow.getFields()[index] == null ? "" : seaTunnelRow.getFields()[index].toString())
-            .collect(Collectors.joining(fieldDelimiter));
+        return this.sinkColumnsIndexInRow.stream().map(index -> seaTunnelRow.getFields()[index] == null ? "" : seaTunnelRow.getFields()[index].toString()).collect(Collectors.joining(fieldDelimiter));
     }
 }

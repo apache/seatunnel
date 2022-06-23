@@ -44,7 +44,6 @@ import java.util.Optional;
  */
 @AutoService(SeaTunnelSink.class)
 public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
-
     private Config config;
     private String jobId;
     private Long checkpointId;
@@ -60,7 +59,6 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowTypeInfo) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
-        this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
     }
 
     @Override
@@ -71,6 +69,10 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
 
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(SinkWriter.Context context) throws IOException {
+        this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
+        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && textFileSinkConfig.getSaveMode().equals(SaveMode.OVERWRITE)) {
+            throw new RuntimeException("only batch job can overwrite mode");
+        }
         return new FileSinkWriter(seaTunnelRowTypeInfo, config, context, textFileSinkConfig, jobId);
     }
 
@@ -86,9 +88,6 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
 
     @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && textFileSinkConfig.getSaveMode().equals(SaveMode.OVERWRITE)) {
-            throw new RuntimeException("only batch job can overwrite mode");
-        }
         this.seaTunnelContext = seaTunnelContext;
         this.jobId = seaTunnelContext.getJobId();
     }

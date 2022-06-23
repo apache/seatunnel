@@ -19,8 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.apache.hadoop.fs.Path;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
@@ -33,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
 import com.google.common.collect.Lists;
 import lombok.NonNull;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;

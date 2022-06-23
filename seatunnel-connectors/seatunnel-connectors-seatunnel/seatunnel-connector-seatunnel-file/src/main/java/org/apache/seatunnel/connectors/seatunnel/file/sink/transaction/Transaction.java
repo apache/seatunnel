@@ -18,10 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.transaction;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkState;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkWriter;
 
 import lombok.NonNull;
