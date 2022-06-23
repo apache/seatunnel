@@ -79,13 +79,11 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
 
         // find file local save path of each node
         shardLocalDataPaths = shardRouter.getShards().values().stream()
-                .collect(Collectors.toMap(
-                        Function.identity(),
-                        shard -> {
-                            ClickhouseTable shardTable = proxy.getClickhouseTable(shard.getNode().getDatabase().get(),
-                                    clickhouseTable.getLocalTableName());
-                            return shardTable.getDataPaths();
-                        }));
+                .collect(Collectors.toMap(Function.identity(), shard -> {
+                    ClickhouseTable shardTable = proxy.getClickhouseTable(shard.getNode().getDatabase().get(),
+                            clickhouseTable.getLocalTableName());
+                    return shardTable.getDataPaths();
+                }));
     }
 
     @Override

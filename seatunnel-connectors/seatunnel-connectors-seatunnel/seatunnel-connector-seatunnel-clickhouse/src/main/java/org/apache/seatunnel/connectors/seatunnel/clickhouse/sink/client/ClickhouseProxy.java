@@ -57,8 +57,8 @@ public class ClickhouseProxy {
     }
 
     public ClickHouseRequest<?> getClickhouseConnection(Shard shard) {
-        ClickHouseClient c = shardToDataSource.computeIfAbsent(shard,
-                s -> ClickHouseClient.newInstance(s.getNode().getProtocol()));
+        ClickHouseClient c = shardToDataSource
+                .computeIfAbsent(shard, s -> ClickHouseClient.newInstance(s.getNode().getProtocol()));
         return c.connect(shard.getNode()).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
     }
 
