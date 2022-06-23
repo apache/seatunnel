@@ -85,6 +85,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         }
         SparkWriterCommitMessage<CommitInfoT> sparkWriterCommitMessage = new SparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
+        sinkWriter.close();
         return sparkWriterCommitMessage;
     }
 

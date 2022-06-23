@@ -37,14 +37,13 @@ public class FileReaderOption implements Serializable {
 
     public FileReaderOption(ShardMetadata shardMetadata, Map<String, String> tableSchema,
                             List<String> fields, String clickhouseLocalPath,
-                            ClickhouseFileCopyMethod copyMethod, boolean nodeFreePass,
+                            ClickhouseFileCopyMethod copyMethod,
                             Map<String, String> nodePassword) {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
         this.fields = fields;
         this.clickhouseLocalPath = clickhouseLocalPath;
         this.copyMethod = copyMethod;
-        this.nodeFreePass = nodeFreePass;
         this.nodePassword = nodePassword;
     }
 

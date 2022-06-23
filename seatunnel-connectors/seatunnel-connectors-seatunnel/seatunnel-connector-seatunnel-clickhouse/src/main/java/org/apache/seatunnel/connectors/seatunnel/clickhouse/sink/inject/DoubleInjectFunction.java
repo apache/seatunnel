@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
-import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
-
 import java.math.BigDecimal;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 public class DoubleInjectFunction implements ClickhouseFieldInjectFunction {
     @Override
-    public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
         if (value instanceof BigDecimal) {
             statement.setDouble(index, ((BigDecimal) value).doubleValue());
         } else {

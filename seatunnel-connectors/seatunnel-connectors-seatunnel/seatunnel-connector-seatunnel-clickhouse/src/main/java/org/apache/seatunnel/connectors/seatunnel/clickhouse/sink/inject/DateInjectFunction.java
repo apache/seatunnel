@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
-import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
-
 import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 public class DateInjectFunction implements ClickhouseFieldInjectFunction {
     @Override
-    public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
         if (value instanceof Date) {
             statement.setDate(index, (Date) value);
         } else {

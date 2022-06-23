@@ -23,7 +23,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_FREE_PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_PASS;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SHARDING_KEY;
@@ -38,7 +37,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
@@ -59,7 +57,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -86,7 +83,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
                 .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfigs));
-        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(config.getString(NODE_ADDRESS),
+        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(config.getString(HOST),
                 config.getString(DATABASE), config.getString(USERNAME), config.getString(PASSWORD));
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
@@ -116,17 +113,14 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
         } else {
             fields = new ArrayList<>(tableSchema.keySet());
         }
-        Map<String, String> nodePassword = Collections.emptyMap();
-        if (!TypesafeConfigUtils.getConfig(config, NODE_FREE_PASSWORD, true)) {
-            nodePassword = config.getObjectList(NODE_PASS).stream()
-                    .collect(Collectors.toMap(
-                            configObject -> configObject.toConfig().getString(NODE_ADDRESS),
-                            configObject -> configObject.toConfig().getString(PASSWORD)));
-        }
+        Map<String, String> nodePassword = config.getObjectList(NODE_PASS).stream()
+                .collect(Collectors.toMap(
+                        configObject -> configObject.toConfig().getString(NODE_ADDRESS),
+                        configObject -> configObject.toConfig().getString(PASSWORD)));
+
         proxy.close();
         this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH),
-                ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD)),
-                TypesafeConfigUtils.getConfig(config, NODE_FREE_PASSWORD, true), nodePassword);
+                ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD)), nodePassword);
     }
 
     @Override

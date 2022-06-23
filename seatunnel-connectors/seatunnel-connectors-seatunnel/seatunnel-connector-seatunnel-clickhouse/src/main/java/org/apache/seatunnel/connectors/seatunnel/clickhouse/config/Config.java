@@ -82,11 +82,6 @@ public class Config {
     public static final String TMP_BATCH_CACHE_LINE = "tmp_batch_cache_line";
 
     /**
-     * Clickhouse server node is free-password.
-     */
-    public static final String NODE_FREE_PASSWORD = "node_free_password";
-
-    /**
      * The password of Clickhouse server node
      */
     public static final String NODE_PASS = "node_pass";

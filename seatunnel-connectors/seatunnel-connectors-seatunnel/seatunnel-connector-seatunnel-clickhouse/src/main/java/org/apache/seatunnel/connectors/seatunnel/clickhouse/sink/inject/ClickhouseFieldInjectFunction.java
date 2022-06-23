@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
-import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
-
 import java.io.Serializable;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
@@ -34,7 +33,7 @@ public interface ClickhouseFieldInjectFunction extends Serializable {
      * @param value     value to inject
      * @param index     index in the statement
      */
-    void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException;
+    void injectFields(PreparedStatement statement, int index, Object value) throws SQLException;
 
     /**
      * If the fieldType need to be injected by the current function.

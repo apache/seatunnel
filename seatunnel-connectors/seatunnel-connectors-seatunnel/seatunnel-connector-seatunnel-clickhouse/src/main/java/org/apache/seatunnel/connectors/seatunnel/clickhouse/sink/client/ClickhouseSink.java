@@ -21,7 +21,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.CLICKHOUSE_PREFIX;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SPLIT_MODE;
@@ -77,7 +77,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, NODE_ADDRESS, DATABASE, TABLE, USERNAME, PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST, DATABASE, TABLE, USERNAME, PASSWORD);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }
@@ -88,7 +88,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
 
-        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(config.getString(NODE_ADDRESS),
+        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(config.getString(HOST),
                 config.getString(DATABASE), config.getString(USERNAME), config.getString(PASSWORD));
 
         Properties clickhouseProperties = new Properties();

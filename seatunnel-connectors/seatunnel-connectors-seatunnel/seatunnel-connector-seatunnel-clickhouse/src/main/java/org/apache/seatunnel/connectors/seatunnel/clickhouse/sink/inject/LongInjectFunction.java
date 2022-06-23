@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
-import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
-
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 public class LongInjectFunction implements ClickhouseFieldInjectFunction {
 
     @Override
-    public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
         statement.setLong(index, (Long) value);
     }
 

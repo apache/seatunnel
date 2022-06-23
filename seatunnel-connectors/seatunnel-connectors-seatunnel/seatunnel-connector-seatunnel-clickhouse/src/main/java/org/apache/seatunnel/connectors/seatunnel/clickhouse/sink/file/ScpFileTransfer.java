@@ -51,6 +51,7 @@ public class ScpFileTransfer implements FileTransfer {
             if (password != null) {
                 clientSession.addPasswordIdentity(password);
             }
+            // TODO support add publicKey to identity
             if (!clientSession.auth().verify().isSuccess()) {
                 throw new IOException("ssh host " + host + "authentication failed");
             }

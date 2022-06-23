@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 
-import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
-
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.regex.Pattern;
 
@@ -27,7 +26,7 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
     private static final Pattern PATTERN = Pattern.compile("(Array.*)");
 
     @Override
-    public void injectFields(ClickHousePreparedStatementImpl statement, int index, Object value) throws SQLException {
+    public void injectFields(PreparedStatement statement, int index, Object value) throws SQLException {
         statement.setArray(index, (java.sql.Array) value);
     }
 

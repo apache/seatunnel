@@ -36,16 +36,14 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
 
+import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.yandex.clickhouse.BalancedClickhouseDataSource;
-import ru.yandex.clickhouse.ClickHouseConnectionImpl;
-import ru.yandex.clickhouse.ClickHousePreparedStatementImpl;
-import ru.yandex.clickhouse.ClickHouseStatement;
 
 import java.io.IOException;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -91,7 +89,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
             shardKey = element.getField(i);
         }
         ClickhouseBatchStatement statement = statementMap.get(shardRouter.getShard(shardKey));
-        ClickHousePreparedStatementImpl clickHouseStatement = statement.getPreparedStatement();
+        PreparedStatement clickHouseStatement = statement.getPreparedStatement();
         IntHolder sizeHolder = statement.getIntHolder();
         // add into batch
         addIntoBatch(element, clickHouseStatement);
@@ -118,7 +116,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         this.proxy.close();
         for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
             try (ClickHouseConnectionImpl needClosedConnection = batchStatement.getClickHouseConnection();
-                 ClickHousePreparedStatementImpl needClosedStatement = batchStatement.getPreparedStatement()) {
+                 PreparedStatement needClosedStatement = batchStatement.getPreparedStatement()) {
                 IntHolder intHolder = batchStatement.getIntHolder();
                 if (intHolder.getValue() > 0) {
                     flush(needClosedStatement);
@@ -130,7 +128,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         }
     }
 
-    private void addIntoBatch(SeaTunnelRow row, ClickHousePreparedStatementImpl clickHouseStatement) {
+    private void addIntoBatch(SeaTunnelRow row, PreparedStatement clickHouseStatement) {
         try {
             for (int i = 0; i < option.getFields().size(); i++) {
                 String fieldName = option.getFields().get(i);
@@ -152,7 +150,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         }
     }
 
-    private void flush(ClickHouseStatement clickHouseStatement) {
+    private void flush(PreparedStatement clickHouseStatement) {
         try {
             clickHouseStatement.executeBatch();
         } catch (Exception e) {
@@ -164,11 +162,9 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
         Map<Shard, ClickhouseBatchStatement> result = new HashMap<>(Common.COLLECTION_SIZE);
         shardRouter.getShards().forEach((weight, s) -> {
             try {
-                ClickHouseConnectionImpl clickhouseConnection =
-                        (ClickHouseConnectionImpl) new BalancedClickhouseDataSource(s.getJdbcUrl(),
-                                this.option.getProperties()).getConnection();
-                ClickHousePreparedStatementImpl preparedStatement =
-                        (ClickHousePreparedStatementImpl) clickhouseConnection.prepareStatement(prepareSql);
+                ClickHouseConnectionImpl clickhouseConnection = new ClickHouseConnectionImpl(s.getJdbcUrl(),
+                        this.option.getProperties());
+                PreparedStatement preparedStatement = clickhouseConnection.prepareStatement(prepareSql);
                 IntHolder intHolder = new IntHolder();
                 ClickhouseBatchStatement batchStatement =
                         new ClickhouseBatchStatement(clickhouseConnection, preparedStatement, intHolder);
