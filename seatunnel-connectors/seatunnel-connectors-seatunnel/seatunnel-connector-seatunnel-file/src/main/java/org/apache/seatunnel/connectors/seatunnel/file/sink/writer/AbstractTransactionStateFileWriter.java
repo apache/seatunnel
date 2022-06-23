@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import org.apache.hadoop.fs.Path;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
@@ -65,14 +66,7 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
     private PartitionDirNameGenerator partitionDirNameGenerator;
 
-    public AbstractTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
-                                              @NonNull TransactionFileNameGenerator transactionFileNameGenerator,
-                                              @NonNull PartitionDirNameGenerator partitionDirNameGenerator,
-                                              @NonNull List<Integer> sinkColumnsIndexInRow,
-                                              @NonNull String tmpPath,
-                                              @NonNull String targetPath,
-                                              @NonNull String jobId,
-                                              int subTaskIndex) {
+    public AbstractTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo, @NonNull TransactionFileNameGenerator transactionFileNameGenerator, @NonNull PartitionDirNameGenerator partitionDirNameGenerator, @NonNull List<Integer> sinkColumnsIndexInRow, @NonNull String tmpPath, @NonNull String targetPath, @NonNull String jobId, int subTaskIndex) {
         checkArgument(subTaskIndex > -1);
 
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
@@ -93,10 +87,7 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
             return beingWrittenFilePath;
         } else {
             StringBuilder sbf = new StringBuilder(this.transactionDir);
-            sbf.append("/")
-                .append(beingWrittenFileKey)
-                .append("/")
-                .append(transactionFileNameGenerator.generateFileName(this.transactionId));
+            sbf.append("/").append(beingWrittenFileKey).append("/").append(transactionFileNameGenerator.generateFileName(this.transactionId));
             String newBeingWrittenFilePath = sbf.toString();
             beingWrittenFile.put(beingWrittenFileKey, newBeingWrittenFilePath);
             return newBeingWrittenFilePath;
@@ -122,12 +113,7 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
     private String getTransactionDir(@NonNull String transactionId) {
         StringBuilder sbf = new StringBuilder(this.tmpPath);
-        sbf.append("/")
-            .append(Constant.SEATUNNEL)
-            .append("/")
-            .append(jobId)
-            .append("/")
-            .append(transactionId);
+        sbf.append("/").append(Constant.SEATUNNEL).append("/").append(jobId).append("/").append(transactionId);
         return sbf.toString();
     }
 
@@ -150,20 +136,13 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
     @Override
     public List<String> getTransactionAfter(@NonNull String transactionId) {
         StringBuilder sbf = new StringBuilder(this.targetPath);
-        sbf.append("/")
-            .append(Constant.SEATUNNEL)
-            .append("/")
-            .append(jobId)
-            .append("/");
+        sbf.append("/").append(Constant.SEATUNNEL).append("/").append(jobId).append("/");
         String jobDir = sbf.toString();
 
         //get all transaction dir
         try {
             List<Path> transactionDirList = HdfsUtils.dirList(jobDir);
-            List<String> transactionList = transactionDirList
-                .stream()
-                .map(dir -> dir.getName().replaceAll(jobDir, ""))
-                .collect(Collectors.toList());
+            List<String> transactionList = transactionDirList.stream().map(dir -> dir.getName().replaceAll(jobDir, "")).collect(Collectors.toList());
             return transactionList;
         } catch (IOException e) {
             throw new RuntimeException(e);

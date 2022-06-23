@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkConfig;
