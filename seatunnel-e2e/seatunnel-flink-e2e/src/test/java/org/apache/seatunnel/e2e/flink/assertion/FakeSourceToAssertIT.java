@@ -28,7 +28,7 @@ import java.io.IOException;
 public class FakeSourceToAssertIT extends FlinkContainer {
 
     @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
+    public void testFakeSourceToAssertSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/assertion/fakesource_to_assert.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
