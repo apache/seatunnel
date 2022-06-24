@@ -64,12 +64,12 @@ public class BasicType<T> implements SeaTunnelDataType<T> {
             return false;
         }
         BasicType<?> that = (BasicType<?>) obj;
-        return Objects.equals(typeClass, that.typeClass);
+        return Objects.equals(typeClass, that.typeClass) && Objects.equals(sqlType, that.sqlType);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(typeClass);
+        return Objects.hash(typeClass, sqlType);
     }
 
     @Override
