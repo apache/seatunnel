@@ -62,7 +62,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         checkArgument(StringUtils.isNotBlank(pwd));
         checkArgument(StringUtils.isNotBlank(baseUrl));
 
-        validateJdbcUrl(baseUrl);
+        baseUrl = baseUrl.trim();
+        validateJdbcUrlWithoutDatabase(baseUrl);
         this.catalogName = catalogName;
         this.defaultDatabase = defaultDatabase;
         this.username = username;
@@ -72,13 +73,56 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     /**
-     * URL has to be without database, like "jdbc:postgresql://localhost:5432/" or
-     * "jdbc:postgresql://localhost:5432" rather than "jdbc:postgresql://localhost:5432/db".
+     * URL has to be without database, like "jdbc:mysql://localhost:5432/" or
+     * "jdbc:mysql://localhost:5432" rather than "jdbc:mysql://localhost:5432/db".
      */
-    public static void validateJdbcUrl(String url) {
+    public static void validateJdbcUrlWithoutDatabase(String url) {
         String[] parts = url.trim().split("\\/+");
 
         checkArgument(parts.length == 2);
+    }
+
+    public AbstractJdbcCatalog(
+        String catalogName,
+        String username,
+        String pwd,
+        String defaultUrl) {
+
+        checkArgument(StringUtils.isNotBlank(username));
+        checkArgument(StringUtils.isNotBlank(pwd));
+        checkArgument(StringUtils.isNotBlank(defaultUrl));
+
+        defaultUrl = defaultUrl.trim();
+        validateJdbcUrlWithDatabase(defaultUrl);
+        this.catalogName = catalogName;
+        this.username = username;
+        this.pwd = pwd;
+        this.defaultUrl = defaultUrl;
+        String[] strings = splitDefaultUrl(defaultUrl);
+        this.baseUrl = strings[0];
+        this.defaultDatabase = strings[1];
+    }
+
+    /**
+     * URL has to be with database, like "jdbc:mysql://localhost:5432/db" rather than "jdbc:mysql://localhost:5432/".
+     */
+    @SuppressWarnings("MagicNumber")
+    public static void validateJdbcUrlWithDatabase(String url) {
+        String[] parts = url.trim().split("\\/+");
+        checkArgument(parts.length == 3);
+    }
+
+    /**
+     * Ensure that the url was validated {@link #validateJdbcUrlWithDatabase}.
+     *
+     * @return The array size is fixed at 2, index 0 is base url, and index 1 is default database.
+     */
+    public static String[] splitDefaultUrl(String defaultUrl) {
+        String[] res = new String[2];
+        int index = defaultUrl.lastIndexOf("/")  + 1;
+        res[0] = defaultUrl.substring(0, index);
+        res[1] = defaultUrl.substring(index, defaultUrl.length());
+        return res;
     }
 
     @Override
@@ -102,11 +146,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         return baseUrl;
     }
 
-    @SuppressWarnings("EmptyBlock")
     @Override
     public void open() throws CatalogException {
-        // test connection, fail early if we cannot connect to database
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
+            // test connection, fail early if we cannot connect to database
         } catch (SQLException e) {
             throw new CatalogException(
                 String.format("Failed connecting to %s via JDBC.", defaultUrl), e);

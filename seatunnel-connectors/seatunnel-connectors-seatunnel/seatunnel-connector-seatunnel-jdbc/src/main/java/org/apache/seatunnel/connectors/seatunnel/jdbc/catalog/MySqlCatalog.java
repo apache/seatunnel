@@ -64,6 +64,10 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         super(catalogName, defaultDatabase, username, pwd, baseUrl);
     }
 
+    public MySqlCatalog(String catalogName, String username, String pwd, String defaultUrl) {
+        super(catalogName, username, pwd, defaultUrl);
+    }
+
     @Override
     public List<String> listDatabases() throws CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
