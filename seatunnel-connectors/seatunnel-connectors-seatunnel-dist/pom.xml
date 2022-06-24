@@ -71,37 +71,17 @@
             <artifactId>seatunnel-connector-seatunnel-pulsar</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-seatunnel-hive</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connector-seatunnel-file</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
-
-    <profiles>
-        <profile>
-            <id>jdk8</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-                <jdk>1.8</jdk>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-connector-seatunnel-hive</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-connector-seatunnel-file</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-            </dependencies>
-        </profile>
-        <profile>
-            <id>jdk11</id>
-            <activation>
-                <jdk>11</jdk>
-            </activation>
-            <modules>
-            </modules>
-        </profile>
-    </profiles>
 
     <build>
         <plugins>

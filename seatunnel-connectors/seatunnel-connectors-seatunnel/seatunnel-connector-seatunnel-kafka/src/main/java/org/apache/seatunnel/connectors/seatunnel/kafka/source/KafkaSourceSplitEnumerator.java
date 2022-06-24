@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,7 +72,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     @Override
     public void run() throws ExecutionException, InterruptedException {
         pendingSplit = getTopicInfo();
-        assignSplit(context.registeredReaders());
+        assignSplit();
     }
 
     @Override
@@ -87,7 +86,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             pendingSplit.addAll(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            assignSplit();
         }
     }
 
@@ -104,7 +103,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     @Override
     public void registerReader(int subtaskId) {
         if (!pendingSplit.isEmpty()) {
-            assignSplit(Collections.singletonList(subtaskId));
+            assignSplit();
         }
     }
 
@@ -121,7 +120,7 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
     private AdminClient initAdminClient(Properties properties) {
         Properties props = new Properties(properties);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, this.metadata.getBootstrapServer());
-        props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-admin-client");
+        props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-admin-client-" + this.hashCode());
         return AdminClient.create(props);
     }
 
@@ -145,12 +144,12 @@ public class KafkaSourceSplitEnumerator implements SourceSplitEnumerator<KafkaSo
                 }).collect(Collectors.toSet());
     }
 
-    private void assignSplit(Collection<Integer> taskIDList) {
+    private void assignSplit() {
         Map<Integer, List<KafkaSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
-        for (int taskID : taskIDList) {
+        for (int taskID = 0;  taskID < context.currentParallelism(); taskID++) {
             readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
         }
-        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.getTopicPartition(), taskIDList.size()))
+        pendingSplit.forEach(s -> readySplit.get(getSplitOwner(s.getTopicPartition(), context.currentParallelism()))
                 .add(s));
 
         readySplit.forEach(context::assignSplit);

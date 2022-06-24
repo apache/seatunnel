@@ -35,7 +35,7 @@ public class HdfsUtils {
     public static FileSystem getHdfsFs(@NonNull String path)
         throws IOException {
         Configuration conf = new Configuration();
-        conf.set("fs.hdfs.impl", "org.apache.seatunnel.shade.org.apache.hadoop.hdfs.DistributedFileSystem");
+        conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
         conf.set("fs.defaultFs", path);
         return FileSystem.get(conf);
     }
