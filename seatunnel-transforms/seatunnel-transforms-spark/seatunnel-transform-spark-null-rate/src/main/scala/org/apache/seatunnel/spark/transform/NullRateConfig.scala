@@ -1,3 +1,5 @@
+
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,31 +17,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink.config;
+package org.apache.seatunnel.spark.transform
 
-/**
- * Flink run mode, used to determine whether to run in local or cluster mode.
- * <a href="https://flink.apache.org/news/2020/07/14/application-mode.html">application-mode</a>
- */
-public enum FlinkRunMode {
-    RUN("run"),
-    APPLICATION_RUN("run-application"),
-    ;
-
-    private final String mode;
-
-    FlinkRunMode(String mode) {
-        this.mode = mode;
-    }
-
-    public String getMode() {
-        return mode;
-    }
-
-    public String toString() {
-
-        return "FlinkRunMode{" +
-            "mode='" + mode + '\'' +
-            '}';
-    }
+object NullRateConfig {
+  val FIELDS = "fields"
+  val RATES = "rates"
+  val IS_THROWEXCEPTION = "throw_exception_enable"
+  val SAVE_TO_TABLE_NAME = "save_to_table_name"
 }
