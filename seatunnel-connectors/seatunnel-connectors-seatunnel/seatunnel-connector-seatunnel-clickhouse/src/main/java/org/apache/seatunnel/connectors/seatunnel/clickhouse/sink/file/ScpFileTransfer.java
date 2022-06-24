@@ -17,16 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.scp.client.ScpClient;
 import org.apache.sshd.scp.client.ScpClientCreator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ScpFileTransfer implements FileTransfer {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScpFileTransfer.class);
 
     private static final int SCP_PORT = 22;
 
@@ -78,12 +83,15 @@ public class ScpFileTransfer implements FileTransfer {
         List<String> command = new ArrayList<>();
         command.add("ls");
         command.add("-l");
-        command.add(targetPath.substring(0, targetPath.lastIndexOf("/")));
-        command.add("/ | tail -n 1 | awk '{print $3}' | xargs -t -i chown -R {}:{} " + targetPath);
+        command.add(targetPath.substring(0,
+                StringUtils.stripEnd(targetPath, "/").lastIndexOf("/")) + "/");
+        command.add("| tail -n 1 | awk '{print $3}' | xargs -t -i chown -R {}:{} " + targetPath);
         try {
-            clientSession.executeRemoteCommand(String.join(" ", command));
+            String finalCommand = String.join(" ", command);
+            LOGGER.info("execute remote command: " + finalCommand);
+            clientSession.executeRemoteCommand(finalCommand);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to execute remote command: " + command, e);
+            // always return error cause xargs return shell command result
         }
     }
 
