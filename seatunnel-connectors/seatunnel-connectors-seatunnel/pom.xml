@@ -33,7 +33,6 @@
     <modules>
         <module>seatunnel-connector-seatunnel-console</module>
         <module>seatunnel-connector-seatunnel-fake</module>
-        <module>seatunnel-connector-seatunnel-file</module>
         <module>seatunnel-connector-seatunnel-kafka</module>
         <module>seatunnel-connector-seatunnel-http</module>
         <module>seatunnel-connector-seatunnel-jdbc</module>
@@ -52,6 +51,7 @@
             </activation>
             <modules>
                 <module>seatunnel-connector-seatunnel-hive</module>
+                <module>seatunnel-connector-seatunnel-file</module>
             </modules>
         </profile>
         <profile>
