@@ -20,10 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
@@ -36,7 +39,7 @@ import java.io.IOException;
 import java.util.List;
 
 @AutoService(SeaTunnelSink.class)
-public class AssertSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
+public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private static final String RULES = "rules";
     private SeaTunnelContext seaTunnelContext;
     private SeaTunnelRowType seaTunnelRowType;
@@ -48,7 +51,12 @@ public class AssertSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void>
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context) throws IOException {
+    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
+        return this.seaTunnelRowType;
+    }
+
+    @Override
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
         return new AssertSinkWriter(seaTunnelRowType, assertFieldRules);
     }
 
@@ -63,11 +71,6 @@ public class AssertSink implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void>
             Throwables.propagateIfPossible(new ConfigException.BadValue(RULES, "Assert rule config is empty, please add rule config."));
         }
         assertFieldRules = new AssertRuleParser().parseRules(configList);
-    }
-
-    @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return seaTunnelContext;
     }
 
     @Override

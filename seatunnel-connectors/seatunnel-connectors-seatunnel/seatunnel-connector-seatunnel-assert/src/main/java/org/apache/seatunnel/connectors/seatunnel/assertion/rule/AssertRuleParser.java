@@ -81,13 +81,7 @@ public class AssertRuleParser {
         TYPES.put("float", BasicType.FLOAT_TYPE);
         TYPES.put("Double", BasicType.DOUBLE_TYPE);
         TYPES.put("double", BasicType.DOUBLE_TYPE);
-        TYPES.put("Character", BasicType.CHAR_TYPE);
-        TYPES.put("char", BasicType.CHAR_TYPE);
-        TYPES.put("Date", BasicType.DATE_TYPE);
         TYPES.put("Void", BasicType.VOID_TYPE);
         TYPES.put("void", BasicType.VOID_TYPE);
-        TYPES.put("BigInteger", BasicType.BIG_INT_TYPE);
-        TYPES.put("BigDecimal", BasicType.BIG_DECIMAL_TYPE);
-        TYPES.put("Instant", BasicType.INSTANT_TYPE);
     }
 }

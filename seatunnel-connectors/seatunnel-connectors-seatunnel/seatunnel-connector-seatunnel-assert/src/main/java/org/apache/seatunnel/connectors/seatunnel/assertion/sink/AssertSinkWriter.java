@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
-public class AssertSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
+public class AssertSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
     private final List<AssertFieldRule> assertFieldRules;
@@ -48,17 +48,8 @@ public class AssertSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     @Override
-    public Optional<Void> prepareCommit() {
-        return Optional.empty();
+    public void close() throws IOException {
+        // nothing
     }
 
-    @Override
-    public void abortPrepare() {
-
-    }
-
-    @Override
-    public void close() {
-
-    }
 }
