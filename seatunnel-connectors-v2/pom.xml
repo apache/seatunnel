@@ -42,6 +42,7 @@
         <module>connector-kafka</module>
         <module>connector-pulsar</module>
         <module>connector-socket</module>
+        <module>connector-assert</module>
     </modules>
 
     <dependencies>
