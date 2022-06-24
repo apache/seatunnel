@@ -71,11 +71,6 @@
             <artifactId>seatunnel-connector-seatunnel-pulsar</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-file</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 
     <profiles>
@@ -89,6 +84,11 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-connector-seatunnel-hive</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-connector-seatunnel-file</artifactId>
                     <version>${project.version}</version>
                 </dependency>
             </dependencies>
