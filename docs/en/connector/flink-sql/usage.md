@@ -146,12 +146,10 @@ dimjoin.sql.conf
 ```hocon
 CREATE TABLE code_set_street (
   area_code STRING,
-     area_name STRING,
-     town_code STRING ,
-     town_name STRING ,
-     -- update_time TIMESTAMP(3) METADATA FROM 'values.source.timestamp' VIRTUAL,
-     -- WATERMARK FOR update_time AS update_time,
-    PRIMARY KEY(town_code) NOT ENFORCED
+  area_name STRING,
+  town_code STRING ,
+  town_name STRING ,
+  PRIMARY KEY(town_code) NOT ENFORCED
 ) WITH (
   'connector' = 'jdbc',
   'url' = 'jdbc:mysql://XX.XX.XX.XX:3306/testDB',
@@ -165,9 +163,8 @@ CREATE TABLE code_set_street (
 CREATE TABLE people (
   `id` STRING,
   `name` STRING,
-   `ts`  TimeStamp(3) ,
-    proctime AS PROCTIME() 
-    -- , WATERMARK FOR ts as ts - INTERVAL '10' SECOND
+  `ts`  TimeStamp(3) ,
+  proctime AS PROCTIME() 
 ) WITH (
   'connector' = 'kafka',
   'topic' = 'people',
@@ -209,13 +206,13 @@ bin/start-seatunnel-sql.sh -m yarn-cluster --config config/dimjoin.sql.conf
 
 ```
 CREATE TABLE `dim_cdc_join_result` (
-`id` varchar(255) NOT NULL,
-`name` varchar(255) DEFAULT NULL,
-`area_name` varchar(255) NOT NULL,
-`town_code` varchar(255) NOT NULL,
-`town_name` varchar(255) DEFAULT NULL,
-`ts` varchar(255) DEFAULT NULL,
-PRIMARY KEY (`id`,`town_code`,`ts`) USING BTREE
+    `id` varchar(255) NOT NULL,
+    `name` varchar(255) DEFAULT NULL,
+    `area_name` varchar(255) NOT NULL,
+    `town_code` varchar(255) NOT NULL,
+    `town_name` varchar(255) DEFAULT NULL,
+    `ts` varchar(255) DEFAULT NULL,
+    PRIMARY KEY (`id`,`town_code`,`ts`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT;
 ```
 
@@ -223,25 +220,25 @@ cdcjoin.sql.conf
 
 ```hocon
 CREATE TABLE code_set_street_cdc (
-     area_code STRING,
-     area_name STRING,
-     town_code STRING ,
-     town_name STRING ,
-    PRIMARY KEY(town_code) NOT ENFORCED
-     ) WITH (
-     'connector' = 'mysql-cdc',
-     'hostname' = 'XX.XX.XX.XX',
-     'port' = '3306',
-     'username' = 'root',
-     'password' = '2021',
-     'database-name' = 'flink',
-     'table-name' = 'code_set_street'
-     );
+  area_code STRING,
+  area_name STRING,
+  town_code STRING ,
+  town_name STRING ,
+  PRIMARY KEY(town_code) NOT ENFORCED
+) WITH (
+  'connector' = 'mysql-cdc',
+  'hostname' = 'XX.XX.XX.XX',
+  'port' = '3306',
+  'username' = 'root',
+  'password' = '2021',
+  'database-name' = 'flink',
+  'table-name' = 'code_set_street'
+);
      
 CREATE TABLE people (
   `id` STRING,
   `name` STRING,
-   `ts`  STRING
+  `ts`  STRING
 ) WITH (
   'connector' = 'kafka',
   'topic' = 'people',
