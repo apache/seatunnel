@@ -39,27 +39,7 @@
         <module>seatunnel-connector-seatunnel-socket</module>
         <module>seatunnel-connector-seatunnel-clickhouse</module>
         <module>seatunnel-connector-seatunnel-pulsar</module>
-        <module>seatunnel-connector-hadoop-shade</module>
+        <module>seatunnel-connector-seatunnel-hive</module>
     </modules>
 
-    <profiles>
-        <profile>
-            <id>jdk8</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-                <jdk>1.8</jdk>
-            </activation>
-            <modules>
-                <module>seatunnel-connector-seatunnel-hive</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>jdk11</id>
-            <activation>
-                <jdk>11</jdk>
-            </activation>
-            <modules>
-            </modules>
-        </profile>
-    </profiles>
 </project>
