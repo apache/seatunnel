@@ -147,10 +147,11 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
 
     private KafkaConsumer<byte[], byte[]> initConsumer(String bootstrapServer, String consumerGroup,
                                                        Properties properties, boolean autoCommit) {
-        Properties props = new Properties(properties);
+        Properties props = new Properties();
+        properties.forEach((key, value) -> props.setProperty(String.valueOf(key), String.valueOf(value)));
         props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, consumerGroup);
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
-        props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-consumer");
+        props.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID_PREFIX + "-enumerator-consumer-" + this.hashCode());
 
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                 ByteArrayDeserializer.class.getName());
