@@ -17,12 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer;
 
-import org.apache.seatunnel.shade.org.apache.hadoop.conf.Configuration;
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.FileSystem;
-import org.apache.seatunnel.shade.org.apache.hadoop.fs.Path;
-
 import lombok.NonNull;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +35,7 @@ public class HdfsUtils {
     public static FileSystem getHdfsFs(@NonNull String path)
         throws IOException {
         Configuration conf = new Configuration();
-        conf.set("fs.hdfs.impl", "org.apache.seatunnel.shade.org.apache.hadoop.hdfs.DistributedFileSystem");
+        conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
         conf.set("fs.defaultFs", path);
         return FileSystem.get(conf);
     }
