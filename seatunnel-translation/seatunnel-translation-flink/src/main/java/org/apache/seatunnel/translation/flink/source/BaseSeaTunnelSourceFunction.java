@@ -74,7 +74,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     @Override
     public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
-        internalSource.run(new RowCollector(sourceContext, sourceContext.getCheckpointLock()));
+        internalSource.run(new RowCollector(sourceContext, sourceContext.getCheckpointLock(), source.getProducedType()));
     }
 
     @Override

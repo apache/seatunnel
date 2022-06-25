@@ -17,48 +17,43 @@
 
 package org.apache.seatunnel.translation.spark.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.ListType;
-import org.apache.seatunnel.api.table.type.PojoType;
-import org.apache.seatunnel.api.table.type.PrimitiveArrayType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.TimestampType;
 
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.DecimalType;
 import org.apache.spark.sql.types.Metadata;
-import org.apache.spark.sql.types.ObjectType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-import org.apache.spark.sql.types.VarcharType;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class TypeConverterUtils {
-
-    private static final Map<SeaTunnelDataType<?>, DataType> SEA_TUNNEL_TO_SPARK_TYPES = new HashMap<>(16);
+    private static final Map<DataType, SeaTunnelDataType<?>> TO_SEA_TUNNEL_TYPES = new HashMap<>(16);
+    public static final String ROW_KIND_FIELD = "op";
 
     static {
-        // basic types
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.STRING_TYPE, DataTypes.StringType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BOOLEAN_TYPE, DataTypes.BooleanType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BYTE_TYPE, DataTypes.ByteType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.SHORT_TYPE, DataTypes.ShortType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.INT_TYPE, DataTypes.IntegerType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.LONG_TYPE, DataTypes.LongType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.FLOAT_TYPE, DataTypes.FloatType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.DOUBLE_TYPE, DataTypes.DoubleType);
-        // todo: need to confirm
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.CHAR_TYPE, new VarcharType(1));
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BIG_INT_TYPE, DataTypes.LongType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.BIG_DECIMAL_TYPE, new DecimalType());
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.VOID_TYPE, DataTypes.NullType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(BasicType.DATE_TYPE, DataTypes.DateType);
-        SEA_TUNNEL_TO_SPARK_TYPES.put(PrimitiveArrayType.PRIMITIVE_BYTE_ARRAY_TYPE, DataTypes.BinaryType);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.NullType, BasicType.VOID_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.StringType, BasicType.STRING_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.BooleanType, BasicType.BOOLEAN_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.ByteType, BasicType.BYTE_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.ShortType, BasicType.SHORT_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.IntegerType, BasicType.INT_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.LongType, BasicType.LONG_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.FloatType, BasicType.FLOAT_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.DoubleType, BasicType.DOUBLE_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.BinaryType, PrimitiveByteArrayType.INSTANCE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.DateType, LocalTimeType.LOCAL_DATE_TYPE);
+        TO_SEA_TUNNEL_TYPES.put(DataTypes.TimestampType, LocalTimeType.LOCAL_DATE_TIME_TYPE);
     }
 
     private TypeConverterUtils() {
@@ -66,38 +61,113 @@ public class TypeConverterUtils {
     }
 
     public static DataType convert(SeaTunnelDataType<?> dataType) {
-        DataType sparkType = SEA_TUNNEL_TO_SPARK_TYPES.get(dataType);
-        if (sparkType != null) {
-            return sparkType;
+        checkNotNull(dataType, "The SeaTunnel's data type is required.");
+        switch (dataType.getSqlType()) {
+            case NULL:
+                return DataTypes.NullType;
+            case STRING:
+                return DataTypes.StringType;
+            case BOOLEAN:
+                return DataTypes.BooleanType;
+            case TINYINT:
+                return DataTypes.ByteType;
+            case SMALLINT:
+                return DataTypes.ShortType;
+            case INT:
+                return DataTypes.IntegerType;
+            case BIGINT:
+                return DataTypes.LongType;
+            case FLOAT:
+                return DataTypes.FloatType;
+            case DOUBLE:
+                return DataTypes.DoubleType;
+            case BYTES:
+                return DataTypes.BinaryType;
+            case DATE:
+                return DataTypes.DateType;
+            case TIME:
+                // TODO: how reconvert?
+            case TIMESTAMP:
+                return DataTypes.TimestampType;
+            case ARRAY:
+                return DataTypes.createArrayType(convert(((ArrayType<?, ?>) dataType).getElementType()));
+            case MAP:
+                MapType<?, ?> mapType = (MapType<?, ?>) dataType;
+                return DataTypes.createMapType(convert(mapType.getKeyType()), convert(mapType.getValueType()));
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) dataType;
+                return new org.apache.spark.sql.types.DecimalType(decimalType.getPrecision(), decimalType.getScale());
+            case ROW:
+                return convert((SeaTunnelRowType) dataType);
+            default:
         }
-        if (dataType instanceof TimestampType) {
-            return DataTypes.TimestampType;
-        }
-        if (dataType instanceof ArrayType) {
-            return createArrayType(((ArrayType<?, ?>) dataType).getElementType());
-        }
-        if (dataType instanceof ListType) {
-            return createArrayType(((ListType<?>) dataType).getElementType());
-        }
-        if (dataType instanceof PojoType) {
-            return new ObjectType(dataType.getTypeClass());
-        }
-        if (dataType instanceof SeaTunnelRowType) {
-            return convert((SeaTunnelRowType) dataType);
-        }
-        throw new IllegalArgumentException("Unsupported data type: " + dataType);
-    }
-
-    private static org.apache.spark.sql.types.ArrayType createArrayType(SeaTunnelDataType<?> dataType) {
-        return DataTypes.createArrayType(convert(dataType));
+        throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
     }
 
     private static StructType convert(SeaTunnelRowType rowType) {
+        // TODO: row kind
         StructField[] fields = new StructField[rowType.getFieldNames().length];
         for (int i = 0; i < rowType.getFieldNames().length; i++) {
             fields[i] = new StructField(rowType.getFieldNames()[i],
                 convert(rowType.getFieldTypes()[i]), true, Metadata.empty());
         }
         return new StructType(fields);
+    }
+
+    public static SeaTunnelDataType<?> convert(DataType sparkType) {
+        checkNotNull(sparkType, "The Spark's data type is required.");
+        SeaTunnelDataType<?> dataType = TO_SEA_TUNNEL_TYPES.get(sparkType);
+        if (dataType != null) {
+            return dataType;
+        }
+        if (sparkType instanceof org.apache.spark.sql.types.ArrayType) {
+            return convert((org.apache.spark.sql.types.ArrayType) sparkType);
+        }
+        if (sparkType instanceof org.apache.spark.sql.types.MapType) {
+            org.apache.spark.sql.types.MapType mapType = (org.apache.spark.sql.types.MapType) sparkType;
+            return new MapType<>(convert(mapType.valueType()), convert(mapType.valueType()));
+        }
+        if (sparkType instanceof org.apache.spark.sql.types.DecimalType) {
+            org.apache.spark.sql.types.DecimalType decimalType = (org.apache.spark.sql.types.DecimalType) sparkType;
+            return new DecimalType(decimalType.precision(), decimalType.scale());
+        }
+        if (sparkType instanceof StructType) {
+            return convert((StructType) sparkType);
+        }
+        throw new IllegalArgumentException("Unsupported Spark's data type: " + sparkType.sql());
+    }
+
+    private static ArrayType<?, ?> convert(org.apache.spark.sql.types.ArrayType arrayType) {
+        switch (convert(arrayType.elementType()).getSqlType()) {
+            case STRING:
+                return ArrayType.STRING_ARRAY_TYPE;
+            case BOOLEAN:
+                return ArrayType.BOOLEAN_ARRAY_TYPE;
+            case TINYINT:
+                return ArrayType.BYTE_ARRAY_TYPE;
+            case SMALLINT:
+                return ArrayType.SHORT_ARRAY_TYPE;
+            case INT:
+                return ArrayType.INT_ARRAY_TYPE;
+            case BIGINT:
+                return ArrayType.LONG_ARRAY_TYPE;
+            case FLOAT:
+                return ArrayType.FLOAT_ARRAY_TYPE;
+            case DOUBLE:
+                return ArrayType.DOUBLE_ARRAY_TYPE;
+            default:
+                throw new UnsupportedOperationException(String.format("Unsupported Spark's array type: %s.", arrayType.sql()));
+        }
+    }
+
+    private static SeaTunnelRowType convert(StructType structType) {
+        StructField[] structFields = structType.fields();
+        String[] fieldNames = new String[structFields.length];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[structFields.length];
+        for (int i = 0; i < structFields.length; i++) {
+            fieldNames[i] = structFields[i].name();
+            fieldTypes[i] = convert(structFields[i].dataType());
+        }
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 }

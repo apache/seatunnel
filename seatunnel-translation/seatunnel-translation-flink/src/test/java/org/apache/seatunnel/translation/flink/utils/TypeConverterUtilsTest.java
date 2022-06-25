@@ -19,18 +19,13 @@ package org.apache.seatunnel.translation.flink.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.ListType;
-import org.apache.seatunnel.api.table.type.PojoType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.lang.reflect.Field;
-import java.util.List;
 
 public class TypeConverterUtilsTest {
     //--------------------------------------------------------------
@@ -50,11 +45,6 @@ public class TypeConverterUtilsTest {
     @Test
     public void convertBooleanType() {
         Assert.assertEquals(BasicTypeInfo.BOOLEAN_TYPE_INFO, TypeConverterUtils.convert(BasicType.BOOLEAN_TYPE));
-    }
-
-    @Test
-    public void convertDateType() {
-        Assert.assertEquals(BasicTypeInfo.DATE_TYPE_INFO, TypeConverterUtils.convert(BasicType.DATE_TYPE));
     }
 
     @Test
@@ -83,23 +73,9 @@ public class TypeConverterUtilsTest {
     }
 
     @Test
-    public void convertCharacterType() {
-        Assert.assertEquals(BasicTypeInfo.CHAR_TYPE_INFO, TypeConverterUtils.convert(BasicType.CHAR_TYPE));
-    }
-
-    @Test
-    public void convertBigIntegerType() {
-        Assert.assertEquals(BasicTypeInfo.BIG_INT_TYPE_INFO, TypeConverterUtils.convert(BasicType.BIG_INT_TYPE));
-    }
-
-    @Test
+    @SuppressWarnings("MagicNumber")
     public void convertBigDecimalType() {
-        Assert.assertEquals(BasicTypeInfo.BIG_DEC_TYPE_INFO, TypeConverterUtils.convert(BasicType.BIG_DECIMAL_TYPE));
-    }
-
-    @Test
-    public void convertInstantType() {
-        Assert.assertEquals(BasicTypeInfo.INSTANT_TYPE_INFO, TypeConverterUtils.convert(BasicType.INSTANT_TYPE));
+        Assert.assertEquals(new BigDecimalTypeInfo(30, 2), TypeConverterUtils.convert(new DecimalType(30, 2)));
     }
 
     @Test
@@ -149,45 +125,5 @@ public class TypeConverterUtilsTest {
     @Test
     public void convertShortArrayType() {
         Assert.assertEquals(BasicArrayTypeInfo.SHORT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.SHORT_ARRAY_TYPE));
-    }
-
-    @Test
-    public void convertCharacterArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.CHAR_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.CHAR_ARRAY_TYPE));
-    }
-
-
-    //--------------------------------------------------------------
-    // pojo types test
-    //--------------------------------------------------------------
-
-    @Test
-    public void convertPojoType() {
-        Field[] fields = MockPojo.class.getDeclaredFields();
-        SeaTunnelDataType<?>[] fieldTypes = {BasicType.STRING_TYPE, new ListType<>(BasicType.INT_TYPE)};
-        Assert.assertEquals(
-            TypeExtractor.createTypeInfo(MockPojo.class),
-            TypeConverterUtils.convert(new PojoType<>(MockPojo.class, fields, fieldTypes)));
-    }
-
-    public static class MockPojo {
-        private String stringField;
-        private List<Integer> listField;
-
-        public String getStringField() {
-            return stringField;
-        }
-
-        public void setStringField(String stringField) {
-            this.stringField = stringField;
-        }
-
-        public List<Integer> getListField() {
-            return listField;
-        }
-
-        public void setListField(List<Integer> listField) {
-            this.listField = listField;
-        }
     }
 }

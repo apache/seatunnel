@@ -48,9 +48,9 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
     }
 
     /**
-     * Get the row type information of the records produced by this source.
+     * Get the data type of the records produced by this source.
      *
-     * @return SeaTunnel row type information.
+     * @return SeaTunnel data type.
      */
     SeaTunnelDataType<T> getProducedType();
 

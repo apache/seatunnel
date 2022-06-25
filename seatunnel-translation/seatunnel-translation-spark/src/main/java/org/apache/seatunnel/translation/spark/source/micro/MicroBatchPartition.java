@@ -24,13 +24,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
-import org.apache.spark.sql.types.StructType;
 
 public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final Integer subtaskId;
-    protected final StructType rowType;
     protected final Integer checkpointId;
     protected final Integer checkpointInterval;
     protected final String checkpointPath;
@@ -40,7 +38,6 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     public MicroBatchPartition(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
                                Integer parallelism,
                                Integer subtaskId,
-                               StructType rowType,
                                Integer checkpointId,
                                Integer checkpointInterval,
                                String checkpointPath,
@@ -49,7 +46,6 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
-        this.rowType = rowType;
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
         this.checkpointPath = checkpointPath;
@@ -60,9 +56,9 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
         if (source instanceof SupportCoordinate) {
-            return new CoordinatedMicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+            return new CoordinatedMicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
         } else {
-            return new ParallelMicroBatchPartitionReader(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+            return new ParallelMicroBatchPartitionReader(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
         }
     }
 }
