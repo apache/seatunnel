@@ -26,7 +26,6 @@ import org.apache.seatunnel.translation.spark.source.batch.ParallelBatchPartitio
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.streaming.ContinuousInputPartitionReader;
 import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
-import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
 import java.util.List;
@@ -36,8 +35,8 @@ public class ParallelContinuousPartitionReader extends ParallelBatchPartitionRea
     protected volatile Integer checkpointId;
     protected final Map<Integer, List<byte[]>> restoredState;
 
-    public ParallelContinuousPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType, Integer checkpointId, Map<Integer, List<byte[]>> restoredState) {
-        super(source, parallelism, subtaskId, rowType);
+    public ParallelContinuousPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, Integer checkpointId, Map<Integer, List<byte[]>> restoredState) {
+        super(source, parallelism, subtaskId);
         this.checkpointId = checkpointId;
         this.restoredState = restoredState;
     }
@@ -45,9 +44,9 @@ public class ParallelContinuousPartitionReader extends ParallelBatchPartitionRea
     @Override
     protected ParallelSource<SeaTunnelRow, ?, ?> createInternalSource() {
         return new InternalParallelSource<>(source,
-                restoredState,
-                parallelism,
-                subtaskId);
+            restoredState,
+            parallelism,
+            subtaskId);
     }
 
     @Override
@@ -63,6 +62,7 @@ public class ParallelContinuousPartitionReader extends ParallelBatchPartitionRea
     }
 
     // TODO: RPC call
+
     /**
      * The method is called by RPC
      */

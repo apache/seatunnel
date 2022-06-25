@@ -33,16 +33,17 @@ public class SparkSinkInjector {
 
     public static DataStreamWriter<Row> inject(DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink,
                                                HashMap<String, String> configuration) {
-        return dataset.format(SPARK_SINK_CLASS_NAME).outputMode(OutputMode.Append())
-                .option("configuration", SerializationUtils.objectToString(configuration)).option("sink",
-                        SerializationUtils.objectToString(sink));
+        return dataset.format(SPARK_SINK_CLASS_NAME)
+            .outputMode(OutputMode.Append())
+            .option("configuration", SerializationUtils.objectToString(configuration))
+            .option("sink", SerializationUtils.objectToString(sink));
     }
 
     public static DataFrameWriter<Row> inject(DataFrameWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink,
                                               HashMap<String, String> configuration) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
-                .option("configuration", SerializationUtils.objectToString(configuration)).option("sink",
-                        SerializationUtils.objectToString(sink));
+            .option("configuration", SerializationUtils.objectToString(configuration))
+            .option("sink", SerializationUtils.objectToString(sink));
     }
 
 }

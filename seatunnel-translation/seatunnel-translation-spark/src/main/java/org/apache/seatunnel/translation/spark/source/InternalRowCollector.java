@@ -18,28 +18,28 @@
 package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.spark.serialization.InternalRowSerialization;
+import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.types.StructType;
 
 public class InternalRowCollector implements Collector<SeaTunnelRow> {
     private final Handover<InternalRow> handover;
     private final Object checkpointLock;
-    private final InternalRowSerialization rowSerialization;
+    private final InternalRowConverter rowSerialization;
 
-    public InternalRowCollector(Handover<InternalRow> handover, Object checkpointLock, StructType sparkSchema) {
+    public InternalRowCollector(Handover<InternalRow> handover, Object checkpointLock, SeaTunnelDataType<?> dataType) {
         this.handover = handover;
         this.checkpointLock = checkpointLock;
-        this.rowSerialization = new InternalRowSerialization(sparkSchema);
+        this.rowSerialization = new InternalRowConverter(dataType);
     }
 
     @Override
     public void collect(SeaTunnelRow record) {
         try {
             synchronized (checkpointLock) {
-                handover.produce(rowSerialization.serialize(record));
+                handover.produce(rowSerialization.convert(record));
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

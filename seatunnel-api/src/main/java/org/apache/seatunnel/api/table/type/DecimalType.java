@@ -17,44 +17,49 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import java.util.Collections;
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.Objects;
 
-public class ListType<T> implements CompositeType<List<T>> {
+public final class DecimalType extends BasicType<BigDecimal> {
+    private static final long serialVersionUID = 1L;
 
-    private final SeaTunnelDataType<T> elementType;
+    private final int precision;
 
-    public ListType(SeaTunnelDataType<T> elementType) {
-        this.elementType = elementType;
+    private final int scale;
+
+    public DecimalType(int precision, int scale) {
+        super(BigDecimal.class, SqlType.DECIMAL);
+        this.precision = precision;
+        this.scale = scale;
     }
 
-    public SeaTunnelDataType<T> getElementType() {
-        return elementType;
-    }
-
-    @SuppressWarnings("unchecked")
     @Override
-    public Class<List<T>> getTypeClass() {
-        return (Class<List<T>>) (Class<?>) List.class;
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DecimalType)) {
+            return false;
+        }
+        DecimalType that = (DecimalType) o;
+        return this.precision == that.precision && this.scale == that.scale;
     }
 
     @Override
     public int hashCode() {
-        return elementType.hashCode();
+        return Objects.hash(precision, scale);
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof ListType) {
-            ListType<?> other = (ListType<?>) obj;
-            return elementType.equals(other.elementType);
-        } else {
-            return false;
-        }
+    public String toString() {
+        return String.format("Decimal(%d, %d)", precision, scale);
     }
 
-    @Override
-    public List<SeaTunnelDataType<?>> getChildren() {
-        return Collections.singletonList(this.elementType);
+    public int getPrecision() {
+        return precision;
+    }
+
+    public int getScale() {
+        return scale;
     }
 }

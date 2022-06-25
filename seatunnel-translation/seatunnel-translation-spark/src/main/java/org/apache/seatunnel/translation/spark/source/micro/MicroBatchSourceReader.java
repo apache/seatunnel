@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
@@ -36,7 +37,6 @@ public class MicroBatchSourceReader implements MicroBatchReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
-    protected final StructType rowType;
 
     protected final Integer checkpointInterval;
     protected final String checkpointPath;
@@ -46,7 +46,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
     protected MicroBatchState startOffset;
     protected MicroBatchState endOffset;
 
-    public MicroBatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer checkpointId, Integer checkpointInterval, String checkpointPath, String hdfsRoot, String hdfsUser, StructType rowType) {
+    public MicroBatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer checkpointId, Integer checkpointInterval, String checkpointPath, String hdfsRoot, String hdfsUser) {
         this.source = source;
         this.parallelism = parallelism;
         this.checkpointId = checkpointId;
@@ -54,7 +54,6 @@ public class MicroBatchSourceReader implements MicroBatchReader {
         this.checkpointPath = checkpointPath;
         this.hdfsRoot = hdfsRoot;
         this.hdfsUser = hdfsUser;
-        this.rowType = rowType;
     }
 
     @Override
@@ -91,7 +90,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
 
     @Override
     public StructType readSchema() {
-        return this.rowType;
+        return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
 
     @Override
@@ -99,11 +98,11 @@ public class MicroBatchSourceReader implements MicroBatchReader {
         List<InputPartition<InternalRow>> virtualPartitions;
         if (source instanceof SupportCoordinate) {
             virtualPartitions = new ArrayList<>(1);
-            virtualPartitions.add(new MicroBatchPartition(source, parallelism, 0, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
+            virtualPartitions.add(new MicroBatchPartition(source, parallelism, 0, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
         } else {
             virtualPartitions = new ArrayList<>(parallelism);
             for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-                virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
+                virtualPartitions.add(new MicroBatchPartition(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser));
             }
         }
         checkpointId++;

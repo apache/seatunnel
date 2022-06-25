@@ -17,16 +17,14 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataSourceWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
-import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,71 +33,63 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT> implements DataSourceWriter {
+public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT> implements DataSourceWriter {
 
-    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+    protected final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    protected final Map<String, String> configuration;
     @Nullable
-    private final SinkCommitter<CommitInfoT> sinkCommitter;
-    @Nullable
-    private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter;
-    private final StructType schema;
+    protected final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter;
 
-    SparkDataSourceWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                          @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                          @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter,
-                          StructType schema) {
-        this.sinkWriter = sinkWriter;
-        this.sinkCommitter = sinkCommitter;
-        this.sinkAggregatedCommitter = sinkAggregatedCommitter;
-        this.schema = schema;
+    SparkDataSourceWriter(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+                          Map<String, String> configuration) throws IOException {
+        this.sink = sink;
+        this.configuration = configuration;
+        this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
     }
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sinkWriter, sinkCommitter, schema);
+        return new SparkDataWriterFactory<>(sink, configuration);
     }
 
     @Override
     public void commit(WriterCommitMessage[] messages) {
         if (sinkAggregatedCommitter != null) {
             try {
-                sinkAggregatedCommitter.commit(combineCommitMessage(extractCommitInfo(messages)));
+                sinkAggregatedCommitter.commit(combineCommitMessage(messages));
             } catch (IOException e) {
-                throw new RuntimeException("commit failed in driver", e);
+                throw new RuntimeException("SinkAggregatedCommitter commit failed in driver", e);
             }
         }
     }
 
     @Override
     public void abort(WriterCommitMessage[] messages) {
-        final List<CommitInfoT> commitInfos = extractCommitInfo(messages);
-        if (sinkCommitter != null) {
-            try {
-                sinkCommitter.abort(commitInfos);
-            } catch (IOException e) {
-                throw new RuntimeException("SinkCommitter abort failed in driver", e);
-            }
-        }
         if (sinkAggregatedCommitter != null) {
             try {
-                sinkAggregatedCommitter.abort(combineCommitMessage(commitInfos));
+                sinkAggregatedCommitter.abort(combineCommitMessage(messages));
             } catch (Exception e) {
                 throw new RuntimeException("SinkAggregatedCommitter abort failed in driver", e);
             }
         }
     }
 
-    private @Nonnull List<CommitInfoT> extractCommitInfo(WriterCommitMessage[] messages) {
-        return Arrays.stream(messages)
+    /**
+     * {@link SparkDataWriter#commit()}
+     */
+    @SuppressWarnings("unchecked")
+    private @Nonnull List<AggregatedCommitInfoT> combineCommitMessage(WriterCommitMessage[] messages) {
+        if (sinkAggregatedCommitter == null || messages.length == 0) {
+            return Collections.emptyList();
+        }
+        List<CommitInfoT> commitInfos = Arrays.stream(messages)
             .map(m -> ((SparkWriterCommitMessage<CommitInfoT>) m).getMessage())
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
-    }
-
-    private @Nonnull List<AggregatedCommitInfoT> combineCommitMessage(List<CommitInfoT> commitInfos) {
         return Collections.singletonList(sinkAggregatedCommitter.combine(commitInfos));
     }
 }

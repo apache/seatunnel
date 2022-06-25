@@ -75,7 +75,7 @@ public class JsonToRowConverters implements Serializable {
     /** Creates a runtime converter which assuming input object is not null. */
     @SuppressWarnings("unchecked")
     private JsonToRowConverter createNotNullConverter(SeaTunnelDataType<?> type) {
-        SqlType sqlType = SqlType.of(type);
+        SqlType sqlType = type.getSqlType();
         switch (sqlType) {
             case ROW:
                 return createRowConverter((SeaTunnelRowType) type);

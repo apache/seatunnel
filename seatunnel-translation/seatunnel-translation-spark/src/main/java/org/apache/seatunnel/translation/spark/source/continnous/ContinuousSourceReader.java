@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.ReaderState;
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
@@ -39,15 +40,13 @@ public class ContinuousSourceReader implements ContinuousReader {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     private final Integer parallelism;
-    private final StructType rowType;
     private final Map<Integer, ReaderState> readerStateMap = new HashMap<>();
     private CoordinationState coordinationState;
     private int checkpointId = 1;
 
-    public ContinuousSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
+    public ContinuousSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism) {
         this.source = source;
         this.parallelism = parallelism;
-        this.rowType = rowType;
         throw new UnsupportedOperationException("Continuous source is not currently supported.");
     }
 
@@ -102,7 +101,7 @@ public class ContinuousSourceReader implements ContinuousReader {
 
     @Override
     public StructType readSchema() {
-        return rowType;
+        return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
 
     @Override
@@ -110,7 +109,7 @@ public class ContinuousSourceReader implements ContinuousReader {
         List<InputPartition<InternalRow>> virtualPartitions = new ArrayList<>(parallelism);
         for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
             ReaderState readerState = readerStateMap.get(subtaskId);
-            virtualPartitions.add(new ContinuousPartition(source, parallelism, subtaskId, rowType, checkpointId, readerState == null ? null : readerState.getBytes()));
+            virtualPartitions.add(new ContinuousPartition(source, parallelism, subtaskId, checkpointId, readerState == null ? null : readerState.getBytes()));
         }
         return virtualPartitions;
     }
