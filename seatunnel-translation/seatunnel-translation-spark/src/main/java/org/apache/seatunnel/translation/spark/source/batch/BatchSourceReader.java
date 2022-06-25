@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.source.batch;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
@@ -33,17 +34,15 @@ public class BatchSourceReader implements DataSourceReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
-    protected final StructType rowType;
 
-    public BatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, StructType rowType) {
+    public BatchSourceReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism) {
         this.source = source;
         this.parallelism = parallelism;
-        this.rowType = rowType;
     }
 
     @Override
     public StructType readSchema() {
-        return rowType;
+        return (StructType) TypeConverterUtils.convert(source.getProducedType());
     }
 
     @Override
@@ -51,11 +50,11 @@ public class BatchSourceReader implements DataSourceReader {
         List<InputPartition<InternalRow>> virtualPartitions;
         if (source instanceof SupportCoordinate) {
             virtualPartitions = new ArrayList<>(1);
-            virtualPartitions.add(new BatchPartition(source, parallelism, 0, rowType));
+            virtualPartitions.add(new BatchPartition(source, parallelism, 0));
         } else {
             virtualPartitions = new ArrayList<>(parallelism);
             for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
-                virtualPartitions.add(new BatchPartition(source, parallelism, subtaskId, rowType));
+                virtualPartitions.add(new BatchPartition(source, parallelism, subtaskId));
             }
         }
         return virtualPartitions;

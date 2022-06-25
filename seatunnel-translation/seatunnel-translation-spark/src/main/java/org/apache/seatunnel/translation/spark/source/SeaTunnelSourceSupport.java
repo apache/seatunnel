@@ -55,19 +55,18 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
 
     @Override
     public DataSourceReader createReader(StructType rowType, DataSourceOptions options) {
-        SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        int parallelism = options.getInt("source.parallelism", 1);
-        return new BatchSourceReader(seaTunnelSource, parallelism, rowType);
+        return createReader(options);
     }
 
     @Override
     public DataSourceReader createReader(DataSourceOptions options) {
-        throw createUnspecifiedRowTypeException();
+        SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
+        int parallelism = options.getInt("source.parallelism", 1);
+        return new BatchSourceReader(seaTunnelSource, parallelism);
     }
 
     @Override
     public MicroBatchReader createMicroBatchReader(Optional<StructType> rowTypeOptional, String checkpointLocation, DataSourceOptions options) {
-        StructType rowType = checkRowType(rowTypeOptional);
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt("source.parallelism", 1);
         Integer checkpointInterval = options.getInt("checkpoint.interval", CHECKPOINT_INTERVAL_DEFAULT);
@@ -76,27 +75,18 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
         String hdfsRoot = options.get("hdfs.root").orElse(FileSystem.getDefaultUri(configuration).toString());
         String hdfsUser = options.get("hdfs.user").orElse("");
         Integer checkpointId = options.getInt("checkpoint.id", 1);
-        return new MicroBatchSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser, rowType);
+        return new MicroBatchSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
     }
 
     @Override
     public ContinuousReader createContinuousReader(Optional<StructType> rowTypeOptional, String checkpointLocation, DataSourceOptions options) {
-        StructType rowType = checkRowType(rowTypeOptional);
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt("source.parallelism", 1);
-        return new ContinuousSourceReader(seaTunnelSource, parallelism, rowType);
+        return new ContinuousSourceReader(seaTunnelSource, parallelism);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {
         return SerializationUtils.stringToObject(options.get("source.serialization")
-                .orElseThrow(() -> new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required")));
-    }
-
-    private static StructType checkRowType(Optional<StructType> rowTypeOptional) {
-        return rowTypeOptional.orElse(null);
-    }
-
-    private static RuntimeException createUnspecifiedRowTypeException() {
-        return new UnsupportedOperationException("SeaTunnel Spark source does not support user unspecified row type.");
+            .orElseThrow(() -> new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required")));
     }
 }

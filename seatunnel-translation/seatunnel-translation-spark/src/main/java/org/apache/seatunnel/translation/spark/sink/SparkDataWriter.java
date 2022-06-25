@@ -17,18 +17,16 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.utils.SerializationUtils;
-import org.apache.seatunnel.translation.serialization.RowSerialization;
-import org.apache.seatunnel.translation.spark.serialization.InternalRowSerialization;
+import org.apache.seatunnel.translation.serialization.RowConverter;
+import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
-import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
 
@@ -38,31 +36,26 @@ import java.util.Optional;
 
 public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<InternalRow> {
 
-    private SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
     @Nullable
-    private SinkCommitter<CommitInfoT> sinkCommitter = null;
-    private final RowSerialization<InternalRow> rowSerialization;
+    private final SinkCommitter<CommitInfoT> sinkCommitter;
+    private final RowConverter<InternalRow> rowConverter;
     private CommitInfoT latestCommitInfoT;
     private long epochId;
 
-    SparkDataWriter(SinkWriter.Context context,
-                    StructType schema, long epochId, String sinkString) {
-        try {
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink = SerializationUtils.stringToObject(sinkString);
-            this.sinkWriter = sink.createWriter(context);
-            Optional<SinkCommitter<CommitInfoT>> optionalSinkCommitter = sink.createCommitter();
-            optionalSinkCommitter.ifPresent(commitInfoTSinkCommitter -> this.sinkCommitter = commitInfoTSinkCommitter);
-        } catch (Exception e) {
-            throw new RuntimeException("failed create SparkDataWriter", e);
-        }
-        this.rowSerialization = new InternalRowSerialization(schema);
+    SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
+                    @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
+                    SeaTunnelDataType<?> dataType, long epochId) {
+        this.sinkWriter = sinkWriter;
+        this.sinkCommitter = sinkCommitter;
+        this.rowConverter = new InternalRowConverter(dataType);
         this.epochId = epochId == 0 ? 1 : epochId;
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
-        sinkWriter.write(rowSerialization.deserialize(record));
+        sinkWriter.write(rowConverter.convert(record));
     }
 
     @Override

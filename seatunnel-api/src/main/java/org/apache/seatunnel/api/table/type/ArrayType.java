@@ -20,7 +20,7 @@ package org.apache.seatunnel.api.table.type;
 import java.util.Objects;
 
 public class ArrayType<T, E> implements SeaTunnelDataType<T> {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     public static final ArrayType<String[], String> STRING_ARRAY_TYPE =
         new ArrayType<>(String[].class, BasicType.STRING_TYPE);
@@ -38,8 +38,6 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
         new ArrayType<>(Float[].class, BasicType.FLOAT_TYPE);
     public static final ArrayType<Double[], Double> DOUBLE_ARRAY_TYPE =
         new ArrayType<>(Double[].class, BasicType.DOUBLE_TYPE);
-    public static final ArrayType<Character[], Character> CHAR_ARRAY_TYPE =
-        new ArrayType<>(Character[].class, BasicType.CHAR_TYPE);
 
     // --------------------------------------------------------------------------------------------
 
@@ -61,18 +59,29 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     }
 
     @Override
+    public SqlType getSqlType() {
+        return SqlType.ARRAY;
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hash(arrayClass, elementType);
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof ArrayType) {
-            ArrayType<?, ?> other = (ArrayType<?, ?>) obj;
-            return arrayClass == other.arrayClass
-                && elementType.equals(other.elementType);
-        } else {
+        if (obj == this) {
+            return true;
+        }
+        if (!(obj instanceof ArrayType)) {
             return false;
         }
+        ArrayType<?, ?> that = (ArrayType<?, ?>) obj;
+        return Objects.equals(arrayClass, that.arrayClass) && Objects.equals(elementType, that.elementType);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("ARRAY<%s>", elementType);
     }
 }

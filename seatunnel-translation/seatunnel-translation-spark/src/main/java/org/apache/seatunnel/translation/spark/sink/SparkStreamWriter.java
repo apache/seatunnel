@@ -17,25 +17,23 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter;
-import org.apache.spark.sql.types.StructType;
 
-import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.Map;
 
-public class SparkStreamWriter<CommitInfoT, StateT, AggregatedCommitInfoT> extends SparkDataSourceWriter<CommitInfoT, StateT, AggregatedCommitInfoT>
+public class SparkStreamWriter<StateT, CommitInfoT, AggregatedCommitInfoT> extends SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements StreamWriter {
 
-    SparkStreamWriter(SinkWriter.Context context, @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                      @Nullable SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter,
-                      StructType schema, String sinkString) {
-        super(context, sinkCommitter, sinkAggregatedCommitter, schema, sinkString);
+    SparkStreamWriter(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+                      Map<String, String> configuration) throws IOException {
+        super(sink, configuration);
     }
 
     @Override
