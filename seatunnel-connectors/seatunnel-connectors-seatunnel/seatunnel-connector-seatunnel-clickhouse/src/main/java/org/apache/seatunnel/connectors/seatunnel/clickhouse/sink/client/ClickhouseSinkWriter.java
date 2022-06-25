@@ -170,7 +170,7 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                         new ClickhouseBatchStatement(clickhouseConnection, preparedStatement, intHolder);
                 result.put(s, batchStatement);
             } catch (SQLException e) {
-                throw new RuntimeException("Clickhouse prepare statement error", e);
+                throw new RuntimeException("Clickhouse prepare statement error: " + e.getMessage(), e);
             }
         });
         return result;
