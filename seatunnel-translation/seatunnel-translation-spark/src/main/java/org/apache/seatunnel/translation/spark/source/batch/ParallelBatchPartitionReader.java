@@ -28,7 +28,6 @@ import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
-import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +45,6 @@ public class ParallelBatchPartitionReader implements InputPartitionReader<Intern
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
     protected final Integer subtaskId;
-    protected final StructType rowType;
 
     protected final ExecutorService executorService;
     protected final Handover<InternalRow> handover;
@@ -58,11 +56,10 @@ public class ParallelBatchPartitionReader implements InputPartitionReader<Intern
 
     protected volatile BaseSourceFunction<SeaTunnelRow> internalSource;
 
-    public ParallelBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType) {
+    public ParallelBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
         this.source = source;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
-        this.rowType = rowType;
         this.executorService = ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(1, getEnumeratorThreadName());
         this.handover = new Handover<>();
     }
@@ -98,7 +95,7 @@ public class ParallelBatchPartitionReader implements InputPartitionReader<Intern
         }
         executorService.execute(() -> {
             try {
-                internalSource.run(new InternalRowCollector(handover, checkpointLock, rowType));
+                internalSource.run(new InternalRowCollector(handover, checkpointLock, source.getProducedType()));
             } catch (Exception e) {
                 handover.reportError(e);
                 LOGGER.error("BatchPartitionReader execute failed.", e);
@@ -110,9 +107,9 @@ public class ParallelBatchPartitionReader implements InputPartitionReader<Intern
 
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
         return new InternalParallelSource<>(source,
-                null,
-                parallelism,
-                subtaskId);
+            null,
+            parallelism,
+            subtaskId);
     }
 
     @Override

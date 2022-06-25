@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelRuntimeEnvironment;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import java.io.IOException;
@@ -49,9 +50,14 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      *
      * @param seaTunnelRowType The row type info of sink.
      */
-    default void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+    void setTypeInfo(SeaTunnelRowType seaTunnelRowType);
 
-    }
+    /**
+     * Get the data type of the records consumed by this sink.
+     *
+     * @return SeaTunnel data type.
+     */
+    SeaTunnelDataType<IN> getConsumedType();
 
     /**
      * This method will be called to creat {@link SinkWriter}

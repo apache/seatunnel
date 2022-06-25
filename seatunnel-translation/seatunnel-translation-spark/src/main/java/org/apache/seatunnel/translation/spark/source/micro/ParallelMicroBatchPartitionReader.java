@@ -31,7 +31,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.spark.sql.types.StructType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -58,13 +57,12 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
     public ParallelMicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
                                              Integer parallelism,
                                              Integer subtaskId,
-                                             StructType rowType,
                                              Integer checkpointId,
                                              Integer checkpointInterval,
                                              String checkpointPath,
                                              String hdfsRoot,
                                              String hdfsUser) {
-        super(source, parallelism, subtaskId, rowType);
+        super(source, parallelism, subtaskId);
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
         this.checkpointPath = checkpointPath;

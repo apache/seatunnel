@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.serialization.FlinkRowSerialization;
-import org.apache.seatunnel.translation.flink.serialization.WrappedRow;
+import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.types.Row;
@@ -34,21 +34,21 @@ import java.util.stream.Collectors;
 public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> {
 
     private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter;
-    private final FlinkRowSerialization rowSerialization = new FlinkRowSerialization();
+    private final FlinkRowConverter rowSerialization;
     private long checkpointId;
 
     FlinkSinkWriter(org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
-                    long checkpointId) {
+                    long checkpointId,
+                    SeaTunnelDataType<?> dataType) {
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
+        this.rowSerialization = new FlinkRowConverter(dataType);
     }
 
     @Override
     public void write(InputT element, org.apache.flink.api.connector.sink.SinkWriter.Context context) throws IOException {
         if (element instanceof Row) {
-            sinkWriter.write(rowSerialization.deserialize((Row) element));
-        } else if (element instanceof WrappedRow) {
-            sinkWriter.write(rowSerialization.deserialize(((WrappedRow) element).getRow()));
+            sinkWriter.write(rowSerialization.convert((Row) element));
         } else {
             throw new InvalidClassException("only support Flink Row at now, the element Class is " + element.getClass());
         }
