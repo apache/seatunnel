@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.file;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
-public class FakeSourceToFileIT extends FlinkContainer {
-    @Test
-    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+public class HdfsFileSystem implements FileSystem {
+    @Override
+    public void deleteFile(String path) throws IOException {
+        HdfsUtils.deleteFile(path);
+    }
+
+    @Override
+    public List<String> dirList(String dirPath) throws IOException {
+        List<Path> paths = HdfsUtils.dirList(dirPath);
+        return paths.stream().map(dir -> dir.getName()).collect(Collectors.toList());
     }
 }

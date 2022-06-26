@@ -18,11 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.transaction;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkState;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.TransactionStateFileSinkWriter;
 
 import lombok.NonNull;
 
@@ -40,13 +40,13 @@ public interface Transaction extends Serializable {
     String beginTransaction(@NonNull Long checkpointId);
 
     /**
-     * Abort current Transaction, called when {@link FileSinkWriter#prepareCommit()} or {@link FileSinkWriter#snapshotState(long)} failed
+     * Abort current Transaction, called when {@link TransactionStateFileSinkWriter#prepareCommit()} or {@link TransactionStateFileSinkWriter#snapshotState(long)} failed
      */
     void abortTransaction();
 
     /**
      * Get all transactionIds after the @param transactionId
-     * This method called when {@link FileSink#restoreWriter(SinkWriter.Context, List)}
+     * This method called when {@link AbstractFileSink#restoreWriter(SinkWriter.Context, List)}
      * We get the transactionId of the last successful commit from {@link FileSinkState} and
      * then all transactionIds after this transactionId is dirty transactions that need to be rollback.
      *
@@ -56,7 +56,7 @@ public interface Transaction extends Serializable {
     List<String> getTransactionAfter(@NonNull String transactionId);
 
     /**
-     * Called by {@link FileSinkWriter#prepareCommit()}
+     * Called by {@link TransactionStateFileSinkWriter#prepareCommit()}
      * We should end the transaction in this method. After this method is called, the transaction will no longer accept data writing
      *
      * @return Return the commit information that can be commit in {@link FileSinkAggregatedCommitter#commit(List)}

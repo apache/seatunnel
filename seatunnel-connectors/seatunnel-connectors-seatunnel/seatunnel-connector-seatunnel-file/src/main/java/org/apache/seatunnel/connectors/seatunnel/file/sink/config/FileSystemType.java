@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.file;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import java.io.Serializable;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+public enum FileSystemType implements Serializable {
+    HDFS("HdfsFile"),
+    LOCAL("LocalFile");
 
-import java.io.IOException;
+    private String sinkFileSystemPluginName;
 
-public class FakeSourceToFileIT extends FlinkContainer {
-    @Test
-    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    private FileSystemType(String sinkFileSystemPluginName) {
+        this.sinkFileSystemPluginName = sinkFileSystemPluginName;
+    }
+
+    public String getSinkFileSystemPluginName() {
+        return sinkFileSystemPluginName;
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.writer;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -26,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransactionFileNameGenerator;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.HdfsTxtTransactionStateFileWriter;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RunWith(JUnit4.class)
-public class TestHdfsTxtTransactionStateFileWriter {
+public class TestLocalTxtTransactionStateFileWriter {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Test
@@ -64,7 +63,7 @@ public class TestHdfsTxtTransactionStateFileWriter {
         String targetPath = "/tmp/hive/warehouse/seatunnel.db/test1";
         String tmpPath = "/tmp/seatunnel";
 
-        TransactionStateFileWriter fileWriter = new HdfsTxtTransactionStateFileWriter(seaTunnelRowTypeInfo,
+        TransactionStateFileWriter fileWriter = new LocalTxtTransactionStateFileWriter(seaTunnelRowTypeInfo,
             new FileSinkTransactionFileNameGenerator(FileFormat.TEXT, null, "yyyy.MM.dd"),
             new FileSinkPartitionDirNameGenerator(hivePartitionFieldList, partitionFieldIndexInRow, "${k0}=${v0}/${k1}=${v1}"),
             sinkColumnIndexInRow,

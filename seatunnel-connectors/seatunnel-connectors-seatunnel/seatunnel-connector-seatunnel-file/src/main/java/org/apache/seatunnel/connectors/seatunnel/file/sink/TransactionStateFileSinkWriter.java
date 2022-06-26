@@ -21,10 +21,10 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransactionFileNameGenerator;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.HdfsTxtTransactionStateFileWriter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -36,8 +36,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkWriter.class);
+public class TransactionStateFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TransactionStateFileSinkWriter.class);
 
     private SeaTunnelRowType seaTunnelRowTypeInfo;
     private Config pluginConfig;
@@ -48,18 +48,19 @@ public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, 
 
     private TextFileSinkConfig textFileSinkConfig;
 
-    public FileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
-                          @NonNull Config pluginConfig,
-                          @NonNull SinkWriter.Context context,
-                          @NonNull TextFileSinkConfig textFileSinkConfig,
-                          @NonNull String jobId) {
+    public TransactionStateFileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
+                                          @NonNull Config pluginConfig,
+                                          @NonNull SinkWriter.Context context,
+                                          @NonNull TextFileSinkConfig textFileSinkConfig,
+                                          @NonNull String jobId,
+                                          @NonNull SinkFileSystemPlugin sinkFileSystemPlugin) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
         this.context = context;
         this.jobId = jobId;
         this.textFileSinkConfig = textFileSinkConfig;
 
-        fileWriter = new HdfsTxtTransactionStateFileWriter(this.seaTunnelRowTypeInfo,
+        Optional<TransactionStateFileWriter> transactionStateFileWriter = sinkFileSystemPlugin.getTransactionStateFileWriter(this.seaTunnelRowTypeInfo,
             new FileSinkTransactionFileNameGenerator(
                 this.textFileSinkConfig.getFileFormat(),
                 this.textFileSinkConfig.getFileNameExpression(),
@@ -74,23 +75,31 @@ public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, 
             this.jobId,
             this.context.getIndexOfSubtask(),
             this.textFileSinkConfig.getFieldDelimiter(),
-            this.textFileSinkConfig.getRowDelimiter());
+            this.textFileSinkConfig.getRowDelimiter(),
+            sinkFileSystemPlugin.getFileSystem().get());
+
+        if (!transactionStateFileWriter.isPresent()) {
+            throw new RuntimeException("A TransactionStateFileWriter is need");
+        }
+
+        this.fileWriter = transactionStateFileWriter.get();
 
         fileWriter.beginTransaction(1L);
     }
 
-    public FileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
-                          @NonNull Config pluginConfig,
-                          @NonNull SinkWriter.Context context,
-                          @NonNull TextFileSinkConfig textFileSinkConfig,
-                          @NonNull String jobId,
-                          @NonNull List<FileSinkState> fileSinkStates) {
+    public TransactionStateFileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
+                                          @NonNull Config pluginConfig,
+                                          @NonNull SinkWriter.Context context,
+                                          @NonNull TextFileSinkConfig textFileSinkConfig,
+                                          @NonNull String jobId,
+                                          @NonNull List<FileSinkState> fileSinkStates,
+                                          @NonNull SinkFileSystemPlugin sinkFileSystemPlugin) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
         this.context = context;
         this.jobId = jobId;
 
-        fileWriter = new HdfsTxtTransactionStateFileWriter(this.seaTunnelRowTypeInfo,
+        Optional<TransactionStateFileWriter> transactionStateFileWriter = sinkFileSystemPlugin.getTransactionStateFileWriter(this.seaTunnelRowTypeInfo,
             new FileSinkTransactionFileNameGenerator(
                 this.textFileSinkConfig.getFileFormat(),
                 this.textFileSinkConfig.getFileNameExpression(),
@@ -105,7 +114,14 @@ public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, 
             this.jobId,
             this.context.getIndexOfSubtask(),
             this.textFileSinkConfig.getFieldDelimiter(),
-            this.textFileSinkConfig.getRowDelimiter());
+            this.textFileSinkConfig.getRowDelimiter(),
+            sinkFileSystemPlugin.getFileSystem().get());
+
+        if (!transactionStateFileWriter.isPresent()) {
+            throw new RuntimeException("A TransactionStateFileWriter is need");
+        }
+
+        this.fileWriter = transactionStateFileWriter.get();
 
         // Rollback dirty transaction
         if (fileSinkStates.size() > 0) {

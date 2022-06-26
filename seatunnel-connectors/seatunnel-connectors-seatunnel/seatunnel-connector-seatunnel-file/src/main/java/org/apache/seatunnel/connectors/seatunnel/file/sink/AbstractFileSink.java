@@ -29,10 +29,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.SaveMode;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystemCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.List;
@@ -40,20 +40,23 @@ import java.util.Optional;
 
 /**
  * Hive Sink implementation by using SeaTunnel sink API.
- * This class contains the method to create {@link FileSinkWriter} and {@link FileSinkAggregatedCommitter}.
+ * This class contains the method to create {@link TransactionStateFileSinkWriter} and {@link FileSinkAggregatedCommitter}.
  */
-@AutoService(SeaTunnelSink.class)
-public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
+public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
     private Config config;
     private String jobId;
     private Long checkpointId;
     private SeaTunnelRowType seaTunnelRowTypeInfo;
     private SeaTunnelContext seaTunnelContext;
     private TextFileSinkConfig textFileSinkConfig;
+    private SinkFileSystemPlugin sinkFileSystemPlugin;
+
+    public abstract SinkFileSystemPlugin getSinkFileSystemPlugin();
 
     @Override
     public String getPluginName() {
-        return "File";
+        this.sinkFileSystemPlugin = getSinkFileSystemPlugin();
+        return this.sinkFileSystemPlugin.getPluginName();
     }
 
     @Override
@@ -69,16 +72,35 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
 
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
-        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && textFileSinkConfig.getSaveMode().equals(SaveMode.OVERWRITE)) {
+        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && this.getSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
             throw new RuntimeException("only batch job can overwrite mode");
         }
-        return new FileSinkWriter(seaTunnelRowTypeInfo, config, context, textFileSinkConfig, jobId);
+
+        if (this.getSinkConfig().isEnableTransaction()) {
+            return new TransactionStateFileSinkWriter(seaTunnelRowTypeInfo,
+                config,
+                context,
+                getSinkConfig(),
+                jobId,
+                sinkFileSystemPlugin);
+        } else {
+            throw new RuntimeException("File Sink Connector only support transaction now");
+        }
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(SinkWriter.Context context, List<FileSinkState> states) throws IOException {
-        return new FileSinkWriter(seaTunnelRowTypeInfo, config, context, textFileSinkConfig, jobId, states);
+        if (this.getSinkConfig().isEnableTransaction()) {
+            return new TransactionStateFileSinkWriter(seaTunnelRowTypeInfo,
+                config,
+                context,
+                textFileSinkConfig,
+                jobId,
+                states,
+                sinkFileSystemPlugin);
+        } else {
+            throw new RuntimeException("File Sink Connector only support transaction now");
+        }
     }
 
     @Override
@@ -94,7 +116,16 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new FileSinkAggregatedCommitter());
+        if (this.getSinkConfig().isEnableTransaction()) {
+            Optional<FileSystemCommitter> fileSystemCommitter = sinkFileSystemPlugin.getFileSystemCommitter();
+            if (fileSystemCommitter.isPresent()) {
+                return Optional.of(new FileSinkAggregatedCommitter(fileSystemCommitter.get()));
+            } else {
+                throw new RuntimeException("FileSystemCommitter is need");
+            }
+        } else {
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -110,6 +141,13 @@ public class FileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, File
     @Override
     public Optional<Serializer<FileCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
+    }
+
+    private TextFileSinkConfig getSinkConfig() {
+        if (this.textFileSinkConfig == null && (this.seaTunnelRowTypeInfo != null && this.config != null)) {
+            this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
+        }
+        return this.textFileSinkConfig;
     }
 }
 

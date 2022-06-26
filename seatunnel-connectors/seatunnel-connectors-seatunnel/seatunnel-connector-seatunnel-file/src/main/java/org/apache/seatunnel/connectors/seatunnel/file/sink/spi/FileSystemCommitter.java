@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.file;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.spi;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitInfo;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+import lombok.NonNull;
 
 import java.io.IOException;
+import java.io.Serializable;
 
-public class FakeSourceToFileIT extends FlinkContainer {
-    @Test
-    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
-    }
+public interface FileSystemCommitter extends Serializable {
+
+    void commitTransaction(@NonNull FileAggregatedCommitInfo fileAggregatedCommitInfo) throws IOException;
+
+    void abortTransaction(@NonNull FileAggregatedCommitInfo fileAggregatedCommitInfo) throws IOException;
 }

@@ -18,8 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystemCommitter;
 
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +33,12 @@ import java.util.Map;
 public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter.class);
 
+    private FileSystemCommitter fileSystemCommitter;
+
+    public FileSinkAggregatedCommitter(@NonNull FileSystemCommitter fileSystemCommitter) {
+        this.fileSystemCommitter = fileSystemCommitter;
+    }
+
     @Override
     public List<FileAggregatedCommitInfo> commit(List<FileAggregatedCommitInfo> aggregatedCommitInfoList) throws IOException {
         if (aggregatedCommitInfoList == null || aggregatedCommitInfoList.size() == 0) {
@@ -40,15 +47,8 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         List errorAggregatedCommitInfoList = new ArrayList();
         aggregatedCommitInfoList.stream().forEach(aggregateCommitInfo -> {
             try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getTransactionMap().entrySet()) {
-                    // rollback the file
-                    for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
-                        HdfsUtils.renameFile(mvFileEntry.getKey(), mvFileEntry.getValue(), true);
-                    }
-                    // delete the transaction dir
-                    HdfsUtils.deleteFile(entry.getKey());
-                }
-            } catch (IOException e) {
+                fileSystemCommitter.commitTransaction(aggregateCommitInfo);
+            } catch (Exception e) {
                 LOGGER.error("commit aggregateCommitInfo error ", e);
                 errorAggregatedCommitInfoList.add(aggregateCommitInfo);
             }
@@ -81,17 +81,9 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         }
         aggregatedCommitInfoList.stream().forEach(aggregateCommitInfo -> {
             try {
-                for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getTransactionMap().entrySet()) {
-                    // rollback the file
-                    for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
-                        if (HdfsUtils.fileExist(mvFileEntry.getValue()) && !HdfsUtils.fileExist(mvFileEntry.getKey())) {
-                            HdfsUtils.renameFile(mvFileEntry.getValue(), mvFileEntry.getKey(), true);
-                        }
-                    }
-                    // delete the transaction dir
-                    HdfsUtils.deleteFile(entry.getKey());
-                }
-            } catch (IOException e) {
+                fileSystemCommitter.abortTransaction(aggregateCommitInfo);
+
+            } catch (Exception e) {
                 LOGGER.error("abort aggregateCommitInfo error ", e);
             }
         });

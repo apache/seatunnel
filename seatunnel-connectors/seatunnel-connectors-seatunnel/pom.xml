@@ -41,5 +41,6 @@
         <module>seatunnel-connector-seatunnel-pulsar</module>
         <module>seatunnel-connector-seatunnel-hive</module>
         <module>seatunnel-connector-seatunnel-file</module>
+        <module>seatunnel-connector-seatunnel-file-impl</module>
     </modules>
 </project>

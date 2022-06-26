@@ -24,14 +24,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkState;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
-import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
 
 import com.google.common.collect.Lists;
 import lombok.NonNull;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -65,7 +64,17 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
     private PartitionDirNameGenerator partitionDirNameGenerator;
 
-    public AbstractTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo, @NonNull TransactionFileNameGenerator transactionFileNameGenerator, @NonNull PartitionDirNameGenerator partitionDirNameGenerator, @NonNull List<Integer> sinkColumnsIndexInRow, @NonNull String tmpPath, @NonNull String targetPath, @NonNull String jobId, int subTaskIndex) {
+    private FileSystem fileSystem;
+
+    public AbstractTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
+                                              @NonNull TransactionFileNameGenerator transactionFileNameGenerator,
+                                              @NonNull PartitionDirNameGenerator partitionDirNameGenerator,
+                                              @NonNull List<Integer> sinkColumnsIndexInRow,
+                                              @NonNull String tmpPath,
+                                              @NonNull String targetPath,
+                                              @NonNull String jobId,
+                                              int subTaskIndex,
+                                              @NonNull FileSystem fileSystem) {
         checkArgument(subTaskIndex > -1);
 
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
@@ -76,6 +85,7 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         this.partitionDirNameGenerator = partitionDirNameGenerator;
+        this.fileSystem = fileSystem;
     }
 
     public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
@@ -124,7 +134,7 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
         //drop transaction dir
         try {
             abortTransaction(this.transactionId);
-            HdfsUtils.deleteFile(this.transactionDir);
+            fileSystem.deleteFile(this.transactionDir);
         } catch (IOException e) {
             throw new RuntimeException("abort transaction " + this.transactionId + " error.", e);
         }
@@ -140,9 +150,9 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
         //get all transaction dir
         try {
-            List<Path> transactionDirList = HdfsUtils.dirList(jobDir);
-            List<String> transactionList = transactionDirList.stream().map(dir -> dir.getName().replaceAll(jobDir, "")).collect(Collectors.toList());
-            return transactionList;
+            List<String> transactionDirList = fileSystem.dirList(jobDir);
+            List<String> transactionIdList = transactionDirList.stream().map(dir -> dir.replaceAll(jobDir, "")).collect(Collectors.toList());
+            return transactionIdList;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -166,7 +176,7 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
         transactionIds.stream().forEach(transactionId -> {
             try {
                 abortTransaction(transactionId);
-                HdfsUtils.deleteFile(transactionId);
+                fileSystem.deleteFile(transactionId);
             } catch (IOException e) {
                 throw new RuntimeException("abort transaction " + transactionId + " error.", e);
             }

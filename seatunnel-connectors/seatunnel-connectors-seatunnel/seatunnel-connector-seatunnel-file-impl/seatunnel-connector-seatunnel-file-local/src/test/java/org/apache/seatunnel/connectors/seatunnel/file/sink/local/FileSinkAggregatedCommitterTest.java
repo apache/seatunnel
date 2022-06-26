@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
 
-import org.apache.seatunnel.connectors.seatunnel.file.utils.HdfsUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCommitter;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -42,17 +44,18 @@ public class FileSinkAggregatedCommitterTest {
 
     @Test
     public void testCommit() throws Exception {
-        FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter();
+        FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobId = random.nextLong();
+        Long jobIdLong = random.nextLong();
+        String jobId = "Job_" + jobIdLong;
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
         needMoveFiles.put(transactionDir + "/c3=4/c4=rrr/test1.txt", targetDir + "/c3=4/c4=rrr/test1.txt");
         needMoveFiles.put(transactionDir + "/c3=4/c4=bbb/test1.txt", targetDir + "/c3=4/c4=bbb/test1.txt");
-        HdfsUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
-        HdfsUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
+        FileUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
+        FileUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
 
         transactionFiles.put(transactionDir, needMoveFiles);
         FileAggregatedCommitInfo fileAggregatedCommitInfo = new FileAggregatedCommitInfo(transactionFiles);
@@ -60,25 +63,26 @@ public class FileSinkAggregatedCommitterTest {
         fileAggregatedCommitInfoList.add(fileAggregatedCommitInfo);
         fileSinkAggregatedCommitter.commit(fileAggregatedCommitInfoList);
 
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
-        Assert.assertTrue(!HdfsUtils.fileExist(transactionDir));
+        Assert.assertTrue(FileUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
+        Assert.assertTrue(FileUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
+        Assert.assertTrue(!FileUtils.fileExist(transactionDir));
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testCombine() throws Exception {
-        FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter();
+        FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobId = random.nextLong();
+        Long jobIdLong = random.nextLong();
+        String jobId = "Job_" + jobIdLong;
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
         needMoveFiles.put(transactionDir + "/c3=4/c4=rrr/test1.txt", targetDir + "/c3=4/c4=rrr/test1.txt");
         needMoveFiles.put(transactionDir + "/c3=4/c4=bbb/test1.txt", targetDir + "/c3=4/c4=bbb/test1.txt");
-        HdfsUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
-        HdfsUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
+        FileUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
+        FileUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
 
         Map<String, String> needMoveFiles1 = new HashMap<>();
         needMoveFiles1.put(transactionDir + "/c3=4/c4=rrr/test2.txt", targetDir + "/c3=4/c4=rrr/test2.txt");
@@ -99,17 +103,18 @@ public class FileSinkAggregatedCommitterTest {
 
     @Test
     public void testAbort() throws Exception {
-        FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter();
+        FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobId = random.nextLong();
+        Long jobIdLong = random.nextLong();
+        String jobId = "Job_" + jobIdLong;
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
         needMoveFiles.put(transactionDir + "/c3=4/c4=rrr/test1.txt", targetDir + "/c3=4/c4=rrr/test1.txt");
         needMoveFiles.put(transactionDir + "/c3=4/c4=bbb/test1.txt", targetDir + "/c3=4/c4=bbb/test1.txt");
-        HdfsUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
-        HdfsUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
+        FileUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
+        FileUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
 
         transactionFiles.put(transactionDir, needMoveFiles);
         FileAggregatedCommitInfo fileAggregatedCommitInfo = new FileAggregatedCommitInfo(transactionFiles);
@@ -117,16 +122,16 @@ public class FileSinkAggregatedCommitterTest {
         fileAggregatedCommitInfoList.add(fileAggregatedCommitInfo);
         fileSinkAggregatedCommitter.commit(fileAggregatedCommitInfoList);
 
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
-        Assert.assertTrue(!HdfsUtils.fileExist(transactionDir));
+        Assert.assertTrue(FileUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
+        Assert.assertTrue(FileUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
+        Assert.assertFalse(FileUtils.fileExist(transactionDir));
 
         fileSinkAggregatedCommitter.abort(fileAggregatedCommitInfoList);
-        Assert.assertTrue(!HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
-        Assert.assertTrue(!HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
+        Assert.assertTrue(!FileUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
+        Assert.assertTrue(!FileUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
 
         // transactionDir will being delete when abort
-        Assert.assertTrue(!HdfsUtils.fileExist(transactionDir));
+        Assert.assertTrue(!FileUtils.fileExist(transactionDir));
     }
 
     /**

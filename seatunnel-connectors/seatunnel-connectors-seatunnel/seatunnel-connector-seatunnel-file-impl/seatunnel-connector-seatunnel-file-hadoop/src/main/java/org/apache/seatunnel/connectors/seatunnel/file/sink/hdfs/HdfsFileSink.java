@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.file;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
+import com.google.auto.service.AutoService;
 
-import java.io.IOException;
-
-public class FakeSourceToFileIT extends FlinkContainer {
-    @Test
-    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+@AutoService(SeaTunnelSink.class)
+public class HdfsFileSink extends AbstractFileSink {
+    @Override
+    public SinkFileSystemPlugin getSinkFileSystemPlugin() {
+        return new HdfsFileSinkPlugin();
     }
 }
