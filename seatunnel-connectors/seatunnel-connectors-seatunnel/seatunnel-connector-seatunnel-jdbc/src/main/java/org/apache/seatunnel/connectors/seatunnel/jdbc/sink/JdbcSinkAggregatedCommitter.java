@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectorOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.GroupXaOperationResult;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
@@ -36,15 +36,15 @@ public class JdbcSinkAggregatedCommitter
 
     private final XaFacade xaFacade;
     private final XaGroupOps xaGroupOps;
-    private final JdbcConnectorOptions jdbcConnectorOptions;
+    private final JdbcSinkOptions jdbcSinkOptions;
 
     public JdbcSinkAggregatedCommitter(
-        JdbcConnectorOptions jdbcConnectorOptions
+        JdbcSinkOptions jdbcSinkOptions
     ) {
         this.xaFacade = XaFacade.fromJdbcConnectionOptions(
-            jdbcConnectorOptions);
+            jdbcSinkOptions.getJdbcConnectionOptions());
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
-        this.jdbcConnectorOptions = jdbcConnectorOptions;
+        this.jdbcSinkOptions = jdbcSinkOptions;
     }
 
     private void tryOpen() throws IOException {
@@ -61,7 +61,7 @@ public class JdbcSinkAggregatedCommitter
     public List<JdbcAggregatedCommitInfo> commit(List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
         return aggregatedCommitInfos.stream().map(aggregatedCommitInfo -> {
-            GroupXaOperationResult<XidInfo> result = xaGroupOps.commit(aggregatedCommitInfo.getXidInfoList(), false, jdbcConnectorOptions.getMaxCommitAttempts());
+            GroupXaOperationResult<XidInfo> result = xaGroupOps.commit(aggregatedCommitInfo.getXidInfoList(), false, jdbcSinkOptions.getJdbcConnectionOptions().getMaxCommitAttempts());
             return new JdbcAggregatedCommitInfo(result.getForRetry());
         }).filter(ainfo -> !ainfo.getXidInfoList().isEmpty()).collect(Collectors.toList());
     }

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectorOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.Xid;
@@ -46,8 +46,8 @@ public interface XaFacade
         extends JdbcConnectionProvider, Serializable, AutoCloseable {
 
     static XaFacade fromJdbcConnectionOptions(
-            JdbcConnectorOptions jdbcConnectorOptions) {
-        return  new XaFacadeImplAutoLoad(jdbcConnectorOptions);
+            JdbcConnectionOptions jdbcConnectionOptions) {
+        return  new XaFacadeImplAutoLoad(jdbcConnectionOptions);
     }
 
     void open() throws Exception;
