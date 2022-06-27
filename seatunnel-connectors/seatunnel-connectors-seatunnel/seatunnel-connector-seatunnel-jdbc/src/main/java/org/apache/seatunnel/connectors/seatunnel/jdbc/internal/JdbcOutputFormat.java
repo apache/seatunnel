@@ -21,7 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectorOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ExceptionUtils;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -51,7 +51,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
 
-    private final JdbcConnectorOptions jdbcConnectorOptions;
+    private final JdbcConnectionOptions jdbcConnectionOptions;
     private final StatementExecutorFactory<E> statementExecutorFactory;
 
     private transient E jdbcStatementExecutor;
@@ -64,10 +64,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
 
     public JdbcOutputFormat(
         JdbcConnectionProvider connectionProvider,
-        JdbcConnectorOptions jdbcConnectorOptions,
+        JdbcConnectionOptions jdbcConnectionOptions,
         StatementExecutorFactory<E> statementExecutorFactory) {
         this.connectionProvider = checkNotNull(connectionProvider);
-        this.jdbcConnectorOptions = checkNotNull(jdbcConnectorOptions);
+        this.jdbcConnectionOptions = checkNotNull(jdbcConnectionOptions);
         this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
     }
 
@@ -85,7 +85,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
 
-        if (jdbcConnectorOptions.getBatchIntervalMs() != 0 && jdbcConnectorOptions.getBatchSize() != 1) {
+        if (jdbcConnectionOptions.getBatchIntervalMs() != 0 && jdbcConnectionOptions.getBatchSize() != 1) {
             this.scheduler =
                 Executors.newScheduledThreadPool(
                     1, runnable -> {
@@ -109,8 +109,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
                             }
                         }
                     },
-                    jdbcConnectorOptions.getBatchIntervalMs(),
-                    jdbcConnectorOptions.getBatchIntervalMs(),
+                    jdbcConnectionOptions.getBatchIntervalMs(),
+                    jdbcConnectionOptions.getBatchIntervalMs(),
                     TimeUnit.MILLISECONDS);
         }
     }
@@ -140,8 +140,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         try {
             addToBatch(record);
             batchCount++;
-            if (jdbcConnectorOptions.getBatchSize() > 0
-                && batchCount >= jdbcConnectorOptions.getBatchSize()) {
+            if (jdbcConnectionOptions.getBatchSize() > 0
+                && batchCount >= jdbcConnectionOptions.getBatchSize()) {
                 flush();
             }
         }
@@ -159,7 +159,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
         throws IOException {
         checkFlushException();
         final int sleepMs = 1000;
-        for (int i = 0; i <= jdbcConnectorOptions.getMaxRetries(); i++) {
+        for (int i = 0; i <= jdbcConnectionOptions.getMaxRetries(); i++) {
             try {
                 attemptFlush();
                 batchCount = 0;
@@ -167,7 +167,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>>
             }
             catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
-                if (i >= jdbcConnectorOptions.getMaxRetries()) {
+                if (i >= jdbcConnectionOptions.getMaxRetries()) {
                     ExceptionUtils.rethrowIOException(e);
                 }
                 try {
