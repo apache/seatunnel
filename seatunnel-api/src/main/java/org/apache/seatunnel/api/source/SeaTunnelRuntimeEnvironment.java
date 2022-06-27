@@ -24,12 +24,7 @@ import org.apache.seatunnel.api.common.SeaTunnelContext;
  */
 public interface SeaTunnelRuntimeEnvironment {
 
-    /**
-     * Returns the SeaTunnel runtime context.
-     *
-     * @return seaTunnelContext
-     */
-    SeaTunnelContext getSeaTunnelContext();
-
-    void setSeaTunnelContext(SeaTunnelContext seaTunnelContext);
+    default void setSeaTunnelContext(SeaTunnelContext seaTunnelContext){
+        // nothing
+    }
 }

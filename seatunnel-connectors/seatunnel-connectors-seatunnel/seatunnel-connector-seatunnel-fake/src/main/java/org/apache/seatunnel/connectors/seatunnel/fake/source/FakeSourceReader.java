@@ -19,37 +19,37 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
+public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
-    private final SourceReader.Context context;
+    private final SingleSplitReaderContext context;
 
     private final String[] names = {"Wenjun", "Fanjia", "Zongwen", "CalvinKirs"};
     private final int[] ages = {11, 22, 33, 44};
 
-    public FakeSourceReader(SourceReader.Context context) {
+    public FakeSourceReader(SingleSplitReaderContext context) {
         this.context = context;
     }
 
     @Override
     public void open() {
-
+        // nothing
     }
 
     @Override
     public void close() {
-
+        // nothing
     }
 
     @Override
@@ -69,25 +69,5 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             context.signalNoMoreElement();
         }
         Thread.sleep(1000L);
-    }
-
-    @Override
-    public List<FakeSourceSplit> snapshotState(long checkpointId) {
-        return null;
-    }
-
-    @Override
-    public void addSplits(List<FakeSourceSplit> splits) {
-
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
     }
 }

@@ -40,7 +40,6 @@ import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProp
 import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.StopMode.NEVER;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -80,7 +79,6 @@ import java.util.regex.Pattern;
 public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit, PulsarSplitEnumeratorState> {
     public static final String IDENTIFIER = "pulsar";
     private DeserializationSchema<T> deserialization;
-    private SeaTunnelContext seaTunnelContext;
 
     private PulsarAdminConfig adminConfig;
     private PulsarClientConfig clientConfig;
@@ -232,16 +230,6 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
     @Override
     public Boundedness getBoundedness() {
         return this.stopCursor instanceof NeverStopCursor ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
-    }
-
-    @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return this.seaTunnelContext;
-    }
-
-    @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
     }
 
     @Override

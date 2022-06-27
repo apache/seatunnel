@@ -18,26 +18,31 @@
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeState;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
-public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeState> {
+public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private Config pluginConfig;
     private SeaTunnelContext seaTunnelContext;
+
+    @Override
+    public Boundedness getBoundedness() {
+        return JobMode.BATCH.equals(seaTunnelContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+    }
 
     @Override
     public SeaTunnelRowType getProducedType() {
@@ -47,26 +52,8 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(SourceReader.Context readerContext) {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new FakeSourceReader(readerContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<FakeSourceSplit, FakeState> createEnumerator(
-        SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) {
-        return new FakeSourceSplitEnumerator(enumeratorContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<FakeSourceSplit, FakeState> restoreEnumerator(
-        SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext, FakeState checkpointState) {
-        // todo:
-        return null;
-    }
-
-    @Override
-    public Serializer<FakeState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
     }
 
     @Override
@@ -77,11 +64,6 @@ public class FakeSource implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit
     @Override
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
-    }
-
-    @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return seaTunnelContext;
     }
 
     @Override

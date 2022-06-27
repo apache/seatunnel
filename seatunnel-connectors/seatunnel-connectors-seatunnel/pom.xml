@@ -31,6 +31,7 @@
     <artifactId>seatunnel-connectors-seatunnel</artifactId>
 
     <modules>
+        <module>seatunnel-connector-seatunnel-common</module>
         <module>seatunnel-connector-seatunnel-console</module>
         <module>seatunnel-connector-seatunnel-fake</module>
         <module>seatunnel-connector-seatunnel-kafka</module>
@@ -41,5 +42,16 @@
         <module>seatunnel-connector-seatunnel-pulsar</module>
         <module>seatunnel-connector-seatunnel-hive</module>
     </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+        </dependency>
+    </dependencies>
 
 </project>
