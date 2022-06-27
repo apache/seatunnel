@@ -35,7 +35,7 @@ import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.DataSourceUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectorOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ThrowingRunnable;
 
 import org.slf4j.Logger;
@@ -74,14 +74,13 @@ public class XaFacadeImplAutoLoad
         new HashSet<>(Arrays.asList(XA_HEURRB, XA_HEURCOM, XA_HEURHAZ, XA_HEURMIX));
     private static final int MAX_RECOVER_CALLS = 100;
 
-    private final JdbcConnectorOptions jdbcConnectorOptions;
+    private final JdbcConnectionOptions jdbcConnectionOptions;
     private transient XAResource xaResource;
     private transient Connection connection;
     private transient XAConnection xaConnection;
 
-    XaFacadeImplAutoLoad(JdbcConnectorOptions jdbcConnectorOptions) {
-        checkState(jdbcConnectorOptions.isExactlyOnce(), "is_exactly_once config error");
-        this.jdbcConnectorOptions = jdbcConnectorOptions;
+    XaFacadeImplAutoLoad(JdbcConnectionOptions jdbcConnectionOptions) {
+        this.jdbcConnectionOptions = jdbcConnectionOptions;
     }
 
     @Override
@@ -89,16 +88,16 @@ public class XaFacadeImplAutoLoad
         checkState(!isOpen(), "already connected");
         XADataSource ds;
         try {
-            ds = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectorOptions);
+            ds = (XADataSource) DataSourceUtils.buildCommonDataSource(jdbcConnectionOptions);
         }
         catch (Exception e) {
             throw new SQLException(e);
         }
         xaConnection = ds.getXAConnection();
         xaResource = xaConnection.getXAResource();
-        if (jdbcConnectorOptions.getTransactionTimeoutSec().isPresent()) {
+        if (jdbcConnectionOptions.getTransactionTimeoutSec().isPresent()) {
             try {
-                xaResource.setTransactionTimeout(jdbcConnectorOptions.getTransactionTimeoutSec().get());
+                xaResource.setTransactionTimeout(jdbcConnectionOptions.getTransactionTimeoutSec().get());
             }
             catch (XAException e) {
                 throw new SQLException(e);
