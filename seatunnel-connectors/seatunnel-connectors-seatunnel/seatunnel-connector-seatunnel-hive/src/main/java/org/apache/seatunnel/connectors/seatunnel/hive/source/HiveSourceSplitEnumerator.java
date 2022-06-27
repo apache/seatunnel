@@ -37,12 +37,12 @@ public class HiveSourceSplitEnumerator implements SourceSplitEnumerator<HiveSour
     private Set<HiveSourceSplit> assignedSplit;
     private List<String> filePaths;
 
-    public HiveSourceSplitEnumerator(Context<HiveSourceSplit> context, List<String> filePaths) {
+    public HiveSourceSplitEnumerator(SourceSplitEnumerator.Context<HiveSourceSplit> context, List<String> filePaths) {
         this.context = context;
         this.filePaths = filePaths;
     }
 
-    public HiveSourceSplitEnumerator(Context<HiveSourceSplit> context, List<String> filePaths,
+    public HiveSourceSplitEnumerator(SourceSplitEnumerator.Context<HiveSourceSplit> context, List<String> filePaths,
                                      HiveSourceState sourceState) {
         this(context, filePaths);
         this.assignedSplit = sourceState.getAssignedSplit();
