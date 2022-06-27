@@ -139,11 +139,6 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
     }
 
     @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return seaTunnelContext;
-    }
-
-    @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
     }

@@ -33,6 +33,7 @@ public class ClickhouseSourceSplitEnumerator implements
     private final Set<Integer> readers;
     private volatile int assigned = -1;
 
+    // TODO support read distributed engine use multi split
     ClickhouseSourceSplitEnumerator(Context<ClickhouseSourceSplit> enumeratorContext) {
         this.context = enumeratorContext;
         this.readers = new HashSet<>();
