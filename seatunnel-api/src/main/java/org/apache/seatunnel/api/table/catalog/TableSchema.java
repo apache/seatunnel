@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Represent a physical table schema.
@@ -27,12 +31,15 @@ public final class TableSchema implements Serializable {
     private static final long serialVersionUID = 1L;
     private final List<Column> columns;
 
-    private TableSchema(List<Column> columns) {
+    private final PrimaryKey primaryKey;
+
+    private TableSchema(List<Column> columns, PrimaryKey primaryKey) {
         this.columns = columns;
+        this.primaryKey = primaryKey;
     }
 
-    public static TableSchema of(List<Column> columns) {
-        return new TableSchema(columns);
+    public static TableSchema.Builder builder() {
+        return new Builder();
     }
 
     /**
@@ -40,5 +47,86 @@ public final class TableSchema implements Serializable {
      */
     public List<Column> getColumns() {
         return columns;
+    }
+
+    public static final class Builder {
+        private final List<Column> columns = new ArrayList<>();
+
+        private PrimaryKey primaryKey;
+
+        public Builder columns(List<Column> columns) {
+            this.columns.addAll(columns);
+            return this;
+        }
+
+        public Builder column(Column column) {
+            this.columns.add(column);
+            return this;
+        }
+
+        public Builder physicalColumn(String name, SeaTunnelDataType<?> dataType) {
+            this.columns.add(Column.physical(name, dataType));
+            return this;
+        }
+
+        public Builder primaryKey(PrimaryKey primaryKey) {
+            this.primaryKey = primaryKey;
+            return this;
+        }
+
+        public Builder primaryKey(String constraintName, List<String> columnNames) {
+            this.primaryKey = PrimaryKey.of(constraintName, columnNames);
+            return this;
+        }
+
+        public TableSchema build() {
+            return new TableSchema(columns, primaryKey);
+        }
+    }
+
+    public static final class PrimaryKey implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final String constraintName;
+        private final List<String> columnNames;
+
+        private PrimaryKey(String constraintName, List<String> columnNames) {
+            this.constraintName = constraintName;
+            this.columnNames = columnNames;
+        }
+
+        public static PrimaryKey of(String constraintName, List<String> columnNames) {
+            return new PrimaryKey(constraintName, columnNames);
+        }
+
+        public String getConstraintName() {
+            return constraintName;
+        }
+
+        public List<String> getColumnNames() {
+            return columnNames;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("CONSTRAINT %s PRIMARY KEY (%s) NOT ENFORCED", constraintName, String.join(", ", columnNames));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            PrimaryKey that = (PrimaryKey) o;
+            return constraintName.equals(that.constraintName) && columnNames.equals(that.columnNames);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(constraintName, columnNames);
+        }
     }
 }
