@@ -26,8 +26,9 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveArrayType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import com.mysql.cj.MysqlType;
@@ -203,13 +204,13 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             case MEDIUMBLOB:
             case LONGBLOB:
             case GEOMETRY:
-                return PrimitiveArrayType.PRIMITIVE_BYTE_ARRAY_TYPE;
+                return PrimitiveByteArrayType.INSTANCE;
             case BIGINT_UNSIGNED:
             case DECIMAL:
             case DECIMAL_UNSIGNED:
                 int precision = metadata.getPrecision(colIndex);
                 int scale = metadata.getScale(colIndex);
-                return BasicType.BIG_DECIMAL_TYPE;
+                return new DecimalType(precision, scale);
                 // TODO: support 'SET' & 'YEAR' type
             default:
                 throw new UnsupportedOperationException(String.format("Doesn't support MySQL type '%s' yet", mysqlType.getName()));
