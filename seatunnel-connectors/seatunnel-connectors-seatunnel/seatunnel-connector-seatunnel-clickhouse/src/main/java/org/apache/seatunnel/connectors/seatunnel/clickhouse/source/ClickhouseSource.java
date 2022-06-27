@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SQL;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
@@ -65,11 +65,11 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, NODE_ADDRESS, DATABASE, SQL, USERNAME, PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST, DATABASE, SQL, USERNAME, PASSWORD);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        servers = ClickhouseUtil.createNodes(config.getString(NODE_ADDRESS), config.getString(DATABASE),
+        servers = ClickhouseUtil.createNodes(config.getString(HOST), config.getString(DATABASE),
                 config.getString(USERNAME), config.getString(PASSWORD));
 
         sql = config.getString(SQL);
