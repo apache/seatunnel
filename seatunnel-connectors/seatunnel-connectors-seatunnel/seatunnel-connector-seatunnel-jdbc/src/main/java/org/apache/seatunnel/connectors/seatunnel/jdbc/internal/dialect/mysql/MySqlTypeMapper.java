@@ -18,8 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveArrayType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
@@ -84,6 +85,7 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
     private static final String MYSQL_VARBINARY = "VARBINARY";
     private static final String MYSQL_GEOMETRY = "GEOMETRY";
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String mysqlType = metadata.getColumnTypeName(colIndex).toUpperCase();
@@ -107,10 +109,11 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_BIGINT:
                 return BasicType.LONG_TYPE;
             case MYSQL_BIGINT_UNSIGNED:
-                return BasicType.BIG_INT_TYPE;
+                return new DecimalType(20, 0);
             case MYSQL_DECIMAL:
+                return new DecimalType(precision, scale);
             case MYSQL_DECIMAL_UNSIGNED:
-                return BasicType.BIG_DECIMAL_TYPE;
+                return new DecimalType(precision + 1, scale);
             case MYSQL_FLOAT:
                 return BasicType.FLOAT_TYPE;
             case MYSQL_FLOAT_UNSIGNED:
@@ -145,15 +148,15 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
             case MYSQL_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
 
-            //Doesn't support binary yet
             case MYSQL_TINYBLOB:
             case MYSQL_MEDIUMBLOB:
             case MYSQL_BLOB:
             case MYSQL_LONGBLOB:
             case MYSQL_VARBINARY:
             case MYSQL_BINARY:
-                return PrimitiveArrayType.PRIMITIVE_BYTE_ARRAY_TYPE;
+                return PrimitiveByteArrayType.INSTANCE;
 
+            //Doesn't support yet
             case MYSQL_GEOMETRY:
             case MYSQL_UNKNOWN:
             default:
