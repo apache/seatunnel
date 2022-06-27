@@ -24,14 +24,14 @@ import static org.apache.seatunnel.flink.clickhouse.ConfigKey.PASSWORD;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.USERNAME;
 
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.clickhouse.pojo.DistributedEngine;
 import org.apache.seatunnel.flink.clickhouse.pojo.Shard;
 import org.apache.seatunnel.flink.clickhouse.sink.file.ClickhouseTable;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
 import ru.yandex.clickhouse.BalancedClickhouseDataSource;
 import ru.yandex.clickhouse.ClickHouseConnection;
 import ru.yandex.clickhouse.ClickHouseConnectionImpl;
@@ -191,7 +191,7 @@ public class ClickhouseClient {
             String engine = resultSet.getString(1);
             String createTableDDL = resultSet.getString(2);
             String engineFull = resultSet.getString(3);
-            List<String> dataPaths = JSON.parseObject(resultSet.getString(4).replaceAll("'", "\""), new TypeReference<List<String>>() {
+            List<String> dataPaths = JsonUtils.parseObject(resultSet.getString(4).replaceAll("'", "\""), new TypeReference<List<String>>() {
             });
             DistributedEngine distributedEngine = null;
             if ("Distributed".equals(engine)) {

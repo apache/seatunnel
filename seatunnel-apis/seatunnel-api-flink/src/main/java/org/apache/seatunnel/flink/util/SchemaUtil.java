@@ -22,8 +22,15 @@ import org.apache.seatunnel.flink.enums.FormatType;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
@@ -41,7 +48,7 @@ import org.apache.flink.types.Row;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -58,19 +65,19 @@ public final class SchemaUtil {
 
         switch (format) {
             case JSON:
-                getJsonSchema(schema, (JSONObject) info);
+                getJsonSchema(schema, (ObjectNode) info);
                 break;
             case CSV:
                 getCsvSchema(schema, (List<Map<String, String>>) info);
                 break;
             case ORC:
-                getOrcSchema(schema, (JSONObject) info);
+                getOrcSchema(schema, (ObjectNode) info);
                 break;
             case AVRO:
-                getAvroSchema(schema, (JSONObject) info);
+                getAvroSchema(schema, (ObjectNode) info);
                 break;
             case PARQUET:
-                getParquetSchema(schema, (JSONObject) info);
+                getParquetSchema(schema, (ObjectNode) info);
                 break;
             default:
         }
@@ -110,25 +117,30 @@ public final class SchemaUtil {
         return formatDescriptor;
     }
 
-    private static void getJsonSchema(Schema schema, JSONObject json) {
-
-        for (Map.Entry<String, Object> entry : json.entrySet()) {
+    private static void getJsonSchema(Schema schema, ObjectNode json) {
+        Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
+        while (nodeIterator.hasNext()) {
+            Map.Entry<String, JsonNode> entry = nodeIterator.next();
             String key = entry.getKey();
             Object value = entry.getValue();
-            if (value instanceof String) {
+            if (value instanceof TextNode) {
                 schema.field(key, Types.STRING());
-            } else if (value instanceof Integer) {
+            } else if (value instanceof IntNode) {
                 schema.field(key, Types.INT());
-            } else if (value instanceof Long) {
+            } else if (value instanceof LongNode) {
                 schema.field(key, Types.LONG());
-            } else if (value instanceof BigDecimal) {
+            } else if (value instanceof DecimalNode) {
                 schema.field(key, Types.JAVA_BIG_DEC());
-            } else if (value instanceof JSONObject) {
-                schema.field(key, getTypeInformation((JSONObject) value));
-            } else if (value instanceof JSONArray) {
-                Object obj = ((JSONArray) value).get(0);
-                if (obj instanceof JSONObject) {
-                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation((JSONObject) obj)));
+            } else if (value instanceof FloatNode) {
+                schema.field(key,  Types.FLOAT());
+            } else if (value instanceof DoubleNode) {
+                schema.field(key, Types.DOUBLE());
+            } else if (value instanceof ObjectNode) {
+                schema.field(key, getTypeInformation((ObjectNode) value));
+            } else if (value instanceof ArrayNode) {
+                Object obj = ((ArrayNode) value).get(0);
+                if (obj instanceof ObjectNode) {
+                    schema.field(key, ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation((ObjectNode) obj)));
                 } else {
                     schema.field(key, ObjectArrayTypeInfo.getInfoFor(Object[].class, TypeInformation.of(Object.class)));
                 }
@@ -161,7 +173,7 @@ public final class SchemaUtil {
      * @param schema schema
      * @param json   json
      */
-    private static void getOrcSchema(Schema schema, JSONObject json) {
+    private static void getOrcSchema(Schema schema, ObjectNode json) {
 
     }
 
@@ -171,11 +183,11 @@ public final class SchemaUtil {
      * @param schema schema
      * @param json   json
      */
-    private static void getParquetSchema(Schema schema, JSONObject json) {
+    private static void getParquetSchema(Schema schema, ObjectNode json) {
 
     }
 
-    private static void getAvroSchema(Schema schema, JSONObject json) {
+    private static void getAvroSchema(Schema schema, ObjectNode json) {
         RowTypeInfo typeInfo = (RowTypeInfo) AvroSchemaConverter.<Row>convertToTypeInfo(json.toString());
         String[] fieldNames = typeInfo.getFieldNames();
         for (String name : fieldNames) {
@@ -183,27 +195,33 @@ public final class SchemaUtil {
         }
     }
 
-    public static RowTypeInfo getTypeInformation(JSONObject json) {
+    public static RowTypeInfo getTypeInformation(ObjectNode json) {
         int size = json.size();
         String[] fields = new String[size];
         TypeInformation<?>[] informations = new TypeInformation[size];
         int i = 0;
-        for (Map.Entry<String, Object> entry : json.entrySet()) {
+        Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
+        while (nodeIterator.hasNext()) {
+            Map.Entry<String, JsonNode> entry = nodeIterator.next();
             String key = entry.getKey();
             Object value = entry.getValue();
             fields[i] = key;
-            if (value instanceof String) {
+            if (value instanceof TextNode) {
                 informations[i] = Types.STRING();
-            } else if (value instanceof Integer) {
+            } else if (value instanceof IntNode) {
                 informations[i] = Types.INT();
-            } else if (value instanceof Long) {
+            } else if (value instanceof LongNode) {
                 informations[i] = Types.LONG();
-            } else if (value instanceof BigDecimal) {
+            } else if (value instanceof DecimalNode) {
                 informations[i] = Types.JAVA_BIG_DEC();
-            } else if (value instanceof JSONObject) {
-                informations[i] = getTypeInformation((JSONObject) value);
-            } else if (value instanceof JSONArray) {
-                JSONObject demo = ((JSONArray) value).getJSONObject(0);
+            } else if (value instanceof FloatNode) {
+                informations[i] = Types.FLOAT();
+            } else if (value instanceof DoubleNode) {
+                informations[i] = Types.DOUBLE();
+            } else if (value instanceof ObjectNode) {
+                informations[i] = getTypeInformation((ObjectNode) value);
+            } else if (value instanceof ArrayNode) {
+                ObjectNode demo = (ObjectNode) ((ArrayNode) value).get(0);
                 informations[i] = ObjectArrayTypeInfo.getInfoFor(Row[].class, getTypeInformation(demo));
             }
             i++;
