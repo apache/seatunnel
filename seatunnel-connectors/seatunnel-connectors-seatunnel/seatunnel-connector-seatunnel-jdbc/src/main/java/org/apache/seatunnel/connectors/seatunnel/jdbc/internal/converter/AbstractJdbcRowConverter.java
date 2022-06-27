@@ -18,12 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveArrayType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -58,27 +61,26 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 seatunnelField = rs.getShort(i);
             } else if (BasicType.INT_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getInt(i);
-            } else if (BasicType.BIG_INT_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getObject(i);
             } else if (BasicType.LONG_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getLong(i);
-            } else if (BasicType.BIG_DECIMAL_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getBigDecimal(i);
+            } else if (seaTunnelDataType instanceof DecimalType) {
+                Object value = rs.getObject(i);
+                seatunnelField = value instanceof BigInteger ?
+                    new BigDecimal((BigInteger) value, 0)
+                    : value;
             } else if (BasicType.FLOAT_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getFloat(i);
             } else if (BasicType.DOUBLE_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getDouble(i);
             } else if (BasicType.STRING_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getString(i);
-            } else if (BasicType.DATE_TYPE.equals(seaTunnelDataType)) {
-                seatunnelField = rs.getObject(i);
             } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getTime(i).toLocalTime();
             } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getDate(i).toLocalDate();
             } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getTimestamp(i).toLocalDateTime();
-            } else if (PrimitiveArrayType.PRIMITIVE_BYTE_ARRAY_TYPE.equals(seaTunnelDataType)) {
+            } else if (PrimitiveByteArrayType.INSTANCE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getBytes(i);
             } else {
                 throw new IllegalStateException("Unexpected value: " + seaTunnelDataType);
