@@ -40,10 +40,9 @@ public class HiveSourceReader implements SourceReader<SeaTunnelRow, HiveSourceSp
 
     private Set<HiveSourceSplit> sourceSplits;
 
-
     private final Context context;
 
-    public HiveSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, Context context) {
+    public HiveSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
         this.readStrategy = readStrategy;
         this.hadoopConf = hadoopConf;
         this.context = context;
