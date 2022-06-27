@@ -23,6 +23,7 @@ import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -92,11 +93,6 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
     }
 
     @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return this.seaTunnelContext;
-    }
-
-    @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
     }
@@ -109,6 +105,11 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
     @Override
     public SourceReader<SeaTunnelRow, HiveSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
         return new HiveSourceReader(this.readStrategy, this.hadoopConf, readerContext);
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
     }
 
     @Override
