@@ -24,7 +24,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -58,7 +57,6 @@ import java.util.stream.Collectors;
 @AutoService(SeaTunnelSource.class)
 public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
 
-    private SeaTunnelContext seaTunnelContext;
     private List<ClickHouseNode> servers;
     private SeaTunnelRowType rowTypeInfo;
     private String sql;
@@ -139,13 +137,4 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
         return new DefaultSerializer<>();
     }
 
-    @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return seaTunnelContext;
-    }
-
-    @Override
-    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        this.seaTunnelContext = seaTunnelContext;
-    }
 }
