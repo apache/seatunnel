@@ -15,9 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.fake.state;
+package org.apache.seatunnel.connectors.seatunnel.common.source;
 
-import java.io.Serializable;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-public class FakeState implements Serializable {
+public class SingleSplit implements SourceSplit {
+    private final byte[] state;
+
+    public SingleSplit(byte[] state) {
+        this.state = state;
+    }
+
+    public byte[] getState() {
+        return state;
+    }
+
+    @Override
+    public String splitId() {
+        return "single";
+    }
 }

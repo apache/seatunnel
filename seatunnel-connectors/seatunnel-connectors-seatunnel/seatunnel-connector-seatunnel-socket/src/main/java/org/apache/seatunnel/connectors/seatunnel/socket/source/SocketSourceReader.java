@@ -19,8 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,16 +31,16 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.List;
 
-public class SocketSourceReader implements SourceReader<SeaTunnelRow, SocketSourceSplit> {
+public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final Logger LOGGER = LoggerFactory.getLogger(SocketSourceReader.class);
     private static final int CHAR_BUFFER_SIZE = 8192;
     private final SocketSourceParameter parameter;
-    private final SourceReader.Context context;
+    private final SingleSplitReaderContext context;
     private Socket socket;
     private String delimiter = "\n";
-    SocketSourceReader(SocketSourceParameter parameter, SourceReader.Context context) {
+
+    SocketSourceReader(SocketSourceParameter parameter, SingleSplitReaderContext context) {
         this.parameter = parameter;
         this.context = context;
     }
@@ -86,25 +87,5 @@ public class SocketSourceReader implements SourceReader<SeaTunnelRow, SocketSour
         if (buffer.length() > 0) {
             output.collect(new SeaTunnelRow(new Object[]{buffer.toString()}));
         }
-    }
-
-    @Override
-    public List<SocketSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
-    }
-
-    @Override
-    public void addSplits(List<SocketSourceSplit> splits) {
-
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
     }
 }

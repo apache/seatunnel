@@ -127,11 +127,6 @@ public class JdbcSink
     }
 
     @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return seaTunnelContext;
-    }
-
-    @Override
     public Optional<Serializer<JdbcAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }

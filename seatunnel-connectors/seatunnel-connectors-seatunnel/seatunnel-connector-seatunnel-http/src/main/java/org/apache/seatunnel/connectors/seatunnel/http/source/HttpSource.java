@@ -26,19 +26,19 @@ import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.URL;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.http.state.HttpState;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -48,13 +48,19 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @AutoService(SeaTunnelSource.class)
-public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit, HttpState> {
+public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final HttpSourceParameter parameter = new HttpSourceParameter();
     private SeaTunnelRowType rowType;
     private SeaTunnelContext seaTunnelContext;
+
     @Override
     public String getPluginName() {
         return "Http";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return JobMode.BATCH.equals(seaTunnelContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -87,11 +93,6 @@ public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit
     }
 
     @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return this.seaTunnelContext;
-    }
-
-    @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
     }
@@ -102,22 +103,7 @@ public class HttpSource implements SeaTunnelSource<SeaTunnelRow, HttpSourceSplit
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, HttpSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new HttpSourceReader(this.parameter, readerContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<HttpSourceSplit, HttpState> createEnumerator(SourceSplitEnumerator.Context<HttpSourceSplit> enumeratorContext) throws Exception {
-        return new HttpSourceSplitEnumerator(enumeratorContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<HttpSourceSplit, HttpState> restoreEnumerator(SourceSplitEnumerator.Context<HttpSourceSplit> enumeratorContext, HttpState checkpointState) throws Exception {
-        return new HttpSourceSplitEnumerator(enumeratorContext, checkpointState);
-    }
-
-    @Override
-    public Serializer<HttpState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
     }
 }

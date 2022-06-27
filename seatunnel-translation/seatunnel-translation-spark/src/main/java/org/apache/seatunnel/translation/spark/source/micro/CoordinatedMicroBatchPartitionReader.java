@@ -130,7 +130,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         @Override
         protected void handleNoMoreElement(int subtaskId) {
             super.handleNoMoreElement(subtaskId);
-            if (completedReader.incrementAndGet() == this.parallelism) {
+            if (!this.running) {
                 CoordinatedMicroBatchPartitionReader.this.running = false;
             }
         }
