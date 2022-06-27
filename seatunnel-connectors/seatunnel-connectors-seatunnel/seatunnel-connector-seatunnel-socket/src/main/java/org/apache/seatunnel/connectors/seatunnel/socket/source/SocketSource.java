@@ -19,16 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.socket.state.SocketState;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigBeanFactory;
@@ -36,9 +36,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigBeanFactory;
 import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
-public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceSplit, SocketState> {
+public class SocketSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private SocketSourceParameter parameter;
     private SeaTunnelContext seaTunnelContext;
+
+    @Override
+    public Boundedness getBoundedness() {
+        return JobMode.BATCH.equals(seaTunnelContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+    }
+
     @Override
     public String getPluginName() {
         return "Socket";
@@ -47,11 +53,6 @@ public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceS
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.parameter = ConfigBeanFactory.create(pluginConfig, SocketSourceParameter.class);
-    }
-
-    @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return this.seaTunnelContext;
     }
 
     @Override
@@ -65,22 +66,7 @@ public class SocketSource implements SeaTunnelSource<SeaTunnelRow, SocketSourceS
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, SocketSourceSplit> createReader(SourceReader.Context readerContext) throws Exception {
+    public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
         return new SocketSourceReader(this.parameter, readerContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<SocketSourceSplit, SocketState> createEnumerator(SourceSplitEnumerator.Context<SocketSourceSplit> enumeratorContext) throws Exception {
-        return new SocketSourceSplitEnumerator(enumeratorContext);
-    }
-
-    @Override
-    public SourceSplitEnumerator<SocketSourceSplit, SocketState> restoreEnumerator(SourceSplitEnumerator.Context<SocketSourceSplit> enumeratorContext, SocketState checkpointState) throws Exception {
-        return null;
-    }
-
-    @Override
-    public Serializer<SocketState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
     }
 }
