@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectorOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.options.JdbcConnectionOptions;
 
 import lombok.NonNull;
 import org.slf4j.Logger;
@@ -43,7 +43,7 @@ public class SimpleJdbcConnectionProvider
 
     private static final long serialVersionUID = 1L;
 
-    private final JdbcConnectorOptions jdbcOptions;
+    private final JdbcConnectionOptions jdbcOptions;
 
     private transient Driver loadedDriver;
     private transient Connection connection;
@@ -60,7 +60,7 @@ public class SimpleJdbcConnectionProvider
         DriverManager.getDrivers();
     }
 
-    public SimpleJdbcConnectionProvider(@NonNull JdbcConnectorOptions jdbcOptions) {
+    public SimpleJdbcConnectionProvider(@NonNull JdbcConnectionOptions jdbcOptions) {
         this.jdbcOptions = jdbcOptions;
     }
 

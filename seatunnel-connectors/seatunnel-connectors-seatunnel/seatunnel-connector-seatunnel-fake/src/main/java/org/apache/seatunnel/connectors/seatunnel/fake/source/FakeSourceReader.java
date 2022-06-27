@@ -37,7 +37,6 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
 
     private final String[] names = {"Wenjun", "Fanjia", "Zongwen", "CalvinKirs"};
     private final int[] ages = {11, 22, 33, 44};
-    private final Random random = ThreadLocalRandom.current();
 
     public FakeSourceReader(SourceReader.Context context) {
         this.context = context;
@@ -57,7 +56,8 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         // Generate a random number of rows to emit.
-        int size = random.nextInt(10);
+        Random random = ThreadLocalRandom.current();
+        int size = random.nextInt(10) + 1;
         for (int i = 0; i < size; i++) {
             int randomIndex = random.nextInt(names.length);
             SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[randomIndex], ages[randomIndex], System.currentTimeMillis()});
