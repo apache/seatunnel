@@ -18,7 +18,6 @@
 package org.apache.seatunnel.spark.transform
 
 import java.sql.Timestamp
-import java.util
 
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.CheckResult
@@ -28,6 +27,8 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{BooleanType, DataType, DateType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, TimestampType}
 import org.apache.spark.sql.{Dataset, Row}
 
+import scala.collection.JavaConversions._
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Buffer, HashMap}
 
 class Nulltf extends BaseSparkTransform {
@@ -35,23 +36,18 @@ class Nulltf extends BaseSparkTransform {
 
   override def process(df: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
 
-    var keys = config.getStringList(FIELDS)
-    if (keys == null) keys = new util.ArrayList[String]()
-
-    var fieldNameDefault = new HashMap[String, String]()
-    for (i <- 0 until keys.size()) {
-      val key = keys.get(i)
-      if (key.contains("=")) {
-        val firstIndex = key.indexOf("=")
-        fieldNameDefault += (key.substring(0, firstIndex) -> key.substring(firstIndex + 1))
-      } else fieldNameDefault += (key -> null)
+    var fieldNameDefault = new mutable.HashMap[String, String]()
+    if (!config.getConfig(FIELDS).isEmpty){
+      config.getConfig(FIELDS).entrySet().foreach(kv =>{
+        fieldNameDefault += (kv.getKey -> kv.getValue.unwrapped().toString)
+      })
     }
 
     df.mapPartitions(iter => {
       var result = ArrayBuffer[Row]()
       while (iter.hasNext) {
         val row = iter.next()
-        val fieldSeq = Buffer[Any]()
+        val fieldSeq = mutable.Buffer[Any]()
         for (i <- 0 until row.size) {
           val newField = if (row.isNullAt(i)) {
             val fieldName = row.schema.fields.apply(i).name

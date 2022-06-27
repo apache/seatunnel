@@ -19,8 +19,7 @@ This transform only supported by engine Spark.
 ### fields [list]
 
 A list of fields whose default value will be set. 
-The default value of the field can be set in the form of "=value" after the field name. 
-If there is no "=value" after the field name, the default value will be set according to the field type.
+The default value of the field can be set in the form of "field:value", If no set, the default value will be set according to the field type.
 
 ## Examples
 
@@ -28,7 +27,14 @@ the configuration
 
 ```bash
   nulltf {
-      fields = ["name","price=0","num=100","flag","dt_timestamp=2022-05-18 13:51:40.603","dt_date=2022-05-19"]
+      fields {
+          name: "",
+          price: 0,
+          num: 100,
+          flag: false,
+          dt_timestamp: "2022-05-18 13:51:40.603",
+          dt_date: "2022-05-19"
+      }
   }
 ```
 
