@@ -21,8 +21,9 @@ import static org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 
@@ -30,17 +31,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Objects;
 
-public class HttpSourceReader implements SourceReader<SeaTunnelRow, HttpSourceSplit> {
+public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSourceReader.class);
-    private final SourceReader.Context context;
+    private final SingleSplitReaderContext context;
     private final HttpSourceParameter parameter;
     private HttpClientProvider httpClient;
 
-    public HttpSourceReader(HttpSourceParameter parameter, SourceReader.Context context) {
+    public HttpSourceReader(HttpSourceParameter parameter, SingleSplitReaderContext context) {
         this.context = context;
         this.parameter = parameter;
     }
@@ -75,25 +75,5 @@ public class HttpSourceReader implements SourceReader<SeaTunnelRow, HttpSourceSp
                 context.signalNoMoreElement();
             }
         }
-    }
-
-    @Override
-    public List<HttpSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return null;
-    }
-
-    @Override
-    public void addSplits(List<HttpSourceSplit> splits) {
-
-    }
-
-    @Override
-    public void handleNoMoreSplits() {
-
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
     }
 }

@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.source;
+package org.apache.seatunnel.connectors.seatunnel.common.source;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SourceReader;
 
-public class HttpSourceSplit implements SourceSplit {
+public class SingleSplitReaderContext {
+    private final SourceReader.Context context;
 
-    private final String splitId;
-
-    public HttpSourceSplit(String splitId) {
-        this.splitId = splitId;
+    public SingleSplitReaderContext(SourceReader.Context context) {
+        this.context = context;
     }
 
-    @Override
-    public String splitId() {
-        return this.splitId;
+    public Boundedness getBoundedness() {
+        return context.getBoundedness();
+    }
+
+    public void signalNoMoreElement() {
+        context.signalNoMoreElement();
     }
 }

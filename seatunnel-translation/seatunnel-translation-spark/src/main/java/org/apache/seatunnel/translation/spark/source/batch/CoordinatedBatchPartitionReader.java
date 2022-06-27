@@ -89,7 +89,7 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
         @Override
         protected void handleNoMoreElement(int subtaskId) {
             super.handleNoMoreElement(subtaskId);
-            if (completedReader.incrementAndGet() == this.parallelism) {
+            if (!this.running) {
                 CoordinatedBatchPartitionReader.this.running = false;
             }
         }

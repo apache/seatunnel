@@ -15,39 +15,56 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.socket.source;
+package org.apache.seatunnel.connectors.seatunnel.common.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.socket.state.SocketState;
 
 import java.io.IOException;
 import java.util.List;
 
-public class SocketSourceSplitEnumerator implements SourceSplitEnumerator<SocketSourceSplit, SocketState> {
+public class SingleSplitEnumerator implements SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> {
+    protected final SourceSplitEnumerator.Context<SingleSplit> context;
+    protected SingleSplit pendingSplit;
+    protected volatile boolean assigned = false;
 
-    private final SourceSplitEnumerator.Context<SocketSourceSplit> enumeratorContext;
-
-    public SocketSourceSplitEnumerator(SourceSplitEnumerator.Context<SocketSourceSplit> enumeratorContext) {
-        this.enumeratorContext = enumeratorContext;
+    public SingleSplitEnumerator(SourceSplitEnumerator.Context<SingleSplit> context) {
+        this.context = context;
     }
 
     @Override
     public void open() {
+        // nothing
     }
 
     @Override
     public void run() throws Exception {
+        if (assigned || pendingSplit != null) {
+            return;
+        }
 
+        pendingSplit = new SingleSplit(null);
+        assignSplit();
     }
 
     @Override
     public void close() throws IOException {
-
+        // nothing
     }
 
     @Override
-    public void addSplitsBack(List<SocketSourceSplit> splits, int subtaskId) {
+    public void addSplitsBack(List<SingleSplit> splits, int subtaskId) {
+        pendingSplit = splits.get(0);
+        assignSplit();
+    }
 
+    protected void assignSplit() {
+        if (assigned || pendingSplit == null) {
+            return;
+        }
+        if (context.registeredReaders().contains(0)) {
+            context.assignSplit(0, pendingSplit);
+            assigned = true;
+        }
     }
 
     @Override
@@ -57,21 +74,21 @@ public class SocketSourceSplitEnumerator implements SourceSplitEnumerator<Socket
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-
+        // nothing
     }
 
     @Override
     public void registerReader(int subtaskId) {
-
+        assignSplit();
     }
 
     @Override
-    public SocketState snapshotState(long checkpointId) throws Exception {
-        return null;
+    public SingleSplitEnumeratorState snapshotState(long checkpointId) throws Exception {
+        return new SingleSplitEnumeratorState();
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
+        // nothing
     }
 }
