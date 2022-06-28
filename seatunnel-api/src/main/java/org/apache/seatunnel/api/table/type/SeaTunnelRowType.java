@@ -76,6 +76,15 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
         return fieldTypes[index];
     }
 
+    public int indexOf(String fieldName) {
+        for (int i = 0; i < fieldNames.length; i++) {
+            if (fieldNames[i].equals(fieldName)) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException(String.format("can't find field %s", fieldName));
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {

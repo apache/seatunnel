@@ -46,8 +46,6 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.types.Row;
 import ru.yandex.clickhouse.ClickHouseConnection;
 
-import javax.annotation.Nullable;
-
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,7 +71,6 @@ public class ClickhouseBatchSink implements FlinkBatchSink {
         return config;
     }
 
-    @Nullable
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> dataSet) {
         ClickhouseOutputFormat clickhouseOutputFormat = new ClickhouseOutputFormat(config, shardMetadata, fields, tableSchema);
