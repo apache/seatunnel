@@ -144,8 +144,8 @@ public abstract class FlinkContainer {
 
         // copy connectors
         File jars = new File(PROJECT_ROOT_PATH +
-            "/seatunnel-connectors/seatunnel-connectors-seatunnel-dist/target/lib");
-        Arrays.stream(Objects.requireNonNull(jars.listFiles(f -> f.getName().startsWith("seatunnel-connector-seatunnel"))))
+            "/seatunnel-connectors-v2-dist/target/lib");
+        Arrays.stream(Objects.requireNonNull(jars.listFiles(f -> f.getName().startsWith("connector-"))))
             .forEach(jar ->
                 jobManager.copyFileToContainer(
                     MountableFile.forHostPath(jar.getAbsolutePath()),
@@ -153,7 +153,7 @@ public abstract class FlinkContainer {
 
         // copy plugin-mapping.properties
         jobManager.copyFileToContainer(
-            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-connectors/plugin-mapping.properties"),
+            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
             Paths.get(SEATUNNEL_CONNECTORS, PLUGIN_MAPPING_FILE).toString());
     }
 

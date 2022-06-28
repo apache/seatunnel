@@ -17,24 +17,42 @@
     limitations under the License.
 
 -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel</artifactId>
+        <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
-    <artifactId>seatunnel-connectors</artifactId>
     <packaging>pom</packaging>
 
+    <artifactId>seatunnel-connectors-v2</artifactId>
+
     <modules>
-        <module>seatunnel-connectors-flink</module>
-        <module>seatunnel-connectors-flink-dist</module>
-        <module>seatunnel-connectors-spark</module>
-        <module>seatunnel-connectors-spark-dist</module>
+        <module>connector-common</module>
+        <module>connector-clickhouse</module>
+        <module>connector-console</module>
+        <module>connector-fake</module>
+        <module>connector-hive</module>
+        <module>connector-http</module>
+        <module>connector-jdbc</module>
+        <module>connector-kafka</module>
+        <module>connector-pulsar</module>
+        <module>connector-socket</module>
     </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+        </dependency>
+    </dependencies>
 
 </project>
