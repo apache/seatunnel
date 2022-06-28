@@ -67,7 +67,7 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
     private final Map<Shard, List<String>> shardLocalDataPaths;
     private final Map<Shard, List<SeaTunnelRow>> rowCache;
 
-    public ClickhouseFileSinkWriter(FileReaderOption readerOption, Context context) {
+    public ClickhouseFileSinkWriter(FileReaderOption readerOption, SinkWriter.Context context) {
         this.readerOption = readerOption;
         proxy = new ClickhouseProxy(this.readerOption.getShardMetadata().getDefaultShard().getNode());
         shardRouter = new ShardRouter(proxy, this.readerOption.getShardMetadata());
