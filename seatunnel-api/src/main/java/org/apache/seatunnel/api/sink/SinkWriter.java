@@ -74,7 +74,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
      */
     void close() throws IOException;
 
-    interface Context {
+    interface Context extends Serializable{
 
         /**
          * Gets the configuration with which Job was started.
