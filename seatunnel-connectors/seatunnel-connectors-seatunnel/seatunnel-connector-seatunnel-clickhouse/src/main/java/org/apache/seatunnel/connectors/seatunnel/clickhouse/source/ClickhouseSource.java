@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SQL;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
@@ -37,22 +37,19 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseCredentials;
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseFormat;
 import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseProtocol;
 import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @AutoService(SeaTunnelSource.class)
 public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
@@ -68,17 +65,12 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(config, NODE_ADDRESS, DATABASE, SQL, USERNAME, PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST, DATABASE, SQL, USERNAME, PASSWORD);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        servers = Arrays.stream(config.getString(NODE_ADDRESS).split(",")).map(address -> {
-            String[] nodeAndPort = address.split(":", 2);
-            return ClickHouseNode.builder().host(nodeAndPort[0]).port(ClickHouseProtocol.HTTP,
-                            Integer.parseInt(nodeAndPort[1])).database(config.getString(DATABASE))
-                    .credentials(ClickHouseCredentials.fromUserAndPassword(config.getString(USERNAME),
-                            config.getString(PASSWORD))).build();
-        }).collect(Collectors.toList());
+        servers = ClickhouseUtil.createNodes(config.getString(HOST), config.getString(DATABASE),
+                config.getString(USERNAME), config.getString(PASSWORD));
 
         sql = config.getString(SQL);
         try (ClickHouseClient client = ClickHouseClient.newInstance(servers.get(0).getProtocol());
