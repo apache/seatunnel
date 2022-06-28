@@ -62,14 +62,14 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         return pluginIdentifiers.stream()
             .map(this::getPluginJarPath)
             .filter(Optional::isPresent)
-            .map(Optional::get)
+            .map(Optional::get).distinct()
             .collect(Collectors.toList());
     }
 
     @Override
     public List<T> getAllPlugins(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-            .map(this::getPluginInstance)
+            .map(this::getPluginInstance).distinct()
             .collect(Collectors.toList());
     }
 
