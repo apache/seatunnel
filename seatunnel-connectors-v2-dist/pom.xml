@@ -21,58 +21,58 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel-connectors</artifactId>
+        <artifactId>seatunnel</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-connectors-seatunnel-dist</artifactId>
+    <artifactId>seatunnel-connectors-v2-dist</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-fake</artifactId>
+            <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-console</artifactId>
+            <artifactId>connector-console</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-kafka</artifactId>
+            <artifactId>connector-kafka</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-http</artifactId>
+            <artifactId>connector-http</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-jdbc</artifactId>
+            <artifactId>connector-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-socket</artifactId>
+            <artifactId>connector-socket</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-clickhouse</artifactId>
+            <artifactId>connector-clickhouse</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-pulsar</artifactId>
+            <artifactId>connector-pulsar</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connector-seatunnel-hive</artifactId>
+            <artifactId>connector-hive</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

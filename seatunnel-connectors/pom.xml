@@ -35,8 +35,6 @@
         <module>seatunnel-connectors-flink-dist</module>
         <module>seatunnel-connectors-spark</module>
         <module>seatunnel-connectors-spark-dist</module>
-        <module>seatunnel-connectors-seatunnel</module>
-        <module>seatunnel-connectors-seatunnel-dist</module>
     </modules>
 
 </project>
