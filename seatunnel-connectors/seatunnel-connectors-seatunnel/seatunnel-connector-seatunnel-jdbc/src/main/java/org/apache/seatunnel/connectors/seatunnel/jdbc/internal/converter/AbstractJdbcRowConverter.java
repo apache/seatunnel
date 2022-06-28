@@ -53,7 +53,10 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
         for (int i = 1; i <= seaTunnelDataTypes.length; i++) {
             Object seatunnelField;
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i - 1];
-            if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
+            if (null == rs.getObject(i)) {
+                seatunnelField = null;
+            }
+            else if (BasicType.BOOLEAN_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getBoolean(i);
             } else if (BasicType.BYTE_TYPE.equals(seaTunnelDataType)) {
                 seatunnelField = rs.getByte(i);
