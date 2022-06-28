@@ -94,7 +94,9 @@ commons-daemon-1.0.13.jar
 commons-dbcp2-2.0.1.jar
 commons-digester-1.8.1.jar
 commons-email-1.5.jar
-commons-io-2.8.0.jar
+commons-io-2.11.0.jar
+commons-io-2.4.jar
+commons-io-2.5.jar
 commons-lang-2.6.jar
 commons-lang3-3.4.jar
 commons-logging-1.1.3.jar
