@@ -34,9 +34,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-public class SSHUtil implements Closeable {
+public class SshUtil implements Closeable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SSHUtil.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SshUtil.class);
 
     private static final int DEFAULT_PORT = 22;
 
@@ -56,7 +56,7 @@ public class SSHUtil implements Closeable {
 
     private SCPFileTransfer scpFileTransfer;
 
-    private SSHUtil(String host, int port, String username, String pasword) {
+    private SshUtil(String host, int port, String username, String pasword) {
         this.host = host;
         this.port = port;
         this.username = username;
@@ -64,12 +64,12 @@ public class SSHUtil implements Closeable {
         this.init();
     }
 
-    public static SSHUtil createInstance(String host, String username, String pasword) {
-        return new SSHUtil(host, DEFAULT_PORT, username, pasword);
+    public static SshUtil createInstance(String host, String username, String pasword) {
+        return new SshUtil(host, DEFAULT_PORT, username, pasword);
     }
 
-    public static SSHUtil createInstance(String host, int port, String username, String pasword) {
-        return new SSHUtil(host, port, username, pasword);
+    public static SshUtil createInstance(String host, int port, String username, String pasword) {
+        return new SshUtil(host, port, username, pasword);
     }
 
     private void init() {
