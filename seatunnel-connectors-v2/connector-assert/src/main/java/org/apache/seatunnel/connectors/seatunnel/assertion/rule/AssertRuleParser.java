@@ -35,9 +35,14 @@ public class AssertRuleParser {
             .map(config -> {
                 AssertFieldRule fieldRule = new AssertFieldRule();
                 fieldRule.setFieldName(config.getString("field_name"));
-                fieldRule.setFieldType(getFieldType(config.getString("field_type")));
-                List<AssertFieldRule.AssertValueRule> fieldValueRules = assembleFieldValueRules(config.getConfigList("field_value"));
-                fieldRule.setFieldValueRules(fieldValueRules);
+                if (config.hasPath("field_type")) {
+                    fieldRule.setFieldType(getFieldType(config.getString("field_type")));
+                }
+
+                if (config.hasPath("field_value")) {
+                    List<AssertFieldRule.AssertValueRule> fieldValueRules = assembleFieldValueRules(config.getConfigList("field_value"));
+                    fieldRule.setFieldValueRules(fieldValueRules);
+                }
                 return fieldRule;
             })
             .collect(Collectors.toList());

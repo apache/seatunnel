@@ -60,7 +60,6 @@ public class AssertRuleParserTest extends TestCase {
             "            ]\n" +
             "        },{\n" +
             "            field_name = age\n" +
-            "            field_type = int\n" +
             "            field_value = [\n" +
             "                {\n" +
             "                    rule_type = NOT_NULL\n" +
