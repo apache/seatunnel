@@ -20,6 +20,9 @@ SET NAMES utf8mb4;
 
 DELETE FROM t_st_user;
 
+/**
+* default username: admin, password: seatunnel123
+***/
 INSERT INTO `t_st_user` (`id`, `username`, `password`, `salt`, `type`, `email`, `status`, `creator_id`, `create_time`, `mender_id`, `update_time`)
 VALUES
 ('1', 'admin', 'a10176d406e81874d3a9f69e261b4052', 'HVorcWmUKu6dfBQzJvHwEJW9KaKe0JFo', '1', '100@163.com', '1', '1', '2022-06-29 11:17:06', NULL, NULL);
