@@ -1,0 +1,192 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.seatunnel.admin.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
+
+/**
+ * <p>
+ * 服务主机信息表
+ * </p>
+ *
+ * @author quanzhian
+ * @since 2022-06-28
+ */
+@TableName("t_st_host")
+@ApiModel(value = "StHost对象", description = "服务主机信息表")
+public class StHost implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @ApiModelProperty("主键ID")
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
+
+    @ApiModelProperty("名称")
+    private String name;
+
+    @ApiModelProperty("描述")
+    private String description;
+
+    @ApiModelProperty("主机IP")
+    private String host;
+
+    @ApiModelProperty("主机端口")
+    private String hostPort;
+
+    @ApiModelProperty("主机用户")
+    private String hostUser;
+
+    @ApiModelProperty("主机用户密码")
+    private String hostUserPwd;
+
+    @ApiModelProperty("根目录")
+    private String rootDir;
+
+    @ApiModelProperty("状态: 1->有效、2->无效")
+    private Integer status;
+
+    @ApiModelProperty("创建人ID")
+    private Integer creatorId;
+
+    @ApiModelProperty("创建时间")
+    @TableField(fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
+
+    @ApiModelProperty("修改人ID")
+    private Integer menderId;
+
+    @ApiModelProperty("修改时间")
+    @TableField(fill = FieldFill.UPDATE)
+    private LocalDateTime updateTime;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
+    public String getHostPort() {
+        return hostPort;
+    }
+
+    public void setHostPort(String hostPort) {
+        this.hostPort = hostPort;
+    }
+    public String getHostUser() {
+        return hostUser;
+    }
+
+    public void setHostUser(String hostUser) {
+        this.hostUser = hostUser;
+    }
+    public String getHostUserPwd() {
+        return hostUserPwd;
+    }
+
+    public void setHostUserPwd(String hostUserPwd) {
+        this.hostUserPwd = hostUserPwd;
+    }
+    public String getRootDir() {
+        return rootDir;
+    }
+
+    public void setRootDir(String rootDir) {
+        this.rootDir = rootDir;
+    }
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+    public Integer getCreatorId() {
+        return creatorId;
+    }
+
+    public void setCreatorId(Integer creatorId) {
+        this.creatorId = creatorId;
+    }
+    public LocalDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createTime = createTime;
+    }
+    public Integer getMenderId() {
+        return menderId;
+    }
+
+    public void setMenderId(Integer menderId) {
+        this.menderId = menderId;
+    }
+    public LocalDateTime getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(LocalDateTime updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    @Override
+    public String toString() {
+        return "StHost{" +
+            "id=" + id +
+            ", name=" + name +
+            ", description=" + description +
+            ", host=" + host +
+            ", hostPort=" + hostPort +
+            ", hostUser=" + hostUser +
+            ", hostUserPwd=" + hostUserPwd +
+            ", rootDir=" + rootDir +
+            ", status=" + status +
+            ", creatorId=" + creatorId +
+            ", createTime=" + createTime +
+            ", menderId=" + menderId +
+            ", updateTime=" + updateTime +
+        "}";
+    }
+}
