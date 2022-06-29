@@ -146,6 +146,7 @@
             </includes>
             <excludes>
                 <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+                <exclude>connector-common*.jar</exclude>
             </excludes>
             <outputDirectory>/connectors/seatunnel</outputDirectory>
         </fileSet>
