@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.spark.clickhouse.sink.filetransfer
 
-import com.github.fracpete.processoutput4j.output.CollectingProcessOutput
-import com.github.fracpete.rsync4j.RSync
 import org.apache.sshd.client.SshClient
 import org.apache.sshd.client.session.ClientSession
 import org.slf4j.LoggerFactory
+
+import scala.collection.mutable
+import scala.sys.process.Process
 
 class RsyncFileTransfer(host: String) extends FileTransfer {
 
@@ -39,21 +40,21 @@ class RsyncFileTransfer(host: String) extends FileTransfer {
   override def transferAndChown(sourcePath: String, targetPath: String): Unit = {
 
     try {
-      val rshParameter = if(password!=null) s"sshpass -p $password ssh -o StrictHostKeyChecking=no -p 22" else "ssh -o StrictHostKeyChecking=no -p 22"
-      val rsync = new RSync()
-        .source(sourcePath)
-        .destination(s"root@$host:$targetPath")
-        .recursive(true)
-        .compress(true)
-        .rsh(rshParameter)
-      val output: CollectingProcessOutput = rsync.execute()
-
-      LOGGER.info(output.getStdOut)
-      LOGGER.info("Rsync Command's exit code is: " + output.getExitCode)
-      if (output.getExitCode > 0) {
-        LOGGER.error(output.getStdErr)
-        throw new RuntimeException("Execute Rsync command failed!")
-      }
+      //  we use sshpass to support non-interactive password authentication
+      val sshParameter = if(password!=null) s"sshpass -p $password ssh -o StrictHostKeyChecking=no -p 22" else "ssh -o StrictHostKeyChecking=no -p 22"
+      val exec = mutable.ListBuffer[String]()
+      exec.append("rsync")
+      // recursive
+      exec.append("-r")
+      //  compress during transfer file with -z
+      exec.append("-z")
+      //  use ssh protocol with -e
+      exec.append("-e")
+      exec.append(sshParameter)
+      exec.append(sourcePath)
+      exec.append(s"root@$host:$targetPath")
+      val command = Process(exec)
+      LOGGER.info(command.lineStream.mkString("\n"))
       // remote exec command to change file owner. Only file owner equal with server's clickhouse user can
       // make ATTACH command work.
       session.executeRemoteCommand("ls -l " + targetPath.substring(0, targetPath.stripSuffix("/").lastIndexOf("/")) +
