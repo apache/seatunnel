@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink;
+package org.apache.seatunnel.e2e.flink.v2;
 
 import org.junit.After;
 import org.junit.Before;

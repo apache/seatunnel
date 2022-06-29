@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark;
+package org.apache.seatunnel.e2e.spark.v2;
 
 import org.junit.After;
 import org.junit.Before;

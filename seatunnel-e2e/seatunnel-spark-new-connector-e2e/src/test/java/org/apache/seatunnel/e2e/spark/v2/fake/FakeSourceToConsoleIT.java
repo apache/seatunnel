@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.file;
+package org.apache.seatunnel.e2e.spark.v2.fake;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.spark.v2.SparkContainer;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -25,10 +25,16 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class FakeSourceToFileIT extends FlinkContainer {
+/**
+ * This test case is used to verify that the fake source is able to send data to the console.
+ * Make sure the SeaTunnel job can submit successfully on spark engine.
+ */
+public class FakeSourceToConsoleIT extends SparkContainer {
+
     @Test
-    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
+    @SuppressWarnings("magicnumber")
+    public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
 }
