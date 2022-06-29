@@ -78,11 +78,6 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-file</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-file-hadoop</artifactId>
             <version>${project.version}</version>
         </dependency>
