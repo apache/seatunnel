@@ -72,7 +72,8 @@ public class TestLocalTxtTransactionStateFileWriter {
             jobId,
             0,
             String.valueOf('\001'),
-            "\n");
+            "\n",
+            new LocalFileSystem());
 
         String transactionId = fileWriter.beginTransaction(1L);
 
