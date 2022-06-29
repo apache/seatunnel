@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HivePluginException;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.HadoopConf;
+
+import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
 import java.io.Serializable;

@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig.FILE_PATH;
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -38,13 +39,14 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HivePluginExcept
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.OrcReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.TextReadStrategy;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.List;
-
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig.FILE_PATH;
 
 @Slf4j
 @AutoService(SeaTunnelSource.class)

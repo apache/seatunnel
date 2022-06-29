@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format;
 
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HivePluginException;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.HadoopConf;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -38,13 +46,6 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.orc.Reader;
 import org.apache.orc.TypeDescription;
-import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.hive.exception.HivePluginException;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.HadoopConf;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

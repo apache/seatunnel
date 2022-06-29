@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ReadStrategy;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.HashSet;
