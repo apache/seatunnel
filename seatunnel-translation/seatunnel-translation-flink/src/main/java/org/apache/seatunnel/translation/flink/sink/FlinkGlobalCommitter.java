@@ -27,8 +27,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
-public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter<CommT, GlobalCommT> {
+public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter<CommitWrapper<CommT>, GlobalCommT> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkGlobalCommitter.class);
 
@@ -44,8 +45,10 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT> implements GlobalCommitter
     }
 
     @Override
-    public GlobalCommT combine(List<CommT> committables) throws IOException {
-        return aggregatedCommitter.combine(committables);
+    public GlobalCommT combine(List<CommitWrapper<CommT>> committables) throws IOException {
+        return aggregatedCommitter.combine(committables.stream()
+            .map(CommitWrapper::getCommit)
+            .collect(Collectors.toList()));
     }
 
     @Override
