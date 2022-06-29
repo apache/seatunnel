@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> {
+public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> {
 
     private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter;
     private final FlinkRowConverter rowSerialization;
@@ -55,9 +55,9 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT> implements SinkWriter<
     }
 
     @Override
-    public List<CommT> prepareCommit(boolean flush) throws IOException {
+    public List<CommitWrapper<CommT>> prepareCommit(boolean flush) throws IOException {
         Optional<CommT> commTOptional = sinkWriter.prepareCommit();
-        return commTOptional.map(Collections::singletonList).orElse(Collections.emptyList());
+        return commTOptional.map(CommitWrapper::new).map(Collections::singletonList).orElse(Collections.emptyList());
     }
 
     @Override
