@@ -9,6 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>seatunnel-admin-server</artifactId>
+    <name>${project.artifactId}</name>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -98,29 +99,37 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-compiler</artifactId>
+            <version>${scala.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
+        <finalName>${project.name}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
+                <filtering>true</filtering>
                 <includes>
-                    <include>**/*.properties</include>
-                    <include>**/*.yml</include>
-                    <include>**/*.xml</include>
-                    <include>**/*.tld</include>
+                    <include>**/*.*</include>
                 </includes>
-                <filtering>false</filtering>
             </resource>
             <resource>
                 <directory>src/main/java</directory>
                 <includes>
-                    <include>**/*.properties</include>
-                    <include>**/*.yml</include>
                     <include>**/*.xml</include>
-                    <include>**/*.tld</include>
+                    <include>**/*.json</include>
+                    <include>**/*.ftl</include>
                 </includes>
-                <filtering>false</filtering>
             </resource>
         </resources>
         <plugins>
