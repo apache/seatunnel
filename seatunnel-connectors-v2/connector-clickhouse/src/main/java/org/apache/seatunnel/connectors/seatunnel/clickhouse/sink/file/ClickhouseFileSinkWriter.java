@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseProxy;

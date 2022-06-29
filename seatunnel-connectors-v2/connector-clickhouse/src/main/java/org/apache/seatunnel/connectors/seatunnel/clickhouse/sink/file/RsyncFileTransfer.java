@@ -68,9 +68,7 @@ public class RsyncFileTransfer implements FileTransfer {
     @Override
     public void transferAndChown(String sourcePath, String targetPath) {
         try {
-            String sshParameter = password != null
-                    ? String.format("'sshpass -p %s ssh -o StrictHostKeyChecking=no -p %s'", password, SSH_PORT)
-                    : String.format("'ssh -o StrictHostKeyChecking=no -p %s'", SSH_PORT);
+            String sshParameter = password != null ? String.format("'sshpass -p %s ssh -o StrictHostKeyChecking=no -p %s'", password, SSH_PORT) : String.format("'ssh -o StrictHostKeyChecking=no -p %s'", SSH_PORT);
             List<String> rsyncCommand = new ArrayList<>();
             rsyncCommand.add("rsync");
             // recursive with -r
