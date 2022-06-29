@@ -28,7 +28,6 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <packaging>pom</packaging>
-
     <artifactId>seatunnel-connectors-v2</artifactId>
 
     <modules>
