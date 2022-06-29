@@ -47,7 +47,6 @@
         <guava.version>28.0-jre</guava.version>
     </properties>
 
-    <!--依赖管理，用于统一管理项目的依赖包-->
     <dependencyManagement>
         <dependencies>
             <!-- spring boot -->
@@ -76,14 +75,14 @@
                 <version>${mybatis-plus.version}</version>
             </dependency>
 
-            <!-- 工具包 https://hutool.cn/docs/ -->
+            <!-- hutool https://hutool.cn/docs/ -->
             <dependency>
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
             </dependency>
 
-            <!-- swagger-ui 在线API文档增强 https://mvnrepository.com/artifact/com.github.xiaoymin/knife4j-spring-boot-starter -->
+            <!-- knife4j https://mvnrepository.com/artifact/com.github.xiaoymin/knife4j-spring-boot-starter -->
             <dependency>
                 <groupId>com.github.xiaoymin</groupId>
                 <artifactId>knife4j-spring-boot-starter</artifactId>
@@ -116,7 +115,6 @@
                 <scope>runtime</scope>
             </dependency>
 
-            <!-- Sa-Token 权限认证, 在线文档：http://sa-token.dev33.cn/ -->
             <dependency>
                 <groupId>cn.dev33</groupId>
                 <artifactId>sa-token-spring-boot-starter</artifactId>
@@ -128,7 +126,6 @@
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
             </dependency>
-            <!-- 项目包 -->
 
         </dependencies>
     </dependencyManagement>
