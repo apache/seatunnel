@@ -51,12 +51,6 @@ spring:
     url: jdbc:mysql://localhost:12390/seatunnel_db?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&autoReconnect=true&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     username: root
     password: hyquan2020
-  sql:
-    init:
-      schema-locations: classpath*:db/schema-h2.sql
-      data-locations: classpath*:db/data-h2.sql
-      username: root
-      password: hyquan2020
 
 mybatis-plus:
   mapper-locations: classpath*:mybatis/*Mapper.xml
