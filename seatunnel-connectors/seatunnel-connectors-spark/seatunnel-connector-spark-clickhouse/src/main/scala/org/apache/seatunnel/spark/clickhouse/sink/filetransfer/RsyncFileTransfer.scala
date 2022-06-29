@@ -41,7 +41,7 @@ class RsyncFileTransfer(host: String) extends FileTransfer {
 
     try {
       //  we use sshpass to support non-interactive password authentication
-      val sshParameter = if(password!=null) s"sshpass -p $password ssh -o StrictHostKeyChecking=no -p 22" else "ssh -o StrictHostKeyChecking=no -p 22"
+      val sshParameter = if (password!=null) s"sshpass -p $password ssh -o StrictHostKeyChecking=no -p 22" else "ssh -o StrictHostKeyChecking=no -p 22"
       val exec = mutable.ListBuffer[String]()
       exec.append("rsync")
       // recursive
