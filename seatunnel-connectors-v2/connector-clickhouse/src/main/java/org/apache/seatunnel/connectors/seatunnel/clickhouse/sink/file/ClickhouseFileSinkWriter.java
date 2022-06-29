@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseProxy;
@@ -207,17 +206,12 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
     }
 
     private void attachClickhouseLocalFileToServer(Shard shard, List<String> clickhouseLocalFiles) throws ClickHouseException {
-        if (ClickhouseFileCopyMethod.SCP.equals(this.readerOption.getCopyMethod())) {
-            String hostAddress = shard.getNode().getAddress().getHostName();
-            String password = readerOption.getNodePassword().getOrDefault(hostAddress, null);
-            FileTransfer fileTransfer = new ScpFileTransfer(hostAddress, password);
-            fileTransfer.init();
-            fileTransfer.transferAndChown(clickhouseLocalFiles, shardLocalDataPaths.get(shard).get(0) + "detached/");
-            fileTransfer.close();
-        } else {
-            throw new RuntimeException("unsupported clickhouse file copy method " + readerOption.getCopyMethod());
-        }
-
+        String hostAddress = shard.getNode().getAddress().getHostName();
+        String password = readerOption.getNodePassword().getOrDefault(hostAddress, null);
+        FileTransfer fileTransfer = FileTransferFactory.createFileTransfer(this.readerOption.getCopyMethod(), hostAddress, password);
+        fileTransfer.init();
+        fileTransfer.transferAndChown(clickhouseLocalFiles, shardLocalDataPaths.get(shard).get(0) + "detached/");
+        fileTransfer.close();
         ClickHouseRequest<?> request = proxy.getClickhouseConnection(shard);
         for (String clickhouseLocalFile : clickhouseLocalFiles) {
             ClickHouseResponse response = request.query(String.format("ALTER TABLE %s ATTACH PART '%s'",
