@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.flink.sink;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.flink.serialization.CommitWrapperSerializer;
 import org.apache.seatunnel.translation.flink.serialization.FlinkSimpleVersionedSerializer;
 import org.apache.seatunnel.translation.flink.serialization.FlinkWriterStateSerializer;
 
@@ -36,7 +37,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
-public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink<InputT, CommT,
+public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink<InputT, CommitWrapper<CommT>,
         FlinkWriterState<WriterStateT>, GlobalCommT> {
 
     private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink;
@@ -49,7 +50,7 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     }
 
     @Override
-    public SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> createWriter(org.apache.flink.api.connector.sink.Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
+    public SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> createWriter(org.apache.flink.api.connector.sink.Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
         // TODO add subtask and parallelism.
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new DefaultSinkWriterContext(configuration, 0, 0);
@@ -63,18 +64,18 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink
     }
 
     @Override
-    public Optional<Committer<CommT>> createCommitter() throws IOException {
+    public Optional<Committer<CommitWrapper<CommT>>> createCommitter() throws IOException {
         return sink.createCommitter().map(FlinkCommitter::new);
     }
 
     @Override
-    public Optional<GlobalCommitter<CommT, GlobalCommT>> createGlobalCommitter() throws IOException {
+    public Optional<GlobalCommitter<CommitWrapper<CommT>, GlobalCommT>> createGlobalCommitter() throws IOException {
         return sink.createAggregatedCommitter().map(FlinkGlobalCommitter::new);
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<CommT>> getCommittableSerializer() {
-        return sink.getCommitInfoSerializer().map(FlinkSimpleVersionedSerializer::new);
+    public Optional<SimpleVersionedSerializer<CommitWrapper<CommT>>> getCommittableSerializer() {
+        return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
     }
 
     @Override

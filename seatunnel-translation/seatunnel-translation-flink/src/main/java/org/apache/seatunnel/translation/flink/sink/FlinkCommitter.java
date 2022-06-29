@@ -26,8 +26,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
-public class FlinkCommitter<CommT> implements Committer<CommT> {
+public class FlinkCommitter<CommT> implements Committer<CommitWrapper<CommT>> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkCommitter.class);
 
@@ -38,8 +39,10 @@ public class FlinkCommitter<CommT> implements Committer<CommT> {
     }
 
     @Override
-    public List<CommT> commit(List<CommT> committables) throws IOException {
-        List<CommT> reCommittable = sinkCommitter.commit(committables);
+    public List<CommitWrapper<CommT>> commit(List<CommitWrapper<CommT>> committables) throws IOException {
+        List<CommT> reCommittable = sinkCommitter.commit(committables.stream()
+            .map(CommitWrapper::getCommit)
+            .collect(Collectors.toList()));
         if (reCommittable != null && !reCommittable.isEmpty()) {
             LOGGER.warn("this version not support re-commit when use flink engine");
         }

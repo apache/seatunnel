@@ -15,28 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.serialization;
+package org.apache.seatunnel.translation.flink.sink;
 
-import java.io.IOException;
-import java.io.Serializable;
+public class CommitWrapper<CommitT> {
+    private final CommitT commit;
 
-public interface Serializer<T> extends Serializable {
+    public CommitWrapper(CommitT commit) {
+        this.commit = commit;
+    }
 
-    /**
-     * Serializes the given object.
-     *
-     * @param obj The object to serialize.
-     * @return The serialized data (bytes).
-     * @throws IOException Thrown, if the serialization fails.
-     */
-    byte[] serialize(T obj) throws IOException;
-
-    /**
-     * De-serializes the given data (bytes).
-     *
-     * @param serialized The serialized data
-     * @return The deserialized object
-     * @throws IOException Thrown, if the deserialization fails.
-     */
-    T deserialize(byte[] serialized) throws IOException;
+    public CommitT getCommit() {
+        return commit;
+    }
 }
