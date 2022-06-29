@@ -36,7 +36,6 @@
         <module>connector-clickhouse</module>
         <module>connector-console</module>
         <module>connector-fake</module>
-        <module>connector-hive</module>
         <module>connector-http</module>
         <module>connector-jdbc</module>
         <module>connector-kafka</module>
