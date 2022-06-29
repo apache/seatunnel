@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -104,11 +105,6 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
     }
 
     @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return this.seaTunnelContext;
-    }
-
-    @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
         this.jobId = seaTunnelContext.getJobId();
@@ -148,6 +144,11 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
             this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
         }
         return this.textFileSinkConfig;
+    }
+
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
+        return this.seaTunnelRowTypeInfo;
     }
 }
 
