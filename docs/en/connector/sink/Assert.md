@@ -10,8 +10,8 @@ A flink sink plugin which can assert illegal data by user defined rules
 
 Engine Supported and plugin name
 
-* [x] Spark
-* [x] Flink: AssertSink
+* [x] Spark：Assert
+* [x] Flink: Assert
 
 :::
 
