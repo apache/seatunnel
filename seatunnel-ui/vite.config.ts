@@ -14,3 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import vueJsx from '@vitejs/plugin-vue-jsx'
+import viteCompression from 'vite-plugin-compression'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    vueJsx(),
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'gzip',
+      ext: '.gz',
+      deleteOriginFile: false
+    })
+  ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src')
+    }
+  }
+})

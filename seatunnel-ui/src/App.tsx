@@ -14,3 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import { defineComponent } from 'vue'
+import { NButton } from 'naive-ui'
+
+ const App = defineComponent({
+  setup() {},
+  render() {
+    return (
+      <NButton>test</NButton>
+    )
+  }
+})
+
+export default App
