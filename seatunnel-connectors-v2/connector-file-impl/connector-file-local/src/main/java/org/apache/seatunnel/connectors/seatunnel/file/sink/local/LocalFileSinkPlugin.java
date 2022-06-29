@@ -26,13 +26,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.Transacti
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.PartitionDirNameGenerator;
 
-import com.google.auto.service.AutoService;
 import lombok.NonNull;
 
 import java.util.List;
 import java.util.Optional;
 
-@AutoService(SinkFileSystemPlugin.class)
 public class LocalFileSinkPlugin implements SinkFileSystemPlugin {
     @Override
     public String getPluginName() {
