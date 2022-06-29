@@ -224,7 +224,7 @@ public class ClickhouseOutputFormat extends RichOutputFormat<Row> {
                     break;
                 }
             }
-            result.put(field, function);
+            result.put(fieldType, function);
         }
         return result;
     }
