@@ -14,74 +14,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 
-/**
- * <p>
- * 任务实例表
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 @TableName("t_st_task_instance")
-@ApiModel(value = "StTaskInstance对象", description = "任务实例表")
 public class StTaskInstance implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
-    @ApiModelProperty("主键ID")
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @ApiModelProperty("任务ID")
     private Long taskId;
 
-    @ApiModelProperty("任务实例名称")
     private String name;
 
-    @ApiModelProperty("任务类型: spark、spark-sql,flink、flink-sql")
     private String type;
 
-    @ApiModelProperty("任务配置内容")
     private String configContent;
 
-    @ApiModelProperty("任务执行命令")
     private String command;
 
-    @ApiModelProperty("主机信息表ID")
     private Long hostId;
 
-    @ApiModelProperty("任务执行状态: 1->启动中、2->运行中、3->已完成、4->失败、5->停止")
     private Integer instanceStatus;
 
-    @ApiModelProperty("创建人ID")
     private Integer creatorId;
 
-    @ApiModelProperty("创建时间")
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
-    @ApiModelProperty("速率")
     private Long syncRate;
 
-    @ApiModelProperty("当前同步数量")
     private Long syncCurrentRecords;
 
-    @ApiModelProperty("容量")
     private Long syncVolume;
 
-    @ApiModelProperty("任务开始时间")
     private LocalDateTime startTime;
 
-    @ApiModelProperty("任务结束时间")
     private LocalDateTime endTime;
 
     public Long getId() {
@@ -91,6 +68,7 @@ public class StTaskInstance implements Serializable {
     public void setId(Long id) {
         this.id = id;
     }
+
     public Long getTaskId() {
         return taskId;
     }
@@ -98,6 +76,7 @@ public class StTaskInstance implements Serializable {
     public void setTaskId(Long taskId) {
         this.taskId = taskId;
     }
+
     public String getName() {
         return name;
     }
@@ -105,6 +84,7 @@ public class StTaskInstance implements Serializable {
     public void setName(String name) {
         this.name = name;
     }
+
     public String getType() {
         return type;
     }
@@ -112,6 +92,7 @@ public class StTaskInstance implements Serializable {
     public void setType(String type) {
         this.type = type;
     }
+
     public String getConfigContent() {
         return configContent;
     }
@@ -119,6 +100,7 @@ public class StTaskInstance implements Serializable {
     public void setConfigContent(String configContent) {
         this.configContent = configContent;
     }
+
     public String getCommand() {
         return command;
     }
@@ -126,6 +108,7 @@ public class StTaskInstance implements Serializable {
     public void setCommand(String command) {
         this.command = command;
     }
+
     public Long getHostId() {
         return hostId;
     }
@@ -133,6 +116,7 @@ public class StTaskInstance implements Serializable {
     public void setHostId(Long hostId) {
         this.hostId = hostId;
     }
+
     public Integer getInstanceStatus() {
         return instanceStatus;
     }
@@ -140,6 +124,7 @@ public class StTaskInstance implements Serializable {
     public void setInstanceStatus(Integer instanceStatus) {
         this.instanceStatus = instanceStatus;
     }
+
     public Integer getCreatorId() {
         return creatorId;
     }
@@ -147,6 +132,7 @@ public class StTaskInstance implements Serializable {
     public void setCreatorId(Integer creatorId) {
         this.creatorId = creatorId;
     }
+
     public LocalDateTime getCreateTime() {
         return createTime;
     }
@@ -154,6 +140,7 @@ public class StTaskInstance implements Serializable {
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
     }
+
     public Long getSyncRate() {
         return syncRate;
     }
@@ -161,6 +148,7 @@ public class StTaskInstance implements Serializable {
     public void setSyncRate(Long syncRate) {
         this.syncRate = syncRate;
     }
+
     public Long getSyncCurrentRecords() {
         return syncCurrentRecords;
     }
@@ -168,6 +156,7 @@ public class StTaskInstance implements Serializable {
     public void setSyncCurrentRecords(Long syncCurrentRecords) {
         this.syncCurrentRecords = syncCurrentRecords;
     }
+
     public Long getSyncVolume() {
         return syncVolume;
     }
@@ -175,6 +164,7 @@ public class StTaskInstance implements Serializable {
     public void setSyncVolume(Long syncVolume) {
         this.syncVolume = syncVolume;
     }
+
     public LocalDateTime getStartTime() {
         return startTime;
     }
@@ -182,6 +172,7 @@ public class StTaskInstance implements Serializable {
     public void setStartTime(LocalDateTime startTime) {
         this.startTime = startTime;
     }
+
     public LocalDateTime getEndTime() {
         return endTime;
     }
@@ -193,21 +184,21 @@ public class StTaskInstance implements Serializable {
     @Override
     public String toString() {
         return "StTaskInstance{" +
-            "id=" + id +
-            ", taskId=" + taskId +
-            ", name=" + name +
-            ", type=" + type +
-            ", configContent=" + configContent +
-            ", command=" + command +
-            ", hostId=" + hostId +
-            ", instanceStatus=" + instanceStatus +
-            ", creatorId=" + creatorId +
-            ", createTime=" + createTime +
-            ", syncRate=" + syncRate +
-            ", syncCurrentRecords=" + syncCurrentRecords +
-            ", syncVolume=" + syncVolume +
-            ", startTime=" + startTime +
-            ", endTime=" + endTime +
-        "}";
+                "id=" + id +
+                ", taskId=" + taskId +
+                ", name=" + name +
+                ", type=" + type +
+                ", configContent=" + configContent +
+                ", command=" + command +
+                ", hostId=" + hostId +
+                ", instanceStatus=" + instanceStatus +
+                ", creatorId=" + creatorId +
+                ", createTime=" + createTime +
+                ", syncRate=" + syncRate +
+                ", syncCurrentRecords=" + syncCurrentRecords +
+                ", syncVolume=" + syncVolume +
+                ", startTime=" + startTime +
+                ", endTime=" + endTime +
+                "}";
     }
 }

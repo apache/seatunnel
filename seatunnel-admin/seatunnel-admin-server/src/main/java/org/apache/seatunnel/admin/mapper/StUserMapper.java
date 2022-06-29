@@ -13,19 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.mapper;
 
 import org.apache.seatunnel.admin.entity.StUser;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
-/**
- * <p>
- * 用户表 Mapper 接口
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 public interface StUserMapper extends BaseMapper<StUser> {
 
 }

@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.controller;
+
+import org.apache.seatunnel.admin.common.Result;
+import org.apache.seatunnel.admin.dto.TaskInstancePage;
+import org.apache.seatunnel.admin.entity.StTaskInstance;
+import org.apache.seatunnel.admin.service.IStTaskInstanceService;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -23,14 +29,14 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import org.apache.seatunnel.admin.common.Result;
-import org.apache.seatunnel.admin.dto.TaskInstancePage;
-import org.apache.seatunnel.admin.entity.StTaskInstance;
-import org.apache.seatunnel.admin.service.IStTaskInstanceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -39,7 +45,7 @@ import java.util.List;
 @RequestMapping("/task/instance")
 public class TaskInstanceController {
 
-    private static final Logger logger = LoggerFactory.getLogger(TaskInstanceController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TaskInstanceController.class);
 
     @Autowired
     private IStTaskInstanceService taskInstanceService;
@@ -58,9 +64,7 @@ public class TaskInstanceController {
     }
 
     @ApiOperation(value = "delTaskInstanceById", notes = "DELETE_TASK_INSTANCE_BY_ID_NOTES")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "TASK_INSTANCE_ID", dataType = "Long", example = "100")
-    })
+    @ApiImplicitParams({ @ApiImplicitParam(name = "id", value = "TASK_INSTANCE_ID", dataType = "Long", example = "100") })
     @PostMapping(value = "/delete")
     public Result delById(@RequestParam(value = "id") Long id) {
         // TODO:

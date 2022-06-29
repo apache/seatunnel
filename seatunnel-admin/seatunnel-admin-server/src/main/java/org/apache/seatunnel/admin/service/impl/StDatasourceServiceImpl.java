@@ -13,22 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.service.impl;
 
 import org.apache.seatunnel.admin.entity.StDatasource;
 import org.apache.seatunnel.admin.mapper.StDatasourceMapper;
 import org.apache.seatunnel.admin.service.IStDatasourceService;
+
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
-/**
- * <p>
- * 数据源表 服务实现类
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 @Service
 public class StDatasourceServiceImpl extends ServiceImpl<StDatasourceMapper, StDatasource> implements IStDatasourceService {
 

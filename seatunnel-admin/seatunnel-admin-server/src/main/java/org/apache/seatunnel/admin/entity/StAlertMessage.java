@@ -14,49 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 
-/**
- * <p>
- * 告警信息记录表
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 @TableName("t_st_alert_message")
-@ApiModel(value = "StAlertMessage对象", description = "告警信息记录表")
 public class StAlertMessage implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
-    @ApiModelProperty("主键ID")
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @ApiModelProperty("告警配置ID")
     private Long alertId;
 
-    @ApiModelProperty("标题")
     private String name;
 
-    @ApiModelProperty("告警内容")
     private String alertContent;
 
-    @ApiModelProperty("状态: 1->成功、2->失败")
     private Integer status;
 
-    @ApiModelProperty("创建人ID")
     private Integer creatorId;
 
-    @ApiModelProperty("创建时间")
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
@@ -67,6 +52,7 @@ public class StAlertMessage implements Serializable {
     public void setId(Long id) {
         this.id = id;
     }
+
     public Long getAlertId() {
         return alertId;
     }
@@ -74,6 +60,7 @@ public class StAlertMessage implements Serializable {
     public void setAlertId(Long alertId) {
         this.alertId = alertId;
     }
+
     public String getName() {
         return name;
     }
@@ -81,6 +68,7 @@ public class StAlertMessage implements Serializable {
     public void setName(String name) {
         this.name = name;
     }
+
     public String getAlertContent() {
         return alertContent;
     }
@@ -88,6 +76,7 @@ public class StAlertMessage implements Serializable {
     public void setAlertContent(String alertContent) {
         this.alertContent = alertContent;
     }
+
     public Integer getStatus() {
         return status;
     }
@@ -95,6 +84,7 @@ public class StAlertMessage implements Serializable {
     public void setStatus(Integer status) {
         this.status = status;
     }
+
     public Integer getCreatorId() {
         return creatorId;
     }
@@ -102,6 +92,7 @@ public class StAlertMessage implements Serializable {
     public void setCreatorId(Integer creatorId) {
         this.creatorId = creatorId;
     }
+
     public LocalDateTime getCreateTime() {
         return createTime;
     }
@@ -113,13 +104,13 @@ public class StAlertMessage implements Serializable {
     @Override
     public String toString() {
         return "StAlertMessage{" +
-            "id=" + id +
-            ", alertId=" + alertId +
-            ", name=" + name +
-            ", alertContent=" + alertContent +
-            ", status=" + status +
-            ", creatorId=" + creatorId +
-            ", createTime=" + createTime +
-        "}";
+                "id=" + id +
+                ", alertId=" + alertId +
+                ", name=" + name +
+                ", alertContent=" + alertContent +
+                ", status=" + status +
+                ", creatorId=" + creatorId +
+                ", createTime=" + createTime +
+                "}";
     }
 }

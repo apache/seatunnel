@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.common;
 
 import org.apache.seatunnel.admin.enums.ResultStatus;
@@ -118,13 +119,4 @@ public class Result<T> {
         this.data = data;
     }
 
-
-    @Override
-    public String toString() {
-        return "Status{" +
-                "code='" + code + '\'' +
-                ", msg='" + msg + '\'' +
-                ", data=" + data +
-                '}';
-    }
 }

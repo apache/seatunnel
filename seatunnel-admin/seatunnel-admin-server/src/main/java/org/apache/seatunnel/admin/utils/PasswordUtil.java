@@ -29,10 +29,4 @@ public class PasswordUtil {
         return SecureUtil.md5(rawStr);
     }
 
-//    public static void main(String[] args) {
-//        String salt = RandomUtil.generateSalt(Constants.RANDOM_PLACE_NUM);
-//        String encryptPwd = PasswordUtil.encrypt("seatunnel123", salt);
-//        System.out.println(salt);
-//        System.out.println(encryptPwd);
-//    }
 }

@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.controller;
+
+import org.apache.seatunnel.admin.common.Result;
+import org.apache.seatunnel.admin.dto.DataSourcePage;
+import org.apache.seatunnel.admin.entity.StDatasource;
+import org.apache.seatunnel.admin.service.IStDatasourceService;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -23,15 +29,15 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import org.apache.seatunnel.admin.common.Constants;
-import org.apache.seatunnel.admin.common.Result;
-import org.apache.seatunnel.admin.dto.DataSourcePage;
-import org.apache.seatunnel.admin.entity.StDatasource;
-import org.apache.seatunnel.admin.service.IStDatasourceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -40,7 +46,7 @@ import java.util.List;
 @RequestMapping("/datasources")
 public class DatasourceController {
 
-    private static final Logger logger = LoggerFactory.getLogger(DatasourceController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DatasourceController.class);
 
     @Autowired
     private IStDatasourceService datasourceService;
@@ -77,9 +83,7 @@ public class DatasourceController {
     }
 
     @ApiOperation(value = "delDatasourceById", notes = "DELETE_DATA_SOURCES_BY_ID_NOTES")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "DATA_SOURCE_ID", dataType = "Long", example = "100")
-    })
+    @ApiImplicitParams({ @ApiImplicitParam(name = "id", value = "DATA_SOURCE_ID", dataType = "Long", example = "100") })
     @PostMapping(value = "/delete")
     public Result delById(@RequestParam(value = "id") Long id) {
         // TODO:

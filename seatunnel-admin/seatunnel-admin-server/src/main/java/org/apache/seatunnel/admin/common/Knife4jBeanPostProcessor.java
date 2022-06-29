@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.common;
 
 import org.springframework.beans.BeansException;
@@ -27,27 +28,29 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class Knife4jBeanPostProcessor implements BeanPostProcessor {
-        
-        @Override
-        public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-            if (bean instanceof WebMvcRequestHandlerProvider) {
-                customizeSpringfoxHandlerMappings(getHandlerMappings(bean));
-            }
-            return bean;
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        if (bean instanceof WebMvcRequestHandlerProvider) {
+            customizeSpringfoxHandlerMappings(getHandlerMappings(bean));
         }
-        private <T extends RequestMappingInfoHandlerMapping> void customizeSpringfoxHandlerMappings(List<T> mappings) {
-            List<T> copyList = mappings.stream().filter(mapping -> mapping.getPatternParser() == null).collect(Collectors.toList());
-            mappings.clear();
-            mappings.addAll(copyList);
-        }
-        @SuppressWarnings("unchecked")
-        private List<RequestMappingInfoHandlerMapping> getHandlerMappings(Object bean) {
-            try {
-                Field field = ReflectionUtils.findField(bean.getClass(), "handlerMappings");
-                field.setAccessible(true);
-                return (List<RequestMappingInfoHandlerMapping>) field.get(bean);
-            } catch (IllegalArgumentException | IllegalAccessException e) {
-                throw new IllegalStateException(e);
-            }
+        return bean;
+    }
+
+    private <T extends RequestMappingInfoHandlerMapping> void customizeSpringfoxHandlerMappings(List<T> mappings) {
+        List<T> copyList = mappings.stream().filter(mapping -> mapping.getPatternParser() == null).collect(Collectors.toList());
+        mappings.clear();
+        mappings.addAll(copyList);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<RequestMappingInfoHandlerMapping> getHandlerMappings(Object bean) {
+        try {
+            Field field = ReflectionUtils.findField(bean.getClass(), "handlerMappings");
+            field.setAccessible(true);
+            return (List<RequestMappingInfoHandlerMapping>) field.get(bean);
+        } catch (IllegalArgumentException | IllegalAccessException e) {
+            throw new IllegalStateException(e);
         }
     }
+}

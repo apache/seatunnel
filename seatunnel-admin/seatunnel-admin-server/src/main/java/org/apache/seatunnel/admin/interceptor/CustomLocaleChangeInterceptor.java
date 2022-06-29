@@ -17,6 +17,7 @@
 package org.apache.seatunnel.admin.interceptor;
 
 import org.apache.seatunnel.admin.common.Constants;
+
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
@@ -26,31 +27,32 @@ import org.springframework.web.util.WebUtils;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.util.Locale;
 
 public class CustomLocaleChangeInterceptor implements HandlerInterceptor {
 
-	@Override
-	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-		Cookie cookie = WebUtils.getCookie(request, Constants.LOCALE_LANGUAGE);
-		if (cookie != null) {
-			return true;
-		}
-		String newLocale = request.getHeader(Constants.LOCALE_LANGUAGE);
-		if (newLocale != null) {
-			LocaleContextHolder.setLocale(parseLocaleValue(newLocale));
-			return true;
-		}
-		newLocale = request.getParameter(Constants.LOCALE_LANGUAGE);
-		if (newLocale != null) {
-			LocaleContextHolder.setLocale(parseLocaleValue(newLocale));
-		}
-		return true;
-	}
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        Cookie cookie = WebUtils.getCookie(request, Constants.LOCALE_LANGUAGE);
+        if (cookie != null) {
+            return true;
+        }
+        String newLocale = request.getHeader(Constants.LOCALE_LANGUAGE);
+        if (newLocale != null) {
+            LocaleContextHolder.setLocale(parseLocaleValue(newLocale));
+            return true;
+        }
+        newLocale = request.getParameter(Constants.LOCALE_LANGUAGE);
+        if (newLocale != null) {
+            LocaleContextHolder.setLocale(parseLocaleValue(newLocale));
+        }
+        return true;
+    }
 
-	@Nullable
-	protected Locale parseLocaleValue(String localeValue) {
-		return StringUtils.parseLocale(localeValue);
-	}
+    @Nullable
+    protected Locale parseLocaleValue(String localeValue) {
+        return StringUtils.parseLocale(localeValue);
+    }
 
 }

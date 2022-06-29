@@ -13,19 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.mapper;
 
 import org.apache.seatunnel.admin.entity.StAlertGroup;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
-/**
- * <p>
- * 告警组信息表 Mapper 接口
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 public interface StAlertGroupMapper extends BaseMapper<StAlertGroup> {
 
 }

@@ -14,66 +14,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-/**
- * <p>
- * 用户表
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 @TableName("t_st_user")
-@ApiModel(value = "StUser对象", description = "用户表")
 public class StUser implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
-    @ApiModelProperty("主键ID")
     @TableId(value = "id", type = IdType.AUTO)
     private Integer id;
 
-    @ApiModelProperty("用户名")
     private String username;
 
-    @ApiModelProperty("用户密码")
     @JsonIgnore
     private String password;
 
-    @ApiModelProperty("盐值")
     @JsonIgnore
     private String salt;
 
-    @ApiModelProperty("用户类型: 1->管理员、2->普通用户")
     private Integer type;
 
-    @ApiModelProperty("邮箱")
     private String email;
 
-    @ApiModelProperty("状态: 1->有效、2->无效")
     private Integer status;
 
-    @ApiModelProperty("创建人ID")
     private Integer creatorId;
 
-    @ApiModelProperty("创建时间")
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
-    @ApiModelProperty("修改人ID")
     private Integer menderId;
 
-    @ApiModelProperty("修改时间")
     @TableField(fill = FieldFill.UPDATE)
     private LocalDateTime updateTime;
 
@@ -84,6 +64,7 @@ public class StUser implements Serializable {
     public void setId(Integer id) {
         this.id = id;
     }
+
     public String getUsername() {
         return username;
     }
@@ -91,6 +72,7 @@ public class StUser implements Serializable {
     public void setUsername(String username) {
         this.username = username;
     }
+
     public String getPassword() {
         return password;
     }
@@ -98,6 +80,7 @@ public class StUser implements Serializable {
     public void setPassword(String password) {
         this.password = password;
     }
+
     public String getSalt() {
         return salt;
     }
@@ -105,6 +88,7 @@ public class StUser implements Serializable {
     public void setSalt(String salt) {
         this.salt = salt;
     }
+
     public Integer getType() {
         return type;
     }
@@ -112,6 +96,7 @@ public class StUser implements Serializable {
     public void setType(Integer type) {
         this.type = type;
     }
+
     public String getEmail() {
         return email;
     }
@@ -119,6 +104,7 @@ public class StUser implements Serializable {
     public void setEmail(String email) {
         this.email = email;
     }
+
     public Integer getStatus() {
         return status;
     }
@@ -126,6 +112,7 @@ public class StUser implements Serializable {
     public void setStatus(Integer status) {
         this.status = status;
     }
+
     public Integer getCreatorId() {
         return creatorId;
     }
@@ -133,6 +120,7 @@ public class StUser implements Serializable {
     public void setCreatorId(Integer creatorId) {
         this.creatorId = creatorId;
     }
+
     public LocalDateTime getCreateTime() {
         return createTime;
     }
@@ -140,6 +128,7 @@ public class StUser implements Serializable {
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
     }
+
     public Integer getMenderId() {
         return menderId;
     }
@@ -147,6 +136,7 @@ public class StUser implements Serializable {
     public void setMenderId(Integer menderId) {
         this.menderId = menderId;
     }
+
     public LocalDateTime getUpdateTime() {
         return updateTime;
     }
@@ -158,17 +148,17 @@ public class StUser implements Serializable {
     @Override
     public String toString() {
         return "StUser{" +
-            "id=" + id +
-            ", username=" + username +
-            ", password=" + password +
-            ", salt=" + salt +
-            ", type=" + type +
-            ", email=" + email +
-            ", status=" + status +
-            ", creatorId=" + creatorId +
-            ", createTime=" + createTime +
-            ", menderId=" + menderId +
-            ", updateTime=" + updateTime +
-        "}";
+                "id=" + id +
+                ", username=" + username +
+                ", password=" + password +
+                ", salt=" + salt +
+                ", type=" + type +
+                ", email=" + email +
+                ", status=" + status +
+                ", creatorId=" + creatorId +
+                ", createTime=" + createTime +
+                ", menderId=" + menderId +
+                ", updateTime=" + updateTime +
+                "}";
     }
 }

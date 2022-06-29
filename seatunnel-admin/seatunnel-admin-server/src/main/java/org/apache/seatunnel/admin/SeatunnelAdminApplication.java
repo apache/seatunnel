@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin;
+
+import org.apache.seatunnel.admin.common.Constants;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,22 +34,22 @@ import java.net.UnknownHostException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
-@SpringBootApplication(scanBasePackages = { "org.apache.seatunnel.admin" })
+@SpringBootApplication(scanBasePackages = {"org.apache.seatunnel.admin"})
 @EnableAsync
 public class SeatunnelAdminApplication {
 
-    private static final Logger logger = LoggerFactory.getLogger(SeatunnelAdminApplication.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SeatunnelAdminApplication.class);
 
     @Bean(name = "threadPoolTaskExecutor")
     public Executor threadPoolTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        int size = Runtime.getRuntime().availableProcessors();//获取到服务器的cpu内核
-        executor.setCorePoolSize(size);//核心池大小
-        executor.setMaxPoolSize(20);//最大线程数
-        executor.setQueueCapacity(600);//队列程度
-        executor.setKeepAliveSeconds(120);//线程空闲时间
-        executor.setThreadNamePrefix("seatunnel-pool-async-");//线程前缀名称
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());//配置拒绝策略
+        int size = Runtime.getRuntime().availableProcessors();
+        executor.setCorePoolSize(size);
+        executor.setMaxPoolSize(Constants.THREAD_POOL_TASK_MAX_POOL_SIZE);
+        executor.setQueueCapacity(Constants.THREAD_POOL_TASK_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(Constants.THREAD_POOL_TASK_KEEP_ALIVE);
+        executor.setThreadNamePrefix("seatunnel-pool-async-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         return executor;
     }
 
@@ -56,11 +59,11 @@ public class SeatunnelAdminApplication {
         String ip = InetAddress.getLocalHost().getHostAddress();
         String port = env.getProperty("server.port");
         String path = env.getProperty("server.servlet.context-path");
-        logger.info("\n----------------------------------------------------------\n\t" +
+        LOGGER.info("\n----------------------------------------------------------\n\t" +
                 "Application Seatunnel Admin is running! Access URLs:\n\t" +
                 "Local: \t\thttp://localhost:" + port + path + "/\n\t" +
                 "External: \thttp://" + ip + ":" + port + path + "/\n\t" +
-                "Swagger文档: http://" + ip + ":" + port + path + "/doc.html\n" +
+                "Swagger-doc: http://" + ip + ":" + port + path + "/doc.html\n" +
                 "----------------------------------------------------------");
     }
 

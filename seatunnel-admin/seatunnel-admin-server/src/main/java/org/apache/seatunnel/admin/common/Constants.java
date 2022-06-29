@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.common;
 
 public final class Constants {
@@ -32,6 +33,13 @@ public final class Constants {
      */
     public  static final String PAGE_NUMBER = "pageNo";
 
+    public  static final int PAGE_SIZE_DEFAULT_VALUE = 10;
+
+    /**
+     * current page no
+     */
+    public  static final int PAGE_NUMBER_DEFAULT_VALUE = 1;
+
     /**
      * locale
      */
@@ -43,4 +51,8 @@ public final class Constants {
     public  static final int RANDOM_PLACE_NUM = 32;
 
     public  static final int DEFAULT_STATUS_VALUE = 1;
+
+    public  static final int THREAD_POOL_TASK_MAX_POOL_SIZE = 20;
+    public  static final int THREAD_POOL_TASK_QUEUE_CAPACITY = 600;
+    public  static final int THREAD_POOL_TASK_KEEP_ALIVE = 120;
 }

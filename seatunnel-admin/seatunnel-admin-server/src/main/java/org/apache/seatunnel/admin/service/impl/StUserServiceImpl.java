@@ -13,29 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.service.impl;
 
-import cn.dev33.satoken.stp.StpUtil;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.apache.seatunnel.admin.common.Constants;
 import org.apache.seatunnel.admin.entity.StUser;
 import org.apache.seatunnel.admin.enums.ResultStatus;
 import org.apache.seatunnel.admin.exception.SeatunnelServiceException;
 import org.apache.seatunnel.admin.mapper.StUserMapper;
 import org.apache.seatunnel.admin.service.IStUserService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.apache.seatunnel.admin.utils.PasswordUtil;
 import org.apache.seatunnel.admin.utils.RandomUtil;
+
+import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
-/**
- * <p>
- * 用户表 服务实现类
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 @Service
 public class StUserServiceImpl extends ServiceImpl<StUserMapper, StUser> implements IStUserService {
 

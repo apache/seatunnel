@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.common;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
@@ -27,17 +28,17 @@ import java.time.LocalDateTime;
 @Component
 public class CustomMetaObjectHandler implements MetaObjectHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(CustomMetaObjectHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CustomMetaObjectHandler.class);
 
     @Override
     public void insertFill(MetaObject metaObject) {
-        logger.info("start insert fill ....");
+        LOGGER.info("start insert fill ....");
         this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, LocalDateTime.now());
     }
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        logger.info("start update fill ....");
+        LOGGER.info("start update fill ....");
         this.strictUpdateFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
     }
 }

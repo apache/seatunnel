@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.exception;
 
 import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.enums.ResultStatus;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.BindingResult;
@@ -30,39 +32,36 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 
 import javax.servlet.http.HttpServletRequest;
 
-/**
- * Exception Handler
- */
 @RestControllerAdvice
 @ResponseBody
 public class GlobalExceptionHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(Exception.class)
-    public Result<?> handleException(Exception e, HttpServletRequest request, HandlerMethod handlerMethod){
-        logger.error("request url is " + request.getRequestURI());
-        logger.error(e.getMessage(), e);
+    public Result<?> handleException(Exception e, HttpServletRequest request, HandlerMethod handlerMethod) {
+        LOGGER.info("request url is " + request.getRequestURI());
+        LOGGER.error(e.getMessage(), e);
         return Result.errorWithArgs(ResultStatus.INTERNAL_SERVER_ERROR_ARGS, e.getMessage());
     }
 
     @ExceptionHandler(SeatunnelServiceException.class)
-    public Result<?> handleSeatunnelServiceException(SeatunnelServiceException e, HttpServletRequest request){
-        logger.error("request url is " + request.getRequestURI());
-        logger.error(e.getMessage(), e);
+    public Result<?> handleSeatunnelServiceException(SeatunnelServiceException e, HttpServletRequest request) {
+        LOGGER.info("request url is " + request.getRequestURI());
+        LOGGER.error(e.getMessage(), e);
         return Result.errorWithArgs(e.getResultStatus(), e.getMessage());
     }
 
     @ExceptionHandler(NoHandlerFoundException.class)
     public Result<?> handlerNoFoundException(Exception e) {
-        logger.error(e.getMessage(), e);
+        LOGGER.error(e.getMessage(), e);
         return Result.errorWithArgs(ResultStatus.NOT_FOUND, e.getMessage());
     }
 
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
-    public Object handleMethodArgumentNotValidException(MethodArgumentNotValidException e, HttpServletRequest request){
-        logger.error("request url is " + request.getRequestURI());
-        logger.error(e.getMessage(), e);
+    public Object handleMethodArgumentNotValidException(MethodArgumentNotValidException e, HttpServletRequest request) {
+        LOGGER.info("request url is " + request.getRequestURI());
+        LOGGER.error(e.getMessage(), e);
         BindingResult bindingResult = e.getBindingResult();
         String message = bindingResult.getAllErrors().get(0).getDefaultMessage();
         return Result.errorWithArgs(ResultStatus.INTERNAL_SERVER_ERROR_ARGS, message);

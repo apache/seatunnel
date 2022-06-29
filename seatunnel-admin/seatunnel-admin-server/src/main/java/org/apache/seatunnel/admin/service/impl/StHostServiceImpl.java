@@ -13,22 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.service.impl;
 
 import org.apache.seatunnel.admin.entity.StHost;
 import org.apache.seatunnel.admin.mapper.StHostMapper;
 import org.apache.seatunnel.admin.service.IStHostService;
+
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
-/**
- * <p>
- * 服务主机信息表 服务实现类
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 @Service
 public class StHostServiceImpl extends ServiceImpl<StHostMapper, StHost> implements IStHostService {
 

@@ -14,56 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 
-/**
- * <p>
- * 告警配置信息表
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 @TableName("t_st_alert_config")
-@ApiModel(value = "StAlertConfig对象", description = "告警配置信息表")
 public class StAlertConfig implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
-    @ApiModelProperty("主键ID")
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @ApiModelProperty("名称")
     private String name;
 
-    @ApiModelProperty("类型: email->邮箱、sms->短信")
     private String type;
 
-    @ApiModelProperty("配置内容")
     private String configContent;
 
-    @ApiModelProperty("状态: 1->有效、2->无效")
     private Integer status;
 
-    @ApiModelProperty("创建人ID")
     private Integer creatorId;
 
-    @ApiModelProperty("创建时间")
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
-    @ApiModelProperty("修改人ID")
     private Integer menderId;
 
-    @ApiModelProperty("修改时间")
     @TableField(fill = FieldFill.UPDATE)
     private LocalDateTime updateTime;
 
@@ -74,6 +57,7 @@ public class StAlertConfig implements Serializable {
     public void setId(Long id) {
         this.id = id;
     }
+
     public String getName() {
         return name;
     }
@@ -81,6 +65,7 @@ public class StAlertConfig implements Serializable {
     public void setName(String name) {
         this.name = name;
     }
+
     public String getType() {
         return type;
     }
@@ -88,6 +73,7 @@ public class StAlertConfig implements Serializable {
     public void setType(String type) {
         this.type = type;
     }
+
     public String getConfigContent() {
         return configContent;
     }
@@ -95,6 +81,7 @@ public class StAlertConfig implements Serializable {
     public void setConfigContent(String configContent) {
         this.configContent = configContent;
     }
+
     public Integer getStatus() {
         return status;
     }
@@ -102,6 +89,7 @@ public class StAlertConfig implements Serializable {
     public void setStatus(Integer status) {
         this.status = status;
     }
+
     public Integer getCreatorId() {
         return creatorId;
     }
@@ -109,6 +97,7 @@ public class StAlertConfig implements Serializable {
     public void setCreatorId(Integer creatorId) {
         this.creatorId = creatorId;
     }
+
     public LocalDateTime getCreateTime() {
         return createTime;
     }
@@ -116,6 +105,7 @@ public class StAlertConfig implements Serializable {
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
     }
+
     public Integer getMenderId() {
         return menderId;
     }
@@ -123,6 +113,7 @@ public class StAlertConfig implements Serializable {
     public void setMenderId(Integer menderId) {
         this.menderId = menderId;
     }
+
     public LocalDateTime getUpdateTime() {
         return updateTime;
     }
@@ -134,15 +125,15 @@ public class StAlertConfig implements Serializable {
     @Override
     public String toString() {
         return "StAlertConfig{" +
-            "id=" + id +
-            ", name=" + name +
-            ", type=" + type +
-            ", configContent=" + configContent +
-            ", status=" + status +
-            ", creatorId=" + creatorId +
-            ", createTime=" + createTime +
-            ", menderId=" + menderId +
-            ", updateTime=" + updateTime +
-        "}";
+                "id=" + id +
+                ", name=" + name +
+                ", type=" + type +
+                ", configContent=" + configContent +
+                ", status=" + status +
+                ", creatorId=" + creatorId +
+                ", createTime=" + createTime +
+                ", menderId=" + menderId +
+                ", updateTime=" + updateTime +
+                "}";
     }
 }

@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.config;
 
 import org.apache.seatunnel.admin.common.Knife4jBeanPostProcessor;
+
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +29,6 @@ import springfox.documentation.service.ApiInfo;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2WebMvc;
-
 
 @Configuration
 @EnableSwagger2WebMvc
@@ -49,6 +50,5 @@ public class Knife4jConfiguration {
         return new ApiInfoBuilder().title("Apache Seatunnel Api Docs").description("Apache Seatunnel Api Docs")
                 .build();
     }
-
 
 }

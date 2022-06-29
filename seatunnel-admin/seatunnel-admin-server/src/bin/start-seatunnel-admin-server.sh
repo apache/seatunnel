@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -6,7 +7,7 @@
 # (the "License"); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,22 +16,20 @@
 # limitations under the License.
 #
 
-ALERT_CONFIG_TAG=alert config api
-ALERT_GROUP_TAG=alert group api
-ALERT_MESSAGE_TAG=alert message api
-DATA_SOURCES_TAG=datasource api
-HOST_TAG=host api
-LOGIN_TAG=login api
-TASKS_TAG=tasks api
-TASK_INSTANCE_TAG=task instance api
-USERS_TAG=users api
+set -eu
+APP_DIR=$(cd $(dirname ${0})/../;pwd)
+CONF_DIR=${APP_DIR}/config
+APP_JAR=${APP_DIR}/lib/seatunnel-admin-server.jar
 
-PAGENO=pageNo
-PAGESIZE=pageSize
+if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
+    . "${CONF_DIR}/seatunnel-env.sh"
+fi
 
-ENUM_RESULT_STATUS_0=success
-ENUM_RESULT_STATUS_404=not found
-ENUM_RESULT_STATUS_403=unauthorized
-ENUM_RESULT_STATUS_500=Internal Server Error: {0}
-ENUM_RESULT_STATUS_1001=request parameter {0} is not valid
-ENUM_RESULT_STATUS_1002=user name or password error
+if [ $# == 0 ]
+then
+    args="-h"
+else
+    args=$@
+fi
+
+

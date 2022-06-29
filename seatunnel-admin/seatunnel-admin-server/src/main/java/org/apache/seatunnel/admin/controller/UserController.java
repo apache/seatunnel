@@ -14,7 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.controller;
+
+import org.apache.seatunnel.admin.common.Result;
+import org.apache.seatunnel.admin.dto.UserPage;
+import org.apache.seatunnel.admin.dto.UserParam;
+import org.apache.seatunnel.admin.dto.UserPasswordParam;
+import org.apache.seatunnel.admin.entity.StUser;
+import org.apache.seatunnel.admin.enums.ResultStatus;
+import org.apache.seatunnel.admin.exception.SeatunnelServiceException;
+import org.apache.seatunnel.admin.service.IStUserService;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
@@ -25,18 +35,15 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import org.apache.seatunnel.admin.common.Result;
-import org.apache.seatunnel.admin.dto.UserPage;
-import org.apache.seatunnel.admin.dto.UserParam;
-import org.apache.seatunnel.admin.dto.UserPasswordParam;
-import org.apache.seatunnel.admin.entity.StUser;
-import org.apache.seatunnel.admin.enums.ResultStatus;
-import org.apache.seatunnel.admin.exception.SeatunnelServiceException;
-import org.apache.seatunnel.admin.service.IStUserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -46,7 +53,7 @@ import java.util.List;
 @SaCheckLogin
 public class UserController {
 
-    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private IStUserService userService;
@@ -92,9 +99,7 @@ public class UserController {
     }
 
     @ApiOperation(value = "delUserById", notes = "DELETE_USER_BY_ID_NOTES")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "USER_ID", dataType = "Int", example = "100")
-    })
+    @ApiImplicitParams({ @ApiImplicitParam(name = "id", value = "USER_ID", dataType = "Int", example = "100") })
     @PostMapping(value = "/delete")
     public Result delUserById(@RequestParam(value = "id") int id) {
         return Result.success(userService.removeById(id));

@@ -28,7 +28,7 @@ public class RandomUtil {
         String str = "qwertyuioplkjhgfdsazxcvbnmQAZWSXEDCRFVTGBYHNUJMIKLOP0123456789";
         StringBuilder stringBuilder = new StringBuilder();
         Random random = new Random();
-        for(int i=0;i<place;i++) {
+        for (int i = 0; i < place; i++) {
             stringBuilder.append(str.charAt(random.nextInt(str.length())));
         }
         return stringBuilder.toString();

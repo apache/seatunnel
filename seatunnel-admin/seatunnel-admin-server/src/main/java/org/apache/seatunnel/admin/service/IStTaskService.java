@@ -13,19 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.service;
 
 import org.apache.seatunnel.admin.entity.StTask;
+
 import com.baomidou.mybatisplus.extension.service.IService;
 
-/**
- * <p>
- * 任务表 服务类
- * </p>
- *
- * @author quanzhian
- * @since 2022-06-28
- */
 public interface IStTaskService extends IService<StTask> {
 
 }

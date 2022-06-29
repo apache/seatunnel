@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.config;
 
 import com.baomidou.mybatisplus.annotation.DbType;
@@ -24,7 +25,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@MapperScan(value={"org.apache.seatunnel.admin.mapper*"})
+@MapperScan(value = {"org.apache.seatunnel.admin.mapper*"})
 public class MybatisPlusConfig {
 
     @Bean

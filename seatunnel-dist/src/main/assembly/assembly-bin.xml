@@ -89,6 +89,16 @@
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>../seatunnel-admin/seatunnel-admin-server/target</directory>
+            <includes>
+                <include>seatunnel-admin-server*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/lib</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>../seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib</directory>
             <includes>
                 <include>seatunnel-connector-flink*.jar</include>

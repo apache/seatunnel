@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.service.impl;
 
 import org.apache.seatunnel.admin.common.ProcessCleanStream;
 import org.apache.seatunnel.admin.service.IShellProcessService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -27,13 +29,10 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.concurrent.Future;
 
-/**
- * shell调用服务
- */
 @Service
 public class ShellProcessServiceImpl implements IShellProcessService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ShellProcessServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ShellProcessServiceImpl.class);
 
     public static final String ERROR_TYPE = "error";
     public static final String INFO_TYPE = "info";
@@ -42,6 +41,7 @@ public class ShellProcessServiceImpl implements IShellProcessService {
     public Process exec(String command) throws IOException {
         return Runtime.getRuntime().exec(command);
     }
+
     @Override
     public Process exec(String[] command) throws IOException {
         return Runtime.getRuntime().exec(command);

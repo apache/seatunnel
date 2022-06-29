@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.service;
 
 import org.apache.seatunnel.admin.common.ProcessCleanStream;
@@ -23,31 +24,10 @@ import java.util.concurrent.Future;
 
 public interface IShellProcessService {
 
-    /**
-     * shell提交执行
-     *
-     * @param command 命令
-     * @return 任务
-     * @throws IOException 异常
-     */
     Process exec(String command) throws IOException;
 
-    /**
-     * shell提交执行
-     *
-     * @param commands 命令
-     * @return 任务
-     * @throws IOException 异常
-     */
     Process exec(String[] commands) throws IOException;
 
-    /**
-     * 同步等待返回,并判断是否成功
-     *
-     * @param process shell任务
-     * @return 是否成功
-     * @throws InterruptedException 异常
-     */
     Future<Boolean> waitForResult(Process process) throws InterruptedException;
 
     ProcessCleanStream printStderrLog(Process exec, String processName);

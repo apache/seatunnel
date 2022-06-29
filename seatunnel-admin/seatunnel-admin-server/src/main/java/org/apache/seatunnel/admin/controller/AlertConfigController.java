@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.controller;
+
+import org.apache.seatunnel.admin.common.Result;
+import org.apache.seatunnel.admin.dto.AlertConfigPage;
+import org.apache.seatunnel.admin.entity.StAlertConfig;
+import org.apache.seatunnel.admin.service.IStAlertConfigService;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.hutool.core.util.StrUtil;
@@ -24,14 +30,15 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
-import org.apache.seatunnel.admin.common.Result;
-import org.apache.seatunnel.admin.dto.AlertConfigPage;
-import org.apache.seatunnel.admin.entity.StAlertConfig;
-import org.apache.seatunnel.admin.service.IStAlertConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -41,7 +48,7 @@ import java.util.List;
 @SaCheckLogin
 public class AlertConfigController {
 
-    private static final Logger logger = LoggerFactory.getLogger(AlertConfigController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AlertConfigController.class);
 
     @Autowired
     private IStAlertConfigService alertConfigService;
@@ -75,9 +82,7 @@ public class AlertConfigController {
     }
 
     @ApiOperation(value = "delAlertConfigById", notes = "DELETE_ALERT_CONFIG_BY_ID_NOTES")
-    @ApiImplicitParams({
-            @ApiImplicitParam(name = "id", value = "ALERT_CONFIG_ID", dataType = "Long", example = "100")
-    })
+    @ApiImplicitParams({ @ApiImplicitParam(name = "id", value = "ALERT_CONFIG_ID", dataType = "Long", example = "100") })
     @PostMapping(value = "/delete")
     public Result delById(@RequestParam(value = "id") Long id) {
         boolean val = alertConfigService.removeById(id);

@@ -14,44 +14,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.admin.exception;
 
 import org.apache.seatunnel.admin.enums.ResultStatus;
 
 public class SeatunnelServiceException extends RuntimeException {
 
-	private static final long serialVersionUID = 1L;
+    private ResultStatus resultStatus;
 
-	private ResultStatus resultStatus;
+    public ResultStatus getResultStatus() {
+        return resultStatus;
+    }
 
-	public ResultStatus getResultStatus() {
-		return resultStatus;
-	}
+    public SeatunnelServiceException(ResultStatus resultStatus) {
+        super(resultStatus.getMsg());
+        this.resultStatus = resultStatus;
+    }
 
-	public SeatunnelServiceException(ResultStatus resultStatus){
-		super(resultStatus.getMsg());
-		this.resultStatus = resultStatus;
-	}
+    public SeatunnelServiceException(String message) {
+        super(message);
+        this.resultStatus = ResultStatus.INTERNAL_SERVER_ERROR_ARGS;
+    }
 
-	public SeatunnelServiceException(String message){
-		super(message);
-		this.resultStatus = ResultStatus.INTERNAL_SERVER_ERROR_ARGS;
-	}
+    public SeatunnelServiceException(ResultStatus resultStatus, String message) {
+        super(message);
+        this.resultStatus = resultStatus;
+    }
 
-	public SeatunnelServiceException(ResultStatus resultStatus, String message){
-		super(message);
-		this.resultStatus = resultStatus;
-	}
+    public SeatunnelServiceException(ResultStatus resultStatus, Throwable cause) {
+        super(cause);
+        this.resultStatus = resultStatus;
+    }
 
-	public SeatunnelServiceException(ResultStatus resultStatus, Throwable cause)
-	{
-		super(cause);
-		this.resultStatus = resultStatus;
-	}
-
-	public SeatunnelServiceException(ResultStatus resultStatus, String message, Throwable cause)
-	{
-		super(message,cause);
-		this.resultStatus = resultStatus;
-	}
+    public SeatunnelServiceException(ResultStatus resultStatus, String message, Throwable cause) {
+        super(message, cause);
+        this.resultStatus = resultStatus;
+    }
 }
