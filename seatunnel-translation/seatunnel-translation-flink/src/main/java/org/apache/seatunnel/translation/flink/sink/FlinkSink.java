@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.flink.serialization.FlinkSimpleVersionedSerializer;
+import org.apache.seatunnel.translation.flink.serialization.FlinkWriterStateSerializer;
 
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
@@ -30,78 +30,60 @@ import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
-public class FlinkSink<InputT, WriterStateT, CommT, GlobalCommT> implements Sink<InputT, Serializable,
-        FlinkWriterState<WriterStateT>, Serializable> {
+public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT> implements Sink<InputT, CommT,
+        FlinkWriterState<WriterStateT>, GlobalCommT> {
 
-    private final SeaTunnelSink<InputT, WriterStateT, CommT, GlobalCommT> sink;
+    private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink;
     private final Map<String, String> configuration;
 
-    FlinkSink(SeaTunnelSink<InputT, WriterStateT, CommT, GlobalCommT> sink,
+    public FlinkSink(SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink,
               Map<String, String> configuration) {
         this.sink = sink;
         this.configuration = configuration;
     }
 
     @Override
-    public SinkWriter<InputT, Serializable, FlinkWriterState<WriterStateT>> createWriter(org.apache.flink.api.connector.sink.Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
+    public SinkWriter<InputT, CommT, FlinkWriterState<WriterStateT>> createWriter(org.apache.flink.api.connector.sink.Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states) throws IOException {
         // TODO add subtask and parallelism.
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new DefaultSinkWriterContext(configuration, 0, 0);
 
         if (states == null || states.isEmpty()) {
-            FlinkSinkWriterConverter<InputT, Serializable, WriterStateT> converter =
-                    new FlinkSinkWriterConverter<>(1);
-            return converter.convert(sink.createWriter(stContext));
+            return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, sink.getConsumedType());
         } else {
-            FlinkSinkWriterConverter<InputT, Serializable, WriterStateT> converter =
-                    new FlinkSinkWriterConverter<>(states.get(0).getCheckpointId());
-            return converter.convert(sink.restoreWriter(stContext,
-                    states.stream().map(FlinkWriterState::getState).collect(Collectors.toList())));
+            List<WriterStateT> restoredState = states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
+            return new FlinkSinkWriter<>(sink.restoreWriter(stContext, restoredState), states.get(0).getCheckpointId(), sink.getConsumedType());
         }
     }
 
     @Override
-    public Optional<Committer<Serializable>> createCommitter() throws IOException {
-
-        FlinkCommitterConverter<Serializable> converter = new FlinkCommitterConverter<>();
-        Optional<SinkCommitter<CommT>> committer = sink.createCommitter();
-        return committer.map(sinkCommitter -> converter.convert((SinkCommitter<Serializable>) sinkCommitter));
-
+    public Optional<Committer<CommT>> createCommitter() throws IOException {
+        return sink.createCommitter().map(FlinkCommitter::new);
     }
 
     @Override
-    public Optional<GlobalCommitter<Serializable, Serializable>> createGlobalCommitter() throws IOException {
-        FlinkGlobalCommitterConverter<Serializable, Serializable> converter = new FlinkGlobalCommitterConverter<>();
-        Optional<SinkAggregatedCommitter<CommT, GlobalCommT>> committer = sink.createAggregatedCommitter();
-        return committer.map(commTGlobalCommTSinkAggregatedCommitter -> converter.convert((SinkAggregatedCommitter<Serializable,
-                Serializable>) commTGlobalCommTSinkAggregatedCommitter));
+    public Optional<GlobalCommitter<CommT, GlobalCommT>> createGlobalCommitter() throws IOException {
+        return sink.createAggregatedCommitter().map(FlinkGlobalCommitter::new);
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<Serializable>> getCommittableSerializer() {
-        final FlinkSimpleVersionedSerializerConverter<Serializable> converter = new FlinkSimpleVersionedSerializerConverter<>();
-        final Optional<Serializer<CommT>> commTSerializer = sink.getCommitInfoSerializer();
-        return commTSerializer.map(serializer -> converter.convert((Serializer<Serializable>) serializer));
+    public Optional<SimpleVersionedSerializer<CommT>> getCommittableSerializer() {
+        return sink.getCommitInfoSerializer().map(FlinkSimpleVersionedSerializer::new);
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<Serializable>> getGlobalCommittableSerializer() {
-        final Optional<Serializer<GlobalCommT>> globalCommTSerializer = sink.getAggregatedCommitInfoSerializer();
-        final FlinkSimpleVersionedSerializerConverter<Serializable> converter = new FlinkSimpleVersionedSerializerConverter<>();
-        return globalCommTSerializer.map(serializer -> converter.convert((Serializer<Serializable>) serializer));
+    public Optional<SimpleVersionedSerializer<GlobalCommT>> getGlobalCommittableSerializer() {
+        return sink.getAggregatedCommitInfoSerializer().map(FlinkSimpleVersionedSerializer::new);
     }
 
     @Override
     public Optional<SimpleVersionedSerializer<FlinkWriterState<WriterStateT>>> getWriterStateSerializer() {
-        final FlinkSimpleVersionedSerializerConverter<FlinkWriterState<WriterStateT>> converter = new FlinkSimpleVersionedSerializerConverter<>();
-        final Optional<Serializer<WriterStateT>> writerStateTSerializer = sink.getWriterStateSerializer();
-        return writerStateTSerializer.map(serializer -> converter.convert((Serializer<FlinkWriterState<WriterStateT>>) serializer));
+        return sink.getWriterStateSerializer().map(FlinkWriterStateSerializer::new);
     }
 }

@@ -89,6 +89,8 @@
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
+        <module>seatunnel-connectors-v2</module>
+        <module>seatunnel-connectors-v2-dist</module>
     </modules>
 
     <properties>
@@ -154,6 +156,7 @@
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
+        <junit5.version>5.8.2</junit5.version>
         <tispark.version>2.4.1</tispark.version>
         <druid.version>0.22.1</druid.version>
         <sshd.version>2.7.0</sshd.version>
@@ -514,6 +517,20 @@
             </dependency>
 
             <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit5.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-params</artifactId>
+                <version>${junit5.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-annotations</artifactId>
                 <version>${jackson.version}</version>
@@ -643,11 +660,6 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

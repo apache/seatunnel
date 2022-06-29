@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.constants.JobMode;
 
 import java.io.Serializable;
 
@@ -42,15 +41,12 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
      *
      * @return the boundedness of this source.
      */
-    default Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(getSeaTunnelContext().getJobMode()) ?
-            Boundedness.BOUNDED : Boundedness.UNBOUNDED;
-    }
+    Boundedness getBoundedness();
 
     /**
-     * Get the row type information of the records produced by this source.
+     * Get the data type of the records produced by this source.
      *
-     * @return SeaTunnel row type information.
+     * @return SeaTunnel data type.
      */
     SeaTunnelDataType<T> getProducedType();
 

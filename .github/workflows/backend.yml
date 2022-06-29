@@ -3,13 +3,13 @@
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
 # The ASF licenses this file to You under the Apache License, Version 2.0
-# (the "License"); you may not use this file except in compliance with
+# (the 'License'); you may not use this file except in compliance with
 # the License.  You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -29,84 +29,150 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-on-ubuntu:
-    name: Build-on-ubuntu
+  license-header:
+    if: github.repository == 'apache/incubator-seatunnel'
+    name: License header
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Check license header
+        uses: apache/skywalking-eyes@985866ce7e324454f61e22eb2db2e998db09d6f3
+
+  code-style:
+    if: github.repository == 'apache/incubator-seatunnel'
+    name: Code style
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Check code style
+        run: ./mvnw --batch-mode --quiet --no-snapshot-updates clean checkstyle:check
+
+  dead-link:
+    if: github.repository == 'apache/incubator-seatunnel'
+    name: Dead links
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - run: sudo npm install -g markdown-link-check@3.8.7
+      - run: |
+          for file in $(find . -name "*.md"); do
+            markdown-link-check -c .dlc.json -q "$file"
+          done
+
+  sanity-check:
+    if: github.repository == 'apache/incubator-seatunnel'
+    name: Sanity check results
+    needs: [ license-header, code-style, dead-link ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check results
+        run: |
+          [[ ${{ needs.license-header.result }} == 'success' ]] || exit 1;
+          [[ ${{ needs.code-style.result }} == 'success' ]] || exit 1;
+          [[ ${{ needs.dead-link.result }} == 'success' ]] || exit 1;
+
+  build:
+    if: github.repository == 'apache/incubator-seatunnel'
+    name: Build
+    needs: [ sanity-check ]
     strategy:
       matrix:
-        java: ['8', '11']
-    timeout-minutes: 80
-    env:
-      MAVEN_OPTS: -Xmx2G -Xms2G
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest', 'windows-latest' ]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+          cache: 'maven'
+      - name: Build distribution tar
+        run: >-
+          ./mvnw -B install scalastyle:check
+          -D"maven.test.skip"=true
+          -D"checkstyle.skip"=true
+          -D"license.skipAddThirdParty"=true
+          -D"http.keepAlive"=false
+          -D"maven.wagon.http.pool"=false
+          -D"maven.wagon.http.retryHandler.count"=3
+          -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
+
+  dependency-license:
+    if: github.repository == 'apache/incubator-seatunnel'
+    name: Dependency licenses
+    needs: [ sanity-check ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'maven'
+      - name: Install
+        run: >-
+          ./mvnw -B -q install -DskipTests
+          -D"maven.test.skip"=true
+          -D"maven.javadoc.skip"=true
+          -D"scalastyle.skip"=true
+          -D"checkstyle.skip"=true
+          -D"license.skipAddThirdParty"
+      - name: Check Dependencies Licenses
+        run: tools/dependencies/checkLicense.sh
+
+  unit-test:
+    name: Unit Test
+    runs-on: ${{ matrix.os }}
+    needs: [ sanity-check ]
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest', 'windows-latest' ]
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
-          java-version:  ${{ matrix.java }}
-          distribution: 'adopt'
-      - name: Cache local Maven repository
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-      - name: Check Style
-        run: |
-          ./mvnw -T 2C -B checkstyle:check --no-snapshot-updates
-      - name: Build and Package
-        run: |
-          ./mvnw -B install scalastyle:check \
-                 -Dmaven.test.skip=true \
-                 -Dcheckstyle.skip=true \
-                 -Dlicense.skipAddThirdParty=true \
-                 -Dhttp.keepAlive=false \
-                 -Dmaven.wagon.http.pool=false \
-                 -Dmaven.wagon.http.retryHandler.count=3 \
-                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 \
-                 --no-snapshot-updates
-      - name: Check dependency license
-        run: bash ./tools/dependencies/checkLicense.sh jdk${{ matrix.java }}
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
       - name: Run Unit tests
         run: |
-          ./mvnw -T 2C -B clean verify -Dmaven.test.skip=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
-      - name: Run Integration tests
-        run: |
-          ./mvnw -T 2C -B clean verify -DskipUT=true -DskipIT=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true --no-snapshot-updates
-  build-on-windows:
-    name: Build-on-windows
-    runs-on: windows-latest
+          ./mvnw -T 2C -B clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+
+  integration-test:
+    name: Integration Test
+    runs-on: ${{ matrix.os }}
+    needs: [ sanity-check ]
     strategy:
       matrix:
-        java: ['8']
-    timeout-minutes: 80
-    env:
-      MAVEN_OPTS: -Xmx2G -Xms2G
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 50
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v3
         with:
-          java-version:  ${{ matrix.java }}
+          java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: Cache local Maven repository
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-      - name: Check Style
-        shell: cmd
+      - name: Run Integration tests
         run: |
-          .\mvnw.cmd -T 2C -B checkstyle:check -nsu
-      - name: Build and Package
-        shell: cmd
-        run: |
-          .\mvnw.cmd -B install scalastyle:check -Dmaven.test.skip=true -Dcheckstyle.skip=true -Dlicense.skipAddThirdParty=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.count=3 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 -nsu
-      - name: Run Unit tests
-        shell: cmd
-        run: |
-          .\mvnw.cmd -T 2C -B clean verify -Dmaven.test.skip=false -Dcheckstyle.skip=true -Dscalastyle.skip=true -Dlicense.skipAddThirdParty=true -nsu
+          ./mvnw -T 2C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates

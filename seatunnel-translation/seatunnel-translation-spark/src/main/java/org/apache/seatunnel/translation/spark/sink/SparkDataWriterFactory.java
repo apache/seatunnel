@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -24,28 +26,37 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
-import org.apache.spark.sql.types.StructType;
 
-import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.Map;
 
 public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory<InternalRow> {
 
-    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
-    @Nullable
-    private final SinkCommitter<CommitInfoT> sinkCommitter;
-    private final StructType schema;
-
-    SparkDataWriterFactory(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
-                           @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                           StructType schema) {
-        this.sinkWriter = sinkWriter;
-        this.sinkCommitter = sinkCommitter;
-        this.schema = schema;
+    private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
+    private final Map<String, String> configuration;
+    SparkDataWriterFactory(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,  Map<String, String> configuration) {
+        this.sink = sink;
+        this.configuration = configuration;
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         // TODO use partitionID, taskId information.
-        return new SparkDataWriter<>(sinkWriter, sinkCommitter, schema, epochId);
+        // TODO add subtask and parallelism.
+        org.apache.seatunnel.api.sink.SinkWriter.Context context =
+            new DefaultSinkWriterContext(configuration, (int) taskId, 0);
+        SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
+        SinkCommitter<CommitInfoT> committer;
+        try {
+            writer = sink.createWriter(context);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create SinkWriter.", e);
+        }
+        try {
+            committer = sink.createCommitter().orElse(null);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create SinkCommitter.", e);
+        }
+        return new SparkDataWriter<>(writer, committer, sink.getConsumedType(), epochId);
     }
 }

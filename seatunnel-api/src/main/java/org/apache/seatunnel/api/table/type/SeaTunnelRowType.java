@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -33,6 +35,8 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
     private final SeaTunnelDataType<?>[] fieldTypes;
 
     public SeaTunnelRowType(String[] fieldNames, SeaTunnelDataType<?>[] fieldTypes) {
+        checkArgument(fieldNames.length == fieldTypes.length,
+            "The number of field names must be the same as the number of field types.");
         this.fieldNames = fieldNames;
         this.fieldTypes = fieldTypes;
     }
@@ -40,6 +44,11 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
     @Override
     public Class<SeaTunnelRow> getTypeClass() {
         return SeaTunnelRow.class;
+    }
+
+    @Override
+    public SqlType getSqlType() {
+        return SqlType.ROW;
     }
 
     public String[] getFieldNames() {
@@ -65,5 +74,48 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
 
     public SeaTunnelDataType<?> getFieldType(int index) {
         return fieldTypes[index];
+    }
+
+    public int indexOf(String fieldName) {
+        for (int i = 0; i < fieldNames.length; i++) {
+            if (fieldNames[i].equals(fieldName)) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException(String.format("can't find field %s", fieldName));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof SeaTunnelRowType)) {
+            return false;
+        }
+        SeaTunnelRowType that = (SeaTunnelRowType) obj;
+        return Arrays.equals(fieldNames, that.fieldNames) && Arrays.equals(fieldTypes, that.fieldTypes);
+    }
+
+    @Override
+    @SuppressWarnings("MagicNumber")
+    public int hashCode() {
+        int result = Arrays.hashCode(fieldNames);
+        result = 31 * result + Arrays.hashCode(fieldTypes);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder("ROW<");
+        for (int i = 0; i < fieldNames.length; i++) {
+            if (i > 0) {
+                builder.append(",");
+            }
+            builder.append(fieldNames[i])
+                .append(" ")
+                .append(fieldTypes[i]);
+        }
+        return builder.append(">").toString();
     }
 }

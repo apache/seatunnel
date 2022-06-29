@@ -19,38 +19,26 @@ package org.apache.seatunnel.translation.flink.utils;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.EnumType;
-import org.apache.seatunnel.api.table.type.ListType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PojoType;
-import org.apache.seatunnel.api.table.type.PrimitiveArrayType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.TimestampType;
 
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.LocalTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.typeutils.EnumTypeInfo;
-import org.apache.flink.api.java.typeutils.ListTypeInfo;
 import org.apache.flink.api.java.typeutils.MapTypeInfo;
-import org.apache.flink.api.java.typeutils.PojoField;
-import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
-import org.apache.flink.table.runtime.typeutils.TimestampDataTypeInfo;
+import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo;
 
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -68,18 +56,13 @@ public class TypeConverterUtils {
         BRIDGED_TYPES.put(Long.class, BridgedType.of(BasicType.LONG_TYPE, BasicTypeInfo.LONG_TYPE_INFO));
         BRIDGED_TYPES.put(Float.class, BridgedType.of(BasicType.FLOAT_TYPE, BasicTypeInfo.FLOAT_TYPE_INFO));
         BRIDGED_TYPES.put(Double.class, BridgedType.of(BasicType.DOUBLE_TYPE, BasicTypeInfo.DOUBLE_TYPE_INFO));
-        BRIDGED_TYPES.put(Character.class, BridgedType.of(BasicType.CHAR_TYPE, BasicTypeInfo.CHAR_TYPE_INFO));
-        BRIDGED_TYPES.put(BigInteger.class, BridgedType.of(BasicType.BIG_INT_TYPE, BasicTypeInfo.BIG_INT_TYPE_INFO));
-        BRIDGED_TYPES.put(BigDecimal.class, BridgedType.of(BasicType.BIG_DECIMAL_TYPE, BasicTypeInfo.BIG_DEC_TYPE_INFO));
-        BRIDGED_TYPES.put(Instant.class, BridgedType.of(BasicType.INSTANT_TYPE, BasicTypeInfo.INSTANT_TYPE_INFO));
         BRIDGED_TYPES.put(Void.class, BridgedType.of(BasicType.VOID_TYPE, BasicTypeInfo.VOID_TYPE_INFO));
         // data time types
-        BRIDGED_TYPES.put(Date.class, BridgedType.of(BasicType.DATE_TYPE, BasicTypeInfo.DATE_TYPE_INFO));
         BRIDGED_TYPES.put(LocalDate.class, BridgedType.of(LocalTimeType.LOCAL_DATE_TYPE, LocalTimeTypeInfo.LOCAL_DATE));
         BRIDGED_TYPES.put(LocalTime.class, BridgedType.of(LocalTimeType.LOCAL_TIME_TYPE, LocalTimeTypeInfo.LOCAL_TIME));
         BRIDGED_TYPES.put(LocalDateTime.class, BridgedType.of(LocalTimeType.LOCAL_DATE_TIME_TYPE, LocalTimeTypeInfo.LOCAL_DATE_TIME));
         // basic array types
-        BRIDGED_TYPES.put(byte[].class, BridgedType.of(PrimitiveArrayType.PRIMITIVE_BYTE_ARRAY_TYPE, PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO));
+        BRIDGED_TYPES.put(byte[].class, BridgedType.of(PrimitiveByteArrayType.INSTANCE, PrimitiveArrayTypeInfo.BYTE_PRIMITIVE_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(String[].class, BridgedType.of(ArrayType.STRING_ARRAY_TYPE, BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(Boolean[].class, BridgedType.of(ArrayType.BOOLEAN_ARRAY_TYPE, BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(Byte[].class, BridgedType.of(ArrayType.BYTE_ARRAY_TYPE, BasicArrayTypeInfo.BYTE_ARRAY_TYPE_INFO));
@@ -88,7 +71,6 @@ public class TypeConverterUtils {
         BRIDGED_TYPES.put(Long[].class, BridgedType.of(ArrayType.LONG_ARRAY_TYPE, BasicArrayTypeInfo.LONG_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(Float[].class, BridgedType.of(ArrayType.FLOAT_ARRAY_TYPE, BasicArrayTypeInfo.FLOAT_ARRAY_TYPE_INFO));
         BRIDGED_TYPES.put(Double[].class, BridgedType.of(ArrayType.DOUBLE_ARRAY_TYPE, BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO));
-        BRIDGED_TYPES.put(Character[].class, BridgedType.of(ArrayType.CHAR_ARRAY_TYPE, BasicArrayTypeInfo.CHAR_ARRAY_TYPE_INFO));
     }
 
     private TypeConverterUtils() {
@@ -100,58 +82,36 @@ public class TypeConverterUtils {
         if (bridgedType != null) {
             return bridgedType.getSeaTunnelType();
         }
-        if (dataType instanceof TimestampDataTypeInfo) {
-            return new TimestampType(((TimestampDataTypeInfo) dataType).getPrecision());
-        }
-        if (dataType instanceof ListTypeInfo) {
-            return new ListType<>(convert(((ListTypeInfo<?>) dataType).getElementTypeInfo()));
-        }
-        if (dataType instanceof EnumTypeInfo) {
-            return new EnumType<>(((EnumTypeInfo<?>) dataType).getTypeClass());
+        if (dataType instanceof BigDecimalTypeInfo) {
+            BigDecimalTypeInfo decimalType = (BigDecimalTypeInfo) dataType;
+            return new DecimalType(decimalType.precision(), decimalType.scale());
         }
         if (dataType instanceof MapTypeInfo) {
             MapTypeInfo<?, ?> mapTypeInfo = (MapTypeInfo<?, ?>) dataType;
             return new MapType<>(convert(mapTypeInfo.getKeyTypeInfo()), convert(mapTypeInfo.getValueTypeInfo()));
         }
-        if (dataType instanceof PojoTypeInfo) {
-            return convert((PojoTypeInfo<?>) dataType);
+        if (dataType instanceof RowTypeInfo) {
+            RowTypeInfo typeInformation = (RowTypeInfo) dataType;
+            String[] fieldNames = typeInformation.getFieldNames();
+            SeaTunnelDataType<?>[] seaTunnelDataTypes = Arrays.stream(typeInformation.getFieldTypes())
+                .map(TypeConverterUtils::convert).toArray(SeaTunnelDataType[]::new);
+            return new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
         }
         throw new IllegalArgumentException("Unsupported Flink's data type: " + dataType);
     }
 
-    private static <T> PojoType<T> convert(PojoTypeInfo<T> pojoTypeInfo) {
-        int arity = pojoTypeInfo.getArity();
-        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[arity];
-        Field[] fields = new Field[arity];
-        for (int i = 0; i < arity; i++) {
-            PojoField pojoField = pojoTypeInfo.getPojoFieldAt(i);
-            fieldTypes[i] = convert(pojoField.getTypeInformation());
-            fields[i] = pojoField.getField();
-        }
-        return new PojoType<>(pojoTypeInfo.getTypeClass(), fields, fieldTypes);
-    }
-
-    @SuppressWarnings("unchecked")
     public static TypeInformation<?> convert(SeaTunnelDataType<?> dataType) {
         BridgedType bridgedType = BRIDGED_TYPES.get(dataType.getTypeClass());
         if (bridgedType != null) {
             return bridgedType.getFlinkType();
         }
-        if (dataType instanceof TimestampType) {
-            return new TimestampDataTypeInfo(((TimestampType) dataType).getPrecision());
-        }
-        if (dataType instanceof ListType) {
-            return new ListTypeInfo<>(convert(((ListType<?>) dataType).getElementType()));
-        }
-        if (dataType instanceof EnumType) {
-            return new EnumTypeInfo<>(((EnumType<?>) dataType).getTypeClass());
+        if (dataType instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) dataType;
+            return new BigDecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
         if (dataType instanceof MapType) {
             MapType<?, ?> mapType = (MapType<?, ?>) dataType;
             return new MapTypeInfo<>(convert(mapType.getKeyType()), convert(mapType.getValueType()));
-        }
-        if (dataType instanceof PojoType) {
-            return PojoTypeInfo.of(dataType.getTypeClass());
         }
         if (dataType instanceof SeaTunnelRowType) {
             SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;

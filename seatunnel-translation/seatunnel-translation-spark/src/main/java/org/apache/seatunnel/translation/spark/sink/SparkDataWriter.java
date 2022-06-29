@@ -19,14 +19,14 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.serialization.RowSerialization;
-import org.apache.seatunnel.translation.spark.serialization.InternalRowSerialization;
+import org.apache.seatunnel.translation.serialization.RowConverter;
+import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
-import org.apache.spark.sql.types.StructType;
 
 import javax.annotation.Nullable;
 
@@ -40,22 +40,22 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Nullable
     private final SinkCommitter<CommitInfoT> sinkCommitter;
-    private final RowSerialization<InternalRow> rowSerialization;
+    private final RowConverter<InternalRow> rowConverter;
     private CommitInfoT latestCommitInfoT;
     private long epochId;
 
     SparkDataWriter(SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
                     @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-                    StructType schema, long epochId) {
+                    SeaTunnelDataType<?> dataType, long epochId) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
-        this.rowSerialization = new InternalRowSerialization(schema);
+        this.rowConverter = new InternalRowConverter(dataType);
         this.epochId = epochId == 0 ? 1 : epochId;
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
-        sinkWriter.write(rowSerialization.deserialize(record));
+        sinkWriter.write(rowConverter.convert(record));
     }
 
     @Override
@@ -78,6 +78,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         }
         SparkWriterCommitMessage<CommitInfoT> sparkWriterCommitMessage = new SparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
+        sinkWriter.close();
         return sparkWriterCommitMessage;
     }
 

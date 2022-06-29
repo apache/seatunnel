@@ -63,7 +63,7 @@ public final class SeaTunnelRow implements Serializable {
         return tableId;
     }
 
-    public RowKind geRowKind() {
+    public RowKind getRowKind() {
         return this.kind;
     }
 

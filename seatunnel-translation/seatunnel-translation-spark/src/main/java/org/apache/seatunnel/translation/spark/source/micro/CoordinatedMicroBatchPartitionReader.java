@@ -27,8 +27,6 @@ import org.apache.seatunnel.translation.source.CoordinatedSource;
 import org.apache.seatunnel.translation.spark.source.InternalRowCollector;
 import org.apache.seatunnel.translation.spark.source.ReaderState;
 
-import org.apache.spark.sql.types.StructType;
-
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -38,11 +36,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPartitionReader {
     protected final Map<Integer, InternalRowCollector> collectorMap;
 
-    public CoordinatedMicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId, StructType rowType, Integer checkpointId, Integer checkpointInterval, String checkpointPath, String hdfsRoot, String hdfsUser) {
-        super(source, parallelism, subtaskId, rowType, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
+    public CoordinatedMicroBatchPartitionReader(SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+                                                Integer parallelism,
+                                                Integer subtaskId,
+                                                Integer checkpointId,
+                                                Integer checkpointInterval,
+                                                String checkpointPath,
+                                                String hdfsRoot,
+                                                String hdfsUser) {
+        super(source, parallelism, subtaskId, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
-            collectorMap.put(i, new InternalRowCollector(handover, new Object(), rowType));
+            collectorMap.put(i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
         }
     }
 
@@ -125,7 +130,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         @Override
         protected void handleNoMoreElement(int subtaskId) {
             super.handleNoMoreElement(subtaskId);
-            if (completedReader.incrementAndGet() == this.parallelism) {
+            if (!this.running) {
                 CoordinatedMicroBatchPartitionReader.this.running = false;
             }
         }
