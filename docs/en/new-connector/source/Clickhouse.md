@@ -43,7 +43,7 @@ The query sql used to search data though Clickhouse server
 
 ### common options [string]
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.mdx) for details
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
 
 ## Examples
 
