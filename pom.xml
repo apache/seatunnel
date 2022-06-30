@@ -691,6 +691,10 @@
                         <groupId>org.apapche.hadoop</groupId>
                         <artifactId>*</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.curator</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
             <dependency>
@@ -720,6 +724,14 @@
                     </exclusion>
                     <exclusion>
                         <groupId>org.apapche.hadoop</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.zookeeper</groupId>
+                        <artifactId>zookeeper</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.curator</groupId>
                         <artifactId>*</artifactId>
                     </exclusion>
                 </exclusions>
