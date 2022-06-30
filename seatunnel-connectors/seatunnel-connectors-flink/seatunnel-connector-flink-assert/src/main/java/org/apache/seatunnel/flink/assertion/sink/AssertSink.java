@@ -38,11 +38,11 @@ import org.apache.flink.types.Row;
 import java.util.List;
 
 /**
- * A flink sink plugin which can assert illegal data by user defined rules
- * Refer to https://github.com/apache/incubator-seatunnel/issues/1912
+ * A flink sink plugin which can assert illegal data by user defined rules Refer to https://github.com/apache/incubator-seatunnel/issues/1912
  */
 @AutoService(BaseFlinkSink.class)
 public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
+
     //The assertion executor
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
     //User defined rules used to assert illegal data
@@ -54,14 +54,16 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
     @SneakyThrows
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> inDataSet) {
-        inDataSet.map(row -> {
-            ASSERT_EXECUTOR
-                .fail(row, assertFieldRules)
-                .ifPresent(failRule -> {
-                    throw new IllegalStateException("row :" + row + " fail rule: " + failRule);
-                });
-            return null;
-        }).print();
+        try {
+            inDataSet.collect().forEach(row ->
+                ASSERT_EXECUTOR
+                    .fail(row, assertFieldRules)
+                    .ifPresent(failRule -> {
+                        throw new IllegalStateException("row :" + row + " fail rule: " + failRule);
+                    }));
+        } catch (Exception ex) {
+            throw new RuntimeException("AssertSink execute failed", ex);
+        }
     }
 
     @Override
@@ -73,7 +75,7 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
                     throw new IllegalStateException("row :" + row + "field name of the fail rule: " + failRule.getFieldName());
                 });
             return null;
-        }).print();
+        });
     }
 
     @Override
