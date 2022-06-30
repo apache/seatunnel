@@ -84,7 +84,7 @@ The password corresponding to the clickhouse server, only support root user yet.
 
 ### common options [string]
 
-Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Examples
 

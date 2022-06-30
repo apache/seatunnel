@@ -69,7 +69,7 @@ worked when 'split_mode' is true.
 
 ### common options [string]
 
-Source plugin common parameters, please refer to [Source Plugin](common-options.mdx) for details
+Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
 ## Examples
 
