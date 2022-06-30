@@ -19,16 +19,10 @@ package org.apache.seatunnel.core.flink.command;
 
 import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
-<<<<<<<< HEAD:seatunnel-core/seatunnel-core-flink/src/main/java/org/apache/seatunnel/core/flink/command/FlinkApiConfValidateCommand.java
 import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.config.FlinkApiConfigChecker;
-========
-import org.apache.seatunnel.core.base.utils.FileUtils;
-import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.flink.FlinkEnvironment;
->>>>>>>> dev:seatunnel-core/seatunnel-core-flink/src/main/java/org/apache/seatunnel/core/flink/command/FlinkConfValidateCommand.java
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,18 +42,8 @@ public class FlinkApiConfValidateCommand implements Command<FlinkCommandArgs> {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 
-    private final FlinkCommandArgs flinkCommandArgs;
-
-    public FlinkConfValidateCommand(FlinkCommandArgs flinkCommandArgs) {
-        this.flinkCommandArgs = flinkCommandArgs;
-    }
-
     @Override
-<<<<<<<< HEAD:seatunnel-core/seatunnel-core-flink/src/main/java/org/apache/seatunnel/core/flink/command/FlinkApiConfValidateCommand.java
     public void execute() throws ConfigCheckException {
-========
-    public void execute() {
->>>>>>>> dev:seatunnel-core/seatunnel-core-flink/src/main/java/org/apache/seatunnel/core/flink/command/FlinkConfValidateCommand.java
         Path configPath = FileUtils.getConfigPath(flinkCommandArgs);
         ConfigBuilder configBuilder = new ConfigBuilder(configPath);
         new FlinkApiConfigChecker().checkConfig(configBuilder.getConfig());

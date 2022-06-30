@@ -15,11 +15,7 @@
  * limitations under the License.
  */
 
-<<<<<<<< HEAD:seatunnel-core/seatunnel-core-starter/src/main/java/org/apache/seatunnel/core/starter/config/PluginType.java
 package org.apache.seatunnel.core.starter.config;
-========
-package org.apache.seatunnel.core.base.config;
->>>>>>>> dev:seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/core/base/config/PluginType.java
 
 public enum PluginType {
     SOURCE("source"), TRANSFORM("transform"), SINK("sink");

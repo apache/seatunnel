@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-<<<<<<<< HEAD:seatunnel-connectors-v2/connector-clickhouse/src/main/java/org/apache/seatunnel/connectors/seatunnel/clickhouse/tool/IntHolder.java
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.tool;
 
 import java.io.Serializable;
@@ -32,22 +31,5 @@ public class IntHolder implements Serializable {
 
     public void setValue(int value) {
         this.value = value;
-========
-package org.apache.seatunnel.core.flink.config;
-
-public enum FlinkJobType {
-    JAR("start-seatunnel-flink.sh"),
-    SQL("start-seatunnel-sql.sh"),
-    ;
-
-    private final String type;
-
-    FlinkJobType(String type) {
-        this.type = type;
-    }
-
-    public String getType() {
-        return this.type;
->>>>>>>> dev:seatunnel-core/seatunnel-core-flink/src/main/java/org/apache/seatunnel/core/flink/config/FlinkJobType.java
     }
 }
