@@ -21,9 +21,9 @@ import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.dto.AlertConfigPage;
 import org.apache.seatunnel.admin.entity.StAlertConfig;
 import org.apache.seatunnel.admin.service.IStAlertConfigService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -58,10 +58,10 @@ public class AlertConfigController {
     public Result<List<StAlertConfig>> queryPageList(AlertConfigPage alertConfigPage) {
         QueryWrapper<StAlertConfig> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda()
-                .eq(StrUtil.isNotBlank(alertConfigPage.getName()), StAlertConfig::getName, alertConfigPage.getName())
-                .eq(StrUtil.isNotBlank(alertConfigPage.getType()), StAlertConfig::getType, alertConfigPage.getType())
+                .eq(StringUtils.isNotBlank(alertConfigPage.getName()), StAlertConfig::getName, alertConfigPage.getName())
+                .eq(StringUtils.isNotBlank(alertConfigPage.getType()), StAlertConfig::getType, alertConfigPage.getType())
                 .eq(alertConfigPage.getStatus() != null && alertConfigPage.getStatus() > 0, StAlertConfig::getStatus, alertConfigPage.getStatus())
-                .eq(StrUtil.isNotBlank(alertConfigPage.getConfigContent()), StAlertConfig::getConfigContent, alertConfigPage.getConfigContent());
+                .eq(StringUtils.isNotBlank(alertConfigPage.getConfigContent()), StAlertConfig::getConfigContent, alertConfigPage.getConfigContent());
         Page<StAlertConfig> page = new Page<>(alertConfigPage.getPageNo(), alertConfigPage.getPageSize());
         alertConfigService.page(page, queryWrapper);
         return Result.success(page.getRecords());

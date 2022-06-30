@@ -21,8 +21,8 @@ import org.apache.seatunnel.admin.common.Constants;
 import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.entity.StAlertGroup;
 import org.apache.seatunnel.admin.service.IStAlertGroupService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -57,7 +57,7 @@ public class AlertGroupController {
                                                     @RequestParam(name = Constants.PAGE_NUMBER, defaultValue = "1") Integer pageNo,
                                                     @RequestParam(name = Constants.PAGE_SIZE, defaultValue = "10") Integer pageSize) {
         QueryWrapper<StAlertGroup> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq(StrUtil.isNotBlank(search), "name", search);
+        queryWrapper.eq(StringUtils.isNotBlank(search), "name", search);
         Page<StAlertGroup> page = new Page<>(pageNo, pageSize);
         alertGroupService.page(page, queryWrapper);
         return Result.success(page.getRecords());

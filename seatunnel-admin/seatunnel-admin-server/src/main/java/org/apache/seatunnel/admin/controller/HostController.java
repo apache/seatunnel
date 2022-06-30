@@ -21,8 +21,8 @@ import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.dto.HostPage;
 import org.apache.seatunnel.admin.entity.StHost;
 import org.apache.seatunnel.admin.service.IStHostService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -55,7 +55,7 @@ public class HostController {
     @GetMapping(value = "/list")
     public Result<List<StHost>> queryPageList(HostPage hostPage) {
         QueryWrapper<StHost> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq(StrUtil.isNotBlank(hostPage.getName()), "name", hostPage.getName());
+        queryWrapper.eq(StringUtils.isNotBlank(hostPage.getName()), "name", hostPage.getName());
         Page<StHost> page = new Page<>(hostPage.getPageNo(), hostPage.getPageSize());
         hostService.page(page, queryWrapper);
         return Result.success(page.getRecords());

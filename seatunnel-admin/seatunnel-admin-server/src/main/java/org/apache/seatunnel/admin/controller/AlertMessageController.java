@@ -21,8 +21,8 @@ import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.dto.AlertMessagePage;
 import org.apache.seatunnel.admin.entity.StAlertMessage;
 import org.apache.seatunnel.admin.service.IStAlertMessageService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -50,7 +50,7 @@ public class AlertMessageController {
     @GetMapping(value = "/list")
     public Result<List<StAlertMessage>> queryPageList(AlertMessagePage messagePage) {
         QueryWrapper<StAlertMessage> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq(StrUtil.isNotBlank(messagePage.getName()), "name", messagePage.getName());
+        queryWrapper.eq(StringUtils.isNotBlank(messagePage.getName()), "name", messagePage.getName());
         Page<StAlertMessage> page = new Page<>(messagePage.getPageNo(), messagePage.getPageSize());
         alertMessageService.page(page, queryWrapper);
         return Result.success(page.getRecords());

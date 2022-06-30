@@ -36,7 +36,6 @@
     <properties>
         <spring.boot.version>2.6.6</spring.boot.version>
         <mybatis-plus.version>3.5.2</mybatis-plus.version>
-        <hutool.version>5.8.3</hutool.version>
         <knife4j.version>2.0.9</knife4j.version>
         <druid.version>1.2.11</druid.version>
         <mysql.version>8.0.29</mysql.version>
@@ -69,13 +68,6 @@
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-generator</artifactId>
                 <version>${mybatis-plus.version}</version>
-            </dependency>
-
-            <!-- hutool https://hutool.cn/docs/ -->
-            <dependency>
-                <groupId>cn.hutool</groupId>
-                <artifactId>hutool-all</artifactId>
-                <version>${hutool.version}</version>
             </dependency>
 
             <!-- knife4j https://mvnrepository.com/artifact/com.github.xiaoymin/knife4j-spring-boot-starter -->

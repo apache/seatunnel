@@ -21,8 +21,8 @@ import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.dto.DataSourcePage;
 import org.apache.seatunnel.admin.entity.StDatasource;
 import org.apache.seatunnel.admin.service.IStDatasourceService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -55,7 +55,7 @@ public class DatasourceController {
     @GetMapping(value = "/list")
     public Result<List<StDatasource>> queryPageList(DataSourcePage dataSourcePage) {
         QueryWrapper<StDatasource> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq(StrUtil.isNotBlank(dataSourcePage.getName()), "name", dataSourcePage.getName());
+        queryWrapper.eq(StringUtils.isNotBlank(dataSourcePage.getName()), "name", dataSourcePage.getName());
         Page<StDatasource> page = new Page<>(dataSourcePage.getPageNo(), dataSourcePage.getPageSize());
         datasourceService.page(page, queryWrapper);
         return Result.success(page.getRecords());

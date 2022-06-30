@@ -21,8 +21,8 @@ import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.dto.TaskInstancePage;
 import org.apache.seatunnel.admin.entity.StTaskInstance;
 import org.apache.seatunnel.admin.service.IStTaskInstanceService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -55,8 +55,8 @@ public class TaskInstanceController {
     public Result<List<StTaskInstance>> queryPageList(TaskInstancePage taskInstancePage) {
         QueryWrapper<StTaskInstance> queryWrapper = new QueryWrapper<>();
         queryWrapper
-                .like(StrUtil.isNotBlank(taskInstancePage.getName()), "name", taskInstancePage.getName())
-                .eq(StrUtil.isNotBlank(taskInstancePage.getType()), "type", taskInstancePage.getType())
+                .like(StringUtils.isNotBlank(taskInstancePage.getName()), "name", taskInstancePage.getName())
+                .eq(StringUtils.isNotBlank(taskInstancePage.getType()), "type", taskInstancePage.getType())
                 .eq(taskInstancePage.getInstanceStatus() != null && taskInstancePage.getInstanceStatus() > 0, "instance_status", taskInstancePage.getInstanceStatus());
         Page<StTaskInstance> page = new Page<>(taskInstancePage.getPageNo(), taskInstancePage.getPageSize());
         taskInstanceService.page(page, queryWrapper);

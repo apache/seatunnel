@@ -25,10 +25,10 @@ import org.apache.seatunnel.admin.entity.StUser;
 import org.apache.seatunnel.admin.enums.ResultStatus;
 import org.apache.seatunnel.admin.exception.SeatunnelServiceException;
 import org.apache.seatunnel.admin.service.IStUserService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -63,8 +63,8 @@ public class UserController {
     public Result<List<StUser>> queryPageList(UserPage userPage) {
         QueryWrapper<StUser> queryWrapper = new QueryWrapper<>();
         queryWrapper
-                .eq(StrUtil.isNotBlank(userPage.getUsername()), "username", userPage.getUsername())
-                .eq(StrUtil.isNotBlank(userPage.getType()), "type", userPage.getType())
+                .eq(StringUtils.isNotBlank(userPage.getUsername()), "username", userPage.getUsername())
+                .eq(StringUtils.isNotBlank(userPage.getType()), "type", userPage.getType())
                 .eq(userPage.getStatus() != null && userPage.getStatus() > 0, "status", userPage.getStatus());
         Page<StUser> page = new Page<>(userPage.getPageNo(), userPage.getPageSize());
         userService.page(page, queryWrapper);
@@ -82,7 +82,7 @@ public class UserController {
     @PostMapping(value = "/update")
     public Result updateUser(@RequestBody UserParam userParam) {
         StUser stUser = userService.updateUser(userParam.getId(), userParam.getUsername(), userParam.getType(), userParam.getEmail(), userParam.getStatus());
-        if (StrUtil.isNotBlank(userParam.getPassword())) {
+        if (StringUtils.isNotBlank(userParam.getPassword())) {
             userService.updatePassword(stUser.getId(), userParam.getPassword());
         }
         return Result.success(stUser.getId());
@@ -91,7 +91,7 @@ public class UserController {
     @ApiOperation(value = "updatePassword", notes = "UPDATE_USER_PASSWORD_NOTES")
     @PostMapping(value = "/updatePassword")
     public Result updateUserPassword(@RequestBody UserPasswordParam userPasswordParam) {
-        if (StrUtil.isBlank(userPasswordParam.getPassword())) {
+        if (StringUtils.isBlank(userPasswordParam.getPassword())) {
             throw new SeatunnelServiceException(ResultStatus.REQUEST_PARAMS_NOT_VALID_ERROR, "password");
         }
         boolean val = userService.updatePassword(userPasswordParam.getId(), userPasswordParam.getPassword());

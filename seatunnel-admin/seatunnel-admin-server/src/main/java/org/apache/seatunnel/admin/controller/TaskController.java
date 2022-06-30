@@ -21,8 +21,8 @@ import org.apache.seatunnel.admin.common.Result;
 import org.apache.seatunnel.admin.dto.TaskPage;
 import org.apache.seatunnel.admin.entity.StTask;
 import org.apache.seatunnel.admin.service.IStTaskService;
+import org.apache.seatunnel.admin.utils.StringUtils;
 
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.annotations.Api;
@@ -55,7 +55,7 @@ public class TaskController {
     @GetMapping(value = "/list")
     public Result<List<StTask>> queryPageList(TaskPage taskPage) {
         QueryWrapper<StTask> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq(StrUtil.isNotBlank(taskPage.getName()), "name", taskPage.getName());
+        queryWrapper.eq(StringUtils.isNotBlank(taskPage.getName()), "name", taskPage.getName());
         Page<StTask> page = new Page<>(taskPage.getPageNo(), taskPage.getPageSize());
         taskService.page(page, queryWrapper);
         return Result.success(page.getRecords());
