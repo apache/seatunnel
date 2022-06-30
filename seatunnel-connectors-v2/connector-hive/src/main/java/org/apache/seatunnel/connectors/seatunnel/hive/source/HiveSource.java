@@ -89,7 +89,7 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
         try {
             this.typeInfo = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filesPath.get(0));
         } catch (HivePluginException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read hive file type error.");
+            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read hive file type error.",e);
         }
     }
 

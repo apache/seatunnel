@@ -430,7 +430,7 @@
                 <artifactId>spark-streaming-kafka-0-10_${scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
@@ -757,7 +757,7 @@
                     </exclusion>
                     <exclusion>
                         <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>*</artifactId>
+                        <artifactId>log4j-1.2-api</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>org.apache.logging.log4j</groupId>
@@ -772,12 +772,16 @@
                         <artifactId>*</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>org.apache.zookeeper</groupId>
-                        <artifactId>zookeeper</artifactId>
+                        <groupId>com.github.joshelser</groupId>
+                        <artifactId>dropwizard-metrics-hadoop-metrics2-reporter</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>org.apache.curator</groupId>
+                        <groupId>org.apache.logging.log4j</groupId>
                         <artifactId>*</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.zookeeper</groupId>
+                        <artifactId>zookeeper</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1021,7 +1025,7 @@
                         </execution>
                     </executions>
                 </plugin>
-                
+
                 <!-- checkstyle (End) -->
 
                 <plugin>
