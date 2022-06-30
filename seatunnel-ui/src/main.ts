@@ -14,3 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import { createApp } from 'vue'
+import App from './App'
+
+const app = createApp(App)
+
+app.mount('#app')
