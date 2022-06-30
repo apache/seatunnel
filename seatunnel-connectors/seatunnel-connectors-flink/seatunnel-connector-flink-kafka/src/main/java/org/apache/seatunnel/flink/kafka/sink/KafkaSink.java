@@ -20,11 +20,13 @@ package org.apache.seatunnel.flink.kafka.sink;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
 import org.apache.flink.formats.json.JsonRowSerializationSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
@@ -32,6 +34,7 @@ import org.apache.flink.types.Row;
 
 import java.util.Properties;
 
+@AutoService(BaseFlinkSink.class)
 public class KafkaSink implements FlinkStreamSink {
     private static final long serialVersionUID = 3980751499724935230L;
     private static final String DEFAULT_KAFKA_SEMANTIC = "at_least_once";

@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSink
+import org.apache.seatunnel.spark.tidb.Config.{ADDR, PASSWORD, PORT, USER, DATABASE, TABLE}
 import org.apache.spark.sql.{Dataset, Row}
 
 import scala.collection.JavaConversions._
@@ -33,12 +34,12 @@ class Tidb extends SparkBatchSink {
     val writer = data.write
       .format("tidb")
       .mode("append")
-      .option("tidb.addr", config.getString("addr"))
-      .option("tidb.password", config.getString("password"))
-      .option("tidb.port", config.getString("port"))
-      .option("tidb.user", config.getString("user"))
-      .option("database", config.getString("database"))
-      .option("table", config.getString("table"))
+      .option("tidb.addr", config.getString(ADDR))
+      .option("tidb.password", config.getString(PASSWORD))
+      .option("tidb.port", config.getString(PORT))
+      .option("tidb.user", config.getString(USER))
+      .option("database", config.getString(DATABASE))
+      .option("table", config.getString(TABLE))
 
     Try(TypesafeConfigUtils.extractSubConfigThrowable(config, "options.", false)) match {
 
@@ -57,7 +58,7 @@ class Tidb extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    checkAllExists(config, "addr", "port", "database", "table", "user", "password")
+    checkAllExists(config, ADDR, PORT, DATABASE, TABLE, USER, PASSWORD)
   }
 
   override def getPluginName: String = "TiDB"

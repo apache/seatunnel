@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+<<<<<<<< HEAD:seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/source/JdbcSourceSplit.java
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -33,4 +34,23 @@ public class JdbcSourceSplit implements SourceSplit {
     public String splitId() {
         return splitId.toString();
     }
+========
+package org.apache.seatunnel.core.base.command;
+
+import org.apache.seatunnel.apis.base.command.CommandArgs;
+
+/**
+ * Command interface.
+ *
+ * @param <T> args type
+ */
+@FunctionalInterface
+public interface Command<T extends CommandArgs> {
+
+    /**
+     * Execute command
+     */
+    void execute();
+
+>>>>>>>> dev:seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/core/base/command/Command.java
 }

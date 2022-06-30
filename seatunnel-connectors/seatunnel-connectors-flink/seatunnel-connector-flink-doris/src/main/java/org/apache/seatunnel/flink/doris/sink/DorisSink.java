@@ -20,12 +20,14 @@ package org.apache.seatunnel.flink.doris.sink;
 import org.apache.seatunnel.common.PropertiesUtil;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -39,6 +41,7 @@ import org.apache.flink.util.Preconditions;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+@AutoService(BaseFlinkSink.class)
 public class DorisSink implements FlinkStreamSink, FlinkBatchSink {
 
     private static final long serialVersionUID = 4747849769146047770L;

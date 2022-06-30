@@ -20,7 +20,8 @@ import java.util.Properties
 
 import scala.collection.JavaConversions._
 
-import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
@@ -34,7 +35,6 @@ import org.apache.spark.streaming.kafka010._
 import org.slf4j.LoggerFactory
 
 class KafkaStream extends SparkStreamingSource[(String, String)] {
-
   private val LOGGER = LoggerFactory.getLogger(classOf[KafkaStream])
 
   private var schema: StructType = _
@@ -50,12 +50,11 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
   private var topics: Set[String] = _
 
   override def prepare(env: SparkEnvironment): Unit = {
-
     val defaultConfig = ConfigFactory.parseMap(
       Map(
-        consumerPrefix + "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
-        consumerPrefix + "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
-        consumerPrefix + "enable.auto.commit" -> false))
+        consumerPrefix + ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG -> classOf[StringDeserializer].getName,
+        consumerPrefix + ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG -> classOf[StringDeserializer].getName,
+        consumerPrefix + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG -> false))
 
     config = config.withFallback(defaultConfig)
     schema = StructType(
@@ -64,8 +63,7 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
         StructField("raw_message", DataTypes.StringType)))
 
     topics = config.getString("topics").split(",").toSet
-    val consumerConfig =
-      TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
+    val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
     consumerConfig.entrySet.foreach(entry => {
       val key = entry.getKey
       val value = entry.getValue.unwrapped
@@ -73,8 +71,7 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
     })
 
     LOGGER.info("Input Kafka Params:")
-    for (entry <- kafkaParams) {
-      val (key, value) = entry
+    for ((key, value) <- kafkaParams) {
       LOGGER.info("\t" + key + " = " + value)
     }
   }
@@ -106,7 +103,8 @@ class KafkaStream extends SparkStreamingSource[(String, String)] {
     val checkResult = checkAllExists(config, "topics")
     if (checkResult.isSuccess) {
       val consumerConfig = TypesafeConfigUtils.extractSubConfig(config, consumerPrefix, false)
-      checkAllExists(consumerConfig, "group.id")
+      checkAllExists(consumerConfig, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG)
+      checkAllExists(consumerConfig, ConsumerConfig.GROUP_ID_CONFIG)
     } else {
       checkResult
     }

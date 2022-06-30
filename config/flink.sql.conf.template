@@ -21,7 +21,7 @@
 --
 
 
-SET 'table.dml-sync' = 'true';
+SET table.dml-sync = true;
 
 CREATE TABLE events (
   f_type INT,
