@@ -145,11 +145,6 @@ public abstract class FlinkContainer {
         // copy connectors
         File jars = new File(PROJECT_ROOT_PATH +
             "/seatunnel-connectors-v2-dist/target/lib");
-        for (File fi : jars.listFiles()) {
-            System.out.println(fi.getName());
-        }
-        File[] connectors = jars.listFiles(f -> f.getName().startsWith("connector"));
-        Objects.requireNonNull(connectors);
         Arrays.stream(Objects.requireNonNull(jars.listFiles(f -> f.getName().startsWith("connector"))))
             .forEach(jar ->
                 jobManager.copyFileToContainer(

@@ -78,7 +78,6 @@ commons-cli-1.3.1.jar
 commons-cli-1.4.jar
 commons-codec-1.13.jar
 commons-collections-3.2.2.jar
-commons-collections4-4.2.jar
 commons-collections4-4.4.jar
 commons-compiler-3.0.9.jar
 commons-compiler-3.1.6.jar

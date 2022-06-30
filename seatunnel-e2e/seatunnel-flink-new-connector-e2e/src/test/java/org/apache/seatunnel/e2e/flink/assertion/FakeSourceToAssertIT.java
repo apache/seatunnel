@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.serialization;
+package org.apache.seatunnel.e2e.flink.assertion;
+
+import org.apache.seatunnel.e2e.flink.FlinkContainer;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
 
 import java.io.IOException;
-import java.io.Serializable;
 
-public interface Serializer<T> extends Serializable {
+public class FakeSourceToAssertIT extends FlinkContainer {
 
-    /**
-     * Serializes the given object.
-     *
-     * @param obj The object to serialize.
-     * @return The serialized data (bytes).
-     * @throws IOException Thrown, if the serialization fails.
-     */
-    byte[] serialize(T obj) throws IOException;
-
-    /**
-     * De-serializes the given data (bytes).
-     *
-     * @param serialized The serialized data
-     * @return The deserialized object
-     * @throws IOException Thrown, if the deserialization fails.
-     */
-    T deserialize(byte[] serialized) throws IOException;
+    @Test
+    public void testFakeSourceToAssertSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/assertion/fakesource_to_assert.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
 }

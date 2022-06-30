@@ -82,15 +82,15 @@
         <module>seatunnel-core</module>
         <module>seatunnel-transforms</module>
         <module>seatunnel-connectors</module>
-        <module>seatunnel-dist</module>
+        <module>seatunnel-connectors-v2</module>
+        <module>seatunnel-connectors-v2-dist</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
         <module>seatunnel-api</module>
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
-        <module>seatunnel-connectors-v2</module>
-        <module>seatunnel-connectors-v2-dist</module>
+        <module>seatunnel-dist</module>
     </modules>
 
     <properties>
@@ -143,6 +143,7 @@
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <commons-collections.version>3.2.2</commons-collections.version>
+        <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
@@ -434,6 +435,11 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
                 <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>${commons-collections4.version}</version>
             </dependency>
 
             <dependency>

@@ -43,6 +43,7 @@
         <module>connector-hive</module>
         <module>connector-file</module>
         <module>connector-file-impl</module>
+        <module>connector-assert</module>
     </modules>
 
     <dependencies>

@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.serialization;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
-import java.io.IOException;
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
 
-public interface Serializer<T> extends Serializable {
-
-    /**
-     * Serializes the given object.
-     *
-     * @param obj The object to serialize.
-     * @return The serialized data (bytes).
-     * @throws IOException Thrown, if the serialization fails.
-     */
-    byte[] serialize(T obj) throws IOException;
-
-    /**
-     * De-serializes the given data (bytes).
-     *
-     * @param serialized The serialized data
-     * @return The deserialized object
-     * @throws IOException Thrown, if the deserialization fails.
-     */
-    T deserialize(byte[] serialized) throws IOException;
+public class FileTransferFactory {
+    public static FileTransfer createFileTransfer(ClickhouseFileCopyMethod type, String host, String password) {
+        switch (type) {
+            case SCP:
+                return new ScpFileTransfer(host, password);
+            case RSYNC:
+                return new RsyncFileTransfer(host, password);
+            default:
+                throw new RuntimeException("unsupported clickhouse file copy method:" + type);
+        }
+    }
 }
