@@ -141,7 +141,6 @@ public abstract class FlinkContainer {
         jobManager.copyFileToContainer(
             MountableFile.forHostPath(seatunnelFlinkBinPath),
             Paths.get(SEATUNNEL_BIN, SEATUNNEL_FLINK_BIN).toString());
-
         // copy connectors
         File jars = new File(PROJECT_ROOT_PATH +
             "/seatunnel-connectors-v2-dist/target/lib");
