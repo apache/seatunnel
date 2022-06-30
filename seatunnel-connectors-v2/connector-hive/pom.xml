@@ -32,7 +32,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop-shade</artifactId>
+            <artifactId>seatunnel-hive-shade</artifactId>
             <version>${project.version}</version>
         </dependency>
         
