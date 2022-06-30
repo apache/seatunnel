@@ -31,7 +31,6 @@
 
     <modules>
         <module>seatunnel-admin-server</module>
-<!--        <module>seatunnel-admin-ui</module>-->
     </modules>
 
     <properties>
@@ -39,12 +38,9 @@
         <mybatis-plus.version>3.5.2</mybatis-plus.version>
         <hutool.version>5.8.3</hutool.version>
         <knife4j.version>2.0.9</knife4j.version>
-        <fastjson.version>2.0.7</fastjson.version>
         <druid.version>1.2.11</druid.version>
         <mysql.version>8.0.29</mysql.version>
         <sa-token.version>1.25.0</sa-token.version>
-        <sshj.version>0.31.0</sshj.version>
-        <guava.version>28.0-jre</guava.version>
     </properties>
 
     <dependencyManagement>
@@ -87,20 +83,13 @@
                 <groupId>com.github.xiaoymin</groupId>
                 <artifactId>knife4j-spring-boot-starter</artifactId>
                 <version>${knife4j.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.javassist</groupId>
+                        <artifactId>javassist</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
-            <!-- https://mvnrepository.com/artifact/com.hierynomus/sshj -->
-            <dependency>
-                <groupId>com.hierynomus</groupId>
-                <artifactId>sshj</artifactId>
-                <version>${sshj.version}</version>
-            </dependency>
-            <!-- json -->
-            <dependency>
-                <groupId>com.alibaba</groupId>
-                <artifactId>fastjson</artifactId>
-                <version>${fastjson.version}</version>
-            </dependency>
-
             <!-- druid -->
             <dependency>
                 <groupId>com.alibaba</groupId>
@@ -119,12 +108,6 @@
                 <groupId>cn.dev33</groupId>
                 <artifactId>sa-token-spring-boot-starter</artifactId>
                 <version>${sa-token.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-                <version>${guava.version}</version>
             </dependency>
 
         </dependencies>
