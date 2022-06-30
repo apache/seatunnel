@@ -49,9 +49,9 @@ class Hive extends SparkBatchSink with Logging {
         df
       }
       val frameWriter: DataFrameWriter[Row] = if (config.hasPath("save_mode")) {
-        sinkFrame.write.mode(config.getString("save_mode"))
+        sinkFrame.write.format("Hive").mode(config.getString("save_mode"))
       } else {
-        sinkFrame.write
+        sinkFrame.write.format("Hive")
       }
       if (config.hasPath("partition_by")) {
         val partitionList: util.List[String] = config.getStringList("partition_by")

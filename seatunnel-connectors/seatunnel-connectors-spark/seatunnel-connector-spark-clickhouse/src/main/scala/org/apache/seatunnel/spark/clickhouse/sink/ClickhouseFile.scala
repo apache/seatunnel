@@ -29,8 +29,7 @@ import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.seatunnel.spark.clickhouse.Config.{CLICKHOUSE_LOCAL_PATH, COPY_METHOD, DATABASE, FIELDS, HOST, NODE_ADDRESS, NODE_FREE_PASSWORD, NODE_PASS, PASSWORD, SHARDING_KEY, TABLE, TMP_BATCH_CACHE_LINE, USERNAME}
 import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse._
 import org.apache.seatunnel.spark.clickhouse.sink.ClickhouseFile.{CLICKHOUSE_FILE_PREFIX, LOGGER, UUID_LENGTH, getClickhouseTableInfo}
-import org.apache.seatunnel.spark.clickhouse.sink.Table
-import org.apache.seatunnel.spark.clickhouse.sink.filetransfer.{FileTransfer, ScpFileTransfer}
+import org.apache.seatunnel.spark.clickhouse.sink.filetransfer.{FileTransfer, RsyncFileTransfer, ScpFileTransfer}
 import org.apache.seatunnel.spark.clickhouse.sink.filetransfer.TransferMethod.{RSYNC, SCP, TransferMethod, getCopyMethod}
 import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.{Dataset, Encoders, Row}
@@ -165,21 +164,25 @@ class ClickhouseFile extends SparkBatchSink {
   private def moveFileToServer(shard: Shard, paths: List[String]): Unit = {
 
     var fileTransfer: FileTransfer = null
-    if (this.copyFileMethod == SCP) {
-      var scpFileTransfer: ScpFileTransfer = null
-      if (nodePass.contains(shard.hostAddress)) {
-        scpFileTransfer = new ScpFileTransfer(shard.hostAddress, nodePass(shard.hostAddress))
-      } else {
-        scpFileTransfer = new ScpFileTransfer(shard.hostAddress)
+    this.copyFileMethod match {
+      case SCP => {
+        if (freePass || !nodePass.contains(shard.hostAddress)) {
+          fileTransfer = new ScpFileTransfer(shard.hostAddress)
+        } else {
+          fileTransfer = new ScpFileTransfer(shard.hostAddress, nodePass(shard.hostAddress))
+        }
       }
-      scpFileTransfer.init()
-      fileTransfer = scpFileTransfer
-    } else if (this.copyFileMethod == RSYNC) {
-      throw new UnsupportedOperationException(s"not support copy file method: '$copyFileMethod' yet")
-    } else {
-      throw new UnsupportedOperationException(s"unknown copy file method: '$copyFileMethod', please use " +
+      case RSYNC => {
+        if (freePass || !nodePass.contains(shard.hostAddress)) {
+          fileTransfer = new RsyncFileTransfer(shard.hostAddress)
+        } else {
+          fileTransfer = new RsyncFileTransfer(shard.hostAddress, nodePass(shard.hostAddress))
+        }
+      }
+      case _ => throw new UnsupportedOperationException(s"unknown copy file method: '$copyFileMethod', please use " +
         s"scp/rsync instead")
     }
+    fileTransfer.init()
     fileTransfer.transferAndChown(paths, s"${this.table.getLocalDataPath(shard).head}detached/")
 
     fileTransfer.close()
@@ -215,10 +218,10 @@ class ClickhouseFile extends SparkBatchSink {
       clickhouseLocalPath = config.getString(CLICKHOUSE_LOCAL_PATH)
       properties.put("user", config.getString(USERNAME))
       properties.put("password", config.getString(PASSWORD))
-      val host = config.getString(HOST)
+      val hosts = parseHost(config.getString(HOST))
       val database = config.getString(DATABASE)
       val table = config.getString(TABLE)
-      val conn = getClickhouseConnection(host, database, properties)
+      val conn = getClickhouseConnection(hosts.map(_.hostAndPort).mkString(","), database, properties)
 
       if (config.hasPath(COPY_METHOD)) {
         this.copyFileMethod = getCopyMethod(config.getString(COPY_METHOD))
@@ -233,7 +236,7 @@ class ClickhouseFile extends SparkBatchSink {
         checkResult = result
       } else {
         this.table = tableInfo
-        tableInfo.initTableInfo(host, conn)
+        tableInfo.initTableInfo(hosts, conn)
         tableInfo.initShardDataPath(config.getString(USERNAME), config.getString(PASSWORD))
         // check config of node password whether completed or not
         if (config.hasPath(NODE_FREE_PASSWORD) && config.getBoolean(NODE_FREE_PASSWORD)) {

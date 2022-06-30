@@ -35,6 +35,8 @@
         <module>seatunnel-connectors-flink-dist</module>
         <module>seatunnel-connectors-spark</module>
         <module>seatunnel-connectors-spark-dist</module>
+        <module>seatunnel-connectors-flink-sql</module>
+        <module>seatunnel-connectors-flink-sql-dist</module>
     </modules>
 
 </project>

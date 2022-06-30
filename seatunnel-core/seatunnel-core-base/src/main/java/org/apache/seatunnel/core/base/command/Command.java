@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.base.command;
 
 import org.apache.seatunnel.apis.base.command.CommandArgs;
-import org.apache.seatunnel.core.base.exception.CommandException;
 
 /**
  * Command interface.

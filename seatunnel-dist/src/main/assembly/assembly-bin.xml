@@ -130,6 +130,16 @@
             <outputDirectory>/connectors/flink</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>../seatunnel-connectors/seatunnel-connectors-flink-sql-dist/target/lib</directory>
+            <includes>
+                <include>flink-sql-connector*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/connectors/flink-sql</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>../seatunnel-connectors/seatunnel-connectors-spark-dist/target/lib</directory>
             <includes>
                 <include>seatunnel-connector-spark*.jar</include>

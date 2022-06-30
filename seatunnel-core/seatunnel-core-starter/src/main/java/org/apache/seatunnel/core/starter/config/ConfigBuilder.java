@@ -15,8 +15,13 @@
  * limitations under the License.
  */
 
+<<<<<<<< HEAD:seatunnel-core/seatunnel-core-starter/src/main/java/org/apache/seatunnel/core/starter/config/ConfigBuilder.java
 package org.apache.seatunnel.core.starter.config;
+========
+package org.apache.seatunnel.core.base.config;
+>>>>>>>> dev:seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/core/base/config/ConfigBuilder.java
 
+import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;

@@ -19,15 +19,18 @@ package org.apache.seatunnel.flink.druid.sink;
 
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.flink.BaseFlinkSink;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.operators.DataSink;
 import org.apache.flink.types.Row;
 
+@AutoService(BaseFlinkSink.class)
 public class DruidSink implements FlinkBatchSink {
 
     private static final long serialVersionUID = -2967782261362988646L;

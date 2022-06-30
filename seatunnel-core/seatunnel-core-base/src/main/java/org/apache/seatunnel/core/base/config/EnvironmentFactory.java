@@ -20,6 +20,9 @@ package org.apache.seatunnel.core.base.config;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+
+import org.apache.seatunnel.apis.base.env.RuntimeEnv;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.spark.SparkEnvironment;
 
