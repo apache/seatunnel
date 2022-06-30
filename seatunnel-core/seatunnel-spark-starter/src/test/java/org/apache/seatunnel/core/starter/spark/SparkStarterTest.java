@@ -15,11 +15,7 @@
  * limitations under the License.
  */
 
-<<<<<<<< HEAD:seatunnel-core/seatunnel-spark-starter/src/test/java/org/apache/seatunnel/core/starter/spark/SparkStarterTest.java
 package org.apache.seatunnel.core.starter.spark;
-========
-package org.apache.seatunnel.core.spark;
->>>>>>>> dev:seatunnel-core/seatunnel-core-spark/src/test/java/org/apache/seatunnel/core/spark/SparkStarterTest.java
 
 import static org.junit.Assert.assertEquals;
 

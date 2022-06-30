@@ -15,17 +15,10 @@
  * limitations under the License.
  */
 
-<<<<<<<< HEAD:seatunnel-core/seatunnel-core-starter/src/test/java/org/apache/seatunnel/core/starter/utils/FileUtilsTest.java
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
-========
-package org.apache.seatunnel.core.base.utils;
-
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.base.command.AbstractCommandArgs;
->>>>>>>> dev:seatunnel-core/seatunnel-core-base/src/test/java/org/apache/seatunnel/core/base/utils/FileUtilsTest.java
 
 import org.junit.Assert;
 import org.junit.Test;
