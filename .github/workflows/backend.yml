@@ -176,3 +176,5 @@ jobs:
       - name: Run Integration tests
         run: |
           ./mvnw -T 2C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+        env:
+          MAVEN_OPTS: -Xmx2048m
