@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-<<<<<<<< HEAD:seatunnel-core/seatunnel-core-starter/src/main/java/org/apache/seatunnel/core/starter/config/AbstractExecutionContext.java
 package org.apache.seatunnel.core.starter.config;
-========
-package org.apache.seatunnel.core.base.config;
->>>>>>>> dev:seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/core/base/config/ExecutionContext.java
 
 import org.apache.seatunnel.apis.base.api.BaseSink;
 import org.apache.seatunnel.apis.base.api.BaseSource;
 import org.apache.seatunnel.apis.base.api.BaseTransform;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.constants.JobMode;
-<<<<<<<< HEAD:seatunnel-core/seatunnel-core-starter/src/main/java/org/apache/seatunnel/core/starter/config/AbstractExecutionContext.java
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-========
->>>>>>>> dev:seatunnel-core/seatunnel-core-base/src/main/java/org/apache/seatunnel/core/base/config/ExecutionContext.java
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 

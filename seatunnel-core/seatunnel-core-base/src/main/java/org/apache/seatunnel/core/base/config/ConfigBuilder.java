@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.core.base.config;
 
-
-import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;

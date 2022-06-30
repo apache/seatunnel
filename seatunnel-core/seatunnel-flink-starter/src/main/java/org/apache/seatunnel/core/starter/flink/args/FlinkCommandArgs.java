@@ -15,21 +15,12 @@
  * limitations under the License.
  */
 
-<<<<<<<< HEAD:seatunnel-core/seatunnel-flink-starter/src/main/java/org/apache/seatunnel/core/starter/flink/args/FlinkCommandArgs.java
 package org.apache.seatunnel.core.starter.flink.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.core.starter.flink.config.FlinkRunMode;
-========
-package org.apache.seatunnel.core.flink.args;
-
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.base.command.AbstractCommandArgs;
-import org.apache.seatunnel.core.base.config.EngineType;
-import org.apache.seatunnel.core.flink.config.FlinkRunMode;
->>>>>>>> dev:seatunnel-core/seatunnel-core-flink/src/main/java/org/apache/seatunnel/core/flink/args/FlinkCommandArgs.java
 
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
@@ -42,11 +33,6 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
         converter = RunModeConverter.class,
         description = "job run mode, run or run-application")
     private FlinkRunMode runMode = FlinkRunMode.RUN;
-    /**
-     * Undefined parameters parsed will be stored here as flink command parameters.
-     */
-    private List<String> flinkParams;
-
     /**
      * Undefined parameters parsed will be stored here as flink command parameters.
      */
