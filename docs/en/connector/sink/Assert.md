@@ -63,8 +63,9 @@ the value related to rule type
 the whole config obey with `hocon` style
 
 ```hocon
+
 Assert {
-    rules = 
+   rules = 
         [{
             field_name = name
             field_type = string

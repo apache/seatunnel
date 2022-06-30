@@ -19,8 +19,6 @@ package org.apache.seatunnel.flink.file.source;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.flink.api.common.io.DelimitedInputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
@@ -31,6 +29,8 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.types.Row;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements ResultTypeQueryable<Row> {
 
@@ -59,7 +59,7 @@ public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements Res
         }
 
         String str = new String(bytes, offset, numBytes, this.charsetName);
-        ObjectNode json = JsonUtils.parseObject(str);
+        Map<String, Object> json = JsonUtils.toMap(JsonUtils.stringToJsonNode(str));
         Row reuseRow;
         if (reuse == null) {
             reuseRow = new Row(rowTypeInfo.getArity());
@@ -70,26 +70,27 @@ public class JsonRowInputFormat extends DelimitedInputFormat<Row> implements Res
         return reuseRow;
     }
 
-    private void setJsonRow(Row row, ObjectNode json, RowTypeInfo rowTypeInfo) {
+    private void setJsonRow(Row row, Map<String, Object> json, RowTypeInfo rowTypeInfo) {
         String[] fieldNames = rowTypeInfo.getFieldNames();
         int i = 0;
         for (String name : fieldNames) {
             Object value = json.get(name);
-            if (value instanceof ObjectNode) {
-                TypeInformation information = rowTypeInfo.getTypeAt(name);
+            if (value instanceof Map) {
+                TypeInformation<?> information = rowTypeInfo.getTypeAt(name);
                 Row r = new Row(information.getArity());
-                setJsonRow(r, (ObjectNode) value, (RowTypeInfo) information);
+                setJsonRow(r, (Map<String, Object>) value, (RowTypeInfo) information);
                 row.setField(i++, r);
-            } else if (value instanceof ArrayNode) {
-                ObjectArrayTypeInfo information = (ObjectArrayTypeInfo) rowTypeInfo.getTypeAt(name);
-                ArrayNode array = (ArrayNode) value;
+            } else if (value instanceof List) {
+                ObjectArrayTypeInfo<?, ?> information =
+                        (ObjectArrayTypeInfo<?, ?>) rowTypeInfo.getTypeAt(name);
+                List<?> array = (List<?>) value;
                 Object[] objects = new Object[array.size()];
                 int j = 0;
                 for (Object o : array) {
-                    if (o instanceof ObjectNode) {
-                        TypeInformation componentInfo = information.getComponentInfo();
+                    if (o instanceof Map) {
+                        TypeInformation<?> componentInfo = information.getComponentInfo();
                         Row r = new Row(componentInfo.getArity());
-                        setJsonRow(r, (ObjectNode) o, (RowTypeInfo) componentInfo);
+                        setJsonRow(r, (Map<String, Object>) o, (RowTypeInfo) componentInfo);
                         objects[j++] = r;
                     } else {
                         objects[j++] = o;

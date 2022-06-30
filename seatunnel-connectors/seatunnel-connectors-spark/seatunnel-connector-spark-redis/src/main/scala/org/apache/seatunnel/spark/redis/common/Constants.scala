@@ -31,6 +31,7 @@ object Constants extends Serializable {
   final val SET_NAME = "set_name"
   final val ZSET_NAME = "zset_name"
   final val LIST_NAME = "list_name"
+  final val TTL = "ttl"
 
   final val DEFAULT_HOST = "localhost"
   final val DEFAULT_PORT = 6379
@@ -39,5 +40,6 @@ object Constants extends Serializable {
   final val DEFAULT_DATA_TYPE = "KV"
   final val DEFAULT_PARTITION_NUM = 3
   final val DEFAULT_TIMEOUT = 2000
+  final val DEFAULT_TTL = 0
 
 }

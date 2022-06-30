@@ -24,6 +24,7 @@ import static com.fasterxml.jackson.databind.MapperFeature.REQUIRE_SETTERS_FOR_G
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -72,6 +73,10 @@ public class JsonUtils {
 
     public static JsonNode toJsonNode(Object obj) {
         return OBJECT_MAPPER.valueToTree(obj);
+    }
+
+    public static JsonNode stringToJsonNode(String obj) throws JsonProcessingException {
+        return OBJECT_MAPPER.readTree(obj);
     }
 
     /**
