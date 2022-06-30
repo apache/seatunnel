@@ -29,6 +29,7 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.SneakyThrows;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -50,6 +51,7 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
     private Config config;
     private List<? extends Config> configList;
 
+    @SneakyThrows
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> inDataSet) {
         inDataSet.map(row -> {
@@ -59,7 +61,7 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
                     throw new IllegalStateException("row :" + row + " fail rule: " + failRule);
                 });
             return null;
-        });
+        }).print();
     }
 
     @Override
@@ -71,7 +73,7 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
                     throw new IllegalStateException("row :" + row + "field name of the fail rule: " + failRule.getFieldName());
                 });
             return null;
-        });
+        }).print();
     }
 
     @Override
