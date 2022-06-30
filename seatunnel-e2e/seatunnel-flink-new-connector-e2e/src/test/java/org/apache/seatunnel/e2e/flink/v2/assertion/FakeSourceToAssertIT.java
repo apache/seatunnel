@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.assertion;
+package org.apache.seatunnel.e2e.flink.v2.assertion;
 
 import org.apache.seatunnel.e2e.flink.v2.FlinkContainer;
 
