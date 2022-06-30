@@ -156,6 +156,7 @@ jobs:
 #        run: |
 #          ./mvnw -T 2C -B clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
 
+
   integration-test:
     name: Integration Test
     runs-on: ${{ matrix.os }}
