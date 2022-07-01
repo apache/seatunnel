@@ -882,8 +882,6 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) server (org.elasticsearch:elasticsearch:6.3.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) server (org.elasticsearch:elasticsearch:7.5.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.2.6 - https://github.com/xerial/snappy-java)
-     (The Apache Software License, Version 2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.4 - https://github.com/xerial/snappy-java)
-     (The Apache Software License, Version 2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.7.1 - https://github.com/xerial/snappy-java)
      (The Apache Software License, Version 2.0) snappy-java (org.xerial.snappy:snappy-java:1.1.7.3 - https://github.com/xerial/snappy-java)
      (The Apache Software License, Version 2.0) transport (org.elasticsearch.client:transport:6.3.1 - https://github.com/elastic/elasticsearch)
      (The Apache Software License, Version 2.0) transport (org.elasticsearch.client:transport:7.5.1 - https://github.com/elastic/elasticsearch)
