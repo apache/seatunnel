@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NButton } from 'naive-ui'
+package org.apache.seatunnel.e2e.flink.assertion;
 
- const App = defineComponent({
-  setup() {},
-  render() {
-    return (
-      <NButton>test</NButton>
-    )
-  }
-})
+import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-export default App
+import org.junit.Assert;
+import org.junit.Test;
+import org.testcontainers.containers.Container;
+
+import java.io.IOException;
+
+public class FakeSourceToAssertIT extends FlinkContainer {
+
+    @Test
+    public void testFakeSourceToAssertSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/assertion/fakesource_to_assert.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
+}
