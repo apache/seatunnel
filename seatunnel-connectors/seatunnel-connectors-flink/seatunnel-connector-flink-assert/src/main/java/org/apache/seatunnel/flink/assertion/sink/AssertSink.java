@@ -29,6 +29,7 @@ import org.apache.seatunnel.flink.stream.FlinkStreamSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import lombok.SneakyThrows;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -37,11 +38,11 @@ import org.apache.flink.types.Row;
 import java.util.List;
 
 /**
- * A flink sink plugin which can assert illegal data by user defined rules
- * Refer to https://github.com/apache/incubator-seatunnel/issues/1912
+ * A flink sink plugin which can assert illegal data by user defined rules Refer to https://github.com/apache/incubator-seatunnel/issues/1912
  */
 @AutoService(BaseFlinkSink.class)
 public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
+
     //The assertion executor
     private static final AssertExecutor ASSERT_EXECUTOR = new AssertExecutor();
     //User defined rules used to assert illegal data
@@ -50,16 +51,19 @@ public class AssertSink implements FlinkBatchSink, FlinkStreamSink {
     private Config config;
     private List<? extends Config> configList;
 
+    @SneakyThrows
     @Override
     public void outputBatch(FlinkEnvironment env, DataSet<Row> inDataSet) {
-        inDataSet.map(row -> {
-            ASSERT_EXECUTOR
-                .fail(row, assertFieldRules)
-                .ifPresent(failRule -> {
-                    throw new IllegalStateException("row :" + row + " fail rule: " + failRule);
-                });
-            return null;
-        });
+        try {
+            inDataSet.collect().forEach(row ->
+                ASSERT_EXECUTOR
+                    .fail(row, assertFieldRules)
+                    .ifPresent(failRule -> {
+                        throw new IllegalStateException("row :" + row + " fail rule: " + failRule);
+                    }));
+        } catch (Exception ex) {
+            throw new RuntimeException("AssertSink execute failed", ex);
+        }
     }
 
     @Override

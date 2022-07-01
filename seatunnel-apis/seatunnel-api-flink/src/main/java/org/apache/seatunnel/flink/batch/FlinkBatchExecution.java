@@ -118,6 +118,6 @@ public class FlinkBatchExecution implements Execution<FlinkBatchSource, FlinkBat
     }
 
     private boolean whetherExecute(List<FlinkBatchSink> sinks) {
-        return sinks.stream().anyMatch(s -> !"ConsoleSink".equals(s.getPluginName()));
+        return sinks.stream().noneMatch(s -> "ConsoleSink".equals(s.getPluginName()) || "AssertSink".equals(s.getPluginName()));
     }
 }
