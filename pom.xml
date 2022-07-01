@@ -40,7 +40,7 @@
     <licenses>
         <license>
             <name>The Apache License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
 
@@ -82,9 +82,15 @@
         <module>seatunnel-core</module>
         <module>seatunnel-transforms</module>
         <module>seatunnel-connectors</module>
-        <module>seatunnel-dist</module>
+        <module>seatunnel-connectors-v2</module>
+        <module>seatunnel-connectors-v2-dist</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
+        <module>seatunnel-api</module>
+        <module>seatunnel-translation</module>
+        <module>seatunnel-plugin-discovery</module>
+        <module>seatunnel-formats</module>
+        <module>seatunnel-dist</module>
     </modules>
 
     <properties>
@@ -103,7 +109,6 @@
         <flink.version>1.13.6</flink.version>
         <hudi.version>0.10.0</hudi.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
-        <hadoop.version>2.7.5</hadoop.version>
         <jackson.version>2.12.6</jackson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
@@ -137,9 +142,11 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
+        <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
+        <codec.version>1.13</codec.version>
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
         <httpcore-nio.version>4.4.4</httpcore-nio.version>
@@ -149,6 +156,7 @@
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
         <junit.version>4.13.2</junit.version>
+        <junit5.version>5.8.2</junit5.version>
         <tispark.version>2.4.1</tispark.version>
         <druid.version>0.22.1</druid.version>
         <sshd.version>2.7.0</sshd.version>
@@ -172,6 +180,9 @@
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
+        <hadoop2.version>2.6.5</hadoop2.version>
+        <hadoop3.version>3.0.0</hadoop3.version>
+        <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
         <jmockdata.version>4.3.0</jmockdata.version>
         <snappy-java.version>1.1.8.3</snappy-java.version>
     </properties>
@@ -298,6 +309,12 @@
             </dependency>
 
             <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>${codec.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.typesafe.play</groupId>
                 <artifactId>play-mailer_${scala.binary.version}</artifactId>
                 <version>${play-mailer.version}</version>
@@ -415,12 +432,18 @@
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
+                <scope>provided</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
                 <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>${commons-collections4.version}</version>
             </dependency>
 
             <dependency>
@@ -500,6 +523,20 @@
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit5.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-params</artifactId>
+                <version>${junit5.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -625,6 +662,7 @@
                 <artifactId>snappy-java</artifactId>
                 <version>${snappy-java.version}</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -636,14 +674,23 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -860,42 +907,7 @@
                         </execution>
                     </executions>
                 </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-pmd-plugin</artifactId>
-                    <version>${maven-pmd-plugin.version}</version>
-                    <configuration>
-                        <rulesets>
-                            <ruleset>rulesets/java/ali-concurrent.xml</ruleset>
-                            <ruleset>rulesets/java/ali-exception.xml</ruleset>
-                            <ruleset>rulesets/java/ali-flowcontrol.xml</ruleset>
-                            <ruleset>rulesets/java/ali-naming.xml</ruleset>
-                            <ruleset>rulesets/java/ali-oop.xml</ruleset>
-                            <ruleset>rulesets/java/ali-orm.xml</ruleset>
-                            <ruleset>rulesets/java/ali-other.xml</ruleset>
-                            <ruleset>rulesets/java/ali-set.xml</ruleset>
-                        </rulesets>
-                        <printFailingErrors>true</printFailingErrors>
-                        <skip>${skip.pmd.check}</skip>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>validate</id>
-                            <phase>validate</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <dependencies>
-                        <dependency>
-                            <groupId>com.alibaba.p3c</groupId>
-                            <artifactId>p3c-pmd</artifactId>
-                            <version>${p3c-pmd.version}</version>
-                        </dependency>
-                    </dependencies>
-                </plugin>
+                
                 <!-- checkstyle (End) -->
 
                 <plugin>
@@ -1040,11 +1052,6 @@
             <plugin>
                 <groupId>org.scalastyle</groupId>
                 <artifactId>scalastyle-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-pmd-plugin</artifactId>
             </plugin>
 
             <plugin>
