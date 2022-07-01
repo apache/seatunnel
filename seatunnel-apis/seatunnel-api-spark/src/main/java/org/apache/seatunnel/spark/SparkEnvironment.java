@@ -38,7 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URL;
-import java.util.Set;
+import java.util.List;
 
 public class SparkEnvironment implements RuntimeEnv {
 
@@ -89,7 +89,7 @@ public class SparkEnvironment implements RuntimeEnv {
     }
 
     @Override
-    public void registerPlugin(Set<URL> pluginPaths) {
+    public void registerPlugin(List<URL> pluginPaths) {
         LOGGER.info("register plugins :" + pluginPaths);
         // TODO we use --jar parameter to support submit multi-jar in spark cluster at now. Refactor it to
         //  support submit multi-jar in code or remove this logic.

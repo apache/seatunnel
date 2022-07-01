@@ -153,7 +153,7 @@ public abstract class FlinkContainer {
 
         // copy plugin-mapping.properties
         jobManager.copyFileToContainer(
-            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-connectors/plugin-mapping.properties"),
+            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
             Paths.get(SEATUNNEL_CONNECTORS, PLUGIN_MAPPING_FILE).toString());
     }
 

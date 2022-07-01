@@ -17,6 +17,9 @@
     },
     {
       "pattern": "^/docs/category"
+    },
+    {
+      "pattern": "^https://opencollective.com"
     }
   ],
   "timeout": "10s",

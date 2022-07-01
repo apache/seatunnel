@@ -26,7 +26,7 @@ import java.io.File;
 public class CommonTest {
 
     static {
-        Common.setDeployMode("client");
+        Common.setDeployMode(DeployMode.CLIENT);
     }
 
     @Test

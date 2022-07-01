@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink.util;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.enums.FormatType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -199,6 +200,7 @@ public final class SchemaUtil {
         int size = json.size();
         String[] fields = new String[size];
         TypeInformation<?>[] informations = new TypeInformation[size];
+        Map<String, Object> jsonMap = JsonUtils.toMap(json);
         int i = 0;
         Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
         while (nodeIterator.hasNext()) {

@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Base task execute command.
@@ -126,8 +125,8 @@ public abstract class BaseTaskExecuteCommand<T extends AbstractCommandArgs, E ex
     }
 
     private void deployModeCheck() {
-        final Optional<String> mode = Common.getDeployMode();
-        if (mode.isPresent() && DeployMode.CLUSTER.getName().equals(mode.get())) {
+        final DeployMode mode = Common.getDeployMode();
+        if (DeployMode.CLUSTER == mode) {
 
             LOGGER.info("preparing cluster mode work dir files...");
             File workDir = new File(".");

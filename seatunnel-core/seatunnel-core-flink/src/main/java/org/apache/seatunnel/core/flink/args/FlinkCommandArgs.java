@@ -30,8 +30,8 @@ import java.util.List;
 public class FlinkCommandArgs extends AbstractCommandArgs {
 
     @Parameter(names = {"-r", "--run-mode"},
-        converter = RunModeConverter.class,
-        description = "job run mode, run or run-application")
+            converter = RunModeConverter.class,
+            description = "job run mode, run or run-application")
     private FlinkRunMode runMode = FlinkRunMode.RUN;
 
     /**

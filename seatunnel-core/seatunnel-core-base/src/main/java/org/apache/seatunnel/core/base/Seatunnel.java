@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.base;
 import org.apache.seatunnel.apis.base.command.CommandArgs;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 import org.apache.seatunnel.core.base.command.Command;
+import org.apache.seatunnel.core.base.exception.CommandException;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
@@ -34,7 +35,7 @@ public class Seatunnel {
      * @param command commandArgs
      * @param <T>         commandType
      */
-    public static <T extends CommandArgs> void run(Command<T> command) {
+    public static <T extends CommandArgs> void run(Command<T> command) throws CommandException {
         try {
             command.execute();
         } catch (ConfigRuntimeException e) {
