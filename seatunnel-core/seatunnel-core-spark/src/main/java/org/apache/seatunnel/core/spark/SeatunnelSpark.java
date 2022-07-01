@@ -19,13 +19,14 @@ package org.apache.seatunnel.core.spark;
 
 import org.apache.seatunnel.core.base.Seatunnel;
 import org.apache.seatunnel.core.base.command.Command;
+import org.apache.seatunnel.core.base.exception.CommandException;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.spark.command.SparkCommandBuilder;
 import org.apache.seatunnel.core.spark.utils.CommandLineUtils;
 
 public class SeatunnelSpark {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws CommandException {
         SparkCommandArgs sparkArgs = CommandLineUtils.parseSparkArgs(args);
         Command<SparkCommandArgs> sparkCommand =
             new SparkCommandBuilder().buildCommand(sparkArgs);

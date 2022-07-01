@@ -19,17 +19,19 @@ package org.apache.seatunnel.core.spark;
 
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 
-import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.base.Starter;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.ConfigParser;
 import org.apache.seatunnel.core.base.config.EngineType;
-import org.apache.seatunnel.core.base.config.PluginFactory;
 import org.apache.seatunnel.core.base.utils.CompressionUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+import org.apache.seatunnel.plugin.discovery.spark.SparkSinkPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.spark.SparkSourcePluginDiscovery;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -40,6 +42,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -50,6 +53,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -143,7 +147,7 @@ public class SparkStarter implements Starter {
     @Override
     public List<String> buildCommands() throws IOException {
         setSparkConf();
-        Common.setDeployMode(commandArgs.getDeployMode().getName());
+        Common.setDeployMode(commandArgs.getDeployMode());
         this.jars.addAll(getPluginsJarDependencies());
         this.jars.addAll(listJars(Common.appLibDir()));
         this.jars.addAll(getConnectorJarDependencies());
@@ -204,13 +208,17 @@ public class SparkStarter implements Starter {
      * return connector's jars, which located in 'connectors/spark/*'.
      */
     private List<Path> getConnectorJarDependencies() {
-        Path pluginRootDir = Common.connectorJarDir("SPARK");
+        Path pluginRootDir = Common.connectorJarDir("spark");
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
-        Config config = new ConfigBuilder<>(Paths.get(commandArgs.getConfigFile()), EngineType.SPARK).getConfig();
-        PluginFactory<RuntimeEnv> pluginFactory = new PluginFactory<>(config, EngineType.SPARK);
-        return pluginFactory.getPluginJarPaths().stream().map(url -> new File(url.getPath()).toPath()).collect(Collectors.toList());
+        Config config = new ConfigBuilder(Paths.get(commandArgs.getConfigFile())).getConfig();
+        List<URL> pluginJars = new ArrayList<>();
+        SparkSourcePluginDiscovery sparkSourcePluginDiscovery = new SparkSourcePluginDiscovery();
+        SparkSinkPluginDiscovery sparkSinkPluginDiscovery = new SparkSinkPluginDiscovery();
+        pluginJars.addAll(sparkSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SOURCE)));
+        pluginJars.addAll(sparkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SINK)));
+        return pluginJars.stream().map(url -> new File(url.getPath()).toPath()).collect(Collectors.toList());
     }
 
     /**
@@ -302,6 +310,18 @@ public class SparkStarter implements Starter {
         commands.add(Common.appLibDir().resolve("seatunnel-core-spark.jar").toString());
     }
 
+    @SuppressWarnings("checkstyle:Indentation")
+    private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {
+        return Arrays.stream(pluginTypes).flatMap((Function<PluginType, Stream<PluginIdentifier>>) pluginType -> {
+            List<? extends Config> configList = config.getConfigList(pluginType.getType());
+            return configList.stream()
+                    .map(pluginConfig -> PluginIdentifier
+                            .of(EngineType.SPARK.getEngine(),
+                                    pluginType.getType(),
+                                    pluginConfig.getString("plugin_name")));
+        }).collect(Collectors.toList());
+    }
+
     /**
      * a Starter for building spark-submit commands with client mode options
      */
@@ -384,7 +404,7 @@ public class SparkStarter implements Starter {
 
         @Override
         public List<String> buildCommands() throws IOException {
-            Common.setDeployMode(commandArgs.getDeployMode().getName());
+            Common.setDeployMode(commandArgs.getDeployMode());
             Path pluginTarball = Common.pluginTarball();
             if (Files.notExists(pluginTarball)) {
                 CompressionUtils.tarGzip(Common.pluginRootDir(), pluginTarball);

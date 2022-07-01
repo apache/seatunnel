@@ -33,6 +33,8 @@
         <module>seatunnel-flink-examples</module>
         <module>seatunnel-spark-examples</module>
         <module>seatunnel-flink-sql-examples</module>
+        <module>seatunnel-flink-new-connector-example</module>
+        <module>seatunnel-spark-new-connector-example</module>
     </modules>
     <build>
         <plugins>

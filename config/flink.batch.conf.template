@@ -26,8 +26,10 @@ env {
 
 source {
   # This is a example input plugin **only for test and demonstrate the feature input plugin**
+
   FakeSource {
     result_table_name = "test"
+    field_name = "name,age"
   }
 
   # If you would like to get more information about how to configure seatunnel and see full list of input plugins,

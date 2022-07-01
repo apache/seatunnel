@@ -19,6 +19,7 @@ package org.apache.seatunnel.example.flink;
 
 import org.apache.seatunnel.core.base.Seatunnel;
 import org.apache.seatunnel.core.base.command.Command;
+import org.apache.seatunnel.core.base.exception.CommandException;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.flink.command.FlinkCommandBuilder;
 
@@ -29,7 +30,7 @@ import java.nio.file.Paths;
 
 public class LocalFlinkExample {
 
-    public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
+    public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
         String configFile = getTestConfigFile("/examples/fake_to_console.conf");
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
