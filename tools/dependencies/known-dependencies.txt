@@ -70,7 +70,6 @@ clickhouse-grpc-client-0.3.2-patch9-netty.jar
 clickhouse-http-client-0.3.2-patch9-shaded.jar
 clickhouse-http-client-0.3.2-patch9.jar
 clickhouse-jdbc-0.3.2-patch9.jar
-commons-beanutils-1.7.0.jar
 commons-beanutils-1.9.3.jar
 commons-beanutils-core-1.8.0.jar
 commons-cli-1.2.jar
