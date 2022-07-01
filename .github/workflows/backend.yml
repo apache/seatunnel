@@ -155,6 +155,8 @@ jobs:
       - name: Run Unit tests
         run: |
           ./mvnw -T 2C -B clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+        env:
+          MAVEN_OPTS: -Xms256m -Xmx1536m -XX:PermSize=128m -XX:MaxPermSize=256M
 
   integration-test:
     name: Integration Test
@@ -177,4 +179,4 @@ jobs:
         run: |
           ./mvnw -T 2C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
-          MAVEN_OPTS: -Xmx2048m
+          MAVEN_OPTS: -Xms256m -Xmx1536m -XX:PermSize=128m -XX:MaxPermSize=256M
