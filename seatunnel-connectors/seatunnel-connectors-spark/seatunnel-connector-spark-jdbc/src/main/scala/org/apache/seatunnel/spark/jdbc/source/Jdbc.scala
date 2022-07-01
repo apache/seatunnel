@@ -59,7 +59,7 @@ class Jdbc extends SparkBatchSource {
       case Failure(_) => // do nothing
     }
 
-    if(config.getString("url").startsWith("jdbc:hive2")){
+    if (config.getString("url").startsWith("jdbc:hive2")) {
       JdbcDialects.registerDialect(new HiveDialet)
     }
 
