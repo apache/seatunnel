@@ -692,7 +692,6 @@ ST4-4.0.4.jar
 ant-1.6.5.jar
 ant-1.9.1.jar
 ant-launcher-1.9.1.jar
-asm-3.1.jar
 asm-commons-3.1.jar
 asm-tree-3.1.jar
 commons-compiler-2.7.6.jar
@@ -747,4 +746,5 @@ velocity-1.5.jar
 apache-curator-2.7.1.pom
 curator-framework-2.7.1.jar
 hive-storage-api-2.4.0.jar
-zookeeper-3.4.9.jar
+hadoop-hdfs-2.2.0.jar
+hadoop-annotations-2.7.2.jar
