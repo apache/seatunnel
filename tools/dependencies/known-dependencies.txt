@@ -310,7 +310,6 @@ jackson-module-guice-2.10.5.jar
 jackson-module-jaxb-annotations-2.10.5.jar
 jackson-module-jaxb-annotations-2.7.8.jar
 jackson-xc-1.9.13.jar
-jackson-xc-1.9.2.jar
 jakarta.activation-api-1.2.1.jar
 jakarta.activation-api-1.2.2.jar
 jakarta.ws.rs-api-2.1.6.jar
@@ -700,7 +699,6 @@ commons-compiler-2.7.6.jar
 commons-compress-1.9.jar
 commons-el-1.0.jar
 datanucleus-core-4.1.17.jar
-dropwizard-metrics-hadoop-metrics2-reporter-0.1.2.jar
 eigenbase-properties-1.1.5.jar
 geronimo-annotation_1.0_spec-1.1.1.jar
 geronimo-jaspic_1.0_spec-1.0.jar
@@ -725,16 +723,11 @@ hive-shims-common-2.3.9.jar
 hive-shims-scheduler-2.3.9.jar
 hive-vector-code-gen-2.3.9.jar
 ivy-2.4.0.jar
-jackson-core-asl-1.8.3.jar
-jackson-jaxrs-1.8.3.jar
-jackson-mapper-asl-1.8.3.jar
-jackson-xc-1.8.3.jar
-janino-2.7.6.jar
+jackson-mapper-asl-1.8.8.jar
+jackson-mapper-asl-1.9.2.jar
 jasper-compiler-5.5.23.jar
 jasper-runtime-5.5.23.jar
 javax.servlet-3.0.0.v201112011016.jar
-jersey-json-1.9.jar
-jetty-6.1.26.jar
 jetty-all-7.6.0.v20120127.jar
 joda-time-2.8.1.jar
 json-1.8.jar
@@ -751,4 +744,7 @@ oro-2.0.8.jar
 parquet-hadoop-bundle-1.8.1.jar
 stax-api-1.0.1.jar
 velocity-1.5.jar
+apache-curator-2.7.1.pom
+curator-framework-2.7.1.jar
+hive-storage-api-2.4.0.jar
 zookeeper-3.4.9.jar
