@@ -15,23 +15,10 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NButton } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
+const test = {
+  'test': 'test'
+}
 
-const App = defineComponent({
-  setup() {
-    const { t } = useI18n()
-
-    return { t }
-  },
-  render() {
-    const { t } = this
-
-    return (
-      <NButton>{t('test.test')}</NButton>
-    )
-  }
-})
-
-export default App
+export default {
+  test
+}

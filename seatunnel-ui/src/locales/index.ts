@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NButton } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
+import { createI18n } from 'vue-i18n'
+import zh_CN from './zh_CN'
+import en_US from './en_US'
 
-const App = defineComponent({
-  setup() {
-    const { t } = useI18n()
-
-    return { t }
-  },
-  render() {
-    const { t } = this
-
-    return (
-      <NButton>{t('test.test')}</NButton>
-    )
+const i18n = createI18n({
+  legacy: false,
+  globalInjection: true,
+  locale: 'en_US',
+  messages: {
+    zh_CN,
+    en_US
   }
 })
 
-export default App
+export default i18n
