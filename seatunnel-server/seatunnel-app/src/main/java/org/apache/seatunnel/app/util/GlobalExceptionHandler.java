@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.app.util;
 
-import org.apache.seatunnel.app.common.JsonResult;
+import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.common.SeatunnelErrorEnum;
 import org.apache.seatunnel.app.common.SeatunnelException;
 
@@ -32,7 +32,7 @@ import java.util.Optional;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = SeatunnelException.class)
-    private JsonResult<String> portalExceptionHandler(SeatunnelException e) {
+    private Result<String> portalExceptionHandler(SeatunnelException e) {
         logError(e);
 
         final SeatunnelException seatunnelException = Optional.ofNullable(e).orElse(SeatunnelException.newInstance(SeatunnelErrorEnum.UNKNOWN));
@@ -40,19 +40,19 @@ public class GlobalExceptionHandler {
         final String message = seatunnelException.getMessage();
         final SeatunnelErrorEnum errorEnum = seatunnelException.getErrorEnum();
 
-        return JsonResult.failure(errorEnum, message);
+        return Result.failure(errorEnum, message);
     }
 
     @ExceptionHandler(value = IllegalStateException.class)
-    private JsonResult<String> exceptionHandler(IllegalStateException e) {
+    private Result<String> exceptionHandler(IllegalStateException e) {
         logError(e);
-        return JsonResult.failure(SeatunnelErrorEnum.ILLEGAL_STATE, e.getMessage());
+        return Result.failure(SeatunnelErrorEnum.ILLEGAL_STATE, e.getMessage());
     }
 
     @ExceptionHandler(value = Exception.class)
-    private JsonResult<String> exceptionHandler(Exception e) {
+    private Result<String> exceptionHandler(Exception e) {
         logError(e);
-        return JsonResult.failure(SeatunnelErrorEnum.UNKNOWN);
+        return Result.failure(SeatunnelErrorEnum.UNKNOWN);
     }
 
     private void logError(Throwable throwable) {

@@ -26,11 +26,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.bind.annotation.RestController;
 
-@SpringBootApplication(scanBasePackages = "org.apache.seatunnel")
+@SpringBootApplication
 @EnableTransactionManagement
 @EnableConfigurationProperties
 @EnableScheduling
-@RestController
 @EnableAsync(proxyTargetClass = true)
 @MapperScan({"org.apache.seatunnel.app.dal"})
 public class SeatunnelApplication {

@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.domain.dto.script;
+package org.apache.seatunnel.app.domain.dto.user;
 
 import lombok.Builder;
 import lombok.Data;
 
 @Builder
 @Data
-public class UpdateUserDto {
-    private Integer id;
-    private String username;
-    private String password;
-    private int status;
-    private int type;
+public class ListUserDto {
+    private String name;
 }

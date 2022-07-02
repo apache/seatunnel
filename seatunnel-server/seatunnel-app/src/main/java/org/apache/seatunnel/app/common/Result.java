@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.app.common;
 
-public class JsonResult<T> {
+public class Result<T> {
 
-    private static final JsonResult<Void> OK = success();
+    private static final Result<Void> OK = success();
 
     private int code = 0;
 
@@ -27,39 +27,39 @@ public class JsonResult<T> {
 
     private T data;
 
-    private JsonResult() {
+    private Result() {
         this.data = null;
     }
 
-    private JsonResult(SeatunnelErrorEnum errorEnum) {
+    private Result(SeatunnelErrorEnum errorEnum) {
         this.code = errorEnum.getCode();
         this.msg = errorEnum.getMsg();
         this.data = null;
     }
 
-    private JsonResult(SeatunnelErrorEnum errorEnum, String... messages) {
+    private Result(SeatunnelErrorEnum errorEnum, String... messages) {
         this.code = errorEnum.getCode();
         this.msg = String.format(errorEnum.getTemplate(), messages);
         this.data = null;
     }
 
-    public static <T> JsonResult<T> success() {
-        return new JsonResult<>();
+    public static <T> Result<T> success() {
+        return new Result<>();
     }
 
-    public static <T> JsonResult<T> success(T data) {
-        JsonResult<T> result = success();
+    public static <T> Result<T> success(T data) {
+        Result<T> result = success();
         result.setData(data);
         return result;
     }
 
-    public static <T> JsonResult<T> failure(SeatunnelErrorEnum errorEnum) {
-        JsonResult<T> result = new JsonResult<>(errorEnum);
+    public static <T> Result<T> failure(SeatunnelErrorEnum errorEnum) {
+        Result<T> result = new Result<>(errorEnum);
         return result;
     }
 
-    public static <T> JsonResult<T> failure(SeatunnelErrorEnum errorEnum, String... messages) {
-        JsonResult<T> result = new JsonResult<>(errorEnum, messages);
+    public static <T> Result<T> failure(SeatunnelErrorEnum errorEnum, String... messages) {
+        Result<T> result = new Result<>(errorEnum, messages);
         return result;
     }
 

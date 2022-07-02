@@ -20,7 +20,7 @@ package org.apache.seatunnel.app.service.impl;
 import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
 import static com.google.common.base.Preconditions.checkState;
 
-import org.apache.seatunnel.app.common.JsonResult;
+import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.common.ScriptParamStatusEnum;
 import org.apache.seatunnel.app.common.ScriptStatusEnum;
 import org.apache.seatunnel.app.dal.dao.IScriptDao;
@@ -64,8 +64,7 @@ public class ScriptServiceImpl implements IScriptService {
     private IScriptParamDao scriptParamDaoImpl;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public JsonResult<AddEmptyScriptRes> addEmptyScript(AddEmptyScriptReq addEmptyScriptReq) {
+    public Result<AddEmptyScriptRes> addEmptyScript(AddEmptyScriptReq addEmptyScriptReq) {
         // 1. check script name.
         checkDuplicate(addEmptyScriptReq.getName(), addEmptyScriptReq.getCreatorId());
         // 2. create an empty script
@@ -73,7 +72,7 @@ public class ScriptServiceImpl implements IScriptService {
 
         final AddEmptyScriptRes res = new AddEmptyScriptRes();
         res.setId(scriptId);
-        return JsonResult.success(res);
+        return Result.success(res);
     }
 
     private int addEmptyScript(String name, Integer creatorId, Integer menderId, Byte type) {

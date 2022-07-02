@@ -18,8 +18,8 @@
 package org.apache.seatunnel.app.dal.dao;
 
 import org.apache.seatunnel.app.dal.entity.User;
-import org.apache.seatunnel.app.domain.dto.script.ListUserDto;
-import org.apache.seatunnel.app.domain.dto.script.UpdateUserDto;
+import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
+import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
 
 import java.util.List;
 
