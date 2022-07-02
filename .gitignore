@@ -13,7 +13,6 @@ target/
 # Intellij Idea files
 .idea/
 *.iml
-.idea/vcs.xml
 
 .DS_Store
 
