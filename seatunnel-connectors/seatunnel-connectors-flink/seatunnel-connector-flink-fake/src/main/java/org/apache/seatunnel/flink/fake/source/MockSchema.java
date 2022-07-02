@@ -132,6 +132,7 @@ public class MockSchema implements Serializable {
                 dataType = BasicTypeInfo.SHORT_TYPE_INFO;
                 break;
             case "long":
+            case "bigint":
                 dataType = BasicTypeInfo.LONG_TYPE_INFO;
                 break;
             case "float":
@@ -150,7 +151,6 @@ public class MockSchema implements Serializable {
             case "bigdecimal":
                 dataType = BasicTypeInfo.BIG_DEC_TYPE_INFO;
                 break;
-            case "bigint":
             case "biginteger":
                 dataType = BasicTypeInfo.BIG_INT_TYPE_INFO;
                 break;
@@ -216,6 +216,7 @@ public class MockSchema implements Serializable {
                 mockData = JMockData.mock(short.class, mockConfig);
                 break;
             case "long":
+            case "bigint":
                 mockData = JMockData.mock(long.class, mockConfig);
                 break;
             case "float":
@@ -234,7 +235,6 @@ public class MockSchema implements Serializable {
             case "bigdecimal":
                 mockData = JMockData.mock(BigDecimal.class, mockConfig);
                 break;
-            case "bigint":
             case "biginteger":
                 mockData = JMockData.mock(BigInteger.class, mockConfig);
                 break;
