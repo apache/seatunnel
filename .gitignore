@@ -11,7 +11,9 @@ hs_err_pid*
 target/
 
 # Intellij Idea files
+.idea/
 *.iml
+.idea/*
 
 .DS_Store
 
