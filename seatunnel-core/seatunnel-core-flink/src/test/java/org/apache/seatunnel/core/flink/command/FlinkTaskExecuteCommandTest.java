@@ -36,7 +36,7 @@ public class FlinkTaskExecuteCommandTest {
     @Test
     public void checkPluginType() {
         List<MockBatchSource> sources = Lists.newArrayList(new MockBatchSource());
-        FlinkTaskExecuteCommand flinkTaskExecuteCommand = new FlinkTaskExecuteCommand(null);
+        FlinkApiTaskExecuteCommand flinkTaskExecuteCommand = new FlinkApiTaskExecuteCommand(null);
         // check success
         flinkTaskExecuteCommand.checkPluginType(JobMode.BATCH, sources);
         Assert.assertThrows("checkPluginType should throw IllegalException", IllegalArgumentException.class, () -> {

@@ -143,7 +143,7 @@ public final class Config {
     /**
      * mock_data_size Default value.
      */
-    public static final int MOCK_DATA_SIZE_DEFAULT_VALUE = 300;
+    public static final int MOCK_DATA_SIZE_DEFAULT_VALUE = 10;
 
     /**
      * Create data interval, unit is second. Default is 1 second.

@@ -133,7 +133,7 @@ public abstract class SparkContainer {
 
         // copy plugin-mapping.properties
         master.copyFileToContainer(
-            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/seatunnel-connectors/plugin-mapping.properties"),
+            MountableFile.forHostPath(PROJECT_ROOT_PATH + "/plugin-mapping.properties"),
             Paths.get(CONNECTORS_PATH, PLUGIN_MAPPING_FILE).toString());
     }
 

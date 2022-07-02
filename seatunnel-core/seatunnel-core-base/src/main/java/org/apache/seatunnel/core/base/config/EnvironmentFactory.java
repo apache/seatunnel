@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.base.config;
 
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.spark.SparkEnvironment;
 
@@ -43,6 +44,7 @@ public class EnvironmentFactory<ENVIRONMENT extends RuntimeEnv> {
         this.engine = engine;
     }
 
+    // todo:put this method into submodule to avoid dependency on the engine
     public synchronized ENVIRONMENT getEnvironment() {
         Config envConfig = config.getConfig("env");
         boolean enableHive = checkIsContainHive();
