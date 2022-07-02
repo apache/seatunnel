@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.fake;
+package org.apache.seatunnel.e2e.flink.v2.file;
+
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
@@ -25,12 +26,10 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class FakeSourceToConsoleIT extends FlinkContainer {
-
+public class FakeSourceToFileIT extends FlinkContainer {
     @Test
-    @SuppressWarnings("magicnumber")
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
+    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.file;
+package org.apache.seatunnel.e2e.spark.v2.file;
 
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
