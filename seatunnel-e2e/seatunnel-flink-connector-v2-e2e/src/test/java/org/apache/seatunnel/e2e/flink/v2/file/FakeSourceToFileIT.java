@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.flink.v2.file;
 
-
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import org.junit.Assert;

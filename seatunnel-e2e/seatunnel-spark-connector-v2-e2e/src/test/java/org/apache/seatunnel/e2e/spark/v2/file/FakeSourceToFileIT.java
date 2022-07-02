@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.spark.v2.file;
 
-
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import org.junit.Assert;
