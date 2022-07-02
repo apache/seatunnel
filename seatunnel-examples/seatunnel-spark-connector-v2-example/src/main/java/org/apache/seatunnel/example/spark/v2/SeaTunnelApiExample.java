@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.flink;
+package org.apache.seatunnel.example.spark.v2;
 
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Seatunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
-import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
+import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.core.starter.spark.command.SparkCommandBuilder;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -31,13 +32,14 @@ import java.nio.file.Paths;
 public class SeaTunnelApiExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/fake_to_console.conf");
-        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
-        flinkCommandArgs.setConfigFile(configFile);
-        flinkCommandArgs.setCheckConfig(false);
-        flinkCommandArgs.setVariables(null);
-        Command<FlinkCommandArgs> flinkCommand =
-            new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
+        String configFile = getTestConfigFile("/examples/spark.batch.conf");
+        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
+        sparkCommandArgs.setConfigFile(configFile);
+        sparkCommandArgs.setCheckConfig(false);
+        sparkCommandArgs.setVariables(null);
+        sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
+        Command<SparkCommandArgs> flinkCommand =
+                new SparkCommandBuilder().buildCommand(sparkCommandArgs);
         Seatunnel.run(flinkCommand);
     }
 

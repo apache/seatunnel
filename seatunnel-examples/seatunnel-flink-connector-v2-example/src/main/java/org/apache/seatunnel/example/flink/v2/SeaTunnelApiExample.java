@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.flink;
+package org.apache.seatunnel.example.flink.v2;
 
 import org.apache.seatunnel.core.starter.Seatunnel;
 import org.apache.seatunnel.core.starter.command.Command;
@@ -28,10 +28,10 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 
-public class FakeToLocalFileExample {
+public class SeaTunnelApiExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/fakesource_to_file.conf");
+        String configFile = getTestConfigFile("/examples/fake_to_console.conf");
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
         flinkCommandArgs.setCheckConfig(false);
@@ -42,7 +42,7 @@ public class FakeToLocalFileExample {
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
-        URL resource = FakeToLocalFileExample.class.getResource(configFile);
+        URL resource = SeaTunnelApiExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }

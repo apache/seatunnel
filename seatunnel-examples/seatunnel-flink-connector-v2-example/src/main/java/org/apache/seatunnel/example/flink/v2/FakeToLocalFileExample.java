@@ -15,36 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.example.spark;
+package org.apache.seatunnel.example.flink.v2;
 
-import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Seatunnel;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.core.starter.spark.command.SparkCommandBuilder;
+import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.flink.command.FlinkCommandBuilder;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 
-public class SeaTunnelApiExample {
+public class FakeToLocalFileExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/spark.batch.conf");
-        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
-        sparkCommandArgs.setConfigFile(configFile);
-        sparkCommandArgs.setCheckConfig(false);
-        sparkCommandArgs.setVariables(null);
-        sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-        Command<SparkCommandArgs> flinkCommand =
-                new SparkCommandBuilder().buildCommand(sparkCommandArgs);
+        String configFile = getTestConfigFile("/examples/fakesource_to_file.conf");
+        FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
+        flinkCommandArgs.setConfigFile(configFile);
+        flinkCommandArgs.setCheckConfig(false);
+        flinkCommandArgs.setVariables(null);
+        Command<FlinkCommandArgs> flinkCommand =
+            new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
         Seatunnel.run(flinkCommand);
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
-        URL resource = SeaTunnelApiExample.class.getResource(configFile);
+        URL resource = FakeToLocalFileExample.class.getResource(configFile);
         if (resource == null) {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }
