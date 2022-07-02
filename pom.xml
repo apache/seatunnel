@@ -142,6 +142,7 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
+        <commons-collections.version>3.2.2</commons-collections.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
@@ -180,6 +181,7 @@
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
+        <powermock.version>2.0.9</powermock.version>
         <hadoop2.version>2.6.5</hadoop2.version>
         <hadoop3.version>3.0.0</hadoop3.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
@@ -640,11 +642,28 @@
             </dependency>
 
             <dependency>
+                <groupId>org.powermock</groupId>
+                <artifactId>powermock-module-junit4</artifactId>
+                <version>${powermock.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.powermock</groupId>
+                <artifactId>powermock-api-mockito2</artifactId>
+                <version>${powermock.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-collections</groupId>
+                <artifactId>commons-collections</artifactId>
+                <version>${commons-collections.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>com.github.jsonzou</groupId>
                 <artifactId>jmockdata</artifactId>
                 <version>${jmockdata.version}</version>
             </dependency>
-
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
@@ -662,7 +681,6 @@
                 <artifactId>snappy-java</artifactId>
                 <version>${snappy-java.version}</version>
             </dependency>
-
         </dependencies>
     </dependencyManagement>
 
@@ -1038,7 +1056,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>

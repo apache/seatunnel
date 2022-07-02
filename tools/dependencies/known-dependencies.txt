@@ -64,11 +64,11 @@ checker-qual-3.4.0.jar
 chill-java-0.9.3.jar
 chill_2.11-0.9.3.jar
 classmate-1.1.0.jar
+clickhouse-jdbc-0.2.jar
 clickhouse-client-0.3.2-patch9.jar
 clickhouse-grpc-client-0.3.2-patch9-netty.jar
 clickhouse-http-client-0.3.2-patch9-shaded.jar
 clickhouse-http-client-0.3.2-patch9.jar
-clickhouse-jdbc-0.2.jar
 clickhouse-jdbc-0.3.2-patch9.jar
 commons-beanutils-1.7.0.jar
 commons-beanutils-1.9.3.jar
@@ -337,10 +337,12 @@ jackson-module-jaxb-annotations-2.7.8.jar
 jackson-xc-1.9.13.jar
 jackson-xc-1.9.2.jar
 jakarta.activation-api-1.2.1.jar
-jakarta.activation-api-1.2.2.jar
-jakarta.ws.rs-api-2.1.6.jar
 jakarta.xml.bind-api-2.3.2.jar
+jakarta.activation-api-1.2.2.jar
 jakarta.xml.bind-api-2.3.3.jar
+jcip-annotations-1.0.jar
+jul-to-slf4j-1.7.25.jar
+jakarta.ws.rs-api-2.1.6.jar
 jamon-runtime-2.4.1.jar
 janino-3.0.9.jar
 janino-3.1.6.jar
@@ -367,7 +369,6 @@ jaxb-api-2.3.1.jar
 jaxb-impl-2.2.3-1.jar
 jboss-logging-3.2.1.Final.jar
 jcip-annotations-1.0-1.jar
-jcip-annotations-1.0.jar
 jcl-over-slf4j-1.7.12.jar
 jcl-over-slf4j-1.7.16.jar
 jcl-over-slf4j-1.7.30.jar
@@ -448,7 +449,6 @@ jsp-api-2.1.jar
 jsr305-1.3.9.jar
 jsr305-2.0.1.jar
 jsr311-api-1.1.1.jar
-jul-to-slf4j-1.7.25.jar
 jvm-attach-api-1.5.jar
 kafka-clients-2.0.0.jar
 kafka-clients-2.4.1.jar
