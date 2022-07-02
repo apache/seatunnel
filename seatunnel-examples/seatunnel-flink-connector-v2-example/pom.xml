@@ -27,7 +27,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-flink-new-connector-example</artifactId>
+    <artifactId>seatunnel-flink-connector-v2-example</artifactId>
     <properties>
         <flink.scope>compile</flink.scope>
     </properties>
