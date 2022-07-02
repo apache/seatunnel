@@ -39,6 +39,7 @@ import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
 import org.apache.seatunnel.flink.jdbc.input.DefaultTypeInformationMap;
+import org.apache.seatunnel.flink.jdbc.input.HiveTypeInformationMap;
 import org.apache.seatunnel.flink.jdbc.input.JdbcInputFormat;
 import org.apache.seatunnel.flink.jdbc.input.MysqlTypeInformationMap;
 import org.apache.seatunnel.flink.jdbc.input.OracleTypeInformationMap;
@@ -148,7 +149,7 @@ public class JdbcSource implements FlinkBatchSource {
                 JdbcParameterValuesProvider jdbcParameterValuesProvider =
                         initPartition(partitionColumn, connection, query);
                 builder.setParametersProvider(jdbcParameterValuesProvider);
-                query = String.format("SELECT * FROM (%s) tt where " + partitionColumn + " >= ? AND " + partitionColumn + " < ?", query);
+                query = String.format("SELECT * FROM (%s) tt where " + partitionColumn + " >= ? AND " + partitionColumn + " <= ?", query);
             }
             builder.setDrivername(driverName).setDBUrl(dbUrl).setUsername(username)
                     .setPassword(password).setQuery(query).setFetchSize(fetchSize)
@@ -194,10 +195,12 @@ public class JdbcSource implements FlinkBatchSource {
             String databaseDialect = connection.getMetaData().getDatabaseProductName();
             PreparedStatement preparedStatement = connection.prepareStatement(selectSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
             preparedStatement.setMaxRows(1);
-            ResultSetMetaData rsMeta = preparedStatement.getMetaData();
             try {
+                //support PreparedStatement getMetaData()
+                ResultSetMetaData rsMeta = preparedStatement.getMetaData();
                 return getRowInfo(rsMeta, databaseDialect);
             } catch (SQLException e) {
+                //not support PreparedStatement getMetaData() and use ResultSet getMetaData()
                 ResultSet rs = preparedStatement.executeQuery();
                 return getRowInfo(rs.getMetaData(), databaseDialect);
             }
@@ -245,6 +248,8 @@ public class JdbcSource implements FlinkBatchSource {
             return new PostgresTypeInformationMap();
         } else if (StringUtils.containsIgnoreCase(databaseDialect, "oracle")) {
             return new OracleTypeInformationMap();
+        } else if (StringUtils.containsIgnoreCase(databaseDialect, "Hive")){
+            return new HiveTypeInformationMap();
         } else {
             return new DefaultTypeInformationMap();
         }

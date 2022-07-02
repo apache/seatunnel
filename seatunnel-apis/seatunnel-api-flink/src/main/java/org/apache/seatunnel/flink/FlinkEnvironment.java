@@ -26,6 +26,7 @@ import org.apache.seatunnel.flink.util.EnvironmentUtil;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.configuration.Configuration;
@@ -87,10 +88,10 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     @Override
     public FlinkEnvironment prepare() {
-        if (isStreaming()) {
-            createStreamEnvironment();
-            createStreamTableEnvironment();
-        } else {
+        // Batch/Streaming both use data stream api in SeaTunnel New API
+        createStreamEnvironment();
+        createStreamTableEnvironment();
+        if (!isStreaming()) {
             createExecutionEnvironment();
             createBatchTableEnvironment();
         }
@@ -121,7 +122,7 @@ public class FlinkEnvironment implements RuntimeEnv {
 
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
-        LOGGER.info("register plugins :" + pluginPaths);
+        pluginPaths.forEach(url -> LOGGER.info("register plugins : {}", url));
         Configuration configuration;
         try {
             if (isStreaming()) {
@@ -200,6 +201,10 @@ public class FlinkEnvironment implements RuntimeEnv {
         if (config.hasPath(ConfigKeyName.MAX_PARALLELISM)) {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
+        }
+
+        if (this.jobMode.equals(JobMode.BATCH)) {
+            environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
         }
     }
 

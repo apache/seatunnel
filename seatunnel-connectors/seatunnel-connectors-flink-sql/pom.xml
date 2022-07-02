@@ -28,6 +28,9 @@
 
   <modules>
     <module>flink-sql-connector-jdbc</module>
+    <module>flink-sql-connector-kafka</module>
+    <module>flink-sql-connector-elasticsearch-6</module>
+    <module>flink-sql-connector-elasticsearch-7</module>
   </modules>
 
 

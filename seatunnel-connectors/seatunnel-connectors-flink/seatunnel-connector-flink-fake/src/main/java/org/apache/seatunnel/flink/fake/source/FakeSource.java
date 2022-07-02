@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.flink.fake.source;
 
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE;
+import static org.apache.seatunnel.flink.fake.Config.MOCK_DATA_SIZE_DEFAULT_VALUE;
+
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.flink.BaseFlinkSource;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
@@ -26,19 +30,18 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 import org.apache.flink.api.java.DataSet;
-import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.types.Row;
 
-import java.util.Arrays;
-import java.util.Random;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 @AutoService(BaseFlinkSource.class)
 public class FakeSource implements FlinkBatchSource {
 
-    private static final String[] NAME_ARRAY = new String[]{"Gary", "Ricky Huo", "Kid Xiong"};
     private Config config;
-    private static final int AGE_LIMIT = 100;
+
+    private List<MockSchema> mockDataSchema;
+    private int mockDataSize;
 
     @Override
     public void setConfig(Config config) {
@@ -48,6 +51,12 @@ public class FakeSource implements FlinkBatchSource {
     @Override
     public Config getConfig() {
         return config;
+    }
+
+    @Override
+    public void prepare(FlinkEnvironment env) {
+        mockDataSchema = MockSchema.resolveConfig(config);
+        mockDataSize = TypesafeConfigUtils.getConfig(config, MOCK_DATA_SIZE, MOCK_DATA_SIZE_DEFAULT_VALUE);
     }
 
     @Override
@@ -62,13 +71,15 @@ public class FakeSource implements FlinkBatchSource {
 
     @Override
     public DataSet<Row> getData(FlinkEnvironment env) {
-        Random random = new Random();
-        return env.getBatchTableEnvironment().toDataSet(
-            env.getBatchTableEnvironment().fromValues(
-                DataTypes.ROW(DataTypes.FIELD("name", DataTypes.STRING()),
-                    DataTypes.FIELD("age", DataTypes.INT())),
-                Arrays.stream(NAME_ARRAY).map(n -> Row.of(n, random.nextInt(AGE_LIMIT)))
-                    .collect(Collectors.toList())), Row.class);
+        List<Row> dataSet = new ArrayList<>(mockDataSize);
+        for (long index = 0; index < mockDataSize; index++) {
+            dataSet.add(MockSchema.mockRowData(mockDataSchema));
+        }
+        return env.getBatchEnvironment()
+            .fromCollection(
+                dataSet,
+                MockSchema.mockRowTypeInfo(mockDataSchema)
+            );
     }
 
 }

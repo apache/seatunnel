@@ -37,6 +37,7 @@ public abstract class AbstractCommandArgs implements CommandArgs {
         description = "variable substitution, such as -i city=beijing, or -i date=20190318")
     private List<String> variables = Collections.emptyList();
 
+    // todo: use command type enum
     @Parameter(names = {"-t", "--check"},
             description = "check config")
     private boolean checkConfig = false;
