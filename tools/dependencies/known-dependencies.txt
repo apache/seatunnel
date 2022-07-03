@@ -277,6 +277,7 @@ hbase-zookeeper-2.0.0.jar
 hbase-zookeeper-2.1.0.jar
 hibernate-validator-5.2.5.Final.jar
 hibernate-validator-6.2.2.Final.jar
+HikariCP-4.0.3.jar
 hive-beeline-1.2.1.spark2.jar
 hive-cli-1.2.1.spark2.jar
 hive-jdbc-1.2.1.spark2.jar
