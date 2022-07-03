@@ -34,7 +34,7 @@ jobs:
   check:
     name: Spark
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 1.8
