@@ -23,7 +23,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.net.URL;
-import java.util.Set;
+import java.util.List;
 
 /**
  * engine related runtime environment
@@ -42,6 +42,6 @@ public interface RuntimeEnv {
 
     JobMode getJobMode();
 
-    void registerPlugin(Set<URL> pluginPaths);
+    void registerPlugin(List<URL> pluginPaths);
 
 }

@@ -10,51 +10,51 @@ A flink sink plugin which can assert illegal data by user defined rules
 
 Engine Supported and plugin name
 
-* [ ] Spark
-* [x] Flink: AssertSink
+* [x] Spark：Assert
+* [x] Flink: Assert
 
 :::
 
 ## Options
 
-| name                    | type     | required | default value |
-| ----------------------- | -------- | -------- | ------------- |
-| rules         		  | ConfigList | yes      | -             |
-| &ensp;field_name        | `String` | yes       | -     |
-| &ensp;field_type        | `String` | no       | -          |
-| &ensp;field_value | ConfigList | no       | -             |
-| &ensp;&ensp;rule_type         | `String`    | no       | -             |
-| &ensp;&ensp;rule_value         | double    | no       | -             |
+| name                          | type        | required | default value |
+| ----------------------------- | ----------  | -------- | ------------- |
+|rules                          | ConfigList  | yes      | -             |
+|rules.field_name               | string      | yes      | -             |
+|rules.field_type               | string      | no       | -             |
+|rules.field_value              | ConfigList  | no       | -             |
+|rules.field_value.rule_type    | string      | no       | -             |
+|rules.field_value.rule_value   | double      | no       | -             |
 
 
-### rules
+### rules [ConfigList]
 
 Rule definition of user's available data.  Each rule represents one field validation.
 
-### field_name
+### field_name [string]
 
 field name（string）
 
-### field_type
+### field_type [string]
 
 field type (string),  e.g. `string,boolean,byte,short,int,long,float,double,char,void,BigInteger,BigDecimal,Instant`
 
-### field_value
+### field_value [ConfigList]
 
 A list value rule define the data value validation
 
-### rule_type
+### rule_type [string]
 
 The following rules are supported for now
 `
-NOT_NULL,  
-MIN,  
-MAX,  
-MIN_LENGTH,  
-MAX_LENGTH
+NOT_NULL,   // value can't be null
+MIN,        // define the minimum value of data
+MAX,        // define the maximum value of data
+MIN_LENGTH, // define the minimum string length of a string data
+MAX_LENGTH  // define the maximum string length of a string data
 `
 
-### rule_value
+### rule_value [double]
 
 the value related to rule type
 
@@ -63,8 +63,9 @@ the value related to rule type
 the whole config obey with `hocon` style
 
 ```hocon
-AssertSink {
-    rules = 
+
+Assert {
+   rules = 
         [{
             field_name = name
             field_type = string
