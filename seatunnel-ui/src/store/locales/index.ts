@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NButton } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
+import { defineStore } from 'pinia'
+import { LocalesStore, Locales } from './types'
 
-const App = defineComponent({
-  setup() {
-    const { t } = useI18n()
-
-    return { t }
+export const useLocalesStore = defineStore({
+  id: 'locales',
+  state: (): LocalesStore => ({
+    locales: 'en_US'
+  }),
+  persist: true,
+  getters: {
+    getLocales(): Locales {
+      return this.locales
+    }
   },
-  render() {
-    const { t } = this
-
-    return (
-      <NButton>{t('test.test')}</NButton>
-    )
+  actions: {
+    setLocales(lang: Locales): void {
+      this.locales = lang
+    }
   }
 })
-
-export default App
