@@ -18,8 +18,8 @@
 package org.apache.seatunnel.app.common;
 
 public enum ScriptTypeEnum {
-    COLLECT(0, "collect"),
-    BACKFLOW(1, "backflow"),
+    BATCH(0, "batch"),
+    REALTIME(1, "realtime"),
     ;
 
     private final int code;
