@@ -24,6 +24,7 @@ import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 import org.apache.seatunnel.app.service.IUserService;
 import org.apache.seatunnel.app.util.PasswordUtils;
@@ -45,7 +46,7 @@ public class UserServiceImpl implements IUserService {
     private String defaultSalt;
 
     @Override
-    public int add(AddUserReq addReq) {
+    public AddUserRes add(AddUserReq addReq) {
         // 1. check duplicate user first
         userDaoImpl.checkUserExists(addReq.getUsername());
 
@@ -59,7 +60,10 @@ public class UserServiceImpl implements IUserService {
                 .type(addReq.getType())
                 .build();
 
-        return userDaoImpl.add(dto);
+        final int userId = userDaoImpl.add(dto);
+        final AddUserRes res = new AddUserRes();
+        res.setId(userId);
+        return res;
     }
 
     @Override

@@ -20,7 +20,6 @@ package org.apache.seatunnel.app.service.impl;
 import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
 import static com.google.common.base.Preconditions.checkState;
 
-import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.common.ScriptParamStatusEnum;
 import org.apache.seatunnel.app.common.ScriptStatusEnum;
 import org.apache.seatunnel.app.dal.dao.IScriptDao;
@@ -64,7 +63,7 @@ public class ScriptServiceImpl implements IScriptService {
     private IScriptParamDao scriptParamDaoImpl;
 
     @Override
-    public Result<AddEmptyScriptRes> addEmptyScript(AddEmptyScriptReq addEmptyScriptReq) {
+    public AddEmptyScriptRes addEmptyScript(AddEmptyScriptReq addEmptyScriptReq) {
         // 1. check script name.
         checkDuplicate(addEmptyScriptReq.getName(), addEmptyScriptReq.getCreatorId());
         // 2. create an empty script
@@ -72,7 +71,7 @@ public class ScriptServiceImpl implements IScriptService {
 
         final AddEmptyScriptRes res = new AddEmptyScriptRes();
         res.setId(scriptId);
-        return Result.success(res);
+        return res;
     }
 
     private int addEmptyScript(String name, Integer creatorId, Integer menderId, Byte type) {
@@ -116,7 +115,7 @@ public class ScriptServiceImpl implements IScriptService {
 
     private boolean checkIfNeedSave(int id, String newContentMd5) {
         Script script = scriptDaoImpl.getScript(id);
-        checkState(Objects.nonNull(script), NO_SUCH_SCRIPT.getTemplate());
+        checkState(Objects.nonNull(script) && (int) script.getStatus() != ScriptStatusEnum.DELETED.getCode(), NO_SUCH_SCRIPT.getTemplate());
 
         final String oldContentMd5 = Strings.isNullOrEmpty(script.getContentMd5()) ? "" : script.getContentMd5();
         return !newContentMd5.equals(oldContentMd5);

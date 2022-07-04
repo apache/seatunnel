@@ -66,11 +66,14 @@
     </select>
     <select id="selectBySelectiveAndPage" resultMap="BaseResultMap">
         select
-        <include refid="Base_Column_List"/>
+        *
         from script
         <where>
             <if test="script.name != null and script.name != ''">
-                `name` = #{script.name,jdbcType=VARCHAR}
+                and `name` = #{script.name,jdbcType=VARCHAR}
+            </if>
+            <if test="script.status != null">
+                and `status` = #{script.status,jdbcType=TINYINT}
             </if>
         </where>
         limit #{start,jdbcType=INTEGER}, #{offset,jdbcType=INTEGER}

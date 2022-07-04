@@ -22,6 +22,7 @@ import org.apache.seatunnel.app.domain.request.script.AddEmptyScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
+import org.apache.seatunnel.app.domain.response.script.AddEmptyScriptRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
 import org.apache.seatunnel.app.service.IScriptService;
@@ -49,21 +50,20 @@ public class ScriptController {
     @Resource
     private IScriptService iScriptService;
 
-    @PostMapping("/addEmptyScript")
+    @PostMapping("/script")
     @ApiOperation(value = "add an empty script", httpMethod = "POST")
-    public Result<Void> addEmptyScript(@RequestBody @NotNull AddEmptyScriptReq addEmptyScriptReq) {
-        iScriptService.addEmptyScript(addEmptyScriptReq);
-        return Result.success();
+    public Result<AddEmptyScriptRes> addEmptyScript(@RequestBody @NotNull AddEmptyScriptReq addEmptyScriptReq) {
+        return Result.success(iScriptService.addEmptyScript(addEmptyScriptReq));
     }
 
-    @PutMapping("/updateScriptContent")
+    @PutMapping("/scriptContent")
     @ApiOperation(value = "update script", httpMethod = "POST")
     public Result<Void> updateScriptContent(@RequestBody @NotNull UpdateScriptContentReq updateScriptContentReq) {
         iScriptService.updateScriptContent(updateScriptContentReq);
         return Result.success();
     }
 
-    @DeleteMapping("/delete")
+    @DeleteMapping("/script")
     @ApiOperation(value = "delete script", httpMethod = "POST")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
@@ -79,7 +79,7 @@ public class ScriptController {
         return Result.success(iScriptService.list(scriptListReq));
     }
 
-    @GetMapping("/fetchScriptContent")
+    @GetMapping("/scriptContent")
     @ApiOperation(value = "fetch script content", httpMethod = "POST")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
@@ -88,15 +88,15 @@ public class ScriptController {
         return Result.success(iScriptService.fetchScriptContent(id));
     }
 
-    @PutMapping("/updateScriptParam")
+    @PutMapping("/scriptParam")
     @ApiOperation(value = "update script param", httpMethod = "POST")
     public Result<Void> updateScriptParam(@RequestBody @NotNull UpdateScriptParamReq updateScriptParamReq) {
         iScriptService.updateScriptParam(updateScriptParamReq);
         return Result.success();
     }
 
-    @GetMapping("/fetchScriptParam")
-    @ApiOperation(value = "fetch script content", httpMethod = "POST")
+    @GetMapping("/scriptParam")
+    @ApiOperation(value = "fetch script param", httpMethod = "POST")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
     })

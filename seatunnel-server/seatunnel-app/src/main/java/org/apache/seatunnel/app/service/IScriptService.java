@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.app.service;
 
-import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.domain.request.script.AddEmptyScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
@@ -29,7 +28,7 @@ import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
 import java.util.List;
 
 public interface IScriptService {
-    Result<AddEmptyScriptRes> addEmptyScript(AddEmptyScriptReq addEmptyScriptReq);
+    AddEmptyScriptRes addEmptyScript(AddEmptyScriptReq addEmptyScriptReq);
 
     void updateScriptContent(UpdateScriptContentReq updateScriptContentReq);
 

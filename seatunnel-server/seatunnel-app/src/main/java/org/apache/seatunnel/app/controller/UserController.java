@@ -21,6 +21,7 @@ import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 import org.apache.seatunnel.app.service.IUserService;
 
@@ -47,21 +48,20 @@ public class UserController {
     @Resource
     private IUserService iUserService;
 
-    @PostMapping("/add")
+    @PostMapping("/user")
     @ApiOperation(value = "add user", httpMethod = "POST")
-    public Result<Void> add(@RequestBody @NotNull AddUserReq addReq) {
-        iUserService.add(addReq);
-        return Result.success();
+    public Result<AddUserRes> add(@RequestBody @NotNull AddUserReq addReq) {
+        return Result.success(iUserService.add(addReq));
     }
 
-    @PutMapping("/update")
+    @PutMapping("/user")
     @ApiOperation(value = "update user", httpMethod = "POST")
     public Result<Void> update(@RequestBody @NotNull UpdateUserReq updateReq) {
         iUserService.update(updateReq);
         return Result.success();
     }
 
-    @DeleteMapping("/delete")
+    @DeleteMapping("/user")
     @ApiOperation(value = "delete user", httpMethod = "POST")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),

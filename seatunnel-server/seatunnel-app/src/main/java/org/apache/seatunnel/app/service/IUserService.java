@@ -20,13 +20,14 @@ package org.apache.seatunnel.app.service;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 
 import java.util.List;
 
 public interface IUserService {
 
-    int add(AddUserReq addReq);
+    AddUserRes add(AddUserReq addReq);
 
     void update(UpdateUserReq updateReq);
 

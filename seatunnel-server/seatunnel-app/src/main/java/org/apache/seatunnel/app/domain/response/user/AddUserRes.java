@@ -15,26 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.app.domain.response.user;
 
-public enum ScriptTypeEnum {
-    OFFLINE(0, "offline"),
-    REALTIME(1, "realtime"),
-    ;
+import lombok.Data;
 
-    private final int code;
-    private final String  description;
-
-    ScriptTypeEnum(int code, String description) {
-        this.code = code;
-        this.description = description;
-    }
-
-    public int getCode() {
-        return code;
-    }
-
-    public String getDescription() {
-        return description;
-    }
+@Data
+public class AddUserRes {
+    private int id;
 }
