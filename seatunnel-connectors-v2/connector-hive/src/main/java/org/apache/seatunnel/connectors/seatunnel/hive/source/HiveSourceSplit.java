@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+public class HiveSourceSplit implements SourceSplit {
 
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
-public class PrepareFailException extends RuntimeException {
+    private static final long serialVersionUID = -1L;
 
-    public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message));
+    private String splitId;
+
+    public HiveSourceSplit(String splitId) {
+        this.splitId = splitId;
     }
 
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message), cause);
+    @Override
+    public String splitId() {
+        return this.splitId;
     }
 }

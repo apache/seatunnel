@@ -4390,3 +4390,143 @@ This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 
 =========================================================================
+
+Open Json NOTICE
+
+=========================================================================
+Android JSON library
+Copyright (C) 2010 The Android Open Source Project
+
+This product includes software developed by
+The Android Open Source Project
+=========================================================================
+
+Metrics NOTICE
+
+=========================================================================
+
+Metrics
+Copyright 2010-2013 Coda Hale and Yammer, Inc.
+
+This product includes software developed by Coda Hale and Yammer, Inc.
+
+This product includes code derived from the JSR-166 project (ThreadLocalRandom, Striped64,
+LongAdder), which was released with the following comments:
+
+    Written by Doug Lea with assistance from members of JCP JSR-166
+    Expert Group and released to the public domain, as explained at
+    http://creativecommons.org/publicdomain/zero/1.0/
+
+
+=========================================================================
+ 
+Joda-Time NOTICE
+
+=============================================================================
+= NOTICE file corresponding to section 4d of the Apache License Version 2.0 =
+=============================================================================
+This product includes software developed by
+Joda.org (https://www.joda.org/).
+
+
+=========================================================================
+
+eigenbase-properties NOTICE
+
+=========================================================================
+
+eigenbase-properties
+Copyright (C) 2012-2015, Julian Hyde
+
+This product includes software from the Eigenbase project, licensed from
+DynamoBI Corporation.
+
+Copyright (C) 2005 Dynamo BI Corporation
+
+===============================================================================
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this software except in compliance with the License.
+You may obtain a copy of the License at:
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific lang
+
+=========================================================================
+
+   Apache Ant NOTICE
+
+=========================================================================
+   Apache Ant
+   Copyright 1999-2013 The Apache Software Foundation
+
+   The <sync> task is based on code Copyright (c) 2002, Landmark
+   Graphics Corp that has been kindly donated to the Apache Software
+   Foundation.
+
+
+=========================================================================
+
+Apache Geronimo NOTICE
+
+=========================================================================
+Apache Geronimo 
+Copyright 2003-2008 The Apache Software Foundation
+
+This product includes software developed by
+The Apache Software Foundation (http://www.apache.org/).
+
+=========================================================================
+
+Apache Ivy NOTICE
+
+=========================================================================
+Apache Ivy (TM)
+Copyright 2007-2014 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+Portions of Ivy were originally developed at
+Jayasoft SARL (http://www.jayasoft.fr/)
+and are licensed to the Apache Software Foundation under the
+"Software Grant License Agreement"
+
+SSH and SFTP support is provided by the JCraft JSch package, 
+which is open source software, available under
+the terms of a BSD style license.  
+The original software and related information is available
+at http://www.jcraft.com/jsch/.
+
+=========================================================================
+
+Apache Parquet Hadoop Bundle NOTICE
+
+=========================================================================
+Apache Parquet Hadoop Bundle
+Copyright 2015 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+=========================================================================
+
+Apache Velocity NOTICE
+
+=========================================================================
+
+Apache Velocity
+
+Copyright (C) 2000-2007 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+The files
+ - velocity-engine-scripting/src/main/java/org/apache/velocity/script/VelocityScriptEngine.java
+ - velocity-engine-scripting/src/main/java/org/apache/velocity/script/VelocityScriptEngineFactory.java
+are Copyright 2006 Sun Microsystems, Inc., and licenced under a BSD-like licence.
+
+=========================================================================
