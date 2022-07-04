@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import org.apache.seatunnel.common.constants.PluginType;
+import java.io.Serializable;
+import java.util.Set;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+public class HiveSourceState implements Serializable {
 
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
-public class PrepareFailException extends RuntimeException {
 
-    public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message));
+    private Set<HiveSourceSplit> assignedSplit;
+
+    public HiveSourceState(Set<HiveSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
     }
 
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message), cause);
+    public Set<HiveSourceSplit> getAssignedSplit() {
+        return assignedSplit;
     }
 }

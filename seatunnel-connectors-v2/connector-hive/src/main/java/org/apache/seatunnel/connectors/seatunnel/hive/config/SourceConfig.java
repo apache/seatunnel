@@ -15,24 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
-import org.apache.seatunnel.common.constants.PluginType;
+import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+public class SourceConfig {
 
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
-public class PrepareFailException extends RuntimeException {
+    public static final String FILE_TYPE = "file.type";
 
-    public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message));
-    }
+    public static final String DEFAULT_FS = FS_DEFAULT_NAME_KEY;
 
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message), cause);
-    }
+    public static final String FILE_PATH = "file.path";
 }
