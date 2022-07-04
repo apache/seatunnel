@@ -21,6 +21,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+      - 'seatunnel-ui/**'
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -23,6 +23,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+      - 'seatunnel-ui/**'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
