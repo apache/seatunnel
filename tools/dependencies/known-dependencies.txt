@@ -715,7 +715,6 @@ hive-shims-common-2.3.9.jar
 hive-shims-scheduler-2.3.9.jar
 hive-vector-code-gen-2.3.9.jar
 ivy-2.4.0.jar
-jackson-mapper-asl-1.8.8.jar
 jackson-mapper-asl-1.9.2.jar
 jasper-compiler-5.5.23.jar
 jasper-runtime-5.5.23.jar
