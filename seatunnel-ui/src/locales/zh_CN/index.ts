@@ -15,24 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+const test = {
+  'test': '测试'
+}
 
-import org.apache.seatunnel.common.constants.PluginType;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
-public class PrepareFailException extends RuntimeException {
-
-    public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message));
-    }
-
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message), cause);
-    }
+export default {
+  test
 }

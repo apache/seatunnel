@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import org.apache.seatunnel.common.constants.PluginType;
+import lombok.Data;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import java.io.Serializable;
 
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
-public class PrepareFailException extends RuntimeException {
+@Data
+public class HadoopConf implements Serializable {
 
-    public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message));
-    }
+    private String hdfsNameKey;
 
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message), cause);
+    private String fsHdfsImpl = "org.apache.hadoop.hdfs.DistributedFileSystem";
+
+    public HadoopConf(String hdfsNameKey) {
+        this.hdfsNameKey = hdfsNameKey;
     }
 }

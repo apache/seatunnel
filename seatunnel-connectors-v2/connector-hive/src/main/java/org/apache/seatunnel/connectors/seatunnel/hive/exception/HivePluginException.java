@@ -15,24 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.connectors.seatunnel.hive.exception;
 
-import org.apache.seatunnel.common.constants.PluginType;
+public class HivePluginException extends Exception{
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
-public class PrepareFailException extends RuntimeException {
-
-    public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message));
+    public HivePluginException(String message) {
+        super(message);
     }
 
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message), cause);
+    public HivePluginException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

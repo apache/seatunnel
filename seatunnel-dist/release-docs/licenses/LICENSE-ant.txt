@@ -1,0 +1,48 @@
+
+     changes were made. (We recommend you provide URIs to the location from
+     which the code is derived.)
+     
+THIS SOFTWARE AND DOCUMENTATION IS PROVIDED "AS IS," AND COPYRIGHT HOLDERS MAKE
+NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO, WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT
+THE USE OF THE SOFTWARE OR DOCUMENTATION WILL NOT INFRINGE ANY THIRD PARTY
+PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS.
+
+COPYRIGHT HOLDERS WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL OR
+CONSEQUENTIAL DAMAGES ARISING OUT OF ANY USE OF THE SOFTWARE OR DOCUMENTATION.
+
+The name and trademarks of copyright holders may NOT be used in advertising or
+publicity pertaining to the software without specific, written prior permission.
+Title to copyright in this software and any associated documentation will at
+all times remain with copyright holders.
+
+____________________________________
+
+This formulation of W3C's notice and license became active on December 31 2002.
+This version removes the copyright ownership notice such that this license can
+be used with materials other than those owned by the W3C, reflects that ERCIM
+is now a host of the W3C, includes references to this specific dated version of
+the license, and removes the ambiguous grant of "use". Otherwise, this version
+is the same as the previous version and is written so as to preserve the Free
+Software Foundation's assessment of GPL compatibility and OSI's certification
+under the Open Source Definition. Please see our Copyright FAQ for common
+questions about using materials from our site, including specific terms and
+conditions for packages like libwww, Amaya, and Jigsaw. Other questions about
+this notice can be directed to site-policy@w3.org.
+ 
+Joseph Reagle <site-policy@w3.org> 
+
+This license came from: http://www.megginson.com/SAX/copying.html
+  However please note future versions of SAX may be covered 
+  under http://saxproject.org/?selected=pd
+
+SAX2 is Free!
+
+I hereby abandon any property rights to SAX 2.0 (the Simple API for
+XML), and release all of the SAX 2.0 source code, compiled code, and
+documentation contained in this distribution into the Public Domain.
+SAX comes with NO WARRANTY or guarantee of fitness for any
+purpose.
+
+David Megginson, david@megginson.com
+2000-05-05
