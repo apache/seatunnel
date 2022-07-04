@@ -112,7 +112,7 @@
         <orc.version>1.5.6</orc.version>
         <hive.exec.version>2.3.9</hive.exec.version>
         <commons.logging.version>1.2</commons.logging.version>
-        <commons.beanutils.version>1.9.3</commons.beanutils.version>
+        <commons.beanutils.version>1.9.4</commons.beanutils.version>
         <commons.configuration.version>1.7</commons.configuration.version>
         <commons.digester.version>1.8.1</commons.digester.version>
         <curator.version>4.3.0</curator.version>
