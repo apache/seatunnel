@@ -21,9 +21,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitI
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCommitter;
 
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -33,15 +31,6 @@ import java.util.Map;
 import java.util.Random;
 
 public class FileSinkAggregatedCommitterTest {
-
-    @Before
-    public void before() throws Exception {
-    }
-
-    @After
-    public void after() throws Exception {
-    }
-
     @Test
     public void testCommit() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
@@ -132,12 +121,5 @@ public class FileSinkAggregatedCommitterTest {
 
         // transactionDir will being delete when abort
         Assert.assertTrue(!FileUtils.fileExist(transactionDir));
-    }
-
-    /**
-     * Method: close()
-     */
-    @Test
-    public void testClose() throws Exception {
     }
 }
