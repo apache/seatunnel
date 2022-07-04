@@ -36,7 +36,6 @@ import org.apache.flink.types.Row;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -76,7 +75,7 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = plugins.get(i);
             DataStream<Row> stream = fromSourceTable(sinkConfig).orElse(input);
             seaTunnelSink.setTypeInfo((SeaTunnelRowType) TypeConverterUtils.convert(stream.getType()));
-            stream.sinkTo(new FlinkSink<>(seaTunnelSink, Collections.emptyMap()));
+            stream.sinkTo(new FlinkSink<>(seaTunnelSink));
         }
         // the sink is the last stream
         return null;
