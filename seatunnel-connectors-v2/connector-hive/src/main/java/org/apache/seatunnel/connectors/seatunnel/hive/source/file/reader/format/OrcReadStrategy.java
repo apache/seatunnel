@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.hive.source.HadoopConf;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
@@ -37,7 +36,6 @@ import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.NullWritable;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -48,7 +46,6 @@ import org.apache.orc.Reader;
 import org.apache.orc.TypeDescription;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Properties;
 
@@ -56,10 +53,6 @@ import java.util.Properties;
 public class OrcReadStrategy extends AbstractReadStrategy {
 
     private SeaTunnelRowType seaTunnelRowTypeInfo;
-
-    private static final int DIRECTORY_SIZE_GUESS = 16 * 1024;
-
-    private static final int NUMBER = 0xff;
 
     @Override
     public void read(String path, Collector<SeaTunnelRow> output) throws Exception {
@@ -97,52 +90,6 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             output.collect(new SeaTunnelRow(datas));
         }
         reader.close();
-
-    }
-
-    @Override
-    public boolean checkFileType(String path) throws IOException, HivePluginException {
-        try {
-            Path file = new Path(path);
-            FileSystem fs = FileSystem.get(getConfiguration());
-            FSDataInputStream in = fs.open(file);
-            // figure out the size of the file using the option or filesystem
-            long size = fs.getFileStatus(file).getLen();
-
-            //read last bytes into buffer to get PostScript
-            int readSize = (int) Math.min(size, DIRECTORY_SIZE_GUESS);
-            in.seek(size - readSize);
-            ByteBuffer buffer = ByteBuffer.allocate(readSize);
-            in.readFully(buffer.array(), buffer.arrayOffset() + buffer.position(),
-                    buffer.remaining());
-
-            //read the PostScript
-            //get length of PostScript
-            int psLen = buffer.get(readSize - 1) & NUMBER;
-            int len = OrcFile.MAGIC.length();
-            if (psLen < len + 1) {
-                return false;
-            }
-            int offset = buffer.arrayOffset() + buffer.position() + buffer.limit() - 1 - len;
-            byte[] array = buffer.array();
-            // now look for the magic string at the end of the postscript.
-            if (Text.decode(array, offset, len).equals(OrcFile.MAGIC)) {
-                return true;
-            } else {
-                // If it isn't there, this may be the 0.11.0 version of ORC.
-                // Read the first 3 bytes of the file to check for the header
-                in.seek(0);
-                byte[] header = new byte[len];
-                in.readFully(header, 0, len);
-                // if it isn't there, this isn't an ORC file
-                if (Text.decode(header, 0, len).equals(OrcFile.MAGIC)) {
-                    return true;
-                }
-            }
-        } catch (IOException e) {
-            throw new IOException("check file type error", e);
-        }
-        return false;
     }
 
     @Override

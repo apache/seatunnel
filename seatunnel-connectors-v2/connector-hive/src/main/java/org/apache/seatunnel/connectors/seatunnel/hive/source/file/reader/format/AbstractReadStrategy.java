@@ -55,8 +55,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return getConfiguration(hadoopConf);
     }
 
-    boolean checkFileType(String path) throws IOException, HivePluginException {
-        return false;
+    boolean checkFileType(String path) {
+        return true;
     }
 
     @Override
