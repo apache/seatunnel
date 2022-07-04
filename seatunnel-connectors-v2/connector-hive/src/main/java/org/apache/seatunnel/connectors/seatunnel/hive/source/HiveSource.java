@@ -43,12 +43,10 @@ import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.List;
 
-@Slf4j
 @AutoService(SeaTunnelSource.class)
 public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit, HiveSourceState> {
 
@@ -87,6 +85,7 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         try {
+            // should read from config or read from hive metadata( wait catlog done)
             this.typeInfo = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filesPath.get(0));
         } catch (HivePluginException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read hive file type error.", e);

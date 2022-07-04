@@ -115,7 +115,7 @@
         <commons.beanutils.version>1.9.3</commons.beanutils.version>
         <commons.configuration.version>1.7</commons.configuration.version>
         <commons.digester.version>1.8.1</commons.digester.version>
-        <curator.client.version>4.3.0</curator.client.version>
+        <curator.version>4.3.0</curator.version>
         <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
         <janino.version>3.1.6</janino.version>
         <jersey.version>1.19</jersey.version>
@@ -807,7 +807,22 @@
             <dependency>
                 <groupId>org.apache.curator</groupId>
                 <artifactId>curator-client</artifactId>
-                <version>${curator.client.version}</version>
+                <version>${curator.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.curator</groupId>
+                <artifactId>curator-framework</artifactId>
+                <version>${curator.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.curator</groupId>
+                <artifactId>curator-recipes</artifactId>
+                <version>${curator.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.curator</groupId>
+                <artifactId>curator-recipes</artifactId>
+                <version>${curator.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.sun.jersey</groupId>
