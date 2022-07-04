@@ -112,9 +112,14 @@
         <orc.version>1.5.6</orc.version>
         <hive.exec.version>2.3.9</hive.exec.version>
         <commons.logging.version>1.2</commons.logging.version>
+        <commons.beanutils.version>1.9.3</commons.beanutils.version>
+        <commons.configuration.version>1.7</commons.configuration.version>
+        <commons.digester.version>1.8.1</commons.digester.version>
+        <curator.client.version>2.7.1</curator.client.version>
         <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
         <janino.version>3.1.6</janino.version>
         <jersey.version>1.19</jersey.version>
+        <javax.servlet.jap.version>2.1</javax.servlet.jap.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
         <jackson.version>2.12.6</jackson.version>
         <lombok.version>1.18.0</lombok.version>
@@ -783,6 +788,41 @@
                 <groupId>commons-logging</groupId>
                 <artifactId>commons-logging</artifactId>
                 <version>${commons.logging.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>${commons.beanutils.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-configuration</groupId>
+                <artifactId>commons-configuration</artifactId>
+                <version>${commons.configuration.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-digester</groupId>
+                <artifactId>commons-digester</artifactId>
+                <version>${commons.digester.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.curator</groupId>
+                <artifactId>curator-client</artifactId>
+                <version>${curator.client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.jersey</groupId>
+                <artifactId>jersey-core</artifactId>
+                <version>${jersey.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.jersey</groupId>
+                <artifactId>jersey-server</artifactId>
+                <version>${jersey.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.servlet.jsp</groupId>
+                <artifactId>jsp-api</artifactId>
+                <version>${javax.servlet.jap.version}</version>
             </dependency>
 
         </dependencies>
