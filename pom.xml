@@ -111,6 +111,7 @@
         <hudi.version>0.10.0</hudi.version>
         <orc.version>1.5.6</orc.version>
         <hive.exec.version>2.3.9</hive.exec.version>
+        <commons.logging.version>1.2</commons.logging.version>
         <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
         <janino.version>3.1.6</janino.version>
         <jersey.version>1.19</jersey.version>
@@ -776,7 +777,16 @@
                         <groupId>org.apache.hadoop</groupId>
                         <artifactId>hadoop-yarn-server-resourcemanager</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.hadoop</groupId>
+                        <artifactId>hadoop-hdfs</artifactId>
+                    </exclusion>
                 </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>${commons.logging.version}</version>
             </dependency>
 
         </dependencies>
