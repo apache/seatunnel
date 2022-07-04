@@ -53,7 +53,6 @@ import org.apache.flink.types.Row;
 import java.io.ByteArrayInputStream;
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -132,6 +131,7 @@ public class MockSchema implements Serializable {
                 dataType = BasicTypeInfo.SHORT_TYPE_INFO;
                 break;
             case "long":
+            case "bigint":
                 dataType = BasicTypeInfo.LONG_TYPE_INFO;
                 break;
             case "float":
@@ -149,10 +149,6 @@ public class MockSchema implements Serializable {
             case "decimal":
             case "bigdecimal":
                 dataType = BasicTypeInfo.BIG_DEC_TYPE_INFO;
-                break;
-            case "bigint":
-            case "biginteger":
-                dataType = BasicTypeInfo.BIG_INT_TYPE_INFO;
                 break;
             case "int[]":
                 dataType = PrimitiveArrayTypeInfo.INT_PRIMITIVE_ARRAY_TYPE_INFO;
@@ -193,11 +189,11 @@ public class MockSchema implements Serializable {
         return dataType;
     }
 
-    public Object mockData(){
+    public Object mockData() {
         Object mockData;
         MockConfig mockConfig = new MockConfig();
         resolve(mockConfig);
-        switch (this.type.trim().toLowerCase()){
+        switch (this.type.trim().toLowerCase()) {
             case "int":
             case "integer":
                 mockData = JMockData.mock(int.class, mockConfig);
@@ -216,6 +212,7 @@ public class MockSchema implements Serializable {
                 mockData = JMockData.mock(short.class, mockConfig);
                 break;
             case "long":
+            case "bigint":
                 mockData = JMockData.mock(long.class, mockConfig);
                 break;
             case "float":
@@ -233,10 +230,6 @@ public class MockSchema implements Serializable {
             case "decimal":
             case "bigdecimal":
                 mockData = JMockData.mock(BigDecimal.class, mockConfig);
-                break;
-            case "bigint":
-            case "biginteger":
-                mockData = JMockData.mock(BigInteger.class, mockConfig);
                 break;
             case "int[]":
                 mockData = JMockData.mock(int[].class, mockConfig);
@@ -426,7 +419,7 @@ public class MockSchema implements Serializable {
         return new RowTypeInfo(types, fieldNames);
     }
 
-    public static Row mockRowData(List<MockSchema> mockDataSchema){
+    public static Row mockRowData(List<MockSchema> mockDataSchema) {
         Object[] fieldByPosition = new Object[mockDataSchema.size()];
         for (int index = 0; index < mockDataSchema.size(); index++) {
             MockSchema schema = mockDataSchema.get(index);
@@ -470,7 +463,7 @@ public class MockSchema implements Serializable {
         DEFAULT_MOCK_SCHEMAS.add(ageSchema);
     }
 
-    public static List<MockSchema> resolveConfig(Config config){
+    public static List<MockSchema> resolveConfig(Config config) {
         if (config.hasPath(MOCK_DATA_SCHEMA)) {
             return config.getConfigList(MOCK_DATA_SCHEMA)
                 .stream()

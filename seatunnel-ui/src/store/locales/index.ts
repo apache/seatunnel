@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+import { defineStore } from 'pinia'
+import { LocalesStore, Locales } from './types'
 
-import org.apache.seatunnel.common.constants.PluginType;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-/**
- * This exception will throw when {@link SeaTunnelPluginLifeCycle#prepare(Config)} failed.
- */
-public class PrepareFailException extends RuntimeException {
-
-    public PrepareFailException(String pluginName, PluginType type, String message) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message));
+export const useLocalesStore = defineStore({
+  id: 'locales',
+  state: (): LocalesStore => ({
+    locales: 'en_US'
+  }),
+  persist: true,
+  getters: {
+    getLocales(): Locales {
+      return this.locales
     }
-
-    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
-        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
-                message), cause);
+  },
+  actions: {
+    setLocales(lang: Locales): void {
+      this.locales = lang
     }
-}
+  }
+})
