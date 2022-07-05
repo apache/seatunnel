@@ -80,8 +80,7 @@ class SemanticXidGenerator
             return false;
         }
         int subtaskIndex = readNumber(xid.getGlobalTransactionId(), JOB_ID_BYTES, Integer.BYTES);
-        if (subtaskIndex != sinkContext.getIndexOfSubtask()
-            && subtaskIndex <= sinkContext.getNumberOfParallelSubtasks() - 1) {
+        if (subtaskIndex != sinkContext.getIndexOfSubtask()) {
             return false;
         }
         byte[] jobIdBytes = new byte[JOB_ID_BYTES];
