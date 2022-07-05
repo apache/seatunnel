@@ -58,7 +58,7 @@ public interface PluginDiscovery<T> {
      * @param pluginIdentifier plugin identifier.
      * @return plugin instance. If not found, throw IllegalArgumentException.
      */
-    T getPluginInstance(PluginIdentifier pluginIdentifier);
+    T createPluginInstance(PluginIdentifier pluginIdentifier);
 
     /**
      * Get all plugin instances.
