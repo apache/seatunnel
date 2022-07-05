@@ -47,8 +47,6 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractPluginDiscovery.class);
     private final Path pluginDir;
 
-    protected final ConcurrentHashMap<PluginIdentifier, Optional<T>> pluginInstanceMap =
-        new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
         new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
@@ -75,8 +73,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     @Override
     public T getPluginInstance(PluginIdentifier pluginIdentifier) {
-        Optional<T> pluginInstance = pluginInstanceMap
-            .computeIfAbsent(pluginIdentifier, this::createPluginInstance);
+        Optional<T> pluginInstance = this.createPluginInstance(pluginIdentifier);
         if (!pluginInstance.isPresent()) {
             throw new IllegalArgumentException("Can't find plugin: " + pluginIdentifier);
         }
