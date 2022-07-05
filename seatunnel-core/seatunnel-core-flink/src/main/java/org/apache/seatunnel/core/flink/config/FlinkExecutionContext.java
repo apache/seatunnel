@@ -63,7 +63,7 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseSource<FlinkEnvironment> pluginInstance = flinkSourcePluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseSource<FlinkEnvironment> pluginInstance = flinkSourcePluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());
@@ -77,7 +77,7 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseTransform<FlinkEnvironment> pluginInstance = flinkTransformPluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseTransform<FlinkEnvironment> pluginInstance = flinkTransformPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());
@@ -91,7 +91,7 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseSink<FlinkEnvironment> pluginInstance = flinkSinkPluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseSink<FlinkEnvironment> pluginInstance = flinkSinkPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());

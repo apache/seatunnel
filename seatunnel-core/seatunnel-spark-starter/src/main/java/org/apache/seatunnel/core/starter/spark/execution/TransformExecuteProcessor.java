@@ -51,7 +51,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Ba
             .map(transformConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
                 pluginJars.addAll(transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-                BaseSparkTransform pluginInstance = transformPluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseSparkTransform pluginInstance = transformPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(transformConfig);
                 pluginInstance.prepare(sparkEnvironment);
                 return pluginInstance;

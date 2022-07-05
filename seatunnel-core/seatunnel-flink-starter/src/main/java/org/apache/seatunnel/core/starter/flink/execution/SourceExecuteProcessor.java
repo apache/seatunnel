@@ -106,7 +106,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             PluginIdentifier pluginIdentifier = PluginIdentifier.of(
                 ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
             jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.getPluginInstance(pluginIdentifier);
+            SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSource.prepare(sourceConfig);
             seaTunnelSource.setSeaTunnelContext(SeaTunnelContext.getContext());
             if (SeaTunnelContext.getContext().getJobMode() == JobMode.BATCH
