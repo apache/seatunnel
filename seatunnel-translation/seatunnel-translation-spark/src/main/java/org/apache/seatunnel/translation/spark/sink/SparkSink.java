@@ -32,23 +32,18 @@ import org.apache.spark.sql.streaming.OutputMode;
 import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 
 public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT> implements WriteSupport,
     StreamWriteSupport, DataSourceV2 {
 
     private volatile SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
-    private Map<String, String> configuration;
 
     private void init(DataSourceOptions options) {
         if (sink == null) {
             this.sink = SerializationUtils.stringToObject(
                     options.get("sink").orElseThrow(() -> new IllegalArgumentException("can not find sink " +
                             "class string in DataSourceOptions")));
-            this.configuration = SerializationUtils.stringToObject(
-                    options.get("configuration").orElseThrow(() -> new IllegalArgumentException("can not " +
-                            "find configuration class string in DataSourceOptions")));
         }
     }
 
@@ -57,7 +52,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT> implements Wr
         init(options);
 
         try {
-            return new SparkStreamWriter<>(sink, configuration);
+            return new SparkStreamWriter<>(sink);
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -68,7 +63,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT> implements Wr
         init(options);
 
         try {
-            return Optional.of(new SparkDataSourceWriter<>(sink, configuration));
+            return Optional.of(new SparkDataSourceWriter<>(sink));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
