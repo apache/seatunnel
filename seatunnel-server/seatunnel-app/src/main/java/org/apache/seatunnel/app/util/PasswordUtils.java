@@ -17,10 +17,14 @@
 
 package org.apache.seatunnel.app.util;
 
+import org.springframework.util.DigestUtils;
+
 import javax.validation.constraints.NotBlank;
+
+import java.nio.charset.StandardCharsets;
 
 public class PasswordUtils {
     public static String encryptWithSalt(@NotBlank String salt, @NotBlank String password){
-        return Md5Utils.md5Encode(salt.concat(password));
+        return DigestUtils.md5DigestAsHex(salt.concat(password).getBytes(StandardCharsets.UTF_8));
     }
 }

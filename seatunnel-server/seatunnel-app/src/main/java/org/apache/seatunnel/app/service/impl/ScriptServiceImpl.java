@@ -98,7 +98,7 @@ public class ScriptServiceImpl implements IScriptService {
     public void updateScriptContent(UpdateScriptContentReq updateScriptContentReq) {
         // 1. check content md5 is consistent
         final String content = updateScriptContentReq.getContent();
-        final String contentMd5 = Strings.isNullOrEmpty(content) ? "" : Md5Utils.md5Encode(content);
+        final String contentMd5 = Strings.isNullOrEmpty(content) ? "" : Md5Utils.toMd5(content);
 
         final boolean needSave = checkIfNeedSave(updateScriptContentReq.getId(), contentMd5);
 
