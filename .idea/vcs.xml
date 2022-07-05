@@ -19,4 +19,14 @@
     <component name="VcsDirectoryMappings">
         <mapping directory="$PROJECT_DIR$" vcs="Git" />
     </component>
+    <component name="IssueNavigationConfiguration">
+        <option name="links">
+            <list>
+                <IssueNavigationLink>
+                    <option name="issueRegexp" value="#(\d+)" />
+                    <option name="linkRegexp" value="https://github.com/apache/incubator-seatunnel/pull/$1" />
+                </IssueNavigationLink>
+            </list>
+        </option>
+    </component>
 </project>
