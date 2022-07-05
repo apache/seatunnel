@@ -28,23 +28,17 @@ import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 
 import java.io.IOException;
-import java.util.Map;
 
 public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory<InternalRow> {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
-    private final Map<String, String> configuration;
-    SparkDataWriterFactory(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,  Map<String, String> configuration) {
+    SparkDataWriterFactory(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink) {
         this.sink = sink;
-        this.configuration = configuration;
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
-        // TODO use partitionID, taskId information.
-        // TODO add subtask and parallelism.
-        org.apache.seatunnel.api.sink.SinkWriter.Context context =
-            new DefaultSinkWriterContext(configuration, (int) taskId, 0);
+        org.apache.seatunnel.api.sink.SinkWriter.Context context = new DefaultSinkWriterContext((int) taskId);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {
