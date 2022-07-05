@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.apache.seatunnel.app.dal.mapper.ScriptParamMapper">
+    <resultMap id="BaseResultMap" type="org.apache.seatunnel.app.dal.entity.ScriptParam">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="script_id" jdbcType="INTEGER" property="scriptId"/>
+        <result column="key" jdbcType="VARCHAR" property="key"/>
+        <result column="value" jdbcType="VARCHAR" property="value"/>
+        <result column="status" jdbcType="TINYINT" property="status"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id,
+        script_id,
+        `key`,
+        `value`,
+        `status`,
+        create_time,
+        update_time
+    </sql>
+    <insert id="batchInsert" parameterType="map">
+        insert into `script_param` (`script_id`, `key`, `value`, `status`)
+                values
+        <foreach collection="params" item="item" separator=",">
+            (#{item.scriptId,jdbcType=INTEGER}, #{item.key,jdbcType=VARCHAR}, #{item.value,jdbcType=VARCHAR},
+             #{item.status,jdbcType=TINYINT})
+        </foreach>
+    </insert>
+    <update id="updateStatusByScriptId">
+        update `script_param`
+        set `status` = #{code, jdbcType=TINYINT}
+        where `script_id` = #{scriptId, jdbcType=INTEGER}
+    </update>
+    <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from script_param
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <select id="selectByScriptId" resultType="org.apache.seatunnel.app.dal.entity.ScriptParam">
+        select
+        <include refid="Base_Column_List"/>
+        from script_param
+        where script_id = #{scriptId,jdbcType=INTEGER}
+        and `status` != 1
+    </select>
+</mapper>

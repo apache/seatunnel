@@ -92,6 +92,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
+	<module>seatunnel-server</module>
     </modules>
 
     <properties>
@@ -198,6 +199,12 @@
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
         <jmockdata.version>4.3.0</jmockdata.version>
         <snappy-java.version>1.1.8.3</snappy-java.version>
+        <spring-boot.version>2.6.8</spring-boot.version>
+        <mybatis-spring-boot-starter.version>2.2.2</mybatis-spring-boot-starter.version>
+        <druid-spring-boot-starter.version>1.2.9</druid-spring-boot-starter.version>
+        <springfox-swagger.version>2.6.1</springfox-swagger.version>
+        <swagger-annotations.version>1.5.10</swagger-annotations.version>
+        <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
     </properties>
 
     <dependencyManagement>
@@ -844,6 +851,55 @@
                 <groupId>javax.servlet.jsp</groupId>
                 <artifactId>jsp-api</artifactId>
                 <version>${javax.servlet.jap.version}</version>
+            </dependency>
+
+            <!--springboot-->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-web</artifactId>
+                <version>${spring-boot.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-jetty</artifactId>
+                <version>${spring-boot.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mybatis.spring.boot</groupId>
+                <artifactId>mybatis-spring-boot-starter</artifactId>
+                <version>${mybatis-spring-boot-starter.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>druid-spring-boot-starter</artifactId>
+                <version>${druid-spring-boot-starter.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.springfox</groupId>
+                <artifactId>springfox-swagger2</artifactId>
+                <version>${springfox-swagger.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.springfox</groupId>
+                <artifactId>springfox-swagger-ui</artifactId>
+                <version>${springfox-swagger.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.swagger</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>${swagger-annotations.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.hibernate.validator</groupId>
+                <artifactId>hibernate-validator</artifactId>
+                <version>${hibernate.validator.version}</version>
             </dependency>
 
         </dependencies>
