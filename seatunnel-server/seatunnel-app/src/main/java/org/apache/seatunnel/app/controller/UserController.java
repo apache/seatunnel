@@ -55,14 +55,14 @@ public class UserController {
     }
 
     @PutMapping("/user")
-    @ApiOperation(value = "update user", httpMethod = "POST")
+    @ApiOperation(value = "update user", httpMethod = "PUT")
     public Result<Void> update(@RequestBody @NotNull UpdateUserReq updateReq) {
         iUserService.update(updateReq);
         return Result.success();
     }
 
     @DeleteMapping("/user")
-    @ApiOperation(value = "delete user", httpMethod = "POST")
+    @ApiOperation(value = "delete user", httpMethod = "DELETE")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
     })
@@ -78,7 +78,7 @@ public class UserController {
     }
 
     @PutMapping("/enable")
-    @ApiOperation(value = "enable a user", httpMethod = "POST")
+    @ApiOperation(value = "enable a user", httpMethod = "PUT")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
     })
@@ -88,7 +88,7 @@ public class UserController {
     }
 
     @PutMapping("/disable")
-    @ApiOperation(value = "disable a user", httpMethod = "POST")
+    @ApiOperation(value = "disable a user", httpMethod = "PUT")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "user id", dataType = "Integer"),
     })

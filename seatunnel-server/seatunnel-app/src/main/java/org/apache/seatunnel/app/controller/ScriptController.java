@@ -57,14 +57,14 @@ public class ScriptController {
     }
 
     @PutMapping("/scriptContent")
-    @ApiOperation(value = "update script", httpMethod = "POST")
+    @ApiOperation(value = "update script", httpMethod = "PUT")
     public Result<Void> updateScriptContent(@RequestBody @NotNull UpdateScriptContentReq updateScriptContentReq) {
         iScriptService.updateScriptContent(updateScriptContentReq);
         return Result.success();
     }
 
     @DeleteMapping("/script")
-    @ApiOperation(value = "delete script", httpMethod = "POST")
+    @ApiOperation(value = "delete script", httpMethod = "DELETE")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
     })
@@ -80,7 +80,7 @@ public class ScriptController {
     }
 
     @GetMapping("/scriptContent")
-    @ApiOperation(value = "fetch script content", httpMethod = "POST")
+    @ApiOperation(value = "fetch script content", httpMethod = "GET")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
     })
@@ -89,14 +89,14 @@ public class ScriptController {
     }
 
     @PutMapping("/scriptParam")
-    @ApiOperation(value = "update script param", httpMethod = "POST")
+    @ApiOperation(value = "update script param", httpMethod = "PUT")
     public Result<Void> updateScriptParam(@RequestBody @NotNull UpdateScriptParamReq updateScriptParamReq) {
         iScriptService.updateScriptParam(updateScriptParamReq);
         return Result.success();
     }
 
     @GetMapping("/scriptParam")
-    @ApiOperation(value = "fetch script param", httpMethod = "POST")
+    @ApiOperation(value = "fetch script param", httpMethod = "GET")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "script id", dataType = "Integer"),
     })
