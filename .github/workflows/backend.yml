@@ -89,7 +89,7 @@ jobs:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 50
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v3
         with:
