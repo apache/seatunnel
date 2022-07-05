@@ -15,35 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.console.sink;
+package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class KuduSinkAggregatedCommitter implements SinkAggregatedCommitter<KuduCommitInfo, KuduAggregatedCommitInfo> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(KuduSinkAggregatedCommitter.class);
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSinkWriter.class);
 
-    private final SeaTunnelRowType seaTunnelRowType;
-
-    public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    @Override
+    public List<KuduAggregatedCommitInfo> commit(List<KuduAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
+        return null;
     }
 
     @Override
-    @SuppressWarnings("checkstyle:RegexpSingleline")
-    public void write(SeaTunnelRow element) {
-       // System.out.println(Arrays.toString(element.getFields()));
+    public KuduAggregatedCommitInfo combine(List<KuduCommitInfo> commitInfos) {
+        return null;
     }
 
     @Override
-    public void close() {
-        // nothing
+    public void abort(List<KuduAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {
+
+    }
+
+    @Override
+    public void close() throws IOException {
     }
 }

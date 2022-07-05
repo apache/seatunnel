@@ -91,6 +91,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
+        <module>seatunnel-connectors-v2/connector-kudu</module>
     </modules>
 
     <properties>

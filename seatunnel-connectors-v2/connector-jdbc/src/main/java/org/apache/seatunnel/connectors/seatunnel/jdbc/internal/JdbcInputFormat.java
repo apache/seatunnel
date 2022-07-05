@@ -130,6 +130,7 @@ public class JdbcInputFormat implements Serializable {
             if (parameterValues != null) {
                 for (int i = 0; i < parameterValues.length; i++) {
                     Object param = parameterValues[i];
+                    System.out.println("每一个parametervalue:"+param);
                     if (param instanceof String) {
                         statement.setString(i + 1, (String) param);
                     } else if (param instanceof Long) {

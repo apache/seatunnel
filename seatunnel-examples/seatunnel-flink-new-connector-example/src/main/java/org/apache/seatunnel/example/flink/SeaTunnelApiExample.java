@@ -31,7 +31,8 @@ import java.nio.file.Paths;
 public class SeaTunnelApiExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        String configFile = getTestConfigFile("/examples/fake_to_console.conf");
+        long start = System.currentTimeMillis();
+        String configFile = getTestConfigFile("/examples/kudu_to_kudu_flink.conf");
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
         flinkCommandArgs.setCheckConfig(false);
@@ -39,6 +40,7 @@ public class SeaTunnelApiExample {
         Command<FlinkCommandArgs> flinkCommand =
             new FlinkCommandBuilder().buildCommand(flinkCommandArgs);
         Seatunnel.run(flinkCommand);
+        System.out.println("时间耗时："+(System.currentTimeMillis() - start));
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
