@@ -19,7 +19,7 @@ package org.apache.seatunnel.spark.clickhouse.sink
 
 import org.apache.commons.lang3.StringUtils
 import org.apache.seatunnel.common.config.CheckResult
-import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse.{Shard, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList}
+import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse.{HostAndPort, Shard, distributedEngine, getClickHouseDistributedTable, getClickHouseSchema, getClickhouseConnection, getClusterShardList, parseHost}
 import org.apache.seatunnel.spark.clickhouse.sink.ClickhouseFile.getClickhouseTableInfo
 import ru.yandex.clickhouse.ClickHouseConnectionImpl
 
@@ -38,23 +38,25 @@ class Table(val name: String, val database: String, val engine: String, val crea
   var tableSchema: util.LinkedHashMap[String, String] = new util.LinkedHashMap[String, String]()
   var shardKeyType: String = _
   var localCreateTableDDL: String = createTableDDL
+  var localTableEngine: String = _
 
-  def initTableInfo(host: String, conn: ClickHouseConnectionImpl): Unit = {
+  def initTableInfo(hosts: List[HostAndPort], conn: ClickHouseConnectionImpl): Unit = {
     if (shards.size() == 0) {
-      val hostAndPort = host.split(":")
       if (distributedEngine.equals(this.engine)) {
         val localTable = getClickHouseDistributedTable(conn, database, name)
         this.localTable = localTable.table
-        val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hostAndPort(1))
+        val shardList = getClusterShardList(conn, localTable.clusterName, localTable.database, hosts)
         var weight = 0
         for (elem <- shardList) {
           this.shards.put(weight, elem)
           weight += elem.shardWeight
         }
         this.shardWeightCount = weight
-        this.localCreateTableDDL = getClickhouseTableInfo(conn, localTable.database, localTable.table)._2.createTableDDL
+        val localTableInfo = getClickhouseTableInfo(conn, localTable.database, localTable.table)._2
+        this.localTableEngine = localTableInfo.engine
+        this.localCreateTableDDL = localizationEngine(this.localTableEngine, localTableInfo.createTableDDL)
       } else {
-        this.shards.put(0, Shard(1, 1, 1, hostAndPort(0), hostAndPort(0), hostAndPort(1), database))
+        this.shards.put(0, Shard(1, 1, 1, hosts.head.host, hosts.head.host, hosts.head.port, database))
       }
     }
   }
@@ -103,4 +105,19 @@ class Table(val name: String, val database: String, val engine: String, val crea
       CheckResult.success()
     }
   }
+
+  /**
+   * Localization the engine in clickhouse local table's createTableDDL to support specific engine.
+   * For example: change ReplicatedMergeTree to MergeTree.
+   * @param engine original engine of clickhouse local table
+   * @param ddl createTableDDL of clickhouse local table
+   * @return createTableDDL of clickhouse local table which can support specific engine
+   * TODO: support more engine
+   */
+  def localizationEngine(engine: String, ddl: String): String = {
+    if ("ReplicatedMergeTree".equalsIgnoreCase(engine)) {
+      ddl.replaceAll("""ReplicatedMergeTree(\([^\)]*\))""", "MergeTree()")
+    } else ddl
+  }
+
 }

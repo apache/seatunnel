@@ -159,7 +159,7 @@ public class HttpClientUtils {
         // Encapsulate request parameters
         packageParam(params, httpPost);
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault();) {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             // Execute the request and get the response result
             return getHttpClientResult(httpClient, httpPost);
         }
@@ -192,7 +192,7 @@ public class HttpClientUtils {
 
         packageParam(params, httpPut);
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault();) {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             return getHttpClientResult(httpClient, httpPut);
         }
     }
@@ -209,7 +209,7 @@ public class HttpClientUtils {
         HttpDelete httpDelete = new HttpDelete(url);
         RequestConfig requestConfig = RequestConfig.custom().setConnectTimeout(CONNECT_TIMEOUT).setSocketTimeout(SOCKET_TIMEOUT).build();
         httpDelete.setConfig(requestConfig);
-        try (CloseableHttpClient httpClient = HttpClients.createDefault();) {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             return getHttpClientResult(httpClient, httpDelete);
         }
     }
