@@ -67,17 +67,41 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     @Override
     public List<T> getAllPlugins(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-            .map(this::getPluginInstance).distinct()
+            .map(this::createPluginInstance).distinct()
             .collect(Collectors.toList());
     }
 
     @Override
-    public T getPluginInstance(PluginIdentifier pluginIdentifier) {
-        Optional<T> pluginInstance = this.createPluginInstance(pluginIdentifier);
-        if (!pluginInstance.isPresent()) {
-            throw new IllegalArgumentException("Can't find plugin: " + pluginIdentifier);
+    public T createPluginInstance(PluginIdentifier pluginIdentifier) {
+        Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
+        ClassLoader classLoader;
+        // if the plugin jar not exist in plugin dir, will load from classpath.
+        if (pluginJarPath.isPresent()) {
+            LOGGER.info("Load plugin: {} from path: {}", pluginIdentifier, pluginJarPath.get());
+            classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
+        } else {
+            LOGGER.info("Load plugin: {} from classpath", pluginIdentifier);
+            classLoader = Thread.currentThread().getContextClassLoader();
         }
-        return pluginInstance.get();
+        ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
+        for (T t : serviceLoader) {
+            if (t instanceof Plugin) {
+                // old api
+                Plugin<?> pluginInstance = (Plugin<?>) t;
+                if (StringUtils.equalsIgnoreCase(pluginInstance.getPluginName(), pluginIdentifier.getPluginName())) {
+                    return (T) pluginInstance;
+                }
+            } else if (t instanceof PluginIdentifierInterface) {
+                // new api
+                PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
+                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(), pluginIdentifier.getPluginName())) {
+                    return (T) pluginIdentifierInstance;
+                }
+            } else {
+                throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
+            }
+        }
+        throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
     }
 
     /**
@@ -142,37 +166,5 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             LOGGER.warn("Cannot get plugin URL: " + targetPluginFiles[0], e);
             return Optional.empty();
         }
-    }
-
-    private Optional<T> createPluginInstance(PluginIdentifier pluginIdentifier) {
-        Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
-        ClassLoader classLoader;
-        // if the plugin jar not exist in plugin dir, will load from classpath.
-        if (pluginJarPath.isPresent()) {
-            LOGGER.info("Load plugin: {} from path: {}", pluginIdentifier, pluginJarPath.get());
-            classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
-        } else {
-            LOGGER.info("Load plugin: {} from classpath", pluginIdentifier);
-            classLoader = Thread.currentThread().getContextClassLoader();
-        }
-        ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
-        for (T t : serviceLoader) {
-            if (t instanceof Plugin) {
-                // old api
-                Plugin<?> pluginInstance = (Plugin<?>) t;
-                if (StringUtils.equalsIgnoreCase(pluginInstance.getPluginName(), pluginIdentifier.getPluginName())) {
-                    return Optional.of((T) pluginInstance);
-                }
-            } else if (t instanceof PluginIdentifierInterface) {
-                // new api
-                PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
-                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(), pluginIdentifier.getPluginName())) {
-                    return Optional.of((T) pluginIdentifierInstance);
-                }
-            } else {
-                throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
-            }
-        }
-        return Optional.empty();
     }
 }
