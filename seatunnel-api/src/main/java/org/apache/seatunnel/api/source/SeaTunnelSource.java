@@ -48,7 +48,7 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
      *
      * @return SeaTunnel data type.
      */
-    SeaTunnelDataType<T> getProducedType() ;
+    SeaTunnelDataType<T> getProducedType();
 
     /**
      * Create source reader, used to produce data.
