@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="seatunnel-connector-spark-kafka" />
+        <module name="seatunnel-connector-spark-neo4j" />
+        <module name="connector-file-base" />
+        <module name="seatunnel-connector-spark-mongodb" />
+        <module name="seatunnel-connector-flink-elasticsearch7" />
+        <module name="seatunnel-connector-flink-elasticsearch6" />
+        <module name="connector-socket" />
+        <module name="seatunnel-flink-examples" />
+        <module name="flink-sql-connector-kafka" />
+        <module name="connector-file-local" />
+        <module name="seatunnel-transform-spark-json" />
+        <module name="seatunnel-plugin-discovery" />
+        <module name="seatunnel-flink-sql-e2e" />
+        <module name="seatunnel-connector-flink-jdbc" />
+        <module name="seatunnel-transform-flink-datastream2table" />
+        <module name="connector-file-hadoop" />
+        <module name="seatunnel-flink-connector-v2-e2e" />
+        <module name="seatunnel-core-flink-sql" />
+        <module name="seatunnel-connector-flink-assert" />
+        <module name="seatunnel-transform-spark-uuid" />
+        <module name="seatunnel-common" />
+        <module name="seatunnel-spark-e2e" />
+        <module name="seatunnel-connector-flink-console" />
+        <module name="seatunnel-transform-flink-udf" />
+        <module name="seatunnel-connector-spark-phoenix" />
+        <module name="seatunnel-connector-spark-hbase" />
+        <module name="seatunnel-flink-connector-v2-example" />
+        <module name="connector-clickhouse" />
+        <module name="seatunnel-transform-spark-replace" />
+        <module name="seatunnel-connectors-v2-dist" />
+        <module name="seatunnel-connector-spark-socket" />
+        <module name="seatunnel-connector-spark-file" />
+        <module name="seatunnel-connector-spark-console" />
+        <module name="seatunnel-format-json" />
+        <module name="seatunnel-connector-spark-kudu" />
+        <module name="seatunnel-transform-spark-null-rate" />
+        <module name="seatunnel-connector-spark-http" />
+        <module name="seatunnel-connector-flink-socket" />
+        <module name="connector-hive" />
+        <module name="seatunnel-connector-spark-tidb" />
+        <module name="seatunnel-api-base" />
+        <module name="seatunnel-connector-spark-redis" />
+        <module name="seatunnel-core-starter" />
+        <module name="seatunnel-api-flink" />
+        <module name="connector-fake" />
+        <module name="flink-sql-connector-elasticsearch-6" />
+        <module name="flink-sql-connector-elasticsearch-7" />
+        <module name="seatunnel-transform-flink-sql" />
+        <module name="seatunnel-connector-spark-clickhouse" />
+        <module name="seatunnel-core-spark" />
+        <module name="seatunnel-api-spark" />
+        <module name="seatunnel-connector-spark-fake" />
+        <module name="seatunnel-connector-spark-feishu" />
+        <module name="seatunnel-connector-spark-hudi" />
+        <module name="seatunnel-connector-flink-http" />
+        <module name="seatunnel-translation-base" />
+        <module name="seatunnel-translation-spark" />
+        <module name="seatunnel-flink-e2e" />
+        <module name="seatunnel-connector-flink-druid" />
+        <module name="seatunnel-connector-flink-kafka" />
+        <module name="seatunnel-spark-connector-v2-example" />
+        <module name="seatunnel-connectors-spark-dist" />
+        <module name="seatunnel-connector-spark-hive" />
+        <module name="seatunnel-spark-connector-v2-e2e" />
+        <module name="connector-http" />
+        <module name="seatunnel-connector-flink-file" />
+        <module name="connector-assert" />
+        <module name="seatunnel-connectors-flink-dist" />
+        <module name="seatunnel-connector-spark-webhook" />
+        <module name="seatunnel-hive-shade" />
+        <module name="seatunnel-transform-flink-table2datastream" />
+        <module name="seatunnel-core-flink" />
+        <module name="seatunnel-spark-examples" />
+        <module name="seatunnel-connector-flink-influxdb" />
+        <module name="seatunnel-flink-sql-examples" />
+        <module name="seatunnel-connector-spark-email" />
+        <module name="seatunnel-connector-spark-elasticsearch" />
+        <module name="seatunnel-spark-starter" />
+        <module name="seatunnel-connector-flink-doris" />
+        <module name="seatunnel-connector-flink-fake" />
+        <module name="connector-jdbc" />
+        <module name="seatunnel-translation-flink" />
+        <module name="seatunnel-connector-spark-jdbc" />
+        <module name="seatunnel-transform-spark-sql" />
+        <module name="seatunnel-connector-flink-clickhouse" />
+        <module name="seatunnel-flink-starter" />
+        <module name="seatunnel-connector-spark-iceberg" />
+        <module name="connector-pulsar" />
+        <module name="flink-sql-connector-jdbc" />
+        <module name="seatunnel-core-base" />
+        <module name="connector-kafka" />
+        <module name="seatunnel-transform-flink-split" />
+        <module name="seatunnel-connectors-flink-sql-dist" />
+        <module name="seatunnel-connector-spark-doris" />
+        <module name="connector-console" />
+        <module name="seatunnel-transform-spark-split" />
+        <module name="seatunnel-api" />
+        <module name="connector-common" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="connector-file-hadoop (1)" target="1.8" />
+      <module name="connector-file-impl (1)" target="1.8" />
+      <module name="seatunnel-connector-hadoop-shade" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-clickhouse" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-console" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-fake" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-file" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-hive" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-http" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-jdbc" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-kafka" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-pulsar" target="1.8" />
+      <module name="seatunnel-connector-seatunnel-socket" target="1.8" />
+      <module name="seatunnel-connectors-seatunnel" target="1.8" />
+      <module name="seatunnel-connectors-seatunnel-dist" target="1.8" />
+      <module name="seatunnel-flink-new-connector-e2e" target="1.8" />
+      <module name="seatunnel-flink-new-connector-example" target="1.8" />
+      <module name="seatunnel-hadoop2-shade" target="1.8" />
+      <module name="seatunnel-hadoop3-shade" target="1.8" />
+      <module name="seatunnel-spark-new-connector-e2e" target="1.8" />
+      <module name="seatunnel-spark-new-connector-example" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+</project>
