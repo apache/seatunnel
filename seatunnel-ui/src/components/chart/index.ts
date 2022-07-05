@@ -16,7 +16,9 @@
  */
 
 import { getCurrentInstance, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useThemeStore } from '@/store/theme'
 import { throttle } from 'echarts'
+import { useI18n } from 'vue-i18n'
 import type { Ref } from 'vue'
 import type { ECharts } from 'echarts'
 import type { ECBasicOption } from 'echarts/types/dist/shared'
@@ -26,6 +28,8 @@ function initChart<Opt extends ECBasicOption>(
   option: Opt
 ): ECharts | null {
   let chart: ECharts | null = null
+  const themeStore = useThemeStore()
+  const { locale } = useI18n()
   const globalProperties =
     getCurrentInstance()?.appContext.config.globalProperties
 
@@ -33,7 +37,8 @@ function initChart<Opt extends ECBasicOption>(
 
   const init = () => {
     chart = globalProperties?.echarts.init(
-      domRef.value
+      domRef.value,
+      themeStore.darkTheme ? 'macarons' : 'dark-bold'
     )
     chart && chart.setOption(option)
   }
@@ -41,6 +46,22 @@ function initChart<Opt extends ECBasicOption>(
   const resize = throttle(() => {
     chart && chart.resize()
   }, 20)
+
+  watch(
+    () => themeStore.darkTheme,
+    () => {
+      chart?.dispose()
+      init()
+    }
+  )
+
+  watch(
+    () => locale.value,
+    () => {
+      chart?.dispose()
+      init()
+    }
+  )
 
   watch(
     () => option,
