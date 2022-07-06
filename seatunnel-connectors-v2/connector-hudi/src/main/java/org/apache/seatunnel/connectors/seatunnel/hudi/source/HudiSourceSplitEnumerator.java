@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;

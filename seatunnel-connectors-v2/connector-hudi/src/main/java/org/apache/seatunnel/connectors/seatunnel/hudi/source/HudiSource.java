@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.*;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.CONF_FILES;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.KERBEROS_PRINCIPAL_FILE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig.USE_KERBEROS;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
@@ -33,9 +38,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiPluginException;
 import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
@@ -71,7 +76,7 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
         // default hudi table tupe is cow
         // TODO: support hudi mor table
         // TODO: support Incremental Query and Read Optimized Query
-        if (!"cow".equalsIgnoreCase(pluginConfig.getString(HudiSourceConfig.TABLE_TYPE))) {
+        if (!"cow".equalsIgnoreCase(pluginConfig.getString(TABLE_TYPE))) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Do not support hudi mor table yet!");
         }
         try {

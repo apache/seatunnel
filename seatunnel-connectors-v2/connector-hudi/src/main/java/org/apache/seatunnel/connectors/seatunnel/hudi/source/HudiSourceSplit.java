@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
-import org.apache.hadoop.mapred.InputSplit;
 import org.apache.seatunnel.api.source.SourceSplit;
+
+import org.apache.hadoop.mapred.InputSplit;
 
 public class HudiSourceSplit implements SourceSplit {
 
