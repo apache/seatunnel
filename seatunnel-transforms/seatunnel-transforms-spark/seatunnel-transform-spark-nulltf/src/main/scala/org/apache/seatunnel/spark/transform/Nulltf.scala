@@ -37,8 +37,8 @@ class Nulltf extends BaseSparkTransform {
   override def process(df: Dataset[Row], env: SparkEnvironment): Dataset[Row] = {
 
     var fieldNameDefault = new mutable.HashMap[String, String]()
-    if (!config.getConfig(FIELDS).isEmpty){
-      config.getConfig(FIELDS).entrySet().foreach(kv =>{
+    if (!config.getConfig(FIELDS).isEmpty) {
+      config.getConfig(FIELDS).entrySet().foreach(kv => {
         fieldNameDefault += (kv.getKey -> kv.getValue.unwrapped().toString)
       })
     }
