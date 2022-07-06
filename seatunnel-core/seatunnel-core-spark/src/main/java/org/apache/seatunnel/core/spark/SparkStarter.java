@@ -150,7 +150,6 @@ public class SparkStarter implements Starter {
         Common.setDeployMode(commandArgs.getDeployMode());
         Common.setStarter(true);
         this.jars.addAll(getPluginsJarDependencies());
-        this.jars.addAll(listJars(Common.appLibDir()));
         this.jars.addAll(getConnectorJarDependencies());
         this.appName = this.sparkConf.getOrDefault("spark.app.name", Constants.LOGO);
         return buildFinal();
@@ -220,18 +219,6 @@ public class SparkStarter implements Starter {
         pluginJars.addAll(sparkSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SOURCE)));
         pluginJars.addAll(sparkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SINK)));
         return pluginJars.stream().map(url -> new File(url.getPath()).toPath()).collect(Collectors.toList());
-    }
-
-    /**
-     * list jars in given directory
-     */
-    private List<Path> listJars(Path dir) throws IOException {
-        try (Stream<Path> stream = Files.list(dir)) {
-            return stream
-                    .filter(it -> !Files.isDirectory(it))
-                    .filter(it -> it.getFileName().endsWith("jar"))
-                    .collect(Collectors.toList());
-        }
     }
 
     /**
@@ -406,10 +393,9 @@ public class SparkStarter implements Starter {
         @Override
         public List<String> buildCommands() throws IOException {
             Common.setDeployMode(commandArgs.getDeployMode());
+            Common.setStarter(true);
             Path pluginTarball = Common.pluginTarball();
-            if (Files.notExists(pluginTarball)) {
-                CompressionUtils.tarGzip(Common.pluginRootDir(), pluginTarball);
-            }
+            CompressionUtils.tarGzip(Common.pluginRootDir(), pluginTarball);
             this.files.add(pluginTarball);
             this.files.add(Paths.get(commandArgs.getConfigFile()));
             return super.buildCommands();
