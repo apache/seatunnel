@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.security.UserGroupInformation;
+import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
@@ -33,8 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiPluginExcept
 
 import java.io.IOException;
 import java.util.Arrays;
-
-import static org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER;
 
 public class HudiUtil {
 
@@ -87,8 +86,7 @@ public class HudiUtil {
         return new SeaTunnelRowType(fields, types);
     }
 
-    public static JobConf toJobConf(Configuration conf)
-    {
+    public static JobConf toJobConf(Configuration conf) {
         if (conf instanceof JobConf) {
             return (JobConf) conf;
         }

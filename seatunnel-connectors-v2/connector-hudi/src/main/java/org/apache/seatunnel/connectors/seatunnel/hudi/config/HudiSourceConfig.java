@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.config;
 
-import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
-
 public class HudiSourceConfig {
 
     public static final String TABLE_PATH = "table.path";

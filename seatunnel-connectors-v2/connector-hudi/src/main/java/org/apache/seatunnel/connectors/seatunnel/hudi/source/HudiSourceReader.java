@@ -42,7 +42,6 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 
-
 public class HudiSourceReader implements SourceReader<SeaTunnelRow, HudiSourceSplit> {
 
     private static final long THREAD_WAIT_TIME = 500L;

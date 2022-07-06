@@ -33,10 +33,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-
-import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiPluginException;
+import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
