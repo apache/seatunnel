@@ -36,6 +36,7 @@ function initChart<Opt extends ECBasicOption>(
   option['backgroundColor'] = ''
 
   const init = () => {
+    chart?.dispose()
     chart = globalProperties?.echarts.init(
       domRef.value,
       themeStore.darkTheme ? 'macarons' : 'dark-bold'
@@ -50,7 +51,6 @@ function initChart<Opt extends ECBasicOption>(
   watch(
     () => themeStore.darkTheme,
     () => {
-      chart?.dispose()
       init()
     }
   )
@@ -58,7 +58,6 @@ function initChart<Opt extends ECBasicOption>(
   watch(
     () => locale.value,
     () => {
-      chart?.dispose()
       init()
     }
   )
@@ -66,7 +65,6 @@ function initChart<Opt extends ECBasicOption>(
   watch(
     () => option,
     () => {
-      chart?.dispose()
       init()
     },
     {
