@@ -72,12 +72,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-pulsar</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-hive</artifactId>
+            <artifactId>connector-hudi</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
