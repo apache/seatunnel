@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -77,19 +76,9 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
     interface Context extends Serializable{
 
         /**
-         * Gets the configuration with which Job was started.
-         */
-        Map<String, String> getConfiguration();
-
-        /**
          * @return The index of this subtask.
          */
         int getIndexOfSubtask();
-
-        /**
-         * @return The number of parallel Sink tasks.
-         */
-        int getNumberOfParallelSubtasks();
 
     }
 }
