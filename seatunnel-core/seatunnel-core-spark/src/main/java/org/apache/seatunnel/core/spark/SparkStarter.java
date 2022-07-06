@@ -148,6 +148,7 @@ public class SparkStarter implements Starter {
     public List<String> buildCommands() throws IOException {
         setSparkConf();
         Common.setDeployMode(commandArgs.getDeployMode());
+        Common.setStarter(true);
         this.jars.addAll(getPluginsJarDependencies());
         this.jars.addAll(listJars(Common.appLibDir()));
         this.jars.addAll(getConnectorJarDependencies());
