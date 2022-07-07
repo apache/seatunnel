@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.common;
+package org.apache.seatunnel.server.common;
 
 public enum SeatunnelErrorEnum {
 
@@ -23,8 +23,20 @@ public enum SeatunnelErrorEnum {
     NO_SUCH_SCRIPT(10002, "no such script", "No such script. Maybe deleted by others."),
     USER_ALREADY_EXISTS(10003, "user already exist", "The same username [%s] is exist."),
     NO_SUCH_USER(10002, "no such user", "No such user. Maybe deleted by others."),
+    SCHEDULER_CONFIG_NOT_EXIST(10003, "scheduler config not exist", "This script's scheduler config not exist, please check your config."),
+
+    /**
+     * request dolphinscheduler failed
+     */
+    UNEXPECTED_RETURN_CODE(20000, "Unexpected return code", "Unexpected return code : [%s], error msg is [%s]"),
+    QUERY_PROJECT_CODE_FAILED(20001, "query project code failed", "Request ds for querying project code failed"),
+    NO_MATCHED_PROJECT(20002, "no matched project", "No matched project [%s], please check your configuration"),
+    NO_MATCHED_SCRIPT_SAVE_DIR(20003, "no matched script save dir", "No matched script save dir [%s], please check your configuration"),
+
+    UNSUPPORTED_OPERATION(99996, "unsupported operation", "This operation [%s] is not supported now."),
+    HTTP_REQUEST_FAILED(99997, "http request failed", "Http request failed, url is %s"),
     ILLEGAL_STATE(99998, "illegal state", "%s"),
-    UNKNOWN(99999, "unknown exception", "unknown exception")
+    UNKNOWN(99999, "unknown exception", "Unknown exception")
     ;
 
     private final int code;
