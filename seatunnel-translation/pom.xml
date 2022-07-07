@@ -31,5 +31,4 @@
         <module>seatunnel-translation-flink</module>
         <module>seatunnel-translation-spark</module>
     </modules>
-
 </project>
