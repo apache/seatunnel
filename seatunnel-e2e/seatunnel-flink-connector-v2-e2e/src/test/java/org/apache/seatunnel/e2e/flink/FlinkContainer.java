@@ -164,5 +164,4 @@ public abstract class FlinkContainer {
     private String getConnectorPath(String fileName) {
         return Paths.get(SEATUNNEL_CONNECTORS, "seatunnel", fileName).toString();
     }
-
 }
