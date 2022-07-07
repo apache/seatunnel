@@ -56,7 +56,7 @@ public class CoordinatedReaderContext implements SourceReader.Context {
     }
 
     @Override
-    public void sendSourceEventToCoordinator(SourceEvent sourceEvent) {
+    public void sendSourceEventToEnumerator(SourceEvent sourceEvent) {
         coordinatedSource.handleReaderEvent(subtaskId, sourceEvent);
     }
 }

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.common.SeaTunnelContext;
 /**
  * This interface defines the runtime environment of the SeaTunnel application.
  */
-public interface SeaTunnelRuntimeEnvironment {
+public interface SeaTunnelContextAware {
 
     default void setSeaTunnelContext(SeaTunnelContext seaTunnelContext){
         // nothing
