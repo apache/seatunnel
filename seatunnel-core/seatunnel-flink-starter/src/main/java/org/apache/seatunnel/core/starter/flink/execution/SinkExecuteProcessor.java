@@ -62,7 +62,7 @@ public class SinkExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunn
             seaTunnelSink.prepare(sinkConfig);
             seaTunnelSink.setSeaTunnelContext(SeaTunnelContext.getContext());
             return seaTunnelSink;
-        }).collect(Collectors.toList());
+        }).distinct().collect(Collectors.toList());
         flinkEnvironment.registerPlugin(pluginJars);
         return sinks;
     }
