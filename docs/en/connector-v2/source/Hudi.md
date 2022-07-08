@@ -33,7 +33,7 @@ Used to read data from Hudi. Currently, only supports hudi cow table and Snapsho
 
 ### kerberos.principal [string]
 
-`kerberos.principal` When use kerberos, we should set kerberos princal such as 'test_user@YOUR_COMPANY.COM'.
+`kerberos.principal` When use kerberos, we should set kerberos princal such as 'test_user@xxx'.
 
 ### kerberos.principal.file [string]
 
@@ -49,7 +49,7 @@ source {
     table.type = "cow"
     conf.files = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
     use.kerberos = true
-    kerberos.principal = "test_user@YOUR_COMPANY.COM"
+    kerberos.principal = "test_user@xxx"
     kerberos.principal.file = "/home/test/test_user.keytab"
   }
 
