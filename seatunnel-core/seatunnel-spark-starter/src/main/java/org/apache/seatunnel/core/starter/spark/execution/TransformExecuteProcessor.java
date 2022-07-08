@@ -55,7 +55,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Ba
                 pluginInstance.setConfig(transformConfig);
                 pluginInstance.prepare(sparkEnvironment);
                 return pluginInstance;
-            }).collect(Collectors.toList());
+            }).distinct().collect(Collectors.toList());
         sparkEnvironment.registerPlugin(pluginJars);
         return transforms;
     }
