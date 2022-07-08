@@ -9,7 +9,7 @@ Used to read data from Hudi. Currently, only supports hudi cow table and Snapsho
 | name                     | type    | required | default value |
 |--------------------------|---------|----------|---------------|
 | table.path               | string  | yes      | -             |
-| table.type               | string  | yes      | cow           |
+| table.type               | string  | yes      | -             |
 | conf.files               | string  | yes      | -             |
 | use.kerberos             | boolean | no       | false         |
 | kerberos.principal       | string  | no       | -             |
