@@ -43,8 +43,6 @@ public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, 
     protected FileFormat fileFormat = FileFormat.TEXT;
 
     public AbstractTextFileConfig(@NonNull Config config) {
-        checkNotNull(config.getString(Constant.PATH));
-
         if (config.hasPath(Constant.COMPRESS_CODEC)) {
             throw new RuntimeException("compress not support now");
         }
@@ -60,6 +58,7 @@ public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, 
         if (config.hasPath(Constant.PATH) && !StringUtils.isBlank(config.getString(Constant.PATH))) {
             this.path = config.getString(Constant.PATH);
         }
+        checkNotNull(path);
 
         if (config.hasPath(Constant.FILE_NAME_EXPRESSION) && !StringUtils.isBlank(config.getString(Constant.FILE_NAME_EXPRESSION))) {
             this.fileNameExpression = config.getString(Constant.FILE_NAME_EXPRESSION);

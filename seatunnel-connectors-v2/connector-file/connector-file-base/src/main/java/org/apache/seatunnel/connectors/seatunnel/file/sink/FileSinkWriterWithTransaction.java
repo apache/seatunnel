@@ -36,8 +36,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-public class TransactionStateFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TransactionStateFileSinkWriter.class);
+public class FileSinkWriterWithTransaction implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkWriterWithTransaction.class);
 
     private SeaTunnelRowType seaTunnelRowTypeInfo;
     private Config pluginConfig;
@@ -48,12 +48,12 @@ public class TransactionStateFileSinkWriter implements SinkWriter<SeaTunnelRow, 
 
     private TextFileSinkConfig textFileSinkConfig;
 
-    public TransactionStateFileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
-                                          @NonNull Config pluginConfig,
-                                          @NonNull SinkWriter.Context context,
-                                          @NonNull TextFileSinkConfig textFileSinkConfig,
-                                          @NonNull String jobId,
-                                          @NonNull SinkFileSystemPlugin sinkFileSystemPlugin) {
+    public FileSinkWriterWithTransaction(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
+                                         @NonNull Config pluginConfig,
+                                         @NonNull SinkWriter.Context context,
+                                         @NonNull TextFileSinkConfig textFileSinkConfig,
+                                         @NonNull String jobId,
+                                         @NonNull SinkFileSystemPlugin sinkFileSystemPlugin) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
         this.context = context;
@@ -87,13 +87,13 @@ public class TransactionStateFileSinkWriter implements SinkWriter<SeaTunnelRow, 
         fileWriter.beginTransaction(1L);
     }
 
-    public TransactionStateFileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
-                                          @NonNull Config pluginConfig,
-                                          @NonNull SinkWriter.Context context,
-                                          @NonNull TextFileSinkConfig textFileSinkConfig,
-                                          @NonNull String jobId,
-                                          @NonNull List<FileSinkState> fileSinkStates,
-                                          @NonNull SinkFileSystemPlugin sinkFileSystemPlugin) {
+    public FileSinkWriterWithTransaction(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
+                                         @NonNull Config pluginConfig,
+                                         @NonNull SinkWriter.Context context,
+                                         @NonNull TextFileSinkConfig textFileSinkConfig,
+                                         @NonNull String jobId,
+                                         @NonNull List<FileSinkState> fileSinkStates,
+                                         @NonNull SinkFileSystemPlugin sinkFileSystemPlugin) {
         this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
         this.context = context;

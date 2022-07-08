@@ -92,7 +92,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
-	<module>seatunnel-server</module>
+	    <module>seatunnel-server</module>
     </modules>
 
     <properties>
@@ -912,6 +912,12 @@
                 <groupId>org.hibernate.validator</groupId>
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate.validator.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hive</groupId>
+                <artifactId>hive-metastore</artifactId>
+                <version>${hive.exec.version}</version>
             </dependency>
 
         </dependencies>

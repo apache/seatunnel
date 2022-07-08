@@ -15,24 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.sink;
+package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import org.apache.hadoop.hive.metastore.api.Table;
-
-import java.io.Serializable;
-
-@Data
-@AllArgsConstructor
-public class HiveCommitInfo implements Serializable {
-
-    private FileCommitInfo fileCommitInfo;
-
-    private String hiveMetastoreUris;
-
-    private Table table;
-
+public class Constant {
+    public static final String HIVE_RESULT_TABLE_NAME = "result_table_name";
+    public static final String HIVE_METASTORE_URIS = "hive_metastore_uris";
 }

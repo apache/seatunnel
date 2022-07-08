@@ -25,19 +25,21 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 public class FileSinkAggregatedCommitterTest {
+    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     @Test
     public void testCommit() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobIdLong = random.nextLong();
-        String jobId = "Job_" + jobIdLong;
+        Long jobId = random.nextLong();
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
@@ -47,7 +49,12 @@ public class FileSinkAggregatedCommitterTest {
         FileUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
 
         transactionFiles.put(transactionDir, needMoveFiles);
-        FileAggregatedCommitInfo fileAggregatedCommitInfo = new FileAggregatedCommitInfo(transactionFiles);
+
+        Map<String, List<String>> partitionDirAndVals = new HashMap<>();
+        partitionDirAndVals.put("/c3=4/c4=rrr", Arrays.stream((new String[]{"4", "rrr"})).collect(Collectors.toList()));
+        partitionDirAndVals.put("/c3=4/c4=bbb", Arrays.stream((new String[]{"4", "bbb"})).collect(Collectors.toList()));
+
+        FileAggregatedCommitInfo fileAggregatedCommitInfo = new FileAggregatedCommitInfo(transactionFiles, partitionDirAndVals);
         List<FileAggregatedCommitInfo> fileAggregatedCommitInfoList = new ArrayList<>();
         fileAggregatedCommitInfoList.add(fileAggregatedCommitInfo);
         fileSinkAggregatedCommitter.commit(fileAggregatedCommitInfoList);
@@ -57,63 +64,73 @@ public class FileSinkAggregatedCommitterTest {
         Assert.assertTrue(!FileUtils.fileExist(transactionDir));
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
+    @SuppressWarnings({"checkstyle:MagicNumber", "checkstyle:UnnecessaryParentheses"})
     @Test
     public void testCombine() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobIdLong = random.nextLong();
-        String jobId = "Job_" + jobIdLong;
+        Long jobId = random.nextLong();
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
-        needMoveFiles.put(transactionDir + "/c3=4/c4=rrr/test1.txt", targetDir + "/c3=4/c4=rrr/test1.txt");
+        needMoveFiles.put(transactionDir + "/c3=3/c4=rrr/test1.txt", targetDir + "/c3=3/c4=rrr/test1.txt");
         needMoveFiles.put(transactionDir + "/c3=4/c4=bbb/test1.txt", targetDir + "/c3=4/c4=bbb/test1.txt");
-        FileUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
+        Map<String, List<String>> partitionDirAndVals = new HashMap<>();
+        partitionDirAndVals.put("/c3=3/c4=rrr", Arrays.stream((new String[]{"3", "rrr"})).collect(Collectors.toList()));
+        partitionDirAndVals.put("/c3=4/c4=bbb", Arrays.stream((new String[]{"4", "bbb"})).collect(Collectors.toList()));
+        FileCommitInfo fileCommitInfo = new FileCommitInfo(needMoveFiles, partitionDirAndVals, transactionDir);
+        FileUtils.createFile(transactionDir + "/c3=3/c4=rrr/test1.txt");
         FileUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
 
         Map<String, String> needMoveFiles1 = new HashMap<>();
         needMoveFiles1.put(transactionDir + "/c3=4/c4=rrr/test2.txt", targetDir + "/c3=4/c4=rrr/test2.txt");
         needMoveFiles1.put(transactionDir + "/c3=4/c4=bbb/test2.txt", targetDir + "/c3=4/c4=bbb/test2.txt");
-        FileCommitInfo fileCommitInfo = new FileCommitInfo(needMoveFiles, transactionDir);
-        FileCommitInfo fileCommitInfo1 = new FileCommitInfo(needMoveFiles1, transactionDir);
+        Map<String, List<String>> partitionDirAndVals1 = new HashMap<>();
+        partitionDirAndVals.put("/c3=4/c4=rrr", Arrays.stream((new String[]{"4", "rrr"})).collect(Collectors.toList()));
+        partitionDirAndVals.put("/c3=4/c4=bbb", Arrays.stream((new String[]{"4", "bbb"})).collect(Collectors.toList()));
+        FileCommitInfo fileCommitInfo1 = new FileCommitInfo(needMoveFiles1, partitionDirAndVals1, transactionDir);
         List<FileCommitInfo> fileCommitInfoList = new ArrayList<>();
         fileCommitInfoList.add(fileCommitInfo);
         fileCommitInfoList.add(fileCommitInfo1);
+
         FileAggregatedCommitInfo combine = fileSinkAggregatedCommitter.combine(fileCommitInfoList);
         Assert.assertEquals(1, combine.getTransactionMap().size());
         Assert.assertEquals(4, combine.getTransactionMap().get(transactionDir).size());
-        Assert.assertEquals(targetDir + "/c3=4/c4=rrr/test1.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=rrr/test1.txt"));
+        Assert.assertEquals(targetDir + "/c3=3/c4=rrr/test1.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=3/c4=rrr/test1.txt"));
         Assert.assertEquals(targetDir + "/c3=4/c4=bbb/test1.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=bbb/test1.txt"));
         Assert.assertEquals(targetDir + "/c3=4/c4=rrr/test2.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=rrr/test2.txt"));
         Assert.assertEquals(targetDir + "/c3=4/c4=bbb/test2.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=bbb/test2.txt"));
+        Assert.assertEquals(3, combine.getPartitionDirAndValsMap().keySet().size());
     }
 
+    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     @Test
     public void testAbort() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobIdLong = random.nextLong();
-        String jobId = "Job_" + jobIdLong;
+        Long jobId = random.nextLong();
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
         needMoveFiles.put(transactionDir + "/c3=4/c4=rrr/test1.txt", targetDir + "/c3=4/c4=rrr/test1.txt");
         needMoveFiles.put(transactionDir + "/c3=4/c4=bbb/test1.txt", targetDir + "/c3=4/c4=bbb/test1.txt");
+        Map<String, List<String>> partitionDirAndVals = new HashMap<>();
+        partitionDirAndVals.put("/c3=4/c4=rrr", Arrays.stream((new String[]{"4", "rrr"})).collect(Collectors.toList()));
+        partitionDirAndVals.put("/c3=4/c4=bbb", Arrays.stream((new String[]{"4", "bbb"})).collect(Collectors.toList()));
         FileUtils.createFile(transactionDir + "/c3=4/c4=rrr/test1.txt");
         FileUtils.createFile(transactionDir + "/c3=4/c4=bbb/test1.txt");
 
         transactionFiles.put(transactionDir, needMoveFiles);
-        FileAggregatedCommitInfo fileAggregatedCommitInfo = new FileAggregatedCommitInfo(transactionFiles);
+        FileAggregatedCommitInfo fileAggregatedCommitInfo = new FileAggregatedCommitInfo(transactionFiles, partitionDirAndVals);
         List<FileAggregatedCommitInfo> fileAggregatedCommitInfoList = new ArrayList<>();
         fileAggregatedCommitInfoList.add(fileAggregatedCommitInfo);
         fileSinkAggregatedCommitter.commit(fileAggregatedCommitInfoList);
 
         Assert.assertTrue(FileUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
         Assert.assertTrue(FileUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
-        Assert.assertFalse(FileUtils.fileExist(transactionDir));
+        Assert.assertTrue(!FileUtils.fileExist(transactionDir));
 
         fileSinkAggregatedCommitter.abort(fileAggregatedCommitInfoList);
         Assert.assertTrue(!FileUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));

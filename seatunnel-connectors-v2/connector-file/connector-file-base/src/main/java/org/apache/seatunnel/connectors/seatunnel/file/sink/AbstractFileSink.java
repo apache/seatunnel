@@ -41,7 +41,7 @@ import java.util.Optional;
 
 /**
  * Hive Sink implementation by using SeaTunnel sink API.
- * This class contains the method to create {@link TransactionStateFileSinkWriter} and {@link FileSinkAggregatedCommitter}.
+ * This class contains the method to create {@link FileSinkWriterWithTransaction} and {@link FileSinkAggregatedCommitter}.
  */
 public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
     private Config config;
@@ -78,7 +78,7 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
         }
 
         if (this.getSinkConfig().isEnableTransaction()) {
-            return new TransactionStateFileSinkWriter(seaTunnelRowTypeInfo,
+            return new FileSinkWriterWithTransaction(seaTunnelRowTypeInfo,
                 config,
                 context,
                 getSinkConfig(),
@@ -92,7 +92,7 @@ public abstract class AbstractFileSink implements SeaTunnelSink<SeaTunnelRow, Fi
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(SinkWriter.Context context, List<FileSinkState> states) throws IOException {
         if (this.getSinkConfig().isEnableTransaction()) {
-            return new TransactionStateFileSinkWriter(seaTunnelRowTypeInfo,
+            return new FileSinkWriterWithTransaction(seaTunnelRowTypeInfo,
                 config,
                 context,
                 textFileSinkConfig,
