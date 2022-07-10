@@ -27,9 +27,9 @@ In general, we would have our License-check scripts to our project. SeaTunnel-Li
 We need to follow the following steps when we need to add new jars or external resources:
 
 * Add the name and the version of the jar file in the known-dependencies.txt
-* Add relevant maven repository address under 'https://github.com/apache/incubator-seatunnel/tree/dev/seatunnel-dist/release-docs/LICENSE' directory
-* Append relevant NOTICE files under 'https://github.com/apache/incubator-seatunnel/tree/dev/seatunnel-dist/release-docs/NOTICE' directory and make sure they are no different to the original repository
-* Add relevant source code protocols under 'https://github.com/apache/incubator-seatunnel/tree/dev/seatunnel-dist/release-docs/licenses' directory and the file name should be named as license+filename.txt. Eg: license-zk.txt
+* Add relevant maven repository address under 'seatunnel-dist/release-docs/LICENSE' directory
+* Append relevant NOTICE files under 'seatunnel-dist/release-docs/NOTICE' directory and make sure they are no different to the original repository
+* Add relevant source code protocols under 'seatunnel-dist/release-docs/licenses' directory and the file name should be named as license+filename.txt. Eg: license-zk.txt
 
 ### References
 
