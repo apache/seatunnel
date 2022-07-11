@@ -19,7 +19,7 @@
 
 set -e
 
-./mvnw --batch-mode --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
+./mvnw --batch-mode -pl '!seatunnel-examples,!seatunnel-e2e,!seatunnel-connectors-v2,!seatunnel-connectors-v2-dist,' --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
 
 # List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
 ls /tmp/seatunnel-dependencies | sort > all-dependencies.txt
