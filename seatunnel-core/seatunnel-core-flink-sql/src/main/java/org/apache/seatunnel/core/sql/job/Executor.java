@@ -57,7 +57,9 @@ public class Executor {
     private static final Logger LOGGER = LoggerFactory.getLogger(Executor.class);
 
     private static final String FLINK_SQL_SET_MATCHING_REGEX = "SET(\\s+(\\S+)\\s*=(.*))?";
-    private static final int FLINK_SQL_SET_OPERANDS = 3;
+    /** env config regex */
+    private static final String FLINK_SQL_CONF_MATCHING_REGEX = "CONF(\\s+(\\S+)\\s*=(.*))?";
+    private static final int FLINK_OPERANDS_LENGTH = 3;
 
     private static CustomClassLoader CLASSLOADER = new CustomClassLoader();
 
@@ -70,7 +72,8 @@ public class Executor {
     }
 
     public static void runJob(JobInfo jobInfo) {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        Configuration envConfiguration = handleConfStatements(jobInfo.getJobContent());
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(envConfiguration);
         EnvironmentSettings fsSettings = EnvironmentSettings.newInstance().inStreamingMode().build();
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, fsSettings);
 
@@ -106,6 +109,11 @@ public class Executor {
 
         List<String> stmts = SqlStatementSplitter.normalizeStatements(workFlowContent);
         for (String stmt : stmts) {
+            Optional<Pair<String, String>> confOptional = parseConfOperation(stmt);
+            // skip env config
+            if (confOptional.isPresent()) {
+                continue;
+            }
             Optional<Pair<String, String>> optional = parseSetOperation(stmt);
             if (optional.isPresent()) {
                 Pair<String, String> setOptionPair = optional.get();
@@ -125,6 +133,23 @@ public class Executor {
             }
         }
         return statementSet;
+    }
+
+    /**
+     * Handle CONF each statement.
+     */
+    private static Configuration handleConfStatements(String workFlowContent) {
+        Configuration configuration = new Configuration();
+        List<String> stmts = SqlStatementSplitter.normalizeStatements(workFlowContent);
+        for (String stmt : stmts) {
+            Optional<Pair<String, String>> confOptional = parseConfOperation(stmt);
+            if (confOptional.isPresent()) {
+                Pair<String, String> setOptionPair = confOptional.get();
+                callSetOperation(configuration, setOptionPair.getLeft(), setOptionPair.getRight());
+                continue;
+            }
+        }
+        return configuration;
     }
 
     /*
@@ -186,8 +211,17 @@ public class Executor {
 
     @VisibleForTesting
     static Optional<Pair<String, String>> parseSetOperation(String stmt) {
+        return parseOperationWithRegex(FLINK_SQL_SET_MATCHING_REGEX, stmt);
+    }
+
+    @VisibleForTesting
+    static Optional<Pair<String, String>> parseConfOperation(String stmt) {
+        return parseOperationWithRegex(FLINK_SQL_CONF_MATCHING_REGEX, stmt);
+    }
+
+    static Optional<Pair<String, String>> parseOperationWithRegex(String regex, String stmt) {
         stmt = stmt.trim();
-        Pattern pattern = Pattern.compile(FLINK_SQL_SET_MATCHING_REGEX, Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
         final Matcher matcher = pattern.matcher(stmt);
         if (matcher.matches()) {
             final String[] groups = new String[matcher.groupCount()];
@@ -200,7 +234,7 @@ public class Executor {
     }
 
     private static Optional<Pair<String, String>> operandConverter(String[] operands){
-        if (operands.length != FLINK_SQL_SET_OPERANDS) {
+        if (operands.length != FLINK_OPERANDS_LENGTH) {
             return Optional.empty();
         }
 

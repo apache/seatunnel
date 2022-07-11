@@ -41,4 +41,21 @@ public class ExecutorTest {
         ops = Executor.parseSetOperation(stmt);
         Assert.assertFalse(ops.isPresent());
     }
+
+    @Test
+    public void testConfOperationParse() {
+        String stmt = "CONF parallelism.default = 1";
+        Optional<Pair<String, String>> ops = Executor.parseConfOperation(stmt);
+        Assert.assertTrue(ops.isPresent());
+        Assert.assertEquals("parallelism.default", ops.get().getLeft());
+        Assert.assertEquals("1", ops.get().getRight());
+
+        stmt = "CONF parallelism.default";
+        ops = Executor.parseConfOperation(stmt);
+        Assert.assertFalse(ops.isPresent());
+
+        stmt = "CREATE TABLE IF NOT EXISTS test (id INT, name VARCHAR)";
+        ops = Executor.parseConfOperation(stmt);
+        Assert.assertFalse(ops.isPresent());
+    }
 }
