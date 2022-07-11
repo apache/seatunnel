@@ -149,6 +149,7 @@
             </excludes>
             <outputDirectory>/connectors/spark</outputDirectory>
         </fileSet>
+        <!--todo remove it, because not publish it to binary package-->
         <fileSet>
             <directory>../seatunnel-connectors-v2-dist/target/lib</directory>
             <includes>
