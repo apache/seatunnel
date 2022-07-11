@@ -33,6 +33,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 
 public class FileSinkAggregatedCommitterTest {
+    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     public void testCommit() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
@@ -63,6 +64,7 @@ public class FileSinkAggregatedCommitterTest {
         Assert.assertTrue(!FileUtils.fileExist(transactionDir));
     }
 
+    @SuppressWarnings({"checkstyle:UnnecessaryParentheses", "checkstyle:MagicNumber"})
     @Test
     public void testCombine() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
@@ -103,7 +105,7 @@ public class FileSinkAggregatedCommitterTest {
         Assert.assertEquals(3, combine.getPartitionDirAndValsMap().keySet().size());
     }
 
-
+    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     @Test
     public void testAbort() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
