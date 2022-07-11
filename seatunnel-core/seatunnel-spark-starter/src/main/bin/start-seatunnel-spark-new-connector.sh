@@ -34,8 +34,9 @@ while [ -h "$PRG" ] ; do
 done
 
 PRG_DIR=`dirname "$PRG"`
-CONF_DIR=${PRG_DIR}/config
-APP_JAR=${PRG_DIR}/lib/seatunnel-spark-starter.jar
+APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
+CONF_DIR=${APP_DIR}/config
+APP_JAR=${APP_DIR}/lib/seatunnel-spark-starter.jar
 APP_MAIN=org.apache.seatunnel.core.starter.spark.SparkStarter
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
