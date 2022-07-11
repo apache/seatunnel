@@ -21,13 +21,8 @@ import lombok.NonNull;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
-
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.stream.Collectors;
 
 public class HiveMetaStoreProxy {
 
@@ -47,30 +42,6 @@ public class HiveMetaStoreProxy {
         try {
             return hiveMetaStoreClient.getTable(dbName, tableName);
         } catch (TException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
-    public static void main(String[] args) {
-        HiveMetaStoreProxy hi = new HiveMetaStoreProxy("thrift://49.7.112.201:9083");
-        HiveMetaStoreClient hiveMetaStoreClient1 = hi.getHiveMetaStoreClient();
-        try {
-            Table table = hi.getTable("default", "test1");
-            Partition part = new Partition();
-            part.setDbName(table.getDbName());
-            part.setTableName(table.getTableName());
-            part.setValues(Arrays.stream((new String[]{"6"})).collect(Collectors.toList()));
-            part.setParameters(new HashMap<>());
-            part.setSd(table.getSd().deepCopy());
-            part.getSd().setSerdeInfo(table.getSd().getSerdeInfo());
-            part.getSd().setLocation(table.getSd().getLocation() + "/ds=6");
-            try {
-                hiveMetaStoreClient1.add_partition(part);
-            } catch (TException e) {
-                throw new RuntimeException(e);
-            }
-        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
