@@ -7,11 +7,7 @@ import TabItem from '@theme/TabItem';
 
 Write data to Hive.
 
-:::tip
-
 Used to write data to file. Supports Batch and Streaming mode.
-
-:::
 
 ## Options
 
