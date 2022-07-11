@@ -22,7 +22,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkState;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkWriterWithTransaction;
 
 import lombok.NonNull;
 
@@ -40,7 +39,7 @@ public interface Transaction extends Serializable {
     String beginTransaction(@NonNull Long checkpointId);
 
     /**
-     * Abort current Transaction, called when {@link FileSinkWriterWithTransaction#prepareCommit()} or {@link FileSinkWriterWithTransaction#snapshotState(long)} failed
+     * Abort current Transaction, called when {@link org.apache.seatunnel.connectors.seatunnel.file.sink.TransactionStateFileSinkWriter#prepareCommit()} or {@link org.apache.seatunnel.connectors.seatunnel.file.sink.TransactionStateFileSinkWriter#snapshotState(long)} failed
      */
     void abortTransaction();
 
@@ -56,7 +55,7 @@ public interface Transaction extends Serializable {
     List<String> getTransactionAfter(@NonNull String transactionId);
 
     /**
-     * Called by {@link FileSinkWriterWithTransaction#prepareCommit()}
+     * Called by {@link org.apache.seatunnel.connectors.seatunnel.file.sink.TransactionStateFileSinkWriter#prepareCommit()}
      * We should end the transaction in this method. After this method is called, the transaction will no longer accept data writing
      *
      * @return Return the commit information that can be commit in {@link FileSinkAggregatedCommitter#commit(List)}

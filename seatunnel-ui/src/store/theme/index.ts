@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+import { defineStore } from 'pinia'
+import ThemeState from './types'
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
-
-/**
- * This interface defines the runtime environment of the SeaTunnel application.
- */
-public interface SeaTunnelRuntimeEnvironment {
-
-    default void setSeaTunnelContext(SeaTunnelContext seaTunnelContext){
-        // nothing
+export const useThemeStore = defineStore({
+  id: 'theme',
+  state: (): ThemeState => ({
+    darkTheme: false
+  }),
+  persist: true,
+  getters: {
+    getTheme(): boolean {
+      return this.darkTheme
     }
-}
+  },
+  actions: {
+    setDarkTheme(): void {
+      this.darkTheme = !this.darkTheme
+    }
+  }
+})

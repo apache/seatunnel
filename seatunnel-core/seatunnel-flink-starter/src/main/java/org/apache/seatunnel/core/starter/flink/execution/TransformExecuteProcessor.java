@@ -55,7 +55,7 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
                 pluginInstance.setConfig(transformConfig);
                 pluginInstance.prepare(flinkEnvironment);
                 return pluginInstance;
-            }).collect(Collectors.toList());
+            }).distinct().collect(Collectors.toList());
         flinkEnvironment.registerPlugin(pluginJars);
         return transforms;
     }

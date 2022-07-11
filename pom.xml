@@ -109,7 +109,7 @@
         <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
         <iceberg.version>0.13.1</iceberg.version>
         <flink.version>1.13.6</flink.version>
-        <hudi.version>0.10.0</hudi.version>
+        <hudi.version>0.11.1</hudi.version>
         <orc.version>1.5.6</orc.version>
         <hive.exec.version>2.3.9</hive.exec.version>
         <commons.logging.version>1.2</commons.logging.version>
@@ -497,6 +497,12 @@
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-hadoop-mr-bundle</artifactId>
+                <version>${hudi.version}</version>
             </dependency>
 
             <dependency>

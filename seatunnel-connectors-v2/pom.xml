@@ -42,6 +42,7 @@
         <module>connector-socket</module>
         <module>connector-hive</module>
         <module>connector-file</module>
+        <module>connector-hudi</module>
         <module>connector-assert</module>
     </modules>
 

@@ -33,13 +33,12 @@ import java.util.Random;
 import java.util.stream.Collectors;
 
 public class FileSinkAggregatedCommitterTest {
-    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
-    @Test
     public void testCommit() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobId = random.nextLong();
+        Long jobIdLong = random.nextLong();
+        String jobId = "Job_" + jobIdLong;
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
@@ -64,13 +63,13 @@ public class FileSinkAggregatedCommitterTest {
         Assert.assertTrue(!FileUtils.fileExist(transactionDir));
     }
 
-    @SuppressWarnings({"checkstyle:MagicNumber", "checkstyle:UnnecessaryParentheses"})
     @Test
     public void testCombine() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobId = random.nextLong();
+        Long jobIdLong = random.nextLong();
+        String jobId = "Job_" + jobIdLong;
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
@@ -104,13 +103,14 @@ public class FileSinkAggregatedCommitterTest {
         Assert.assertEquals(3, combine.getPartitionDirAndValsMap().keySet().size());
     }
 
-    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
+
     @Test
     public void testAbort() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
         Map<String, Map<String, String>> transactionFiles = new HashMap<>();
         Random random = new Random();
-        Long jobId = random.nextLong();
+        Long jobIdLong = random.nextLong();
+        String jobId = "Job_" + jobIdLong;
         String transactionDir = String.format("/tmp/seatunnel/seatunnel/%s/T_%s_0_1", jobId, jobId);
         String targetDir = String.format("/tmp/hive/warehouse/%s", jobId);
         Map<String, String> needMoveFiles = new HashMap<>();
