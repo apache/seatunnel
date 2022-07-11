@@ -36,7 +36,7 @@ PRG_DIR=`dirname "$PRG"`
 APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/lib/seatunnel-core-spark.jar
-APP_MAIN=org.apache.seatunnel.core.spark.SparkStarter
+APP_MAIN="org.apache.seatunnel.core.spark.SparkStarter"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
