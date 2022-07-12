@@ -1188,7 +1188,8 @@ Eclipse Public License
 The following components are provided under the Eclipse Public License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 
-     (EDL 1.0) JavaBeans Activation Framework API jar (jakarta.activation:jakarta.activation-api:1.2.2 - https://github.com/eclipse-ee4j/jaf/jakarta.activation-api)
+     (EDL 1.0) JavaBeans Activation Framework API jar (jakarta.activation:jakarta.activation-api:1.2.1 - https://github.com/eclipse-ee4j/jaf/jakarta.activation-api)
+     (Eclipse Distribution License - v 1.0) jakarta.xml.bind-api (jakarta.xml.bind:jakarta.xml.bind-api:2.3.3 - https://github.com/eclipse-ee4j/jaxb-api/jakarta.xml.bind-api)
      (Eclipse Public License 1.0) JUnit (junit:junit:4.12 - http://junit.org)
      (Eclipse Public License, Version 1.0) Aether API (org.eclipse.aether:aether-api:0.9.0.M2 - http://www.eclipse.org/aether/aether-api/)
      (Eclipse Public License, Version 1.0) Aether Connector File (org.eclipse.aether:aether-connector-file:0.9.0.M2 - http://www.eclipse.org/aether/aether-connector-file/)
