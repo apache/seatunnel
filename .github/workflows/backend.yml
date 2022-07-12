@@ -109,7 +109,6 @@ jobs:
           -D"maven.wagon.http.pool"=false
           -D"maven.wagon.http.retryHandler.count"=3
           -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
-          -P ci
 
   dependency-license:
     if: github.repository == 'apache/incubator-seatunnel'
@@ -134,6 +133,7 @@ jobs:
           -D"scalastyle.skip"=true
           -D"checkstyle.skip"=true
           -D"license.skipAddThirdParty"
+          -P release
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
 
@@ -156,7 +156,7 @@ jobs:
           cache: 'maven'
       - name: Run Unit tests
         run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -P ci
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx2048m
 
@@ -179,6 +179,6 @@ jobs:
           cache: 'maven'
       - name: Run Integration tests
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -P ci
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx2048m

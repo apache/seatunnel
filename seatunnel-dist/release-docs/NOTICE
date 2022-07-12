@@ -663,16 +663,6 @@ The Apache Software Foundation (http://www.apache.org/).
 
 ========================================================================
 
-Apache Commons Email NOTICE
-
-========================================================================
-Apache Commons Email
-Copyright 2001-2019 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-========================================================================
-
 Apache Commons Crypto NOTICE
 
 ========================================================================
@@ -1224,13 +1214,6 @@ Copyright 2014 The Apache Software Foundation
 Apache Thrift
 Copyright 2006-2010 The Apache Software Foundation.
 
-   Apache Ant
-   Copyright 1999-2013 The Apache Software Foundation
-
-   The <sync> task is based on code Copyright (c) 2002, Landmark
-   Graphics Corp that has been kindly donated to the Apache Software
-   Foundation.
-
 Apache Commons IO
 Copyright 2002-2012 The Apache Software Foundation
 
@@ -1368,9 +1351,6 @@ Copyright (c) 2012 Twitter, Inc.
 This product includes/uses Glyphicons (http://glyphicons.com/),
 Copyright (c) 2010 - 2012 Jan Kovarík
 
-This product includes DataNucleus (http://www.datanucleus.org/)
-Copyright 2008-2008 DataNucleus
-
 This product includes Guava (http://code.google.com/p/guava-libraries/)
 Copyright (C) 2006 Google Inc.
 
@@ -1385,11 +1365,6 @@ Copyright (C) 2015 Red Hat, Inc.
 
 This product includes/uses OkHttp (https://github.com/square/okhttp)
 Copyright (C) 2012 The Android Open Source Project
-
-=========================================================================
-==  NOTICE file corresponding to section 4(d) of the Apache License,   ==
-==  Version 2.0, in this case for the DataNucleus distribution.        ==
-=========================================================================
 
 ===================================================================
 This product includes software developed by many individuals,
@@ -2922,11 +2897,6 @@ javax.inject Version: 1
 * License: Apache License, 2.0
 * Copyright (C) 2009 The JSR-330 Expert Group
 
-Javassist Version 3.25.0-GA
-* License: Apache License, 2.0
-* Project: http://www.javassist.org/
-* Copyright (C) 1999- Shigeru Chiba. All Rights Reserved.
-
 Jackson JAX-RS Providers Version 2.10.1
 * License: Apache License, 2.0
 * Project: https://github.com/FasterXML/jackson-jaxrs-providers
@@ -4367,18 +4337,6 @@ The Apache Software Foundation (http://www.apache.org/).
 
 =========================================================================
 
-Apache Pulsar NOTICE
-
-=========================================================================
-
-Apache Pulsar
-Copyright 2017-2021 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-=========================================================================
-
 Apache HttpClient Mime NOTICE
 
 =========================================================================
@@ -4428,33 +4386,6 @@ Joda-Time NOTICE
 This product includes software developed by
 Joda.org (https://www.joda.org/).
 
-
-=========================================================================
-
-eigenbase-properties NOTICE
-
-=========================================================================
-
-eigenbase-properties
-Copyright (C) 2012-2015, Julian Hyde
-
-This product includes software from the Eigenbase project, licensed from
-DynamoBI Corporation.
-
-Copyright (C) 2005 Dynamo BI Corporation
-
-===============================================================================
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this software except in compliance with the License.
-You may obtain a copy of the License at:
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific lang
-
 =========================================================================
 
    Apache Ant NOTICE
@@ -4467,17 +4398,6 @@ See the License for the specific lang
    Graphics Corp that has been kindly donated to the Apache Software
    Foundation.
 
-
-=========================================================================
-
-Apache Geronimo NOTICE
-
-=========================================================================
-Apache Geronimo 
-Copyright 2003-2008 The Apache Software Foundation
-
-This product includes software developed by
-The Apache Software Foundation (http://www.apache.org/).
 
 =========================================================================
 
@@ -4500,34 +4420,6 @@ which is open source software, available under
 the terms of a BSD style license.  
 The original software and related information is available
 at http://www.jcraft.com/jsch/.
-
-=========================================================================
-
-Apache Parquet Hadoop Bundle NOTICE
-
-=========================================================================
-Apache Parquet Hadoop Bundle
-Copyright 2015 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-=========================================================================
-
-Apache Velocity NOTICE
-
-=========================================================================
-
-Apache Velocity
-
-Copyright (C) 2000-2007 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-The files
- - velocity-engine-scripting/src/main/java/org/apache/velocity/script/VelocityScriptEngine.java
- - velocity-engine-scripting/src/main/java/org/apache/velocity/script/VelocityScriptEngineFactory.java
-are Copyright 2006 Sun Microsystems, Inc., and licenced under a BSD-like licence.
 
 =========================================================================
 

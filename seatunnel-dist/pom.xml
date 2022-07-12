@@ -37,7 +37,7 @@
 
     <profiles>
         <profile>
-            <id>release</id>
+            <id>all</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
@@ -55,7 +55,7 @@
 
                                 <configuration>
                                     <descriptors>
-                                        <descriptor>src/main/assembly/assembly-bin.xml</descriptor>
+                                        <descriptor>src/main/assembly/assembly-bin-ci.xml</descriptor>
                                     </descriptors>
                                     <appendAssemblyId>true</appendAssemblyId>
                                 </configuration>
@@ -81,9 +81,8 @@
                 <finalName>apache-seatunnel-incubating-${project.version}</finalName>
             </build>
         </profile>
-
         <profile>
-            <id>ci</id>
+            <id>release</id>
             <build>
                 <plugins>
                     <plugin>
@@ -98,7 +97,7 @@
 
                                 <configuration>
                                     <descriptors>
-                                        <descriptor>src/main/assembly/assembly-bin-ci.xml</descriptor>
+                                        <descriptor>src/main/assembly/assembly-bin.xml</descriptor>
                                     </descriptors>
                                     <appendAssemblyId>true</appendAssemblyId>
                                 </configuration>

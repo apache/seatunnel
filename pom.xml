@@ -92,7 +92,10 @@
 
     <profiles>
         <profile>
-            <id>ci</id>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
             <modules>
                 <module>seatunnel-dependency-shade</module>
                 <module>seatunnel-connectors-v2</module>
@@ -100,6 +103,9 @@
                 <module>seatunnel-examples</module>
                 <module>seatunnel-e2e</module>
             </modules>
+        </profile>
+        <profile>
+            <id>release</id>
         </profile>
     </profiles>
 
