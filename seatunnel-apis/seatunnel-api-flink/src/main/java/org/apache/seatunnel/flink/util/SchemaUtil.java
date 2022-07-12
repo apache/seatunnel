@@ -69,7 +69,7 @@ public final class SchemaUtil {
                 getJsonSchema(schema, (ObjectNode) info);
                 break;
             case CSV:
-                getCsvSchema(schema, (List<Map<String, String>>) info);
+                getCsvSchema(schema, (ArrayNode) info);
                 break;
             case ORC:
                 getOrcSchema(schema, (ObjectNode) info);
@@ -149,11 +149,14 @@ public final class SchemaUtil {
         }
     }
 
-    private static void getCsvSchema(Schema schema, List<Map<String, String>> schemaList) {
+    private static void getCsvSchema(Schema schema, ArrayNode schemaList) {
+        Iterator<JsonNode> iterator = schemaList.elements();
 
-        for (Map<String, String> map : schemaList) {
-            String field = map.get("field");
-            String type = map.get("type").toUpperCase();
+        while (iterator.hasNext()) {
+            JsonNode jsonNode = iterator.next();
+            String field = jsonNode.get("field").textValue();
+            String type = jsonNode.get("type").textValue().toUpperCase();
+
             schema.field(field, type);
         }
     }
