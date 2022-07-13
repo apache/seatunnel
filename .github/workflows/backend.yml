@@ -133,6 +133,7 @@ jobs:
           -D"scalastyle.skip"=true
           -D"checkstyle.skip"=true
           -D"license.skipAddThirdParty"
+          -P release
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
 
