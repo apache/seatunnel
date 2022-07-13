@@ -206,6 +206,7 @@
         <springfox-swagger.version>2.6.1</springfox-swagger.version>
         <swagger-annotations.version>1.5.10</swagger-annotations.version>
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
+        <flink.cdc.version>2.1.1</flink.cdc.version>
     </properties>
 
     <dependencyManagement>
