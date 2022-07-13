@@ -17,9 +17,28 @@
 #
 
 set -eu
-APP_DIR=$(cd $(dirname ${0})/../;pwd)
+# resolve links - $0 may be a softlink
+PRG="$0"
+
+while [ -h "$PRG" ] ; do
+  # shellcheck disable=SC2006
+  ls=`ls -ld "$PRG"`
+  # shellcheck disable=SC2006
+  link=`expr "$ls" : '.*-> \(.*\)$'`
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    # shellcheck disable=SC2006
+    PRG=`dirname "$PRG"`/"$link"
+  fi
+done
+
+PRG_DIR=`dirname "$PRG"`
+APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/lib/seatunnel-core-flink.jar
+ENV_PARAMETERS_MAIN="org.apache.seatunnel.core.flink.FlinkEnvParameterParser"
+APP_MAIN="org.apache.seatunnel.core.flink.FlinkStarter"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
@@ -32,7 +51,7 @@ else
     args=$@
 fi
 
-ENV_PARAMETERS_OR_ERROR=$(java -cp ${APP_JAR} org.apache.seatunnel.core.flink.FlinkEnvParameterParser ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+ENV_PARAMETERS_OR_ERROR=$(java -cp ${APP_JAR} ${ENV_PARAMETERS_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 0 ]; then
   echo "Export JVM_ARGS: ${ENV_PARAMETERS_OR_ERROR}"
   export JVM_ARGS="${ENV_PARAMETERS_OR_ERROR}"
@@ -41,7 +60,7 @@ else
     exit ${EXIT_CODE}
 fi
 
-CMD=$(java -cp ${APP_JAR} org.apache.seatunnel.core.flink.FlinkStarter ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo "${CMD}"

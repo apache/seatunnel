@@ -77,16 +77,11 @@
             you need to open this annotation and change the dependency of config-shade to project.
             <module>seatunnel-config</module>
         -->
-        <module>seatunnel-dependency-shade</module>
         <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms</module>
-        <module>seatunnel-connectors</module>
-        <module>seatunnel-connectors-v2</module>
-        <module>seatunnel-connectors-v2-dist</module>
-        <module>seatunnel-examples</module>
-        <module>seatunnel-e2e</module>
+<!--        <module>seatunnel-connectors</module>-->
         <module>seatunnel-api</module>
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
@@ -94,6 +89,25 @@
         <module>seatunnel-dist</module>
 	    <module>seatunnel-server</module>
     </modules>
+
+    <profiles>
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-dependency-shade</module>
+                <module>seatunnel-connectors-v2</module>
+                <module>seatunnel-connectors-v2-dist</module>
+                <module>seatunnel-examples</module>
+                <module>seatunnel-e2e</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>release</id>
+        </profile>
+    </profiles>
 
     <properties>
         <revision>2.1.3-SNAPSHOT</revision>

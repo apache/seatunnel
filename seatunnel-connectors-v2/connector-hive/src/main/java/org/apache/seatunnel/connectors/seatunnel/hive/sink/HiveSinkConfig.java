@@ -19,15 +19,18 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FILE_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FILE_NAME_EXPRESSION;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.IS_PARTITION_FIELD_WRITE_IN_FILE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.PATH;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.ROW_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.SAVE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.Constant.HIVE_METASTORE_URIS;
 import static org.apache.seatunnel.connectors.seatunnel.hive.config.Constant.HIVE_RESULT_TABLE_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.SaveMode;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
@@ -78,7 +81,7 @@ public class HiveSinkConfig implements Serializable {
         }
         checkNotNull(hiveMetaUris);
 
-        String[] dbAndTableName = hiveTableName.split(".");
+        String[] dbAndTableName = hiveTableName.split("\\.");
         if (dbAndTableName == null || dbAndTableName.length != 2) {
             throw new RuntimeException("Please config " + HIVE_RESULT_TABLE_NAME + " as db.table format");
         }
@@ -91,16 +94,21 @@ public class HiveSinkConfig implements Serializable {
             table = hiveMetaStoreClient.getTable(dbName, tableName);
             String inputFormat = table.getSd().getInputFormat();
             if ("org.apache.hadoop.mapred.TextInputFormat".equals(inputFormat)) {
-                config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT));
+                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
             } else {
                 throw new RuntimeException("Only support text file now");
             }
 
             Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
-            config.withValue(IS_PARTITION_FIELD_WRITE_IN_FILE, ConfigValueFactory.fromAnyRef(false));
-            config.withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")));
-            config.withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
-            config.withValue(PATH, ConfigValueFactory.fromAnyRef(table.getSd().getLocation()));
+            config = config.withValue(IS_PARTITION_FIELD_WRITE_IN_FILE, ConfigValueFactory.fromAnyRef(false))
+                .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
+                .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")))
+                .withValue(FILE_NAME_EXPRESSION, ConfigValueFactory.fromAnyRef("${transactionId}"))
+                .withValue(PATH, ConfigValueFactory.fromAnyRef(table.getSd().getLocation()));
+
+            if (!config.hasPath(SAVE_MODE) || StringUtils.isBlank(config.getString(Constant.SAVE_MODE))) {
+                config = config.withValue(SAVE_MODE, ConfigValueFactory.fromAnyRef(SaveMode.APPEND.toString()));
+            }
 
             this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
 

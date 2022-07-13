@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.config;
+package org.apache.seatunnel.spark.transform
 
-public class Constant {
-    public static final String HIVE_RESULT_TABLE_NAME = "hive_table_name";
-    public static final String HIVE_METASTORE_URIS = "hive_metastore_uris";
+object NulltfConfig {
+  val PLUGIN_NAME = "nulltf"
+
+  val FIELDS = "fields"
+
 }
