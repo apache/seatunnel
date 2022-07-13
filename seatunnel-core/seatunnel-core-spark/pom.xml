@@ -109,6 +109,12 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-transform-spark-nulltf</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-transform-spark-null-rate</artifactId>
             <version>${project.version}</version>
         </dependency>
