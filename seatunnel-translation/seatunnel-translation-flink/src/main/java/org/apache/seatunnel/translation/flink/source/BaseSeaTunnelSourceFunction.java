@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row>
     implements CheckpointListener, ResultTypeQueryable<Row>, CheckpointedFunction {
@@ -53,6 +54,9 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     protected transient ListState<Map<Integer, List<byte[]>>> sourceState;
     protected transient volatile Map<Integer, List<byte[]>> restoredState = new HashMap<>();
+
+    protected final AtomicLong latestCompletedCheckpointId = new AtomicLong(0);
+    protected final AtomicLong latestTriggerCheckpointId = new AtomicLong(0);
 
     /**
      * Flag indicating whether the consumer is still running.
@@ -72,9 +76,16 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     protected abstract BaseSourceFunction<SeaTunnelRow> createInternalSource();
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void run(SourceFunction.SourceContext<Row> sourceContext) throws Exception {
         internalSource.run(new RowCollector(sourceContext, sourceContext.getCheckpointLock(), source.getProducedType()));
+        // Wait for a checkpoint to complete:
+        // In the current version(version < 1.14.0), when the operator state of the source changes to FINISHED, jobs cannot be checkpoint executed.
+        final long prevCheckpointId = latestTriggerCheckpointId.get();
+        while (running && prevCheckpointId >= latestCompletedCheckpointId.get()) {
+            Thread.sleep(100);
+        }
     }
 
     @Override
@@ -90,6 +101,7 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         internalSource.notifyCheckpointComplete(checkpointId);
+        latestCompletedCheckpointId.set(checkpointId);
     }
 
     @Override
@@ -105,11 +117,13 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
 
     @Override
     public void snapshotState(FunctionSnapshotContext snapshotContext) throws Exception {
+        final long checkpointId = snapshotContext.getCheckpointId();
+        latestTriggerCheckpointId.set(checkpointId);
         if (!running) {
             LOG.debug("snapshotState() called on closed source");
         } else {
             sourceState.clear();
-            sourceState.add(internalSource.snapshotState(snapshotContext.getCheckpointId()));
+            sourceState.add(internalSource.snapshotState(checkpointId));
         }
     }
 
