@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import App from './App'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-import i18n from '@/locales'
-import router from './router'
+import utils from '@/utils'
+import type { RouteRecordRaw } from 'vue-router'
+import type { Component } from 'vue'
 
-const app = createApp(App)
-const pinia = createPinia()
+const modules = import.meta.glob('/src/views/**/**.tsx')
+const components: { [key: string]: Component } = utils.mapping(modules)
 
-pinia.use(piniaPluginPersistedstate)
+const basePage: RouteRecordRaw[] = [
 
-app.use(router)
-app.use(pinia)
-app.use(i18n)
-app.mount('#app')
+]
+
+const loginPage: RouteRecordRaw[] = [
+  {
+    path: '/login',
+    name: 'login',
+    component: components['login'],
+    meta: {
+      auth: []
+    }
+  }
+]
+
+const routes: RouteRecordRaw[] = [...basePage, ...loginPage]
+
+export default routes
