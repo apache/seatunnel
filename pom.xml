@@ -97,7 +97,6 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <modules>
-                <module>seatunnel-dependency-shade</module>
                 <module>seatunnel-connectors-v2</module>
                 <module>seatunnel-connectors-v2-dist</module>
 <!--                <module>seatunnel-examples</module>-->
