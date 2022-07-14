@@ -1,7 +1,7 @@
 # Http
 ## Description
 
-Used to read data from Http.
+Used to read data from Http. Both support streaming and batch mode.
 
 ##  Options
 
@@ -18,7 +18,7 @@ http request url
 
 ### method [string]
 
-http request method, only supports GET, POST method
+http request method, only supports GET, POST method.
 
 ### headers [Map]
 
