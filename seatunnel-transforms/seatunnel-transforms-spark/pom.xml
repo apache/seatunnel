@@ -36,6 +36,7 @@
         <module>seatunnel-transform-spark-replace</module>
         <module>seatunnel-transform-spark-uuid</module>
         <module>seatunnel-transform-spark-sql</module>
+        <module>seatunnel-transform-spark-nulltf</module>
         <module>seatunnel-transform-spark-null-rate</module>
     </modules>
 
