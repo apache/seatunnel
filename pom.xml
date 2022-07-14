@@ -100,8 +100,8 @@
                 <module>seatunnel-dependency-shade</module>
                 <module>seatunnel-connectors-v2</module>
                 <module>seatunnel-connectors-v2-dist</module>
-                <module>seatunnel-examples</module>
-                <module>seatunnel-e2e</module>
+<!--                <module>seatunnel-examples</module>-->
+<!--                <module>seatunnel-e2e</module>-->
             </modules>
         </profile>
         <profile>

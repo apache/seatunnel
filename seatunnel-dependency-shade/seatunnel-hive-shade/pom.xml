@@ -59,12 +59,6 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                            <relocations>
-                                <relocation>
-                                    <pattern>org.apache.hadoop.hive.metastore.DefaultMetaStoreFilterHookImpl</pattern>
-                                    <shadedPattern>org.apache.hadoop.hive.metastore.ShadeDefaultMetaStoreFilterHookImpl</shadedPattern>
-                                </relocation>
-                            </relocations>
                         </configuration>
                     </execution>
                 </executions>

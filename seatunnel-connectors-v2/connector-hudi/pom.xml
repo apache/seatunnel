@@ -35,6 +35,7 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-hive-shade</artifactId>
             <version>${project.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
