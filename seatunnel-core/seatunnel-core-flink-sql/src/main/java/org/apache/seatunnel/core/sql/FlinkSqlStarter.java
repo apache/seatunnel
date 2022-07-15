@@ -39,6 +39,7 @@ public class FlinkSqlStarter implements Starter {
     FlinkSqlStarter(String[] args) {
         this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
         // set the deployment mode, used to get the job jar path.
+        Common.setStarter(true);
         Common.setDeployMode(flinkCommandArgs.getDeployMode());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
     }

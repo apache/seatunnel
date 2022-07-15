@@ -54,10 +54,4 @@
             <artifactId>calcite-druid</artifactId>
         </dependency>
     </dependencies>
-    <repositories>
-        <repository>
-            <id>clojars</id>
-            <url>https://repo.clojars.org/</url>
-        </repository>
-    </repositories>
 </project>

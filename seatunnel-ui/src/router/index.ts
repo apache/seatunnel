@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import App from './App'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-import i18n from '@/locales'
-import router from './router'
+import {
+  createRouter,
+  createWebHistory
+} from 'vue-router'
+import routes from './routes'
+import NProgress from 'nprogress'
+import 'nprogress/nprogress.css'
 
-const app = createApp(App)
-const pinia = createPinia()
+const router = createRouter({
+  history: createWebHistory(
+   '/'
+  ),
+  routes
+})
 
-pinia.use(piniaPluginPersistedstate)
+router.afterEach(() => {
+  NProgress.done()
+})
 
-app.use(router)
-app.use(pinia)
-app.use(i18n)
-app.mount('#app')
+export default router

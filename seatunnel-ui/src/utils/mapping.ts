@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import App from './App'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-import i18n from '@/locales'
-import router from './router'
+import type { Component } from 'vue'
 
-const app = createApp(App)
-const pinia = createPinia()
+const mapping = (modules: any) => {
+  const components: { [key: string]: Component } = {}
+  Object.keys(modules).forEach((key: string) => {
+    const nameMatch: string[] | null = key.match(/^\/src\/views\/(.+)\.tsx/)
 
-pinia.use(piniaPluginPersistedstate)
+    if (!nameMatch) { return }
 
-app.use(router)
-app.use(pinia)
-app.use(i18n)
-app.mount('#app')
+    const indexMatch: string[] | null = nameMatch[1].match(/(.*)\/Index$/i)
+
+    let name: string = indexMatch ? indexMatch[1] : nameMatch[1]
+
+    name = name.replaceAll('/', '-')
+
+    components[name] = modules[key]
+  })
+  return components
+}
+
+export default mapping
