@@ -932,13 +932,6 @@
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate.validator.version}</version>
             </dependency>
-
-            <dependency>
-                <groupId>org.apache.hive</groupId>
-                <artifactId>hive-metastore</artifactId>
-                <version>${hive.exec.version}</version>
-            </dependency>
-
         </dependencies>
     </dependencyManagement>
 
