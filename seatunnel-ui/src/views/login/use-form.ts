@@ -15,12 +15,40 @@
  * limitations under the License.
  */
 
-import mapping from './mapping'
-import trim from './trim'
+import { reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import type { FormRules } from 'naive-ui'
 
-const utils = {
-  mapping,
-  trim
+export function useForm() {
+  const { t } = useI18n()
+
+  const state = reactive({
+    loginFormRef: ref(),
+    loginForm: {
+      username: '',
+      password: ''
+    },
+    rules: {
+      userName: {
+        trigger: ['input', 'blur'],
+        validator() {
+          if (state.loginForm.username === '') {
+            return new Error(t('login.username_tips'))
+          }
+        }
+      },
+      userPassword: {
+        trigger: ['input', 'blur'],
+        validator() {
+          if (state.loginForm.password === '') {
+            return new Error(t('login.password_tips'))
+          }
+        }
+      }
+    } as FormRules
+  })
+
+  return {
+    state
+  }
 }
-
-export default utils

@@ -21,11 +21,14 @@ import App from './App'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import i18n from '@/locales'
 import router from './router'
+import utils from '@/utils'
+import './assets/styles/default.scss'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 pinia.use(piniaPluginPersistedstate)
+app.config.globalProperties.trim = utils.trim
 
 app.use(router)
 app.use(pinia)

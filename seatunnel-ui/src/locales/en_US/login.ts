@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-import mapping from './mapping'
-import trim from './trim'
-
-const utils = {
-  mapping,
-  trim
+export default {
+  login_to_sea_tunnel: 'Login To SeaTunnel',
+  login: 'Login',
+  username: 'Username',
+  password: 'Password',
+  username_tips: 'Please input username',
+  password_tips: 'Please input password'
 }
-
-export default utils
