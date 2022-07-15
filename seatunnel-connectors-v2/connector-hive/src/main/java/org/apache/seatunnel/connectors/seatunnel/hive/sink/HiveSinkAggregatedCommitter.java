@@ -41,6 +41,7 @@ public class HiveSinkAggregatedCommitter implements SinkAggregatedCommitter<Hive
 
     @Override
     public List<HiveAggregatedCommitInfo> commit(List<HiveAggregatedCommitInfo> aggregatedCommitInfoList) throws IOException {
+        LOGGER.info("=============================agg commit=================================");
         if (CollectionUtils.isEmpty(aggregatedCommitInfoList)) {
             return null;
         }

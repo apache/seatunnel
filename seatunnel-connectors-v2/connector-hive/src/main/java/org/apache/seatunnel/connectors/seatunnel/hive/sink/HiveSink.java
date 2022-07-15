@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -75,8 +76,8 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     @Override
     public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && this.getSinkConfig().getTextFileSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
-            throw new RuntimeException("only batch job can overwrite mode");
+        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && hiveSinkConfig.getTextFileSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
+            throw new RuntimeException("only batch job can overwrite hive table");
         }
 
         if (this.getSinkConfig().getTextFileSinkConfig().isEnableTransaction()) {
@@ -97,11 +98,13 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
 
     @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
-        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && hiveSinkConfig.getTextFileSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
-            throw new RuntimeException("only batch job can overwrite hive table");
-        }
         this.seaTunnelContext = seaTunnelContext;
         this.jobId = seaTunnelContext.getJobId();
+    }
+
+    @Override
+    public Optional<SinkAggregatedCommitter<HiveCommitInfo, HiveAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
+        return Optional.of(new HiveSinkAggregatedCommitter());
     }
 
     @Override
