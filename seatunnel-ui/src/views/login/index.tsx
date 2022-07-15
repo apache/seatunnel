@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import App from './App'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-import i18n from '@/locales'
-import router from './router'
+import { defineComponent } from 'vue'
 
-const app = createApp(App)
-const pinia = createPinia()
+const Login = defineComponent({
+  setup() {
 
-pinia.use(piniaPluginPersistedstate)
+  },
+  render() {
+    return (
+      <div>
+        <h1>Login</h1>
+      </div>
+    )
+  }
+})
 
-app.use(router)
-app.use(pinia)
-app.use(i18n)
-app.mount('#app')
+export default Login
