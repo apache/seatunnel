@@ -1,13 +1,10 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Hive
 
 ## Description
 
 Write data to Hive.
 
-Used to write data to file. Supports Batch and Streaming mode.
+In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
 ## Options
 
