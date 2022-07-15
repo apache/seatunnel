@@ -80,15 +80,14 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
             throw new RuntimeException("only batch job can overwrite hive table");
         }
 
-        if (this.getSinkConfig().getTextFileSinkConfig().isEnableTransaction()) {
-            return new HiveSinkWriter(seaTunnelRowTypeInfo,
-                config,
-                context,
-                getSinkConfig(),
-                jobId);
-        } else {
+        if (!this.getSinkConfig().getTextFileSinkConfig().isEnableTransaction()) {
             throw new RuntimeException("Hive Sink Connector only support transaction now");
         }
+        return new HiveSinkWriter(seaTunnelRowTypeInfo,
+            config,
+            context,
+            getSinkConfig(),
+            jobId);
     }
 
     @Override
