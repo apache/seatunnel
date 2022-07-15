@@ -88,6 +88,7 @@
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
         <module>seatunnel-server</module>
+        <module>seatunnel-engine</module>
     </modules>
 
     <profiles>
@@ -220,6 +221,9 @@
         <springfox-swagger.version>2.6.1</springfox-swagger.version>
         <swagger-annotations.version>1.5.10</swagger-annotations.version>
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
+
+        <!--  SeaTunnel Engine use     -->
+        <hazelcast.version>4.2</hazelcast.version>
     </properties>
 
     <dependencyManagement>
@@ -933,6 +937,15 @@
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate.validator.version}</version>
             </dependency>
+
+            <!-- SeaTunnel engine use begin -->
+            <dependency>
+                <groupId>com.hazelcast</groupId>
+                <artifactId>hazelcast</artifactId>
+                <version>${hazelcast.version}</version>
+            </dependency>
+
+            <!-- SeaTunnel engine use end -->
 
         </dependencies>
     </dependencyManagement>
