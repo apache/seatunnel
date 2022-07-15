@@ -45,7 +45,7 @@ Only support `true` now.
 
 ### save_mode [string]
 
-Storage mode, currently supports `overwrite` , `append`
+Storage mode, we need support `overwrite` and `append`. `append` is now supported.
 
 Streaming Job not support `overwrite`.
 
