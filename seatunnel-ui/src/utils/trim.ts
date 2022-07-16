@@ -15,12 +15,8 @@
  * limitations under the License.
  */
 
-import mapping from './mapping'
-import trim from './trim'
-
-const utils = {
-  mapping,
-  trim
+const trim = (value: string) => {
+  return !value.startsWith(' ') && !value.endsWith(' ')
 }
 
-export default utils
+export default trim
