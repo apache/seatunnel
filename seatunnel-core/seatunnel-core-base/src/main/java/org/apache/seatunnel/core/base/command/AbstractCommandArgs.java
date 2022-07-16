@@ -38,7 +38,7 @@ public abstract class AbstractCommandArgs implements CommandArgs {
     private List<String> variables = Collections.emptyList();
 
     // todo: use command type enum
-    @Parameter(names = {"-t", "--check"},
+    @Parameter(names = {"-ck", "--check"},
             description = "check config")
     private boolean checkConfig = false;
 
