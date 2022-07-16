@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 public interface PartitionDirNameGenerator extends Serializable {
-    String generatorPartitionDir(SeaTunnelRow seaTunnelRow);
+    Map<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow);
 }

@@ -87,7 +87,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
-        <module>seatunnel-server</module>
+	    <module>seatunnel-server</module>
     </modules>
 
     <profiles>
@@ -97,7 +97,6 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <modules>
-                <module>seatunnel-dependency-shade</module>
                 <module>seatunnel-connectors-v2</module>
                 <module>seatunnel-connectors-v2-dist</module>
                 <module>seatunnel-examples</module>
@@ -928,7 +927,6 @@
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate.validator.version}</version>
             </dependency>
-
         </dependencies>
     </dependencyManagement>
 
