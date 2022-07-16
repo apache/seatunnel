@@ -15,17 +15,74 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import { defineComponent, toRefs, withKeys, getCurrentInstance } from 'vue'
+import { NSpace, NForm, NFormItem, NInput, NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+import { useForm } from './use-form'
 
 const Login = defineComponent({
   setup() {
+    const { t } = useI18n()
+    const { state } = useForm()
+    const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
+    const handleLogin = () => {
+
+    }
+
+    return {
+      t,
+      ...toRefs(state),
+      trim,
+      handleLogin
+    }
   },
   render() {
     return (
-      <div>
-        <h1>Login</h1>
-      </div>
+      <NSpace justify='center' align='center' style={{ width: '100%', height: '100vh' }}>
+        <div>
+          <h2>{this.t('login.login_to_sea_tunnel')}</h2>
+          <NForm rules={this.rules} ref='loginFormRef'>
+            <NFormItem
+              label={this.t('login.username')}
+              label-style={{ color: 'black' }}
+              path='userName'
+            >
+              <NInput
+                allowInput={this.trim}
+                type='text'
+                v-model={[this.loginForm.username, 'value']}
+                placeholder={this.t('login.username_tips')}
+                autofocus
+                onKeydown={withKeys(this.handleLogin, ['enter'])}
+              />
+            </NFormItem>
+            <NFormItem
+              label={this.t('login.password')}
+              label-style={{ color: 'black' }}
+              path='userPassword'
+            >
+              <NInput
+                allowInput={this.trim}
+                type='password'
+                v-model={[this.loginForm.password, 'value']}
+                placeholder={this.t('login.password_tips')}
+                onKeydown={withKeys(this.handleLogin, ['enter'])}
+              />
+            </NFormItem>
+          </NForm>
+          <NButton
+            type='info'
+            disabled={
+              !this.loginForm.username || !this.loginForm.password
+            }
+            style={{ width: '100%' }}
+            onClick={this.handleLogin}
+          >
+            {this.t('login.login')}
+          </NButton>
+        </div>
+      </NSpace>
     )
   }
 })

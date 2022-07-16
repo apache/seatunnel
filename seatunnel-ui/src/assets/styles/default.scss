@@ -15,12 +15,22 @@
  * limitations under the License.
  */
 
-import mapping from './mapping'
-import trim from './trim'
-
-const utils = {
-  mapping,
-  trim
+* {
+  outline: 0;
 }
 
-export default utils
+html,
+body {
+  width: 100%;
+  height: 100%;
+}
+
+html,
+body,
+p,
+dl,
+dd,
+dt {
+  margin: 0;
+  padding: 0;
+}

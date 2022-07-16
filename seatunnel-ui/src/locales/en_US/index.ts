@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-const test = {
-  'test': 'test'
-}
+import login from '@/locales/en_US/login'
 
 export default {
-  test
+  login
 }
