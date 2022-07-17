@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkState;
 import org.apache.seatunnel.server.common.SeatunnelException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
@@ -134,7 +135,7 @@ public class HttpUtils {
         }
 
         private Connection build() {
-            checkState(!isNullOrEmpty(url), "request url is empty");
+            checkState(!Strings.isNullOrEmpty(url), "request url is empty");
             connection = Jsoup.connect(url);
             data.ifPresent(connection::data);
             requestBody.ifPresent(connection::requestBody);
