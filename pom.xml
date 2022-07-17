@@ -77,16 +77,11 @@
             you need to open this annotation and change the dependency of config-shade to project.
             <module>seatunnel-config</module>
         -->
-        <module>seatunnel-dependency-shade</module>
         <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms</module>
         <module>seatunnel-connectors</module>
-        <module>seatunnel-connectors-v2</module>
-        <module>seatunnel-connectors-v2-dist</module>
-        <module>seatunnel-examples</module>
-        <module>seatunnel-e2e</module>
         <module>seatunnel-api</module>
         <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
@@ -94,6 +89,24 @@
         <module>seatunnel-dist</module>
 	    <module>seatunnel-server</module>
     </modules>
+
+    <profiles>
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-connectors-v2</module>
+                <module>seatunnel-connectors-v2-dist</module>
+                <module>seatunnel-examples</module>
+                <module>seatunnel-e2e</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>release</id>
+        </profile>
+    </profiles>
 
     <properties>
         <revision>2.1.3-SNAPSHOT</revision>
@@ -109,7 +122,7 @@
         <neo4j.connector.spark.version>4.1.0</neo4j.connector.spark.version>
         <iceberg.version>0.13.1</iceberg.version>
         <flink.version>1.13.6</flink.version>
-        <hudi.version>0.10.0</hudi.version>
+        <hudi.version>0.11.1</hudi.version>
         <orc.version>1.5.6</orc.version>
         <hive.exec.version>2.3.9</hive.exec.version>
         <commons.logging.version>1.2</commons.logging.version>
@@ -194,6 +207,7 @@
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
+        <powermock.version>2.0.9</powermock.version>
         <hadoop2.version>2.6.5</hadoop2.version>
         <hadoop3.version>3.0.0</hadoop3.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
@@ -503,6 +517,12 @@
 
             <dependency>
                 <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-hadoop-mr-bundle</artifactId>
+                <version>${hudi.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-spark-bundle_${scala.binary.version}</artifactId>
                 <version>${hudi.version}</version>
             </dependency>
@@ -663,11 +683,22 @@
             </dependency>
 
             <dependency>
+                <groupId>org.powermock</groupId>
+                <artifactId>powermock-module-junit4</artifactId>
+                <version>${powermock.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.powermock</groupId>
+                <artifactId>powermock-api-mockito2</artifactId>
+                <version>${powermock.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
                 <groupId>com.github.jsonzou</groupId>
                 <artifactId>jmockdata</artifactId>
                 <version>${jmockdata.version}</version>
             </dependency>
-
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
@@ -828,11 +859,6 @@
             <dependency>
                 <groupId>org.apache.curator</groupId>
                 <artifactId>curator-framework</artifactId>
-                <version>${curator.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.curator</groupId>
-                <artifactId>curator-recipes</artifactId>
                 <version>${curator.version}</version>
             </dependency>
             <dependency>
@@ -1287,7 +1313,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>

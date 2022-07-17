@@ -7,15 +7,6 @@ import TabItem from '@theme/TabItem';
 
 Output data to local or hdfs or s3 file.
 
-:::tip
-
-Used to write data to file. Supports Batch and Streaming mode.
-
-* [x] Batch
-* [x] Streaming
-
-:::
-
 ## Options
 
 <Tabs
@@ -36,7 +27,7 @@ Used to write data to file. Supports Batch and Streaming mode.
 | field_delimiter                   | string | no       | '\001'                                                        |
 | row_delimiter                     | string | no       | "\n"                                                          |
 | partition_by                      | array  | no       | -                                                             |
-| partition_dir_expression          | string | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                    |
+| partition_dir_expression          | string | no       | "\${k0}=\${v0}\/\${k1}=\${v1}\/...\/\${kn}=\${vn}\/"          |
 | is_partition_field_write_in_file  | boolean| no       | false                                                         |
 | sink_columns                      | array  | no       | When this parameter is empty, all fields are sink columns     |
 | is_enable_transaction             | boolean| no       | true                                                          |
@@ -120,6 +111,8 @@ Streaming Job not support `overwrite`.
 </TabItem>
 <TabItem value="HdfsFile">
 
+In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
 | name                              | type   | required | default value                                                 |
 | --------------------------------- | ------ | -------- | ------------------------------------------------------------- |
 | path                              | string | yes      | -                                                             |
@@ -129,7 +122,7 @@ Streaming Job not support `overwrite`.
 | field_delimiter                   | string | no       | '\001'                                                        |
 | row_delimiter                     | string | no       | "\n"                                                          |
 | partition_by                      | array  | no       | -                                                             |
-| partition_dir_expression          | string | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                    |
+| partition_dir_expression          | string | no       | "\${k0}=\${v0}\/\${k1}=\${v1}\/...\/\${kn}=\${vn}\/"          |
 | is_partition_field_write_in_file  | boolean| no       | false                                                         |
 | sink_columns                      | array  | no       | When this parameter is empty, all fields are sink columns     |
 | is_enable_transaction             | boolean| no       | true                                                          |

@@ -17,90 +17,132 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FILE_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.FILE_NAME_EXPRESSION;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.IS_PARTITION_FIELD_WRITE_IN_FILE;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.PATH;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.ROW_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.Constant.SAVE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.Constant.HIVE_METASTORE_URIS;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.Constant.HIVE_RESULT_TABLE_NAME;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.SaveMode;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.TextFileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import lombok.Data;
 import lombok.NonNull;
-import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.thrift.TException;
 
+import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Data
-public class HiveSinkConfig {
-
-    private static final String HIVE_SAVE_MODE = "save_mode";
-
-    private static final String HIVE_SINK_COLUMNS = "sink_columns";
-
-    private static final String HIVE_PARTITION_BY = "partition_by";
-
-    private static final String HIVE_RESULT_TABLE_NAME = "result_table_name";
-
-    private static final String SINK_TMP_FS_ROOT_PATH = "sink_tmp_fs_root_path";
-
-    private static final String HIVE_TABLE_FS_PATH = "hive_table_fs_path";
-
-    private static final String HIVE_TXT_FILE_FIELD_DELIMITER = "hive_txt_file_field_delimiter";
-
-    private static final String HIVE_TXT_FILE_LINE_DELIMITER = "hive_txt_file_line_delimiter";
-
-    private SaveMode saveMode = SaveMode.APPEND;
-
-    private String sinkTmpFsRootPath = "/tmp/seatunnel";
-
-    private List<String> partitionFieldNames;
-
+public class HiveSinkConfig implements Serializable {
     private String hiveTableName;
+    private List<String> hivePartitionFieldList;
+    private String hiveMetaUris;
 
-    private List<String> sinkColumns;
+    private String dbName;
 
-    private String hiveTableFsPath;
+    private String tableName;
 
-    private String hiveTxtFileFieldDelimiter = String.valueOf('\001');
+    private Table table;
 
-    private String hiveTxtFileLineDelimiter = "\n";
+    private TextFileSinkConfig textFileSinkConfig;
 
-    public enum SaveMode {
-        APPEND(),
-        OVERWRITE();
+    public HiveSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
+        checkArgument(!CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
 
-        public static SaveMode fromStr(String str) {
-            if ("overwrite".equals(str)) {
-                return OVERWRITE;
+        if (config.hasPath(HIVE_RESULT_TABLE_NAME) && !StringUtils.isBlank(config.getString(HIVE_RESULT_TABLE_NAME))) {
+            this.hiveTableName = config.getString(HIVE_RESULT_TABLE_NAME);
+        }
+        checkNotNull(hiveTableName);
+
+        if (config.hasPath(HIVE_METASTORE_URIS) && !StringUtils.isBlank(config.getString(HIVE_METASTORE_URIS))) {
+            this.hiveMetaUris = config.getString(HIVE_METASTORE_URIS);
+        }
+        checkNotNull(hiveMetaUris);
+
+        String[] dbAndTableName = hiveTableName.split("\\.");
+        if (dbAndTableName == null || dbAndTableName.length != 2) {
+            throw new RuntimeException("Please config " + HIVE_RESULT_TABLE_NAME + " as db.table format");
+        }
+        this.dbName = dbAndTableName[0];
+        this.tableName = dbAndTableName[1];
+        HiveMetaStoreProxy hiveMetaStoreProxy = new HiveMetaStoreProxy(hiveMetaUris);
+        HiveMetaStoreClient hiveMetaStoreClient = hiveMetaStoreProxy.getHiveMetaStoreClient();
+
+        try {
+            table = hiveMetaStoreClient.getTable(dbName, tableName);
+            String inputFormat = table.getSd().getInputFormat();
+            if ("org.apache.hadoop.mapred.TextInputFormat".equals(inputFormat)) {
+                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
             } else {
-                return APPEND;
+                throw new RuntimeException("Only support text file now");
             }
+
+            Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
+            config = config.withValue(IS_PARTITION_FIELD_WRITE_IN_FILE, ConfigValueFactory.fromAnyRef(false))
+                .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
+                .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")))
+                .withValue(FILE_NAME_EXPRESSION, ConfigValueFactory.fromAnyRef("${transactionId}"))
+                .withValue(PATH, ConfigValueFactory.fromAnyRef(table.getSd().getLocation()));
+
+            if (!config.hasPath(SAVE_MODE) || StringUtils.isBlank(config.getString(Constant.SAVE_MODE))) {
+                config = config.withValue(SAVE_MODE, ConfigValueFactory.fromAnyRef(SaveMode.APPEND.toString()));
+            }
+
+            this.textFileSinkConfig = new TextFileSinkConfig(config, seaTunnelRowTypeInfo);
+
+            // --------------------Check textFileSinkConfig with the hive table info-------------------
+            List<FieldSchema> fields = hiveMetaStoreClient.getFields(dbAndTableName[0], dbAndTableName[1]);
+            List<FieldSchema> partitionKeys = table.getPartitionKeys();
+
+            // Remove partitionKeys from table fields
+            List<FieldSchema> fieldNotContainPartitionKey = fields.stream().filter(filed -> !partitionKeys.contains(filed)).collect(Collectors.toList());
+
+            // check fields size must same as sinkColumnList size
+            if (fieldNotContainPartitionKey.size() != textFileSinkConfig.getSinkColumnList().size()) {
+                throw new RuntimeException("sink columns size must same as hive table field size");
+            }
+
+            // check hivePartitionFieldList size must same as partitionFieldList size
+            if (partitionKeys.size() != textFileSinkConfig.getPartitionFieldList().size()) {
+                throw new RuntimeException("partition by columns size must same as hive table partition columns size");
+            }
+
+            // --------------------Check textFileSinkConfig with the hive table info end----------------
+        } catch (TException e) {
+            throw new RuntimeException(e);
+        } finally {
+            hiveMetaStoreClient.close();
+        }
+
+        // hive only support append or overwrite
+        if (!this.textFileSinkConfig.getSaveMode().equals(SaveMode.APPEND) && !this.textFileSinkConfig.getSaveMode().equals(SaveMode.OVERWRITE)) {
+            throw new RuntimeException("hive only support append or overwrite save mode");
         }
     }
 
-    public HiveSinkConfig(@NonNull Config pluginConfig) {
-        checkNotNull(pluginConfig.getString(HIVE_RESULT_TABLE_NAME));
-        checkNotNull(pluginConfig.getString(HIVE_TABLE_FS_PATH));
-        this.hiveTableName = pluginConfig.getString(HIVE_RESULT_TABLE_NAME);
-        this.hiveTableFsPath = pluginConfig.getString(HIVE_TABLE_FS_PATH);
-
-        this.saveMode = StringUtils.isBlank(pluginConfig.getString(HIVE_SAVE_MODE)) ? SaveMode.APPEND : SaveMode.fromStr(pluginConfig.getString(HIVE_SAVE_MODE));
-        if (!StringUtils.isBlank(pluginConfig.getString(SINK_TMP_FS_ROOT_PATH))) {
-            this.sinkTmpFsRootPath = pluginConfig.getString(SINK_TMP_FS_ROOT_PATH);
-        }
-
-        this.partitionFieldNames = pluginConfig.getStringList(HIVE_PARTITION_BY);
-        this.sinkColumns = pluginConfig.getStringList(HIVE_SINK_COLUMNS);
-
-        if (!StringUtils.isBlank(pluginConfig.getString(HIVE_TXT_FILE_FIELD_DELIMITER))) {
-            this.hiveTxtFileFieldDelimiter = pluginConfig.getString(HIVE_TXT_FILE_FIELD_DELIMITER);
-        }
-
-        if (!StringUtils.isBlank(pluginConfig.getString(HIVE_TXT_FILE_LINE_DELIMITER))) {
-            this.hiveTxtFileLineDelimiter = pluginConfig.getString(HIVE_TXT_FILE_LINE_DELIMITER);
-        }
-
-        // partition fields must in sink columns
-        if (!CollectionUtils.isEmpty(this.sinkColumns) && !CollectionUtils.isEmpty(this.partitionFieldNames) && !this.sinkColumns.containsAll(this.partitionFieldNames)) {
-            throw new RuntimeException("partition fields must in sink columns");
-        }
+    public TextFileSinkConfig getTextFileSinkConfig() {
+        return textFileSinkConfig;
     }
 }
