@@ -22,7 +22,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.javaprop.JavaPropsMapper;
 
-import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -50,6 +49,44 @@ public class ConfigUtil {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    static Object flatteningMap(Object rawValue, Map<String, Object> newMap, List<String> keys, boolean nestedMap) {
+        if (rawValue == null) {
+            return null;
+        }
+        if (!(rawValue instanceof List) && !(rawValue instanceof Map)) {
+            if (newMap == null) {
+                return rawValue;
+            }
+            newMap.put(String.join(".", keys), rawValue);
+            return newMap;
+        }
+
+        if (rawValue instanceof List) {
+            List<Object> rawList = (List<Object>) rawValue;
+            for (int i = 0; i < rawList.size(); i++) {
+                rawList.set(i, flatteningMap(rawList.get(i), null, null, false));
+            }
+            if (newMap != null) {
+                newMap.put(String.join(".", keys), rawList);
+                return newMap;
+            }
+            return rawList;
+        } else {
+            Map<String, Object> rawMap = (Map<String, Object>) rawValue;
+            if (!nestedMap) {
+                keys = new ArrayList<>();
+                newMap = new HashMap<>(rawMap.size());
+            }
+            for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
+                keys.add(entry.getKey());
+                flatteningMap(entry.getValue(), newMap, keys, true);
+                keys.remove(keys.size() - 1);
+            }
+            return newMap;
+        }
+    }
+
     /**
      * <pre>
      *                                                  poll.timeout = 1000
@@ -57,31 +94,18 @@ public class ConfigUtil {
      *                                                  poll.interval = 500
      * </pre>
      */
+    @SuppressWarnings("unchecked")
     public static Map<String, Object> flatteningMap(Map<String, Object> treeMap) {
-        Map<String, Object> flatteningMap = new HashMap<>();
-        List<String> keys = new ArrayList<>();
-        backtracking(flatteningMap, treeMap, keys);
-        return flatteningMap;
+        return (Map<String, Object>) flatteningMapWithObject(treeMap);
     }
 
-    @SuppressWarnings("unchecked")
-    private static void backtracking(Map<String, Object> flatteningMap, Object rawValue, List<String> keys) {
-        if (rawValue == null) {
-            return;
-        }
-        if (!(rawValue instanceof Map)) {
-            flatteningMap.put(String.join(".", keys), rawValue);
-            return;
-        }
-        ((Map<String, Object>) rawValue).forEach((key, value) -> {
-            keys.add(key);
-            backtracking(flatteningMap, value, keys);
-            keys.remove(keys.size() - 1);
-        });
+    static Object flatteningMapWithObject(Object rawValue) {
+        return flatteningMap(rawValue, null, null, false);
     }
 
     @SuppressWarnings("unchecked")
     public static <T> T convertValue(Object rawValue, TypeReference<T> typeReference) {
+        rawValue = flatteningMapWithObject(rawValue);
         if (typeReference.getType() instanceof Class) {
             // simple type
             Class<T> clazz = (Class<T>) typeReference.getType();
@@ -93,16 +117,10 @@ public class ConfigUtil {
             } catch (IllegalArgumentException e) {
                 // Continue with Jackson parsing
             }
-        } else {
-            // complex type
-            ParameterizedType type = (ParameterizedType) typeReference.getType();
-            if (Map.class.equals(type.getRawType()) && rawValue instanceof Map) {
-                rawValue = ConfigUtil.flatteningMap((Map<String, Object>) rawValue);
-            }
         }
         try {
-            String str = rawValue instanceof String ? ((String) rawValue) : JACKSON_MAPPER.writeValueAsString(rawValue);
-            return JACKSON_MAPPER.readValue(str, typeReference);
+            // complex type && untreated type
+            return JACKSON_MAPPER.readValue(convertToJsonString(rawValue), typeReference);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(String.format("Json parsing exception, value '%s', and expected type '%s'", rawValue, typeReference.getType().getTypeName()), e);
         }

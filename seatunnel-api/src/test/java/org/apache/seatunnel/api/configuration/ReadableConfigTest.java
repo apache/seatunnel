@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,11 +34,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings("MagicNumber")
+@SuppressWarnings({
+    "MagicNumber", "checkstyle:StaticVariableName"
+})
 public class ReadableConfigTest {
     private static final String CONFIG_PATH = "/conf/option-test.conf";
-    @SuppressWarnings("checkstyle:StaticVariableName")
     private static ReadonlyConfig config;
+    private static Map<String, String> map;
 
     @BeforeAll
     public static void prepare() throws URISyntaxException {
@@ -47,6 +50,13 @@ public class ReadableConfigTest {
             .resolveWith(ConfigFactory.systemProperties(),
                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
         config = ReadonlyConfig.fromConfig(rawConfig.getConfigList("source").get(0));
+        map = new HashMap<>();
+        map.put("inner.path", "mac");
+        map.put("inner.name", "ashulin");
+        map.put("inner.map", "{\"fantasy\":\"final\"}");
+        map.put("type", "source");
+        map.put("patch.note", "hollow");
+        map.put("name", "saitou");
     }
 
     @Test
@@ -112,18 +122,10 @@ public class ReadableConfigTest {
 
     @Test
     public void testBasicMapOption() {
-        Map<String, String> map = new HashMap<>();
-        map.put("inner.path", "mac");
-        map.put("inner.name", "ashulin");
-        map.put("inner.map", "{\"fantasy\":\"final\"}");
-        map.put("type", "source");
-        map.put("patch.note", "hollow");
-        map.put("name", "saitou");
-
         Assertions.assertEquals(map, config.get(Options.key("option.map").mapType().noDefaultValue()));
-        map = new HashMap<>();
-        map.put("fantasy", "final");
-        Assertions.assertEquals(map, config.get(Options.key("option.map.inner.map").mapType().noDefaultValue()));
+        Map<String, String> newMap = new HashMap<>();
+        newMap.put("fantasy", "final");
+        Assertions.assertEquals(newMap, config.get(Options.key("option.map.inner.map").mapType().noDefaultValue()));
         Assertions.assertTrue(StringUtils.isNotBlank(config.get(Options.key("option").stringType().noDefaultValue())));
         Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.string").mapType().noDefaultValue()));
         Assertions.assertNull(config.get(Options.key("option.not-exist").enumType(OptionTest.TestMode.class).noDefaultValue()));
@@ -140,5 +142,17 @@ public class ReadableConfigTest {
         list.add("fantasy");
         list.add("VII");
         Assertions.assertEquals(list, config.get(Options.key("option.list").listType().noDefaultValue()));
+    }
+
+    @Test
+    public void testComplexTypeOption() {
+        List<Map<String, List<Map<String, String>>>> complexType = config.get(Options.key("option.complex-type").type(new TypeReference<List<Map<String, List<Map<String, String>>>>>() {
+        }).noDefaultValue());
+        Assertions.assertEquals(1, complexType.size());
+        Assertions.assertEquals(2, complexType.get(0).size());
+        complexType.get(0).values().forEach(value -> {
+            Assertions.assertEquals(1, value.size());
+            Assertions.assertEquals(map, value.get(0));
+        });
     }
 }

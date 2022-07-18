@@ -19,13 +19,14 @@ package org.apache.seatunnel.api.configuration;
 
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertToJsonString;
 import static org.apache.seatunnel.api.configuration.util.ConfigUtil.convertValue;
-
-import org.apache.seatunnel.api.configuration.util.ConfigUtil;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.flatteningMap;
+import static org.apache.seatunnel.api.configuration.util.ConfigUtil.treeMap;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Arrays;
@@ -47,15 +48,15 @@ public class ReadonlyConfig {
     }
 
     public static ReadonlyConfig fromMap(Map<String, Object> map) {
-        return new ReadonlyConfig(ConfigUtil.treeMap(map));
+        return new ReadonlyConfig(treeMap(map));
     }
 
     public static ReadonlyConfig fromConfig(Config config) {
         try {
-            return new ReadonlyConfig(ConfigUtil.treeMap(
-                JACKSON_MAPPER.readValue(
-                    config.root().render(ConfigRenderOptions.concise()),
-                    Object.class)));
+            return fromMap(JACKSON_MAPPER.readValue(
+                config.root().render(ConfigRenderOptions.concise()),
+                new TypeReference<Map<String, Object>>() {
+                }));
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Json parsing exception.");
         }
@@ -67,7 +68,7 @@ public class ReadonlyConfig {
 
     public Map<String, String> toMap() {
         synchronized (this.confData) {
-            Map<String, Object> flatteningMap = ConfigUtil.flatteningMap(confData);
+            Map<String, Object> flatteningMap = flatteningMap(confData);
             Map<String, String> result = new HashMap<>(flatteningMap.size());
             for (Map.Entry<String, Object> entry : flatteningMap.entrySet()) {
                 result.put(entry.getKey(), convertToJsonString(entry.getValue()));
