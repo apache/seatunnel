@@ -85,6 +85,11 @@
         <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
     </module>
 
+    <module name="SuppressionSingleFilter">
+        <property name="files" value=".*(IT|Test).java"/>
+        <property name="checks" value="MagicNumber"/>
+    </module>
+
     <module name="SuppressWarningsFilter"/>
     <module name="TreeWalker">
         <module name="SuppressWarningsHolder"/>
@@ -207,7 +212,9 @@
 
         <module name="OneStatementPerLine"/>
 
-        <module name="MagicNumber"/>
+        <module name="MagicNumber">
+            <property name="ignoreHashCodeMethod" value="true"/>
+        </module>
 
         <module name="MultipleVariableDeclarations"/>
 

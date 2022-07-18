@@ -122,7 +122,6 @@ public class ShardMetadata implements Serializable {
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
     public int hashCode() {
         int result = shardKey.hashCode();
         result = 31 * result + shardKeyType.hashCode();
