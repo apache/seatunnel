@@ -15,24 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.sink;
+import { reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import type { FormRules } from 'naive-ui'
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
+export function useForm() {
+  const { t } = useI18n()
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import org.apache.hadoop.hive.metastore.api.Table;
+  const state = reactive({
+    loginFormRef: ref(),
+    loginForm: {
+      username: '',
+      password: ''
+    },
+    rules: {
+      userName: {
+        trigger: ['input', 'blur'],
+        validator() {
+          if (state.loginForm.username === '') {
+            return new Error(t('login.username_tips'))
+          }
+        }
+      },
+      userPassword: {
+        trigger: ['input', 'blur'],
+        validator() {
+          if (state.loginForm.password === '') {
+            return new Error(t('login.password_tips'))
+          }
+        }
+      }
+    } as FormRules
+  })
 
-import java.io.Serializable;
-
-@Data
-@AllArgsConstructor
-public class HiveCommitInfo implements Serializable {
-
-    private FileCommitInfo fileCommitInfo;
-
-    private String hiveMetastoreUris;
-
-    private Table table;
-
+  return {
+    state
+  }
 }
