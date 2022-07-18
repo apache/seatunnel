@@ -97,7 +97,7 @@ public class ConfigUtil {
             // complex type
             ParameterizedType type = (ParameterizedType) typeReference.getType();
             if (Map.class.equals(type.getRawType()) && rawValue instanceof Map) {
-                rawValue = ConfigUtil.flatteningMap(((Map<String, Object>) rawValue));
+                rawValue = ConfigUtil.flatteningMap((Map<String, Object>) rawValue);
             }
         }
         try {

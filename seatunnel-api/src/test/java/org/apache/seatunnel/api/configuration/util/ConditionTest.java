@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.configuration.OptionTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("MagicNumber")
 public class ConditionTest {
     private static final Condition<OptionTest.TestMode> TEST_CONDITION = Condition.of(TEST_MODE, OptionTest.TestMode.EARLIEST)
         .or(TEST_MODE, OptionTest.TestMode.LATEST)

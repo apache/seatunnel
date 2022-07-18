@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("MagicNumber")
 public class OptionTest {
     public static final Option<Integer> TEST_NUM = Options.key("option.num")
         .intType()

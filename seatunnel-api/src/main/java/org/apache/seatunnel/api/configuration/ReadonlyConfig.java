@@ -44,7 +44,6 @@ public class ReadonlyConfig {
 
     private ReadonlyConfig(Map<String, Object> confData) {
         this.confData = confData;
-        ;
     }
 
     public static ReadonlyConfig fromMap(Map<String, Object> map) {
@@ -92,7 +91,7 @@ public class ReadonlyConfig {
                     if (!((value instanceof Map))) {
                         return Optional.empty();
                     } else {
-                        data = ((Map<String, Object>) value);
+                        data = (Map<String, Object>) value;
                     }
                 }
             }
@@ -102,7 +101,6 @@ public class ReadonlyConfig {
             return Optional.of(convertValue(value, option.typeReference()));
         }
     }
-
 
     @Override
     public int hashCode() {
