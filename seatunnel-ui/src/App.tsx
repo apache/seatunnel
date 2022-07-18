@@ -15,21 +15,47 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NButton } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
+import { defineComponent, computed } from 'vue'
+import {
+  NConfigProvider,
+  darkTheme,
+  dateZhCN,
+  dateEnUS,
+  zhCN,
+  enUS
+} from 'naive-ui'
+import { useThemeStore } from '@/store/theme'
+import { useLocalesStore } from '@/store/locale'
+import themeList from '@/themes'
+import type { GlobalThemeOverrides } from 'naive-ui'
 
 const App = defineComponent({
   setup() {
-    const { t } = useI18n()
+    const themeStore = useThemeStore()
+    const currentTheme = computed(() =>
+      themeStore.darkTheme ? darkTheme : undefined
+    )
+    const localesStore = useLocalesStore()
 
-    return { t }
+    return {
+      currentTheme,
+      localesStore
+    }
   },
   render() {
-    const { t } = this
+    const themeOverrides: GlobalThemeOverrides =
+      themeList[this.currentTheme ? 'dark' : 'light']
 
     return (
-      <NButton>{t('test.test')}</NButton>
+      <NConfigProvider
+        theme={this.currentTheme}
+        theme-overrides={themeOverrides}
+        date-locale={
+          String(this.localesStore.getLocales) === 'zh_CN' ? dateZhCN : dateEnUS
+        }
+        locale={String(this.localesStore.getLocales) === 'zh_CN' ? zhCN : enUS}>
+        <router-view />
+      </NConfigProvider>
     )
   }
 })

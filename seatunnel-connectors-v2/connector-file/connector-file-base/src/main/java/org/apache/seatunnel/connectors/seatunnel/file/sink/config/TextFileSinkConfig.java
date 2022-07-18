@@ -19,10 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.AbstractTextFileConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseTextFileConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -38,14 +40,14 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Data
-public class TextFileSinkConfig extends AbstractTextFileConfig implements PartitionConfig {
+public class TextFileSinkConfig extends BaseTextFileConfig implements PartitionConfig {
 
     private List<String> sinkColumnList;
 
     private List<String> partitionFieldList;
 
     /**
-     * default is ${k1}=${v1}/${k2}=${v2}/...
+     * default is ${k0}=${v0}/${k1}=${v1}/... {@link FileSinkPartitionDirNameGenerator#generatorPartitionDir(SeaTunnelRow)} ()}
      */
     private String partitionDirExpression;
 
@@ -69,7 +71,7 @@ public class TextFileSinkConfig extends AbstractTextFileConfig implements Partit
         super(config);
         checkArgument(!CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
 
-        if (config.hasPath(Constant.FILE_FORMAT) && !CollectionUtils.isEmpty(config.getStringList(Constant.SINK_COLUMNS))) {
+        if (config.hasPath(Constant.SINK_COLUMNS) && !CollectionUtils.isEmpty(config.getStringList(Constant.SINK_COLUMNS))) {
             this.sinkColumnList = config.getStringList(Constant.SINK_COLUMNS);
         }
 

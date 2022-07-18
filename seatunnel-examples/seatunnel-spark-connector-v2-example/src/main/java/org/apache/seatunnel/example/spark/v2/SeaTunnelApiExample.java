@@ -38,9 +38,9 @@ public class SeaTunnelApiExample {
         sparkCommandArgs.setCheckConfig(false);
         sparkCommandArgs.setVariables(null);
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-        Command<SparkCommandArgs> flinkCommand =
+        Command<SparkCommandArgs> sparkCommand =
                 new SparkCommandBuilder().buildCommand(sparkCommandArgs);
-        Seatunnel.run(flinkCommand);
+        Seatunnel.run(sparkCommand);
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {

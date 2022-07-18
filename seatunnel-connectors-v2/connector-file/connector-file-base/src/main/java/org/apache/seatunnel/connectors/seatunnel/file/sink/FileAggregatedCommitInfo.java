@@ -21,6 +21,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -33,4 +34,6 @@ public class FileAggregatedCommitInfo implements Serializable {
      * V is the target file path of the data file.
      */
     private Map<String, Map<String, String>> transactionMap;
+
+    private Map<String, List<String>> partitionDirAndValsMap;
 }

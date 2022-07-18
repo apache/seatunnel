@@ -25,5 +25,6 @@ import java.io.Serializable;
 @Data
 @AllArgsConstructor
 public class HiveSinkState implements Serializable {
-    private HiveSinkConfig hiveSinkConfig;
+    private String transactionId;
+    private Long checkpointId;
 }

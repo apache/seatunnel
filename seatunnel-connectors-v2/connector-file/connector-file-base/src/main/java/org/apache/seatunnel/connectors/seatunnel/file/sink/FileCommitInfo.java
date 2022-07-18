@@ -21,6 +21,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -33,6 +34,8 @@ public class FileCommitInfo implements Serializable {
      * V is the target file path of the data file.
      */
     private Map<String, String> needMoveFiles;
+
+    private Map<String, List<String>> partitionDirAndValsMap;
 
     private String transactionDir;
 }
