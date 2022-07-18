@@ -2,37 +2,124 @@ package org.apache.seatunnel.api.configuration;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.javaprop.JavaPropsMapper;
+import org.apache.commons.lang3.StringUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
-import java.util.Properties;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ReadableConfigTest {
     private static final String CONFIG_PATH = "/conf/option-test.conf";
+    private static ReadonlyConfig config;
 
-//    @BeforeAll
-    @Test
-    public void prepare() throws URISyntaxException, IOException {
-        Config config = ConfigFactory
-            .parseFile(Paths.get(this.getClass().getResource(CONFIG_PATH).toURI()).toFile())
+    @BeforeAll
+    public static void prepare() throws URISyntaxException {
+        Config rawConfig = ConfigFactory
+            .parseFile(Paths.get(ReadableConfigTest.class.getResource(CONFIG_PATH).toURI()).toFile())
             .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
             .resolveWith(ConfigFactory.systemProperties(),
                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        config = ReadonlyConfig.fromConfig(rawConfig.getConfigList("source").get(0));
+    }
 
+    @Test
+    public void testBooleanOption() {
+        Assertions.assertEquals(true, config.get(Options.key("option.bool").booleanType().noDefaultValue()));
+        Assertions.assertEquals(false, config.get(Options.key("option.bool-str").booleanType().noDefaultValue()));
+        Assertions.assertEquals(true, config.get(Options.key("option.int-str").booleanType().noDefaultValue()));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").booleanType().noDefaultValue()));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.string").booleanType().noDefaultValue()));
+    }
 
-        String render = config.root().render(ConfigRenderOptions.concise());
-        JavaPropsMapper mapper = new JavaPropsMapper();
-        ObjectMapper om = new ObjectMapper();
-        Object o = om.readValue(render, Object.class);
-        Properties properties = mapper.writeValueAsProperties(o);
+    @Test
+    public void testIntOption() {
+        Assertions.assertEquals(2147483647, config.get(Options.key("option.int").intType().noDefaultValue()));
+        Assertions.assertEquals(100, config.get(Options.key("option.int-str").intType().noDefaultValue()));
+        Assertions.assertEquals(2147483647, config.get(Options.key("option.not-exist").intType().defaultValue(2147483647)));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").intType().noDefaultValue()));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.long").intType().noDefaultValue()));
+    }
+
+    @Test
+    public void testLongOption() {
+        Assertions.assertEquals(21474836470L, config.get(Options.key("option.long").longType().noDefaultValue()));
+        Assertions.assertEquals(21474836470L, config.get(Options.key("option.long-str").longType().noDefaultValue()));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").longType().noDefaultValue()));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.bool").intType().noDefaultValue()));
+    }
+
+    @Test
+    public void testFloatOption() {
+        Assertions.assertEquals(3.3333F, config.get(Options.key("option.float").floatType().noDefaultValue()));
+        Assertions.assertEquals(21474836470F, config.get(Options.key("option.long-str").floatType().noDefaultValue()));
+        Assertions.assertEquals(3.1415F, config.get(Options.key("option.float-str").floatType().noDefaultValue()));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").floatType().noDefaultValue()));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.bool-str").floatType().noDefaultValue()));
+    }
+
+    @Test
+    public void testDoubleOption() {
+        Assertions.assertEquals(3.1415926535897932384626433832795028841971D, config.get(Options.key("option.double").doubleType().noDefaultValue()));
+        Assertions.assertEquals(3.1415926535897932384626433832795028841971D, config.get(Options.key("option.double-str").doubleType().noDefaultValue()));
+        Assertions.assertEquals(21474836470D, config.get(Options.key("option.long-str").doubleType().noDefaultValue()));
+        Assertions.assertEquals(3.1415D, config.get(Options.key("option.float-str").doubleType().noDefaultValue()));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").doubleType().noDefaultValue()));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.bool-str").doubleType().noDefaultValue()));
+    }
+
+    @Test
+    public void testStringOption() {
+        Assertions.assertEquals("Hello, Apache SeaTunnel", config.get(Options.key("option.string").stringType().noDefaultValue()));
+        // 'option.double' is not represented as a string and is expected to lose precision
+        Assertions.assertNotEquals("3.1415926535897932384626433832795028841971", config.get(Options.key("option.double").stringType().noDefaultValue()));
+        Assertions.assertEquals("3.1415926535897932384626433832795028841971", config.get(Options.key("option.double-str").stringType().noDefaultValue()));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").stringType().noDefaultValue()));
+    }
+
+    @Test
+    public void testEnumOption() {
+        Assertions.assertEquals(OptionTest.TestMode.LATEST, config.get(Options.key("option.enum").enumType(OptionTest.TestMode.class).noDefaultValue()));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.string").enumType(OptionTest.TestMode.class).noDefaultValue()));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").enumType(OptionTest.TestMode.class).noDefaultValue()));
+    }
+
+    @Test
+    public void testBasicMapOption() {
+        Map<String, String> map = new HashMap<>();
+        map.put("inner.path", "mac");
+        map.put("inner.name", "ashulin");
+        map.put("inner.map", "{\"fantasy\":\"final\"}");
+        map.put("type", "source");
+        map.put("patch.note", "hollow");
+        map.put("name", "saitou");
+
+        Assertions.assertEquals(map, config.get(Options.key("option.map").mapType().noDefaultValue()));
+        map = new HashMap<>();
+        map.put("fantasy", "final");
+        Assertions.assertEquals(map, config.get(Options.key("option.map.inner.map").mapType().noDefaultValue()));
+        Assertions.assertTrue(StringUtils.isNotBlank(config.get(Options.key("option").stringType().noDefaultValue())));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> config.get(Options.key("option.string").mapType().noDefaultValue()));
+        Assertions.assertNull(config.get(Options.key("option.not-exist").enumType(OptionTest.TestMode.class).noDefaultValue()));
+    }
+
+    @Test
+    public void testBasicListOption() {
+        List<String> list = new ArrayList<>();
+        list.add("Hello");
+        list.add("Apache SeaTunnel");
+        Assertions.assertEquals(list, config.get(Options.key("option.list-json").listType().noDefaultValue()));
+        list = new ArrayList<>();
+        list.add("final");
+        list.add("fantasy");
+        list.add("VII");
+        Assertions.assertEquals(list, config.get(Options.key("option.list").listType().noDefaultValue()));
     }
 }

@@ -65,12 +65,13 @@ public interface RequiredOption {
                     builder.append(", ");
                 }
                 builder.append("'")
-                    .append(option.getKey())
+                    .append(option.key())
                     .append("'");
                 i++;
             }
             return builder.toString();
         }
+
         @Override
         public String toString() {
             return String.format("Exclusive required options: %s", getOptionKeys(exclusiveOptions));
@@ -107,7 +108,7 @@ public interface RequiredOption {
 
         @Override
         public String toString() {
-            return String.format("Absolutely required option: '%s'", requiredOption.getKey());
+            return String.format("Absolutely required option: '%s'", requiredOption.key());
         }
     }
 

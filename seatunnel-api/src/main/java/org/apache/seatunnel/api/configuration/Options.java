@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.commons.lang3.StringUtils;
 
+import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +36,7 @@ public class Options {
      * @return The builder for the config option with the given key.
      */
     public static OptionBuilder key(String key) {
-        checkNotNull(key);
+        checkArgument(StringUtils.isNotBlank(key), "Option's key not be null.");
         return new OptionBuilder(key);
     }
 
@@ -58,49 +60,56 @@ public class Options {
          * Defines that the value of the option should be of {@link Boolean} type.
          */
         public TypedOptionBuilder<Boolean> booleanType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Boolean>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Boolean>() {
+            });
         }
 
         /**
          * Defines that the value of the option should be of {@link Integer} type.
          */
         public TypedOptionBuilder<Integer> intType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Integer>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Integer>() {
+            });
         }
 
         /**
          * Defines that the value of the option should be of {@link Long} type.
          */
         public TypedOptionBuilder<Long> longType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Long>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Long>() {
+            });
         }
 
         /**
          * Defines that the value of the option should be of {@link Float} type.
          */
         public TypedOptionBuilder<Float> floatType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Float>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Float>() {
+            });
         }
 
         /**
          * Defines that the value of the option should be of {@link Double} type.
          */
         public TypedOptionBuilder<Double> doubleType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Double>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Double>() {
+            });
         }
 
         /**
          * Defines that the value of the option should be of {@link String} type.
          */
         public TypedOptionBuilder<String> stringType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<String>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<String>() {
+            });
         }
 
         /**
          * Defines that the value of the option should be of {@link Duration} type.
          */
         public TypedOptionBuilder<Duration> durationType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Duration>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Duration>() {
+            });
         }
 
         /**
@@ -109,7 +118,12 @@ public class Options {
          * @param enumClass Concrete type of the expected enum.
          */
         public <T extends Enum<T>> TypedOptionBuilder<T> enumType(Class<T> enumClass) {
-            return new TypedOptionBuilder<>(key, new TypeReference<T>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<T>() {
+                @Override
+                public Type getType() {
+                    return enumClass;
+                }
+            });
         }
 
         /**
@@ -117,7 +131,8 @@ public class Options {
          * represented as {@code Map<String, String>}.
          */
         public TypedOptionBuilder<Map<String, String>> mapType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, String>>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, String>>() {
+            });
         }
 
         /**
@@ -125,11 +140,13 @@ public class Options {
          * represented as {@code List<String>}.
          */
         public TypedOptionBuilder<List<String>> listType() {
-            return new TypedOptionBuilder<>(key, new TypeReference<List<String>>() {});
+            return new TypedOptionBuilder<>(key, new TypeReference<List<String>>() {
+            });
         }
 
         /**
          * The value of the definition option should be represented as T.
+         *
          * @param typeReference complex type reference
          */
         public <T> TypedOptionBuilder<T> type(TypeReference<T> typeReference) {

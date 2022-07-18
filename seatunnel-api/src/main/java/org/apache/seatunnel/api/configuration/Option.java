@@ -22,7 +22,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.Objects;
 
 public class Option<T> {
-    /** The current key for that config option. */
+    /**
+     * The current key for that config option.
+     */
     private final String key;
 
     /**
@@ -30,10 +32,14 @@ public class Option<T> {
      */
     private final TypeReference<T> typeReference;
 
-    /** The default value for this option. */
+    /**
+     * The default value for this option.
+     */
     private final T defaultValue;
 
-    /** The description for this option. */
+    /**
+     * The description for this option.
+     */
     String description = "";
 
     Option(String key, TypeReference<T> typeReference, T defaultValue) {
@@ -42,15 +48,15 @@ public class Option<T> {
         this.defaultValue = defaultValue;
     }
 
-    public String getKey() {
+    public String key() {
         return key;
     }
 
-    public TypeReference<T> getTypeReference() {
+    public TypeReference<T> typeReference() {
         return typeReference;
     }
 
-    public T getDefaultValue() {
+    public T defaultValue() {
         return defaultValue;
     }
 

@@ -114,7 +114,7 @@ public class Expression {
                 if (cur.next.hasNext() && !cur.and.equals(cur.next.and)) {
                     bracket = true;
                 }
-                builder.append(cur.and ? " && ": " || ");
+                builder.append(cur.and ? " && " : " || ");
             }
             cur = cur.next;
         } while (cur != null);

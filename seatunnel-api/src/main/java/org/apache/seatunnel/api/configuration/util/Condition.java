@@ -121,7 +121,8 @@ public class Condition<T> {
         boolean bracket = false;
         do {
             builder.append("'")
-                .append(cur.option.getKey())
+                .append(cur.option.key())
+                // TODO: support another condition
                 .append("' == ")
                 .append(cur.expectValue);
             if (bracket) {
@@ -132,7 +133,7 @@ public class Condition<T> {
                 if (cur.next.hasNext() && !cur.and.equals(cur.next.and)) {
                     bracket = true;
                 }
-                builder.append(cur.and ? " && ": " || ");
+                builder.append(cur.and ? " && " : " || ");
             }
             cur = cur.next;
         } while (cur != null);

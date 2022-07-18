@@ -47,7 +47,8 @@ public class OptionRuleTest {
         .withDescription("test list string type");
 
     public static final Option<List<Integer>> TEST_PORTS = Options.key("option.ports")
-        .type(new TypeReference<List<Integer>>() {})
+        .type(new TypeReference<List<Integer>>() {
+        })
         .noDefaultValue()
         .withDescription("test list int type");
 

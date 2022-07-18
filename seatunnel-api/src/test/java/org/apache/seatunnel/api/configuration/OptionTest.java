@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class OptionTest {
     public static final Option<Integer> TEST_NUM = Options.key("option.num")
@@ -37,7 +38,8 @@ public class OptionTest {
     }
 
     @Test
-    public void test() {
-
+    public void testEquals() {
+        Assertions.assertEquals(TEST_NUM, Options.key("option.num").intType().defaultValue(100));
+        Assertions.assertEquals(TEST_MODE, Options.key("option.mode").enumType(TestMode.class).defaultValue(TestMode.LATEST));
     }
 }
