@@ -73,8 +73,9 @@ public class Server implements ManagedService, MembershipAwareService, LiveOpera
     /**
      * Used for debugging on call
      */
-    public void printMessage(String message){
+    public String printMessage(String message){
         this.logger.info(nodeEngine.getThisAddress() + ":" + message);
+        return message;
     }
 
 }
