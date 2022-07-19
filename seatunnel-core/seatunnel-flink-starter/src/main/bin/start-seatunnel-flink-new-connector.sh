@@ -53,12 +53,12 @@ fi
 CMD=$(java -cp ${APP_JAR} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
-    echo ${CMD}
+    echo "${CMD}"
     exit 0
 elif [ ${EXIT_CODE} -eq 0 ]; then
     echo "Execute SeaTunnel Flink Job: ${CMD}"
     eval ${CMD}
 else
-    echo ${CMD}
+    echo "${CMD}"
     exit ${EXIT_CODE}
 fi
