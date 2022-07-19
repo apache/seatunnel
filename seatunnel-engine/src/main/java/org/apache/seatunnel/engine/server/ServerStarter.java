@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server;
 
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 
 public class ServerStarter {
 
     public static void main(String[] args) {
-        HazelcastInstanceFactory.newHazelcastInstance(null, Thread.currentThread().getName(), new NodeContext());
+        Config config = new Config();
+        HazelcastInstanceFactory.newHazelcastInstance(config, Thread.currentThread().getName(), new NodeContext());
     }
 }

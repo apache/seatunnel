@@ -17,23 +17,14 @@
 
 package org.apache.seatunnel.engine.server;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
-
 import com.hazelcast.instance.impl.DefaultNodeContext;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.instance.impl.NodeExtension;
-import com.hazelcast.instance.impl.NodeExtensionFactory;
-
-import java.util.List;
 
 public class NodeContext extends DefaultNodeContext {
-    public static final List<String> JET_EXTENSION_PRIORITY_LIST = unmodifiableList(asList(
-            "org.apache.seatunnel.engine.server.NodeExtension"
-    ));
 
     @Override
     public NodeExtension createNodeExtension(Node node) {
-        return NodeExtensionFactory.create(node, JET_EXTENSION_PRIORITY_LIST);
+        return new org.apache.seatunnel.engine.server.NodeExtension(node);
     }
 }

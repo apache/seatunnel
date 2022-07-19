@@ -21,7 +21,6 @@ import static com.hazelcast.cluster.ClusterState.PASSIVE;
 
 import com.hazelcast.cluster.ClusterState;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
@@ -65,11 +64,6 @@ class NodeExtensionCommon {
 
     void onClusterStateChange(ClusterState ignored) {
         //TODO This is where cluster state changes are handled
-    }
-
-    void handlePacket(Packet packet) {
-        //TODO packet
-
     }
 
     void printNodeInfo(ILogger log, String addToProductName) {

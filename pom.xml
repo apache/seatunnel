@@ -221,7 +221,7 @@
         <springfox-swagger.version>2.6.1</springfox-swagger.version>
         <swagger-annotations.version>1.5.10</swagger-annotations.version>
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
-        <hazelcast.version>4.2</hazelcast.version>
+        <hazelcast.version>5.1</hazelcast.version>
     </properties>
 
     <dependencyManagement>

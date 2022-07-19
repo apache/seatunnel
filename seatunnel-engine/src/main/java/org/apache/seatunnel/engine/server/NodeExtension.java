@@ -20,12 +20,10 @@ package org.apache.seatunnel.engine.server;
 import com.hazelcast.cluster.ClusterState;
 import com.hazelcast.instance.impl.DefaultNodeExtension;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.nio.Packet;
-import com.hazelcast.spi.impl.NodeEngineImpl.JetPacketConsumer;
 
 import java.util.Map;
 
-public class NodeExtension extends DefaultNodeExtension implements JetPacketConsumer {
+public class NodeExtension extends DefaultNodeExtension {
     private final NodeExtensionCommon extCommon;
 
     public NodeExtension(Node node) {
@@ -65,10 +63,5 @@ public class NodeExtension extends DefaultNodeExtension implements JetPacketCons
     @Override
     public void printNodeInfo() {
         extCommon.printNodeInfo(systemLogger, "");
-    }
-
-    @Override
-    public void accept(Packet packet) {
-        extCommon.handlePacket(packet);
     }
 }
