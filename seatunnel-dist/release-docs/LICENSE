@@ -938,6 +938,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) springfox-swagger-common (io.springfox:springfox-swagger-common:2.6.1 - https://github.com/springfox/springfox)
      (The Apache Software License, Version 2.0) springfox-swagger-ui (io.springfox:springfox-swagger-ui:2.6.1 - https://github.com/springfox/springfox)
      (The Apache Software License, Version 2.0) springfox-swagger2 (io.springfox:springfox-swagger2:2.6.1 - https://github.com/springfox/springfox)
+     (The Apache Software License, Version 2.0) hazelcast (com.hazelcast:hazelcast:4.2 - https://github.com/hazelcast/hazelcast)
 
 
 ========================================================================
