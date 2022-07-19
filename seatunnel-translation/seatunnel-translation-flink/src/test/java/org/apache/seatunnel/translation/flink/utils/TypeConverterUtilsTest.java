@@ -73,7 +73,6 @@ public class TypeConverterUtilsTest {
     }
 
     @Test
-    @SuppressWarnings("MagicNumber")
     public void convertBigDecimalType() {
         Assert.assertEquals(new BigDecimalTypeInfo(30, 2), TypeConverterUtils.convert(new DecimalType(30, 2)));
     }

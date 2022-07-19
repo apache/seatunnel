@@ -64,7 +64,7 @@ public class FileSinkAggregatedCommitterTest {
         Assert.assertTrue(!HdfsUtils.fileExist(transactionDir));
     }
 
-    @SuppressWarnings({"checkstyle:MagicNumber", "checkstyle:UnnecessaryParentheses"})
+    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     @Test
     public void testCombine() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new HdfsFileSystemCommitter());
