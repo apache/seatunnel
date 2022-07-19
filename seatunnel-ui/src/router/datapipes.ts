@@ -15,3 +15,28 @@
  * limitations under the License.
  */
 
+import utils from '@/utils'
+import type { Component } from 'vue'
+
+const modules = import.meta.glob('/src/views/**/**.tsx')
+const components: { [key: string]: Component } = utils.mapping(modules)
+
+export default {
+  path: '/datapipes',
+  name: 'datapipes',
+  meta: {
+    title: 'datapipes'
+  },
+  redirect: { name: 'datapipes-list' },
+  component: () => import('@/layouts/dashboard'),
+  children: [
+    {
+      path: '/datapipes/list',
+      name: 'datapipes-list',
+      component: components['datapipes-list'],
+      meta: {
+        title: 'datapipes-list'
+      }
+    },
+  ]
+}
