@@ -19,6 +19,10 @@
 
 set -e
 
+if [ -d "/tmp/seatunnel-dependencies" ]; then
+  rm -rf /tmp/seatunnel-dependencies/*
+fi
+
 ./mvnw --batch-mode --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies -P release
 
 # List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
