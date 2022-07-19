@@ -14,29 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.spark.jdbc.source.util
 
-package org.apache.seatunnel.plugin.discovery.flink;
+import org.apache.spark.sql.jdbc.JdbcDialect
 
-import org.apache.seatunnel.flink.BaseFlinkTransform;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+class HiveDialect extends JdbcDialect {
+  override def canHandle(url: String): Boolean = {
+    url.startsWith("jdbc:hive2")
+  }
 
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-
-public class FlinkTransformPluginDiscovery extends FlinkAbstractPluginDiscovery<BaseFlinkTransform> {
-
-    public FlinkTransformPluginDiscovery() {
-        super("flink");
+  override def quoteIdentifier(colName: String): String = {
+    if (colName.contains(".")) {
+      val colName1 = colName.substring(colName.indexOf(".") + 1)
+      s"`$colName1`"
+    } else {
+      s"`$colName`"
     }
-
-    @Override
-    public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
-        return new ArrayList<>();
-    }
-
-    @Override
-    protected Class<BaseFlinkTransform> getPluginBaseClass() {
-        return BaseFlinkTransform.class;
-    }
+  }
 }
