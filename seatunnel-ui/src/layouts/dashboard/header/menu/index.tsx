@@ -15,25 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.v2.fake;
+import { defineComponent, toRefs } from 'vue'
+import { NMenu, NSpace } from 'naive-ui'
+import { useRouter } from 'vue-router'
+import { useMenu } from './use-menu'
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+const Menu = defineComponent({
+  setup() {
+    const { state } = useMenu()
+    const router = useRouter()
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
-
-import java.io.IOException;
-
-/**
- * This test case is used to verify that the fake source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
- */
-public class FakeSourceToConsoleIT extends SparkContainer {
-
-    @Test
-    public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    const handleMenuClick = (key: string) => {
+      router.push({ path: `/${key}` })
     }
-}
+
+    return {
+      ...toRefs(state),
+      handleMenuClick
+    }
+  },
+  render() {
+    return (
+      <NSpace align='center' class='h-16'>
+        <NMenu
+          mode='horizontal'
+          options={this.menuOptions}
+          onUpdateValue={this.handleMenuClick}
+        />
+      </NSpace>
+    )
+  }
+})
+
+export default Menu

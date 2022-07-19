@@ -87,7 +87,6 @@ public final class SeaTunnelRow implements Serializable {
         return tableId == that.tableId && kind == that.kind && Arrays.deepEquals(fields, that.fields);
     }
 
-    @SuppressWarnings("magicnumber")
     @Override
     public int hashCode() {
         int result = Objects.hash(tableId, kind);

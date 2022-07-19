@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-* {
-  outline: 0;
-}
+import { defineComponent } from 'vue'
+import { NSpace } from 'naive-ui'
+import Header from './header'
 
-html,
-body {
-  width: 100%;
-  height: 100%;
-}
+const Dashboard = defineComponent({
+  setup() {},
+  render() {
+    return (
+      <NSpace vertical>
+        <Header />
+        <router-view />
+      </NSpace>
+    )
+  }
+})
 
-html,
-body,
-p,
-dl,
-dd,
-dt {
-  margin: 0;
-  padding: 0;
-}
+export default Dashboard

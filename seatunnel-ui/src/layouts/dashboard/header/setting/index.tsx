@@ -15,25 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.spark.v2.fake;
+import { defineComponent } from 'vue'
+import { NIcon, NSpace } from 'naive-ui'
+import { SettingOutlined } from '@vicons/antd'
 
-import org.apache.seatunnel.e2e.spark.SparkContainer;
+const Setting = defineComponent({
+  setup() {},
+  render() {
+    return (
+      <NSpace align='center' justify='center' class='h-16 w-12' style={{ cursor: 'pointer' }}>
+        <NIcon size='20'>
+          <SettingOutlined />
+        </NIcon>
+      </NSpace>
+    )
+  }
+})
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.testcontainers.containers.Container;
-
-import java.io.IOException;
-
-/**
- * This test case is used to verify that the fake source is able to send data to the console.
- * Make sure the SeaTunnel job can submit successfully on spark engine.
- */
-public class FakeSourceToConsoleIT extends SparkContainer {
-
-    @Test
-    public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
-    }
-}
+export default Setting
