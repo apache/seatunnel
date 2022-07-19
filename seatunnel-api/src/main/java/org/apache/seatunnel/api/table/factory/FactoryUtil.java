@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -42,7 +43,7 @@ public final class FactoryUtil {
 
     private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
-    public static <T, SplitT extends SourceSplit, StateT> List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
+    public static <T, SplitT extends SourceSplit, StateT extends Serializable> List<SeaTunnelSource<T, SplitT, StateT>> createAndPrepareSource(
         List<CatalogTable> multipleTables,
         Map<String, String> options,
         ClassLoader classLoader,

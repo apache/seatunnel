@@ -20,7 +20,9 @@ package org.apache.seatunnel.api.table.connector;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 
-public interface TableSource<T, SplitT extends SourceSplit, StateT> {
+import java.io.Serializable;
+
+public interface TableSource<T, SplitT extends SourceSplit, StateT extends Serializable> {
 
     SeaTunnelSource<T, SplitT, StateT> createSource();
 }
