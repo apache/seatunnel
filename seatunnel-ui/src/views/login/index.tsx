@@ -39,7 +39,7 @@ const Login = defineComponent({
   },
   render() {
     return (
-      <NSpace justify='center' align='center' style={{ width: '100%', height: '100vh' }}>
+      <NSpace justify='center' align='center' class='w-full h-screen'>
         <div>
           <h2>{this.t('login.login_to_sea_tunnel')}</h2>
           <NForm rules={this.rules} ref='loginFormRef'>
