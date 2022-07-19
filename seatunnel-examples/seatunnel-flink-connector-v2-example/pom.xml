@@ -105,13 +105,6 @@
             <version>${flink.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-fake</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
     </dependencies>
 
 </project>
