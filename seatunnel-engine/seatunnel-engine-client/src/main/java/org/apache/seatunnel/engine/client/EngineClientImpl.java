@@ -83,7 +83,7 @@ public class EngineClientImpl implements EngineClientInstance {
         }
     }
 
-    public String sayHelloToServer(@NonNull String msg) {
+    public String printMessageToMaster(@NonNull String msg) {
         return invokeRequestOnMasterAndDecodeResponse(
             EnginePrintMessageCodec.encodeRequest(msg),
             response -> EnginePrintMessageCodec.decodeResponse(response)

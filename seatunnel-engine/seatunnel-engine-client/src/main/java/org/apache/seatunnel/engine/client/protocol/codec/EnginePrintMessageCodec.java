@@ -35,7 +35,7 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCod
 
 /**
  */
-@Generated("f2cbf2a2d42f76c6bf88a526f3ee817b")
+@Generated("e4f195f22eb8b2ebcc4a85ad13a31f83")
 public final class EnginePrintMessageCodec {
     //hex: 0x000100
     public static final int REQUEST_MESSAGE_TYPE = 256;
@@ -47,11 +47,11 @@ public final class EnginePrintMessageCodec {
     private EnginePrintMessageCodec() {
     }
 
-    public static ClientMessage encodeRequest(String message) {
+    public static ClientMessage encodeRequest(java.lang.String message) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(false);
         clientMessage.setOperationName("Engine.PrintMessage");
-        Frame initialFrame = new Frame(new byte[REQUEST_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
+        ClientMessage.Frame initialFrame = new ClientMessage.Frame(new byte[REQUEST_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, REQUEST_MESSAGE_TYPE);
         encodeInt(initialFrame.content, PARTITION_ID_FIELD_OFFSET, -1);
         clientMessage.add(initialFrame);
@@ -61,16 +61,16 @@ public final class EnginePrintMessageCodec {
 
     /**
      */
-    public static String decodeRequest(ClientMessage clientMessage) {
-        ForwardFrameIterator iterator = clientMessage.frameIterator();
+    public static java.lang.String decodeRequest(ClientMessage clientMessage) {
+        ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         //empty initial frame
         iterator.next();
         return StringCodec.decode(iterator);
     }
 
-    public static ClientMessage encodeResponse(String response) {
+    public static ClientMessage encodeResponse(java.lang.String response) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
-        Frame initialFrame = new Frame(new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
+        ClientMessage.Frame initialFrame = new ClientMessage.Frame(new byte[RESPONSE_INITIAL_FRAME_SIZE], UNFRAGMENTED_MESSAGE);
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, RESPONSE_MESSAGE_TYPE);
         clientMessage.add(initialFrame);
 
@@ -80,8 +80,8 @@ public final class EnginePrintMessageCodec {
 
     /**
      */
-    public static String decodeResponse(ClientMessage clientMessage) {
-        ForwardFrameIterator iterator = clientMessage.frameIterator();
+    public static java.lang.String decodeResponse(ClientMessage clientMessage) {
+        ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         //empty initial frame
         iterator.next();
         return StringCodec.decode(iterator);

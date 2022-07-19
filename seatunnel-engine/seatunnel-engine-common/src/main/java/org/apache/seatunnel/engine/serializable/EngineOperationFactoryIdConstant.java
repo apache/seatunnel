@@ -15,25 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.serializable;
 
-import com.google.common.collect.Lists;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
-@RunWith(JUnit4.class)
-public class EngineClientTest {
-
-    @Test
-    public void testSayHello() {
-        EngineClientConfig engineClientConfig = new EngineClientConfig();
-        engineClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
-        EngineClientImpl engineClient = new EngineClientImpl(engineClientConfig);
-
-        String msg = "Hello world";
-        String s = engineClient.printMessageToMaster(msg);
-        Assert.assertEquals(msg, s);
-    }
+/**
+ * Constants used for Hazelcast's {@link com.hazelcast.nio.serialization.IdentifiedDataSerializable}
+ * mechanism.
+ */
+public class EngineOperationFactoryIdConstant {
+    /** Name of the system property that specifies SeaTunnelEngine's data serialization factory ID. */
+    public static final String ENGINE_OPERATION_DS_FACTORY = "hazelcast.serialization.ds.seatunnel.engine.operation";
+    /** Default ID of SeaTunnelEngine's data serialization factory. */
+    public static final int ENGINE_OPERATION_DS_FACTORY_ID = -30001;
 }
