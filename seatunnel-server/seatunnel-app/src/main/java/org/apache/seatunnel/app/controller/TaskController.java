@@ -26,7 +26,8 @@ import org.apache.seatunnel.app.domain.response.task.JobSimpleInfoRes;
 import org.apache.seatunnel.app.service.ITaskService;
 
 import io.swagger.annotations.ApiOperation;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,21 +44,21 @@ public class TaskController {
     @Resource
     private ITaskService iTaskService;
 
-    @PostMapping("/recycle")
-    @ApiOperation(value = "recycle script", httpMethod = "POST")
+    @PutMapping("/recycle")
+    @ApiOperation(value = "recycle script", httpMethod = "PUT")
     Result<Void> recycle(@RequestBody @NotNull RecycleScriptReq req) {
         iTaskService.recycleScriptFromScheduler(req);
         return Result.success();
     }
 
-    @PostMapping("/listJob")
-    @ApiOperation(value = "list job", httpMethod = "POST")
+    @GetMapping("/listJob")
+    @ApiOperation(value = "list job", httpMethod = "GET")
     Result<List<JobSimpleInfoRes>> listJob(@RequestBody @NotNull JobListReq req) {
         return Result.success(iTaskService.listJob(req));
     }
 
-    @PostMapping("/listInstance")
-    @ApiOperation(value = "list instance", httpMethod = "POST")
+    @GetMapping("/listInstance")
+    @ApiOperation(value = "list instance", httpMethod = "GET")
     Result<List<InstanceSimpleInfoRes>> listInstance(@RequestBody @NotNull InstanceListReq req) {
         return Result.success(iTaskService.listInstance(req));
     }
