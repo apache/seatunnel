@@ -22,7 +22,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import i18n from '@/locales'
 import router from './router'
 import utils from '@/utils'
-import './assets/styles/default.scss'
+import './index.css'
 
 const app = createApp(App)
 const pinia = createPinia()
