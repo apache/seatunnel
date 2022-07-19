@@ -141,13 +141,13 @@ public class FlinkEnvironment implements RuntimeEnv {
             jars = new ArrayList<>();
         }
         jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-        configuration.set(PipelineOptions.JARS, jars);
+        configuration.set(PipelineOptions.JARS, jars.stream().distinct().collect(Collectors.toList()));
         List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
         if (classpath == null) {
             classpath = new ArrayList<>();
         }
         classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-        configuration.set(PipelineOptions.CLASSPATHS, classpath);
+        configuration.set(PipelineOptions.CLASSPATHS, classpath.stream().distinct().collect(Collectors.toList()));
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {
