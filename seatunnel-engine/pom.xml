@@ -10,7 +10,8 @@
     <modelVersion>4.0.0</modelVersion>
     <packaging>pom</packaging>
     <modules>
-        <module>seatunnel-engine-server</module>
+        <module>seatunnel-engine-client</module>
+        <module>seatunnel-engine-common</module>
     </modules>
 
     <artifactId>seatunnel-engine</artifactId>

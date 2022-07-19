@@ -1,0 +1,23 @@
+id: 0
+name: Engine
+methods:
+  - id: 1
+    name: printMessage
+    since: 2.0
+    doc: ''
+    request:
+      retryable: false
+      partitionIdentifier: -1
+      params:
+        - name: message
+          type: String
+          nullable: false
+          since: 2.0
+          doc: ''
+    response:
+      params:
+        - name: response
+          type: String
+          nullable: false
+          since: 2.0
+          doc: ''

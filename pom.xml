@@ -945,6 +945,20 @@
                 <version>${hazelcast.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.google.code.findbugs</groupId>
+                <artifactId>annotations</artifactId>
+                <version>3.0.0</version>
+            </dependency>
+
+            <!-- test dependencies -->
+            <dependency>
+                <groupId>com.hazelcast</groupId>
+                <artifactId>hazelcast</artifactId>
+                <scope>test</scope>
+                <version>${hazelcast.version}</version>
+                <classifier>tests</classifier>
+            </dependency>
             <!-- SeaTunnel engine use end -->
 
         </dependencies>
