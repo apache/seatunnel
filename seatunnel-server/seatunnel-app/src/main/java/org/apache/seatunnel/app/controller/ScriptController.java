@@ -105,8 +105,8 @@ public class ScriptController {
         return Result.success(iScriptService.fetchScriptParam(id));
     }
 
-    @PostMapping("/publish")
-    @ApiOperation(value = "publish script", httpMethod = "POST")
+    @PutMapping("/publish")
+    @ApiOperation(value = "publish script", httpMethod = "PUT")
     public Result<Void> publish(@RequestBody @NotNull PublishScriptReq req) {
         iScriptService.publishScript(req);
         return Result.success();
