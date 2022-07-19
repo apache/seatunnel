@@ -39,7 +39,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
-        System.out.println(Arrays.toString(element.getFields()));
+       System.out.println(Arrays.toString(element.getFields()));
     }
 
     @Override
