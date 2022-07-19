@@ -15,29 +15,9 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NSpace } from 'naive-ui'
-import Logo from './logo'
-import Menu from './menu'
-import Setting from './setting'
-import User from './user'
-
-const Header = defineComponent({
-  setup() {},
-  render() {
-    return (
-      <NSpace justify='space-between' class='h-16 border-b border-gray-200'>
-        <NSpace>
-          <Logo />
-          <Menu />
-        </NSpace>
-        <NSpace>
-          <Setting />
-          <User />
-        </NSpace>
-      </NSpace>
-    )
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {}
   }
-})
-
-export default Header
+}
