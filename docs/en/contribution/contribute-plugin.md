@@ -19,7 +19,7 @@ For example, if you want to add a new Spark connector plugin, you need to create
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connectors-spark</artifactId>
-        <version>${revision}</version>
+        <version>2.1.3-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
