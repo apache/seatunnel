@@ -64,7 +64,7 @@ public class FileSinkAggregatedCommitterTest {
         Assert.assertTrue(!FileUtils.fileExist(transactionDir));
     }
 
-    @SuppressWarnings({"checkstyle:UnnecessaryParentheses", "checkstyle:MagicNumber"})
+    @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     @Test
     public void testCombine() throws Exception {
         FileSinkAggregatedCommitter fileSinkAggregatedCommitter = new FileSinkAggregatedCommitter(new LocalFileSystemCommitter());
