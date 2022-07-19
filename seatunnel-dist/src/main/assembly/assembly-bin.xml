@@ -118,6 +118,16 @@
             </excludes>
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>../seatunnel-engine/target</directory>
+            <includes>
+                <include>seatunnel-engine*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/lib</outputDirectory>
+        </fileSet>
         <!-- connectors -->
         <fileSet>
             <directory>../seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib</directory>
