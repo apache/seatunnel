@@ -52,11 +52,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(value = Exception.class)
     private Result<String> exceptionHandler(Exception e) {
         logError(e);
-        return Result.failure(SeatunnelErrorEnum.UNKNOWN);
+        return Result.failure(SeatunnelErrorEnum.UNKNOWN, e.getMessage());
     }
 
     private void logError(Throwable throwable) {
-        log.error("", throwable);
+        log.error(throwable.getMessage(), throwable);
     }
 
 }
