@@ -114,7 +114,6 @@ public class Shard implements Serializable {
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
     public int hashCode() {
         if (hashCode != -1) {
             return hashCode;

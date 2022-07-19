@@ -50,7 +50,6 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToClickhouseIT.class);
 
     @Before
-    @SuppressWarnings("magicnumber")
     public void startClickhouseContainer() throws InterruptedException {
         clickhouseServer = new GenericContainer<>(CLICKHOUSE_DOCKER_IMAGE)
             .withNetwork(NETWORK)

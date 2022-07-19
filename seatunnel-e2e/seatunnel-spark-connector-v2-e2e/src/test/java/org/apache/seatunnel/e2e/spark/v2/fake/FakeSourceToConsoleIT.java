@@ -32,7 +32,6 @@ import java.io.IOException;
 public class FakeSourceToConsoleIT extends SparkContainer {
 
     @Test
-    @SuppressWarnings("magicnumber")
     public void testFakeSourceToConsoleSine() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/fake/fakesource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());
