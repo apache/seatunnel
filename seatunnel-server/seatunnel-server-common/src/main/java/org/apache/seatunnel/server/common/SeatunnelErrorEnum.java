@@ -24,6 +24,7 @@ public enum SeatunnelErrorEnum {
     USER_ALREADY_EXISTS(10003, "user already exist", "The same username [%s] is exist."),
     NO_SUCH_USER(10002, "no such user", "No such user. Maybe deleted by others."),
     SCHEDULER_CONFIG_NOT_EXIST(10003, "scheduler config not exist", "This script's scheduler config not exist, please check your config."),
+    JSON_TRANSFORM_FAILED(10004, "json transform failed", "Json transform failed, it may be a bug."),
 
     /**
      * request dolphinscheduler failed

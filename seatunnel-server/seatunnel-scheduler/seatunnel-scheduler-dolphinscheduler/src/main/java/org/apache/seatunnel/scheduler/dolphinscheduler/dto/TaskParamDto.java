@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
-import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 @Data
-@Builder
-public class UpdateProcessDefinitionDto {
-    private Long processDefinitionCode;
-    private String name;
-    private Date startTime;
-    private Date endTime;
-    private String cronExpression;
-    private TaskDescriptionDto taskDescriptionDto;
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class TaskParamDto {
+    private List<ResourceDto> resourceList;
+    private List<LocalParam> localParams;
+    private String rawScript;
+    private Map<String, Object> dependence;
+    private ConditionResult conditionResult;
+    private int waitStartTimeout;
+    private int switchResult;
 }

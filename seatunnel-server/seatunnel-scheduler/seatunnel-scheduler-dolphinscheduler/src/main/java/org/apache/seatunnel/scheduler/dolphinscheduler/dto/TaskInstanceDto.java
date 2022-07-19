@@ -17,20 +17,17 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
-import static org.apache.seatunnel.server.common.DateUtils.DEFAULT_DATETIME_FORMAT_WITH_TIMEZONE;
+import static org.apache.seatunnel.server.common.DateUtils.DEFAULT_DATETIME_FORMAT;
 
-import org.apache.seatunnel.server.common.DateUtils;
-
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 import java.util.Date;
-import java.util.Map;
 
 @Data
-@Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TaskInstanceDto {
-
     private boolean taskComplete;
     private boolean firstRun;
     private int dryRun;
@@ -44,6 +41,7 @@ public class TaskInstanceDto {
     private long taskCode;
     private String taskInstancePriority;
     private String host;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date startTime;
     private int id;
     private String state;
@@ -56,44 +54,11 @@ public class TaskInstanceDto {
     private int maxRetryTimes;
     private int retryTimes;
     private String executorName;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date submitTime;
     private String name;
     private int retryInterval;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date endTime;
     private String processInstanceName;
-
-    public static TaskInstanceDto fromMap(Map<String, Object> map) {
-        return TaskInstanceDto.builder()
-                .taskComplete((Boolean) map.get("taskComplete"))
-                .firstRun((Boolean) map.get("firstRun"))
-                .dryRun((Integer) map.get("dryRun"))
-                .flag((String) map.get("flag"))
-                .environmentCode((Integer) map.get("environmentCode"))
-                .processInstance((String) map.get("processInstance"))
-                .pid((Integer) map.get("pid"))
-                .taskParams((String) map.get("taskParams"))
-                .duration((String) map.get("duration"))
-                .taskType((String) map.get("taskType"))
-                .taskCode((Long) map.get("taskCode"))
-                .taskInstancePriority((String) map.get("taskInstancePriority"))
-                .host((String) map.get("host"))
-                .startTime(DateUtils.parse((String) map.get("startTime"), DEFAULT_DATETIME_FORMAT_WITH_TIMEZONE))
-                .id((Integer) map.get("id"))
-                .state((String) map.get("state"))
-                .workerGroup((String) map.get("workerGroup"))
-                .processInstancePriority((String) map.get("processInstancePriority"))
-                .processInstanceId((Integer) map.get("processInstanceId"))
-                .executorId((Integer) map.get("executorId"))
-                .firstSubmitTime((String) map.get("firstSubmitTime"))
-                .resources((String) map.get("resources"))
-                .maxRetryTimes((Integer) map.get("maxRetryTimes"))
-                .retryTimes((Integer) map.get("retryTimes"))
-                .executorName((String) map.get("executorName"))
-                .submitTime(DateUtils.parse((String) map.get("submitTime"), DEFAULT_DATETIME_FORMAT_WITH_TIMEZONE))
-                .name((String) map.get("name"))
-                .retryInterval((Integer) map.get("retryInterval"))
-                .endTime(DateUtils.parse((String) map.get("endTime"), DEFAULT_DATETIME_FORMAT_WITH_TIMEZONE))
-                .processInstanceName((String) map.get("processInstanceName"))
-                .build();
-    }
 }

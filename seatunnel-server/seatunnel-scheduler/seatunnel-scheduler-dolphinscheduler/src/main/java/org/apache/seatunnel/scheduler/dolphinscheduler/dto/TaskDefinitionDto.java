@@ -17,18 +17,26 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
-import java.util.Map;
-
-@Builder
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TaskDefinitionDto {
+    private Long code;
     private String name;
-    private String executeScript;
-    private String content;
-    private Map<String, Object> params;
-    private int retryInterval;
-    private int retryTimes;
+    private String description;
+    private String taskType;
+    private TaskParamDto taskParams;
+    private String flag;
+    private String taskPriority;
+    private String workerGroup;
+    private int failRetryTimes;
+    private int failRetryInterval;
+    private String timeoutFlag;
+    private String timeoutNotifyStrategy;
+    private int timeout;
+    private int delayTime;
+    private int environmentCode;
+    private int version;
 }

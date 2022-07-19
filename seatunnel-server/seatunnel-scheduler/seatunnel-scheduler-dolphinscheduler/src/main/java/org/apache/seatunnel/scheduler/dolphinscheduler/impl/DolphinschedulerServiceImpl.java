@@ -19,9 +19,6 @@ package org.apache.seatunnel.scheduler.dolphinscheduler.impl;
 
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CODE_SUCCESS;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CONDITION_PARAMS;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CONDITION_RESULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CONDITION_TYPE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CONDITION_TYPE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CREATE_PROCESS_DEFINITION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CREATE_SCHEDULE;
@@ -29,39 +26,25 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DATA;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DATA_TOTAL_LIST;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DEFAULT_FILE_SUFFIX;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DELAY_TIME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DELAY_TIME_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DEPENDENCE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DEPENDENCE_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DESCRIPTION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DESCRIPTION_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DRY_RUN;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.END_TIME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILED_NODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILED_NODE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILURE_STRATEGY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAILURE_STRATEGY_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAIL_RETRY_INTERVAL;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FAIL_RETRY_TIMES;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FLAG;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FLAG_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.FULL_NAME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.GEN_NUM;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.GEN_NUM_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.GEN_TASK_CODE_LIST;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCAL_PARAMS;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCAL_PARAMS_DIRECT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCAL_PARAMS_DIRECT_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCAL_PARAMS_PROP;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCAL_PARAMS_TYPE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCAL_PARAMS_TYPE_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCAL_PARAMS_VALUE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCATIONS;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCATIONS_X;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCATIONS_X_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCATIONS_Y;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOCATIONS_Y_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_DETAIL;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.LOG_LIMIT_NUM;
@@ -72,12 +55,8 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PAGE_NO_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PAGE_SIZE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PAGE_SIZE_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.POST_TASK_CODE;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.POST_TASK_VERSION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.POST_TASK_VERSION_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PRE_TASK_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PRE_TASK_CODE_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PRE_TASK_VERSION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PRE_TASK_VERSION_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.PROCESS_DEFINITION_CODE;
@@ -91,13 +70,11 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.QUERY_RESOURCE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.QUERY_SCHEDULE_LIST_PAGING;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.QUERY_TASK_LIST_PAGING;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RAW_SCRIPT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RELEASE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RELEASE_STATE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RELEASE_STATE_OFFLINE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_ID;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_ID_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_LIST;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_SEPARATOR;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_TYPE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_TYPE_FILE;
@@ -111,37 +88,23 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SEARCH_VAL;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.START_PROCESS_INSTANCE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.START_TIME;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SUCCESS_NODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SUCCESS_NODE_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SWITCH_RESULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SWITCH_RESULT_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_DEFINITION_JSON;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_DEFINITION_JSON_CODE;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_DEFINITION_JSON_NAME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_DEPEND_TYPE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_INSTANCE_ID;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_PARAMS;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_PRIORITY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_PRIORITY_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_RELATION_JSON;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_RELATION_JSON_NAME;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_TYPE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_TYPE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TENANT_CODE;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEOUT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEOUT_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEOUT_FLAG;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEOUT_FLAG_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEOUT_NOTIFY_STRATEGY;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEOUT_NOTIFY_STRATEGY_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEZONE_ID;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TIMEZONE_ID_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TOKEN;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.UPDATE_CONTENT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.VERSION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.VERSION_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WAIT_START_TIMEOUT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WAIT_START_TIMEOUT_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WARNING_GROUP_ID;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.WARNING_GROUP_ID_DEFAULT;
@@ -155,8 +118,11 @@ import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_MATCHED_P
 import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.UNEXPECTED_RETURN_CODE;
 
 import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ConditionResult;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.LocalParam;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.LocationDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.OnlineCreateResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProjectDto;
@@ -164,7 +130,10 @@ import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.SchedulerDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.StartProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskDefinitionDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskDescriptionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskInstanceDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskParamDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskRelationDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.UpdateProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.utils.HttpUtils;
 import org.apache.seatunnel.server.common.DateUtils;
@@ -173,11 +142,10 @@ import org.apache.seatunnel.server.common.SeatunnelException;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.gson.Gson;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.MapUtils;
 import org.jsoup.Connection;
@@ -198,7 +166,6 @@ import java.util.stream.Collectors;
 @Component
 public class DolphinschedulerServiceImpl implements IDolphinschedulerService, InitializingBean {
 
-    private static final Gson GSON = new Gson();
     @Value("${ds.api.prefix}")
     private String apiPrefix;
     @Value("${ds.api.token}")
@@ -211,27 +178,12 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     private String defaultScriptDir;
     private long defaultProjectCode;
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     @Override
     public void afterPropertiesSet() throws Exception {
         final ProjectDto projectDto = queryProjectCodeByName(defaultProjectName);
         defaultProjectCode = projectDto.getCode();
-    }
-
-    private ProjectDto queryProjectCodeByName(String projectName) throws IOException {
-        final Map result = HttpUtils.builder()
-                .withUrl(apiPrefix.concat(QUERY_PROJECT_LIST_PAGING))
-                .withMethod(Connection.Method.GET)
-                .withData(createParamMap(SEARCH_VAL, projectName, PAGE_NO, PAGE_NO_DEFAULT, PAGE_SIZE, PAGE_SIZE_DEFAULT))
-                .withToken(TOKEN, token)
-                .execute(Map.class);
-        checkResult(result, false);
-
-        final List<Map<String, Object>> projectList = (List<Map<String, Object>>) MapUtils.getMap(result, DATA).get(DATA_TOTAL_LIST);
-        final ProjectDto projectDto = projectList.stream().map(ProjectDto::fromMap).filter(p -> p.getName().equalsIgnoreCase(projectName)).findAny().orElse(null);
-        if (Objects.isNull(projectDto)) {
-            throw new SeatunnelException(NO_MATCHED_PROJECT, projectName);
-        }
-        return projectDto;
     }
 
     @Override
@@ -241,9 +193,9 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
 
         // build taskDefinitionJson and taskRelationJson.
         final Long taskCode = taskCodes.get(0);
-        List<Map<String, Object>> taskDefinitionJson = buildTaskDefinitionJson(taskCode, dto.getTaskDefinitionDto());
-        List<Map<String, Object>> taskRelationJson = buildTaskRelationJson(taskCode, dto.getTaskDefinitionDto());
-        List<Map<String, Object>> locations = buildLocation(taskCodes);
+        List<TaskDefinitionDto> taskDefinitionJson = Collections.singletonList(buildTaskDefinitionJson(taskCode, dto.getTaskDescriptionDto()));
+        List<TaskRelationDto> taskRelationJson = buildTaskRelationJson(taskCode, dto.getTaskDescriptionDto());
+        List<LocationDto> locations = buildLocation(taskCodes);
 
         String url = apiPrefix.concat(String.format(CREATE_PROCESS_DEFINITION, defaultProjectCode));
         Connection.Method method = Connection.Method.POST;
@@ -255,8 +207,8 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         }
 
         final Map<String, String> paramMap = createParamMap(LOCATIONS, locations,
-                TASK_DEFINITION_JSON, GSON.toJson(taskDefinitionJson),
-                TASK_RELATION_JSON, GSON.toJson(taskRelationJson),
+                TASK_DEFINITION_JSON, this.objectToString(taskDefinitionJson),
+                TASK_RELATION_JSON, this.objectToString(taskRelationJson),
                 TENANT_CODE, defaultTenantName,
                 PROCESS_DEFINITION_NAME, dto.getName());
 
@@ -264,75 +216,13 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .withUrl(url)
                 .withMethod(method)
                 .withData(paramMap)
-                .withRequestBody(GSON.toJson(null))
+                .withRequestBody(this.objectToString(null))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
 
         checkResult(result, false);
         final Map<String, Object> map = MapUtils.getMap(result, DATA);
-        return ProcessDefinitionDto.fromMap(map);
-    }
-
-    private List<Map<String, Object>> buildTaskDefinitionJson(Long taskCode, TaskDefinitionDto taskDefinitionDto) {
-        final ResourceDto resourceDto = createOrUpdateScriptContent(taskDefinitionDto.getName(), taskDefinitionDto.getContent());
-        final Map<String, Object> map = Maps.newHashMap();
-        map.put(TASK_DEFINITION_JSON_CODE, taskCode);
-        map.put(TASK_DEFINITION_JSON_NAME, taskDefinitionDto.getName());
-        map.put(DESCRIPTION, DESCRIPTION_DEFAULT);
-        map.put(TASK_TYPE, TASK_TYPE_DEFAULT);
-
-        Map<String, Object> taskParamsMap = Maps.newHashMap();
-        taskParamsMap.put(RESOURCE_LIST, ImmutableList.of(Collections.singletonMap(RESOURCE_ID, resourceDto.getId())));
-
-        final Map<String, Object> params = taskDefinitionDto.getParams();
-        final List<Map<String, Object>> localParams = Lists.newArrayListWithCapacity(params.size());
-        params.forEach((k, v) -> localParams.add(ImmutableMap.of(LOCAL_PARAMS_PROP, k, LOCAL_PARAMS_DIRECT, LOCAL_PARAMS_DIRECT_DEFAULT,
-                LOCAL_PARAMS_TYPE, LOCAL_PARAMS_TYPE_DEFAULT, LOCAL_PARAMS_VALUE, v)));
-        taskParamsMap.put(LOCAL_PARAMS, localParams);
-
-        taskParamsMap.put(RAW_SCRIPT, taskDefinitionDto.getExecuteScript());
-        taskParamsMap.put(DEPENDENCE, DEPENDENCE_DEFAULT);
-        taskParamsMap.put(CONDITION_RESULT, ImmutableMap.of(SUCCESS_NODE, SUCCESS_NODE_DEFAULT, FAILED_NODE, FAILED_NODE_DEFAULT));
-        taskParamsMap.put(WAIT_START_TIMEOUT, WAIT_START_TIMEOUT_DEFAULT);
-        taskParamsMap.put(SWITCH_RESULT, SWITCH_RESULT_DEFAULT);
-        map.put(TASK_PARAMS, taskParamsMap);
-
-        map.put(FLAG, FLAG_DEFAULT);
-        map.put(TASK_PRIORITY, TASK_PRIORITY_DEFAULT);
-        map.put(WORKER_GROUP, WORKER_GROUP_DEFAULT);
-        map.put(FAIL_RETRY_TIMES, taskDefinitionDto.getRetryTimes());
-        map.put(FAIL_RETRY_INTERVAL, taskDefinitionDto.getRetryInterval());
-        map.put(TIMEOUT_FLAG, TIMEOUT_FLAG_DEFAULT);
-        map.put(TIMEOUT_NOTIFY_STRATEGY, TIMEOUT_NOTIFY_STRATEGY_DEFAULT);
-        map.put(TIMEOUT, TIMEOUT_DEFAULT);
-        map.put(DELAY_TIME, DELAY_TIME_DEFAULT);
-        map.put(ENVIRONMENT_CODE, ENVIRONMENT_CODE_DEFAULT);
-        map.put(VERSION, VERSION_DEFAULT);
-        return Collections.singletonList(map);
-    }
-
-    private List<Map<String, Object>> buildTaskRelationJson(Long taskCode, TaskDefinitionDto taskDefinitionDto) {
-        Map<String, Object> map = Maps.newHashMap();
-        map.put(TASK_RELATION_JSON_NAME, BLANK_SPACE);
-        map.put(PRE_TASK_CODE, PRE_TASK_CODE_DEFAULT);
-        map.put(PRE_TASK_VERSION, PRE_TASK_VERSION_DEFAULT);
-        map.put(POST_TASK_CODE, taskCode);
-        map.put(POST_TASK_VERSION, POST_TASK_VERSION_DEFAULT);
-        map.put(CONDITION_TYPE, CONDITION_TYPE_DEFAULT);
-        map.put(CONDITION_PARAMS, null);
-        return Collections.singletonList(map);
-    }
-
-    private List<Map<String, Object>> buildLocation(List<Long> taskCode) {
-        final List<Map<String, Object>> locations = Lists.newArrayListWithCapacity(taskCode.size());
-        for (int i = 0; i < taskCode.size(); i++) {
-            final Map<String, Object> map = Maps.newHashMap();
-            map.put(TASK_CODE, taskCode);
-            map.put(LOCATIONS_X, LOCATIONS_X_DEFAULT * i);
-            map.put(LOCATIONS_Y, LOCATIONS_Y_DEFAULT * i);
-            locations.add(map);
-        }
-        return locations;
+        return mapToPojo(map, ProcessDefinitionDto.class);
     }
 
     @Override
@@ -349,7 +239,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         if (CollectionUtils.isEmpty(processDefinitionList)) {
             return Collections.emptyList();
         }
-        return processDefinitionList.stream().map(ProcessDefinitionDto::fromMap).collect(Collectors.toList());
+        return processDefinitionList.stream().map(m -> this.mapToPojo(m, ProcessDefinitionDto.class)).collect(Collectors.toList());
     }
 
     @Override
@@ -363,7 +253,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         checkResult(result, false);
 
         final Map<String, Object> map = (Map<String, Object>) MapUtils.getMap(result, DATA).get(PROCESS_DEFINITION);
-        return ProcessDefinitionDto.fromMap(map);
+        return this.mapToPojo(map, ProcessDefinitionDto.class);
     }
 
     @Override
@@ -383,7 +273,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(String.format(START_PROCESS_INSTANCE, processDefinitionCode)))
                 .withMethod(Connection.Method.POST)
-                .withRequestBody(GSON.toJson(dto))
+                .withRequestBody(this.objectToString(dto))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
@@ -395,7 +285,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .withUrl(apiPrefix.concat(String.format(RELEASE, defaultProjectCode, processDefinitionCode)))
                 .withMethod(Connection.Method.POST)
                 .withData(createParamMap(PROCESS_DEFINITION_NAME, processDefinitionName, RELEASE_STATE, state))
-                .withRequestBody(GSON.toJson(null))
+                .withRequestBody(this.objectToString(null))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
@@ -418,7 +308,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         schedule.put(CRONTAB, dto.getSchedulerConfigDto().getTriggerExpression());
         schedule.put(TIMEZONE_ID, TIMEZONE_ID_DEFAULT);
 
-        map.put(SCHEDULE, GSON.toJson(schedule));
+        map.put(SCHEDULE, this.objectToString(schedule));
 
         String url = String.format(CREATE_SCHEDULE, defaultProjectCode);
 
@@ -433,7 +323,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .withUrl(apiPrefix.concat(url))
                 .withData(translate(map))
                 .withMethod(flag ? Connection.Method.PUT : Connection.Method.POST)
-                .withRequestBody(GSON.toJson(null))
+                .withRequestBody(this.objectToString(null))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
@@ -445,8 +335,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         }
 
         Map<String, Object> resultMap = MapUtils.getMap(result, DATA);
-        final SchedulerDto schedulerDto = SchedulerDto.fromMap(resultMap);
-        return schedulerDto;
+        return this.mapToPojo(resultMap, SchedulerDto.class);
     }
 
     @Override
@@ -463,7 +352,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         if (CollectionUtils.isEmpty(scheduleList)) {
             return Collections.emptyList();
         }
-        return scheduleList.stream().map(SchedulerDto::fromMap).collect(Collectors.toList());
+        return scheduleList.stream().map(m -> this.mapToPojo(m, SchedulerDto.class)).collect(Collectors.toList());
     }
 
     @Override
@@ -528,12 +417,126 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         }
     }
 
+    @Override
+    public List<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto) {
+        final Map result = HttpUtils.builder()
+                .withUrl(apiPrefix.concat(String.format(QUERY_TASK_LIST_PAGING, defaultProjectCode)))
+                .withMethod(Connection.Method.GET)
+                .withData(createParamMap(PROCESS_INSTANCE_NAME, dto.getProcessInstanceName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
+                .withToken(TOKEN, token)
+                .execute(Map.class);
+
+        checkResult(result, false);
+        final List<Map<String, Object>> taskInstanceList = (List<Map<String, Object>>) MapUtils.getMap(result, DATA).get(DATA_TOTAL_LIST);
+        if (CollectionUtils.isEmpty(taskInstanceList)) {
+            return Collections.emptyList();
+        }
+
+        return taskInstanceList.stream().map(m -> this.mapToPojo(m, TaskInstanceDto.class)).collect(Collectors.toList());
+    }
+
+    private ProjectDto queryProjectCodeByName(String projectName) throws IOException {
+        final Map result = HttpUtils.builder()
+                .withUrl(apiPrefix.concat(QUERY_PROJECT_LIST_PAGING))
+                .withMethod(Connection.Method.GET)
+                .withData(createParamMap(SEARCH_VAL, projectName, PAGE_NO, PAGE_NO_DEFAULT, PAGE_SIZE, PAGE_SIZE_DEFAULT))
+                .withToken(TOKEN, token)
+                .execute(Map.class);
+        checkResult(result, false);
+
+        final List<Map<String, Object>> projectList = (List<Map<String, Object>>) MapUtils.getMap(result, DATA).get(DATA_TOTAL_LIST);
+        final ProjectDto projectDto = projectList.stream().map(m -> this.mapToPojo(m, ProjectDto.class)).filter(p -> p.getName().equalsIgnoreCase(projectName)).findAny().orElse(null);
+        if (Objects.isNull(projectDto)) {
+            throw new SeatunnelException(NO_MATCHED_PROJECT, projectName);
+        }
+        return projectDto;
+    }
+
+    private TaskDefinitionDto buildTaskDefinitionJson(Long taskCode, TaskDescriptionDto taskDescriptionDto) {
+        final ResourceDto resourceDto = createOrUpdateScriptContent(taskDescriptionDto.getName(), taskDescriptionDto.getContent());
+        final TaskDefinitionDto taskDefinitionDto = new TaskDefinitionDto();
+        taskDefinitionDto.setCode(taskCode);
+        taskDefinitionDto.setName(taskDescriptionDto.getName());
+        taskDefinitionDto.setDescription(DESCRIPTION_DEFAULT);
+        taskDefinitionDto.setTaskType(TASK_TYPE_DEFAULT);
+
+        final TaskParamDto taskParamDto = new TaskParamDto();
+
+        taskParamDto.setResourceList(Collections.singletonList(resourceDto));
+
+        final List<LocalParam> localParams = getLocalParams(taskDescriptionDto);
+        taskParamDto.setLocalParams(localParams);
+        taskParamDto.setRawScript(taskDescriptionDto.getExecuteScript());
+        taskParamDto.setDependence(DEPENDENCE_DEFAULT);
+
+        final ConditionResult conditionResult = new ConditionResult();
+        conditionResult.setSuccessNode(SUCCESS_NODE_DEFAULT);
+        conditionResult.setFailedNode(FAILED_NODE_DEFAULT);
+
+        taskParamDto.setConditionResult(conditionResult);
+        taskParamDto.setWaitStartTimeout(WAIT_START_TIMEOUT_DEFAULT);
+        taskParamDto.setSwitchResult(SWITCH_RESULT_DEFAULT);
+
+        taskDefinitionDto.setTaskParams(taskParamDto);
+        taskDefinitionDto.setFlag(FLAG_DEFAULT);
+        taskDefinitionDto.setTaskPriority(TASK_PRIORITY_DEFAULT);
+        taskDefinitionDto.setWorkerGroup(WORKER_GROUP_DEFAULT);
+        taskDefinitionDto.setFailRetryTimes(taskDescriptionDto.getRetryTimes());
+        taskDefinitionDto.setFailRetryInterval(taskDescriptionDto.getRetryInterval());
+        taskDefinitionDto.setTimeoutFlag(TIMEOUT_FLAG_DEFAULT);
+        taskDefinitionDto.setTimeoutNotifyStrategy(TIMEOUT_NOTIFY_STRATEGY_DEFAULT);
+        taskDefinitionDto.setTimeout(TIMEOUT_DEFAULT);
+        taskDefinitionDto.setDelayTime(DELAY_TIME_DEFAULT);
+        taskDefinitionDto.setEnvironmentCode(ENVIRONMENT_CODE_DEFAULT);
+        taskDefinitionDto.setVersion(VERSION_DEFAULT);
+        return taskDefinitionDto;
+    }
+
+    private List<LocalParam> getLocalParams(TaskDescriptionDto taskDescriptionDto) {
+        final Map<String, Object> params = taskDescriptionDto.getParams();
+        final List<LocalParam> localParams = Lists.newArrayListWithCapacity(params.size());
+        params.forEach((k, v) -> {
+            final LocalParam localParam = new LocalParam();
+            localParam.setProp(k);
+            localParam.setDirect(LOCAL_PARAMS_DIRECT_DEFAULT);
+            localParam.setType(LOCAL_PARAMS_TYPE_DEFAULT);
+            localParam.setValue(v);
+            localParams.add(localParam);
+        });
+        return localParams;
+    }
+
+    private List<TaskRelationDto> buildTaskRelationJson(Long taskCode, TaskDescriptionDto taskDescriptionDto) {
+
+        final TaskRelationDto taskRelationDto = new TaskRelationDto();
+        taskRelationDto.setName(BLANK_SPACE);
+        taskRelationDto.setPreTaskCode(PRE_TASK_CODE_DEFAULT);
+        taskRelationDto.setPreTaskVersion(PRE_TASK_VERSION_DEFAULT);
+        taskRelationDto.setPostTaskCode(taskCode);
+        taskRelationDto.setPostTaskVersion(POST_TASK_VERSION_DEFAULT);
+        taskRelationDto.setConditionType(CONDITION_TYPE_DEFAULT);
+        taskRelationDto.setConditionParams(null);
+        return Collections.singletonList(taskRelationDto);
+    }
+
+    private List<LocationDto> buildLocation(List<Long> taskCode) {
+        final List<LocationDto> locations = Lists.newArrayListWithCapacity(taskCode.size());
+        for (int i = 0; i < taskCode.size(); i++) {
+            final LocationDto locationDto = new LocationDto();
+            locationDto.setTaskCode(taskCode.get(i));
+            locationDto.setX(LOCATIONS_X_DEFAULT * i);
+            locationDto.setY(LOCATIONS_Y_DEFAULT * i);
+            locations.add(locationDto);
+        }
+        return locations;
+    }
+
     private void updateContent(int id, String content) {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(String.format(UPDATE_CONTENT, id)))
                 .withMethod(Connection.Method.PUT)
                 .withData(createParamMap(RESOURCE_ID, id, RESOURCE_TYPE_FILE_CONTENT, content))
-                .withRequestBody(GSON.toJson(null))
+                .withRequestBody(this.objectToString(null))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
@@ -545,7 +548,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .withUrl(apiPrefix.concat(ONLINE_CREATE_RESOURCE))
                 .withMethod(Connection.Method.POST)
                 .withData(translate(map))
-                .withRequestBody(GSON.toJson(null))
+                .withRequestBody(this.objectToString(null))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
@@ -563,7 +566,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
             return null;
         }
         final Map<String, Object> map = MapUtils.getMap(result, DATA);
-        return ResourceDto.fromMap(map);
+        return this.mapToPojo(map, ResourceDto.class);
     }
 
     public InstanceLogDto getInstanceLog(long instanceId, int skipNum, int limitNum) {
@@ -583,25 +586,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .build();
     }
 
-    @Override
-    public List<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto) {
-        final Map result = HttpUtils.builder()
-                .withUrl(apiPrefix.concat(String.format(QUERY_TASK_LIST_PAGING, defaultProjectCode)))
-                .withMethod(Connection.Method.GET)
-                .withData(createParamMap(PROCESS_INSTANCE_NAME, dto.getProcessInstanceName(), PAGE_NO, dto.getPageNo(), PAGE_SIZE, dto.getPageSize()))
-                .withToken(TOKEN, token)
-                .execute(Map.class);
-
-        checkResult(result, false);
-        final List<Map<String, Object>> taskInstanceList = (List<Map<String, Object>>) MapUtils.getMap(result, DATA).get(DATA_TOTAL_LIST);
-        if (CollectionUtils.isEmpty(taskInstanceList)) {
-            return Collections.emptyList();
-        }
-
-        return taskInstanceList.stream().map(TaskInstanceDto::fromMap).collect(Collectors.toList());
-    }
-
-    public int checkResult(Map result, boolean ignore) {
+    private int checkResult(Map result, boolean ignore) {
         final int intValue = MapUtils.getIntValue(result, CODE, -1);
         if (!ignore && CODE_SUCCESS != intValue) {
             final String msg = MapUtils.getString(result, MSG);
@@ -614,5 +599,23 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         final HashMap<String, String> map = Maps.newHashMapWithExpectedSize(origin.size());
         origin.forEach((k, v) -> map.put(k, String.valueOf(v)));
         return map;
+    }
+
+    private <T> T mapToPojo(Map map, Class<T> pojo) {
+        try {
+            return MAPPER.readValue(MAPPER.writeValueAsString(map), pojo);
+        } catch (JsonProcessingException e) {
+            log.error("Map translate to Pojo failed.", e);
+            throw new SeatunnelException(SeatunnelErrorEnum.JSON_TRANSFORM_FAILED);
+        }
+    }
+
+    private String objectToString(Object o) {
+        try {
+            return MAPPER.writeValueAsString(o);
+        } catch (JsonProcessingException e) {
+            log.error("Map translate to Pojo failed.", e);
+            throw new SeatunnelException(SeatunnelErrorEnum.JSON_TRANSFORM_FAILED);
+        }
     }
 }

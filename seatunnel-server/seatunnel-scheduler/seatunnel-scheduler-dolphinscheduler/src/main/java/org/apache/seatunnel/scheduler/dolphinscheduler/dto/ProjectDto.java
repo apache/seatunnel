@@ -17,19 +17,12 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
-import java.util.Map;
-
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ProjectDto {
     private long code;
     private String name;
-
-    public static ProjectDto fromMap(Map<String, Object> map) {
-        final ProjectDto dto = new ProjectDto();
-        dto.setCode((Long) map.get("code"));
-        dto.setName((String) map.get("name"));
-        return dto;
-    }
 }

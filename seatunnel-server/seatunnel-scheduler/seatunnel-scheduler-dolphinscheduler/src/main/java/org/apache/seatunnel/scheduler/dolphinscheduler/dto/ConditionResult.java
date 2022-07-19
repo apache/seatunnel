@@ -17,18 +17,14 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
-import java.util.Date;
+import java.util.List;
 
 @Data
-@Builder
-public class UpdateProcessDefinitionDto {
-    private Long processDefinitionCode;
-    private String name;
-    private Date startTime;
-    private Date endTime;
-    private String cronExpression;
-    private TaskDescriptionDto taskDescriptionDto;
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class ConditionResult {
+    private List<Object> successNode;
+    private List<Object> failedNode;
 }

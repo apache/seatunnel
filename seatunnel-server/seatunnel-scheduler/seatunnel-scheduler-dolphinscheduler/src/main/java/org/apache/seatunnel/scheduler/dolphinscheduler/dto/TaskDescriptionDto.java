@@ -20,15 +20,15 @@ package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.Date;
+import java.util.Map;
 
 @Data
 @Builder
-public class UpdateProcessDefinitionDto {
-    private Long processDefinitionCode;
+public class TaskDescriptionDto {
     private String name;
-    private Date startTime;
-    private Date endTime;
-    private String cronExpression;
-    private TaskDescriptionDto taskDescriptionDto;
+    private String executeScript;
+    private String content;
+    private Map<String, Object> params;
+    private int retryInterval;
+    private int retryTimes;
 }

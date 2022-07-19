@@ -24,7 +24,7 @@ import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.SchedulerDto;
-import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskDefinitionDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskDescriptionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.UpdateProcessDefinitionDto;
 import org.apache.seatunnel.spi.scheduler.IJobService;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
@@ -47,7 +47,7 @@ public class JobServiceImpl implements IJobService {
     public long submitJob(JobDto dto) {
         // one process == one seatunnel script == one job
 
-        final TaskDefinitionDto taskDefinitionDto = TaskDefinitionDto.builder()
+        final TaskDescriptionDto taskDescriptionDto = TaskDescriptionDto.builder()
                 .name(dto.getJobName())
                 .executeScript(dto.getExecutorScript())
                 .content(dto.getJobContent())
@@ -61,7 +61,7 @@ public class JobServiceImpl implements IJobService {
                 .startTime(dto.getSchedulerConfigDto().getStartTime())
                 .endTime(dto.getSchedulerConfigDto().getEndTime())
                 .cronExpression(dto.getSchedulerConfigDto().getTriggerExpression())
-                .taskDefinitionDto(taskDefinitionDto)
+                .taskDescriptionDto(taskDescriptionDto)
                 .processDefinitionCode(dto.getJobId())
                 .build();
 

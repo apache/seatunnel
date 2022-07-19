@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
-import org.apache.seatunnel.server.common.DateUtils;
+import static org.apache.seatunnel.server.common.DateUtils.DEFAULT_DATETIME_FORMAT;
 
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 import java.util.Date;
-import java.util.Map;
 
 @Data
-@Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ProcessDefinitionDto {
     private int id;
     private long code;
@@ -34,7 +34,9 @@ public class ProcessDefinitionDto {
     private String releaseState;
     private long projectCode;
     private String description;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date createTime;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date updateTime;
     private String userName;
     private String projectName;
@@ -45,26 +47,4 @@ public class ProcessDefinitionDto {
     private String tenantCode;
     private String modifyBy;
     private int warningGroupId;
-
-    public static ProcessDefinitionDto fromMap(Map<String, Object> map) {
-        return ProcessDefinitionDto.builder()
-                .id((Integer) map.get("id"))
-                .code((Long) map.get("code"))
-                .name((String) map.get("name"))
-                .releaseState((String) map.get("releaseState"))
-                .projectCode((Long) map.get("projectCode"))
-                .description((String) map.get("description"))
-                .createTime(DateUtils.parse((String) map.get("createTime")))
-                .updateTime(DateUtils.parse((String) map.get("updateTime")))
-                .userName((String) map.get("userName"))
-                .projectName((String) map.get("projectName"))
-                .locations((String) map.get("locations"))
-                .scheduleReleaseState((String) map.get("scheduleReleaseState"))
-                .timeout((Integer) map.get("timeout"))
-                .tenantId((Integer) map.get("tenantId"))
-                .tenantCode((String) map.get("tenantCode"))
-                .modifyBy((String) map.get("modifyBy"))
-                .warningGroupId((Integer) map.get("warningGroupId"))
-                .build();
-    }
 }

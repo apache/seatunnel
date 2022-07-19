@@ -17,29 +17,31 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
-import org.apache.seatunnel.server.common.DateUtils;
+import static org.apache.seatunnel.server.common.DateUtils.DEFAULT_DATETIME_FORMAT;
 
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.util.Date;
-import java.util.Map;
 
 @Data
-@Builder
 public class SchedulerDto {
     private int id;
     private long processDefinitionCode;
     private String processDefinitionName;
     private String projectName;
     private String definitionDescription;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date startTime;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date endTime;
     private String timezoneId;
     private String crontab;
     private String failureStrategy;
     private String warningType;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date createTime;
+    @JsonFormat(pattern = DEFAULT_DATETIME_FORMAT)
     private Date updateTime;
     private int userId;
     private String userName;
@@ -48,29 +50,4 @@ public class SchedulerDto {
     private String processInstancePriority;
     private String workerGroup;
     private int environmentCode;
-
-    public static SchedulerDto fromMap(Map<String, Object> map) {
-        return SchedulerDto.builder()
-                .id((Integer) map.get("id"))
-                .processDefinitionCode((Long) map.get("processDefinitionCode"))
-                .processDefinitionName((String) map.get("processDefinitionName"))
-                .projectName((String) map.get("projectName"))
-                .definitionDescription((String) map.get("definitionDescription"))
-                .startTime(DateUtils.parse((String) map.get("startTime")))
-                .endTime(DateUtils.parse((String) map.get("endTime")))
-                .timezoneId((String) map.get("timezoneId"))
-                .crontab((String) map.get("crontab"))
-                .failureStrategy((String) map.get("failureStrategy"))
-                .warningType((String) map.get("warningType"))
-                .createTime(DateUtils.parse((String) map.get("createTime")))
-                .updateTime(DateUtils.parse((String) map.get("updateTime")))
-                .userId((Integer) map.get("userId"))
-                .userName((String) map.get("userName"))
-                .releaseState((String) map.get("releaseState"))
-                .warningGroupId((Integer) map.get("warningGroupId"))
-                .processInstancePriority((String) map.get("processInstancePriority"))
-                .workerGroup((String) map.get("workerGroup"))
-                .environmentCode((Integer) map.get("environmentCode"))
-                .build();
-    }
 }

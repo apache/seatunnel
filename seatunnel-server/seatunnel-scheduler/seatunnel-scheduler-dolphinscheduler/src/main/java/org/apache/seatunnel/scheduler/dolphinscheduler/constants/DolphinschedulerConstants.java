@@ -98,7 +98,7 @@ public class DolphinschedulerConstants {
     public static final String TENANT_CODE = "tenantCode";
     public static final String TASK_RELATION_JSON_NAME = "name";
     public static final String PRE_TASK_CODE = "preTaskCode";
-    public static final int PRE_TASK_CODE_DEFAULT = 0;
+    public static final long PRE_TASK_CODE_DEFAULT = 0;
     public static final String PRE_TASK_VERSION = "preTaskVersion";
     public static final int PRE_TASK_VERSION_DEFAULT = 0;
     public static final String POST_TASK_CODE = "postTaskCode";
