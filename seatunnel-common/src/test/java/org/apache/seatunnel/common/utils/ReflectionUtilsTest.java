@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.jdbc.source.util
 
-import org.apache.spark.sql.jdbc.JdbcDialect
+package org.apache.seatunnel.common.utils;
 
-class HiveDialet extends JdbcDialect {
-  override def canHandle(url: String): Boolean = {
-    url.startsWith("jdbc:hive2")
-  }
+import org.junit.Assert;
+import org.junit.Test;
 
-  override def quoteIdentifier(colName: String): String = {
-    if (colName.contains(".")) {
-      val colName1 = colName.substring(colName.indexOf(".") + 1)
-      s"`$colName1`"
-    } else {
-      s"`$colName`"
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+
+public class ReflectionUtilsTest {
+
+    @Test
+    public void testInvoke() throws MalformedURLException {
+        ReflectionUtils.invoke(new String[]{}, "toString");
+
+        URLClassLoader classLoader = new URLClassLoader(new URL[]{}, Thread.currentThread().getContextClassLoader());
+        ReflectionUtils.invoke(classLoader, "addURL", new URL("file:///test"));
+        Assert.assertArrayEquals(classLoader.getURLs(), new URL[]{new URL("file:///test")});
     }
-  }
+
 }
