@@ -24,8 +24,8 @@ export function useMenu() {
 
   const menuOptions = [
     {
-      label: () => h(NEllipsis, null, { default: () => t('menu.project') }),
-      key: 'projects',
+      label: () => h(NEllipsis, null, { default: () => t('menu.datapipes') }),
+      key: 'datapipes',
     }
   ]
 

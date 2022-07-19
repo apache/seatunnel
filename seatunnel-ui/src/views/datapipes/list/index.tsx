@@ -15,6 +15,15 @@
  * limitations under the License.
  */
 
-export default {
-  datapipes: 'Datapipes'
-}
+import { defineComponent } from 'vue'
+
+const DataPipesList = defineComponent({
+  setup() {},
+  render() {
+    return (
+      <div>datapipes</div>
+    )
+  }
+})
+
+export default DataPipesList

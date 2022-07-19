@@ -16,7 +16,9 @@
  */
 
 import login from '@/locales/en_US/login'
+import menu from '@/locales/en_US/menu'
 
 export default {
-  login
+  login,
+  menu
 }
