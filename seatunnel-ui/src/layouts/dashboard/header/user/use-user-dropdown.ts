@@ -15,37 +15,31 @@
  * limitations under the License.
  */
 
-import { defineComponent, toRefs } from 'vue'
-import { NIcon, NSpace, NDropdown } from 'naive-ui'
-import { SettingOutlined } from '@vicons/antd'
-import { useSettingDropdown } from './use-setting-dropdown'
+import { reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import type { Router } from 'vue-router'
 
-const Setting = defineComponent({
-  setup() {
-    const { state, handleSelect } = useSettingDropdown()
+export function useUserDropdown() {
+  const router: Router = useRouter()
+  const { t } = useI18n()
 
-    return { ...toRefs(state), handleSelect }
-  },
-  render() {
-    return (
-      <NSpace
-        align='center'
-        justify='center'
-        class='h-16 w-12'
-        style={{ cursor: 'pointer' }}
-      >
-        <NDropdown
-          trigger='click'
-          options={this.dropdownOptions}
-          onSelect={this.handleSelect}
-        >
-          <NIcon size='20'>
-            <SettingOutlined />
-          </NIcon>
-        </NDropdown>
-      </NSpace>
-    )
+  const dropdownOptions = [
+    { key: 'help', label: t('menu.help') },
+    { key: 'logout', label: t('menu.logout') }
+  ]
+
+  const state = reactive({
+    dropdownOptions
+  })
+
+  const handleSelect = (key: string) => {
+    if (key === 'help') {
+      window.open('http://seatunnel.incubator.apache.org/versions/')
+    } else if (key === 'logout') {
+      router.push({ path: '/login' })
+    }
   }
-})
 
-export default Setting
+  return { state, handleSelect }
+}
