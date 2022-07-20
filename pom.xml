@@ -223,7 +223,7 @@
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
 
         <!--  SeaTunnel Engine use     -->
-        <hazelcast.version>4.2</hazelcast.version>
+        <hazelcast.version>5.1</hazelcast.version>
     </properties>
 
     <dependencyManagement>
@@ -945,12 +945,6 @@
                 <version>${hazelcast.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>com.google.code.findbugs</groupId>
-                <artifactId>annotations</artifactId>
-                <version>3.0.0</version>
-            </dependency>
-
             <!-- test dependencies -->
             <dependency>
                 <groupId>com.hazelcast</groupId>
@@ -960,7 +954,6 @@
                 <classifier>tests</classifier>
             </dependency>
             <!-- SeaTunnel engine use end -->
-
         </dependencies>
     </dependencyManagement>
 

@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.engine.utils;
 
-import org.apache.seatunnel.engine.exception.EngineException;
-import org.apache.seatunnel.engine.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.exception.JobNotFoundExceptionSeaTunnel;
+import org.apache.seatunnel.engine.exception.SeaTunnelEngineException;
 
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
 import com.hazelcast.client.impl.protocol.ClientProtocolErrorCodes;
@@ -35,8 +35,8 @@ import java.util.concurrent.ExecutionException;
 public final class ExceptionUtil {
 
     private static final List<ImmutableTriple<Integer, Class<? extends Throwable>, ClientExceptionFactory.ExceptionFactory>> EXCEPTIONS = Arrays.asList(
-        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START, EngineException.class, EngineException::new),
-        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1, JobNotFoundException.class, JobNotFoundException::new)
+        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START, SeaTunnelEngineException.class, SeaTunnelEngineException::new),
+        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1, JobNotFoundExceptionSeaTunnel.class, JobNotFoundExceptionSeaTunnel::new)
     );
 
     private ExceptionUtil() {
@@ -71,7 +71,7 @@ public final class ExceptionUtil {
             return (RuntimeException) t;
         }
 
-        return new EngineException(t);
+        return new SeaTunnelEngineException(t);
     }
 
     /**

@@ -34,13 +34,13 @@ public class LocalExecutionContext {
 
     private static String DEFAULT_JOB_NAME = "test_st_job";
 
-    private EngineClientConfig configuration;
+    private SeaTunnelClientConfig configuration;
 
     private String jobName;
 
     private int maxParallelism = 1;
 
-    public LocalExecutionContext(EngineClientConfig configuration) {
+    public LocalExecutionContext(SeaTunnelClientConfig configuration) {
         this.configuration = configuration;
     }
 
