@@ -15,28 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.plugin.discovery.flink;
-
-import org.apache.seatunnel.flink.BaseFlinkTransform;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-
-public class FlinkTransformPluginDiscovery extends FlinkAbstractPluginDiscovery<BaseFlinkTransform> {
-
-    public FlinkTransformPluginDiscovery() {
-        super("flink");
-    }
-
-    @Override
-    public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
-        return new ArrayList<>();
-    }
-
-    @Override
-    protected Class<BaseFlinkTransform> getPluginBaseClass() {
-        return BaseFlinkTransform.class;
-    }
+module.exports = {
+  content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
+  darkMode: 'media',
+  theme: {
+    extend: {}
+  },
+  variants: {
+    extend: {}
+  },
+  plugins: []
 }

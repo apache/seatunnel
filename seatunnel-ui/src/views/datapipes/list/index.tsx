@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-* {
-  outline: 0;
-}
+import { defineComponent } from 'vue'
 
-html,
-body {
-  width: 100%;
-  height: 100%;
-}
+const DataPipesList = defineComponent({
+  setup() {},
+  render() {
+    return (
+      <div>datapipes</div>
+    )
+  }
+})
 
-html,
-body,
-p,
-dl,
-dd,
-dt {
-  margin: 0;
-  padding: 0;
-}
+export default DataPipesList

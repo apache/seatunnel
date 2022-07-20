@@ -20,6 +20,7 @@ package org.apache.seatunnel.plugin.discovery;
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
@@ -28,6 +29,8 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -40,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
@@ -47,8 +51,26 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractPluginDiscovery.class);
     private final Path pluginDir;
 
+    /**
+     * Add jar url to classloader. The different engine should have different logic to add url into
+     * their own classloader
+     */
+    private BiConsumer<ClassLoader, URL> addURLToClassLoader = (classLoader, url) -> {
+        if (classLoader instanceof URLClassLoader) {
+            ReflectionUtils.invoke(classLoader, "addURL", url);
+        } else {
+            throw new UnsupportedOperationException("can't support custom load jar");
+        }
+    };
+
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
-        new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+            new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+
+    public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
+        this.pluginDir = Common.connectorJarDir(pluginSubDir);
+        this.addURLToClassLoader = addURLToClassloader;
+        LOGGER.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+    }
 
     public AbstractPluginDiscovery(String pluginSubDir) {
         this.pluginDir = Common.connectorJarDir(pluginSubDir);
@@ -58,10 +80,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     @Override
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-            .map(this::getPluginJarPath)
-            .filter(Optional::isPresent)
-            .map(Optional::get).distinct()
-            .collect(Collectors.toList());
+                .map(this::getPluginJarPath)
+                .filter(Optional::isPresent)
+                .map(Optional::get).distinct()
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -73,16 +95,35 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     @Override
     public T createPluginInstance(PluginIdentifier pluginIdentifier) {
-        Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
-        ClassLoader classLoader;
-        // if the plugin jar not exist in plugin dir, will load from classpath.
-        if (pluginJarPath.isPresent()) {
-            LOGGER.info("Load plugin: {} from path: {}", pluginIdentifier, pluginJarPath.get());
-            classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
-        } else {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        T pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
+        if (pluginInstance != null) {
             LOGGER.info("Load plugin: {} from classpath", pluginIdentifier);
-            classLoader = Thread.currentThread().getContextClassLoader();
+            return pluginInstance;
         }
+        Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
+        // if the plugin jar not exist in classpath, will load from plugin dir.
+        if (pluginJarPath.isPresent()) {
+            try {
+                // use current thread classloader to avoid different classloader load same class error.
+                this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
+            } catch (Exception e) {
+                LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
+                        " message: " + e.getMessage());
+                classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
+            }
+            pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
+            if (pluginInstance != null) {
+                LOGGER.info("Load plugin: {} from path: {} use classloader: {}",
+                        pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
+                return pluginInstance;
+            }
+        }
+        throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
+    }
+
+    @Nullable
+    private T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
         ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
         for (T t : serviceLoader) {
             if (t instanceof Plugin) {
@@ -101,7 +142,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
             }
         }
-        throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
+        return null;
     }
 
     /**
