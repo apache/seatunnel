@@ -44,6 +44,7 @@
         <module>connector-file</module>
         <module>connector-hudi</module>
         <module>connector-assert</module>
+        <module>connector-tidb</module>
     </modules>
 
     <dependencies>
