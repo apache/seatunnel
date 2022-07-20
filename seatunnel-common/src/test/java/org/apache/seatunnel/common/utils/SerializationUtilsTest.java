@@ -40,6 +40,9 @@ public class SerializationUtilsTest {
 
         Assert.assertEquals(dataAfter, data);
 
+        data.put("key2", "");
+        Assert.assertNotEquals(dataAfter, data);
+
     }
 
     @Test
@@ -63,6 +66,8 @@ public class SerializationUtilsTest {
         ArrayList<HashMap<String, String>> array2 = SerializationUtils.deserialize(result);
 
         Assert.assertEquals(array2, array);
+
+        Assert.assertThrows(SerializationException.class, () -> SerializationUtils.deserialize(new byte[]{1, 0, 1}));
 
     }
 
