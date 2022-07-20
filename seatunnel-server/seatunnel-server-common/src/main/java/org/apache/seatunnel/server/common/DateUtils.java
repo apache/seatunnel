@@ -30,6 +30,11 @@ public class DateUtils {
     public static final String DEFAULT_DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
     public static final String DEFAULT_DATETIME_FORMAT_WITH_TIMEZONE = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZ";
 
+    /**
+     * parse Date to String Date, use default datetime format 'yyyy-MM-dd HH:mm:ss'
+     * @param date which need been format to String date
+     * @return String date
+     */
     public static String format(Date date) {
         return format(date2LocalDateTime(date), DEFAULT_DATETIME_FORMAT);
     }
@@ -42,6 +47,11 @@ public class DateUtils {
         return LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
     }
 
+    /**
+     * parse String date to Date, use default datetime format 'yyyy-MM-dd HH:mm:ss'
+     * @param date which need been parse to Date
+     * @return Date
+     */
     public static Date parse(String date) {
         LocalDateTime localDateTime = LocalDateTime.parse(date, DateTimeFormatter.ofPattern(DEFAULT_DATETIME_FORMAT));
         return localDateTime2Date(localDateTime);
