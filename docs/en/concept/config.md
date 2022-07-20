@@ -80,7 +80,7 @@ transform {
 ```
 
 Like source, transform has specific parameters that belong to each module. The supported source at now check.
-The supported transform at now check [Transform of SeaTunnel](../transform)
+The supported transform at now check [Transform of SeaTunnel](../transform/common-options.mdx)
 
 ### sink
 
