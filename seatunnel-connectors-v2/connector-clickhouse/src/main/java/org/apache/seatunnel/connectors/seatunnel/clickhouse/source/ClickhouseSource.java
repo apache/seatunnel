@@ -124,9 +124,4 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
         return new ClickhouseSourceSplitEnumerator(enumeratorContext);
     }
 
-    @Override
-    public Serializer<ClickhouseSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
-
 }

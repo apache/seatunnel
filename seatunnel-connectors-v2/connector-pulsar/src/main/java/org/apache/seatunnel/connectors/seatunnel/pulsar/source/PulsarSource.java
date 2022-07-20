@@ -274,8 +274,4 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
             checkpointState.assignedPartitions());
     }
 
-    @Override
-    public Serializer<PulsarSplitEnumeratorState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
 }

@@ -122,8 +122,4 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
         return new HiveSourceSplitEnumerator(enumeratorContext, filesPath, checkpointState);
     }
 
-    @Override
-    public Serializer<HiveSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
 }

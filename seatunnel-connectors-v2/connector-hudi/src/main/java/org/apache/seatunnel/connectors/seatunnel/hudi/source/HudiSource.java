@@ -138,8 +138,4 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
         return new HudiSourceSplitEnumerator(enumeratorContext, tablePath, this.confFiles, checkpointState);
     }
 
-    @Override
-    public Serializer<HudiSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
 }
