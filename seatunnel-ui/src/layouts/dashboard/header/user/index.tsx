@@ -23,7 +23,11 @@ const User = defineComponent({
   render() {
     return (
       <NSpace justify='center' align='center' class='h-16 w-12 mr-2'>
-        <img class='h-10 w-10 rounded-full' src='https://avatars.githubusercontent.com/u/19239641?s=64&v=4' alt='' />
+        <img
+          class='h-10 w-10 rounded-full'
+          src='https://avatars.githubusercontent.com/u/19239641?s=64&v=4'
+          alt=''
+        />
       </NSpace>
     )
   }

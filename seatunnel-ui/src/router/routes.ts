@@ -23,9 +23,7 @@ import type { Component } from 'vue'
 const modules = import.meta.glob('/src/views/**/**.tsx')
 const components: { [key: string]: Component } = utils.mapping(modules)
 
-const basePage: RouteRecordRaw[] = [
-  datapipes
-]
+const basePage: RouteRecordRaw[] = [datapipes]
 
 const loginPage: RouteRecordRaw[] = [
   {
