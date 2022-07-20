@@ -39,7 +39,7 @@ import org.apache.seatunnel.app.domain.response.script.AddEmptyScriptRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
 import org.apache.seatunnel.app.service.IScriptService;
-import org.apache.seatunnel.app.util.Md5Utils;
+import org.apache.seatunnel.app.utils.Md5Utils;
 
 import com.google.common.base.Strings;
 import org.springframework.stereotype.Component;

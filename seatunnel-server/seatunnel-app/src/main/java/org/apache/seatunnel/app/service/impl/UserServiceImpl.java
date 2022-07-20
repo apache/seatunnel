@@ -27,7 +27,7 @@ import org.apache.seatunnel.app.domain.request.user.UserListReq;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 import org.apache.seatunnel.app.service.IUserService;
-import org.apache.seatunnel.app.util.PasswordUtils;
+import org.apache.seatunnel.app.utils.PasswordUtils;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
