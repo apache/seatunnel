@@ -17,13 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig.FILE_PATH;
 import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig.FILE_PATH;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
