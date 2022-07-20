@@ -141,11 +141,6 @@ public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit
         return new JdbcSourceSplitEnumerator(enumeratorContext, jdbcSourceOptions, partitionParameter);
     }
 
-    @Override
-    public Serializer<JdbcSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
-
     private SeaTunnelRowType initTableField(Connection conn) {
         JdbcDialectTypeMapper jdbcDialectTypeMapper = jdbcDialect.getJdbcDialectTypeMapper();
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();

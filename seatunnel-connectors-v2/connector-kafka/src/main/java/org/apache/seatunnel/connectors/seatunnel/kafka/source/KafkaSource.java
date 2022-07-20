@@ -121,11 +121,6 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     }
 
     @Override
-    public Serializer<KafkaSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
-
-    @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
     }
