@@ -53,7 +53,8 @@ const App = defineComponent({
         date-locale={
           String(this.localesStore.getLocales) === 'zh_CN' ? dateZhCN : dateEnUS
         }
-        locale={String(this.localesStore.getLocales) === 'zh_CN' ? zhCN : enUS}>
+        locale={String(this.localesStore.getLocales) === 'zh_CN' ? zhCN : enUS}
+      >
         <router-view />
       </NConfigProvider>
     )
