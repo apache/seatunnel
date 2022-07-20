@@ -16,5 +16,7 @@
  */
 
 export default {
-  datapipes: 'Datapipes'
+  datapipes: 'Datapipes',
+  manage: 'Manage',
+  user_manage: 'User Manage'
 }

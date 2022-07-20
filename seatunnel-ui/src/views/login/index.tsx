@@ -26,9 +26,7 @@ const Login = defineComponent({
     const { state } = useForm()
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
-    const handleLogin = () => {
-
-    }
+    const handleLogin = () => {}
 
     return {
       t,
@@ -73,9 +71,7 @@ const Login = defineComponent({
           </NForm>
           <NButton
             type='info'
-            disabled={
-              !this.loginForm.username || !this.loginForm.password
-            }
+            disabled={!this.loginForm.username || !this.loginForm.password}
             style={{ width: '100%' }}
             onClick={this.handleLogin}
           >

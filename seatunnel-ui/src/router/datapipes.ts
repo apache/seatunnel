@@ -37,6 +37,6 @@ export default {
       meta: {
         title: 'datapipes-list'
       }
-    },
+    }
   ]
 }
