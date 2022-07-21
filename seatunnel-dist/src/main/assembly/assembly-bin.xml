@@ -118,10 +118,31 @@
             </excludes>
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
+        <!-- seatunnel engine -->
         <fileSet>
-            <directory>../seatunnel-engine/target</directory>
+            <directory>../seatunnel-engine/seatunnel-engine-client/target</directory>
             <includes>
-                <include>seatunnel-engine*.jar</include>
+                <include>seatunnel-engine-*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/lib</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-engine/seatunnel-engine-common/target</directory>
+            <includes>
+                <include>seatunnel-engine-*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/lib</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-engine/seatunnel-engine-server/target</directory>
+            <includes>
+                <include>seatunnel-engine-*.jar</include>
             </includes>
             <excludes>
                 <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
