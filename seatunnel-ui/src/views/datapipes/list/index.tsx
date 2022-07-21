@@ -20,9 +20,7 @@ import { defineComponent } from 'vue'
 const DataPipesList = defineComponent({
   setup() {},
   render() {
-    return (
-      <div>datapipes</div>
-    )
+    return <div>datapipes</div>
   }
 })
 

@@ -15,10 +15,33 @@
  * limitations under the License.
  */
 
-type Locales = 'zh_CN' | 'en_US'
+import { useI18n } from 'vue-i18n'
+import { reactive, h } from 'vue'
 
-interface LocalesStore {
-  locales: Locales
+export function useSettingDropdown() {
+  const { t } = useI18n()
+
+  const dropdownOptions = [
+    {
+      key: 'header',
+      type: 'render',
+      render: () =>
+        h('h3', { class: ['py-1.5', 'px-3', 'font-medium'] }, t('menu.manage'))
+    },
+    {
+      key: 'header-divider',
+      type: 'divider'
+    },
+    { key: 'user-manage', label: t('menu.user_manage') }
+  ]
+
+  const state = reactive({
+    dropdownOptions
+  })
+
+  const handleSelect = (key: string) => {
+    console.log(key)
+  }
+
+  return { state, handleSelect }
 }
-
-export { LocalesStore, Locales }

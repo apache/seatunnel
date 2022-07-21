@@ -15,15 +15,35 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NSpace } from 'naive-ui'
+import { defineComponent, toRefs } from 'vue'
+import { NSpace, NDropdown } from 'naive-ui'
+import { useUserDropdown } from './use-user-dropdown'
 
 const User = defineComponent({
-  setup() {},
+  setup() {
+    const { state, handleSelect } = useUserDropdown()
+
+    return { ...toRefs(state), handleSelect }
+  },
   render() {
     return (
-      <NSpace justify='center' align='center' class='h-16 w-12 mr-2'>
-        <img class='h-10 w-10 rounded-full' src='https://avatars.githubusercontent.com/u/19239641?s=64&v=4' alt='' />
+      <NSpace
+        justify='center'
+        align='center'
+        class='h-16 w-12 mr-2'
+        style={{ cursor: 'pointer' }}
+      >
+        <NDropdown
+          trigger='click'
+          options={this.dropdownOptions}
+          onSelect={this.handleSelect}
+        >
+          <img
+            class='h-10 w-10 rounded-full'
+            src='https://avatars.githubusercontent.com/u/19239641?s=64&v=4'
+            alt=''
+          />
+        </NDropdown>
       </NSpace>
     )
   }
