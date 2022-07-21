@@ -89,7 +89,8 @@ const sidebars = {
                       type: 'generated-index',
                       title: 'Source-V2 of SeaTunnel',
                       description: 'List all Sink supported Apache SeaTunnel for now.',
-                      slug: '/category/sink',
+                      // Should remove the `v2` suffix when we migrate all sink to v2 and delete the old one
+                      slug: '/category/sink-v2',
                       keywords: ['sink'],
                       image: '/img/favicon.ico',
                   },
@@ -107,7 +108,8 @@ const sidebars = {
                       type: 'generated-index',
                       title: 'Source-V2 of SeaTunnel',
                       description: 'List all source supported Apache SeaTunnel for now.',
-                      slug: '/category/source',
+                      // Should remove the `v2` suffix when we migrate all sink to v2 and delete the old one
+                      slug: '/category/source-v2',
                       keywords: ['source'],
                       image: '/img/favicon.ico',
                   },
