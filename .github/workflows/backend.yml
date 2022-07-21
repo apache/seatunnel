@@ -124,6 +124,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '8'
+          cache: 'maven'
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
 
