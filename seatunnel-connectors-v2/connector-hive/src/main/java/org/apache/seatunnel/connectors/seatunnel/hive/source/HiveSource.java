@@ -36,10 +36,8 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HivePluginException;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.OrcReadStrategy;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ParquetReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ReadStrategy;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.TextReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ReadStrategyFactory;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -72,14 +70,8 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        // default filetype is text
-        if ("orc".equals(pluginConfig.getString(SourceConfig.FILE_TYPE))) {
-            readStrategy = new OrcReadStrategy();
-        } else if ("parquet".equals(pluginConfig.getString(SourceConfig.FILE_TYPE))) {
-            readStrategy = new ParquetReadStrategy();
-        } else {
-            readStrategy = new TextReadStrategy();
-        }
+        // use factory to generate readStrategy
+        readStrategy = ReadStrategyFactory.of(pluginConfig.getString(SourceConfig.FILE_TYPE));
         String path = pluginConfig.getString(FILE_PATH);
         hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
         try {
