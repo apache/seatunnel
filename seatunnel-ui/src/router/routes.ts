@@ -16,14 +16,15 @@
  */
 
 import utils from '@/utils'
-import datapipes from '@/router/datapipes'
+import dataPipes from '@/router/data-pipes'
+import userManage from '@/router/user-manage'
 import type { RouteRecordRaw } from 'vue-router'
 import type { Component } from 'vue'
 
 const modules = import.meta.glob('/src/views/**/**.tsx')
 const components: { [key: string]: Component } = utils.mapping(modules)
 
-const basePage: RouteRecordRaw[] = [datapipes]
+const basePage: RouteRecordRaw[] = [dataPipes, userManage]
 
 const loginPage: RouteRecordRaw[] = [
   {

@@ -22,20 +22,20 @@ const modules = import.meta.glob('/src/views/**/**.tsx')
 const components: { [key: string]: Component } = utils.mapping(modules)
 
 export default {
-  path: '/datapipes',
-  name: 'datapipes',
+  path: '/data-pipes',
+  name: 'data-pipes',
   meta: {
-    title: 'datapipes'
+    title: 'data-pipes'
   },
-  redirect: { name: 'datapipes-list' },
+  redirect: { name: 'data-pipes-list' },
   component: () => import('@/layouts/dashboard'),
   children: [
     {
-      path: '/datapipes/list',
-      name: 'datapipes-list',
-      component: components['datapipes-list'],
+      path: '/data-pipes/list',
+      name: 'data-pipes-list',
+      component: components['data-pipes-list'],
       meta: {
-        title: 'datapipes-list'
+        title: 'data-pipes-list'
       }
     }
   ]
