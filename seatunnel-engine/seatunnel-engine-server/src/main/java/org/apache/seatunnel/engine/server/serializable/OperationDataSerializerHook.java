@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.serializable;
+package org.apache.seatunnel.engine.server.serializable;
 
-import org.apache.seatunnel.engine.operation.PrintMessageOperation;
+import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -25,11 +25,11 @@ import com.hazelcast.nio.serialization.DataSerializableFactory;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 public class OperationDataSerializerHook implements DataSerializerHook {
-    public static final int PRINT_MESSAGE_OP = 0;
+    public static final int PRINT_MESSAGE_OPERATOR = 0;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-        OperationFactoryIdConstant.ENGINE_OPERATION_DS_FACTORY,
-        OperationFactoryIdConstant.ENGINE_OPERATION_DS_FACTORY_ID
+        OperationFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
+        OperationFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY_ID
     );
 
     @Override
@@ -47,7 +47,7 @@ public class OperationDataSerializerHook implements DataSerializerHook {
         @Override
         public IdentifiedDataSerializable create(int typeId) {
             switch (typeId) {
-                case PRINT_MESSAGE_OP:
+                case PRINT_MESSAGE_OPERATOR:
                     return new PrintMessageOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);

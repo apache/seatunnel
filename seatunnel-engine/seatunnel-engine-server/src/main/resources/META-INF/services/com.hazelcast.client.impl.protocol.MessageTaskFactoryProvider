@@ -15,4 +15,4 @@
 # limitations under the License.
 #
 
-org.apache.seatunnel.engine.protocol.task.SeaTunnelMessageTaskFactoryProvider
+org.apache.seatunnel.engine.server.protocol.task.SeaTunnelMessageTaskFactoryProvider

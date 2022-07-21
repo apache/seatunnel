@@ -16,7 +16,7 @@
  */
 
 
-package org.apache.seatunnel.engine.protocol.codec;
+package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.Generated;

@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.exception;
+package org.apache.seatunnel.engine.common.exception;
 
-public class JobNotFoundExceptionSeaTunnel extends SeaTunnelEngineException {
-    public JobNotFoundExceptionSeaTunnel(long jobId) {
-        super("Job with id " + jobId + " not found");
+import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
+import com.hazelcast.core.HazelcastException;
+
+public class SeaTunnelEngineException extends HazelcastException implements ClientExceptionFactory.ExceptionFactory {
+    public SeaTunnelEngineException() {
     }
 
-    public JobNotFoundExceptionSeaTunnel(String message) {
+    public SeaTunnelEngineException(String message) {
         super(message);
     }
 
-    public JobNotFoundExceptionSeaTunnel(String message, Throwable cause) {
+    public SeaTunnelEngineException(String message, Throwable cause) {
         super(message, cause);
+    }
+
+    public SeaTunnelEngineException(Throwable cause) {
+        super(cause);
+    }
+
+    @Override
+    public Throwable createException(String s, Throwable throwable) {
+        return new SeaTunnelEngineException(s, throwable);
     }
 }

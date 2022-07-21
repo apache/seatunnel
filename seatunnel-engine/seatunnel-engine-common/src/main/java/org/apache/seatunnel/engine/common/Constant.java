@@ -18,5 +18,5 @@
 package org.apache.seatunnel.engine.common;
 
 public class Constant {
-    public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
+    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
 }

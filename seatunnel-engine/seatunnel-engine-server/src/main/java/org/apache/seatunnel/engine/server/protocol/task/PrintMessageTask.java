@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.protocol.task;
+package org.apache.seatunnel.engine.server.protocol.task;
 
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.operation.PrintMessageOperation;
-import org.apache.seatunnel.engine.protocol.codec.SeaTunnelPrintMessageCodec;
+import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
 import com.google.common.base.Function;
 import com.hazelcast.client.impl.protocol.ClientMessage;
@@ -45,7 +45,7 @@ public class PrintMessageTask extends AbstractInvocationMessageTask<String> {
         if (masterAddress == null) {
             throw new RetryableHazelcastException("master not yet known");
         }
-        return nodeEngine.getOperationService().createInvocationBuilder(Constant.SERVICE_NAME,
+        return nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
             op, masterAddress);
     }
 
@@ -68,7 +68,7 @@ public class PrintMessageTask extends AbstractInvocationMessageTask<String> {
 
     @Override
     public String getServiceName() {
-        return Constant.SERVICE_NAME;
+        return Constant.SEATUNNEL_SERVICE_NAME;
     }
 
     @Override

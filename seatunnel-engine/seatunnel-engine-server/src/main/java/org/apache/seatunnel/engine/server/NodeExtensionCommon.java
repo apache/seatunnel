@@ -96,7 +96,7 @@ class NodeExtensionCommon {
     Map<String, Object> createExtensionServices() {
         Map<String, Object> extensionServices = new HashMap<>();
 
-        extensionServices.put(Constant.SERVICE_NAME, server);
+        extensionServices.put(Constant.SEATUNNEL_SERVICE_NAME, server);
 
         return extensionServices;
     }

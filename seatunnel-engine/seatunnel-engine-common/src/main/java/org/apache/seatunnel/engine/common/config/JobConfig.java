@@ -15,15 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.serializable;
+package org.apache.seatunnel.engine.common.config;
 
-/**
- * Constants used for Hazelcast's {@link com.hazelcast.nio.serialization.IdentifiedDataSerializable}
- * mechanism.
- */
-public class OperationFactoryIdConstant {
-    /** Name of the system property that specifies SeaTunnelEngine's data serialization factory ID. */
-    public static final String ENGINE_OPERATION_DS_FACTORY = "hazelcast.serialization.ds.seatunnel.engine.operation";
-    /** Default ID of SeaTunnelEngine's data serialization factory. */
-    public static final int ENGINE_OPERATION_DS_FACTORY_ID = -30001;
+public class JobConfig {
 }

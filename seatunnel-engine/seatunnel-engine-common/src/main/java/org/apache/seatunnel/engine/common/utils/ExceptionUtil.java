@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.utils;
+package org.apache.seatunnel.engine.common.utils;
 
-import org.apache.seatunnel.engine.exception.JobNotFoundExceptionSeaTunnel;
-import org.apache.seatunnel.engine.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundExceptionSeaTunnel;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
 import com.hazelcast.client.impl.protocol.ClientProtocolErrorCodes;

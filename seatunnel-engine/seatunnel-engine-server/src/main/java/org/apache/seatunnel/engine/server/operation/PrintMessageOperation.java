@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.operation;
+package org.apache.seatunnel.engine.server.operation;
 
-import org.apache.seatunnel.engine.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -47,7 +47,7 @@ public class PrintMessageOperation extends Operation implements IdentifiedDataSe
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.PRINT_MESSAGE_OP;
+        return OperationDataSerializerHook.PRINT_MESSAGE_OPERATOR;
     }
 
     @Override
