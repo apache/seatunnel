@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.engine.dag.logicaldag;
 
-public interface RepartitionTransformation extends Transformation {
+public class LogicalDag {
 }

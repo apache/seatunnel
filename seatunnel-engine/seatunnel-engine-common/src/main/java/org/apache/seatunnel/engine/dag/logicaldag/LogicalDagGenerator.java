@@ -15,20 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.dag.actions;
+package org.apache.seatunnel.engine.dag.logicaldag;
 
-import org.apache.seatunnel.api.transform.RepartitionTransformation;
+import org.apache.seatunnel.engine.dag.actions.Action;
+
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import lombok.NonNull;
 
 import java.util.List;
 
-public class RepartitionTransformAction extends AbstractAction {
-    private RepartitionTransformation repartitionTransformation;
+public class LogicalDagGenerator {
+    private static final ILogger LOGGER = Logger.getLogger(LogicalDagGenerator.class);
+    private List<Action> actions;
 
-    public RepartitionTransformAction(String name,
-                                      List<Action> upstreams,
-                                      RepartitionTransformation repartitionTransformation) {
-        super(name, upstreams);
-        this.repartitionTransformation = repartitionTransformation;
+    public LogicalDagGenerator(@NonNull List<Action> actions) {
+        this.actions = actions;
+        if (actions.size() <= 0) {
+            throw new IllegalStateException("No actions define in the job. Cannot execute.");
+        }
     }
 
+    public LogicalDag generate() {
+        return null;
+    }
 }

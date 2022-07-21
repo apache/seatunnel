@@ -18,19 +18,13 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.transform.Transformation;
+import org.apache.seatunnel.engine.dag.actions.Action;
+import org.apache.seatunnel.engine.dag.logicaldag.LogicalDagGenerator;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class LocalExecutionContext {
-    private SeaTunnelSource source;
-
-    private List<Transformation> transformations;
-
-    private SeaTunnelSink sink;
 
     private static String DEFAULT_JOB_NAME = "test_st_job";
 
@@ -40,47 +34,26 @@ public class LocalExecutionContext {
 
     private int maxParallelism = 1;
 
+    private List<Action> actions = new ArrayList<>();
+
     public LocalExecutionContext(SeaTunnelClientConfig configuration) {
         this.configuration = configuration;
     }
 
-    public void addTransformation(Transformation transformation) {
-        if (transformations == null) {
-            transformations = new ArrayList<>();
-        }
-        this.transformations.add(transformation);
+    public void addAction(Action action) {
+        this.actions.add(action);
     }
 
-    public SeaTunnelSource getSource() {
-        return source;
+    public LogicalDagGenerator getLogicalDagGenerator() {
+        return new LogicalDagGenerator(actions);
     }
 
-    public void setSource(SeaTunnelSource source) {
-        this.source = source;
-    }
-
-    public List<Transformation> getTransformations() {
-        return transformations;
-    }
-
-    public void setTransformations(List<Transformation> transformations) {
-        this.transformations = transformations;
-    }
-
-    public SeaTunnelSink getSink() {
-        return sink;
-    }
-
-    public void setSink(SeaTunnelSink sink) {
-        this.sink = sink;
+    public List<Action> getActions() {
+        return actions;
     }
 
     public void setJobName(String jobName) {
         this.jobName = jobName;
-    }
-
-    public void setMaxParallelism(int maxParallelism) {
-        this.maxParallelism = maxParallelism;
     }
 }
 
