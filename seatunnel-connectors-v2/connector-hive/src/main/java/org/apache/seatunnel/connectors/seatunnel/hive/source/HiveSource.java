@@ -37,6 +37,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HivePluginException;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.OrcReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ParquetReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.file.reader.format.TextReadStrategy;
 
@@ -74,6 +75,8 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
         // default filetype is text
         if ("orc".equals(pluginConfig.getString(SourceConfig.FILE_TYPE))) {
             readStrategy = new OrcReadStrategy();
+        } else if ("parquet".equals(pluginConfig.getString(SourceConfig.FILE_TYPE))) {
+            readStrategy = new ParquetReadStrategy();
         } else {
             readStrategy = new TextReadStrategy();
         }
