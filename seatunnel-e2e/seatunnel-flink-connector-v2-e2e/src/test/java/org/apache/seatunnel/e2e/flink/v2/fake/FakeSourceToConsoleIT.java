@@ -28,7 +28,6 @@ import java.io.IOException;
 public class FakeSourceToConsoleIT extends FlinkContainer {
 
     @Test
-    @SuppressWarnings("magicnumber")
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/fake/fakesource_to_console.conf");
         Assert.assertEquals(0, execResult.getExitCode());

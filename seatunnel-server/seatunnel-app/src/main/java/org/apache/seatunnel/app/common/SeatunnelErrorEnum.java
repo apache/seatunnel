@@ -24,7 +24,7 @@ public enum SeatunnelErrorEnum {
     USER_ALREADY_EXISTS(10003, "user already exist", "The same username [%s] is exist."),
     NO_SUCH_USER(10002, "no such user", "No such user. Maybe deleted by others."),
     ILLEGAL_STATE(99998, "illegal state", "%s"),
-    UNKNOWN(99999, "unknown exception", "unknown exception")
+    UNKNOWN(99999, "unknown exception", "%s")
     ;
 
     private final int code;

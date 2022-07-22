@@ -70,7 +70,6 @@ public class PluginIdentifier {
     }
 
     @Override
-    @SuppressWarnings("checkstyle:magicnumber")
     public int hashCode() {
         int result = engineType != null ? engineType.hashCode() : 0;
         result = 31 * result + (pluginType != null ? pluginType.hashCode() : 0);

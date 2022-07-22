@@ -15,10 +15,4 @@
  * limitations under the License.
  */
 
-const test = {
-  'test': '测试'
-}
-
-export default {
-  test
-}
+export default {}

@@ -32,7 +32,6 @@ import java.io.IOException;
 public class FakeSourceToFileIT extends SparkContainer {
 
     @Test
-    @SuppressWarnings("magicnumber")
     public void testFakeSourceToFile() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_file.conf");
         Assert.assertEquals(0, execResult.getExitCode());

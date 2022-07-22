@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-const test = {
-  'test': 'test'
-}
+import login from '@/locales/en_US/login'
+import menu from '@/locales/en_US/menu'
+import user_manage from '@/locales/en_US/user-manage'
 
 export default {
-  test
+  login,
+  menu,
+  user_manage
 }

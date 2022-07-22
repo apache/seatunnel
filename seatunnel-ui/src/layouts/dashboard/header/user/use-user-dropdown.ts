@@ -14,21 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.spark.jdbc.source.util
 
-import org.apache.spark.sql.jdbc.JdbcDialect
+import { reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import type { Router } from 'vue-router'
 
-class HiveDialet extends JdbcDialect {
-  override def canHandle(url: String): Boolean = {
-    url.startsWith("jdbc:hive2")
-  }
+export function useUserDropdown() {
+  const router: Router = useRouter()
+  const { t } = useI18n()
 
-  override def quoteIdentifier(colName: String): String = {
-    if (colName.contains(".")) {
-      val colName1 = colName.substring(colName.indexOf(".") + 1)
-      s"`$colName1`"
-    } else {
-      s"`$colName`"
+  const dropdownOptions = [
+    { key: 'help', label: t('menu.help') },
+    { key: 'logout', label: t('menu.logout') }
+  ]
+
+  const state = reactive({
+    dropdownOptions
+  })
+
+  const handleSelect = (key: string) => {
+    if (key === 'help') {
+      window.open('http://seatunnel.incubator.apache.org/versions/')
+    } else if (key === 'logout') {
+      router.push({ path: '/login' })
     }
   }
+
+  return { state, handleSelect }
 }
