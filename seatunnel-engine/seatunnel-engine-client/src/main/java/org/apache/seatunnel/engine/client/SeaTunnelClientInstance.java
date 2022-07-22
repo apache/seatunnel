@@ -25,7 +25,6 @@ public interface SeaTunnelClientInstance {
     /**
      * Returns the underlying Hazelcast IMDG instance used by SeaTunnel Engine Client. It will
      * be a client, depending on the type of this
-     * {@code JetInstance}.
      */
     @NonNull
     HazelcastInstance getHazelcastInstance();

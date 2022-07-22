@@ -42,7 +42,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         Preconditions.checkNotNull(seaTunnelClientConfig, "config");
         this.hazelcastClient = ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(seaTunnelClientConfig)).client;
         this.serializationService = hazelcastClient.getSerializationService();
-        ExceptionUtil.registerJetExceptions(hazelcastClient.getClientExceptionFactory());
+        ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
     }
 
     @NonNull

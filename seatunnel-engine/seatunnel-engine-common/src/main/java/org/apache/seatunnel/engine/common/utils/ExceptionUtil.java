@@ -45,7 +45,7 @@ public final class ExceptionUtil {
     /**
      * Called during startup to make our exceptions known to Hazelcast serialization
      */
-    public static void registerJetExceptions(@NonNull ClientExceptionFactory factory) {
+    public static void registerSeaTunnelExceptions(@NonNull ClientExceptionFactory factory) {
         for (ImmutableTriple<Integer, Class<? extends Throwable>, ClientExceptionFactory.ExceptionFactory> exception : EXCEPTIONS) {
             factory.register(exception.left, exception.middle, exception.right);
         }
