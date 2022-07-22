@@ -22,7 +22,9 @@ const mapping = (modules: any) => {
   Object.keys(modules).forEach((key: string) => {
     const nameMatch: string[] | null = key.match(/^\/src\/views\/(.+)\.tsx/)
 
-    if (!nameMatch) { return }
+    if (!nameMatch) {
+      return
+    }
 
     const indexMatch: string[] | null = nameMatch[1].match(/(.*)\/Index$/i)
 

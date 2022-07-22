@@ -25,7 +25,6 @@ import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 
 import java.util.List;
 
-@SuppressWarnings("magicnumber")
 public class AssertRuleParserTest extends TestCase {
     AssertRuleParser parser = new AssertRuleParser();
 
