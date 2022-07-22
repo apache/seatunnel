@@ -15,38 +15,28 @@
  * limitations under the License.
  */
 
-import { useI18n } from 'vue-i18n'
-import { reactive, h } from 'vue'
-import { useRouter } from 'vue-router'
-import type { Router } from 'vue-router'
+import utils from '@/utils'
+import type { Component } from 'vue'
 
-export function useSettingDropdown() {
-  const { t } = useI18n()
-  const router: Router = useRouter()
+const modules = import.meta.glob('/src/views/**/**.tsx')
+const components: { [key: string]: Component } = utils.mapping(modules)
 
-  const dropdownOptions = [
+export default {
+  path: '/user-manage',
+  name: 'user-manage',
+  meta: {
+    title: 'user-manage'
+  },
+  redirect: { name: 'user-manage-list' },
+  component: () => import('@/layouts/dashboard'),
+  children: [
     {
-      key: 'header',
-      type: 'render',
-      render: () =>
-        h('h3', { class: ['py-1.5', 'px-3', 'font-medium'] }, t('menu.manage'))
-    },
-    {
-      key: 'header-divider',
-      type: 'divider'
-    },
-    { key: 'user-manage', label: t('menu.user_manage') }
-  ]
-
-  const state = reactive({
-    dropdownOptions
-  })
-
-  const handleSelect = (key: string) => {
-    if (key === 'user-manage') {
-      router.push({ path: '/user-manage' })
+      path: '/user-manage/list',
+      name: 'user-manage-list',
+      component: components['user-manage-list'],
+      meta: {
+        title: 'user-manage-list'
+      }
     }
-  }
-
-  return { state, handleSelect }
+  ]
 }

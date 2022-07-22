@@ -17,8 +17,10 @@
 
 import login from '@/locales/en_US/login'
 import menu from '@/locales/en_US/menu'
+import user_manage from '@/locales/en_US/user-manage'
 
 export default {
   login,
-  menu
+  menu,
+  user_manage
 }
