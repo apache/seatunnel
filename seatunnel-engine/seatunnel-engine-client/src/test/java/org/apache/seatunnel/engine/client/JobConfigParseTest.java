@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 
 import org.junit.Assert;
@@ -31,13 +33,14 @@ public class JobConfigParseTest {
 
     @Test
     public void testParse() {
-        String filePath = this.getClass().getResource("/fakesource_to_file.conf").getFile().toString();
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = this.getClass().getResource("/fakesource_to_file.conf").getFile();
         JobConfigParse jobConfigParse = new JobConfigParse(filePath);
-        List<Action> parse = jobConfigParse.parse();
-        Assert.assertEquals(1, parse.size());
+        List<Action> actions = jobConfigParse.parse();
+        Assert.assertEquals(1, actions.size());
 
-        Assert.assertEquals("FakeSource", parse.get(0).name());
-        Assert.assertEquals(1, parse.get(0).upstream().size());
-        Assert.assertEquals("LocalFile", parse.get(0).upstream().get(0).name());
+        Assert.assertEquals("LocalFile", actions.get(0).name());
+        Assert.assertEquals(1, actions.get(0).upstream().size());
+        Assert.assertEquals("FakeSource", actions.get(0).upstream().get(0).name());
     }
 }
