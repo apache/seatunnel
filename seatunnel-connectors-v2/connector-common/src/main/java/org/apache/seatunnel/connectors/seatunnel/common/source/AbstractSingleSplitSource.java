@@ -46,11 +46,6 @@ public abstract class AbstractSingleSplitSource<T> implements SeaTunnelSource<T,
     }
 
     @Override
-    public final Serializer<SingleSplitEnumeratorState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
-
-    @Override
     public final Serializer<SingleSplit> getSplitSerializer() {
         return new DefaultSerializer<>();
     }
