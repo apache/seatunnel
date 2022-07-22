@@ -98,7 +98,6 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <modules>
-                <module>seatunnel-dependency-shade</module>
                 <module>seatunnel-connectors-v2</module>
                 <module>seatunnel-connectors-v2-dist</module>
                 <module>seatunnel-examples</module>
@@ -768,11 +767,6 @@
                 <version>${codehaus.jackson.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.codehaus.janino</groupId>
-                <artifactId>janino</artifactId>
-                <version>${janino.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>com.sun.jersey</groupId>
                 <artifactId>jersey-json</artifactId>
                 <version>${jersey.version}</version>
@@ -861,11 +855,6 @@
             <dependency>
                 <groupId>org.apache.curator</groupId>
                 <artifactId>curator-framework</artifactId>
-                <version>${curator.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.curator</groupId>
-                <artifactId>curator-recipes</artifactId>
                 <version>${curator.version}</version>
             </dependency>
             <dependency>

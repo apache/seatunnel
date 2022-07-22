@@ -27,6 +27,7 @@ import org.apache.seatunnel.translation.source.CoordinatedSource;
 import org.apache.seatunnel.translation.spark.source.InternalRowCollector;
 import org.apache.seatunnel.translation.spark.source.ReaderState;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -96,7 +97,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
             parallelism);
     }
 
-    public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT> extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
+    public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable> extends CoordinatedSource<SeaTunnelRow, SplitT, StateT> {
 
         public InternalCoordinatedSource(SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source, Map<Integer, List<byte[]>> restoredState, int parallelism) {
             super(source, restoredState, parallelism);
