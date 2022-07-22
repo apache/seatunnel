@@ -19,15 +19,18 @@ package org.apache.seatunnel.engine.core.dag.actions;
 
 import lombok.NonNull;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class AbstractAction implements Action {
     private String name;
-    private List<Action> upstreams;
+    private List<Action> upstreams = new ArrayList<>();
     // This is used to assign a unique ID to every Action
     protected static Integer ID_COUNTER = 0;
 
     private int id;
+
+    private int parallelism = 1;
 
     protected AbstractAction(@NonNull String name, @NonNull List<Action> upstreams) {
         this.name = name;
@@ -64,5 +67,15 @@ public abstract class AbstractAction implements Action {
     @Override
     public void addUpstream(@NonNull Action action) {
         this.upstreams.add(action);
+    }
+
+    @Override
+    public int getParallelism() {
+        return parallelism;
+    }
+
+    @Override
+    public void setParallelism(int parallelism) {
+        this.parallelism = parallelism;
     }
 }

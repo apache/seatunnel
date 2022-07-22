@@ -35,4 +35,5 @@ public class CollectionConstants {
 
     public static final String SINK_PLUGIN = "sink";
 
+    public static final String PARALLELISM = "parallelism";
 }

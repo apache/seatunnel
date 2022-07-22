@@ -31,8 +31,9 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public class JobConfigParseTest {
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Test
-    public void testParse() {
+    public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = this.getClass().getResource("/fakesource_to_file.conf").getFile();
         JobConfigParse jobConfigParse = new JobConfigParse(filePath);
@@ -42,5 +43,27 @@ public class JobConfigParseTest {
         Assert.assertEquals("LocalFile", actions.get(0).name());
         Assert.assertEquals(1, actions.get(0).upstream().size());
         Assert.assertEquals("FakeSource", actions.get(0).upstream().get(0).name());
+
+        Assert.assertEquals(3, actions.get(0).upstream().get(0).getParallelism());
+        Assert.assertEquals(3, actions.get(0).getParallelism());
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    @Test
+    public void testComplexJobParse() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = this.getClass().getResource("/fakesource_to_file_complex.conf").getFile();
+        JobConfigParse jobConfigParse = new JobConfigParse(filePath);
+        List<Action> actions = jobConfigParse.parse();
+        Assert.assertEquals(1, actions.size());
+
+        Assert.assertEquals("LocalFile", actions.get(0).name());
+        Assert.assertEquals(2, actions.get(0).upstream().size());
+        Assert.assertEquals("FakeSource", actions.get(0).upstream().get(0).name());
+        Assert.assertEquals("FakeSource", actions.get(0).upstream().get(1).name());
+
+        Assert.assertEquals(3, actions.get(0).upstream().get(0).getParallelism());
+        Assert.assertEquals(3, actions.get(0).upstream().get(1).getParallelism());
+        Assert.assertEquals(6, actions.get(0).getParallelism());
     }
 }

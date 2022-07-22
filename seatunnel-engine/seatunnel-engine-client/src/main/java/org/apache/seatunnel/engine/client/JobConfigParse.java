@@ -17,24 +17,19 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.constants.CollectionConstants;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckExceptionSeaTunnel;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -50,6 +45,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import scala.Serializable;
 
@@ -96,7 +92,9 @@ public class JobConfigParse {
 
         List<Action> actions = new ArrayList<>();
         for (Config config : sinkConfigs) {
-            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink = loadSinkInstance(config);
+            SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
+                ConnectorInstanceLoader.loadSinkInstance(config);
+
             SinkAction sinkAction = new SinkAction(seaTunnelSink.getPluginName(), seaTunnelSink);
             actions.add(sinkAction);
             if (!config.hasPath(Plugin.SOURCE_TABLE_NAME)) {
@@ -107,7 +105,10 @@ public class JobConfigParse {
             List<Config> transformConfigList = transformResultTableNameMap.get(sourceTableName);
             if (CollectionUtils.isEmpty(transformConfigList)) {
                 sourceAnalyze(sourceTableName, sinkAction);
-
+            } else if (transformConfigList.size() > 1) {
+                throw new JobDefineCheckExceptionSeaTunnel("Only UnionTransform can have more than one upstream, "
+                    + sinkAction.name()
+                    + " is not UnionTransform Connector");
             } else {
                 transformAnalyze(sourceTableName, sinkAction);
             }
@@ -123,11 +124,18 @@ public class JobConfigParse {
                 + " source table name [" + sourceTableName + "] can not be found");
         }
 
+        // If a transform have more than one upstream action, the parallelism of this transform is the sum of the parallelism
+        // of its upstream action.
+        AtomicInteger totalParallelism = new AtomicInteger();
         sourceConfigList.stream().forEach(sourceConfig -> {
-            action.addUpstream(new SourceAction(
-                sourceConfig.getString(CollectionConstants.PLUGIN_NAME),
-                loadSourceInstance(sourceConfig)
-            ));
+            SourceAction sourceAction =
+                new SourceAction(sourceConfig.getString(CollectionConstants.PLUGIN_NAME),
+                    ConnectorInstanceLoader.loadSourceInstance(sourceConfig));
+            int sourceParallelism = getSourceParallelism(sourceConfig);
+            sourceAction.setParallelism(sourceParallelism);
+            totalParallelism.set(totalParallelism.get() + sourceParallelism);
+            action.addUpstream(sourceAction);
+            action.setParallelism(totalParallelism.get());
         });
     }
 
@@ -137,11 +145,15 @@ public class JobConfigParse {
         if (CollectionUtils.isEmpty(transformConfigList)) {
             sourceAnalyze(sourceTableName, action);
         } else {
+            AtomicInteger totalParallelism = new AtomicInteger();
             transformConfigList.stream().forEach(config -> {
-                SeaTunnelTransform seaTunnelTransform = loadTransformInstance(config);
-                TransformAction transformAction = new TransformAction(seaTunnelTransform.getPluginName(), seaTunnelTransform);
+                SeaTunnelTransform seaTunnelTransform = ConnectorInstanceLoader.loadTransformInstance(config);
+                TransformAction transformAction =
+                    new TransformAction(seaTunnelTransform.getPluginName(), seaTunnelTransform);
                 action.addUpstream(transformAction);
                 transformAnalyze(config.getString(Plugin.SOURCE_TABLE_NAME), transformAction);
+                totalParallelism.set(totalParallelism.get() + transformAction.getParallelism());
+                action.setParallelism(totalParallelism.get());
             });
         }
     }
@@ -187,80 +199,66 @@ public class JobConfigParse {
 
     /**
      * If there is only one Source and one Sink and at most one Transform, We simply build actions pipeline in the following order
-     *              Source
-     *                 |
-     *              Transform(If have)
-     *                 |
-     *               Sink
+     * Source
+     * |
+     * Transform(If have)
+     * |
+     * Sink
      */
     private List<Action> sampleAnalyze(List<? extends Config> sourceConfigs,
                                        List<? extends Config> transformConfigs,
                                        List<? extends Config> sinkConfigs) {
-        SeaTunnelSource seaTunnelSource = loadSourceInstance(sourceConfigs.get(0));
+        SeaTunnelSource seaTunnelSource = ConnectorInstanceLoader.loadSourceInstance(sourceConfigs.get(0));
         SourceAction sourceAction = new SourceAction(seaTunnelSource.getPluginName(), seaTunnelSource);
+        sourceAction.setParallelism(getSourceParallelism(sourceConfigs.get(0)));
         if (transformConfigs.size() != 0) {
-            SeaTunnelTransform seaTunnelTransform = loadTransformInstance(transformConfigs.get(0));
+            SeaTunnelTransform seaTunnelTransform =
+                ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0));
             TransformAction transformAction = new TransformAction(
                 seaTunnelTransform.getPluginName(),
                 Lists.newArrayList(sourceAction),
-                seaTunnelTransform
-            );
+                seaTunnelTransform);
 
-            SeaTunnelSink seaTunnelSink = loadSinkInstance(sinkConfigs.get(0));
+            initTransformParallelism(transformConfigs, sourceAction, seaTunnelTransform, transformAction);
+
+            SeaTunnelSink seaTunnelSink = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
             SinkAction sinkAction = new SinkAction(
                 seaTunnelSink.getPluginName(),
                 Lists.newArrayList(transformAction),
                 seaTunnelSink
             );
+            sinkAction.setParallelism(transformAction.getParallelism());
             return Lists.newArrayList(sinkAction);
         } else {
-            SeaTunnelSink seaTunnelSink = loadSinkInstance(sinkConfigs.get(0));
+            SeaTunnelSink seaTunnelSink = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
             SinkAction sinkAction = new SinkAction(
                 seaTunnelSink.getPluginName(),
                 Lists.newArrayList(sourceAction),
                 seaTunnelSink
             );
+            sinkAction.setParallelism(sourceAction.getParallelism());
             return Lists.newArrayList(sinkAction);
         }
     }
 
-    private SeaTunnelSource loadSourceInstance(Config sourceConfig) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
-        PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-            CollectionConstants.SEATUNNEL_PLUGIN,
-            CollectionConstants.SOURCE_PLUGIN,
-            sourceConfig.getString(CollectionConstants.PLUGIN_NAME));
-
-        SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
-        seaTunnelSource.prepare(sourceConfig);
-        seaTunnelSource.setSeaTunnelContext(SeaTunnelContext.getContext());
-        if (SeaTunnelContext.getContext().getJobMode() == JobMode.BATCH
-            && seaTunnelSource.getBoundedness() == org.apache.seatunnel.api.source.Boundedness.UNBOUNDED) {
-            throw new UnsupportedOperationException(String.format("'%s' source don't support off-line job.", seaTunnelSource.getPluginName()));
+    private void initTransformParallelism(List<? extends Config> transformConfigs, Action upstreamAction,
+                                          SeaTunnelTransform seaTunnelTransform, TransformAction transformAction) {
+        if ((seaTunnelTransform instanceof PartitionSeaTunnelTransform)
+            && transformConfigs.get(0).hasPath(CollectionConstants.PARALLELISM)) {
+            transformAction.setParallelism(transformConfigs
+                .get(0)
+                .getInt(CollectionConstants.PARALLELISM));
+        } else {
+            // If transform type is not RePartitionTransform, Using the parallelism of its upstream operators.
+            transformAction.setParallelism(upstreamAction.getParallelism());
         }
-        return seaTunnelSource;
     }
 
-    private SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> loadSinkInstance(Config sinkConfig) {
-        SeaTunnelSinkPluginDiscovery sinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
-        PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-            CollectionConstants.SEATUNNEL_PLUGIN,
-            CollectionConstants.SINK_PLUGIN,
-            sinkConfig.getString(CollectionConstants.PLUGIN_NAME));
-        SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable> seaTunnelSink =
-            sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
-        seaTunnelSink.prepare(sinkConfig);
-        seaTunnelSink.setSeaTunnelContext(SeaTunnelContext.getContext());
-        return seaTunnelSink;
-    }
-
-    private SeaTunnelTransform loadTransformInstance(Config transformConfig) {
-        SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
-        PluginIdentifier pluginIdentifier = PluginIdentifier.of(
-            CollectionConstants.SEATUNNEL_PLUGIN,
-            CollectionConstants.TRANSFORM_PLUGIN,
-            transformConfig.getString(CollectionConstants.PLUGIN_NAME));
-        SeaTunnelTransform seaTunnelTransform = transformPluginDiscovery.createPluginInstance(pluginIdentifier);
-        return seaTunnelTransform;
+    private int getSourceParallelism(Config sourceConfig) {
+        if (sourceConfig.hasPath(CollectionConstants.PARALLELISM)) {
+            int sourceParallelism = sourceConfig.getInt(CollectionConstants.PARALLELISM);
+            return sourceParallelism < 1 ? 1 : sourceParallelism;
+        }
+        return 1;
     }
 }

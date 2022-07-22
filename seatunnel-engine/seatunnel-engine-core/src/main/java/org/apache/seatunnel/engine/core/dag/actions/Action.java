@@ -32,4 +32,8 @@ public interface Action extends Serializable {
     List<Action> upstream();
 
     void addUpstream(@NonNull Action action);
+
+    int getParallelism();
+
+    void setParallelism(int parallelism);
 }
