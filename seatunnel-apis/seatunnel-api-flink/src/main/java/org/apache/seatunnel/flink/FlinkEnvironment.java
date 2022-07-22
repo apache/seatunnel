@@ -123,31 +123,31 @@ public class FlinkEnvironment implements RuntimeEnv {
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
         pluginPaths.forEach(url -> LOGGER.info("register plugins : {}", url));
-        Configuration configuration;
+        List<Configuration> configurations = new ArrayList<>();
         try {
-            if (isStreaming()) {
-                configuration =
-                        (Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
-                                "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
-                                "method: getConfiguration")).invoke(this.environment);
-            } else {
-                configuration = batchEnvironment.getConfiguration();
+            configurations.add((Configuration) Objects.requireNonNull(ReflectionUtils.getDeclaredMethod(StreamExecutionEnvironment.class,
+                    "getConfiguration")).orElseThrow(() -> new RuntimeException("can't find " +
+                    "method: getConfiguration")).invoke(this.environment));
+            if (!isStreaming()) {
+                configurations.add(batchEnvironment.getConfiguration());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        List<String> jars = configuration.get(PipelineOptions.JARS);
-        if (jars == null) {
-            jars = new ArrayList<>();
-        }
-        jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-        configuration.set(PipelineOptions.JARS, jars);
-        List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
-        if (classpath == null) {
-            classpath = new ArrayList<>();
-        }
-        classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
-        configuration.set(PipelineOptions.CLASSPATHS, classpath);
+        configurations.forEach(configuration -> {
+            List<String> jars = configuration.get(PipelineOptions.JARS);
+            if (jars == null) {
+                jars = new ArrayList<>();
+            }
+            jars.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+            configuration.set(PipelineOptions.JARS, jars.stream().distinct().collect(Collectors.toList()));
+            List<String> classpath = configuration.get(PipelineOptions.CLASSPATHS);
+            if (classpath == null) {
+                classpath = new ArrayList<>();
+            }
+            classpath.addAll(pluginPaths.stream().map(URL::toString).collect(Collectors.toList()));
+            configuration.set(PipelineOptions.CLASSPATHS, classpath.stream().distinct().collect(Collectors.toList()));
+        });
     }
 
     public StreamExecutionEnvironment getStreamExecutionEnvironment() {

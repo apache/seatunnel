@@ -29,7 +29,7 @@ import java.io.Serializable;
 import java.util.Locale;
 
 @Data
-public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, Serializable {
+public class BaseTextFileConfig implements DelimiterConfig, CompressConfig, Serializable {
     private static final long serialVersionUID = 1L;
 
     protected String compressCodec;
@@ -42,9 +42,7 @@ public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, 
     protected String fileNameExpression;
     protected FileFormat fileFormat = FileFormat.TEXT;
 
-    public AbstractTextFileConfig(@NonNull Config config) {
-        checkNotNull(config.getString(Constant.PATH));
-
+    public BaseTextFileConfig(@NonNull Config config) {
         if (config.hasPath(Constant.COMPRESS_CODEC)) {
             throw new RuntimeException("compress not support now");
         }
@@ -60,6 +58,7 @@ public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, 
         if (config.hasPath(Constant.PATH) && !StringUtils.isBlank(config.getString(Constant.PATH))) {
             this.path = config.getString(Constant.PATH);
         }
+        checkNotNull(path);
 
         if (config.hasPath(Constant.FILE_NAME_EXPRESSION) && !StringUtils.isBlank(config.getString(Constant.FILE_NAME_EXPRESSION))) {
             this.fileNameExpression = config.getString(Constant.FILE_NAME_EXPRESSION);
@@ -70,6 +69,5 @@ public class AbstractTextFileConfig implements DelimiterConfig, CompressConfig, 
         }
     }
 
-    protected AbstractTextFileConfig() {
-    }
+    public BaseTextFileConfig() {}
 }

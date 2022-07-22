@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
-import org.apache.seatunnel.spark.jdbc.source.util.HiveDialet
+import org.apache.seatunnel.spark.jdbc.source.util.HiveDialect
 import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
 
@@ -60,7 +60,7 @@ class Jdbc extends SparkBatchSource {
     }
 
     if (config.getString("url").startsWith("jdbc:hive2")) {
-      JdbcDialects.registerDialect(new HiveDialet)
+      JdbcDialects.registerDialect(new HiveDialect)
     }
 
     reader
