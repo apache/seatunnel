@@ -16,9 +16,11 @@
  */
 
 import mapping from './mapping'
+import trim from './trim'
 
 const utils = {
-  mapping
+  mapping,
+  trim
 }
 
 export default utils

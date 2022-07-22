@@ -44,7 +44,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         FileSystem fs = FileSystem.get(conf);
         Path filePath = new Path(path);
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(filePath), StandardCharsets.UTF_8))) {
-            reader.lines().forEach(line -> output.collect(new SeaTunnelRow(new String[]{"TEXT_FIELD_NAME", line})));
+            reader.lines().forEach(line -> output.collect(new SeaTunnelRow(new String[]{line})));
         }
     }
 
