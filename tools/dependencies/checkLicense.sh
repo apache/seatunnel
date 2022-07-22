@@ -19,15 +19,11 @@
 
 set -e
 
-<<<<<<< HEAD
-./mvnw --batch-mode --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies -P release
-=======
 if [ -d "/tmp/seatunnel-dependencies" ]; then
   rm -rf /tmp/seatunnel-dependencies/*
 fi
 
 ./mvnw clean -pl '!seatunnel-connectors-v2-dist,!seatunnel-dist,!seatunnel-connectors-v2/connector-fake' --batch-mode  --no-snapshot-updates dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=/tmp/seatunnel-dependencies
->>>>>>> 8250fc8b... [Build]Optimize license check (#2232)
 
 # List all modules(jars) that belong to the SeaTunnel itself, these will be ignored when checking the dependency
 ls /tmp/seatunnel-dependencies | sort > all-dependencies.txt
