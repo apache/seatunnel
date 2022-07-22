@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -132,7 +133,7 @@ public class ParallelBatchPartitionReader implements InputPartitionReader<Intern
         executorService.shutdown();
     }
 
-    public class InternalParallelSource<SplitT extends SourceSplit, StateT> extends ParallelSource<SeaTunnelRow, SplitT, StateT> {
+    public class InternalParallelSource<SplitT extends SourceSplit, StateT extends Serializable> extends ParallelSource<SeaTunnelRow, SplitT, StateT> {
 
         public InternalParallelSource(SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source, Map<Integer, List<byte[]>> restoredState, int parallelism, int subtaskId) {
             super(source, restoredState, parallelism, subtaskId);

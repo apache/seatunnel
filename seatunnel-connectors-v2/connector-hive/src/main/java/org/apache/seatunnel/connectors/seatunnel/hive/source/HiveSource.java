@@ -22,8 +22,6 @@ import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -122,8 +120,4 @@ public class HiveSource implements SeaTunnelSource<SeaTunnelRow, HiveSourceSplit
         return new HiveSourceSplitEnumerator(enumeratorContext, filesPath, checkpointState);
     }
 
-    @Override
-    public Serializer<HiveSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
 }

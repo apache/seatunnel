@@ -25,8 +25,6 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPI
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -118,11 +116,6 @@ public class KafkaSource implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSpl
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> restoreEnumerator(SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext, KafkaSourceState checkpointState) throws Exception {
         return new KafkaSourceSplitEnumerator(this.metadata, enumeratorContext, checkpointState);
-    }
-
-    @Override
-    public Serializer<KafkaSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
     }
 
     @Override
