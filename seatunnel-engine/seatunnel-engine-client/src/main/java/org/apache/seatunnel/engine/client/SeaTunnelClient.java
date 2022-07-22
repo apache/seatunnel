@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.engine.protocol.codec.SeaTunnelPrintMessageCodec;
-import org.apache.seatunnel.engine.utils.ExceptionUtil;
+import org.apache.seatunnel.core.base.config.ConfigBuilder;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
@@ -31,6 +34,8 @@ import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -52,9 +57,10 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     @Override
-    public LocalExecutionContext createExecutionContext(String filePath, SeaTunnelClientConfig config) {
+    public LocalExecutionContext createExecutionContext(@NonNull String filePath, SeaTunnelClientConfig clientConfig) {
+        LocalExecutionContext localExecutionContext = new LocalExecutionContext(clientConfig);
 
-        // TODO analyze job config file and create LocalExecutionContext
+
         return null;
     }
 

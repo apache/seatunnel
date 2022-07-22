@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.plugin.discovery.seatunnel;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+
+public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
+
+    public SeaTunnelTransformPluginDiscovery() {
+        super("seatunnel");
+    }
+
+    @Override
+    protected Class<SeaTunnelTransform> getPluginBaseClass() {
+        return SeaTunnelTransform.class;
+    }
 }

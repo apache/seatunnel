@@ -15,8 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.core.dag.logicaldag;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import lombok.NonNull;
+
+import java.util.List;
+
+public class LogicalDagGenerator {
+    private static final ILogger LOGGER = Logger.getLogger(LogicalDagGenerator.class);
+    private List<Action> actions;
+
+    public LogicalDagGenerator(@NonNull List<Action> actions) {
+        this.actions = actions;
+        if (actions.size() <= 0) {
+            throw new IllegalStateException("No actions define in the job. Cannot execute.");
+        }
+    }
+
+    public LogicalDag generate() {
+        return null;
+    }
 }

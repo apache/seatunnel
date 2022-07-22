@@ -18,8 +18,8 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.engine.dag.actions.Action;
-import org.apache.seatunnel.engine.dag.logicaldag.LogicalDagGenerator;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
 import java.util.ArrayList;
 import java.util.List;

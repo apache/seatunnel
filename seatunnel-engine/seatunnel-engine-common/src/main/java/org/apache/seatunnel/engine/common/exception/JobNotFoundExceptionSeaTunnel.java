@@ -15,8 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.common.exception;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+public class JobNotFoundExceptionSeaTunnel extends SeaTunnelEngineException {
+    public JobNotFoundExceptionSeaTunnel(long jobId) {
+        super("Job with id " + jobId + " not found");
+    }
+
+    public JobNotFoundExceptionSeaTunnel(String message) {
+        super(message);
+    }
+
+    public JobNotFoundExceptionSeaTunnel(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

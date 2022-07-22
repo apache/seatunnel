@@ -15,8 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.common.exception;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
+import com.hazelcast.core.HazelcastException;
+
+public class SeaTunnelEngineException extends HazelcastException implements ClientExceptionFactory.ExceptionFactory {
+    public SeaTunnelEngineException() {
+    }
+
+    public SeaTunnelEngineException(String message) {
+        super(message);
+    }
+
+    public SeaTunnelEngineException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public SeaTunnelEngineException(Throwable cause) {
+        super(cause);
+    }
+
+    @Override
+    public Throwable createException(String s, Throwable throwable) {
+        return new SeaTunnelEngineException(s, throwable);
+    }
 }

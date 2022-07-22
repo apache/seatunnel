@@ -15,8 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+
+import java.util.List;
+
+@SuppressWarnings("checkstyle:ClassTypeParameterName")
+public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends AbstractAction {
+    private SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+
+    public SinkAction(String name,
+                      List<Action> upstreams,
+                      SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+        super(name, upstreams);
+        this.sink = sink;
+    }
+
 }

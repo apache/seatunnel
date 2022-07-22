@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.api.transform;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+public interface PartitionSeaTunnelTransform extends SeaTunnelTransform {
 }

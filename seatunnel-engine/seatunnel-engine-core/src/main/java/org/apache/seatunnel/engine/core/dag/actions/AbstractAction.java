@@ -15,8 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import lombok.NonNull;
+
+import java.util.List;
+
+public abstract class AbstractAction implements Action {
+    private String name;
+    private List<Action> upstreams;
+
+    protected AbstractAction(String name, List<Action> upstreams) {
+        this.name = name;
+        this.upstreams = upstreams;
+    }
+
+    @NonNull
+    @Override
+    public String name() {
+        return name;
+    }
+
+    @Override
+    public void setName(@NonNull String name) {
+        this.name = name;
+    }
+
+    @NonNull
+    @Override
+    public List<Action> upstream() {
+        return upstreams;
+    }
 }

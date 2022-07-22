@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+
+import com.google.common.collect.Lists;
+
+public class SourceAction<T, SplitT extends SourceSplit, StateT> extends AbstractAction {
+    private SeaTunnelSource<T, SplitT, StateT> source;
+
+    public SourceAction(String name,
+                        SeaTunnelSource<T, SplitT, StateT> source) {
+        super(name, Lists.newArrayList());
+        this.source = source;
+    }
 }

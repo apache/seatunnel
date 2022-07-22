@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+
+import java.util.List;
+
+public class TransformAction extends AbstractAction {
+    private SeaTunnelTransform transformation;
+
+    public TransformAction(String name,
+                           List<Action> upstreams,
+                           SeaTunnelTransform transformation) {
+        super(name, upstreams);
+        this.transformation = transformation;
+    }
 }
