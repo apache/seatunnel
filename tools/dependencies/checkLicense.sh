@@ -18,6 +18,7 @@
 #
 
 set -e
+
 if [ -d "/tmp/seatunnel-dependencies" ]; then
   rm -rf /tmp/seatunnel-dependencies/*
 fi
