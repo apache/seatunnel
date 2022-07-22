@@ -25,7 +25,7 @@ const Dashboard = defineComponent({
     return (
       <NSpace vertical>
         <Header />
-        <router-view />
+        <router-view class='px-32 py-12' />
       </NSpace>
     )
   }
