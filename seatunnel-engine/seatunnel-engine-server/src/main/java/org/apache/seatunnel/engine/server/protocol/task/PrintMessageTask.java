@@ -18,8 +18,8 @@
 package org.apache.seatunnel.engine.server.protocol.task;
 
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
+import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 
 import com.google.common.base.Function;
 import com.hazelcast.client.impl.protocol.ClientMessage;

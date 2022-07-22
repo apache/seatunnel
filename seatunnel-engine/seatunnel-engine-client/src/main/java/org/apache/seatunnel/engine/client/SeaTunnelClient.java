@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
