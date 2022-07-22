@@ -25,6 +25,7 @@ import lombok.Data;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,11 +60,15 @@ public class FileSinkPartitionDirNameGenerator implements PartitionDirNameGenera
     }
 
     @Override
-    public String generatorPartitionDir(SeaTunnelRow seaTunnelRow) {
+    public Map<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow) {
+        Map<String, List<String>> partitionDirAndValsMap = new HashMap<>(1);
         if (CollectionUtils.isEmpty(this.partitionFieldsIndexInRow)) {
-            return Constant.NON_PARTITION;
+            partitionDirAndValsMap.put(Constant.NON_PARTITION, null);
+            return partitionDirAndValsMap;
         }
 
+        List<String> vals = new ArrayList<>(partitionFieldsIndexInRow.size());
+        String partitionDir;
         if (StringUtils.isBlank(partitionDirExpression)) {
             StringBuilder sbd = new StringBuilder();
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
@@ -71,15 +76,20 @@ public class FileSinkPartitionDirNameGenerator implements PartitionDirNameGenera
                     .append("=")
                     .append(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)])
                     .append("/");
+                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
             }
-            return sbd.toString();
+            partitionDir = sbd.toString();
         } else {
             Map<String, String> valueMap = new HashMap<>(partitionFieldList.size() * 2);
             for (int i = 0; i < partitionFieldsIndexInRow.size(); i++) {
                 valueMap.put(keys[i], partitionFieldList.get(i));
                 valueMap.put(values[i], seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
+                vals.add(seaTunnelRow.getFields()[partitionFieldsIndexInRow.get(i)].toString());
             }
-            return VariablesSubstitute.substitute(partitionDirExpression, valueMap);
+            partitionDir = VariablesSubstitute.substitute(partitionDirExpression, valueMap);
         }
+
+        partitionDirAndValsMap.put(partitionDir, vals);
+        return partitionDirAndValsMap;
     }
 }

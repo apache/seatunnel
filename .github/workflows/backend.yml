@@ -125,6 +125,15 @@ jobs:
           distribution: 'temurin'
           java-version: '8'
           cache: 'maven'
+      - name: Install
+        run: >-
+          ./mvnw -B -q install -DskipTests
+          -D"maven.test.skip"=true
+          -D"maven.javadoc.skip"=true
+          -D"scalastyle.skip"=true
+          -D"checkstyle.skip"=true
+          -D"license.skipAddThirdParty"
+          -P release
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
 

@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,7 +37,7 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements BaseSourceFunction<T> {
+public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable> implements BaseSourceFunction<T> {
 
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;

@@ -24,8 +24,6 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -122,11 +120,6 @@ public class ClickhouseSource implements SeaTunnelSource<SeaTunnelRow, Clickhous
     @Override
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext, ClickhouseSourceState checkpointState) throws Exception {
         return new ClickhouseSourceSplitEnumerator(enumeratorContext);
-    }
-
-    @Override
-    public Serializer<ClickhouseSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
     }
 
 }

@@ -24,13 +24,12 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.config.ConfigBuilder;
-import org.apache.seatunnel.core.starter.config.EngineType;
 import org.apache.seatunnel.core.starter.config.PluginType;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
-import org.apache.seatunnel.plugin.discovery.spark.SparkSinkPluginDiscovery;
-import org.apache.seatunnel.plugin.discovery.spark.SparkSourcePluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -222,16 +221,16 @@ public class SparkStarter implements Starter {
      * return connector's jars, which located in 'connectors/spark/*'.
      */
     private List<Path> getConnectorJarDependencies() {
-        Path pluginRootDir = Common.connectorJarDir("spark");
+        Path pluginRootDir = Common.connectorJarDir("seatunnel");
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
         Config config = new ConfigBuilder(Paths.get(commandArgs.getConfigFile())).getConfig();
         Set<URL> pluginJars = new HashSet<>();
-        SparkSourcePluginDiscovery sparkSourcePluginDiscovery = new SparkSourcePluginDiscovery();
-        SparkSinkPluginDiscovery sparkSinkPluginDiscovery = new SparkSinkPluginDiscovery();
-        pluginJars.addAll(sparkSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SOURCE)));
-        pluginJars.addAll(sparkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SINK)));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
+        SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery = new SeaTunnelSinkPluginDiscovery();
+        pluginJars.addAll(seaTunnelSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SOURCE)));
+        pluginJars.addAll(seaTunnelSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(config, PluginType.SINK)));
         return pluginJars.stream().map(url -> new File(url.getPath()).toPath()).collect(Collectors.toList());
     }
 
@@ -317,10 +316,8 @@ public class SparkStarter implements Starter {
         return Arrays.stream(pluginTypes).flatMap((Function<PluginType, Stream<PluginIdentifier>>) pluginType -> {
             List<? extends Config> configList = config.getConfigList(pluginType.getType());
             return configList.stream()
-                    .map(pluginConfig -> PluginIdentifier
-                            .of(EngineType.SPARK.getEngine(),
-                                    pluginType.getType(),
-                                    pluginConfig.getString("plugin_name")));
+                    .map(pluginConfig -> PluginIdentifier.of("seatunnel", pluginType.getType(),
+                            pluginConfig.getString("plugin_name")));
         }).collect(Collectors.toList());
     }
 

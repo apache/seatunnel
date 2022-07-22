@@ -26,7 +26,6 @@ import java.util.HashMap;
 
 public class VariablesSubstituteTest {
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testSubstitute() {
         String timeFormat = "yyyyMMddHHmmss";

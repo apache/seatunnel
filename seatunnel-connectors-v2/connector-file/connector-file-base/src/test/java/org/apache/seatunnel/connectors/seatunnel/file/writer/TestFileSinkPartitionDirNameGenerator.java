@@ -55,15 +55,15 @@ public class TestFileSinkPartitionDirNameGenerator {
         partitionFieldsIndexInRow.add(3);
 
         PartitionDirNameGenerator partitionDirNameGenerator = new FileSinkPartitionDirNameGenerator(partitionFieldList, partitionFieldsIndexInRow, "${v0}/${v1}");
-        String partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow);
+        String partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow).keySet().toArray()[0].toString();
         Assert.assertEquals("test/3", partitionDir);
 
         partitionDirNameGenerator = new FileSinkPartitionDirNameGenerator(partitionFieldList, partitionFieldsIndexInRow, "${k0}=${v0}/${k1}=${v1}");
-        partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow);
+        partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow).keySet().toArray()[0].toString();
         Assert.assertEquals("c3=test/c4=3", partitionDir);
 
         partitionDirNameGenerator = new FileSinkPartitionDirNameGenerator(null, null, "${k0}=${v0}/${k1}=${v1}");
-        partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow);
+        partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow).keySet().toArray()[0].toString();
         Assert.assertEquals(Constant.NON_PARTITION, partitionDir);
     }
 }
