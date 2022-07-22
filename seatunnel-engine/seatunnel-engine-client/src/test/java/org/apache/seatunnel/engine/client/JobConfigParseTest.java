@@ -17,26 +17,27 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.core.base.config.ConfigBuilder;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.nio.file.Paths;
 import java.util.List;
 
 @RunWith(JUnit4.class)
-public class TestMab {
+public class JobConfigParseTest {
 
     @Test
-    public void testAbs() {
-        Config seaTunnelJobConfig = new ConfigBuilder(Paths.get("/Users/gaojun/workspace/incubator-seatunnel/seatunnel-engine/seatunnel-engine-client/src/test/resources/fakesource_to_file.conf")).getConfig();
-        List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
-        List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
-        List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
-        System.out.println(1);
+    public void testParse() {
+        String filePath = this.getClass().getResource("/fakesource_to_file.conf").getFile().toString();
+        JobConfigParse jobConfigParse = new JobConfigParse(filePath);
+        List<Action> parse = jobConfigParse.parse();
+        Assert.assertEquals(1, parse.size());
+
+        Assert.assertEquals("FakeSource", parse.get(0).name());
+        Assert.assertEquals(1, parse.get(0).upstream().size());
+        Assert.assertEquals("LocalFile", parse.get(0).upstream().get(0).name());
     }
 }

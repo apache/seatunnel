@@ -19,15 +19,23 @@ package org.apache.seatunnel.engine.core.dag.actions;
 
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
+import lombok.NonNull;
+
 import java.util.List;
 
 public class TransformAction extends AbstractAction {
     private SeaTunnelTransform transformation;
 
-    public TransformAction(String name,
-                           List<Action> upstreams,
-                           SeaTunnelTransform transformation) {
+    public TransformAction(@NonNull String name,
+                           @NonNull List<Action> upstreams,
+                           @NonNull SeaTunnelTransform transformation) {
         super(name, upstreams);
+        this.transformation = transformation;
+    }
+
+    public TransformAction(@NonNull String name,
+                           @NonNull SeaTunnelTransform transformation) {
+        super(name);
         this.transformation = transformation;
     }
 }

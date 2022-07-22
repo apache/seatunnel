@@ -19,16 +19,23 @@ package org.apache.seatunnel.engine.core.dag.actions;
 
 import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 
+import lombok.NonNull;
+
 import java.util.List;
 
 public class PartitionTransformAction extends AbstractAction {
     private PartitionSeaTunnelTransform partitionTransformation;
 
-    public PartitionTransformAction(String name,
-                                    List<Action> upstreams,
-                                    PartitionSeaTunnelTransform partitionTransformation) {
+    public PartitionTransformAction(@NonNull String name,
+                                    @NonNull List<Action> upstreams,
+                                    @NonNull PartitionSeaTunnelTransform partitionTransformation) {
         super(name, upstreams);
         this.partitionTransformation = partitionTransformation;
     }
 
+    public PartitionTransformAction(@NonNull String name,
+                                    @NonNull PartitionSeaTunnelTransform partitionTransformation) {
+        super(name);
+        this.partitionTransformation = partitionTransformation;
+    }
 }

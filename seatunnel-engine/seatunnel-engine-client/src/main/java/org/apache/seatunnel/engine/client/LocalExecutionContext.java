@@ -40,8 +40,8 @@ public class LocalExecutionContext {
         this.configuration = configuration;
     }
 
-    public void addAction(Action action) {
-        this.actions.add(action);
+    public void addAction(List<Action> actions) {
+        this.actions.addAll(actions);
     }
 
     public LogicalDagGenerator getLogicalDagGenerator() {

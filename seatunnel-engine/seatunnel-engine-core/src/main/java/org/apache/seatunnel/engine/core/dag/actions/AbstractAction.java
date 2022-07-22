@@ -24,10 +24,24 @@ import java.util.List;
 public abstract class AbstractAction implements Action {
     private String name;
     private List<Action> upstreams;
+    // This is used to assign a unique ID to every Action
+    protected static Integer ID_COUNTER = 0;
 
-    protected AbstractAction(String name, List<Action> upstreams) {
+    private int id;
+
+    protected AbstractAction(@NonNull String name, @NonNull List<Action> upstreams) {
         this.name = name;
         this.upstreams = upstreams;
+        this.id = getNewNodeId();
+    }
+
+    protected AbstractAction(@NonNull String name) {
+        this.name = name;
+    }
+
+    public static int getNewNodeId() {
+        ID_COUNTER++;
+        return ID_COUNTER;
     }
 
     @NonNull
@@ -45,5 +59,10 @@ public abstract class AbstractAction implements Action {
     @Override
     public List<Action> upstream() {
         return upstreams;
+    }
+
+    @Override
+    public void addUpstream(@NonNull Action action) {
+        this.upstreams.add(action);
     }
 }

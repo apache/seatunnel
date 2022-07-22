@@ -19,17 +19,24 @@ package org.apache.seatunnel.engine.core.dag.actions;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 
+import lombok.NonNull;
+
 import java.util.List;
 
 @SuppressWarnings("checkstyle:ClassTypeParameterName")
 public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends AbstractAction {
     private SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
-    public SinkAction(String name,
-                      List<Action> upstreams,
-                      SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+    public SinkAction(@NonNull String name,
+                      @NonNull List<Action> upstreams,
+                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
         super(name, upstreams);
         this.sink = sink;
     }
 
+    public SinkAction(@NonNull String name,
+                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+        super(name);
+        this.sink = sink;
+    }
 }

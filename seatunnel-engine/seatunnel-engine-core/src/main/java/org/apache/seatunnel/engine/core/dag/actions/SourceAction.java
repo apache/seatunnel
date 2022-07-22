@@ -21,12 +21,13 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 import com.google.common.collect.Lists;
+import lombok.NonNull;
 
 public class SourceAction<T, SplitT extends SourceSplit, StateT> extends AbstractAction {
     private SeaTunnelSource<T, SplitT, StateT> source;
 
-    public SourceAction(String name,
-                        SeaTunnelSource<T, SplitT, StateT> source) {
+    public SourceAction(@NonNull String name,
+                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
         super(name, Lists.newArrayList());
         this.source = source;
     }

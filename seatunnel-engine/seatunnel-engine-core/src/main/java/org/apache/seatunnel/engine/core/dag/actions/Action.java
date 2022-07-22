@@ -30,4 +30,6 @@ public interface Action extends Serializable {
 
     @NonNull
     List<Action> upstream();
+
+    void addUpstream(@NonNull Action action);
 }

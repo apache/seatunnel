@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.core.base.config.ConfigBuilder;
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
-
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
@@ -34,8 +31,6 @@ import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
-import java.nio.file.Paths;
-import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -47,7 +42,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         Preconditions.checkNotNull(seaTunnelClientConfig, "config");
         this.hazelcastClient = ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(seaTunnelClientConfig)).client;
         this.serializationService = hazelcastClient.getSerializationService();
-        ExceptionUtil.registerJetExceptions(hazelcastClient.getClientExceptionFactory());
+        ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
     }
 
     @NonNull
@@ -58,10 +53,10 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     @Override
     public LocalExecutionContext createExecutionContext(@NonNull String filePath, SeaTunnelClientConfig clientConfig) {
+        JobConfigParse jobConfigParse = new JobConfigParse(filePath);
         LocalExecutionContext localExecutionContext = new LocalExecutionContext(clientConfig);
-
-
-        return null;
+        localExecutionContext.addAction(jobConfigParse.parse());
+        return localExecutionContext;
     }
 
     public ILogger getLogger() {
