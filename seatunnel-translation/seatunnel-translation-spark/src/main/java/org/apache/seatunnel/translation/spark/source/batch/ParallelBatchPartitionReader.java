@@ -92,7 +92,7 @@ public class ParallelBatchPartitionReader implements InputPartitionReader<Intern
             this.internalSource.open();
         } catch (Exception e) {
             running = false;
-            throw new RuntimeException("");
+            throw new RuntimeException(e);
         }
         executorService.execute(() -> {
             try {
