@@ -43,6 +43,7 @@
         <module>connector-pulsar</module>
         <module>connector-socket</module>
         <module>connector-assert</module>
+         <module>connector-kudu</module>
     </modules>
 
     <dependencies>
