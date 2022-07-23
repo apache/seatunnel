@@ -17,31 +17,15 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>seatunnel-translation</artifactId>
+        <artifactId>seatunnel-translation-spark</artifactId>
         <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>seatunnel-translation-spark</artifactId>
-    <packaging>pom</packaging>
-    <modules>
-        <module>seatunnel-translation-spark-2.4</module>
-        <module>seatunnel-translation-spark-common</module>
-    </modules>
-
-    <properties>
-        <spark.version>2.4.0</spark.version>
-        <spark.scope>provided</spark.scope>
-    </properties>
+    <artifactId>seatunnel-translation-spark-common</artifactId>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-base</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <!--spark-->
         <dependency>
             <groupId>org.apache.spark</groupId>
