@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-import login from '@/locales/en_US/login'
-import menu from '@/locales/en_US/menu'
-import user_manage from '@/locales/en_US/user-manage'
-import data_pipes from '@/locales/en_US/data-pipes'
-
 export default {
-  login,
-  menu,
-  user_manage,
-  data_pipes
+  data_pipes: 'Data Pipes',
+  create: 'Create',
+  name: 'Name',
+  state: 'State',
+  executed_time: 'Executed Time',
+  modification_time: 'Modification Time',
+  operation: 'Operation',
+  succeed: 'Succeed',
+  running: 'Running',
+  failed: 'Failed',
+  killed: 'Killed',
+  un_start: 'Un Start',
+  execute: 'Execute',
+  edite: 'Edite',
+  publish: 'Publish',
+  delete: 'Delete'
 }
