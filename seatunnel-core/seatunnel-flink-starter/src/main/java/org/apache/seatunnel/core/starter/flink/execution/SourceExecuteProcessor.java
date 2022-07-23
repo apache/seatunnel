@@ -44,7 +44,9 @@ import org.apache.flink.types.Row;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTunnelSource> {
 
@@ -99,14 +101,14 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
 
     @Override
     protected List<SeaTunnelSource> initializePlugins(List<? extends Config> pluginConfigs) {
-        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
+        SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery(addUrlToClassloader);
         List<SeaTunnelSource> sources = new ArrayList<>();
-        List<URL> jars = new ArrayList<>();
+        Set<URL> jars = new HashSet<>();
         for (Config sourceConfig : pluginConfigs) {
             PluginIdentifier pluginIdentifier = PluginIdentifier.of(
                 ENGINE_TYPE, PLUGIN_TYPE, sourceConfig.getString(PLUGIN_NAME));
             jars.addAll(sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-            SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.getPluginInstance(pluginIdentifier);
+            SeaTunnelSource seaTunnelSource = sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
             seaTunnelSource.prepare(sourceConfig);
             seaTunnelSource.setSeaTunnelContext(SeaTunnelContext.getContext());
             if (SeaTunnelContext.getContext().getJobMode() == JobMode.BATCH
@@ -115,7 +117,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             }
             sources.add(seaTunnelSource);
         }
-        flinkEnvironment.registerPlugin(jars);
+        flinkEnvironment.registerPlugin(new ArrayList<>(jars));
         return sources;
     }
 }

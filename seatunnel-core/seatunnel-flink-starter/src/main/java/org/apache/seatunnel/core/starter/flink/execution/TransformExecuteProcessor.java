@@ -51,11 +51,11 @@ public class TransformExecuteProcessor extends AbstractPluginExecuteProcessor<Fl
             .map(transformConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(ENGINE_TYPE, PLUGIN_TYPE, transformConfig.getString(PLUGIN_NAME));
                 pluginJars.addAll(transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-                FlinkStreamTransform pluginInstance = (FlinkStreamTransform) transformPluginDiscovery.getPluginInstance(pluginIdentifier);
+                FlinkStreamTransform pluginInstance = (FlinkStreamTransform) transformPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(transformConfig);
                 pluginInstance.prepare(flinkEnvironment);
                 return pluginInstance;
-            }).collect(Collectors.toList());
+            }).distinct().collect(Collectors.toList());
         flinkEnvironment.registerPlugin(pluginJars);
         return transforms;
     }

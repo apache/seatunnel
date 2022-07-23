@@ -29,9 +29,37 @@
     <modules>
         <module>seatunnel-flink-e2e</module>
         <module>seatunnel-spark-e2e</module>
-        <module>seatunnel-flink-new-connector-e2e</module>
-        <module>seatunnel-spark-new-connector-e2e</module>
+        <module>seatunnel-flink-connector-v2-e2e</module>
+        <module>seatunnel-spark-connector-v2-e2e</module>
         <module>seatunnel-flink-sql-e2e</module>
     </modules>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connectors-v2-dist</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connectors-spark-dist</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connectors-flink-dist</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

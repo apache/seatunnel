@@ -663,16 +663,6 @@ The Apache Software Foundation (http://www.apache.org/).
 
 ========================================================================
 
-Apache Commons Email NOTICE
-
-========================================================================
-Apache Commons Email
-Copyright 2001-2019 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-========================================================================
-
 Apache Commons Crypto NOTICE
 
 ========================================================================
@@ -1224,13 +1214,6 @@ Copyright 2014 The Apache Software Foundation
 Apache Thrift
 Copyright 2006-2010 The Apache Software Foundation.
 
-   Apache Ant
-   Copyright 1999-2013 The Apache Software Foundation
-
-   The <sync> task is based on code Copyright (c) 2002, Landmark
-   Graphics Corp that has been kindly donated to the Apache Software
-   Foundation.
-
 Apache Commons IO
 Copyright 2002-2012 The Apache Software Foundation
 
@@ -1368,9 +1351,6 @@ Copyright (c) 2012 Twitter, Inc.
 This product includes/uses Glyphicons (http://glyphicons.com/),
 Copyright (c) 2010 - 2012 Jan Kovarík
 
-This product includes DataNucleus (http://www.datanucleus.org/)
-Copyright 2008-2008 DataNucleus
-
 This product includes Guava (http://code.google.com/p/guava-libraries/)
 Copyright (C) 2006 Google Inc.
 
@@ -1385,11 +1365,6 @@ Copyright (C) 2015 Red Hat, Inc.
 
 This product includes/uses OkHttp (https://github.com/square/okhttp)
 Copyright (C) 2012 The Android Open Source Project
-
-=========================================================================
-==  NOTICE file corresponding to section 4(d) of the Apache License,   ==
-==  Version 2.0, in this case for the DataNucleus distribution.        ==
-=========================================================================
 
 ===================================================================
 This product includes software developed by many individuals,
@@ -2922,11 +2897,6 @@ javax.inject Version: 1
 * License: Apache License, 2.0
 * Copyright (C) 2009 The JSR-330 Expert Group
 
-Javassist Version 3.25.0-GA
-* License: Apache License, 2.0
-* Project: http://www.javassist.org/
-* Copyright (C) 1999- Shigeru Chiba. All Rights Reserved.
-
 Jackson JAX-RS Providers Version 2.10.1
 * License: Apache License, 2.0
 * Project: https://github.com/FasterXML/jackson-jaxrs-providers
@@ -4367,24 +4337,110 @@ The Apache Software Foundation (http://www.apache.org/).
 
 =========================================================================
 
-Apache Pulsar NOTICE
-
-=========================================================================
-
-Apache Pulsar
-Copyright 2017-2021 The Apache Software Foundation
-
-This product includes software developed at
-The Apache Software Foundation (http://www.apache.org/).
-
-=========================================================================
-
 Apache HttpClient Mime NOTICE
 
 =========================================================================
 
 Apache HttpClient Mime
 Copyright 1999-2020 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+=========================================================================
+
+Open Json NOTICE
+
+=========================================================================
+Android JSON library
+Copyright (C) 2010 The Android Open Source Project
+
+This product includes software developed by
+The Android Open Source Project
+=========================================================================
+
+Metrics NOTICE
+
+=========================================================================
+
+Metrics
+Copyright 2010-2013 Coda Hale and Yammer, Inc.
+
+This product includes software developed by Coda Hale and Yammer, Inc.
+
+This product includes code derived from the JSR-166 project (ThreadLocalRandom, Striped64,
+LongAdder), which was released with the following comments:
+
+    Written by Doug Lea with assistance from members of JCP JSR-166
+    Expert Group and released to the public domain, as explained at
+    http://creativecommons.org/publicdomain/zero/1.0/
+
+
+=========================================================================
+ 
+Joda-Time NOTICE
+
+=============================================================================
+= NOTICE file corresponding to section 4d of the Apache License Version 2.0 =
+=============================================================================
+This product includes software developed by
+Joda.org (https://www.joda.org/).
+
+=========================================================================
+
+   Apache Ant NOTICE
+
+=========================================================================
+   Apache Ant
+   Copyright 1999-2013 The Apache Software Foundation
+
+   The <sync> task is based on code Copyright (c) 2002, Landmark
+   Graphics Corp that has been kindly donated to the Apache Software
+   Foundation.
+
+
+=========================================================================
+
+Apache Ivy NOTICE
+
+=========================================================================
+Apache Ivy (TM)
+Copyright 2007-2014 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+Portions of Ivy were originally developed at
+Jayasoft SARL (http://www.jayasoft.fr/)
+and are licensed to the Apache Software Foundation under the
+"Software Grant License Agreement"
+
+SSH and SFTP support is provided by the JCraft JSch package, 
+which is open source software, available under
+the terms of a BSD style license.  
+The original software and related information is available
+at http://www.jcraft.com/jsch/.
+
+=========================================================================
+
+Apache Commons CLI NOTICE
+
+=========================================================================
+
+Apache Commons CLI
+Copyright 2001-2017 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+=========================================================================
+
+Apache Commons BeanUtils NOTICE
+
+=========================================================================
+
+Apache Commons BeanUtils
+Copyright 2000-2019 The Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).

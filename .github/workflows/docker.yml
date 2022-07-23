@@ -25,6 +25,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+      - 'seatunnel-ui/**'
 
 concurrency:
   group: docker-${{ github.event.pull_request.number || github.ref }}
@@ -34,7 +35,7 @@ jobs:
   check:
     name: Spark
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 1.8

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.enums.FormatType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -69,7 +68,7 @@ public final class SchemaUtil {
                 getJsonSchema(schema, (ObjectNode) info);
                 break;
             case CSV:
-                getCsvSchema(schema, (List<Map<String, String>>) info);
+                getCsvSchema(schema, (ArrayNode) info);
                 break;
             case ORC:
                 getOrcSchema(schema, (ObjectNode) info);
@@ -149,11 +148,14 @@ public final class SchemaUtil {
         }
     }
 
-    private static void getCsvSchema(Schema schema, List<Map<String, String>> schemaList) {
+    private static void getCsvSchema(Schema schema, ArrayNode schemaList) {
+        Iterator<JsonNode> iterator = schemaList.elements();
 
-        for (Map<String, String> map : schemaList) {
-            String field = map.get("field");
-            String type = map.get("type").toUpperCase();
+        while (iterator.hasNext()) {
+            JsonNode jsonNode = iterator.next();
+            String field = jsonNode.get("field").textValue();
+            String type = jsonNode.get("type").textValue().toUpperCase();
+
             schema.field(field, type);
         }
     }
@@ -200,7 +202,6 @@ public final class SchemaUtil {
         int size = json.size();
         String[] fields = new String[size];
         TypeInformation<?>[] informations = new TypeInformation[size];
-        Map<String, Object> jsonMap = JsonUtils.toMap(json);
         int i = 0;
         Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
         while (nodeIterator.hasNext()) {

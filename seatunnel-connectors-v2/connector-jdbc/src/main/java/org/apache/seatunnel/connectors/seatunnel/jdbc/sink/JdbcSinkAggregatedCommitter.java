@@ -83,7 +83,9 @@ public class JdbcSinkAggregatedCommitter
     public void close()
         throws IOException {
         try {
-            xaFacade.close();
+            if (xaFacade.isOpen()) {
+                xaFacade.close();
+            }
         } catch (Exception e) {
             ExceptionUtils.rethrowIOException(e);
         }

@@ -33,27 +33,24 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT> implements DataSourceWriter {
 
     protected final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
-    protected final Map<String, String> configuration;
     @Nullable
     protected final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> sinkAggregatedCommitter;
 
-    SparkDataSourceWriter(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-                          Map<String, String> configuration) throws IOException {
+    SparkDataSourceWriter(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            throws IOException {
         this.sink = sink;
-        this.configuration = configuration;
         this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
     }
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sink, configuration);
+        return new SparkDataWriterFactory<>(sink);
     }
 
     @Override

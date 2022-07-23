@@ -18,11 +18,12 @@ package org.apache.seatunnel.spark.jdbc.source
 
 import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
-
 import org.apache.seatunnel.common.config.{CheckResult, TypesafeConfigUtils}
 import org.apache.seatunnel.common.config.CheckConfigUtil.checkAllExists
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
+import org.apache.seatunnel.spark.jdbc.source.util.HiveDialect
+import org.apache.spark.sql.jdbc.JdbcDialects
 import org.apache.spark.sql.{DataFrameReader, Dataset, Row, SparkSession}
 
 class Jdbc extends SparkBatchSource {
@@ -56,6 +57,10 @@ class Jdbc extends SparkBatchSource {
 
         reader.options(optionMap)
       case Failure(_) => // do nothing
+    }
+
+    if (config.getString("url").startsWith("jdbc:hive2")) {
+      JdbcDialects.registerDialect(new HiveDialect)
     }
 
     reader

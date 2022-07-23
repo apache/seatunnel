@@ -30,4 +30,9 @@ public class PrepareFailException extends RuntimeException {
         super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
                 message));
     }
+
+    public PrepareFailException(String pluginName, PluginType type, String message, Throwable cause) {
+        super(String.format("PluginName: %s, PluginType: %s, Message: %s", pluginName, type.getType(),
+                message), cause);
+    }
 }

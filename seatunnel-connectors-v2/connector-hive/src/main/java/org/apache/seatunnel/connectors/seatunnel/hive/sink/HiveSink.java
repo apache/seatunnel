@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -26,6 +27,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.SaveMode;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -43,8 +46,11 @@ import java.util.Optional;
 public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, HiveCommitInfo, HiveAggregatedCommitInfo> {
 
     private Config config;
-    private long jobId;
-    private SeaTunnelRowType seaTunnelRowType;
+    private String jobId;
+    private Long checkpointId;
+    private SeaTunnelRowType seaTunnelRowTypeInfo;
+    private SeaTunnelContext seaTunnelContext;
+    private HiveSinkConfig hiveSinkConfig;
 
     @Override
     public String getPluginName() {
@@ -52,34 +58,47 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowTypeInfo) {
+        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+        this.hiveSinkConfig = new HiveSinkConfig(config, seaTunnelRowTypeInfo);
     }
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
+        return this.seaTunnelRowTypeInfo;
     }
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.config = pluginConfig;
-        this.jobId = System.currentTimeMillis();
+        this.checkpointId = 1L;
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        return new HiveSinkWriter(seaTunnelRowType, config, context, System.currentTimeMillis());
+        if (!seaTunnelContext.getJobMode().equals(JobMode.BATCH) && hiveSinkConfig.getTextFileSinkConfig().getSaveMode().equals(SaveMode.OVERWRITE)) {
+            throw new RuntimeException("only batch job can overwrite hive table");
+        }
+
+        if (!this.getSinkConfig().getTextFileSinkConfig().isEnableTransaction()) {
+            throw new RuntimeException("Hive Sink Connector only support transaction now");
+        }
+        return new HiveSinkWriter(seaTunnelRowTypeInfo,
+            config,
+            context,
+            getSinkConfig(),
+            jobId);
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> restoreWriter(SinkWriter.Context context, List<HiveSinkState> states) throws IOException {
-        return new HiveSinkWriter(seaTunnelRowType, config, context, System.currentTimeMillis());
+        return new HiveSinkWriter(seaTunnelRowTypeInfo, config, context, hiveSinkConfig, jobId, states);
     }
 
     @Override
-    public Optional<Serializer<HiveCommitInfo>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
+    public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
+        this.seaTunnelContext = seaTunnelContext;
+        this.jobId = seaTunnelContext.getJobId();
     }
 
     @Override
@@ -88,7 +107,24 @@ public class HiveSink implements SeaTunnelSink<SeaTunnelRow, HiveSinkState, Hive
     }
 
     @Override
-    public Optional<Serializer<HiveAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
+    public Optional<Serializer<HiveSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<Serializer<HiveAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<HiveAggregatedCommitInfo>());
+    }
+
+    @Override
+    public Optional<Serializer<HiveCommitInfo>> getCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    private HiveSinkConfig getSinkConfig() {
+        if (this.hiveSinkConfig == null && (this.seaTunnelRowTypeInfo != null && this.config != null)) {
+            this.hiveSinkConfig = new HiveSinkConfig(config, seaTunnelRowTypeInfo);
+        }
+        return this.hiveSinkConfig;
     }
 }

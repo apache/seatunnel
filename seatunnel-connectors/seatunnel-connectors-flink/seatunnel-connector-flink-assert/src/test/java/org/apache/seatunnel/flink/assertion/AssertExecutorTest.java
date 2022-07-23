@@ -26,7 +26,6 @@ import org.apache.flink.types.Row;
 
 import java.util.List;
 
-@SuppressWarnings("magicnumber")
 public class AssertExecutorTest extends TestCase {
     Row row = Row.withNames();
     AssertExecutor assertExecutor = new AssertExecutor();

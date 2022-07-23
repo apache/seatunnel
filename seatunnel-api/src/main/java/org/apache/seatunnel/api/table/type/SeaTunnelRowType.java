@@ -98,7 +98,6 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
     }
 
     @Override
-    @SuppressWarnings("MagicNumber")
     public int hashCode() {
         int result = Arrays.hashCode(fieldNames);
         result = 31 * result + Arrays.hashCode(fieldTypes);

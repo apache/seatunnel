@@ -20,10 +20,17 @@ package org.apache.seatunnel.plugin.discovery.seatunnel;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
+import java.net.URL;
+import java.util.function.BiConsumer;
+
 public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelSink> {
 
     public SeaTunnelSinkPluginDiscovery() {
         super("seatunnel");
+    }
+
+    public SeaTunnelSinkPluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassLoader) {
+        super("seatunnel", addURLToClassLoader);
     }
 
     @Override

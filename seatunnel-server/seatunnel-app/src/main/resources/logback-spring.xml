@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<configuration scan="true" scanPeriod="10 seconds">
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name"/>
+    <property name="APP_LOG_PATH" value="./logs" />
+    <property name="HOST_NAME" value="${HOSTNAME:-UNKNOWN}"/>
+    <property name="TRACE" value="[tr:%X{X-B3-TraceId:-},sp:%X{X-B3-SpanId:-}]"/>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} ${APP_NAME} ${HOST_NAME} %p ${TRACE} [%thread] [%C{0}.%M\(\):%L] - %m%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="thirdPartyAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${APP_LOG_PATH}/thirdParty.${APP_NAME}.log</file>
+        <append>true</append>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${APP_LOG_PATH}/thirdParty.${APP_NAME}.log.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
+            <MaxHistory>30</MaxHistory>
+            <MaxFileSize>100MB</MaxFileSize>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} ${APP_NAME} ${HOST_NAME} %p [%thread] [%C{0}.%M\(\):%L] - %m%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <logger name="org.apache.seatunnel.app.dal.mapper" level="DEBUG" additivity="false">
+        <appender-ref ref="console" />
+    </logger>
+
+    <logger name="org.springframework" level="INFO" additivity="false">
+        <appender-ref ref="thirdPartyAppender" />
+        <appender-ref ref="console" />
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="console" />
+    </root>
+</configuration>

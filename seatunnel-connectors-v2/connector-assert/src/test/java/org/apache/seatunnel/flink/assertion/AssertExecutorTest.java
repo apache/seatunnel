@@ -29,7 +29,6 @@ import junit.framework.TestCase;
 
 import java.util.List;
 
-@SuppressWarnings("magicnumber")
 public class AssertExecutorTest extends TestCase {
     SeaTunnelRow row = new SeaTunnelRow(new Object[]{"jared", 17});
     SeaTunnelRowType rowType = new SeaTunnelRowType(new String[]{"name", "age"}, new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.INT_TYPE});

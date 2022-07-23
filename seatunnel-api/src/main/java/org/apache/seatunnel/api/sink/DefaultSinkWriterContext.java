@@ -17,26 +17,14 @@
 
 package org.apache.seatunnel.api.sink;
 
-import java.util.Map;
-
 /**
  * The default {@link SinkWriter.Context} implement class.
  */
 public class DefaultSinkWriterContext implements SinkWriter.Context {
-
-    private final Map<String, String> configuration;
     private final int subtask;
-    private final int parallelism;
 
-    public DefaultSinkWriterContext(Map<String, String> configuration, int subtask, int parallelism) {
-        this.configuration = configuration;
+    public DefaultSinkWriterContext(int subtask) {
         this.subtask = subtask;
-        this.parallelism = parallelism;
-    }
-
-    @Override
-    public Map<String, String> getConfiguration() {
-        return configuration;
     }
 
     @Override
@@ -44,8 +32,4 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
         return subtask;
     }
 
-    @Override
-    public int getNumberOfParallelSubtasks() {
-        return parallelism;
-    }
 }

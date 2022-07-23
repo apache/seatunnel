@@ -19,61 +19,48 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
 public class SourceProperties {
 
-    // Pulsar client API config prefix.
-    public static final String CLIENT_CONFIG_PREFIX = "pulsar.client.";
-    // Pulsar admin API config prefix.
-    public static final String ADMIN_CONFIG_PREFIX = "pulsar.admin.";
+    // --------------------------------------------------------------------------------------------
+    // The configuration for ClientConfigurationData part.
+    // --------------------------------------------------------------------------------------------
+
+    public static final String CLIENT_SERVICE_URL = "client.service-url";
+    public static final String AUTH_PLUGIN_CLASS = "auth.plugin-class";
+    public static final String AUTH_PARAMS = "auth.params";
 
     // --------------------------------------------------------------------------------------------
     // The configuration for ClientConfigurationData part.
     // All the configuration listed below should have the pulsar.client prefix.
     // --------------------------------------------------------------------------------------------
 
-    public static final String PULSAR_SERVICE_URL = CLIENT_CONFIG_PREFIX + "serviceUrl";
-    public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = CLIENT_CONFIG_PREFIX + "authPluginClassName";
-    public static final String PULSAR_AUTH_PARAMS = CLIENT_CONFIG_PREFIX + "authParams";
-
-    // --------------------------------------------------------------------------------------------
-    // The configuration for ClientConfigurationData part.
-    // All the configuration listed below should have the pulsar.client prefix.
-    // --------------------------------------------------------------------------------------------
-
-    public static final String PULSAR_ADMIN_URL = ADMIN_CONFIG_PREFIX + "adminUrl";
-
-    // Pulsar source connector config prefix.
-    public static final String SOURCE_CONFIG_PREFIX = "pulsar.source.";
-    // Pulsar consumer API config prefix.
-    public static final String CONSUMER_CONFIG_PREFIX = "pulsar.consumer.";
+    public static final String ADMIN_SERVICE_URL = "admin.service-url";
 
     // --------------------------------------------------------------------------------------------
     // The configuration for ConsumerConfigurationData part.
-    // All the configuration listed below should have the pulsar.consumer prefix.
     // --------------------------------------------------------------------------------------------
 
-    public static final String PULSAR_SUBSCRIPTION_NAME = CONSUMER_CONFIG_PREFIX + "subscriptionName";
-    public static final String PULSAR_SUBSCRIPTION_TYPE = CONSUMER_CONFIG_PREFIX + "subscriptionType";
-    public static final String PULSAR_SUBSCRIPTION_MODE = CONSUMER_CONFIG_PREFIX + "subscriptionMode";
+    public static final String SUBSCRIPTION_NAME = "subscription.name";
+    public static final String SUBSCRIPTION_TYPE = "subscription.type";
+    public static final String SUBSCRIPTION_MODE = "subscription.mode";
 
     // --------------------------------------------------------------------------------------------
     // The configuration for pulsar source part.
-    // All the configuration listed below should have the pulsar.source prefix.
     // --------------------------------------------------------------------------------------------
 
-    public static final String PULSAR_PARTITION_DISCOVERY_INTERVAL_MS = SOURCE_CONFIG_PREFIX + "partitionDiscoveryIntervalMs";
-    public static final String PULSAR_TOPIC = SOURCE_CONFIG_PREFIX + "topic";
-    public static final String PULSAR_TOPIC_PATTERN = SOURCE_CONFIG_PREFIX + "topic.pattern";
-    public static final String PULSAR_POLL_TIMEOUT = SOURCE_CONFIG_PREFIX + "poll.timeout";
-    public static final String PULSAR_POLL_INTERVAL = SOURCE_CONFIG_PREFIX + "poll.interval";
-    public static final String PULSAR_BATCH_SIZE = SOURCE_CONFIG_PREFIX + "batch.size";
-    public static final String PULSAR_CURSOR_START_MODE = SOURCE_CONFIG_PREFIX + "scan.cursor.start.mode";
-    public static final String PULSAR_CURSOR_START_RESET_MODE = SOURCE_CONFIG_PREFIX + "scan.cursor.start.reset.mode";
-    public static final String PULSAR_CURSOR_START_TIMESTAMP = SOURCE_CONFIG_PREFIX + "scan.cursor.start.timestamp";
-    public static final String PULSAR_CURSOR_START_ID = SOURCE_CONFIG_PREFIX + "scan.cursor.start.id";
-    public static final String PULSAR_CURSOR_STOP_MODE = SOURCE_CONFIG_PREFIX + "scan.cursor.stop.mode";
-    public static final String PULSAR_CURSOR_STOP_TIMESTAMP = SOURCE_CONFIG_PREFIX + "scan.cursor.stop.timestamp";
+    public static final String TOPIC_DISCOVERY_INTERVAL = "topic-discovery.interval";
+    public static final String TOPIC = "topic";
+    public static final String TOPIC_PATTERN = "topic-pattern";
+    public static final String POLL_TIMEOUT = "poll.timeout";
+    public static final String POLL_INTERVAL = "poll.interval";
+    public static final String POLL_BATCH_SIZE = "poll.batch.size";
+    public static final String CURSOR_STARTUP_MODE = "cursor.startup.mode";
+    public static final String CURSOR_RESET_MODE = "cursor.reset.mode";
+    public static final String CURSOR_STARTUP_TIMESTAMP = "cursor.startup.timestamp";
+    public static final String CURSOR_STARTUP_ID = "cursor.startup.id";
+    public static final String CURSOR_STOP_MODE = "cursor.stop.mode";
+    public static final String CURSOR_STOP_TIMESTAMP = "cursor.stop.timestamp";
 
     /**
-     * Startup mode for the Kafka consumer, see {@link #PULSAR_CURSOR_START_MODE}.
+     * Startup mode for the pulsar consumer, see {@link #CURSOR_STARTUP_MODE}.
      */
     public enum StartMode {
         /**
@@ -99,7 +86,7 @@ public class SourceProperties {
     }
 
     /**
-     * Startup mode for the Kafka consumer, see {@link #PULSAR_CURSOR_START_MODE}.
+     * Startup mode for the pulsar consumer, see {@link #CURSOR_STARTUP_MODE}.
      */
     public enum StopMode {
         /**

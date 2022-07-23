@@ -33,7 +33,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class SparkExecutionContext extends AbstractExecutionContext<SparkEnvironment> {
@@ -47,11 +49,11 @@ public class SparkExecutionContext extends AbstractExecutionContext<SparkEnviron
         this.sparkSourcePluginDiscovery = new SparkSourcePluginDiscovery();
         this.sparkTransformPluginDiscovery = new SparkTransformPluginDiscovery();
         this.sparkSinkPluginDiscovery = new SparkSinkPluginDiscovery();
-        List<URL> pluginJars = new ArrayList<>();
+        Set<URL> pluginJars = new HashSet<>();
         pluginJars.addAll(sparkSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SOURCE)));
         pluginJars.addAll(sparkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SINK)));
-        this.pluginJars = pluginJars;
-        this.getEnvironment().registerPlugin(pluginJars);
+        this.pluginJars = new ArrayList<>(pluginJars);
+        this.getEnvironment().registerPlugin(this.pluginJars);
     }
 
     @Override
@@ -62,7 +64,7 @@ public class SparkExecutionContext extends AbstractExecutionContext<SparkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseSource<SparkEnvironment> pluginInstance = sparkSourcePluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseSource<SparkEnvironment> pluginInstance = sparkSourcePluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());
@@ -76,7 +78,7 @@ public class SparkExecutionContext extends AbstractExecutionContext<SparkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseTransform<SparkEnvironment> pluginInstance = sparkTransformPluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseTransform<SparkEnvironment> pluginInstance = sparkTransformPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());
@@ -90,7 +92,7 @@ public class SparkExecutionContext extends AbstractExecutionContext<SparkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseSink<SparkEnvironment> pluginInstance = sparkSinkPluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseSink<SparkEnvironment> pluginInstance = sparkSinkPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());
