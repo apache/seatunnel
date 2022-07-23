@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
 import org.apache.seatunnel.translation.spark.source.continnous.ContinuousSourceReader;
@@ -61,32 +62,32 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     @Override
     public DataSourceReader createReader(DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        int parallelism = options.getInt("source.parallelism", 1);
+        int parallelism = options.getInt(Constants.SOURCE_PARALLELISM, 1);
         return new BatchSourceReader(seaTunnelSource, parallelism);
     }
 
     @Override
     public MicroBatchReader createMicroBatchReader(Optional<StructType> rowTypeOptional, String checkpointLocation, DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        Integer parallelism = options.getInt("source.parallelism", 1);
-        Integer checkpointInterval = options.getInt("checkpoint.interval", CHECKPOINT_INTERVAL_DEFAULT);
+        Integer parallelism = options.getInt(Constants.SOURCE_PARALLELISM, 1);
+        Integer checkpointInterval = options.getInt(Constants.CHECKPOINT_INTERVAL, CHECKPOINT_INTERVAL_DEFAULT);
         String checkpointPath = StringUtils.replacePattern(checkpointLocation, "sources/\\d+", "sources-state");
         Configuration configuration = SparkSession.getActiveSession().get().sparkContext().hadoopConfiguration();
-        String hdfsRoot = options.get("hdfs.root").orElse(FileSystem.getDefaultUri(configuration).toString());
-        String hdfsUser = options.get("hdfs.user").orElse("");
-        Integer checkpointId = options.getInt("checkpoint.id", 1);
+        String hdfsRoot = options.get(Constants.HDFS_ROOT).orElse(FileSystem.getDefaultUri(configuration).toString());
+        String hdfsUser = options.get(Constants.HDFS_USER).orElse("");
+        Integer checkpointId = options.getInt(Constants.CHECKPOINT_ID, 1);
         return new MicroBatchSourceReader(seaTunnelSource, parallelism, checkpointId, checkpointInterval, checkpointPath, hdfsRoot, hdfsUser);
     }
 
     @Override
     public ContinuousReader createContinuousReader(Optional<StructType> rowTypeOptional, String checkpointLocation, DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        Integer parallelism = options.getInt("source.parallelism", 1);
+        Integer parallelism = options.getInt(Constants.SOURCE_PARALLELISM, 1);
         return new ContinuousSourceReader(seaTunnelSource, parallelism);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {
-        return SerializationUtils.stringToObject(options.get("source.serialization")
+        return SerializationUtils.stringToObject(options.get(Constants.SOURCE_SERIALIZATION)
             .orElseThrow(() -> new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required")));
     }
 }
