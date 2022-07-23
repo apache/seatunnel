@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.spark.execution;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -55,7 +56,7 @@ public class SourceExecuteProcessor extends AbstractPluginExecuteProcessor<SeaTu
             Dataset<Row> dataset = sparkEnvironment.getSparkSession()
                 .read()
                 .format(SeaTunnelSource.class.getSimpleName())
-                .option("source.serialization", SerializationUtils.objectToString(source))
+                .option(Constants.SOURCE_SERIALIZATION, SerializationUtils.objectToString(source))
                 .schema((StructType) TypeConverterUtils.convert(source.getProducedType())).load();
             sources.add(dataset);
             registerInputTempView(pluginConfigs.get(i), dataset);
