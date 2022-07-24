@@ -29,7 +29,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -58,7 +58,7 @@ public class ReadonlyConfig {
                 new TypeReference<Map<String, Object>>() {
                 }));
         } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("Json parsing exception.");
+            throw new IllegalArgumentException("Json parsing exception.", e);
         }
     }
 
@@ -67,14 +67,16 @@ public class ReadonlyConfig {
     }
 
     public Map<String, String> toMap() {
-        synchronized (this.confData) {
-            Map<String, Object> flatteningMap = flatteningMap(confData);
-            Map<String, String> result = new HashMap<>(flatteningMap.size());
-            for (Map.Entry<String, Object> entry : flatteningMap.entrySet()) {
-                result.put(entry.getKey(), convertToJsonString(entry.getValue()));
-            }
-            return result;
+        if (confData.isEmpty()) {
+            return Collections.emptyMap();
         }
+
+        Map<String, Object> flatteningMap = flatteningMap(confData);
+        Map<String, String> result = new HashMap<>((flatteningMap.size() << 2) / 3 + 1);
+        for (Map.Entry<String, Object> entry : flatteningMap.entrySet()) {
+            result.put(entry.getKey(), convertToJsonString(entry.getValue()));
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -83,24 +85,22 @@ public class ReadonlyConfig {
             throw new NullPointerException("Option not be null.");
         }
         String[] keys = option.key().split("\\.");
-        synchronized (this.confData) {
-            Map<String, Object> data = this.confData;
-            Object value = null;
-            for (int i = 0; i < keys.length; i++) {
-                value = data.get(keys[i]);
-                if (i < keys.length - 1) {
-                    if (!((value instanceof Map))) {
-                        return Optional.empty();
-                    } else {
-                        data = (Map<String, Object>) value;
-                    }
+        Map<String, Object> data = this.confData;
+        Object value = null;
+        for (int i = 0; i < keys.length; i++) {
+            value = data.get(keys[i]);
+            if (i < keys.length - 1) {
+                if (!((value instanceof Map))) {
+                    return Optional.empty();
+                } else {
+                    data = (Map<String, Object>) value;
                 }
             }
-            if (value == null) {
-                return Optional.empty();
-            }
-            return Optional.of(convertValue(value, option.typeReference()));
         }
+        if (value == null) {
+            return Optional.empty();
+        }
+        return Optional.of(convertValue(value, option.typeReference()));
     }
 
     @Override
@@ -116,29 +116,12 @@ public class ReadonlyConfig {
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
-        } else if (obj instanceof ReadonlyConfig) {
-            Map<String, Object> otherConf = ((ReadonlyConfig) obj).confData;
-
-            for (Map.Entry<String, Object> e : this.confData.entrySet()) {
-                Object thisVal = e.getValue();
-                Object otherVal = otherConf.get(e.getKey());
-                if (!thisVal.getClass().equals(byte[].class)) {
-                    if (!thisVal.equals(otherVal)) {
-                        return false;
-                    }
-                } else if (otherVal.getClass().equals(byte[].class)) {
-                    if (!Arrays.equals((byte[]) thisVal, (byte[]) otherVal)) {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-            }
-
-            return true;
-        } else {
+        }
+        if (!(obj instanceof ReadonlyConfig)) {
             return false;
         }
+        Map<String, Object> otherConf = ((ReadonlyConfig) obj).confData;
+        return this.confData.equals(otherConf);
     }
 
     @Override
