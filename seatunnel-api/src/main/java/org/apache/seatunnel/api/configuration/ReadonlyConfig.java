@@ -66,6 +66,7 @@ public class ReadonlyConfig {
         return getOptional(option).orElseGet(option::defaultValue);
     }
 
+    @SuppressWarnings("MagicNumber")
     public Map<String, String> toMap() {
         if (confData.isEmpty()) {
             return Collections.emptyMap();
