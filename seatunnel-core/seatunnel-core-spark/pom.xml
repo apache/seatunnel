@@ -118,6 +118,12 @@
             <artifactId>seatunnel-transform-spark-null-rate</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
