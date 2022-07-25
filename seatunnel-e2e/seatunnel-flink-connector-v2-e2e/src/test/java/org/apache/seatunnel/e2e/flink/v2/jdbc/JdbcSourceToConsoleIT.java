@@ -1,8 +1,24 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import com.google.common.collect.Lists;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -10,7 +26,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
@@ -25,23 +41,21 @@ import java.util.stream.Stream;
 
 public class JdbcSourceToConsoleIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSourceToConsoleIT.class);
-    private MySQLContainer<?> mysql;
+    private PostgreSQLContainer<?> psl;
     private Connection connection;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Before
-    public void startMysqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
-        mysql = new MySQLContainer<>(DockerImageName.parse("mysql:8.0"))
+    public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
+        psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
                 .withNetwork(NETWORK)
-                .withNetworkAliases("jdbc")
+                .withNetworkAliases("postgresql")
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER));
-        mysql.setPortBindings(Lists.newArrayList("3306:3306"));
-        Startables.deepStart(Stream.of(mysql)).join();
-        LOGGER.info("Jdbc container started");
-        // wait for clickhouse fully start
+        Startables.deepStart(Stream.of(psl)).join();
+        LOGGER.info("PostgreSql container started");
         Thread.sleep(5000L);
-        Class.forName(mysql.getDriverClassName());
-        connection = DriverManager.getConnection(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
+        Class.forName(psl.getDriverClassName());
+        connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword());
         initializeJdbcTable();
         batchInsertData();
     }
@@ -49,21 +63,19 @@ public class JdbcSourceToConsoleIT extends FlinkContainer {
     private void initializeJdbcTable() throws SQLException {
         Statement statement = connection.createStatement();
         String sql = "CREATE TABLE test (\n" +
-                "  name varchar(255) NOT NULL,\n" +
-                "  age int NOT NULL\n" +
+                "  name varchar(255) NOT NULL\n" +
                 ")";
-        statement.executeUpdate(sql);
+        statement.execute(sql);
         statement.close();
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() throws SQLException {
-        String sql = "insert into test(name,age) values(?,?)";
+        String sql = "insert into test(name) values(?)";
         connection.setAutoCommit(false);
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
         for (int i = 0; i < 10; i++) {
             preparedStatement.setString(1, "Mike");
-            preparedStatement.setInt(2, 20);
             preparedStatement.addBatch();
         }
         preparedStatement.executeBatch();
@@ -78,9 +90,9 @@ public class JdbcSourceToConsoleIT extends FlinkContainer {
     }
 
     @After
-    public void closeMysqlContainer() {
-        if (mysql != null) {
-            mysql.stop();
+    public void closePostgreSqlContainer() {
+        if (psl != null) {
+            psl.stop();
         }
     }
 }
