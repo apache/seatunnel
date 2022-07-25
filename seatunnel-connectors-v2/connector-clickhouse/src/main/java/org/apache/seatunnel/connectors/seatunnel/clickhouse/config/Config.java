@@ -84,7 +84,6 @@ public class Config {
     /**
      * The password of Clickhouse server node
      */
-    public static final String NODE_USER = "node_user";
     public static final String NODE_PASS = "node_pass";
 
     /**
