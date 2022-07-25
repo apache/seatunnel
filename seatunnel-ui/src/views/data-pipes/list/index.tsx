@@ -15,12 +15,53 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import { defineComponent, onMounted, toRefs } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useTable } from './use-table'
+import { NButton, NCard, NDataTable, NPagination, NSpace } from 'naive-ui'
 
 const DataPipesList = defineComponent({
-  setup() {},
+  setup() {
+    const { t } = useI18n()
+    const { state, createColumns } = useTable()
+
+    onMounted(() => {
+      createColumns(state)
+    })
+
+    return { t, ...toRefs(state) }
+  },
   render() {
-    return <div>datapipes</div>
+    return (
+      <NSpace vertical>
+        <NCard title={this.t('data_pipes.data_pipes')}>
+          {{
+            'header-extra': () => (
+              <NButton>{this.t('data_pipes.create')}</NButton>
+            )
+          }}
+        </NCard>
+        <NCard>
+          <NSpace vertical>
+            <NDataTable
+              loading={this.loadingRef}
+              columns={this.columns}
+              data={this.tableData}
+            />
+            <NSpace justify='center'>
+              <NPagination
+                v-model:page={this.page}
+                v-model:page-size={this.pageSize}
+                page-count={this.totalPage}
+                show-size-picker
+                page-sizes={[10, 30, 50]}
+                show-quick-jumper
+              />
+            </NSpace>
+          </NSpace>
+        </NCard>
+      </NSpace>
+    )
   }
 })
 
