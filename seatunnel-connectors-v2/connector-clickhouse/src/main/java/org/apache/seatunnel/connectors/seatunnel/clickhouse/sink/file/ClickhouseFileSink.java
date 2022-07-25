@@ -50,7 +50,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.*;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.COPY_METHOD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.NODE_PASS;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Config.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
 public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
@@ -106,7 +116,7 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
         }
         Map<String, String> nodeUser = config.getObjectList(NODE_PASS).stream()
                 .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
-                        configObject -> configObject.toConfig().hasPath(USERNAME) ? configObject.toConfig().getString(USERNAME) : "root"));
+                    configObject -> configObject.toConfig().hasPath(USERNAME) ? configObject.toConfig().getString(USERNAME) : "root"));
         Map<String, String> nodePassword = config.getObjectList(NODE_PASS).stream()
                 .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
                     configObject -> configObject.toConfig().getString(PASSWORD)));
