@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.apache.spark.sql.SaveMode;
@@ -42,7 +43,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT> implements Wr
     private void init(DataSourceOptions options) {
         if (sink == null) {
             this.sink = SerializationUtils.stringToObject(
-                    options.get("sink").orElseThrow(() -> new IllegalArgumentException("can not find sink " +
+                    options.get(Constants.SINK).orElseThrow(() -> new IllegalArgumentException("can not find sink " +
                             "class string in DataSourceOptions")));
         }
     }

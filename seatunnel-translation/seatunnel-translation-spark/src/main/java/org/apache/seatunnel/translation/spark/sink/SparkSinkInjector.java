@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 
 import org.apache.spark.sql.DataFrameWriter;
@@ -32,12 +33,12 @@ public class SparkSinkInjector {
     public static DataStreamWriter<Row> inject(DataStreamWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
             .outputMode(OutputMode.Append())
-            .option("sink", SerializationUtils.objectToString(sink));
+            .option(Constants.SINK, SerializationUtils.objectToString(sink));
     }
 
     public static DataFrameWriter<Row> inject(DataFrameWriter<Row> dataset, SeaTunnelSink<?, ?, ?, ?> sink) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
-            .option("sink", SerializationUtils.objectToString(sink));
+            .option(Constants.SINK, SerializationUtils.objectToString(sink));
     }
 
 }

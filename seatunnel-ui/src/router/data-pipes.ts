@@ -15,13 +15,28 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import utils from '@/utils'
+import type { Component } from 'vue'
 
-const DataPipesList = defineComponent({
-  setup() {},
-  render() {
-    return <div>datapipes</div>
-  }
-})
+const modules = import.meta.glob('/src/views/**/**.tsx')
+const components: { [key: string]: Component } = utils.mapping(modules)
 
-export default DataPipesList
+export default {
+  path: '/data-pipes',
+  name: 'data-pipes',
+  meta: {
+    title: 'data-pipes'
+  },
+  redirect: { name: 'data-pipes-list' },
+  component: () => import('@/layouts/dashboard'),
+  children: [
+    {
+      path: '/data-pipes/list',
+      name: 'data-pipes-list',
+      component: components['data-pipes-list'],
+      meta: {
+        title: 'data-pipes-list'
+      }
+    }
+  ]
+}
