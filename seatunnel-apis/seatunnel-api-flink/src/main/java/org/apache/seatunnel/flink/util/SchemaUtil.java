@@ -17,14 +17,20 @@
 
 package org.apache.seatunnel.flink.util;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.enums.FormatType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
@@ -42,7 +48,7 @@ import org.apache.flink.types.Row;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -62,7 +68,7 @@ public final class SchemaUtil {
                 getJsonSchema(schema, (ObjectNode) info);
                 break;
             case CSV:
-                getCsvSchema(schema, (List<Map<String, String>>) info);
+                getCsvSchema(schema, (ArrayNode) info);
                 break;
             case ORC:
                 getOrcSchema(schema, (ObjectNode) info);
@@ -112,18 +118,23 @@ public final class SchemaUtil {
     }
 
     private static void getJsonSchema(Schema schema, ObjectNode json) {
-        Map<String, Object> jsonMap = JsonUtils.toMap(json);
-        for (Map.Entry<String, Object> entry : jsonMap.entrySet()) {
+        Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
+        while (nodeIterator.hasNext()) {
+            Map.Entry<String, JsonNode> entry = nodeIterator.next();
             String key = entry.getKey();
             Object value = entry.getValue();
-            if (value instanceof String) {
+            if (value instanceof TextNode) {
                 schema.field(key, Types.STRING());
-            } else if (value instanceof Integer) {
+            } else if (value instanceof IntNode) {
                 schema.field(key, Types.INT());
-            } else if (value instanceof Long) {
+            } else if (value instanceof LongNode) {
                 schema.field(key, Types.LONG());
-            } else if (value instanceof BigDecimal) {
+            } else if (value instanceof DecimalNode) {
                 schema.field(key, Types.JAVA_BIG_DEC());
+            } else if (value instanceof FloatNode) {
+                schema.field(key,  Types.FLOAT());
+            } else if (value instanceof DoubleNode) {
+                schema.field(key, Types.DOUBLE());
             } else if (value instanceof ObjectNode) {
                 schema.field(key, getTypeInformation((ObjectNode) value));
             } else if (value instanceof ArrayNode) {
@@ -137,11 +148,14 @@ public final class SchemaUtil {
         }
     }
 
-    private static void getCsvSchema(Schema schema, List<Map<String, String>> schemaList) {
+    private static void getCsvSchema(Schema schema, ArrayNode schemaList) {
+        Iterator<JsonNode> iterator = schemaList.elements();
 
-        for (Map<String, String> map : schemaList) {
-            String field = map.get("field");
-            String type = map.get("type").toUpperCase();
+        while (iterator.hasNext()) {
+            JsonNode jsonNode = iterator.next();
+            String field = jsonNode.get("field").textValue();
+            String type = jsonNode.get("type").textValue().toUpperCase();
+
             schema.field(field, type);
         }
     }
@@ -188,20 +202,25 @@ public final class SchemaUtil {
         int size = json.size();
         String[] fields = new String[size];
         TypeInformation<?>[] informations = new TypeInformation[size];
-        Map<String, Object> jsonMap = JsonUtils.toMap(json);
         int i = 0;
-        for (Map.Entry<String, Object> entry : jsonMap.entrySet()) {
+        Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
+        while (nodeIterator.hasNext()) {
+            Map.Entry<String, JsonNode> entry = nodeIterator.next();
             String key = entry.getKey();
             Object value = entry.getValue();
             fields[i] = key;
-            if (value instanceof String) {
+            if (value instanceof TextNode) {
                 informations[i] = Types.STRING();
-            } else if (value instanceof Integer) {
+            } else if (value instanceof IntNode) {
                 informations[i] = Types.INT();
-            } else if (value instanceof Long) {
+            } else if (value instanceof LongNode) {
                 informations[i] = Types.LONG();
-            } else if (value instanceof BigDecimal) {
+            } else if (value instanceof DecimalNode) {
                 informations[i] = Types.JAVA_BIG_DEC();
+            } else if (value instanceof FloatNode) {
+                informations[i] = Types.FLOAT();
+            } else if (value instanceof DoubleNode) {
+                informations[i] = Types.DOUBLE();
             } else if (value instanceof ObjectNode) {
                 informations[i] = getTypeInformation((ObjectNode) value);
             } else if (value instanceof ArrayNode) {
