@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.e2e.spark.jdbc;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
@@ -10,7 +27,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
@@ -26,22 +43,21 @@ import java.util.stream.Stream;
 
 public class FakeSourceToJdbcIT extends SparkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToJdbcIT.class);
-    private MySQLContainer<?> mysql;
+    private PostgreSQLContainer<?> psl;
     private Connection connection;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Before
-    public void startMysqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
-        mysql = new MySQLContainer<>(DockerImageName.parse("mysql:8.0"))
+    public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
+        psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
                 .withNetwork(NETWORK)
-                .withNetworkAliases("jdbc")
+                .withNetworkAliases("postgresql")
                 .withLogConsumer(new Slf4jLogConsumer(LOGGER));
-        mysql.setPortBindings(Lists.newArrayList("33306:3306"));
-        Startables.deepStart(Stream.of(mysql)).join();
-        LOGGER.info("Jdbc container started");
+        Startables.deepStart(Stream.of(psl)).join();
+        LOGGER.info("PostgreSql container started");
         Thread.sleep(5000L);
-        Class.forName(mysql.getDriverClassName());
-        connection = DriverManager.getConnection(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
+        Class.forName(psl.getDriverClassName());
+        connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword());
         initializeJdbcTable();
     }
 
@@ -69,9 +85,9 @@ public class FakeSourceToJdbcIT extends SparkContainer {
     }
 
     @After
-    public void closeMysqlContainer() {
-        if (mysql != null) {
-            mysql.stop();
+    public void closePostgreSqlContainer() {
+        if (psl != null) {
+            psl.stop();
         }
     }
 }
