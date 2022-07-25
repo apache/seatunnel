@@ -104,9 +104,9 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
         } else {
             fields = new ArrayList<>(tableSchema.keySet());
         }
-        Map<String, String> nodeUser = config.getObjectList(USERNAME).stream()
+        Map<String, String> nodeUser = config.getObjectList(NODE_PASS).stream()
                 .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
-                        configObject -> configObject.toConfig().getString(USERNAME)));
+                        configObject -> configObject.toConfig().hasPath(USERNAME) ? configObject.toConfig().getString(USERNAME) : "root"));
         Map<String, String> nodePassword = config.getObjectList(NODE_PASS).stream()
                 .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
                     configObject -> configObject.toConfig().getString(PASSWORD)));
