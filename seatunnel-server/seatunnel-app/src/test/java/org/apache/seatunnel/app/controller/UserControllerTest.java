@@ -17,28 +17,40 @@
 
 package org.apache.seatunnel.app.controller;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.apache.seatunnel.app.WebMvcApplicationTest;
 import org.apache.seatunnel.app.common.Result;
+import org.apache.seatunnel.app.dal.dao.impl.UserDaoImpl;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.utils.JsonUtils;
+
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 public class UserControllerTest extends WebMvcApplicationTest {
+
+    @MockBean
+    private UserDaoImpl userDaoImpl;
 
     @Test
     public void testAdd() throws Exception {
         AddUserReq requestDTO = new AddUserReq();
         requestDTO.setUsername("admin");
+        requestDTO.setPassword("123456");
+        requestDTO.setStatus(new Byte("1"));
+        requestDTO.setType(new Byte("1"));
         String url = "/api/v1/user/user";
+        when(this.userDaoImpl.add(Mockito.any())).thenReturn(1);
         MvcResult mvcResult = mockMvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(JsonUtils.toJsonString(requestDTO)))
                 .andExpect(status().isOk())
                 .andDo(MockMvcResultHandlers.print())
@@ -49,4 +61,5 @@ public class UserControllerTest extends WebMvcApplicationTest {
         Assertions.assertTrue(data.isSuccess());
         Assertions.assertNotNull(data.getData());
     }
+
 }
