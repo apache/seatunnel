@@ -216,3 +216,6 @@ seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/impl/PathParser.java        from  https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/ConfigParseOptions.java     from https://github.com/lightbend/config
 seatunnel-config/seatunnel-config-shade/src/main/java/org/apache/seatunnel/shade/com/typesafe/config/SimpleConfigObject.java     from https://github.com/lightbend/config
+
+This product bundles PostgreSQL JDBC 4.2 Driver, which is available under a
+"BSD 2-Clause Simplified" license. For details, see https://jdbc.postgresql.org/.
