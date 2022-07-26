@@ -1,40 +1,73 @@
-# 2.1.2 Release
 
-[Feature]
-- Add Spark webhook source
-- Support Flink application mode
-- Split connector jar from core jar
-- Add Replace transforms for Spark
-- Add Uuid transform for Spark
-- Support Flink dynamic configurations
-- Flink JDBC source support Oracle database
-- Add Flink connector Http
-- Add Flink transform for register user define function
-- Add Flink SQL Kafka, ElasticSearch connector
+# 2.1.3 Release Note
 
-[Bugfix]
-- Fixed ClickHouse sink data type convert error
-- Fixed first execute Spark start shell can't run problem
-- Fixed can not get config file when use Spark on yarn cluster mode
-- Fixed Spark extraJavaOptions can't be empty
-- Fixed the "plugins.tar.gz" decompression failure in Spark standalone cluster mode 
-- Fixed Clickhouse sink can not work correctly when use multiple hosts
-- Fixed Flink sql conf parse exception
-- Fixed Flink JDBC Mysql datatype mapping incomplete
-- Fixed variables cannot be set in Flink mode
-- Fixed SeaTunnel Flink engine cannot check source config
+## [BUG]
 
-[Improvement]
-- Update Jackson version to 2.12.6
-- Add guide on how to Set Up SeaTunnel with Kubernetes
-- Optimize some generic type code
-- Add Flink SQL e2e module
-- Flink JDBC connector add pre sql and post sql
-- Use @AutoService to generate SPI file
-- Support Flink FakeSourceStream to mock data
-- Support Read Hive by Flink JDBC source
-- ClickhouseFile support ReplicatedMergeTree
-- Support use Hive sink to save table as ORCFileFormat
-- Support Spark Redis sink custom expire time
-- Add Spark JDBC isolationLevel config
-- Use Jackson replace Fastjson 
+[Connector][Hudi] Source loads the data twice
+
+[Connector][Doris]Fix the bug Unrecognized field "TwoPhaseCommit" after doris 0.15 (#2054) 
+
+[Connector][Jdbc]Fix the data output exception when accessing Hive using Spark JDBC #2085
+
+[Connector][Jdbc]Fix JDBC data loss occurs when partition_column (partition mode) is set #2033
+
+[Connector][Kafka]KafkaTableStream schema json parse #2168
+
+[seatunnel-core] Failed to get APP_DIR path bug fixed (#2165)
+
+[seatunnel-api-flink] Connectors dependencies repeat additions (#2207)
+
+[seatunnel-core] Failed to get APP_DIR path bug fixed (#2165)
+
+[seatunnel-core-flink] Updated FlinkRunMode enum to get the proper help message for run modes. (#2008)
+
+[seatunnel-core-flink]fix same source and sink registerplugin librarycache error (#2015)
+
+[Command]fix commandArgs -t(--check) conflict with flink deployment target (#2174)
+
+[Core][Jackson]fix jackson type convert error (#2031)
+
+[Core][Starter] When use cluster mode, but starter app root dir also should same as client mode. (#2141)
+
+
+## [Feature & Improvement]
+
+[Connector][Flink][Fake] Supported BigInteger Type (#2118)
+
+[Connector][Spark][TiDB] Refactored config parameters (#1983)
+
+[Connector][Flink]add AssertSink connector (#2022) 
+
+[Connector][Spark][ClickHouse]Support Rsync to transfer clickhouse data file (#2074)
+
+[Connector & e2e][Flink] add IT for Assert Sink in e2e module (#2036)
+
+[Transform][Spark] data quality for null data rate (#1978)
+
+[Transform][Spark] Add a module to set default value for null field #1958
+
+[Chore]a more understandable code,and code warning will disappear #2005
+
+[Spark] Use higher version of the libthrift dependency (#1994)
+
+[Core][Starter] Change jar connector load logic (#2193)
+
+[Core]Add plugin discovery module (#1881)
+
+## Docs
+
+source socket connector docs update (#1995)
+
+Add uuid, udf, replace transform to doc (#2016) 
+
+Update Flink engine version requirements (#2220)
+
+Add Flink SQL module to website. (#2021) 
+
+[kubernetes] update seatunnel doc on kubernetes (#2035)
+
+## Dependency upgrade
+
+Upgrade common-collecions4 to 4.4
+
+Upgrade common-codec to 1.13
