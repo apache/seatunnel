@@ -104,9 +104,7 @@ public class HdfsUtils {
         }
     }
 
-    public static void createDir(@NonNull String filePath)
-            throws IOException {
-
+    public static void createDir(@NonNull String filePath) throws IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         Path dfs = new Path(filePath);
         if (!hdfsFs.mkdirs(dfs)) {
@@ -114,8 +112,7 @@ public class HdfsUtils {
         }
     }
 
-    public static boolean fileExist(@NonNull String filePath)
-            throws IOException {
+    public static boolean fileExist(@NonNull String filePath) throws IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         Path fileName = new Path(filePath);
         return hdfsFs.exists(fileName);
@@ -124,8 +121,7 @@ public class HdfsUtils {
     /**
      * get the dir in filePath
      */
-    public static List<Path> dirList(@NonNull String filePath)
-            throws FileNotFoundException, IOException {
+    public static List<Path> dirList(@NonNull String filePath) throws FileNotFoundException, IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         List<Path> pathList = new ArrayList<Path>();
         Path fileName = new Path(filePath);
