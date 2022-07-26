@@ -28,7 +28,9 @@ export function useTable() {
     pageSize: ref(10),
     totalPage: ref(1),
     row: {},
-    loadingRef: ref(false)
+    loadingRef: ref(false),
+    showModalRef: ref(false),
+    statusRef: ref(0)
   })
 
   const createColumns = (state: any) => {

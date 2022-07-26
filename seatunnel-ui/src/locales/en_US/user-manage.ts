@@ -27,5 +27,8 @@ export default {
   enable: 'Enable',
   disable: 'Disable',
   edite: 'Edite',
-  delete: 'Delete'
+  delete: 'Delete',
+  active: 'Active',
+  inactive: 'Inactive',
+  password: 'Password'
 }
