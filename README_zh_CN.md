@@ -47,7 +47,7 @@ SeaTunnel 尽所能为您解决海量数据同步中可能遇到的问题：
 
 ## SeaTunnel 的工作流程
 
-![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](/docs/en/images//seatunnel-workflow.svg)
 
 ```
 Source[数据源输入] -> Transform[数据处理] -> Sink[结果输出]
