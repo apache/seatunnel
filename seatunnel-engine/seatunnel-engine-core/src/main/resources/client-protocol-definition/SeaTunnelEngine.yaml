@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+# The schema of this file can find from this link: https://github.com/hazelcast/hazelcast-client-protocol
 id: 222
 name: SeaTunnel
 methods:
