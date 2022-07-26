@@ -37,14 +37,19 @@ public class HdfsUtils {
 
     public static final int WRITE_BUFFER_SIZE = 2048;
 
-    public static FileSystem getHdfsFs(@NonNull String path)
-        throws IOException {
-        Configuration conf = new Configuration();
+    public static final Configuration CONF = new Configuration();
+
+    // make the configuration object static, so orc and parquet reader can get it
+    static {
         LOGGER.info(System.getenv("HADOOP_CONF_DIR"));
-        conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"));
-        conf.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/hdfs-site.xml"));
-        conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
-        return FileSystem.get(URI.create(path), conf);
+        CONF.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/core-site.xml"));
+        CONF.addResource(new Path(System.getenv("HADOOP_CONF_DIR") + "/hdfs-site.xml"));
+        CONF.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
+    }
+
+    public static FileSystem getHdfsFs(@NonNull String path)
+            throws IOException {
+        return FileSystem.get(URI.create(path), CONF);
     }
 
     public static FSDataOutputStream getOutputStream(@NonNull String outFilePath) throws IOException {
@@ -100,7 +105,7 @@ public class HdfsUtils {
     }
 
     public static void createDir(@NonNull String filePath)
-        throws IOException {
+            throws IOException {
 
         FileSystem hdfsFs = getHdfsFs(filePath);
         Path dfs = new Path(filePath);
@@ -110,7 +115,7 @@ public class HdfsUtils {
     }
 
     public static boolean fileExist(@NonNull String filePath)
-        throws IOException {
+            throws IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         Path fileName = new Path(filePath);
         return hdfsFs.exists(fileName);
@@ -120,7 +125,7 @@ public class HdfsUtils {
      * get the dir in filePath
      */
     public static List<Path> dirList(@NonNull String filePath)
-        throws FileNotFoundException, IOException {
+            throws FileNotFoundException, IOException {
         FileSystem hdfsFs = getHdfsFs(filePath);
         List<Path> pathList = new ArrayList<Path>();
         Path fileName = new Path(filePath);
