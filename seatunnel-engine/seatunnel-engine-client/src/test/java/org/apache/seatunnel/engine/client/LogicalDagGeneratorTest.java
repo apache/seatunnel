@@ -55,7 +55,6 @@ public class LogicalDagGeneratorTest {
         LogicalDagGenerator logicalDagGenerator = localExecutionContext.getLogicalDagGenerator();
         LogicalDag logicalDag = logicalDagGenerator.generate();
         JsonObject logicalDagJson = logicalDag.toJson();
-        System.out.println(logicalDagJson.toString());
         String result = "{\"vertices\":[{\"id\":1,\"name\":\"FakeSource(id=1)\",\"parallelism\":3},{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":0,\"name\":\"LocalFile(id=0)\",\"parallelism\":6}],\"edges\":[{\"leftVertex\":\"FakeSource(id=1)\",\"rightVertex\":\"LocalFile(id=0)\"},{\"leftVertex\":\"FakeSource(id=2)\",\"rightVertex\":\"LocalFile(id=0)\"}]}";
         Assert.assertEquals(result, logicalDagJson.toString());
     }
