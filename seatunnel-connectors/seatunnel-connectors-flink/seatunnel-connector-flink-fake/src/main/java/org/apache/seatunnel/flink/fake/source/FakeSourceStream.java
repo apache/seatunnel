@@ -84,7 +84,7 @@ public class FakeSourceStream extends RichParallelSourceFunction<Row> implements
         while (running){
             Row rowData = MockSchema.mockRowData(mockDataSchema);
             ctx.collect(rowData);
-            TimeUnit.MILLISECONDS.sleep(mockDataInterval);
+            TimeUnit.SECONDS.sleep(mockDataInterval);
         }
     }
 

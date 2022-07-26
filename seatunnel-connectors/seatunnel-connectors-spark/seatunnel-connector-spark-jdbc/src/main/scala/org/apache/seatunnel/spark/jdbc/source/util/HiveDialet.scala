@@ -18,7 +18,7 @@ package org.apache.seatunnel.spark.jdbc.source.util
 
 import org.apache.spark.sql.jdbc.JdbcDialect
 
-class HiveDialet extends JdbcDialect {
+class HiveDialect extends JdbcDialect {
   override def canHandle(url: String): Boolean = {
     url.startsWith("jdbc:hive2")
   }

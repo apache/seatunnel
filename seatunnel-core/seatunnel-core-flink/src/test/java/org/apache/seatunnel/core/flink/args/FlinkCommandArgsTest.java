@@ -27,7 +27,7 @@ public class FlinkCommandArgsTest {
 
     @Test
     public void testParseFlinkArgs() {
-        String[] args = {"-c", "app.conf", "-t", "-i", "city=shenyang", "-i", "date=20200202"};
+        String[] args = {"-c", "app.conf", "-ck", "-i", "city=shenyang", "-i", "date=20200202"};
         FlinkCommandArgs flinkArgs = new FlinkCommandArgs();
         JCommander.newBuilder()
             .addObject(flinkArgs)

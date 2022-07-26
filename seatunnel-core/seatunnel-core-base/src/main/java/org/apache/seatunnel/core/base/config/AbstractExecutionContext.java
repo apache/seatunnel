@@ -22,37 +22,36 @@ import org.apache.seatunnel.apis.base.api.BaseSource;
 import org.apache.seatunnel.apis.base.api.BaseTransform;
 import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The ExecutionContext contains all configuration needed to run the job.
  *
  * @param <ENVIRONMENT> environment type.
  */
-public class ExecutionContext<ENVIRONMENT extends RuntimeEnv> {
+public abstract class AbstractExecutionContext<ENVIRONMENT extends RuntimeEnv> {
 
     private final Config config;
     private final EngineType engine;
 
     private final ENVIRONMENT environment;
     private final JobMode jobMode;
-    private final List<BaseSource<ENVIRONMENT>> sources;
-    private final List<BaseTransform<ENVIRONMENT>> transforms;
-    private final List<BaseSink<ENVIRONMENT>> sinks;
 
-    public ExecutionContext(Config config, EngineType engine) {
+    public AbstractExecutionContext(Config config, EngineType engine) {
         this.config = config;
         this.engine = engine;
         this.environment = new EnvironmentFactory<ENVIRONMENT>(config, engine).getEnvironment();
         this.jobMode = environment.getJobMode();
-        PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine);
-        this.environment.registerPlugin(pluginFactory.getPluginJarPaths());
-        this.sources = pluginFactory.createPlugins(PluginType.SOURCE);
-        this.transforms = pluginFactory.createPlugins(PluginType.TRANSFORM);
-        this.sinks = pluginFactory.createPlugins(PluginType.SINK);
     }
 
     public Config getRootConfig() {
@@ -71,15 +70,23 @@ public class ExecutionContext<ENVIRONMENT extends RuntimeEnv> {
         return jobMode;
     }
 
-    public List<BaseSource<ENVIRONMENT>> getSources() {
-        return sources;
-    }
+    public abstract List<BaseSource<ENVIRONMENT>> getSources();
 
-    public List<BaseTransform<ENVIRONMENT>> getTransforms() {
-        return transforms;
-    }
+    public abstract List<BaseTransform<ENVIRONMENT>> getTransforms();
 
-    public List<BaseSink<ENVIRONMENT>> getSinks() {
-        return sinks;
+    public abstract List<BaseSink<ENVIRONMENT>> getSinks();
+
+    public abstract List<URL> getPluginJars();
+
+    @SuppressWarnings("checkstyle:Indentation")
+    protected List<PluginIdentifier> getPluginIdentifiers(PluginType... pluginTypes) {
+        return Arrays.stream(pluginTypes).flatMap((Function<PluginType, Stream<PluginIdentifier>>) pluginType -> {
+            List<? extends Config> configList = config.getConfigList(pluginType.getType());
+            return configList.stream()
+                .map(pluginConfig -> PluginIdentifier
+                    .of(engine.getEngine(),
+                        pluginType.getType(),
+                        pluginConfig.getString("plugin_name")));
+        }).collect(Collectors.toList());
     }
 }

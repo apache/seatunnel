@@ -39,17 +39,18 @@ public class FlinkSqlStarter implements Starter {
     FlinkSqlStarter(String[] args) {
         this.flinkCommandArgs = CommandLineUtils.parseCommandArgs(args, FlinkJobType.SQL);
         // set the deployment mode, used to get the job jar path.
-        Common.setDeployMode(flinkCommandArgs.getDeployMode().getName());
+        Common.setStarter(true);
+        Common.setDeployMode(flinkCommandArgs.getDeployMode());
         this.appJar = Common.appLibDir().resolve(APP_JAR_NAME).toString();
     }
 
     @Override
-    public List<String> buildCommands() throws Exception {
+    public List<String> buildCommands() {
         return CommandLineUtils.buildFlinkCommand(flinkCommandArgs, CLASS_NAME, appJar);
     }
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         FlinkSqlStarter flinkSqlStarter = new FlinkSqlStarter(args);
         System.out.println(String.join(" ", flinkSqlStarter.buildCommands()));
     }

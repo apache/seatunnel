@@ -26,10 +26,11 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.base.command.BaseTaskExecuteCommand;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.core.base.config.EngineType;
-import org.apache.seatunnel.core.base.config.ExecutionContext;
 import org.apache.seatunnel.core.base.config.ExecutionFactory;
+import org.apache.seatunnel.core.base.exception.CommandExecuteException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.flink.config.FlinkExecutionContext;
 import org.apache.seatunnel.flink.FlinkEnvironment;
 import org.apache.seatunnel.flink.batch.FlinkBatchSink;
 import org.apache.seatunnel.flink.batch.FlinkBatchSource;
@@ -48,40 +49,40 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Used to execute Flink Job.
+ * Used to execute Flink Job by Flink API.
  */
-public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs, FlinkEnvironment> {
+public class FlinkApiTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommandArgs, FlinkEnvironment> {
 
     private final FlinkCommandArgs flinkCommandArgs;
 
-    public FlinkTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
+    public FlinkApiTaskExecuteCommand(FlinkCommandArgs flinkCommandArgs) {
         this.flinkCommandArgs = flinkCommandArgs;
     }
 
     @Override
-    public void execute() {
+    public void execute() throws CommandExecuteException {
         EngineType engine = flinkCommandArgs.getEngineType();
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
 
-        Config config = new ConfigBuilder<>(configFile, engine).getConfig();
-        ExecutionContext<FlinkEnvironment> executionContext = new ExecutionContext<>(config, engine);
+        Config config = new ConfigBuilder(configFile).getConfig();
+        FlinkExecutionContext executionContext = new FlinkExecutionContext(config, engine);
         List<BaseSource<FlinkEnvironment>> sources = executionContext.getSources();
         List<BaseTransform<FlinkEnvironment>> transforms = executionContext.getTransforms();
         List<BaseSink<FlinkEnvironment>> sinks = executionContext.getSinks();
 
         checkPluginType(executionContext.getJobMode(), sources, transforms, sinks);
-        baseCheckConfig(sources, transforms, sinks);
+        baseCheckConfig(sinks, transforms, sinks);
         showAsciiLogo();
 
         try (Execution<BaseSource<FlinkEnvironment>,
-            BaseTransform<FlinkEnvironment>,
-            BaseSink<FlinkEnvironment>,
-            FlinkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution()) {
+                BaseTransform<FlinkEnvironment>,
+                BaseSink<FlinkEnvironment>,
+                FlinkEnvironment> execution = new ExecutionFactory<>(executionContext).createExecution()) {
             prepare(executionContext.getEnvironment(), sources, transforms, sinks);
             execution.start(sources, transforms, sinks);
             close(sources, transforms, sinks);
         } catch (Exception e) {
-            throw new RuntimeException("Execute Flink task error", e);
+            throw new CommandExecuteException("Execute Flink task error", e);
         }
     }
 
@@ -92,9 +93,9 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
         switch (jobMode) {
             case STREAMING:
                 pluginStream.forEach(plugin -> {
-                    boolean isStream = (plugin instanceof FlinkStreamSource)
-                        || (plugin instanceof FlinkStreamTransform)
-                        || (plugin instanceof FlinkStreamSink);
+                    boolean isStream = plugin instanceof FlinkStreamSource
+                            || plugin instanceof FlinkStreamTransform
+                            || plugin instanceof FlinkStreamSink;
                     if (!isStream) {
                         throw new IllegalArgumentException(String.format("Cannot use batch plugin: %s in stream mode", plugin.getPluginName()));
                     }
@@ -102,9 +103,9 @@ public class FlinkTaskExecuteCommand extends BaseTaskExecuteCommand<FlinkCommand
                 break;
             case BATCH:
                 pluginStream.forEach(plugin -> {
-                    boolean isBatch = (plugin instanceof FlinkBatchSource)
-                        || (plugin instanceof FlinkBatchTransform)
-                        || (plugin instanceof FlinkBatchSink);
+                    boolean isBatch = plugin instanceof FlinkBatchSource
+                            || plugin instanceof FlinkBatchTransform
+                            || plugin instanceof FlinkBatchSink;
                     if (!isBatch) {
                         throw new IllegalArgumentException(String.format("Cannot use stream plugin: %s in batch mode", plugin.getPluginName()));
                     }
