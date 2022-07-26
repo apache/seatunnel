@@ -17,5 +17,52 @@
 
 package org.apache.seatunnel.engine.core.dag.logicaldag;
 
-public class LogicalVertex {
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
+
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.Data;
+
+import java.io.IOException;
+
+@Data
+public class LogicalVertex implements IdentifiedDataSerializable {
+    private Integer vertexId;
+    private Action action;
+    private int parallelism;
+
+    public LogicalVertex() {
+    }
+
+    public LogicalVertex(int vertexId, Action action, int parallelism) {
+        this.vertexId = vertexId;
+        this.action = action;
+        this.parallelism = parallelism;
+    }
+
+    @Override
+    public int getFactoryId() {
+        return JobDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return JobDataSerializerHook.LOGICAL_VERTEX;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeInt(vertexId);
+        out.writeObject(action);
+        out.writeInt(parallelism);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        vertexId = in.readInt();
+        action = in.readObject();
+        parallelism = in.readInt();
+    }
 }

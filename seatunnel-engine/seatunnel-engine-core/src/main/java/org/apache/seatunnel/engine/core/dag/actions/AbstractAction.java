@@ -49,7 +49,7 @@ public abstract class AbstractAction implements Action {
 
     @NonNull
     @Override
-    public String name() {
+    public String getName() {
         return name;
     }
 
@@ -60,7 +60,7 @@ public abstract class AbstractAction implements Action {
 
     @NonNull
     @Override
-    public List<Action> upstream() {
+    public List<Action> getUpstream() {
         return upstreams;
     }
 
@@ -77,5 +77,10 @@ public abstract class AbstractAction implements Action {
     @Override
     public void setParallelism(int parallelism) {
         this.parallelism = parallelism;
+    }
+
+    @Override
+    public int getId() {
+        return id;
     }
 }

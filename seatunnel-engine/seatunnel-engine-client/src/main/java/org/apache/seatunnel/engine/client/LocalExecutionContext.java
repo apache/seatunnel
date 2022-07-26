@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
@@ -28,16 +29,14 @@ public class LocalExecutionContext {
 
     private static String DEFAULT_JOB_NAME = "test_st_job";
 
-    private SeaTunnelClientConfig configuration;
-
-    private String jobName;
+    private JobConfig jobConfig;
 
     private int maxParallelism = 1;
 
     private List<Action> actions = new ArrayList<>();
 
-    public LocalExecutionContext(SeaTunnelClientConfig configuration) {
-        this.configuration = configuration;
+    public LocalExecutionContext(JobConfig jobConfig) {
+        this.jobConfig = jobConfig;
     }
 
     public void addAction(List<Action> actions) {
@@ -45,15 +44,11 @@ public class LocalExecutionContext {
     }
 
     public LogicalDagGenerator getLogicalDagGenerator() {
-        return new LogicalDagGenerator(actions);
+        return new LogicalDagGenerator(actions, jobConfig);
     }
 
     public List<Action> getActions() {
         return actions;
-    }
-
-    public void setJobName(String jobName) {
-        this.jobName = jobName;
     }
 }
 

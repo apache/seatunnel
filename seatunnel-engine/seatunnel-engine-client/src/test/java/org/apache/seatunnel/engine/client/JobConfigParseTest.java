@@ -40,11 +40,11 @@ public class JobConfigParseTest {
         List<Action> actions = jobConfigParse.parse();
         Assert.assertEquals(1, actions.size());
 
-        Assert.assertEquals("LocalFile", actions.get(0).name());
-        Assert.assertEquals(1, actions.get(0).upstream().size());
-        Assert.assertEquals("FakeSource", actions.get(0).upstream().get(0).name());
+        Assert.assertEquals("LocalFile", actions.get(0).getName());
+        Assert.assertEquals(1, actions.get(0).getUpstream().size());
+        Assert.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
 
-        Assert.assertEquals(3, actions.get(0).upstream().get(0).getParallelism());
+        Assert.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
         Assert.assertEquals(3, actions.get(0).getParallelism());
     }
 
@@ -57,13 +57,13 @@ public class JobConfigParseTest {
         List<Action> actions = jobConfigParse.parse();
         Assert.assertEquals(1, actions.size());
 
-        Assert.assertEquals("LocalFile", actions.get(0).name());
-        Assert.assertEquals(2, actions.get(0).upstream().size());
-        Assert.assertEquals("FakeSource", actions.get(0).upstream().get(0).name());
-        Assert.assertEquals("FakeSource", actions.get(0).upstream().get(1).name());
+        Assert.assertEquals("LocalFile", actions.get(0).getName());
+        Assert.assertEquals(2, actions.get(0).getUpstream().size());
+        Assert.assertEquals("FakeSource", actions.get(0).getUpstream().get(0).getName());
+        Assert.assertEquals("FakeSource", actions.get(0).getUpstream().get(1).getName());
 
-        Assert.assertEquals(3, actions.get(0).upstream().get(0).getParallelism());
-        Assert.assertEquals(3, actions.get(0).upstream().get(1).getParallelism());
+        Assert.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
+        Assert.assertEquals(3, actions.get(0).getUpstream().get(1).getParallelism());
         Assert.assertEquals(6, actions.get(0).getParallelism());
     }
 }

@@ -17,5 +17,36 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-public class JobConfig {
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook;
+
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+
+import java.io.IOException;
+
+public class JobConfig implements IdentifiedDataSerializable {
+    private String name;
+    private Boundedness boundedness;
+
+    @Override
+    public int getFactoryId() {
+        return ConfigDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return ConfigDataSerializerHook.JOB_CONFIG;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeString(name);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        this.name = in.readString();
+    }
 }

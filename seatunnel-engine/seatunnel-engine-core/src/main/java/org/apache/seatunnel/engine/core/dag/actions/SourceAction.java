@@ -23,7 +23,9 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import com.google.common.collect.Lists;
 import lombok.NonNull;
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT> extends AbstractAction {
+import java.io.Serializable;
+
+public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
     private SeaTunnelSource<T, SplitT, StateT> source;
 
     public SourceAction(@NonNull String name,

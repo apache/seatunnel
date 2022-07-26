@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.engine.common.config.JobConfig;
+
 import com.hazelcast.core.HazelcastInstance;
 import lombok.NonNull;
 
@@ -29,5 +31,5 @@ public interface SeaTunnelClientInstance {
     @NonNull
     HazelcastInstance getHazelcastInstance();
 
-    LocalExecutionContext createExecutionContext(String filePath, SeaTunnelClientConfig config);
+    LocalExecutionContext createExecutionContext(String filePath, JobConfig config);
 }

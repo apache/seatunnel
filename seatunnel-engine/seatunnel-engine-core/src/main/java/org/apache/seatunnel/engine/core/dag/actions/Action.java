@@ -24,16 +24,18 @@ import java.util.List;
 
 public interface Action extends Serializable {
     @NonNull
-    String name();
+    String getName();
 
     void setName(@NonNull String name);
 
     @NonNull
-    List<Action> upstream();
+    List<Action> getUpstream();
 
     void addUpstream(@NonNull Action action);
 
     int getParallelism();
 
     void setParallelism(int parallelism);
+
+    int getId();
 }

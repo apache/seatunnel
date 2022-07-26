@@ -17,5 +17,65 @@
 
 package org.apache.seatunnel.engine.core.dag.logicaldag;
 
-public class LogicalEdge {
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
+
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.Data;
+import lombok.NonNull;
+
+import java.io.IOException;
+import java.util.Map;
+
+@Data
+public class LogicalEdge implements IdentifiedDataSerializable {
+    private LogicalVertex leftVertex;
+    private LogicalVertex rightVertex;
+
+    private Integer leftVertexId;
+
+    private Integer rightVertexId;
+
+    public LogicalEdge(){}
+
+    public LogicalEdge(LogicalVertex leftVertex, LogicalVertex rightVertex) {
+        this.leftVertex = leftVertex;
+        this.rightVertex = rightVertex;
+        this.leftVertexId = leftVertex.getVertexId();
+        this.rightVertexId = rightVertex.getVertexId();
+    }
+
+    public void recoveryFromVertexMap(@NonNull Map<Integer, LogicalVertex> vertexMap) {
+        leftVertex = vertexMap.get(leftVertexId);
+        rightVertex = vertexMap.get(rightVertexId);
+
+        checkNotNull(leftVertex);
+        checkNotNull(rightVertex);
+    }
+
+    @Override
+    public int getFactoryId() {
+        return JobDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return JobDataSerializerHook.LOGICAL_EDGE;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        // To prevent circular serialization, we only serialize the ID of vertices for edges
+        out.writeInt(leftVertexId);
+        out.writeInt(rightVertexId);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        leftVertexId = in.readInt();
+        rightVertexId = in.readInt();
+    }
 }

@@ -107,7 +107,7 @@ public class JobConfigParse {
                 sourceAnalyze(sourceTableName, sinkAction);
             } else if (transformConfigList.size() > 1) {
                 throw new JobDefineCheckExceptionSeaTunnel("Only UnionTransform can have more than one upstream, "
-                    + sinkAction.name()
+                    + sinkAction.getName()
                     + " is not UnionTransform Connector");
             } else {
                 transformAnalyze(sourceTableName, sinkAction);
@@ -120,7 +120,7 @@ public class JobConfigParse {
     private void sourceAnalyze(String sourceTableName, Action action) {
         List<Config> sourceConfigList = sourceResultTableNameMap.get(sourceTableName);
         if (CollectionUtils.isEmpty(sourceConfigList)) {
-            throw new JobDefineCheckExceptionSeaTunnel(action.name()
+            throw new JobDefineCheckExceptionSeaTunnel(action.getName()
                 + " source table name [" + sourceTableName + "] can not be found");
         }
 
