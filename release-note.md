@@ -1,5 +1,28 @@
-
 # 2.1.3 Release Note
+
+## [Feature & Improvement]
+
+[Connector][Flink][Fake] Supported BigInteger Type (#2118)
+
+[Connector][Spark][TiDB] Refactored config parameters (#1983)
+
+[Connector][Flink]add AssertSink connector (#2022) 
+
+[Connector][Spark][ClickHouse]Support Rsync to transfer clickhouse data file (#2074)
+
+[Connector & e2e][Flink] add IT for Assert Sink in e2e module (#2036)
+
+[Transform][Spark] data quality for null data rate (#1978)
+
+[Transform][Spark] Add a module to set default value for null field #1958
+
+[Chore]a more understandable code,and code warning will disappear #2005
+
+[Spark] Use higher version of the libthrift dependency (#1994)
+
+[Core][Starter] Change jar connector load logic (#2193)
+
+[Core]Add plugin discovery module (#1881)
 
 ## [BUG]
 
@@ -28,31 +51,6 @@
 [Core][Jackson]fix jackson type convert error (#2031)
 
 [Core][Starter] When use cluster mode, but starter app root dir also should same as client mode. (#2141)
-
-
-## [Feature & Improvement]
-
-[Connector][Flink][Fake] Supported BigInteger Type (#2118)
-
-[Connector][Spark][TiDB] Refactored config parameters (#1983)
-
-[Connector][Flink]add AssertSink connector (#2022) 
-
-[Connector][Spark][ClickHouse]Support Rsync to transfer clickhouse data file (#2074)
-
-[Connector & e2e][Flink] add IT for Assert Sink in e2e module (#2036)
-
-[Transform][Spark] data quality for null data rate (#1978)
-
-[Transform][Spark] Add a module to set default value for null field #1958
-
-[Chore]a more understandable code,and code warning will disappear #2005
-
-[Spark] Use higher version of the libthrift dependency (#1994)
-
-[Core][Starter] Change jar connector load logic (#2193)
-
-[Core]Add plugin discovery module (#1881)
 
 ## Docs
 
