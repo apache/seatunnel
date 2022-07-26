@@ -32,18 +32,21 @@ public class FileReaderOption implements Serializable {
     private String clickhouseLocalPath;
     private ClickhouseFileCopyMethod copyMethod;
     private boolean nodeFreePass;
+    private Map<String, String> nodeUser;
     private Map<String, String> nodePassword;
     private SeaTunnelRowType seaTunnelRowType;
 
     public FileReaderOption(ShardMetadata shardMetadata, Map<String, String> tableSchema,
                             List<String> fields, String clickhouseLocalPath,
                             ClickhouseFileCopyMethod copyMethod,
+                            Map<String, String> nodeUser,
                             Map<String, String> nodePassword) {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
         this.fields = fields;
         this.clickhouseLocalPath = clickhouseLocalPath;
         this.copyMethod = copyMethod;
+        this.nodeUser = nodeUser;
         this.nodePassword = nodePassword;
     }
 
@@ -77,6 +80,14 @@ public class FileReaderOption implements Serializable {
 
     public void setCopyMethod(ClickhouseFileCopyMethod copyMethod) {
         this.copyMethod = copyMethod;
+    }
+
+    public Map<String, String> getNodeUser() {
+        return nodeUser;
+    }
+
+    public void setNodeUser(Map<String, String> nodeUser) {
+        this.nodeUser = nodeUser;
     }
 
     public Map<String, String> getNodePassword() {

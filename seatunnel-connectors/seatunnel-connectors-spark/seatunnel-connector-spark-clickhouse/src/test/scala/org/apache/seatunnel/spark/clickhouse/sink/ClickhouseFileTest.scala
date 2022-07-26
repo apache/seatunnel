@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.spark.clickhouse.sink
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
-
+import org.apache.seatunnel.shade.com.typesafe.config.{ConfigFactory, ConfigResolveOptions}
+import org.apache.seatunnel.spark.clickhouse.Config.{NODE_ADDRESS, NODE_PASS, PASSWORD, USERNAME}
 import org.scalatest.funsuite.AnyFunSuite
+
+import scala.collection.JavaConversions.collectionAsScalaIterable
+import scala.collection.mutable
 
 class ClickhouseFileTest extends AnyFunSuite {
 
@@ -39,6 +41,26 @@ class ClickhouseFileTest extends AnyFunSuite {
       engine = originalEngine, createTableDDL = replicatedMergeTreeDDL,
       engineFull = "replicatedMergeTree", dataPaths = List[String]())
     assert(localizationDDL.equals(table.localizationEngine(originalEngine, replicatedMergeTreeDDL)))
+
+    val url = Thread.currentThread().getContextClassLoader.getResource("sea.conf")
+    val config = ConfigFactory.parseURL(url)
+      .resolve(ConfigResolveOptions.defaults.setAllowUnresolved(true))
+      .resolveWith(ConfigFactory.systemProperties(),
+        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+    val ckf = config.getObjectList("sink").get(0).toConfig
+    val nodePass = ckf.getObjectList(NODE_PASS)
+    val nodeUserMap = mutable.Map[String, String]()
+    val nodePassMap = mutable.Map[String, String]()
+    nodePass.foreach(np => {
+      val address = np.toConfig.getString(NODE_ADDRESS)
+      // default user "root"
+      val username = if (np.toConfig.hasPath(USERNAME)) np.toConfig.getString(USERNAME) else "root"
+      val password = np.toConfig.getString(PASSWORD)
+      nodeUserMap(address) = username
+      nodePassMap(address) = password
+    })
+    println(nodeUserMap.toMap.values)
+    assert(nodeUserMap.toMap.values.count(s => s.equals("root")).equals(2))
   }
 
 }
