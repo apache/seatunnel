@@ -1044,6 +1044,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (The BSD License) xmlenc Library (xmlenc:xmlenc:0.52 - http://xmlenc.sourceforge.net)
      (The BSD License) ASM Core (asm:asm:3.1 - http://asm.objectweb.org/asm/)
      (New BSD License) Janino (org.codehaus.janino:janino:3.1.6 - http://docs.codehaus.org/display/JANINO/Home/janino)
+     (BSD 2-Clause License) pgjdbc (org.postgresql:postgresql:42.3.3 - https://jdbc.postgresql.org)
 
 
 ========================================================================
