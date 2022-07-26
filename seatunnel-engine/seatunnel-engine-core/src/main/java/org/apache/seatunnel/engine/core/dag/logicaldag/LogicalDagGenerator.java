@@ -72,7 +72,8 @@ public class LogicalDagGenerator {
             }
         }
 
-        LogicalVertex logicalVertex = new LogicalVertex(action.getId(), action, action.getParallelism());
+        LogicalVertex logicalVertex =
+            new LogicalVertex(action.getId(), action, action.getParallelism());
         logicalDag.addLogicalVertex(logicalVertex);
         Collection<Integer> transformedActions = Lists.newArrayList(logicalVertex.getVertexId());
         alreadyTransformed.put(action, transformedActions);

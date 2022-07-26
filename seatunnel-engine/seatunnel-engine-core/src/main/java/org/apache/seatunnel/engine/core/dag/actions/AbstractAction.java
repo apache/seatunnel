@@ -50,7 +50,7 @@ public abstract class AbstractAction implements Action {
     @NonNull
     @Override
     public String getName() {
-        return name;
+        return name + "(id=" + id + ")";
     }
 
     @Override

@@ -23,9 +23,11 @@ import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.Data;
 
 import java.io.IOException;
 
+@Data
 public class JobConfig implements IdentifiedDataSerializable {
     private String name;
     private Boundedness boundedness;

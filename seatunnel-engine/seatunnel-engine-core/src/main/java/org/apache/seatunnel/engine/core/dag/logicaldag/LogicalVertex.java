@@ -23,23 +23,19 @@ import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.IOException;
 
 @Data
+@AllArgsConstructor
 public class LogicalVertex implements IdentifiedDataSerializable {
     private Integer vertexId;
     private Action action;
     private int parallelism;
 
     public LogicalVertex() {
-    }
-
-    public LogicalVertex(int vertexId, Action action, int parallelism) {
-        this.vertexId = vertexId;
-        this.action = action;
-        this.parallelism = parallelism;
     }
 
     @Override

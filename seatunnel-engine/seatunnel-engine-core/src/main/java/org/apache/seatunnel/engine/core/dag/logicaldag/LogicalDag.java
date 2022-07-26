@@ -20,17 +20,18 @@ package org.apache.seatunnel.engine.core.dag.logicaldag;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
+import com.hazelcast.internal.json.JsonArray;
+import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -57,7 +58,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
     private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
     private JobConfig jobConfig;
     private Set<LogicalEdge> edges = new LinkedHashSet<>();
-    private Map<Integer, LogicalVertex> logicalVertexMap = new HashMap<>();
+    private Map<Integer, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
 
     @Override
     public int getFactoryId() {
@@ -114,5 +115,31 @@ public class LogicalDag implements IdentifiedDataSerializable {
         }
 
         jobConfig = in.readObject();
+    }
+
+    @NonNull
+    public JsonObject toJson() {
+        JsonObject logicalDag = new JsonObject();
+        JsonArray vertices = new JsonArray();
+
+        logicalVertexMap.values().stream().forEach(v -> {
+            JsonObject vertex = new JsonObject();
+            vertex.add("id", v.getVertexId());
+            vertex.add("name", v.getAction().getName());
+            vertex.add("parallelism", v.getParallelism());
+            vertices.add(vertex);
+        });
+        logicalDag.add("vertices", vertices);
+
+        JsonArray edges = new JsonArray();
+        this.edges.stream().forEach(e -> {
+            JsonObject edge = new JsonObject();
+            edge.add("leftVertex", e.getLeftVertex().getAction().getName());
+            edge.add("rightVertex", e.getRightVertex().getAction().getName());
+            edges.add(edge);
+        });
+
+        logicalDag.add("edges", edges);
+        return logicalDag;
     }
 }
