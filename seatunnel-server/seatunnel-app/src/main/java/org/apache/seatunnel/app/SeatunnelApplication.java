@@ -25,7 +25,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-@SpringBootApplication(scanBasePackages = "org.apache.seatunnel")
+@SpringBootApplication(scanBasePackages = {"org.apache.seatunnel.app", "org.apache.seatunnel.scheduler"})
 @EnableTransactionManagement
 @EnableConfigurationProperties
 @EnableScheduling
