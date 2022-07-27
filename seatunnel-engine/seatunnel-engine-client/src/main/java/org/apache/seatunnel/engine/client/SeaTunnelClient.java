@@ -41,7 +41,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     public SeaTunnelClient(@NonNull SeaTunnelClientConfig seaTunnelClientConfig) {
         Preconditions.checkNotNull(seaTunnelClientConfig, "config");
-        this.hazelcastClient = ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(seaTunnelClientConfig)).client;
+        this.hazelcastClient =
+            ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(seaTunnelClientConfig)).client;
         this.serializationService = hazelcastClient.getSerializationService();
         ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
     }
@@ -53,10 +54,11 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     @Override
-    public JobExecutionEnvironment createJobExecutionEnvironment(@NonNull String filePath, SeaTunnelClientConfig clientConfig) {
-        JobConfigParse jobConfigParse = new JobConfigParse(filePath, new IdGenerator());
+    public JobExecutionEnvironment createJobExecutionEnvironment(@NonNull String filePath,
+                                                                 SeaTunnelClientConfig clientConfig) {
+        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
         JobExecutionEnvironment localExecutionContext = new JobExecutionEnvironment(clientConfig);
-        localExecutionContext.addAction(jobConfigParse.parse());
+        localExecutionContext.addAction(jobConfigParser.parse());
         return localExecutionContext;
     }
 

@@ -19,7 +19,6 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,10 +41,6 @@ public class JobExecutionEnvironment {
 
     public void addAction(List<Action> actions) {
         this.actions.addAll(actions);
-    }
-
-    public LogicalDagGenerator getLogicalDagGenerator() {
-        return new LogicalDagGenerator(actions);
     }
 
     public List<Action> getActions() {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.logicaldag;
+package org.apache.seatunnel.api.transform;
 
-public class LogicalVertex {
+public interface Transformation {
 }

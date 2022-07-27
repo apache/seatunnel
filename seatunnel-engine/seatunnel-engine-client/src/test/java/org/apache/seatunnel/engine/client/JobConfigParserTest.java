@@ -30,15 +30,15 @@ import org.junit.runners.JUnit4;
 import java.util.List;
 
 @RunWith(JUnit4.class)
-public class JobConfigParseTest {
+public class JobConfigParserTest {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = this.getClass().getResource("/fakesource_to_file.conf").getFile();
-        JobConfigParse jobConfigParse = new JobConfigParse(filePath, new IdGenerator());
-        List<Action> actions = jobConfigParse.parse();
+        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
+        List<Action> actions = jobConfigParser.parse();
         Assert.assertEquals(1, actions.size());
 
         Assert.assertEquals("LocalFile", actions.get(0).name());
@@ -54,8 +54,8 @@ public class JobConfigParseTest {
     public void testComplexJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = this.getClass().getResource("/fakesource_to_file_complex.conf").getFile();
-        JobConfigParse jobConfigParse = new JobConfigParse(filePath, new IdGenerator());
-        List<Action> actions = jobConfigParse.parse();
+        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
+        List<Action> actions = jobConfigParser.parse();
         Assert.assertEquals(1, actions.size());
 
         Assert.assertEquals("LocalFile", actions.get(0).name());

@@ -36,4 +36,6 @@ public interface Action extends Serializable {
     int getParallelism();
 
     void setParallelism(int parallelism);
+
+    int getId();
 }
