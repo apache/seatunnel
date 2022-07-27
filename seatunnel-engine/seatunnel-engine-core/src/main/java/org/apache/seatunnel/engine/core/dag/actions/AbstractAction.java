@@ -25,7 +25,6 @@ public abstract class AbstractAction implements Action {
     private String name;
     private List<Action> upstreams;
     // This is used to assign a unique ID to every Action
-    protected static Integer ID_COUNTER = 0;
     private int id;
 
     protected AbstractAction(int id, @NonNull String name, @NonNull List<Action> upstreams) {
@@ -59,5 +58,10 @@ public abstract class AbstractAction implements Action {
     @Override
     public void addUpstream(@NonNull Action action) {
         this.upstreams.add(action);
+    }
+
+    @Override
+    public int getId() {
+        return this.id;
     }
 }
