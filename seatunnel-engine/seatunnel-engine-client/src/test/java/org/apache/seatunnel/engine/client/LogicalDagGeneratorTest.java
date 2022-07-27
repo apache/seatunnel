@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
@@ -36,7 +37,7 @@ public class LogicalDagGeneratorTest {
     public void testLogicalGenerator() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = this.getClass().getResource("/fakesource_to_file.conf").getFile();
-        JobConfigParse jobConfigParse = new JobConfigParse(filePath);
+        JobConfigParse jobConfigParse = new JobConfigParse(filePath, new IdGenerator());
         List<Action> actions = jobConfigParse.parse();
 
         SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();

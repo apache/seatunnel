@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
-
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
-
-import com.google.common.collect.Lists;
-import lombok.NonNull;
+package org.apache.seatunnel.engine.common.utils;
 
 import java.io.Serializable;
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
-    private SeaTunnelSource<T, SplitT, StateT> source;
+/**
+ * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all Vertices in a DAG are
+ * unique.
+ */
+public class IdGenerator implements Serializable {
+    private int id = 0;
 
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
-        this.source = source;
+    public int getNextId() {
+        id++;
+        return id;
     }
 }

@@ -26,16 +26,18 @@ import java.util.List;
 public class PartitionTransformAction extends AbstractAction {
     private PartitionSeaTunnelTransform partitionTransformation;
 
-    public PartitionTransformAction(@NonNull String name,
+    public PartitionTransformAction(int id,
+                                    @NonNull String name,
                                     @NonNull List<Action> upstreams,
                                     @NonNull PartitionSeaTunnelTransform partitionTransformation) {
-        super(name, upstreams);
+        super(id, name, upstreams);
         this.partitionTransformation = partitionTransformation;
     }
 
-    public PartitionTransformAction(@NonNull String name,
+    public PartitionTransformAction(int id,
+                                    @NonNull String name,
                                     @NonNull PartitionSeaTunnelTransform partitionTransformation) {
-        super(name);
+        super(id, name);
         this.partitionTransformation = partitionTransformation;
     }
 }

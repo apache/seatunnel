@@ -26,16 +26,18 @@ import java.util.List;
 public class TransformAction extends AbstractAction {
     private SeaTunnelTransform transformation;
 
-    public TransformAction(@NonNull String name,
+    public TransformAction(int id,
+                           @NonNull String name,
                            @NonNull List<Action> upstreams,
                            @NonNull SeaTunnelTransform transformation) {
-        super(name, upstreams);
+        super(id, name, upstreams);
         this.transformation = transformation;
     }
 
-    public TransformAction(@NonNull String name,
+    public TransformAction(int id,
+                           @NonNull String name,
                            @NonNull SeaTunnelTransform transformation) {
-        super(name);
+        super(id, name);
         this.transformation = transformation;
     }
 }
