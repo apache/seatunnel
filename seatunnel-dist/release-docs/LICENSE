@@ -974,6 +974,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (The MIT License (MIT)) influxdb java bindings (org.influxdb:influxdb-java:2.22 - http://www.influxdb.org)
      (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.10.0 - https://checkerframework.org)
      (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.4.0 - https://checkerframework.org)
+     (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.5.0 - https://checkerframework.org)
      (The MIT License) JOpt Simple (net.sf.jopt-simple:jopt-simple:5.0.2 - http://pholser.github.io/jopt-simple)
 
 
