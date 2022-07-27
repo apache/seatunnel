@@ -49,7 +49,7 @@ SeaTunnel will do its best to solve the problems that may be encountered in the 
 
 ## Workflow of SeaTunnel
 
-![seatunnel-workflow.svg](https://raw.githubusercontent.com/apache/incubator-seatunnel-website/main/static/image/seatunnel-workflow.svg)
+![seatunnel-workflow.svg](/docs/en/images/seatunnel-workflow.svg)
 
 ```
 Source[Data Source Input] -> Transform[Data Processing] -> Sink[Result Output]
