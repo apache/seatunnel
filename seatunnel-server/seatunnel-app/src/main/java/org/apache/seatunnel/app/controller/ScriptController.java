@@ -19,6 +19,7 @@ package org.apache.seatunnel.app.controller;
 
 import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.domain.request.script.AddEmptyScriptReq;
+import org.apache.seatunnel.app.domain.request.script.PublishScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
@@ -102,5 +103,12 @@ public class ScriptController {
     })
     public Result<List<ScriptParamRes>> fetchScriptParam(@RequestParam @NotNull Integer id) {
         return Result.success(iScriptService.fetchScriptParam(id));
+    }
+
+    @PutMapping("/publish")
+    @ApiOperation(value = "publish script", httpMethod = "PUT")
+    public Result<Void> publish(@RequestBody @NotNull PublishScriptReq req) {
+        iScriptService.publishScript(req);
+        return Result.success();
     }
 }

@@ -18,8 +18,8 @@
 package org.apache.seatunnel.app.util;
 
 import org.apache.seatunnel.app.common.Result;
-import org.apache.seatunnel.app.common.SeatunnelErrorEnum;
-import org.apache.seatunnel.app.common.SeatunnelException;
+import org.apache.seatunnel.server.common.SeatunnelErrorEnum;
+import org.apache.seatunnel.server.common.SeatunnelException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;

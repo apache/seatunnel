@@ -428,6 +428,7 @@ jpam-1.1.jar
 jsch-0.1.54.jar
 json-path-2.3.0.jar
 json-smart-2.3.jar
+jsoup-1.14.3.jar
 jsp-api-2.1.jar
 jsr305-1.3.9.jar
 jsr305-2.0.1.jar

@@ -17,21 +17,24 @@
 
 package org.apache.seatunnel.app.service.impl;
 
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_SCRIPT;
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.ScriptParamStatusEnum;
 import org.apache.seatunnel.app.common.ScriptStatusEnum;
 import org.apache.seatunnel.app.dal.dao.IScriptDao;
 import org.apache.seatunnel.app.dal.dao.IScriptParamDao;
+import org.apache.seatunnel.app.dal.dao.IUserDao;
 import org.apache.seatunnel.app.dal.entity.Script;
 import org.apache.seatunnel.app.dal.entity.ScriptParam;
+import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
 import org.apache.seatunnel.app.domain.dto.script.AddEmptyScriptDto;
 import org.apache.seatunnel.app.domain.dto.script.CheckScriptDuplicateDto;
 import org.apache.seatunnel.app.domain.dto.script.ListScriptsDto;
 import org.apache.seatunnel.app.domain.dto.script.UpdateScriptContentDto;
 import org.apache.seatunnel.app.domain.dto.script.UpdateScriptParamDto;
 import org.apache.seatunnel.app.domain.request.script.AddEmptyScriptReq;
+import org.apache.seatunnel.app.domain.request.script.PublishScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
@@ -39,7 +42,9 @@ import org.apache.seatunnel.app.domain.response.script.AddEmptyScriptRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
 import org.apache.seatunnel.app.service.IScriptService;
+import org.apache.seatunnel.app.service.ITaskService;
 import org.apache.seatunnel.app.util.Md5Utils;
+import org.apache.seatunnel.scheduler.dolphinscheduler.impl.InstanceServiceImpl;
 
 import com.google.common.base.Strings;
 import org.springframework.stereotype.Component;
@@ -61,6 +66,15 @@ public class ScriptServiceImpl implements IScriptService {
 
     @Resource
     private IScriptParamDao scriptParamDaoImpl;
+
+    @Resource
+    private InstanceServiceImpl instanceService;
+
+    @Resource
+    private IUserDao userDaoImpl;
+
+    @Resource
+    private ITaskService iTaskService;
 
     @Override
     public AddEmptyScriptRes addEmptyScript(AddEmptyScriptReq addEmptyScriptReq) {
@@ -169,6 +183,15 @@ public class ScriptServiceImpl implements IScriptService {
                 .build();
 
         scriptParamDaoImpl.batchInsert(dto);
+    }
+
+    @Override
+    public void publishScript(PublishScriptReq req){
+        final PushScriptDto dto = PushScriptDto.builder()
+                .scriptId(req.getScriptId())
+                .userId(req.getOperatorId())
+                .build();
+        iTaskService.pushScriptToScheduler(dto);
     }
 
     private ScriptParamRes translate(ScriptParam scriptParam) {

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.app.service;
 
 import org.apache.seatunnel.app.domain.request.script.AddEmptyScriptReq;
+import org.apache.seatunnel.app.domain.request.script.PublishScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
@@ -41,4 +42,6 @@ public interface IScriptService {
     List<ScriptParamRes> fetchScriptParam(Integer id);
 
     void updateScriptParam(UpdateScriptParamReq updateScriptParamReq);
+
+    void publishScript(PublishScriptReq req);
 }
