@@ -18,19 +18,14 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.transform.Transformation;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class LocalExecutionContext {
-    private SeaTunnelSource source;
+public class JobExecutionEnvironment {
 
     private List<Transformation> transformations;
-
-    private SeaTunnelSink sink;
 
     private static String DEFAULT_JOB_NAME = "test_st_job";
 
@@ -40,7 +35,7 @@ public class LocalExecutionContext {
 
     private int maxParallelism = 1;
 
-    public LocalExecutionContext(SeaTunnelClientConfig configuration) {
+    public JobExecutionEnvironment(SeaTunnelClientConfig configuration) {
         this.configuration = configuration;
     }
 
@@ -51,28 +46,12 @@ public class LocalExecutionContext {
         this.transformations.add(transformation);
     }
 
-    public SeaTunnelSource getSource() {
-        return source;
-    }
-
-    public void setSource(SeaTunnelSource source) {
-        this.source = source;
-    }
-
     public List<Transformation> getTransformations() {
         return transformations;
     }
 
     public void setTransformations(List<Transformation> transformations) {
         this.transformations = transformations;
-    }
-
-    public SeaTunnelSink getSink() {
-        return sink;
-    }
-
-    public void setSink(SeaTunnelSink sink) {
-        this.sink = sink;
     }
 
     public void setJobName(String jobName) {
