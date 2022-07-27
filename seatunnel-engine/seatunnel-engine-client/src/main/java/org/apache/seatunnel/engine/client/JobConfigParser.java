@@ -55,8 +55,8 @@ import java.util.Map;
 import scala.Serializable;
 
 @Data
-public class JobConfigParse {
-    private static final ILogger LOGGER = Logger.getLogger(JobConfigParse.class);
+public class JobConfigParser {
+    private static final ILogger LOGGER = Logger.getLogger(JobConfigParser.class);
     private String jobDefineFilePath;
     private IdGenerator idGenerator;
 
@@ -67,7 +67,7 @@ public class JobConfigParse {
 
     private Map<String, List<Config>> sourceResultTableNameMap = new HashMap<>();
 
-    public JobConfigParse(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator) {
+    public JobConfigParser(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
     }
