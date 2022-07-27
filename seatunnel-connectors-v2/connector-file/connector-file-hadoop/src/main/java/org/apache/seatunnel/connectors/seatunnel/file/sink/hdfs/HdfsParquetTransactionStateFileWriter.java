@@ -130,9 +130,8 @@ public class HdfsParquetTransactionStateFileWriter extends AbstractTransactionSt
                 String errorMsg = String.format("Get parquet writer for file [%s] error", filePath);
                 throw new RuntimeException(errorMsg, e);
             }
-        } else {
-            return writer;
         }
+        return writer;
     }
 
     private Schema buildSchemaWithRowType() {
