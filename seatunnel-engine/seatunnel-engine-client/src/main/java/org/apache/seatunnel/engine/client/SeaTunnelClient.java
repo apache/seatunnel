@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
 import com.hazelcast.client.HazelcastClient;
@@ -53,7 +54,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     @Override
     public JobExecutionEnvironment createJobExecutionEnvironment(@NonNull String filePath, SeaTunnelClientConfig clientConfig) {
-        JobConfigParse jobConfigParse = new JobConfigParse(filePath);
+        JobConfigParse jobConfigParse = new JobConfigParse(filePath, new IdGenerator());
         JobExecutionEnvironment localExecutionContext = new JobExecutionEnvironment(clientConfig);
         localExecutionContext.addAction(jobConfigParse.parse());
         return localExecutionContext;

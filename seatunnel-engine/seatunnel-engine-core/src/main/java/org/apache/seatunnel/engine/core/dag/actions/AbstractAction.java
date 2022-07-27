@@ -26,22 +26,17 @@ public abstract class AbstractAction implements Action {
     private List<Action> upstreams;
     // This is used to assign a unique ID to every Action
     protected static Integer ID_COUNTER = 0;
-
     private int id;
 
-    protected AbstractAction(@NonNull String name, @NonNull List<Action> upstreams) {
+    protected AbstractAction(int id, @NonNull String name, @NonNull List<Action> upstreams) {
+        this.id = id;
         this.name = name;
         this.upstreams = upstreams;
-        this.id = getNewNodeId();
     }
 
-    protected AbstractAction(@NonNull String name) {
+    protected AbstractAction(int id, @NonNull String name) {
+        this.id = id;
         this.name = name;
-    }
-
-    public static int getNewNodeId() {
-        ID_COUNTER++;
-        return ID_COUNTER;
     }
 
     @NonNull
