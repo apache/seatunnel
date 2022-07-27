@@ -17,30 +17,18 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel</artifactId>
+        <groupId>org.apache.seatunnel</groupId>
         <version>${revision}</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
-    <artifactId>seatunnel-engine</artifactId>
     <packaging>pom</packaging>
+    <artifactId>seatunnel-engine</artifactId>
 
-    <dependencies>
-
-    <dependency>
-        <groupId>com.hazelcast</groupId>
-        <artifactId>hazelcast</artifactId>
-    </dependency>
-
-    <dependency>
-        <groupId>org.scala-lang</groupId>
-        <artifactId>scala-library</artifactId>
-        <scope>provided</scope>
-    </dependency>
-
-
-    </dependencies>
-
-
+    <modules>
+        <module>seatunnel-engine-client</module>
+        <module>seatunnel-engine-common</module>
+        <module>seatunnel-engine-server</module>
+        <module>seatunnel-engine-core</module>
+    </modules>
 </project>
