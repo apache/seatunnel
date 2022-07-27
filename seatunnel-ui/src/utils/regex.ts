@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-export default {
-  cancel: 'Cancel',
-  confirm: 'Confirm'
+const regex = {
+  email: /^[A-Za-z0-9\u4e00-\u9fa5]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/ // support Chinese mailbox
 }
+
+export default regex

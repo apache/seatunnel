@@ -30,5 +30,8 @@ export default {
   delete: 'Delete',
   active: 'Active',
   inactive: 'Inactive',
-  password: 'Password'
+  password: 'Password',
+  model_validate_tips: 'Required Fields',
+  username_tips: 'Required fields, number, letter case, 50 characters',
+  password_tips: 'Required fields, number, letter case, 6 characters'
 }

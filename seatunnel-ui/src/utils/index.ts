@@ -17,10 +17,12 @@
 
 import mapping from './mapping'
 import trim from './trim'
+import regex from './regex'
 
 const utils = {
   mapping,
-  trim
+  trim,
+  regex
 }
 
 export default utils

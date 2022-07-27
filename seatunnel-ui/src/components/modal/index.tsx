@@ -83,20 +83,13 @@ const Modal = defineComponent({
         mask-closable={false}
         style={{ width: '600px' }}
       >
-        <NCard
-          title={this.title}
-          contentStyle={{ overflowY: 'auto' }}
-        >
+        <NCard title={this.title} contentStyle={{ overflowY: 'auto' }}>
           {{
             default: () => renderSlot($slots, 'default'),
             footer: () => (
               <NSpace justify='end'>
                 {this.cancelShow && (
-                  <NButton
-                    quaternary
-                    size='small'
-                    onClick={onCancel}
-                  >
+                  <NButton quaternary size='small' onClick={onCancel}>
                     {this.cancelText || t('modal.cancel')}
                   </NButton>
                 )}

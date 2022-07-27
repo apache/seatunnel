@@ -14,3 +14,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import { reactive, ref, SetupContext } from 'vue'
+import { useI18n } from 'vue-i18n'
+import utils from '@/utils'
+
+export function useUserManageModal(
+  props: any,
+  ctx: SetupContext<('cancelModal' | 'confirmModal')[]>
+) {
+  const { t } = useI18n()
+  const state = reactive({
+    userManageForm: ref(),
+    model: {
+      id: ref(),
+      username: ref(''),
+      password: ref(''),
+      email: ref(''),
+      state: ref(0)
+    },
+    rules: {
+      username: {
+        required: true,
+        trigger: ['input', 'blur'],
+        message: t('user_manage.model_validate_tips')
+      },
+      password: {
+        required: true,
+        trigger: ['input', 'blur'],
+        message: t('user_manage.model_validate_tips')
+      },
+      email: {
+        trigger: ['input', 'blur'],
+        validator() {
+          if (state.model.email && !utils.regex.email.test(state.model.email)) {
+            return new Error(t('user_manage.model_validate_tips'))
+          }
+        }
+      }
+    }
+  })
+
+  const handleValidate = (status: number) => {
+    state.userManageForm.validate((errors: any) => {
+      if (!errors) {
+        ctx.emit('confirmModal', props.showModal)
+      } else {
+        return
+      }
+    })
+  }
+
+  return { state, handleValidate }
+}

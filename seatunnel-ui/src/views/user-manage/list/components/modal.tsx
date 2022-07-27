@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-import { defineComponent, getCurrentInstance } from 'vue'
-import { NForm, NFormItem, NInput, NRadioGroup, NRadio } from 'naive-ui'
+import { defineComponent, getCurrentInstance, toRefs } from 'vue'
+import {
+  NForm,
+  NFormItem,
+  NInput,
+  NRadioGroup,
+  NRadio,
+  NIcon,
+  NSpace,
+  NTooltip
+} from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import { BulbOutlined } from '@vicons/antd'
+import { useUserManageModal } from './use-modal'
 import Modal from '@/components/modal'
 import type { PropType } from 'vue'
 
 const props = {
-  showModalRef: {
+  showModal: {
     type: Boolean as PropType<boolean>,
     default: false
   },
-  statusRef: {
+  status: {
     type: Number as PropType<number>,
     default: 0
   },
@@ -41,50 +52,95 @@ const UserManageModal = defineComponent({
   emits: ['cancelModal', 'confirmModal'],
   setup(props, ctx) {
     const { t } = useI18n()
+    const { state, handleValidate } = useUserManageModal(props, ctx)
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
     const handleCancel = () => {
-      if (props.statusRef === 0) {
+      if (props.status === 0) {
       }
-      ctx.emit('cancelModal', props.showModalRef)
+      ctx.emit('cancelModal', props.showModal)
     }
 
-    const handleConfirm = () => {}
+    const handleConfirm = () => {
+      handleValidate(props.status)
+    }
 
-    return { t, trim, handleCancel, handleConfirm }
+    return { t, ...toRefs(state), trim, handleCancel, handleConfirm }
   },
   render() {
     return (
       <Modal
         title={
-          this.statusRef === 0
+          this.status === 0
             ? this.t('user_manage.create')
             : this.t('user_manage.edite')
         }
-        show={this.showModalRef}
+        show={this.showModal}
         onCancel={this.handleCancel}
         onConfirm={this.handleConfirm}
+        confirmDisabled={!this.model.username || !this.model.password}
       >
         {{
           default: () => (
-            <NForm ref='userManageForm'>
-              <NFormItem label={this.t('user_manage.username')} path=''>
+            <NForm model={this.model} rules={this.rules} ref='userManageForm'>
+              <NFormItem label={this.t('user_manage.username')} path='username'>
+                <NSpace align='center'>
+                  <NInput
+                    clearable
+                    maxlength='50'
+                    show-count
+                    allowInput={this.trim}
+                    style={{ width: '510px' }}
+                    v-model={[this.model.username, 'value']}
+                  />
+                  <NTooltip placement='right' trigger='hover'>
+                    {{
+                      default: () => (
+                        <span>{this.t('user_manage.username_tips')}</span>
+                      ),
+                      trigger: () => (
+                        <NIcon size='20' style={{ cursor: 'pointer' }}>
+                          <BulbOutlined />
+                        </NIcon>
+                      )
+                    }}
+                  </NTooltip>
+                </NSpace>
+              </NFormItem>
+              <NFormItem label={this.t('user_manage.password')} path='password'>
+                <NSpace align='center'>
+                  <NInput
+                    clearable
+                    type='password'
+                    maxlength='6'
+                    show-count
+                    allowInput={this.trim}
+                    style={{ width: '510px' }}
+                    v-model={[this.model.password, 'value']}
+                  />
+                  <NTooltip placement='right' trigger='hover'>
+                    {{
+                      default: () => (
+                        <span>{this.t('user_manage.password_tips')}</span>
+                      ),
+                      trigger: () => (
+                        <NIcon size='20' style={{ cursor: 'pointer' }}>
+                          <BulbOutlined />
+                        </NIcon>
+                      )
+                    }}
+                  </NTooltip>
+                </NSpace>
+              </NFormItem>
+              <NFormItem label={this.t('user_manage.email')} path='email'>
                 <NInput
+                  clearable
                   allowInput={this.trim}
+                  v-model={[this.model.email, 'value']}
                 />
               </NFormItem>
-              <NFormItem label={this.t('user_manage.password')} path=''>
-                <NInput
-                  allowInput={this.trim}
-                />
-              </NFormItem>
-              <NFormItem label={this.t('user_manage.email')} path=''>
-                <NInput
-                  allowInput={this.trim}
-                />
-              </NFormItem>
-              <NFormItem label={this.t('user_manage.state')} path=''>
-                <NRadioGroup>
+              <NFormItem label={this.t('user_manage.state')} path='state'>
+                <NRadioGroup v-model={[this.model.state, 'value']}>
                   <NRadio value={0}>{this.t('user_manage.active')}</NRadio>
                   <NRadio value={1}>{this.t('user_manage.inactive')}</NRadio>
                 </NRadioGroup>
