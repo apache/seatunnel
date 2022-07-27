@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
 import java.util.List;
 
 @RunWith(JUnit4.class)
-public class JobConfigParseTest {
+public class JobConfigParserTest {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Test

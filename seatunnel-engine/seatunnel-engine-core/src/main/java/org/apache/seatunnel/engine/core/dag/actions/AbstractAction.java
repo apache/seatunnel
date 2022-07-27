@@ -26,7 +26,6 @@ public abstract class AbstractAction implements Action {
     private String name;
     private List<Action> upstreams = new ArrayList<>();
     // This is used to assign a unique ID to every Action
-    protected static Integer ID_COUNTER = 0;
     private int id;
 
     private int parallelism = 1;
