@@ -160,8 +160,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             in.close();
             return checkResult;
         } catch (HivePluginException | IOException e) {
-            log.error("Check orc file [{}] error", path);
-            throw new RuntimeException(e);
+            String errorMsg = String.format("Check orc file [%s] error", path);
+            throw new RuntimeException(errorMsg, e);
         }
     }
 }

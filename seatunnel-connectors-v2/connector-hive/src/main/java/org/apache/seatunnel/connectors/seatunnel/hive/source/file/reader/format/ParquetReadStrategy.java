@@ -172,8 +172,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             in.close();
             return checkResult;
         } catch (HivePluginException | IOException e) {
-            log.error("Check parquet file [{}] error", path);
-            return false;
+            String errorMsg = String.format("Check parquet file [%s] error", path);
+            throw new RuntimeException(errorMsg, e);
         }
     }
 
