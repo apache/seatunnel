@@ -29,5 +29,5 @@ public interface SeaTunnelClientInstance {
     @NonNull
     HazelcastInstance getHazelcastInstance();
 
-    LocalExecutionContext createExecutionContext(String filePath, SeaTunnelClientConfig config);
+    JobExecutionEnvironment createJobExecutionEnvironment(String filePath, SeaTunnelClientConfig config);
 }
