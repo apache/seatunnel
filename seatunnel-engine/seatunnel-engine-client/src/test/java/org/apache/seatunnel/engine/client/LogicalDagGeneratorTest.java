@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
 import com.google.common.collect.Lists;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,9 +42,10 @@ public class LogicalDagGeneratorTest {
         SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
         seaTunnelClientConfig.setClusterName("dev");
         seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
-        LocalExecutionContext localExecutionContext = new LocalExecutionContext(seaTunnelClientConfig);
+        JobExecutionEnvironment localExecutionContext = new JobExecutionEnvironment(seaTunnelClientConfig);
         localExecutionContext.addAction(actions);
 
         LogicalDagGenerator logicalDagGenerator = localExecutionContext.getLogicalDagGenerator();
+        Assert.assertNotNull(logicalDagGenerator);
     }
 }
