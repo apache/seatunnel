@@ -28,3 +28,55 @@ Socket {
     }
 ```
 
+test:
+
+* Configuring the SeaTunnel config file
+
+```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+    Socket {
+        host = "localhost"
+        port = 9999
+    }
+}
+
+transform {
+}
+
+sink {
+  Console {}
+}
+
+```
+
+* Start a port listening
+
+```shell
+nc -l 9999
+```
+
+* Start a SeaTunnel task
+
+* Socket Source send test data
+
+```text
+~ nc -l 9999
+test
+hello
+flink
+spark
+```
+
+* Console Sink print data
+
+```text
+[test]
+[hello]
+[flink]
+[spark]
+```
