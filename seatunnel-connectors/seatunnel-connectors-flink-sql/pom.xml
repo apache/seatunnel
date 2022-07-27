@@ -17,7 +17,7 @@
   <parent>
     <artifactId>seatunnel-connectors</artifactId>
     <groupId>org.apache.seatunnel</groupId>
-    <version>2.1.3</version>
+    <version>2.1.4-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -30,8 +30,4 @@
     <module>flink-sql-connector-elasticsearch-6</module>
     <module>flink-sql-connector-elasticsearch-7</module>
   </modules>
-
-  <scm>
-    <tag>2.1.3</tag>
-  </scm>
 </project>
