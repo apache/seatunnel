@@ -82,8 +82,8 @@ public class LocalParquetTransactionStateFileWriter extends AbstractTransactionS
         try {
             writer.write(record);
         } catch (IOException e) {
-            LOGGER.error("Write data to file [{}] error", filePath);
-            throw new RuntimeException(e);
+            String errorMsg = String.format("Write data to parquet file [%s] error", filePath);
+            throw new RuntimeException(errorMsg, e);
         }
     }
 
@@ -93,8 +93,8 @@ public class LocalParquetTransactionStateFileWriter extends AbstractTransactionS
             try {
                 v.close();
             } catch (IOException e) {
-                LOGGER.error("Close file [{}] parquet writer failed, error msg: [{}]", k, e.getMessage());
-                throw new RuntimeException(e);
+                String errorMsg = String.format("Close file [%s] parquet writer failed, error msg: [%s]", k, e.getMessage());
+                throw new RuntimeException(errorMsg, e);
             }
             needMoveFiles.put(k, getTargetLocation(k));
         });
@@ -130,8 +130,8 @@ public class LocalParquetTransactionStateFileWriter extends AbstractTransactionS
                 this.beingWrittenWriter.put(filePath, newWriter);
                 return newWriter;
             } catch (IOException e) {
-                LOGGER.error("Get parquet writer for file [{}] error", filePath);
-                throw new RuntimeException(e);
+                String errorMsg = String.format("Get parquet writer for file [%s] error", filePath);
+                throw new RuntimeException(errorMsg, e);
             }
         } else {
             return writer;
