@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 
+import lombok.Data;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
 
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+@Data
 public class FileSinkTransactionFileNameGenerator implements TransactionFileNameGenerator {
     private FileFormat fileFormat;
 
