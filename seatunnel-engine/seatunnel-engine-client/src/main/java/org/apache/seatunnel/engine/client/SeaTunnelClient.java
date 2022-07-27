@@ -55,9 +55,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     @Override
     public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, JobConfig jobConfig) {
-        JobConfigParse jobConfigParse = new JobConfigParse(filePath);
-        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig);
-        jobExecutionEnv.addAction(jobConfigParse.parse());
+        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig, filePath);
+        jobExecutionEnv.addAction(jobExecutionEnv.getJobConfigParser().parse());
         return jobExecutionEnv;
     }
 

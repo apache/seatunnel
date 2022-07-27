@@ -21,18 +21,14 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.internal.json.JsonObject;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.List;
 
 @RunWith(JUnit4.class)
 public class LogicalDagGeneratorTest {
@@ -40,23 +36,17 @@ public class LogicalDagGeneratorTest {
     public void testLogicalGenerator() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = this.getClass().getResource("/fakesource_to_file_complex.conf").getFile();
-        JobConfigParse jobConfigParse = new JobConfigParse(filePath);
-        List<Action> actions = jobConfigParse.parse();
-
-        SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
-        seaTunnelClientConfig.setClusterName("dev");
-        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
         JobConfig jobConfig = new JobConfig();
         jobConfig.setBoundedness(Boundedness.BOUNDED);
         jobConfig.setName("fake_to_file");
-        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig);
-        jobExecutionEnv.addAction(actions);
+        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig, filePath);
+        jobExecutionEnv.addAction(jobExecutionEnv.getJobConfigParser().parse());
 
         LogicalDagGenerator logicalDagGenerator = jobExecutionEnv.getLogicalDagGenerator();
         LogicalDag logicalDag = logicalDagGenerator.generate();
         JsonObject logicalDagJson = logicalDag.getLogicalDagAsJson();
         String result =
-            "{\"vertices\":[{\"id\":1,\"name\":\"FakeSource(id=1)\",\"parallelism\":3},{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":0,\"name\":\"LocalFile(id=0)\",\"parallelism\":6}],\"edges\":[{\"leftVertex\":\"FakeSource(id=1)\",\"rightVertex\":\"LocalFile(id=0)\"},{\"leftVertex\":\"FakeSource(id=2)\",\"rightVertex\":\"LocalFile(id=0)\"}]}";
+            "{\"vertices\":[{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"FakeSource(id=3)\",\"parallelism\":3},{\"id\":1,\"name\":\"LocalFile(id=1)\",\"parallelism\":6}],\"edges\":[{\"leftVertex\":\"FakeSource\",\"rightVertex\":\"LocalFile\"},{\"leftVertex\":\"FakeSource\",\"rightVertex\":\"LocalFile\"}]}";
         Assert.assertEquals(result, logicalDagJson.toString());
     }
 }

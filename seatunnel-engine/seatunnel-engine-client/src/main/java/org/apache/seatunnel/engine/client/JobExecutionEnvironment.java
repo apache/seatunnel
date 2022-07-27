@@ -19,6 +19,7 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
@@ -35,8 +36,18 @@ public class JobExecutionEnvironment {
 
     private List<Action> actions = new ArrayList<>();
 
-    public JobExecutionEnvironment(JobConfig jobConfig) {
+    private String jobFilePath;
+
+    private IdGenerator idGenerator;
+
+    public JobExecutionEnvironment(JobConfig jobConfig, String jobFilePath) {
         this.jobConfig = jobConfig;
+        this.jobFilePath = jobFilePath;
+        this.idGenerator = new IdGenerator();
+    }
+
+    public JobConfigParser getJobConfigParser() {
+        return new JobConfigParser(jobFilePath, idGenerator);
     }
 
     public void addAction(List<Action> actions) {
@@ -44,7 +55,7 @@ public class JobExecutionEnvironment {
     }
 
     public LogicalDagGenerator getLogicalDagGenerator() {
-        return new LogicalDagGenerator(actions, jobConfig);
+        return new LogicalDagGenerator(actions, jobConfig, idGenerator);
     }
 
     public List<Action> getActions() {

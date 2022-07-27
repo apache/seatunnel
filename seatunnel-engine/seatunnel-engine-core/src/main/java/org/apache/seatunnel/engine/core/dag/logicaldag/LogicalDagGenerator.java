@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.core.dag.logicaldag;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 
 import com.google.common.collect.Lists;
@@ -37,22 +38,25 @@ public class LogicalDagGenerator {
     private List<Action> actions;
     private LogicalDag logicalDag;
     private JobConfig jobConfig;
+    private IdGenerator idGenerator;
 
     private Map<Action, Collection<Integer>> alreadyTransformed = new HashMap<>();
 
     private Map<Integer, LogicalVertex> logicalIdVertexMap = new HashMap<>();
 
     public LogicalDagGenerator(@NonNull List<Action> actions,
-                               @NonNull JobConfig jobConfig) {
+                               @NonNull JobConfig jobConfig,
+                               @NonNull IdGenerator idGenerator) {
         this.actions = actions;
         this.jobConfig = jobConfig;
+        this.idGenerator = idGenerator;
         if (actions.size() <= 0) {
             throw new IllegalStateException("No actions define in the job. Cannot execute.");
         }
     }
 
     public LogicalDag generate() {
-        logicalDag = new LogicalDag();
+        logicalDag = new LogicalDag(jobConfig, idGenerator);
         for (Action action : actions) {
             transformAction(action);
         }

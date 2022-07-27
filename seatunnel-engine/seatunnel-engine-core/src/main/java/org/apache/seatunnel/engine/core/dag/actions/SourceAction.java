@@ -28,9 +28,10 @@ import java.io.Serializable;
 public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
     private SeaTunnelSource<T, SplitT, StateT> source;
 
-    public SourceAction(@NonNull String name,
+    public SourceAction(int id,
+                        @NonNull String name,
                         @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(name, Lists.newArrayList());
+        super(id, name, Lists.newArrayList());
         this.source = source;
     }
 }

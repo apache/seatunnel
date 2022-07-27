@@ -20,10 +20,11 @@ package org.apache.seatunnel.engine.common.utils;
 import java.io.Serializable;
 
 /**
- * This is a job level ID generator, It is used to generate the ID of each vertex in DAG
+ * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all Vertices in a DAG are
+ * unique.
  */
 public class IdGenerator implements Serializable {
-    private int id;
+    private int id = 0;
 
     public int getNextId() {
         id++;

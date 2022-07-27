@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.core.dag.logicaldag;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
 import com.hazelcast.internal.json.JsonArray;
@@ -59,6 +60,16 @@ public class LogicalDag implements IdentifiedDataSerializable {
     private JobConfig jobConfig;
     private Set<LogicalEdge> edges = new LinkedHashSet<>();
     private Map<Integer, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
+    private IdGenerator idGenerator;
+
+    public LogicalDag() {
+    }
+
+    public LogicalDag(@NonNull JobConfig jobConfig,
+                      @NonNull IdGenerator idGenerator) {
+        this.jobConfig = jobConfig;
+        this.idGenerator = idGenerator;
+    }
 
     @Override
     public int getFactoryId() {
@@ -94,6 +105,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
         }
 
         out.writeObject(jobConfig);
+        out.writeObject(idGenerator);
     }
 
     @Override
@@ -115,6 +127,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
         }
 
         jobConfig = in.readObject();
+        idGenerator = in.readObject();
     }
 
     @NonNull
