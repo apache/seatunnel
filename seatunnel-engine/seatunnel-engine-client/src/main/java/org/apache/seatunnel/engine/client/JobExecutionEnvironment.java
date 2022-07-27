@@ -25,7 +25,7 @@ import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LocalExecutionContext {
+public class JobExecutionEnvironment {
 
     private static String DEFAULT_JOB_NAME = "test_st_job";
 
@@ -35,7 +35,7 @@ public class LocalExecutionContext {
 
     private List<Action> actions = new ArrayList<>();
 
-    public LocalExecutionContext(JobConfig jobConfig) {
+    public JobExecutionEnvironment(JobConfig jobConfig) {
         this.jobConfig = jobConfig;
     }
 

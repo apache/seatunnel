@@ -118,14 +118,14 @@ public class LogicalDag implements IdentifiedDataSerializable {
     }
 
     @NonNull
-    public JsonObject toJson() {
+    public JsonObject getLogicalDagAsJson() {
         JsonObject logicalDag = new JsonObject();
         JsonArray vertices = new JsonArray();
 
         logicalVertexMap.values().stream().forEach(v -> {
             JsonObject vertex = new JsonObject();
             vertex.add("id", v.getVertexId());
-            vertex.add("name", v.getAction().getName());
+            vertex.add("name", v.getAction().getName() + "(id=" + v.getVertexId() + ")");
             vertex.add("parallelism", v.getParallelism());
             vertices.add(vertex);
         });
