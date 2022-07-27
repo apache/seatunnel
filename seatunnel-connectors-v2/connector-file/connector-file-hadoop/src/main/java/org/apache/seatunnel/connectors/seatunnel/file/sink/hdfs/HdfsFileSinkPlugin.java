@@ -49,17 +49,9 @@ public class HdfsFileSinkPlugin implements SinkFileSystemPlugin {
                                                                               @NonNull String fieldDelimiter,
                                                                               @NonNull String rowDelimiter,
                                                                               @NonNull FileSystem fileSystem) {
-        return Optional.of(new HdfsTxtTransactionStateFileWriter(seaTunnelRowTypeInfo,
-            transactionFileNameGenerator,
-            partitionDirNameGenerator,
-            sinkColumnsIndexInRow,
-            tmpPath,
-            targetPath,
-            jobId,
-            subTaskIndex,
-            fieldDelimiter,
-            rowDelimiter,
-            fileSystem));
+        // using factory to generate transaction state file writer
+        TransactionStateFileWriter writer = HdfsTransactionStateFileWriteFactory.of(seaTunnelRowTypeInfo, transactionFileNameGenerator, partitionDirNameGenerator, sinkColumnsIndexInRow, tmpPath, targetPath, jobId, subTaskIndex, fieldDelimiter, rowDelimiter, fileSystem);
+        return Optional.of(writer);
     }
 
     @Override
