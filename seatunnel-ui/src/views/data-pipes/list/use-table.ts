@@ -68,15 +68,9 @@ export function useTable() {
                 h(
                   NDropdown,
                   {
-                    options: [
-                      { key: 'delete', label: t('data_pipes.delete') }
-                    ]
+                    options: [{ key: 'delete', label: t('data_pipes.delete') }]
                   },
-                  h(
-                    NIcon,
-                    {},
-                    h(EllipsisOutlined)
-                  )
+                  h(NIcon, {}, h(EllipsisOutlined))
                 )
               )
             ]

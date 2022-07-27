@@ -19,17 +19,37 @@ import { defineComponent, toRefs, onMounted } from 'vue'
 import { NSpace, NCard, NButton, NDataTable, NPagination } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useTable } from './use-table'
+import UserManageModal from './components/modal'
 
 const UserManageList = defineComponent({
   setup() {
     const { t } = useI18n()
     const { state, createColumns } = useTable()
 
+    const handleModal = () => {
+      state.showModal = true
+      state.status = 0
+    }
+
+    const handleCancelModal = () => {
+      state.showModal = false
+    }
+
+    const handleConfirmModal = () => {
+      state.showModal = false
+    }
+
     onMounted(() => {
       createColumns(state)
     })
 
-    return { t, ...toRefs(state) }
+    return {
+      t,
+      ...toRefs(state),
+      handleModal,
+      handleCancelModal,
+      handleConfirmModal
+    }
   },
   render() {
     return (
@@ -37,14 +57,16 @@ const UserManageList = defineComponent({
         <NCard title={this.t('user_manage.user_manage')}>
           {{
             'header-extra': () => (
-              <NButton>{this.t('user_manage.create')}</NButton>
+              <NButton onClick={this.handleModal}>
+                {this.t('user_manage.create')}
+              </NButton>
             )
           }}
         </NCard>
         <NCard>
           <NSpace vertical>
             <NDataTable
-              loading={this.loadingRef}
+              loading={this.loading}
               columns={this.columns}
               data={this.tableData}
             />
@@ -60,6 +82,13 @@ const UserManageList = defineComponent({
             </NSpace>
           </NSpace>
         </NCard>
+        <UserManageModal
+          showModal={this.showModal}
+          status={this.status}
+          row={this.row}
+          onCancelModal={this.handleCancelModal}
+          onConfirmModal={this.handleConfirmModal}
+        />
       </NSpace>
     )
   }
