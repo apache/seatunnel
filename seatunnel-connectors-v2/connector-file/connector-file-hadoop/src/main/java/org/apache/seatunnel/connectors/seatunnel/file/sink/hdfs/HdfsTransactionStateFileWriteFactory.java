@@ -60,7 +60,8 @@ public class HdfsTransactionStateFileWriteFactory {
                     fieldDelimiter,
                     rowDelimiter,
                     fileSystem);
-        } else if (fileFormat.equals(FileFormat.PARQUET)) {
+        }
+        if (fileFormat.equals(FileFormat.PARQUET)) {
             return new HdfsParquetTransactionStateFileWriter(
                     seaTunnelRowTypeInfo,
                     transactionFileNameGenerator,
@@ -71,33 +72,19 @@ public class HdfsTransactionStateFileWriteFactory {
                     jobId,
                     subTaskIndex,
                     fileSystem);
-        } else if (fileFormat.equals(FileFormat.TEXT)) {
-            return new HdfsTxtTransactionStateFileWriter(
-                    seaTunnelRowTypeInfo,
-                    transactionFileNameGenerator,
-                    partitionDirNameGenerator,
-                    sinkColumnsIndexInRow,
-                    tmpPath,
-                    targetPath,
-                    jobId,
-                    subTaskIndex,
-                    fieldDelimiter,
-                    rowDelimiter,
-                    fileSystem);
-        } else {
-            // default text writer
-            return new HdfsTxtTransactionStateFileWriter(
-                    seaTunnelRowTypeInfo,
-                    transactionFileNameGenerator,
-                    partitionDirNameGenerator,
-                    sinkColumnsIndexInRow,
-                    tmpPath,
-                    targetPath,
-                    jobId,
-                    subTaskIndex,
-                    fieldDelimiter,
-                    rowDelimiter,
-                    fileSystem);
         }
+        // if file type not supported by file connector, default txt writer will be generated
+        return new HdfsTxtTransactionStateFileWriter(
+                    seaTunnelRowTypeInfo,
+                    transactionFileNameGenerator,
+                    partitionDirNameGenerator,
+                    sinkColumnsIndexInRow,
+                    tmpPath,
+                    targetPath,
+                    jobId,
+                    subTaskIndex,
+                    fieldDelimiter,
+                    rowDelimiter,
+                    fileSystem);
     }
 }
