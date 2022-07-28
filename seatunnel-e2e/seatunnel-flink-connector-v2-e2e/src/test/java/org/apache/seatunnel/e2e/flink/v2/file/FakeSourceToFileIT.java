@@ -27,8 +27,35 @@ import java.io.IOException;
 
 public class FakeSourceToFileIT extends FlinkContainer {
     @Test
-    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
+    public void testFakeSourceToLocalFileText() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_local_text.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     *  fake source -> local parquet file sink
+     */
+    @Test
+    public void testFakeSourceToLocalFileParquet() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_local_parquet.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * fake source -> hdfs text file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileText() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_hdfs_text.conf");
+        Assert.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * fake source -> hdfs parquet file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileParquet() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_hdfs_parquet.conf");
         Assert.assertEquals(0, execResult.getExitCode());
     }
 }
