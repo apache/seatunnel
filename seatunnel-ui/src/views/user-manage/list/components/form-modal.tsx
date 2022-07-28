@@ -28,7 +28,7 @@ import {
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { BulbOutlined } from '@vicons/antd'
-import { useUserManageModal } from './use-modal'
+import { useFormModal } from './use-form-modal'
 import Modal from '@/components/modal'
 import type { PropType } from 'vue'
 
@@ -47,12 +47,12 @@ const props = {
   }
 }
 
-const UserManageModal = defineComponent({
+const FormModal = defineComponent({
   props,
   emits: ['cancelModal', 'confirmModal'],
   setup(props, ctx) {
     const { t } = useI18n()
-    const { state, handleValidate } = useUserManageModal(props, ctx)
+    const { state, handleValidate } = useFormModal(props, ctx)
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
     const handleCancel = () => {
@@ -153,4 +153,4 @@ const UserManageModal = defineComponent({
   }
 })
 
-export default UserManageModal
+export default FormModal

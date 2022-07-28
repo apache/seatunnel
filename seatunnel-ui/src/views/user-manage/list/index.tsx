@@ -19,24 +19,33 @@ import { defineComponent, toRefs, onMounted } from 'vue'
 import { NSpace, NCard, NButton, NDataTable, NPagination } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useTable } from './use-table'
-import UserManageModal from './components/modal'
+import FormModal from './components/form-modal'
+import DeleteModal from './components/delete-modal'
 
 const UserManageList = defineComponent({
   setup() {
     const { t } = useI18n()
     const { state, createColumns } = useTable()
 
-    const handleModal = () => {
-      state.showModal = true
+    const handleFormModal = () => {
+      state.showFormModal = true
       state.status = 0
     }
 
-    const handleCancelModal = () => {
-      state.showModal = false
+    const handleCancelFormModal = () => {
+      state.showFormModal = false
     }
 
-    const handleConfirmModal = () => {
-      state.showModal = false
+    const handleConfirmFormModal = () => {
+      state.showFormModal = false
+    }
+
+    const handleCancelDeleteModal = () => {
+      state.showDeleteModal = false
+    }
+
+    const handleConfirmDeleteModal = () => {
+      state.showDeleteModal = false
     }
 
     onMounted(() => {
@@ -46,9 +55,11 @@ const UserManageList = defineComponent({
     return {
       t,
       ...toRefs(state),
-      handleModal,
-      handleCancelModal,
-      handleConfirmModal
+      handleFormModal,
+      handleCancelFormModal,
+      handleConfirmFormModal,
+      handleCancelDeleteModal,
+      handleConfirmDeleteModal
     }
   },
   render() {
@@ -57,7 +68,7 @@ const UserManageList = defineComponent({
         <NCard title={this.t('user_manage.user_manage')}>
           {{
             'header-extra': () => (
-              <NButton onClick={this.handleModal}>
+              <NButton onClick={this.handleFormModal}>
                 {this.t('user_manage.create')}
               </NButton>
             )
@@ -82,12 +93,18 @@ const UserManageList = defineComponent({
             </NSpace>
           </NSpace>
         </NCard>
-        <UserManageModal
-          showModal={this.showModal}
+        <FormModal
+          showModal={this.showFormModal}
           status={this.status}
           row={this.row}
-          onCancelModal={this.handleCancelModal}
-          onConfirmModal={this.handleConfirmModal}
+          onCancelModal={this.handleCancelFormModal}
+          onConfirmModal={this.handleConfirmFormModal}
+        />
+        <DeleteModal
+          showModal={this.showDeleteModal}
+          row={this.row}
+          onCancelModal={this.handleCancelDeleteModal}
+          onConfirmModal={this.handleConfirmDeleteModal}
         />
       </NSpace>
     )
