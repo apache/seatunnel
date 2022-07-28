@@ -36,7 +36,7 @@ public class JobConfigParserTest {
     @Test
     public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = this.getClass().getResource("/fakesource_to_file.conf").getFile();
+        String filePath = TestUtils.getResource("/fakesource_to_file.conf");
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
         List<Action> actions = jobConfigParser.parse();
         Assert.assertEquals(1, actions.size());
@@ -53,7 +53,7 @@ public class JobConfigParserTest {
     @Test
     public void testComplexJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = this.getClass().getResource("/fakesource_to_file_complex.conf").getFile();
+        String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
         List<Action> actions = jobConfigParser.parse();
         Assert.assertEquals(1, actions.size());
