@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
-import com.hazelcast.core.HazelcastInstance;
 import lombok.NonNull;
 
-public interface SeaTunnelClientInstance {
+import java.util.List;
 
-    /**
-     * Returns the underlying Hazelcast IMDG instance used by SeaTunnel Engine Client. It will
-     * be a client, depending on the type of this
-     */
-    @NonNull
-    HazelcastInstance getHazelcastInstance();
+public class TransformAction extends AbstractAction {
+    private SeaTunnelTransform transformation;
 
-    JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+    public TransformAction(int id,
+                           @NonNull String name,
+                           @NonNull List<Action> upstreams,
+                           @NonNull SeaTunnelTransform transformation) {
+        super(id, name, upstreams);
+        this.transformation = transformation;
+    }
+
+    public TransformAction(int id,
+                           @NonNull String name,
+                           @NonNull SeaTunnelTransform transformation) {
+        super(id, name);
+        this.transformation = transformation;
+    }
 }

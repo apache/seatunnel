@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
@@ -40,7 +41,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
 
     public SeaTunnelClient(@NonNull SeaTunnelClientConfig seaTunnelClientConfig) {
         Preconditions.checkNotNull(seaTunnelClientConfig, "config");
-        this.hazelcastClient = ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(seaTunnelClientConfig)).client;
+        this.hazelcastClient =
+            ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(seaTunnelClientConfig)).client;
         this.serializationService = hazelcastClient.getSerializationService();
         ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
     }
@@ -52,9 +54,10 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
     }
 
     @Override
-    public JobExecutionEnvironment createExecutionContext(String filePath, SeaTunnelClientConfig config) {
-        // TODO analyze job config file and create LocalExecutionContext
-        return null;
+    public JobExecutionEnvironment createExecutionContext(@NonNull String filePath, JobConfig jobConfig) {
+        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig, filePath);
+        jobExecutionEnv.addAction(jobExecutionEnv.getJobConfigParser().parse());
+        return jobExecutionEnv;
     }
 
     public ILogger getLogger() {

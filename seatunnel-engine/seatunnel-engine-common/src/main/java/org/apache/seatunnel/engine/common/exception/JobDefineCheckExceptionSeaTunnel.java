@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.common.exception;
 
-import org.apache.seatunnel.engine.common.config.JobConfig;
+public class JobDefineCheckExceptionSeaTunnel extends SeaTunnelEngineException {
 
-import com.hazelcast.core.HazelcastInstance;
-import lombok.NonNull;
+    public JobDefineCheckExceptionSeaTunnel(String message) {
+        super(message);
+    }
 
-public interface SeaTunnelClientInstance {
-
-    /**
-     * Returns the underlying Hazelcast IMDG instance used by SeaTunnel Engine Client. It will
-     * be a client, depending on the type of this
-     */
-    @NonNull
-    HazelcastInstance getHazelcastInstance();
-
-    JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+    public JobDefineCheckExceptionSeaTunnel(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
