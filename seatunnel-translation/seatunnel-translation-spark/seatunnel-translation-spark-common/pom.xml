@@ -26,6 +26,12 @@
     <artifactId>seatunnel-translation-spark-common</artifactId>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-translation-base</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!--spark-->
         <dependency>
             <groupId>org.apache.spark</groupId>
