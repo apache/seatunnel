@@ -42,7 +42,6 @@ audience-annotations-0.5.0.jar
 audience-annotations-0.7.0.jar
 avatica-core-1.20.0.jar
 avatica-metrics-1.20.0.jar
-avro-1.10.0.jar
 avro-1.7.7.jar
 avro-1.8.2.jar
 aws-java-sdk-core-1.12.37.jar
@@ -70,7 +69,6 @@ commons-compiler-3.0.9.jar
 commons-compiler-3.1.6.jar
 commons-compress-1.18.jar
 commons-compress-1.19.jar
-commons-compress-1.20.jar
 commons-compress-1.21.jar
 commons-compress-1.4.1.jar
 commons-compress-1.8.1.jar
@@ -724,7 +722,6 @@ xmlbeans-3.1.0.jar
 xmlenc-0.52.jar
 xz-1.0.jar
 xz-1.5.jar
-xz-1.8.jar
 zkclient-0.3.jar
 zookeeper-3.3.1.jar
 zookeeper-3.4.10.jar
