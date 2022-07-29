@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.common.utils;
 
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckExceptionSeaTunnel;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundExceptionSeaTunnel;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 
@@ -36,7 +37,8 @@ public final class ExceptionUtil {
 
     private static final List<ImmutableTriple<Integer, Class<? extends Throwable>, ClientExceptionFactory.ExceptionFactory>> EXCEPTIONS = Arrays.asList(
         new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START, SeaTunnelEngineException.class, SeaTunnelEngineException::new),
-        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1, JobNotFoundExceptionSeaTunnel.class, JobNotFoundExceptionSeaTunnel::new)
+        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1, JobNotFoundExceptionSeaTunnel.class, JobNotFoundExceptionSeaTunnel::new),
+        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 2, JobDefineCheckExceptionSeaTunnel.class, JobDefineCheckExceptionSeaTunnel::new)
     );
 
     private ExceptionUtil() {

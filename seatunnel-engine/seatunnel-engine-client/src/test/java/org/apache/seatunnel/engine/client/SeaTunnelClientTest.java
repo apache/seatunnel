@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.google.common.collect.Lists;
@@ -37,19 +44,42 @@ public class SeaTunnelClientTest {
         Config config = new Config();
         config.getSecurityConfig().setEnabled(false);
         config.getJetConfig().setEnabled(false);
+        config.setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
         config.getNetworkConfig().setPort(50001);
-        HazelcastInstanceFactory.newHazelcastInstance(config, Thread.currentThread().getName(), new SeaTunnelNodeContext());
+        HazelcastInstanceFactory.newHazelcastInstance(config, Thread.currentThread().getName(),
+            new SeaTunnelNodeContext());
     }
 
     @Test
     public void testSayHello() {
         SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
-        seaTunnelClientConfig.setClusterName("dev");
         seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
         SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
 
         String msg = "Hello world";
         String s = engineClient.printMessageToMaster(msg);
         Assert.assertEquals(msg, s);
+    }
+
+    @Test
+    public void testJobSubmit() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setBoundedness(Boundedness.BOUNDED);
+        jobConfig.setName("fake_to_file");
+        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig, filePath);
+        jobExecutionEnv.addAction(jobExecutionEnv.getJobConfigParser().parse());
+
+        LogicalDagGenerator logicalDagGenerator = jobExecutionEnv.getLogicalDagGenerator();
+        LogicalDag logicalDag = logicalDagGenerator.generate();
+
+        SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
+        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
+
+        JobProxy jobProxy = engineClient.createJobClient().createJobProxy(logicalDag, jobConfig);
+        jobProxy.submitJob();
+
     }
 }

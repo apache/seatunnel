@@ -18,39 +18,16 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
-import com.hazelcast.client.HazelcastClient;
-import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
-import com.hazelcast.client.impl.clientside.HazelcastClientProxy;
-import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.spi.impl.ClientInvocation;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.internal.serialization.SerializationService;
-import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
-import java.util.UUID;
-import java.util.function.Function;
-
 public class SeaTunnelClient implements SeaTunnelClientInstance {
-    private final HazelcastClientInstanceImpl hazelcastClient;
-    private final SerializationService serializationService;
+    private SeaTunnelHazelcastClient hazelcastClient;
 
     public SeaTunnelClient(@NonNull SeaTunnelClientConfig seaTunnelClientConfig) {
-        Preconditions.checkNotNull(seaTunnelClientConfig, "config");
-        this.hazelcastClient =
-            ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(seaTunnelClientConfig)).client;
-        this.serializationService = hazelcastClient.getSerializationService();
-        ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
-    }
-
-    @NonNull
-    @Override
-    public HazelcastInstance getHazelcastInstance() {
-        return hazelcastClient;
+        this.hazelcastClient = new SeaTunnelHazelcastClient(seaTunnelClientConfig);
     }
 
     @Override
@@ -60,34 +37,17 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         return jobExecutionEnv;
     }
 
+    @Override
+    public JobClient createJobClient() {
+        return new JobClient(hazelcastClient);
+    }
+
     public ILogger getLogger() {
-        return hazelcastClient.getLoggingService().getLogger(getClass());
-    }
-
-    private <S> S invokeRequestOnMasterAndDecodeResponse(ClientMessage request,
-                                                         Function<ClientMessage, Object> decoder) {
-        UUID masterUuid = hazelcastClient.getClientClusterService().getMasterMember().getUuid();
-        return invokeRequestAndDecodeResponse(masterUuid, request, decoder);
-    }
-
-    private <S> S invokeRequestOnAnyMemberAndDecodeResponse(ClientMessage request,
-                                                            Function<ClientMessage, Object> decoder) {
-        return invokeRequestAndDecodeResponse(null, request, decoder);
-    }
-
-    private <S> S invokeRequestAndDecodeResponse(UUID uuid, ClientMessage request,
-                                                 Function<ClientMessage, Object> decoder) {
-        ClientInvocation invocation = new ClientInvocation(hazelcastClient, request, null, uuid);
-        try {
-            ClientMessage response = invocation.invoke().get();
-            return serializationService.toObject(decoder.apply(response));
-        } catch (Throwable t) {
-            throw ExceptionUtil.rethrow(t);
-        }
+        return hazelcastClient.getLogger(getClass());
     }
 
     public String printMessageToMaster(@NonNull String msg) {
-        return invokeRequestOnMasterAndDecodeResponse(
+        return hazelcastClient.requestOnMasterAndDecodeResponse(
             SeaTunnelPrintMessageCodec.encodeRequest(msg),
             response -> SeaTunnelPrintMessageCodec.decodeResponse(response)
         );
