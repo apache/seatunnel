@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
+import org.apache.seatunnel.api.source.SourceSplit;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.seatunnel.api.source.SourceSplit;
+
 @Data
 @AllArgsConstructor
 public class KuduSourceSplit implements SourceSplit {

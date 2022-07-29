@@ -17,40 +17,35 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
-import lombok.NonNull;
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduOutputFormat;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Optional;
 
-public class KuduSinkWriter implements SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState> {
+public class KuduSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(KuduSinkWriter.class);
 
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
-    private Context context;
-    private long jobId;
+
 
     private KuduOutputFormat fileWriter;
 
     private KuduSinkConfig kuduSinkConfig;
 
     public KuduSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowType,
-                          @NonNull Config pluginConfig,
-                          @NonNull Context context,
-                          long jobId) {
+                          @NonNull Config pluginConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.pluginConfig = pluginConfig;
-        this.context = context;
-        this.jobId = jobId;
 
         kuduSinkConfig = new KuduSinkConfig(this.pluginConfig);
         fileWriter = new KuduOutputFormat(kuduSinkConfig);
@@ -63,20 +58,7 @@ public class KuduSinkWriter implements SinkWriter<SeaTunnelRow, KuduCommitInfo, 
     }
 
     @Override
-    public Optional<KuduCommitInfo> prepareCommit() throws IOException {
-        return Optional.empty();
-    }
-
-    @Override
-    public void abortPrepare() {
-
-    }
-
-
-    @Override
     public void close() throws IOException {
         fileWriter.closeOutputFormat();
     }
-
-
 }

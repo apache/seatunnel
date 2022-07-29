@@ -17,12 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
-import org.apache.kudu.client.*;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
+import org.apache.kudu.client.Insert;
+import org.apache.kudu.client.KuduClient;
+import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduSession;
+import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.PartialRow;
+import org.apache.kudu.client.SessionConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,22 +37,21 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
  * A Kudu outputFormat
  */
 public class KuduOutputFormat
         implements Serializable {
-    private static final Logger logger = LoggerFactory.getLogger(KuduOutputFormat.class);
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(KuduOutputFormat.class);
 
     private String kuduMaster;
     private String kuduTableName;
     private KuduClient kuduClient;
     private KuduSession kuduSession;
     private KuduTable kuduTable;
-
-
+    public static final long TIMEOUTMS = 18000;
+    public static final long SESSIONTIMEOUTMS = 100000;
     public KuduOutputFormat(KuduSinkConfig kuduSinkConfig) {
         this.kuduMaster = kuduSinkConfig.getKuduMaster();
         this.kuduTableName = kuduSinkConfig.getKuduTableName();
@@ -119,43 +124,37 @@ public class KuduOutputFormat
 
         try {
             kuduSession.apply(insert);
-
         } catch (KuduException e) {
-            e.printStackTrace();
+            LOGGER.warn("kudu session insert data fail.", e);
+            throw new RuntimeException("kudu session insert data fail.", e);
         }
 
     }
 
     public void init() {
-
-
         KuduClient.KuduClientBuilder kuduClientBuilder = new
                 KuduClient.KuduClientBuilder(kuduMaster);
-        kuduClientBuilder.defaultOperationTimeoutMs(1800000);
-
+        kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
         this.kuduClient = kuduClientBuilder.build();
         this.kuduSession = kuduClient.newSession();
-        this.kuduSession.setTimeoutMillis(100000);
+        this.kuduSession.setTimeoutMillis(SESSIONTIMEOUTMS);
         this.kuduSession.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC);
-
         try {
             kuduTable = kuduClient.openTable(kuduTableName);
         } catch (KuduException e) {
-            e.printStackTrace();
+            LOGGER.warn("Failed to initialize the Kudu client.", e);
+            throw new RuntimeException("Failed to initialize the Kudu client.", e);
         }
-
-
-        logger.info("The Kudu client is successfully initialized", kuduMaster, kuduClient);
+        LOGGER.info("The Kudu client is successfully initialized", kuduMaster, kuduClient);
     }
-
 
     public void closeOutputFormat() {
         if (kuduClient != null) {
             try {
                 kuduClient.close();
                 kuduSession.close();
-            } catch ( KuduException e) {
-                logger.warn("Kudu Client close failed.", e);
+            } catch (KuduException e) {
+                LOGGER.warn("Kudu Client close failed.", e);
             } finally {
                 kuduClient = null;
                 kuduSession = null;

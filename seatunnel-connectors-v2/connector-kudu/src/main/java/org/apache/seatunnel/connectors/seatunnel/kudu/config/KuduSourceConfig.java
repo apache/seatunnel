@@ -17,18 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
-
-
 import java.io.Serializable;
 
 public class KuduSourceConfig implements Serializable {
-     //kudu master ip
-    public static final String kuduMaster = "kudu_master";
 
-    public static final String tableName = "kudu_table";
-
-    public static final String columnsList = "columnsList";
-
+    public static final String KUDUMASTER = "kudu_master";
+    public static final String TABLENAME = "kudu_table";
+    public static final String COLUMNSLIST = "columnsList";
 
 
 }

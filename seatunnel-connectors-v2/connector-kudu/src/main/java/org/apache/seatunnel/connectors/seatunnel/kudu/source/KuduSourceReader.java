@@ -17,22 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
-import org.apache.kudu.ColumnSchema;
-import org.apache.kudu.client.KuduException;
-import org.apache.kudu.client.KuduScanner;
-import org.apache.kudu.client.RowResult;
-import org.apache.kudu.client.RowResultIterator;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
+
+import org.apache.kudu.ColumnSchema;
+import org.apache.kudu.client.KuduScanner;
+import org.apache.kudu.client.RowResult;
+import org.apache.kudu.client.RowResultIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
 
 public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSplit> {
 
@@ -61,18 +61,13 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
-    public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException, KuduException, SQLException {
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         KuduSourceSplit split = splits.poll();
         Object[] parameterValues = split.parameterValues;
-
-        int lowerBound=Integer.parseInt(parameterValues[0].toString());
-
-        int upperBound=Integer.parseInt(parameterValues[1].toString());
-
-
+        int lowerBound = Integer.parseInt(parameterValues[0].toString());
+        int upperBound = Integer.parseInt(parameterValues[1].toString());
         List<ColumnSchema> columnSchemaList = kuduInputFormat.getColumnsSchemas();
-        KuduScanner kuduScanner = kuduInputFormat.getKuduBuildSplit( lowerBound, upperBound);
+        KuduScanner kuduScanner = kuduInputFormat.getKuduBuildSplit(lowerBound, upperBound);
         //
         while (kuduScanner.hasMoreRows()) {
             RowResultIterator rowResults = kuduScanner.nextRows();
@@ -82,10 +77,6 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
                 output.collect(seaTunnelRow);
             }
         }
-
-
-        // Generate a random number of rows to emit.
-
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             LOGGER.info("Closed the bounded fake source");

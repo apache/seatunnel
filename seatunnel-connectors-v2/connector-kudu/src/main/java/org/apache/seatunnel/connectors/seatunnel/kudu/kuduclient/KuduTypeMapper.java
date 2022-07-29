@@ -17,13 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 
-import org.apache.kudu.ColumnSchema;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import org.apache.kudu.ColumnSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -61,14 +64,10 @@ public class KuduTypeMapper {
     // ------------------------------blob-------------------------
 
     private static final String KUDU_BINARY = "BINARY";
-
-
-
-
+    private static final int PRECISION = 20;
     public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex) throws SQLException {
-        String KUDUType = columnSchemaList.get(colIndex).getType().getName().toUpperCase();
-
-        switch (KUDUType) {
+        String kuduType = columnSchemaList.get(colIndex).getType().getName().toUpperCase();
+        switch (kuduType) {
             case KUDU_BIT:
                 return BasicType.BOOLEAN_TYPE;
             case KUDU_TINYINT:
@@ -78,7 +77,7 @@ public class KuduTypeMapper {
             case KUDU_BIGINT:
                 return BasicType.LONG_TYPE;
             case KUDU_DECIMAL:
-                return new DecimalType(20, 0);
+                return new DecimalType(PRECISION, 0);
             case KUDU_FLOAT:
                 return BasicType.FLOAT_TYPE;
             case KUDU_DOUBLE:
@@ -98,7 +97,7 @@ public class KuduTypeMapper {
                 throw new UnsupportedOperationException(
                     String.format(
                         "Doesn't support KUDU type '%s' .",
-                        KUDUType));
+                        kuduType));
         }
     }
 }

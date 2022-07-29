@@ -15,17 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
+package org.apache.seatunnel.connectors.seatunnel.kudu.state;
 
 import java.io.Serializable;
-import java.util.Map;
 
-@Data
-@AllArgsConstructor
-public class KuduAggregatedCommitInfo implements Serializable {
-
-
+public class KuduSourceState implements Serializable {
 }

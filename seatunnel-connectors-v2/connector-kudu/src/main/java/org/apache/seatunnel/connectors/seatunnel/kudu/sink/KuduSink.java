@@ -17,29 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
+
 import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Kudu Sink implementation by using SeaTunnel sink API.
- * This class contains the method to create {@link KuduSinkWriter} and {@link KuduSinkAggregatedCommitter}.
+ * This class contains the method to create {@link AbstractSimpleSink}.
  */
 @AutoService(SeaTunnelSink.class)
-public class KuduSink implements SeaTunnelSink<SeaTunnelRow, KuduSinkState, KuduCommitInfo, KuduAggregatedCommitInfo> {
+public class KuduSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config config;
     private SeaTunnelRowType seaTunnelRowType;
@@ -65,29 +63,7 @@ public class KuduSink implements SeaTunnelSink<SeaTunnelRow, KuduSinkState, Kudu
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState> createWriter(SinkWriter.Context context) throws IOException {
-        return new KuduSinkWriter(seaTunnelRowType, config, context, System.currentTimeMillis());
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
+        return new KuduSinkWriter(seaTunnelRowType, config);
     }
-
-    @Override
-    public SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState> restoreWriter(SinkWriter.Context context, List<KuduSinkState> states) throws IOException {
-        return new KuduSinkWriter(seaTunnelRowType, config, context, System.currentTimeMillis());
-    }
-
-    @Override
-    public Optional<Serializer<KuduCommitInfo>> getCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<SinkAggregatedCommitter<KuduCommitInfo, KuduAggregatedCommitInfo>> createAggregatedCommitter() throws IOException {
-        return Optional.of(new KuduSinkAggregatedCommitter());
-    }
-
-    @Override
-    public Optional<Serializer<KuduAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
-        return Optional.of(new DefaultSerializer<>());
-    }
-
-
 }

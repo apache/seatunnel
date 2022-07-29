@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
-import com.google.auto.service.AutoService;
-import org.apache.kudu.ColumnSchema;
-import org.apache.kudu.client.*;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -31,29 +28,36 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduInputFormat;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSinkState;
+import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSourceState;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import com.google.auto.service.AutoService;
+import org.apache.kudu.ColumnSchema;
+import org.apache.kudu.client.KuduClient;
+import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduScanner;
+import org.apache.kudu.client.RowResult;
+import org.apache.kudu.client.RowResultIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
-public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSinkState> {
+public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit, KuduSourceState> {
     private static final Logger LOGGER = LoggerFactory.getLogger(KuduSource.class);
 
-    private Config pluginConfig;
     private SeaTunnelContext seaTunnelContext;
     private SeaTunnelRowType rowTypeInfo;
     private KuduInputFormat kuduInputFormat;
     private PartitionParameter partitionParameter;
+    public static final int TIMEOUTMS = 18000;
 
     @Override
     public Boundedness getBoundedness() {
@@ -67,7 +71,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public SourceReader<SeaTunnelRow, KuduSourceSplit> createReader(SourceReader.Context readerContext) {
-        return new KuduSourceReader(kuduInputFormat,readerContext);
+        return new KuduSourceReader(kuduInputFormat, readerContext);
     }
 
     @Override
@@ -76,20 +80,20 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
     }
 
     @Override
-    public SourceSplitEnumerator<KuduSourceSplit, KuduSinkState> createEnumerator(
+    public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> createEnumerator(
             SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext) {
-        return new KuduSourceSplitEnumerator(enumeratorContext,partitionParameter);
+        return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
 
     @Override
-    public SourceSplitEnumerator<KuduSourceSplit, KuduSinkState> restoreEnumerator(
-            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, KuduSinkState checkpointState) {
+    public SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, KuduSourceState checkpointState) {
         // todo:
-        return new KuduSourceSplitEnumerator(enumeratorContext,partitionParameter);
+        return new KuduSourceSplitEnumerator(enumeratorContext, partitionParameter);
     }
 
     @Override
-    public Serializer<KuduSinkState> getEnumeratorStateSerializer() {
+    public Serializer<KuduSourceState> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
     }
 
@@ -100,81 +104,68 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public void prepare(Config config) {
-
-        String kudumaster = config.getString(KuduSourceConfig.kuduMaster);
-        String tableName = config.getString(KuduSourceConfig.tableName);
-        String columnslist = config.getString(KuduSourceConfig.columnsList);
-        kuduInputFormat=new KuduInputFormat(kudumaster,tableName,columnslist);
+        String kudumaster = config.getString(KuduSourceConfig.KUDUMASTER);
+        String tableName = config.getString(KuduSourceConfig.TABLENAME);
+        String columnslist = config.getString(KuduSourceConfig.COLUMNSLIST);
+        kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
         try {
             KuduClient.KuduClientBuilder kuduClientBuilder = new
                     KuduClient.KuduClientBuilder(kudumaster);
-            kuduClientBuilder.defaultOperationTimeoutMs(1800000);
+            kuduClientBuilder.defaultOperationTimeoutMs(TIMEOUTMS);
 
             KuduClient kuduClient = kuduClientBuilder.build();
-            partitionParameter = initPartitionParameter(kuduClient,tableName);
-            SeaTunnelRowType seaTunnelRowType =getSeaTunnelRowType(kuduClient.openTable(tableName).getSchema().getColumns());
-            rowTypeInfo=seaTunnelRowType;
+            partitionParameter = initPartitionParameter(kuduClient, tableName);
+            SeaTunnelRowType seaTunnelRowType = getSeaTunnelRowType(kuduClient.openTable(tableName).getSchema().getColumns());
+            rowTypeInfo = seaTunnelRowType;
         } catch (KuduException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Parameters in the preparation phase fail to be generated", e);
         }
     }
 
-    private PartitionParameter initPartitionParameter(KuduClient kuduClient,String tableName) {
+    private PartitionParameter initPartitionParameter(KuduClient kuduClient, String tableName) {
         String keyColumn = null;
-        int maxKey=0;
-        int minKey=0;
-        boolean flag=true;
+        int maxKey = 0;
+        int minKey = 0;
+        boolean flag = true;
         try {
             KuduScanner.KuduScannerBuilder kuduScannerBuilder =
                     kuduClient.newScannerBuilder(kuduClient.openTable(tableName));
             ArrayList<String> columnsList = new ArrayList<String>();
             keyColumn = kuduClient.openTable(tableName).getSchema().getPrimaryKeyColumns().get(0).getName();
-            columnsList.add(""+keyColumn);
+            columnsList.add("" + keyColumn);
             kuduScannerBuilder.setProjectedColumnNames(columnsList);
             KuduScanner kuduScanner = kuduScannerBuilder.build();
-
-
             while (kuduScanner.hasMoreRows()) {
                 RowResultIterator rowResults = kuduScanner.nextRows();
                 while (rowResults.hasNext()) {
                     RowResult row = rowResults.next();
-                    int id = row.getInt(""+keyColumn);
+                    int id = row.getInt("" + keyColumn);
                     if (flag){
-                        maxKey=id;
-                        minKey=id;
-                        flag=false;
-                    }else {
-                        if (id>=maxKey){
-                            maxKey=id;
+                        maxKey = id;
+                        minKey = id;
+                        flag = false;
+                    } else {
+                        if (id >= maxKey){
+                            maxKey = id;
                         }
-                        if (id<=minKey){
-                            minKey=id;
+                        if (id <= minKey){
+                            minKey = id;
                         }
                     }
                 }
             }
         } catch (KuduException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to generate upper and lower limits for each partition", e);
         }
-
-
-        return new PartitionParameter(keyColumn, Long.parseLong(minKey+""), Long.parseLong(maxKey+""));
+        return new PartitionParameter(keyColumn, Long.parseLong(minKey + ""), Long.parseLong(maxKey + ""));
     }
-
-
-   /* @Override
-    public SeaTunnelContext getSeaTunnelContext() {
-        return seaTunnelContext;
-    }*/
 
     @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
     }
 
-
     public SeaTunnelRowType getSeaTunnelRowType(List<ColumnSchema> columnSchemaList) {
-
         ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
         ArrayList<String> fieldNames = new ArrayList<>();
         try {
@@ -186,7 +177,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
         } catch (Exception e) {
             LOGGER.warn("get row type info exception", e);
-            throw new PrepareFailException("jdbc", PluginType.SOURCE, e.toString());
+            throw new PrepareFailException("kudu", PluginType.SOURCE, e.toString());
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }

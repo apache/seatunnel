@@ -17,13 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
-import lombok.Data;
-import lombok.NonNull;
-
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-
+import lombok.Data;
+import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 
 @Data
 public class KuduSinkConfig {
@@ -57,10 +55,7 @@ public class KuduSinkConfig {
     public KuduSinkConfig(@NonNull Config pluginConfig) {
 
         this.saveMode = StringUtils.isBlank(pluginConfig.getString(KUDU_SAVE_MODE)) ? SaveMode.APPEND : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE));
-
         this.kuduMaster = pluginConfig.getString(KUDU_MASTER);
         this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME);
-
-
     }
 }
