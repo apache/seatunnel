@@ -66,7 +66,7 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public SeaTunnelRowType getProducedType() {
-        return  this.rowTypeInfo;
+        return this.rowTypeInfo;
     }
 
     @Override
@@ -104,10 +104,17 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
 
     @Override
     public void prepare(Config config) {
-        String kudumaster = config.getString(KuduSourceConfig.KUDUMASTER);
-        String tableName = config.getString(KuduSourceConfig.TABLENAME);
-        String columnslist = config.getString(KuduSourceConfig.COLUMNSLIST);
-        kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
+        String kudumaster = "";
+        String tableName = "";
+        String columnslist = "";
+        if (config.hasPath(KuduSourceConfig.KUDUMASTER) && config.hasPath(KuduSourceConfig.KUDUMASTER) && config.hasPath(KuduSourceConfig.KUDUMASTER)) {
+            kudumaster = config.getString(KuduSourceConfig.KUDUMASTER);
+            tableName = config.getString(KuduSourceConfig.TABLENAME);
+            columnslist = config.getString(KuduSourceConfig.COLUMNSLIST);
+            kuduInputFormat = new KuduInputFormat(kudumaster, tableName, columnslist);
+        } else {
+            throw new RuntimeException("Missing Source configuration parameters");
+        }
         try {
             KuduClient.KuduClientBuilder kuduClientBuilder = new
                     KuduClient.KuduClientBuilder(kudumaster);
@@ -140,15 +147,15 @@ public class KuduSource implements SeaTunnelSource<SeaTunnelRow, KuduSourceSplit
                 while (rowResults.hasNext()) {
                     RowResult row = rowResults.next();
                     int id = row.getInt("" + keyColumn);
-                    if (flag){
+                    if (flag) {
                         maxKey = id;
                         minKey = id;
                         flag = false;
                     } else {
-                        if (id >= maxKey){
+                        if (id >= maxKey) {
                             maxKey = id;
                         }
-                        if (id <= minKey){
+                        if (id <= minKey) {
                             minKey = id;
                         }
                     }

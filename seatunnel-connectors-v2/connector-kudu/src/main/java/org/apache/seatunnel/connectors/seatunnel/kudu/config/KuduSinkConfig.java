@@ -53,9 +53,12 @@ public class KuduSinkConfig {
     }
 
     public KuduSinkConfig(@NonNull Config pluginConfig) {
-
-        this.saveMode = StringUtils.isBlank(pluginConfig.getString(KUDU_SAVE_MODE)) ? SaveMode.APPEND : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE));
-        this.kuduMaster = pluginConfig.getString(KUDU_MASTER);
-        this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME);
+        if (pluginConfig.hasPath(KUDU_SAVE_MODE) && pluginConfig.hasPath(KUDU_MASTER) && pluginConfig.hasPath(KUDU_TABLE_NAME)) {
+            this.saveMode = StringUtils.isBlank(pluginConfig.getString(KUDU_SAVE_MODE)) ? SaveMode.APPEND : SaveMode.fromStr(pluginConfig.getString(KUDU_SAVE_MODE));
+            this.kuduMaster = pluginConfig.getString(KUDU_MASTER);
+            this.kuduTableName = pluginConfig.getString(KUDU_TABLE_NAME);
+        } else {
+            throw new RuntimeException("Missing Sink configuration parameters");
+        }
     }
 }
