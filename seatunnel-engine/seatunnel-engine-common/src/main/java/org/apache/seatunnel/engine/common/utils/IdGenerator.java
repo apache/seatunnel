@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.common.utils;
 
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import java.io.Serializable;
 
-import com.hazelcast.core.HazelcastInstance;
-import lombok.NonNull;
+/**
+ * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all Vertices in a DAG are
+ * unique.
+ */
+public class IdGenerator implements Serializable {
+    private int id = 0;
 
-public interface SeaTunnelClientInstance {
-
-    /**
-     * Returns the underlying Hazelcast IMDG instance used by SeaTunnel Engine Client. It will
-     * be a client, depending on the type of this
-     */
-    @NonNull
-    HazelcastInstance getHazelcastInstance();
-
-    JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+    public int getNextId() {
+        id++;
+        return id;
+    }
 }

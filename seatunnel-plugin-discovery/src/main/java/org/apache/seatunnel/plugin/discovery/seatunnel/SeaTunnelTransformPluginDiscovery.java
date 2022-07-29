@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.plugin.discovery.seatunnel;
 
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
-import com.hazelcast.core.HazelcastInstance;
-import lombok.NonNull;
+public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
 
-public interface SeaTunnelClientInstance {
+    public SeaTunnelTransformPluginDiscovery() {
+        super("seatunnel");
+    }
 
-    /**
-     * Returns the underlying Hazelcast IMDG instance used by SeaTunnel Engine Client. It will
-     * be a client, depending on the type of this
-     */
-    @NonNull
-    HazelcastInstance getHazelcastInstance();
-
-    JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+    @Override
+    protected Class<SeaTunnelTransform> getPluginBaseClass() {
+        return SeaTunnelTransform.class;
+    }
 }

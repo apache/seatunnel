@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-import com.hazelcast.core.HazelcastInstance;
+import com.google.common.collect.Lists;
 import lombok.NonNull;
 
-public interface SeaTunnelClientInstance {
+import java.io.Serializable;
 
-    /**
-     * Returns the underlying Hazelcast IMDG instance used by SeaTunnel Engine Client. It will
-     * be a client, depending on the type of this
-     */
-    @NonNull
-    HazelcastInstance getHazelcastInstance();
+public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
+    private SeaTunnelSource<T, SplitT, StateT> source;
 
-    JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+    public SourceAction(int id,
+                        @NonNull String name,
+                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
+        super(id, name, Lists.newArrayList());
+        this.source = source;
+    }
 }

@@ -18,48 +18,48 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.transform.Transformation;
+import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class JobExecutionEnvironment {
 
-    private List<Transformation> transformations;
-
     private static String DEFAULT_JOB_NAME = "test_st_job";
 
-    private SeaTunnelClientConfig configuration;
-
-    private String jobName;
+    private JobConfig jobConfig;
 
     private int maxParallelism = 1;
 
-    public JobExecutionEnvironment(SeaTunnelClientConfig configuration) {
-        this.configuration = configuration;
+    private List<Action> actions = new ArrayList<>();
+
+    private String jobFilePath;
+
+    private IdGenerator idGenerator;
+
+    public JobExecutionEnvironment(JobConfig jobConfig, String jobFilePath) {
+        this.jobConfig = jobConfig;
+        this.jobFilePath = jobFilePath;
+        this.idGenerator = new IdGenerator();
     }
 
-    public void addTransformation(Transformation transformation) {
-        if (transformations == null) {
-            transformations = new ArrayList<>();
-        }
-        this.transformations.add(transformation);
+    public JobConfigParser getJobConfigParser() {
+        return new JobConfigParser(jobFilePath, idGenerator);
     }
 
-    public List<Transformation> getTransformations() {
-        return transformations;
+    public void addAction(List<Action> actions) {
+        this.actions.addAll(actions);
     }
 
-    public void setTransformations(List<Transformation> transformations) {
-        this.transformations = transformations;
+    public LogicalDagGenerator getLogicalDagGenerator() {
+        return new LogicalDagGenerator(actions, jobConfig, idGenerator);
     }
 
-    public void setJobName(String jobName) {
-        this.jobName = jobName;
-    }
-
-    public void setMaxParallelism(int maxParallelism) {
-        this.maxParallelism = maxParallelism;
+    public List<Action> getActions() {
+        return actions;
     }
 }
 

@@ -15,40 +15,50 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config;
+package org.apache.seatunnel.engine.core.dag.logicaldag;
 
-import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.IOException;
 
 @Data
-public class JobConfig implements IdentifiedDataSerializable {
-    private String name;
-    private Boundedness boundedness;
+@AllArgsConstructor
+public class LogicalVertex implements IdentifiedDataSerializable {
+    private Integer vertexId;
+    private Action action;
+    private int parallelism;
+
+    public LogicalVertex() {
+    }
 
     @Override
     public int getFactoryId() {
-        return ConfigDataSerializerHook.FACTORY_ID;
+        return JobDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return ConfigDataSerializerHook.JOB_CONFIG;
+        return JobDataSerializerHook.LOGICAL_VERTEX;
     }
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeString(name);
+        out.writeInt(vertexId);
+        out.writeObject(action);
+        out.writeInt(parallelism);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        this.name = in.readString();
+        vertexId = in.readInt();
+        action = in.readObject();
+        parallelism = in.readInt();
     }
 }

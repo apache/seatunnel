@@ -15,29 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.serializable;
-
-import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
+package org.apache.seatunnel.engine.common.serializeable;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
+import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.nio.serialization.DataSerializableFactory;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.annotation.PrivateApi;
 
-/**
- * A Java Service Provider hook for Hazelcast's Identified Data Serializable
- * mechanism. This is private API.
- * All about the Operation's data serializable define in this class.
- */
-@PrivateApi
-public final class OperationDataSerializerHook implements DataSerializerHook {
-    public static final int PRINT_MESSAGE_OPERATOR = 0;
+public class ConfigDataSerializerHook implements DataSerializerHook {
+    /**
+     * Serialization ID of the {@link org.apache.seatunnel.engine.common.config.JobConfig} class.
+     */
+    public static final int JOB_CONFIG = 0;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
-        SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
-        SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY_ID
+        SeaTunnelFactoryIdConstant.SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY,
+        SeaTunnelFactoryIdConstant.SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY_ID
     );
 
     @Override
@@ -55,8 +49,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
         @Override
         public IdentifiedDataSerializable create(int typeId) {
             switch (typeId) {
-                case PRINT_MESSAGE_OPERATOR:
-                    return new PrintMessageOperation();
+                case JOB_CONFIG:
+                    return new JobConfig();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
