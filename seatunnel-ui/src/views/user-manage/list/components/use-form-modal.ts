@@ -19,7 +19,7 @@ import { reactive, ref, SetupContext } from 'vue'
 import { useI18n } from 'vue-i18n'
 import utils from '@/utils'
 
-export function useUserManageModal(
+export function useFormModal(
   props: any,
   ctx: SetupContext<('cancelModal' | 'confirmModal')[]>
 ) {

@@ -29,7 +29,8 @@ export function useTable() {
     totalPage: ref(1),
     row: {},
     loading: ref(false),
-    showModal: ref(false),
+    showFormModal: ref(false),
+    showDeleteModal: ref(false),
     status: ref(0)
   })
 
@@ -67,7 +68,11 @@ export function useTable() {
                 { text: true, onClick: () => handleEdite(row) },
                 t('user_manage.edite')
               ),
-              h(NButton, { text: true }, t('user_manage.delete'))
+              h(
+                NButton,
+                { text: true, onClick: () => handleDelete(row) },
+                t('user_manage.delete')
+              )
             ]
           })
       }
@@ -75,8 +80,13 @@ export function useTable() {
   }
 
   const handleEdite = (row: any) => {
-    state.showModal = true
+    state.showFormModal = true
     state.status = 1
+    state.row = row
+  }
+
+  const handleDelete = (row: any) => {
+    state.showDeleteModal = true
     state.row = row
   }
 
