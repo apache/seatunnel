@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.core.dag.actions;
 import lombok.NonNull;
 
 import java.io.Serializable;
+import java.net.URL;
 import java.util.List;
 
 public interface Action extends Serializable {
@@ -38,4 +39,6 @@ public interface Action extends Serializable {
     void setParallelism(int parallelism);
 
     int getId();
+
+    List<URL> getJarUrls();
 }

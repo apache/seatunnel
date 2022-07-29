@@ -18,8 +18,6 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
 import lombok.NonNull;
@@ -35,11 +33,7 @@ public class JobClient {
         return hazelcastClient.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
-    public JobProxy createJobProxy(@NonNull LogicalDag logicalDag, @NonNull JobConfig jobConfig) {
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(getNewJobId(),
-            hazelcastClient.getSerializationService().toData(logicalDag),
-            jobConfig);
-
+    public JobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
         return new JobProxy(hazelcastClient, jobImmutableInformation);
     }
 }

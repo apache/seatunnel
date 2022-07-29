@@ -28,6 +28,8 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.net.URL;
+import java.util.List;
 
 public class JobImmutableInformation implements IdentifiedDataSerializable {
     private long jobId;
@@ -38,14 +40,17 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
 
     private JobConfig jobConfig;
 
+    private List<URL> pluginJarsUrls;
+
     public JobImmutableInformation() {
     }
 
-    public JobImmutableInformation(long jobId, @NonNull Data logicalDag, @NonNull JobConfig jobConfig) {
+    public JobImmutableInformation(long jobId, @NonNull Data logicalDag, @NonNull JobConfig jobConfig, @NonNull List<URL> pluginJarsUrls) {
         this.createTime = System.currentTimeMillis();
         this.jobId = jobId;
         this.logicalDag = logicalDag;
         this.jobConfig = jobConfig;
+        this.pluginJarsUrls = pluginJarsUrls;
     }
 
     public long getJobId() {
@@ -64,6 +69,10 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         return jobConfig;
     }
 
+    public List<URL> getPluginJarsUrls() {
+        return pluginJarsUrls;
+    }
+
     @Override
     public int getFactoryId() {
         return JobDataSerializerHook.FACTORY_ID;
@@ -80,6 +89,7 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         out.writeLong(createTime);
         IOUtil.writeData(out, logicalDag);
         out.writeObject(jobConfig);
+        out.writeObject(pluginJarsUrls);
 
     }
 
@@ -89,5 +99,6 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         createTime = in.readLong();
         logicalDag = IOUtil.readData(in);
         jobConfig = in.readObject();
+        pluginJarsUrls = in.readObject();
     }
 }

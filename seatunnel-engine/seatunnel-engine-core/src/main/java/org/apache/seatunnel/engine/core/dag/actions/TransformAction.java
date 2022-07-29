@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.List;
 
 public class TransformAction extends AbstractAction {
@@ -29,15 +30,17 @@ public class TransformAction extends AbstractAction {
     public TransformAction(int id,
                            @NonNull String name,
                            @NonNull List<Action> upstreams,
-                           @NonNull SeaTunnelTransform transformation) {
-        super(id, name, upstreams);
+                           @NonNull SeaTunnelTransform transformation,
+                           @NonNull List<URL> jarUrls) {
+        super(id, name, upstreams, jarUrls);
         this.transformation = transformation;
     }
 
     public TransformAction(int id,
                            @NonNull String name,
-                           @NonNull SeaTunnelTransform transformation) {
-        super(id, name);
+                           @NonNull SeaTunnelTransform transformation,
+                           @NonNull List<URL> jarUrls) {
+        super(id, name, jarUrls);
         this.transformation = transformation;
     }
 }

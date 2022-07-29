@@ -21,10 +21,16 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class JobExecutionEnvironment {
 
@@ -36,17 +42,23 @@ public class JobExecutionEnvironment {
 
     private List<Action> actions = new ArrayList<>();
 
+    private List<URL> jarUrls = new ArrayList<>();
+
     private String jobFilePath;
 
     private IdGenerator idGenerator;
 
-    public JobExecutionEnvironment(JobConfig jobConfig, String jobFilePath) {
+    private SeaTunnelHazelcastClient seaTunnelHazelcastClient;
+
+    public JobExecutionEnvironment(JobConfig jobConfig, String jobFilePath,
+                                   SeaTunnelHazelcastClient seaTunnelHazelcastClient) {
         this.jobConfig = jobConfig;
         this.jobFilePath = jobFilePath;
         this.idGenerator = new IdGenerator();
+        this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
     }
 
-    public JobConfigParser getJobConfigParser() {
+    private JobConfigParser getJobConfigParser() {
         return new JobConfigParser(jobFilePath, idGenerator);
     }
 
@@ -54,12 +66,32 @@ public class JobExecutionEnvironment {
         this.actions.addAll(actions);
     }
 
-    public LogicalDagGenerator getLogicalDagGenerator() {
+    private LogicalDagGenerator getLogicalDagGenerator() {
         return new LogicalDagGenerator(actions, jobConfig, idGenerator);
     }
 
     public List<Action> getActions() {
         return actions;
+    }
+
+    public JobProxy execute() {
+        JobClient jobClient = new JobClient(seaTunnelHazelcastClient);
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
+            jobClient.getNewJobId(),
+            seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
+            jobConfig,
+            jarUrls);
+
+        JobProxy jobProxy = jobClient.createJobProxy(jobImmutableInformation);
+        jobProxy.submitJob();
+        return jobProxy;
+    }
+
+    public LogicalDag getLogicalDag() {
+        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
+        actions.addAll(immutablePair.getLeft());
+        jarUrls.addAll(immutablePair.getRight());
+        return getLogicalDagGenerator().generate();
     }
 }
 

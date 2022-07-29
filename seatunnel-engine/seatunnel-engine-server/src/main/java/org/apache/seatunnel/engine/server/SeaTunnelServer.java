@@ -97,6 +97,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         // TODO Here we need new a JobMaster and run it.
         JobImmutableInformation jobInformation = nodeEngine.getSerializationService().toObject(jobImmutableInformation);
         logger.info("Job [" + jobInformation.getJobId() + "] submit");
+        logger.info("Job [" + jobInformation.getJobId() + "] jar urls " + jobInformation.getPluginJarsUrls());
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
         new Thread(() -> {
             try {

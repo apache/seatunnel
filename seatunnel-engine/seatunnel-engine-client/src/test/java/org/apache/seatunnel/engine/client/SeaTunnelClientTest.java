@@ -22,8 +22,6 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDagGenerator;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.google.common.collect.Lists;
@@ -62,24 +60,18 @@ public class SeaTunnelClientTest {
     }
 
     @Test
-    public void testJobSubmit() {
+    public void testExecuteJob() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setBoundedness(Boundedness.BOUNDED);
         jobConfig.setName("fake_to_file");
-        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig, filePath);
-        jobExecutionEnv.addAction(jobExecutionEnv.getJobConfigParser().parse());
-
-        LogicalDagGenerator logicalDagGenerator = jobExecutionEnv.getLogicalDagGenerator();
-        LogicalDag logicalDag = logicalDagGenerator.generate();
 
         SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
         seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
         SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
+        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        JobProxy jobProxy = engineClient.createJobClient().createJobProxy(logicalDag, jobConfig);
-        jobProxy.submitJob();
-
+        JobProxy jobProxy = jobExecutionEnv.execute();
     }
 }
