@@ -118,12 +118,6 @@
             <artifactId>seatunnel-transform-spark-null-rate</artifactId>
             <version>${project.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>compile</scope>
-        </dependency>
     </dependencies>
 
     <build>

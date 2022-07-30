@@ -42,7 +42,6 @@ import java.util.stream.Stream;
 public class JdbcSourceToConsoleIT extends FlinkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSourceToConsoleIT.class);
     private PostgreSQLContainer<?> psl;
-    private Connection connection;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Before
@@ -55,32 +54,37 @@ public class JdbcSourceToConsoleIT extends FlinkContainer {
         LOGGER.info("PostgreSql container started");
         Thread.sleep(5000L);
         Class.forName(psl.getDriverClassName());
-        connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword());
         initializeJdbcTable();
         batchInsertData();
     }
 
-    private void initializeJdbcTable() throws SQLException {
-        Statement statement = connection.createStatement();
-        String sql = "CREATE TABLE test (\n" +
-                "  name varchar(255) NOT NULL\n" +
-                ")";
-        statement.execute(sql);
-        statement.close();
+    private void initializeJdbcTable() {
+        try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
+            Statement statement = connection.createStatement();
+            String sql = "CREATE TABLE test (\n" +
+                    "  name varchar(255) NOT NULL\n" +
+                    ")";
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing PostgreSql table failed!", e);
+        }
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     private void batchInsertData() throws SQLException {
-        String sql = "insert into test(name) values(?)";
-        connection.setAutoCommit(false);
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        for (int i = 0; i < 10; i++) {
-            preparedStatement.setString(1, "Mike");
-            preparedStatement.addBatch();
+        try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
+            String sql = "insert into test(name) values(?)";
+            connection.setAutoCommit(false);
+            PreparedStatement preparedStatement = connection.prepareStatement(sql);
+            for (int i = 0; i < 10; i++) {
+                preparedStatement.setString(1, "Mike");
+                preparedStatement.addBatch();
+            }
+            preparedStatement.executeBatch();
+            connection.commit();
+        } catch (SQLException e) {
+            throw new RuntimeException("Batch insert data failed!", e);
         }
-        preparedStatement.executeBatch();
-        connection.commit();
-        connection.close();
     }
 
     @Test

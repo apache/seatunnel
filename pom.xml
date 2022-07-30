@@ -219,6 +219,7 @@
         <springfox-swagger.version>2.6.1</springfox-swagger.version>
         <swagger-annotations.version>1.5.10</swagger-annotations.version>
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
+        <checker.qual.version>3.10.0</checker.qual.version>
     </properties>
 
     <dependencyManagement>
@@ -333,7 +334,6 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
-                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -921,6 +921,12 @@
                 <groupId>org.hibernate.validator</groupId>
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate.validator.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>checker-qual</artifactId>
+                <version>${checker.qual.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
