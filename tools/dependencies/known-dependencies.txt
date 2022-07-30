@@ -54,7 +54,6 @@ calcite-core-1.29.0.jar
 calcite-druid-1.29.0.jar
 calcite-linq4j-1.29.0.jar
 checker-qual-3.10.0.jar
-checker-qual-3.4.0.jar
 chill-java-0.9.3.jar
 chill_2.11-0.9.3.jar
 classmate-1.1.0.jar
@@ -733,4 +732,3 @@ zstd-jni-1.4.3-1.jar
 jakarta.activation-api-1.2.1.jar
 jakarta.xml.bind-api-2.3.2.jar
 postgresql-42.3.3.jar
-checker-qual-3.5.0.jar

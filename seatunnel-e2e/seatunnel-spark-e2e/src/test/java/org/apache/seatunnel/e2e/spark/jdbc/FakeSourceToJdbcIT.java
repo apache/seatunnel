@@ -44,7 +44,6 @@ import java.util.stream.Stream;
 public class FakeSourceToJdbcIT extends SparkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToJdbcIT.class);
     private PostgreSQLContainer<?> psl;
-    private Connection connection;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Before
@@ -57,17 +56,19 @@ public class FakeSourceToJdbcIT extends SparkContainer {
         LOGGER.info("PostgreSql container started");
         Thread.sleep(5000L);
         Class.forName(psl.getDriverClassName());
-        connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword());
         initializeJdbcTable();
     }
 
-    private void initializeJdbcTable() throws SQLException {
-        Statement statement = connection.createStatement();
-        String sql = "CREATE TABLE test (\n" +
-                "  name varchar(255) NOT NULL\n" +
-                ")";
-        statement.executeUpdate(sql);
-        statement.close();
+    private void initializeJdbcTable() {
+        try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
+            Statement statement = connection.createStatement();
+            String sql = "CREATE TABLE test (\n" +
+                    "  name varchar(255) NOT NULL\n" +
+                    ")";
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing PostgreSql table failed!", e);
+        }
     }
 
     @Test
@@ -75,13 +76,15 @@ public class FakeSourceToJdbcIT extends SparkContainer {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/fakesource_to_jdbc.conf");
         Assert.assertEquals(0, execResult.getExitCode());
         String sql = "select * from test";
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(sql);
-        List<String> result = Lists.newArrayList();
-        while (resultSet.next()) {
-            result.add(resultSet.getString("name"));
+        try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(sql);
+            List<String> result = Lists.newArrayList();
+            while (resultSet.next()) {
+                result.add(resultSet.getString("name"));
+            }
+            Assert.assertFalse(result.isEmpty());
         }
-        Assert.assertFalse(result.isEmpty());
     }
 
     @After
