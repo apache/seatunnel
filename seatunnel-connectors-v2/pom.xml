@@ -44,7 +44,6 @@
         <module>connector-file</module>
         <module>connector-hudi</module>
         <module>connector-assert</module>
-         <module>connector-kudu</module>
         <module>connector-email</module>
     </modules>
 
