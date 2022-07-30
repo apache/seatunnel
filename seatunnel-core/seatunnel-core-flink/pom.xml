@@ -96,14 +96,6 @@
             <artifactId>seatunnel-transform-flink-udf</artifactId>
             <version>${project.version}</version>
         </dependency>
-
-
-        <!--  test dependency  -->
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-        </dependency>
-
     </dependencies>
 
     <build>

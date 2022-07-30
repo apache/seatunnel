@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.core.base.command;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.apis.base.plugin.PluginClosedException;
@@ -26,8 +26,8 @@ import org.apache.seatunnel.flink.FlinkEnvironment;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +36,7 @@ public class BaseTaskExecuteCommandTest {
 
     private static int CLOSE_TIMES = 0;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         CLOSE_TIMES = 0;
     }
