@@ -162,6 +162,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return ((Timestamp) field).toLocalDateTime();
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::reconvert);
+            case STRING:
+                return field.toString();
             default:
                 return field;
         }
