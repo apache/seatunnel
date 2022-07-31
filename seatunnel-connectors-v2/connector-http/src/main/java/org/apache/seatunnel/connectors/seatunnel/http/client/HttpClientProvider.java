@@ -55,7 +55,7 @@ public class HttpClientProvider implements AutoCloseable {
     }
 
     public static HttpClientProvider getInstance() {
-        return Sigleton.INSTANCE;
+        return Singleton.INSTANCE;
     }
 
     public HttpResponse execute(String url, String method, Map<String, String> headers, Map<String, String> params) throws Exception {
@@ -277,7 +277,7 @@ public class HttpClientProvider implements AutoCloseable {
         }
     }
 
-    private static class Sigleton {
+    private static class Singleton {
         private static final HttpClientProvider INSTANCE = new HttpClientProvider();
     }
 }
