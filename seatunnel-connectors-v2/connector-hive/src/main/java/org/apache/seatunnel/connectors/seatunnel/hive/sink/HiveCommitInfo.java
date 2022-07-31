@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import org.apache.hadoop.hive.metastore.api.Table;
 
 @Data
 @AllArgsConstructor
