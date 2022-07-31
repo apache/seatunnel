@@ -29,15 +29,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransa
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@RunWith(JUnit4.class)
 public class TestLocalTxtTransactionStateFileWriter {
 
     @SuppressWarnings("checkstyle:MagicNumber")

@@ -443,6 +443,10 @@
                         <groupId>org.glassfish.web</groupId>
                         <artifactId>javax.servlet.jsp</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
