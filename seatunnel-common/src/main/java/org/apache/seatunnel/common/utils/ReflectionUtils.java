@@ -61,7 +61,7 @@ public class ReflectionUtils {
             field.setAccessible(true);
             field.set(object, value);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException("Incompatible KafkaProducer version", e);
+            throw new RuntimeException("field set failed", e);
         }
     }
 
