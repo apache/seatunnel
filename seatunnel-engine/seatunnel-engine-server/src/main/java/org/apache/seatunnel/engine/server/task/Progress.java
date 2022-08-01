@@ -15,29 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
 
-import com.google.common.collect.Lists;
-import lombok.NonNull;
+public class Progress {
 
-import java.io.Serializable;
+    private boolean madeProgress;
+    private boolean isDone;
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
-
-    private static final long serialVersionUID = -4104531889750766731L;
-    private final SeaTunnelSource<T, SplitT, StateT> source;
-
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
-        this.source = source;
+    public Progress() {
+        isDone = true;
+        madeProgress = false;
     }
 
-    public SeaTunnelSource<T, SplitT, StateT> getSource() {
-        return source;
+    public void start() {
+        isDone = false;
+        madeProgress = false;
     }
+
+    public void makeProgress() {
+        isDone = false;
+        madeProgress = true;
+    }
+
+    public void done() {
+        isDone = true;
+    }
+
+    public ProgressState toState() {
+        return ProgressState.valueOf(madeProgress, isDone);
+    }
+
 }

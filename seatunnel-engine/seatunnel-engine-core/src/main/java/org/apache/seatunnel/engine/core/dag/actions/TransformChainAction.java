@@ -23,25 +23,27 @@ import lombok.NonNull;
 
 import java.util.List;
 
-public class TransformAction extends AbstractAction {
-    private SeaTunnelTransform transform;
+public class TransformChainAction extends AbstractAction {
 
-    public TransformAction(int id,
-                           @NonNull String name,
-                           @NonNull List<Action> upstreams,
-                           @NonNull SeaTunnelTransform transform) {
+    private static final long serialVersionUID = -340174711145367535L;
+    private final List<SeaTunnelTransform> transforms;
+
+    public TransformChainAction(int id,
+                                @NonNull String name,
+                                @NonNull List<Action> upstreams,
+                                @NonNull List<SeaTunnelTransform> transforms) {
         super(id, name, upstreams);
-        this.transform = transform;
+        this.transforms = transforms;
     }
 
-    public TransformAction(int id,
-                           @NonNull String name,
-                           @NonNull SeaTunnelTransform transform) {
+    public TransformChainAction(int id,
+                                @NonNull String name,
+                                @NonNull List<SeaTunnelTransform> transforms) {
         super(id, name);
-        this.transform = transform;
+        this.transforms = transforms;
     }
 
-    public SeaTunnelTransform getTransform() {
-        return transform;
+    public List<SeaTunnelTransform> getTransforms() {
+        return transforms;
     }
 }

@@ -15,33 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.task;
+
+import org.apache.seatunnel.engine.server.execution.Task;
 
 import com.hazelcast.spi.impl.operationservice.OperationService;
-import lombok.NonNull;
 
-import java.io.IOException;
-import java.io.Serializable;
+public abstract class CoordinatorTask implements Task {
 
-public interface Task extends Serializable {
+    protected OperationService operationService;
 
-    default void init() throws Exception {
+    private static final long serialVersionUID = -3957168748281681077L;
+
+    @Override
+    public void setOperationService(OperationService operationService) {
+        this.operationService = operationService;
     }
-
-    @NonNull
-    ProgressState call();
-
-    @NonNull
-    Long getTaskID();
-
-    default boolean isCooperative() {
-        return false;
-    }
-
-    default void close() throws IOException {
-    }
-
-    default void setOperationService(OperationService operationService) {
-    }
-
 }

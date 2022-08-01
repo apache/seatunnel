@@ -15,29 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.engine.server.dag.execution;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.engine.core.dag.Edge;
+import org.apache.seatunnel.engine.core.dag.Vertex;
 
-import com.google.common.collect.Lists;
-import lombok.NonNull;
+import java.util.List;
+import java.util.Map;
 
-import java.io.Serializable;
+public class ExecutionPlan {
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
+    private final List<Edge> edges;
 
-    private static final long serialVersionUID = -4104531889750766731L;
-    private final SeaTunnelSource<T, SplitT, StateT> source;
+    private final Map<Integer, Vertex> vertexes;
 
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
-        this.source = source;
+    ExecutionPlan(List<Edge> edges, Map<Integer, Vertex> vertexes) {
+        this.edges = edges;
+        this.vertexes = vertexes;
     }
 
-    public SeaTunnelSource<T, SplitT, StateT> getSource() {
-        return source;
+    public List<Edge> getEdges() {
+        return edges;
     }
+
+    public Map<Integer, Vertex> getVertexes() {
+        return vertexes;
+    }
+
 }

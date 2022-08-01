@@ -17,27 +17,11 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
+public class UnknownActionException extends RuntimeException {
 
-import com.google.common.collect.Lists;
-import lombok.NonNull;
+    private static final long serialVersionUID = 6566687693833135857L;
 
-import java.io.Serializable;
-
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
-
-    private static final long serialVersionUID = -4104531889750766731L;
-    private final SeaTunnelSource<T, SplitT, StateT> source;
-
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
-        this.source = source;
-    }
-
-    public SeaTunnelSource<T, SplitT, StateT> getSource() {
-        return source;
+    public UnknownActionException(Action action) {
+        super("Unknown Action: " + action.getClass().getName());
     }
 }

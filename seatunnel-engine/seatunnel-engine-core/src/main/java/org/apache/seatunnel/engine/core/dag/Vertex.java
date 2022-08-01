@@ -15,45 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.logicaldag;
+package org.apache.seatunnel.engine.core.dag;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NonNull;
 
 import java.io.IOException;
-import java.util.Map;
 
 @Data
-public class LogicalEdge implements IdentifiedDataSerializable {
-    private LogicalVertex leftVertex;
-    private LogicalVertex rightVertex;
+@AllArgsConstructor
+public class Vertex implements IdentifiedDataSerializable {
+    private Integer vertexId;
+    private Action action;
+    private int parallelism;
 
-    private Integer leftVertexId;
-
-    private Integer rightVertexId;
-
-    public LogicalEdge(){}
-
-    public LogicalEdge(LogicalVertex leftVertex, LogicalVertex rightVertex) {
-        this.leftVertex = leftVertex;
-        this.rightVertex = rightVertex;
-        this.leftVertexId = leftVertex.getVertexId();
-        this.rightVertexId = rightVertex.getVertexId();
-    }
-
-    public void recoveryFromVertexMap(@NonNull Map<Integer, LogicalVertex> vertexMap) {
-        leftVertex = vertexMap.get(leftVertexId);
-        rightVertex = vertexMap.get(rightVertexId);
-
-        checkNotNull(leftVertex);
-        checkNotNull(rightVertex);
+    public Vertex() {
     }
 
     @Override
@@ -63,19 +45,20 @@ public class LogicalEdge implements IdentifiedDataSerializable {
 
     @Override
     public int getClassId() {
-        return JobDataSerializerHook.LOGICAL_EDGE;
+        return JobDataSerializerHook.VERTEX;
     }
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        // To prevent circular serialization, we only serialize the ID of vertices for edges
-        out.writeInt(leftVertexId);
-        out.writeInt(rightVertexId);
+        out.writeInt(vertexId);
+        out.writeObject(action);
+        out.writeInt(parallelism);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        leftVertexId = in.readInt();
-        rightVertexId = in.readInt();
+        vertexId = in.readInt();
+        action = in.readObject();
+        parallelism = in.readInt();
     }
 }

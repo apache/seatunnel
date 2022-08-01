@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.core.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalEdge;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalVertex;
+import org.apache.seatunnel.engine.core.dag.Edge;
+import org.apache.seatunnel.engine.core.dag.Vertex;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -37,19 +37,19 @@ import com.hazelcast.spi.annotation.PrivateApi;
 public final class JobDataSerializerHook implements DataSerializerHook {
 
     /**
-     * Serialization ID of the {@link org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag} class.
+     * Serialization ID of the {@link LogicalDag} class.
      */
     public static final int LOGICAL_DAG = 0;
 
     /**
-     * Serialization ID of the {@link org.apache.seatunnel.engine.core.dag.logicaldag.LogicalVertex} class.
+     * Serialization ID of the {@link Vertex} class.
      */
-    public static final int LOGICAL_VERTEX = 1;
+    public static final int VERTEX = 1;
 
     /**
-     * Serialization ID of the {@link org.apache.seatunnel.engine.core.dag.logicaldag.LogicalEdge} class.
+     * Serialization ID of the {@link Edge} class.
      */
-    public static final int LOGICAL_EDGE = 2;
+    public static final int EDGE = 2;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY,
@@ -73,10 +73,10 @@ public final class JobDataSerializerHook implements DataSerializerHook {
             switch (typeId) {
                 case LOGICAL_DAG:
                     return new LogicalDag();
-                case LOGICAL_VERTEX:
-                    return new LogicalVertex();
-                case LOGICAL_EDGE:
-                    return new LogicalEdge();
+                case VERTEX:
+                    return new Vertex();
+                case EDGE:
+                    return new Edge();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

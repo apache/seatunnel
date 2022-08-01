@@ -17,27 +17,17 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
+public class QueueAction extends AbstractAction {
 
-import com.google.common.collect.Lists;
-import lombok.NonNull;
+    private static final long serialVersionUID = -3082943503147745464L;
+    private final int size;
 
-import java.io.Serializable;
-
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
-
-    private static final long serialVersionUID = -4104531889750766731L;
-    private final SeaTunnelSource<T, SplitT, StateT> source;
-
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
-        this.source = source;
+    public QueueAction(int id, int size, String name) {
+        super(id, name);
+        this.size = size;
     }
 
-    public SeaTunnelSource<T, SplitT, StateT> getSource() {
-        return source;
+    public int getSize() {
+        return size;
     }
 }

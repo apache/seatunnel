@@ -15,29 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 
-import com.google.common.collect.Lists;
-import lombok.NonNull;
+import java.util.Collections;
+import java.util.List;
 
-import java.io.Serializable;
+public class ActionWrapper {
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
+    private final Action action;
 
-    private static final long serialVersionUID = -4104531889750766731L;
-    private final SeaTunnelSource<T, SplitT, StateT> source;
+    private final List<ActionWrapper> next;
 
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
-        this.source = source;
+    public ActionWrapper(Action action, List<ActionWrapper> next) {
+        this.action = action;
+        this.next = next;
     }
 
-    public SeaTunnelSource<T, SplitT, StateT> getSource() {
-        return source;
+    public ActionWrapper(Action action) {
+        this.action = action;
+        this.next = Collections.emptyList();
+    }
+
+    public Action getAction() {
+        return action;
+    }
+
+    public List<ActionWrapper> getNext() {
+        return next;
     }
 }

@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.logicaldag;
+package org.apache.seatunnel.engine.core.dag.logical;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
+import org.apache.seatunnel.engine.core.dag.Edge;
+import org.apache.seatunnel.engine.core.dag.Vertex;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 
 import com.google.common.collect.Lists;
@@ -42,7 +44,7 @@ public class LogicalDagGenerator {
 
     private Map<Action, Collection<Integer>> alreadyTransformed = new HashMap<>();
 
-    private Map<Integer, LogicalVertex> logicalIdVertexMap = new HashMap<>();
+    private Map<Integer, Vertex> logicalIdVertexMap = new HashMap<>();
 
     public LogicalDagGenerator(@NonNull List<Action> actions,
                                @NonNull JobConfig jobConfig,
@@ -76,8 +78,8 @@ public class LogicalDagGenerator {
             }
         }
 
-        LogicalVertex logicalVertex =
-            new LogicalVertex(action.getId(), action, action.getParallelism());
+        Vertex logicalVertex =
+            new Vertex(action.getId(), action, action.getParallelism());
         logicalDag.addLogicalVertex(logicalVertex);
         Collection<Integer> transformedActions = Lists.newArrayList(logicalVertex.getVertexId());
         alreadyTransformed.put(action, transformedActions);
@@ -85,7 +87,7 @@ public class LogicalDagGenerator {
 
         if (!CollectionUtils.isEmpty(upstreamVertexIds)) {
             upstreamVertexIds.stream().forEach(id -> {
-                LogicalEdge logicalEdge = new LogicalEdge(logicalIdVertexMap.get(id), logicalVertex);
+                Edge logicalEdge = new Edge(logicalIdVertexMap.get(id), logicalVertex);
                 logicalDag.addEdge(logicalEdge);
             });
         }

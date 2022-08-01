@@ -15,29 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
 
-import com.google.common.collect.Lists;
 import lombok.NonNull;
 
-import java.io.Serializable;
+public class SinkAggregatedCommitterTask extends CoordinatorTask {
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
+    private static final long serialVersionUID = 5906594537520393503L;
+    private final SinkAction<?, ?, ?, ?> sink;
 
-    private static final long serialVersionUID = -4104531889750766731L;
-    private final SeaTunnelSource<T, SplitT, StateT> source;
-
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
-        this.source = source;
+    @NonNull
+    @Override
+    public ProgressState call() {
+        return null;
     }
 
-    public SeaTunnelSource<T, SplitT, StateT> getSource() {
-        return source;
+    @NonNull
+    @Override
+    public Long getTaskID() {
+        return (long) sink.getId();
+    }
+
+    public SinkAggregatedCommitterTask(SinkAction<?, ?, ?, ?> sink) {
+        this.sink = sink;
     }
 }
