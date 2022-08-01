@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
-import java.nio.charset.StandardCharsets;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
@@ -32,75 +31,77 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- *  DingTalk write class
+ * DingTalk write class
  */
 public class DingTalkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-  private RobotClient robotClient;
+    private RobotClient robotClient;
 
-  public DingTalkWriter(String url, String secret) {
-    this.robotClient = new RobotClient(url, secret);
-  }
-
-  @Override
-  public void write(SeaTunnelRow element) throws IOException {
-    robotClient.send(element.toString());
-  }
-
-  @Override
-  public void close() throws IOException {
-
-  }
-
-  private static class RobotClient implements Serializable {
-
-    private String url;
-
-    private String secret;
-
-    private DefaultDingTalkClient client;
-
-    public RobotClient(String url, String secret) {
-      this.url = url;
-      this.secret = secret;
+    public DingTalkWriter(String url, String secret) {
+        this.robotClient = new RobotClient(url, secret);
     }
 
-    public OapiRobotSendResponse send(String message) throws IOException {
-      if (null == client) {
-        client = new DefaultDingTalkClient(getUrl());
-      }
-      OapiRobotSendRequest request = new OapiRobotSendRequest();
-      request.setMsgtype("text");
-      OapiRobotSendRequest.Text text = new OapiRobotSendRequest.Text();
-      text.setContent(message);
-      request.setText(text);
-      try {
-        return this.client.execute(request);
-      } catch (ApiException e) {
-        throw new IOException(e);
-      }
+    @Override
+    public void write(SeaTunnelRow element) throws IOException {
+        robotClient.send(element.toString());
     }
 
-    public String getUrl() {
-      Long timestamp = System.currentTimeMillis();
-      String sign = getSign(timestamp);
-      return url + "&timestamp=" + timestamp + "&sign=" + sign;
+    @Override
+    public void close() throws IOException {
+
     }
 
-    public String getSign(Long timestamp) {
-      try {
-        String stringToSign = timestamp + "\n" + secret;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        byte[] signData = mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8));
-        return URLEncoder.encode(Base64.getEncoder().encodeToString(signData), "UTF-8");
-      } catch (Exception e) {
-        return null;
-      }
+    private static class RobotClient implements Serializable {
+
+        private String url;
+
+        private String secret;
+
+        private DefaultDingTalkClient client;
+
+        public RobotClient(String url, String secret) {
+            this.url = url;
+            this.secret = secret;
+        }
+
+        public OapiRobotSendResponse send(String message) throws IOException {
+            if (null == client) {
+                client = new DefaultDingTalkClient(getUrl());
+            }
+            OapiRobotSendRequest request = new OapiRobotSendRequest();
+            request.setMsgtype("text");
+            OapiRobotSendRequest.Text text = new OapiRobotSendRequest.Text();
+            text.setContent(message);
+            request.setText(text);
+            try {
+                return this.client.execute(request);
+            } catch (ApiException e) {
+                throw new IOException(e);
+            }
+        }
+
+        public String getUrl() throws IOException {
+            Long timestamp = System.currentTimeMillis();
+            String sign = getSign(timestamp);
+            return url + "&timestamp=" + timestamp + "&sign=" + sign;
+        }
+
+        public String getSign(Long timestamp) throws IOException {
+            try {
+                String stringToSign = timestamp + "\n" + secret;
+                Mac mac = Mac.getInstance("HmacSHA256");
+                mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+                byte[] signData = mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8));
+                return URLEncoder.encode(Base64.getEncoder().encodeToString(signData), "UTF-8");
+            } catch (Exception e) {
+                throw new IOException(e);
+            }
+        }
     }
-  }
 
 }
+
