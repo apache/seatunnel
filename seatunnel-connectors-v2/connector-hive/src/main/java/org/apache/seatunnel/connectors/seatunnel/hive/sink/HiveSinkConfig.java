@@ -93,16 +93,18 @@ public class HiveSinkConfig implements Serializable {
         try {
             table = hiveMetaStoreClient.getTable(dbName, tableName);
             String inputFormat = table.getSd().getInputFormat();
+            Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
             if ("org.apache.hadoop.mapred.TextInputFormat".equals(inputFormat)) {
-                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
+                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
+                        .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
+                        .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
+            } else if ("org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat".equals(inputFormat)) {
+                config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
             } else {
-                throw new RuntimeException("Only support text file now");
+                throw new RuntimeException("Only support text or parquet file now");
             }
 
-            Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
             config = config.withValue(IS_PARTITION_FIELD_WRITE_IN_FILE, ConfigValueFactory.fromAnyRef(false))
-                .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
-                .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")))
                 .withValue(FILE_NAME_EXPRESSION, ConfigValueFactory.fromAnyRef("${transactionId}"))
                 .withValue(PATH, ConfigValueFactory.fromAnyRef(table.getSd().getLocation()));
 
