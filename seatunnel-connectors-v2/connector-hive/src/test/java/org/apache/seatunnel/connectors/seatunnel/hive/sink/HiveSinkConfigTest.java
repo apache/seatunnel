@@ -25,14 +25,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import org.junit.jupiter.api.Test;
-
 import java.io.File;
 import java.util.List;
 
-public class HiveSinkConfigIT {
+public class HiveSinkConfigTest {
 
-    @Test
+    /**
+     * test hive sink config.
+     * <p> TODO: Uncouple from the hive environment
+     */
     public void testCreateHiveSinkConfig() {
         String[] fieldNames = new String[]{"name", "age"};
         SeaTunnelDataType[] seaTunnelDataTypes = new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.INT_TYPE};
