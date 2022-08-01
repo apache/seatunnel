@@ -59,7 +59,8 @@ public class SourceSplitEnumeratorTask extends CoordinatorTask {
         }
     }
 
-    public SourceSplitEnumeratorTask(PhysicalSourceAction<?, ?, ?> source) {
+    public SourceSplitEnumeratorTask(long taskID, PhysicalSourceAction<?, ?, ?> source) {
+        super(taskID);
         this.source = source;
     }
 

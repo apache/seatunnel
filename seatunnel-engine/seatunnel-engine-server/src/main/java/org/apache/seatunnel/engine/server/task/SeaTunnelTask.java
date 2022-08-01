@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.engine.server.dag.physical.ActionWrapper;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 
@@ -30,11 +30,13 @@ public class SeaTunnelTask implements Task {
 
     private static final long serialVersionUID = 2604309561613784425L;
     private OperationService operationService;
-    private final ActionWrapper actionWrapper;
+    private final PhysicalExecutionFlow executionFlow;
+    private final long taskID;
     private Progress progress;
 
-    public SeaTunnelTask(ActionWrapper actionWrapper) {
-        this.actionWrapper = actionWrapper;
+    public SeaTunnelTask(long taskID, PhysicalExecutionFlow executionFlow) {
+        this.taskID = taskID;
+        this.executionFlow = executionFlow;
     }
 
     @Override
@@ -51,7 +53,7 @@ public class SeaTunnelTask implements Task {
     @NonNull
     @Override
     public Long getTaskID() {
-        return (long) actionWrapper.getAction().getId();
+        return taskID;
     }
 
     @Override

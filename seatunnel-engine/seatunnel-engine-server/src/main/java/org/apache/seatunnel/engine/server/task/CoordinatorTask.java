@@ -25,10 +25,16 @@ public abstract class CoordinatorTask implements Task {
 
     protected OperationService operationService;
 
+    protected long taskID;
+
     private static final long serialVersionUID = -3957168748281681077L;
 
     @Override
     public void setOperationService(OperationService operationService) {
         this.operationService = operationService;
+    }
+
+    public CoordinatorTask(long taskID) {
+        this.taskID = taskID;
     }
 }

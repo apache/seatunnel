@@ -39,7 +39,8 @@ public class SinkAggregatedCommitterTask extends CoordinatorTask {
         return (long) sink.getId();
     }
 
-    public SinkAggregatedCommitterTask(SinkAction<?, ?, ?, ?> sink) {
+    public SinkAggregatedCommitterTask(long taskID, SinkAction<?, ?, ?, ?> sink) {
+        super(taskID);
         this.sink = sink;
     }
 }
