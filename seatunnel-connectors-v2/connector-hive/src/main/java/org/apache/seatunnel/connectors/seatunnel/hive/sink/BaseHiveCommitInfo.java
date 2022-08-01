@@ -17,20 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitInfo;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.apache.hadoop.hive.metastore.api.Table;
+
+import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class HiveAggregatedCommitInfo extends BaseHiveCommitInfo {
+@NoArgsConstructor
+public class BaseHiveCommitInfo implements Serializable {
 
-    private FileAggregatedCommitInfo fileAggregatedCommitInfo;
+    private String hiveMetastoreUris;
 
-    public HiveAggregatedCommitInfo(FileAggregatedCommitInfo fileAggregatedCommitInfo, String hiveMetastoreUris, Table table) {
-        super(hiveMetastoreUris, table);
-        this.fileAggregatedCommitInfo = fileAggregatedCommitInfo;
-    }
+    private Table table;
+
 }
