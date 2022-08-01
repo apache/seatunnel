@@ -20,7 +20,7 @@ package org.apache.seatunnel.translation.spark.source;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.common.utils.Utils;
 import org.apache.seatunnel.translation.spark.source.batch.BatchSourceReader;
 import org.apache.seatunnel.translation.spark.source.continnous.ContinuousSourceReader;
 import org.apache.seatunnel.translation.spark.source.micro.MicroBatchSourceReader;
@@ -87,7 +87,9 @@ public class SeaTunnelSourceSupport implements DataSourceV2, ReadSupport, MicroB
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {
-        return SerializationUtils.stringToObject(options.get(Constants.SOURCE_SERIALIZATION)
-            .orElseThrow(() -> new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required")));
+        String source = options.get(Constants.SOURCE_SERIALIZATION)
+                .orElseThrow(() ->
+                        new UnsupportedOperationException("Serialization information for the SeaTunnelSource is required"));
+        return Utils.getSeaTunnelSource(source);
     }
 }

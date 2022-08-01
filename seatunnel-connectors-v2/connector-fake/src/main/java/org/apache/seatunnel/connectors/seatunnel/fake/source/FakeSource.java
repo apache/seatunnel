@@ -32,12 +32,22 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import com.google.common.annotations.VisibleForTesting;
 
 @AutoService(SeaTunnelSource.class)
 public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     private Config pluginConfig;
     private SeaTunnelContext seaTunnelContext;
+
+    public FakeSource() {
+    }
+
+    @VisibleForTesting
+    public FakeSource(Config pluginConfig, SeaTunnelContext seaTunnelContext) {
+        this.pluginConfig = pluginConfig;
+        this.seaTunnelContext = seaTunnelContext;
+    }
 
     @Override
     public Boundedness getBoundedness() {
