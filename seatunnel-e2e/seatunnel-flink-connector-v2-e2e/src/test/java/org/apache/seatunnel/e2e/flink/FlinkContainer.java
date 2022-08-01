@@ -47,7 +47,7 @@ public abstract class FlinkContainer {
 
     private static final Logger LOG = LoggerFactory.getLogger(FlinkContainer.class);
 
-    private static final String FLINK_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
+    private static final String FLINK_DOCKER_IMAGE = "tyrantlucifer/flink:1.13.6-scala_2.11_hadoop27";
     protected static final Network NETWORK = Network.newNetwork();
 
     protected GenericContainer<?> jobManager;
