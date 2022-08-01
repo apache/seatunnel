@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag;
+package org.apache.seatunnel.engine.core.dag.logical;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -31,24 +31,24 @@ import java.io.IOException;
 import java.util.Map;
 
 @Data
-public class Edge implements IdentifiedDataSerializable {
-    private Vertex leftVertex;
-    private Vertex rightVertex;
+public class LogicalEdge implements IdentifiedDataSerializable {
+    private LogicalVertex leftVertex;
+    private LogicalVertex rightVertex;
 
     private Integer leftVertexId;
 
     private Integer rightVertexId;
 
-    public Edge(){}
+    public LogicalEdge(){}
 
-    public Edge(Vertex leftVertex, Vertex rightVertex) {
+    public LogicalEdge(LogicalVertex leftVertex, LogicalVertex rightVertex) {
         this.leftVertex = leftVertex;
         this.rightVertex = rightVertex;
         this.leftVertexId = leftVertex.getVertexId();
         this.rightVertexId = rightVertex.getVertexId();
     }
 
-    public void recoveryFromVertexMap(@NonNull Map<Integer, Vertex> vertexMap) {
+    public void recoveryFromVertexMap(@NonNull Map<Integer, LogicalVertex> vertexMap) {
         leftVertex = vertexMap.get(leftVertexId);
         rightVertex = vertexMap.get(rightVertexId);
 

@@ -22,18 +22,18 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import java.util.Collections;
 import java.util.List;
 
-public class ActionWrapper {
+public class PhysicalExecutionFlow {
 
     private final Action action;
 
-    private final List<ActionWrapper> next;
+    private final List<PhysicalExecutionFlow> next;
 
-    public ActionWrapper(Action action, List<ActionWrapper> next) {
+    public PhysicalExecutionFlow(Action action, List<PhysicalExecutionFlow> next) {
         this.action = action;
         this.next = next;
     }
 
-    public ActionWrapper(Action action) {
+    public PhysicalExecutionFlow(Action action) {
         this.action = action;
         this.next = Collections.emptyList();
     }
@@ -42,7 +42,7 @@ public class ActionWrapper {
         return action;
     }
 
-    public List<ActionWrapper> getNext() {
+    public List<PhysicalExecutionFlow> getNext() {
         return next;
     }
 }

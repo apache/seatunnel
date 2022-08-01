@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.core.dag.Edge;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.PhysicalSourceAction;
-import org.apache.seatunnel.engine.core.dag.actions.QueueAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
-import org.apache.seatunnel.engine.server.dag.pipeline.Pipelines;
+import org.apache.seatunnel.engine.server.dag.execution.ExecutionEdge;
+import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
+import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.task.CoordinatorTask;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
@@ -34,10 +36,10 @@ import java.util.stream.Collectors;
 
 public class PhysicalPlanGenerator {
 
-    private final List<List<Edge>> edgesList;
+    private final List<List<ExecutionEdge>> edgesList;
 
-    public PhysicalPlanGenerator(Pipelines pipeline) {
-        edgesList = pipeline.getPipelines().stream().map(Pipelines.Pipeline::getEdges).collect(Collectors.toList());
+    public PhysicalPlanGenerator(ExecutionPlan executionPlan) {
+        edgesList = executionPlan.getPipelines().stream().map(Pipeline::getEdges).collect(Collectors.toList());
     }
 
     public PhysicalPlan generate() {
@@ -49,52 +51,53 @@ public class PhysicalPlanGenerator {
                             .map(s -> (PhysicalSourceAction<?, ?, ?>) s.getLeftVertex().getAction())
                             .collect(Collectors.toList());
 
+            IdGenerator idGenerator = new IdGenerator();
             // Source Split Enumerator
             List<CoordinatorTask> coordinatorTasks =
-                    sources.stream().map(SourceSplitEnumeratorTask::new).collect(Collectors.toList());
+                    sources.stream().map(s -> new SourceSplitEnumeratorTask(idGenerator.getNextId(), s)).collect(Collectors.toList());
             // Source Task
             List<SeaTunnelTask> tasks = sources.stream()
-                    .map(s -> new ActionWrapper(s, getNextWrapper(edges, s)))
+                    .map(s -> new PhysicalExecutionFlow(s, getNextWrapper(edges, s)))
                     .flatMap(actionWrapper -> {
                         List<SeaTunnelTask> t = new ArrayList<>();
                         for (int i = 0; i < actionWrapper.getAction().getParallelism(); i++) {
-                            t.add(new SeaTunnelTask(actionWrapper));
+                            t.add(new SeaTunnelTask(idGenerator.getNextId(), actionWrapper));
                         }
                         return t.stream();
                     }).collect(Collectors.toList());
 
             // Queue Task
-            List<SeaTunnelTask> fromQueue =
-                    edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof QueueAction)
-                            .map(q -> (QueueAction) q.getLeftVertex().getAction())
-                            .map(q -> new ActionWrapper(q, getNextWrapper(edges, q)))
+            List<SeaTunnelTask> fromPartition =
+                    edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof PartitionTransformAction)
+                            .map(q -> (PartitionTransformAction) q.getLeftVertex().getAction())
+                            .map(q -> new PhysicalExecutionFlow(q, getNextWrapper(edges, q)))
                             .flatMap(actionWrapper -> {
                                 List<SeaTunnelTask> t = new ArrayList<>();
                                 for (int i = 0; i < actionWrapper.getAction().getParallelism(); i++) {
-                                    t.add(new SeaTunnelTask(actionWrapper));
+                                    t.add(new SeaTunnelTask(idGenerator.getNextId(), actionWrapper));
                                 }
                                 return t.stream();
                             }).collect(Collectors.toList());
-            tasks.addAll(fromQueue);
+            tasks.addAll(fromPartition);
 
             // Aggregated Committer
             coordinatorTasks.addAll(edges.stream().filter(s -> s.getRightVertex().getAction() instanceof SinkAction)
                     .map(s -> (SinkAction<?, ?, ?, ?>) s.getRightVertex().getAction())
-                    .map(SinkAggregatedCommitterTask::new).collect(Collectors.toList()));
+                    .map(s -> new SinkAggregatedCommitterTask(idGenerator.getNextId(), s)).collect(Collectors.toList()));
 
             return new PhysicalPlan.SubPlan(tasks, coordinatorTasks);
         }).collect(Collectors.toList()));
     }
 
-    private List<ActionWrapper> getNextWrapper(List<Edge> edges, Action start) {
+    private List<PhysicalExecutionFlow> getNextWrapper(List<ExecutionEdge> edges, Action start) {
         List<Action> actions = edges.stream().filter(e -> e.getLeftVertex().getAction().equals(start))
                 .map(e -> e.getLeftVertex().getAction()).collect(Collectors.toList());
-        List<ActionWrapper> wrappers = actions.stream()
-                .filter(a -> a instanceof QueueAction || a instanceof SinkAction)
-                .map(ActionWrapper::new).collect(Collectors.toList());
+        List<PhysicalExecutionFlow> wrappers = actions.stream()
+                .filter(a -> a instanceof PartitionTransformAction || a instanceof SinkAction)
+                .map(PhysicalExecutionFlow::new).collect(Collectors.toList());
         wrappers.addAll(actions.stream()
-                .filter(a -> !(a instanceof QueueAction || a instanceof SinkAction))
-                .map(a -> new ActionWrapper(a, getNextWrapper(edges, a))).collect(Collectors.toList()));
+                .filter(a -> !(a instanceof PartitionTransformAction || a instanceof SinkAction))
+                .map(a -> new PhysicalExecutionFlow(a, getNextWrapper(edges, a))).collect(Collectors.toList()));
         return wrappers;
     }
 }

@@ -17,29 +17,17 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
-import org.apache.seatunnel.engine.core.dag.Edge;
-import org.apache.seatunnel.engine.core.dag.Vertex;
-
 import java.util.List;
-import java.util.Map;
 
 public class ExecutionPlan {
 
-    private final List<Edge> edges;
+    private final List<Pipeline> pipelines;
 
-    private final Map<Integer, Vertex> vertexes;
-
-    ExecutionPlan(List<Edge> edges, Map<Integer, Vertex> vertexes) {
-        this.edges = edges;
-        this.vertexes = vertexes;
+    ExecutionPlan(List<Pipeline> pipelines) {
+        this.pipelines = pipelines;
     }
 
-    public List<Edge> getEdges() {
-        return edges;
+    public List<Pipeline> getPipelines() {
+        return pipelines;
     }
-
-    public Map<Integer, Vertex> getVertexes() {
-        return vertexes;
-    }
-
 }

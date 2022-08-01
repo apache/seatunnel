@@ -15,11 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.pipeline;
-
-import org.apache.seatunnel.engine.core.dag.Edge;
-import org.apache.seatunnel.engine.core.dag.Vertex;
-import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
+package org.apache.seatunnel.engine.server.dag.execution;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,40 +23,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class PipelinesGenerator {
+public class PipelineGenerator {
 
-    private List<Edge> edges;
-
-    public PipelinesGenerator(ExecutionPlan executionPlan) {
-        edges = expandEdgeByParallelism(new ArrayList<>(executionPlan.getEdges()));
-    }
-
-    public Pipelines generate() {
+    public static List<Pipeline> generatePipelines(List<ExecutionEdge> edges) {
 
         // Split into multiple unrelated pipelines
-        List<List<Edge>> edgesList = splitUnrelatedEdges(edges);
+        List<List<ExecutionEdge>> edgesList = splitUnrelatedEdges(expandEdgeByParallelism(edges));
 
         // just convert execution plan to pipeline at now. We should split it to multi pipeline with
         // cache in the future
 
-        return new Pipelines(edgesList.stream().map(e -> {
-            Map<Integer, Vertex> vertexes = new HashMap<>();
-            List<Edge> pipelineEdges = e.stream().map(edge -> {
+        return edgesList.stream().map(e -> {
+            Map<Integer, ExecutionVertex> vertexes = new HashMap<>();
+            List<ExecutionEdge> pipelineEdges = e.stream().map(edge -> {
                 if (!vertexes.containsKey(edge.getLeftVertexId())) {
                     vertexes.put(edge.getLeftVertexId(), edge.getLeftVertex());
                 }
-                Vertex source = vertexes.get(edge.getLeftVertexId());
+                ExecutionVertex source = vertexes.get(edge.getLeftVertexId());
                 if (!vertexes.containsKey(edge.getRightVertexId())) {
                     vertexes.put(edge.getRightVertexId(), edge.getRightVertex());
                 }
-                Vertex destination = vertexes.get(edge.getRightVertexId());
-                return new Edge(source, destination);
+                ExecutionVertex destination = vertexes.get(edge.getRightVertexId());
+                return new ExecutionEdge(source, destination);
             }).collect(Collectors.toList());
-            return new Pipelines.Pipeline(pipelineEdges, vertexes);
-        }).collect(Collectors.toList()));
+            return new Pipeline(pipelineEdges, vertexes);
+        }).collect(Collectors.toList());
     }
 
-    private List<Edge> expandEdgeByParallelism(List<Edge> edges) {
+    private static List<ExecutionEdge> expandEdgeByParallelism(List<ExecutionEdge> edges) {
         /*
          *TODO
          * use SupportCoordinate interface to determine whether the Pipeline needs to be split.
@@ -70,27 +60,28 @@ public class PipelinesGenerator {
         return edges;
     }
 
-    private List<List<Edge>> splitUnrelatedEdges(List<Edge> edges) {
+    private static List<List<ExecutionEdge>> splitUnrelatedEdges(List<ExecutionEdge> edges) {
 
-        List<List<Edge>> edgeList = new ArrayList<>();
+        List<List<ExecutionEdge>> edgeList = new ArrayList<>();
         while (!edges.isEmpty()) {
             edgeList.add(findVertexRelatedEdge(edges, edges.get(0).getLeftVertex()));
         }
         return edgeList;
     }
 
-    private List<Edge> findVertexRelatedEdge(List<Edge> edges, Vertex vertex) {
+    private static List<ExecutionEdge> findVertexRelatedEdge(List<ExecutionEdge> edges, ExecutionVertex vertex) {
 
-        List<Edge> sourceEdges = edges.stream().filter(edge -> edge.getLeftVertex().equals(vertex))
+        List<ExecutionEdge> sourceEdges = edges.stream().filter(edge -> edge.getLeftVertex().equals(vertex))
                 .collect(Collectors.toList());
-        List<Edge> destinationEdges = edges.stream().filter(edge -> edge.getRightVertex().equals(vertex))
+        List<ExecutionEdge> destinationEdges = edges.stream().filter(edge -> edge.getRightVertex().equals(vertex))
                 .collect(Collectors.toList());
 
-        List<Edge> relatedEdges = new ArrayList<>(sourceEdges);
+        List<ExecutionEdge> relatedEdges = new ArrayList<>(sourceEdges);
         relatedEdges.addAll(destinationEdges);
 
-        List<Vertex> relatedActions = sourceEdges.stream().map(Edge::getRightVertex).collect(Collectors.toList());
-        relatedActions.addAll(destinationEdges.stream().map(Edge::getLeftVertex).collect(Collectors.toList()));
+        List<ExecutionVertex> relatedActions =
+                sourceEdges.stream().map(ExecutionEdge::getRightVertex).collect(Collectors.toList());
+        relatedActions.addAll(destinationEdges.stream().map(ExecutionEdge::getLeftVertex).collect(Collectors.toList()));
 
         edges.removeAll(relatedEdges);
 

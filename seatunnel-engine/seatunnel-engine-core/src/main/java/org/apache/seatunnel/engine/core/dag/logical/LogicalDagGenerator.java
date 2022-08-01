@@ -19,8 +19,6 @@ package org.apache.seatunnel.engine.core.dag.logical;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
-import org.apache.seatunnel.engine.core.dag.Edge;
-import org.apache.seatunnel.engine.core.dag.Vertex;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 
 import com.google.common.collect.Lists;
@@ -44,7 +42,7 @@ public class LogicalDagGenerator {
 
     private Map<Action, Collection<Integer>> alreadyTransformed = new HashMap<>();
 
-    private Map<Integer, Vertex> logicalIdVertexMap = new HashMap<>();
+    private Map<Integer, LogicalVertex> logicalIdVertexMap = new HashMap<>();
 
     public LogicalDagGenerator(@NonNull List<Action> actions,
                                @NonNull JobConfig jobConfig,
@@ -78,8 +76,8 @@ public class LogicalDagGenerator {
             }
         }
 
-        Vertex logicalVertex =
-            new Vertex(action.getId(), action, action.getParallelism());
+        LogicalVertex logicalVertex =
+            new LogicalVertex(action.getId(), action, action.getParallelism());
         logicalDag.addLogicalVertex(logicalVertex);
         Collection<Integer> transformedActions = Lists.newArrayList(logicalVertex.getVertexId());
         alreadyTransformed.put(action, transformedActions);
@@ -87,7 +85,7 @@ public class LogicalDagGenerator {
 
         if (!CollectionUtils.isEmpty(upstreamVertexIds)) {
             upstreamVertexIds.stream().forEach(id -> {
-                Edge logicalEdge = new Edge(logicalIdVertexMap.get(id), logicalVertex);
+                LogicalEdge logicalEdge = new LogicalEdge(logicalIdVertexMap.get(id), logicalVertex);
                 logicalDag.addEdge(logicalEdge);
             });
         }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag;
+package org.apache.seatunnel.engine.core.dag.logical;
 
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
@@ -30,12 +30,13 @@ import java.io.IOException;
 
 @Data
 @AllArgsConstructor
-public class Vertex implements IdentifiedDataSerializable {
+public class LogicalVertex implements IdentifiedDataSerializable {
+
     private Integer vertexId;
     private Action action;
     private int parallelism;
 
-    public Vertex() {
+    public LogicalVertex() {
     }
 
     @Override

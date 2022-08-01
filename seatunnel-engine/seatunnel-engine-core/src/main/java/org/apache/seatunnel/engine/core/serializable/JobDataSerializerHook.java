@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.core.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.core.dag.Edge;
-import org.apache.seatunnel.engine.core.dag.Vertex;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -42,12 +42,12 @@ public final class JobDataSerializerHook implements DataSerializerHook {
     public static final int LOGICAL_DAG = 0;
 
     /**
-     * Serialization ID of the {@link Vertex} class.
+     * Serialization ID of the {@link LogicalVertex} class.
      */
     public static final int VERTEX = 1;
 
     /**
-     * Serialization ID of the {@link Edge} class.
+     * Serialization ID of the {@link LogicalEdge} class.
      */
     public static final int EDGE = 2;
 
@@ -74,9 +74,9 @@ public final class JobDataSerializerHook implements DataSerializerHook {
                 case LOGICAL_DAG:
                     return new LogicalDag();
                 case VERTEX:
-                    return new Vertex();
+                    return new LogicalVertex();
                 case EDGE:
-                    return new Edge();
+                    return new LogicalEdge();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

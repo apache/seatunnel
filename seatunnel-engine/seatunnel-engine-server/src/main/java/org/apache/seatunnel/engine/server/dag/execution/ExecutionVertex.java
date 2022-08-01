@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.engine.server.dag.execution;
 
-import java.io.Serializable;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 
-/**
- * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all Vertices in a DAG are
- * unique.
- */
-public class IdGenerator implements Serializable {
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-    private static final long serialVersionUID = 7683323453014131725L;
-    private int id = 0;
-
-    public int getNextId() {
-        id++;
-        return id;
-    }
+@Data
+@AllArgsConstructor
+public class ExecutionVertex {
+    private Integer vertexId;
+    private Action action;
+    private int parallelism;
 }

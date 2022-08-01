@@ -15,43 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.pipeline;
-
-import org.apache.seatunnel.engine.core.dag.Edge;
-import org.apache.seatunnel.engine.core.dag.Vertex;
+package org.apache.seatunnel.engine.server.dag.execution;
 
 import java.util.List;
 import java.util.Map;
 
-public class Pipelines {
+public class Pipeline {
+    private final List<ExecutionEdge> edges;
 
-    private final List<Pipeline> pipelines;
+    private final Map<Integer, ExecutionVertex> vertexes;
 
-    public Pipelines(List<Pipeline> pipelines) {
-        this.pipelines = pipelines;
+    Pipeline(List<ExecutionEdge> edges, Map<Integer, ExecutionVertex> vertexes) {
+        this.edges = edges;
+        this.vertexes = vertexes;
     }
 
-    public List<Pipeline> getPipelines() {
-        return pipelines;
+    public List<ExecutionEdge> getEdges() {
+        return edges;
     }
 
-    public static class Pipeline {
-        private final List<Edge> edges;
-
-        private final Map<Integer, Vertex> vertexes;
-
-        Pipeline(List<Edge> edges, Map<Integer, Vertex> vertexes) {
-            this.edges = edges;
-            this.vertexes = vertexes;
-        }
-
-        public List<Edge> getEdges() {
-            return edges;
-        }
-
-        public Map<Integer, Vertex> getVertexes() {
-            return vertexes;
-        }
-
+    public Map<Integer, ExecutionVertex> getVertexes() {
+        return vertexes;
     }
+
 }

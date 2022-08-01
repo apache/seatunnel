@@ -24,7 +24,7 @@ import lombok.NonNull;
 import java.util.List;
 
 public class PartitionTransformAction extends AbstractAction {
-    private PartitionSeaTunnelTransform partitionTransformation;
+    private final PartitionSeaTunnelTransform partitionTransformation;
 
     public PartitionTransformAction(int id,
                                     @NonNull String name,

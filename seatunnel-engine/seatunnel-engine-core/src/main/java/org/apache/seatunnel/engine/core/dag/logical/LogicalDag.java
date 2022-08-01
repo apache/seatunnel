@@ -19,8 +19,6 @@ package org.apache.seatunnel.engine.core.dag.logical;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
-import org.apache.seatunnel.engine.core.dag.Edge;
-import org.apache.seatunnel.engine.core.dag.Vertex;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
 import com.hazelcast.internal.json.JsonArray;
@@ -40,10 +38,10 @@ import java.util.Set;
 
 /**
  * A LogicalDag describe the logical plan run by SeaTunnel Engine
- * {@link Vertex} defines an operator, and {@link Edge} defines the
+ * {@link LogicalVertex} defines an operator, and {@link LogicalEdge} defines the
  * relationship between the two operators.
  * <p>
- * {@link Vertex} not a final executable object. It will be optimized when
+ * {@link LogicalVertex} not a final executable object. It will be optimized when
  * generate PhysicalDag in JobMaster.
  * <p>
  * There are three basic kinds of vertices:
@@ -61,8 +59,8 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
     private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
     private JobConfig jobConfig;
-    private final Set<Edge> edges = new LinkedHashSet<>();
-    private final Map<Integer, Vertex> logicalVertexMap = new LinkedHashMap<>();
+    private final Set<LogicalEdge> edges = new LinkedHashSet<>();
+    private final Map<Integer, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
     private IdGenerator idGenerator;
 
     public LogicalDag() {
@@ -74,19 +72,19 @@ public class LogicalDag implements IdentifiedDataSerializable {
         this.idGenerator = idGenerator;
     }
 
-    public void addLogicalVertex(Vertex logicalVertex) {
+    public void addLogicalVertex(LogicalVertex logicalVertex) {
         logicalVertexMap.put(logicalVertex.getVertexId(), logicalVertex);
     }
 
-    public void addEdge(Edge logicalEdge) {
+    public void addEdge(LogicalEdge logicalEdge) {
         edges.add(logicalEdge);
     }
 
-    public Set<Edge> getEdges() {
+    public Set<LogicalEdge> getEdges() {
         return this.edges;
     }
 
-    public Map<Integer, Vertex> getLogicalVertexMap() {
+    public Map<Integer, LogicalVertex> getLogicalVertexMap() {
         return logicalVertexMap;
     }
 
@@ -130,14 +128,14 @@ public class LogicalDag implements IdentifiedDataSerializable {
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeInt(logicalVertexMap.size());
 
-        for (Map.Entry<Integer, Vertex> entry : logicalVertexMap.entrySet()) {
+        for (Map.Entry<Integer, LogicalVertex> entry : logicalVertexMap.entrySet()) {
             out.writeInt(entry.getKey());
             out.writeObject(entry.getValue());
         }
 
         out.writeInt(edges.size());
 
-        for (Edge edge : edges) {
+        for (LogicalEdge edge : edges) {
             out.writeObject(edge);
         }
 
@@ -151,14 +149,14 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
         for (int i = 0; i < vertexCount; i++) {
             Integer key = in.readInt();
-            Vertex value = in.readObject();
+            LogicalVertex value = in.readObject();
             logicalVertexMap.put(key, value);
         }
 
         int edgeCount = in.readInt();
 
         for (int i = 0; i < edgeCount; i++) {
-            Edge edge = in.readObject();
+            LogicalEdge edge = in.readObject();
             edge.recoveryFromVertexMap(logicalVertexMap);
             edges.add(edge);
         }
