@@ -28,6 +28,8 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -37,12 +39,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.*;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.PARAMS;
-
 @AutoService(SeaTunnelSink.class)
 public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private final HttpSinkParameter httpSinkParameter = new HttpSinkParameter();
+    private final HttpParameter httpParameter = new HttpParameter();
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
 
@@ -54,16 +53,16 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }
-        httpSinkParameter.setUrl(pluginConfig.getString(URL));
-        if (pluginConfig.hasPath(HEADERS)) {
-            httpSinkParameter.setHeaders(pluginConfig.getConfig(HEADERS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+        httpParameter.setUrl(pluginConfig.getString(HttpConfig.URL));
+        if (pluginConfig.hasPath(HttpConfig.HEADERS)) {
+            httpParameter.setHeaders(pluginConfig.getConfig(HttpConfig.HEADERS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
         }
-        if (pluginConfig.hasPath(PARAMS)) {
-            httpSinkParameter.setHeaders(pluginConfig.getConfig(PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
+        if (pluginConfig.hasPath(HttpConfig.PARAMS)) {
+            httpParameter.setHeaders(pluginConfig.getConfig(HttpConfig.PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
         }
     }
 
@@ -79,6 +78,6 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new HttpSinkWriter(seaTunnelRowType, httpSinkParameter);
+        return new HttpSinkWriter(seaTunnelRowType, httpParameter);
     }
 }

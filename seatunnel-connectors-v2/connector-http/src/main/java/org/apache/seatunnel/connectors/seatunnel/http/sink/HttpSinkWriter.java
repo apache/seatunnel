@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -36,11 +37,11 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSinkWriter.class);
     private final HttpClientProvider httpClient = HttpClientProvider.getInstance();
     private final SeaTunnelRowType seaTunnelRowType;
-    private final HttpSinkParameter httpSinkParameter;
+    private final HttpParameter httpParameter;
 
-    public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpSinkParameter httpSinkParameter) {
+    public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.httpSinkParameter = httpSinkParameter;
+        this.httpParameter = httpParameter;
     }
 
     @Override
@@ -49,17 +50,12 @@ public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         HashMap<Object, Object> objectMap = new HashMap<>();
         int totalFields = seaTunnelRowType.getTotalFields();
         for (int i = 0; i < totalFields; i++) {
-            if (seaTunnelRowType.getFieldType(i).equals(BasicType.STRING_TYPE)) {
-                objectMap.put(seaTunnelRowType.getFieldName(i), element.getField(i).toString());
-            } else {
-                objectMap.put(seaTunnelRowType.getFieldName(i), element.getField(i));
-            }
+            objectMap.put(seaTunnelRowType.getFieldName(i), element.getField(i));
         }
         String body = objectMapper.writeValueAsString(objectMap);
         try {
-            // TODO hard code, web hook only support post? I don't think so.
-            // First test version
-            HttpResponse response = httpClient.doPost(httpSinkParameter.getUrl(), httpSinkParameter.getHeaders(), body);
+            // only support post web hook
+            HttpResponse response = httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
             if (HttpResponse.STATUS_OK == response.getCode()) {
                 return;
             }
