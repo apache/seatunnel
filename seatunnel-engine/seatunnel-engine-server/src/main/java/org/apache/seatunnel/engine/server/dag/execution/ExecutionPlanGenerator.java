@@ -44,8 +44,8 @@ public class ExecutionPlanGenerator {
     private final List<ExecutionEdge> executionEdges;
 
     public ExecutionPlanGenerator(LogicalDag logicalPlan) {
-        this.executionVertexes = logicalPlan.getLogicalVertexMap().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
-                vertex -> new ExecutionVertex(vertex.getValue().getVertexId(), vertex.getValue().getAction(),
+        this.executionVertexes = logicalPlan.getLogicalVertexMap().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, vertex -> new ExecutionVertex(vertex.getValue().getVertexId(), vertex.getValue().getAction(),
                         vertex.getValue().getParallelism())));
         this.executionEdges = logicalPlan.getEdges().stream()
                 .map(edge -> new ExecutionEdge(executionVertexes.get(edge.getLeftVertexId()),
