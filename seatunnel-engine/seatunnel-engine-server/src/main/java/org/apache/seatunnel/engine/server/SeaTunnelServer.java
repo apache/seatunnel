@@ -35,14 +35,23 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private NodeEngineImpl nodeEngine;
     private final ILogger logger;
 
+    private TaskExecutionService taskExecutionService;
+
     public SeaTunnelServer(Node node) {
         this.logger = node.getLogger(getClass());
         logger.info("SeaTunnel server start...");
     }
 
+    public TaskExecutionService getTaskExecutionService(){
+        return this.taskExecutionService;
+    }
+
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
+        taskExecutionService = new TaskExecutionService(
+            nodeEngine, nodeEngine.getProperties()
+        );
     }
 
     @Override
