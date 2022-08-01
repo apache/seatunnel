@@ -29,12 +29,15 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransa
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@EnabledOnOs(value = {OS.MAC, OS.LINUX})
 public class TestHdfsTxtTransactionStateFileWriter {
 
     @SuppressWarnings("checkstyle:MagicNumber")

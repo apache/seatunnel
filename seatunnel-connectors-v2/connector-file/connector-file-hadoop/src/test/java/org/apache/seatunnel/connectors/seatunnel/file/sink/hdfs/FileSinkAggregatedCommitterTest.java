@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCom
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+@EnabledOnOs(value = {OS.MAC, OS.LINUX})
 public class FileSinkAggregatedCommitterTest {
     @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     @Test
