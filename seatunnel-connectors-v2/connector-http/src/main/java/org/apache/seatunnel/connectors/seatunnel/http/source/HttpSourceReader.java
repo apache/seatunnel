@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,12 +38,12 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSourceReader.class);
     private final SingleSplitReaderContext context;
-    private final HttpSourceParameter parameter;
+    private final HttpParameter httpParameter;
     private HttpClientProvider httpClient;
 
-    public HttpSourceReader(HttpSourceParameter parameter, SingleSplitReaderContext context) {
+    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context) {
         this.context = context;
-        this.parameter = parameter;
+        this.httpParameter = httpParameter;
     }
 
     @Override
@@ -60,7 +61,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            HttpResponse response = httpClient.execute(this.parameter.getUrl(), this.parameter.getMethod(), this.parameter.getHeaders(), this.parameter.getParams());
+            HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams());
             if (STATUS_OK == response.getCode()) {
                 output.collect(new SeaTunnelRow(new Object[] {response.getContent()}));
                 return;
