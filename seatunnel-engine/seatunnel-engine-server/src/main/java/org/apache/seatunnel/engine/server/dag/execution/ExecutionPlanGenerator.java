@@ -27,6 +27,8 @@ import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,45 +42,45 @@ public class ExecutionPlanGenerator {
     private final Map<Integer, List<Integer>> edgeMap = new HashMap<>();
     private final Map<Integer, Action> actions = new HashMap<>();
 
-    private final Map<Integer, ExecutionVertex> executionVertexes;
-    private final List<ExecutionEdge> executionEdges;
+    private final Map<Integer, LogicalVertex> logicalVertexes;
+    private final List<LogicalEdge> logicalEdges;
 
     public ExecutionPlanGenerator(LogicalDag logicalPlan) {
-        this.executionVertexes = logicalPlan.getLogicalVertexMap().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, vertex -> new ExecutionVertex(vertex.getValue().getVertexId(), vertex.getValue().getAction(),
-                        vertex.getValue().getParallelism())));
-        this.executionEdges = logicalPlan.getEdges().stream()
-                .map(edge -> new ExecutionEdge(executionVertexes.get(edge.getLeftVertexId()),
-                        executionVertexes.get(edge.getRightVertexId()))).collect(Collectors.toList());
+        this.logicalVertexes = new HashMap<>(logicalPlan.getLogicalVertexMap());
+        this.logicalEdges = new ArrayList<>(logicalPlan.getEdges());
     }
 
     public ExecutionPlan generate() {
 
-        if (executionVertexes == null) {
+        if (logicalVertexes == null) {
             throw new IllegalArgumentException("ExecutionPlan Builder must have LogicalPlan and Action");
         }
-        List<ExecutionVertex> next = executionVertexes.values().stream().filter(a -> a.getAction() instanceof SourceAction)
+        List<LogicalVertex> next = logicalVertexes.values().stream().filter(a -> a.getAction() instanceof SourceAction)
                 .collect(Collectors.toList());
         while (!next.isEmpty()) {
-            List<ExecutionVertex> newNext = new ArrayList<>();
+            List<LogicalVertex> newNext = new ArrayList<>();
             next.forEach(n -> {
-                List<ExecutionVertex> nextVertex = convertExecutionActions(executionEdges, n.getAction());
+                List<LogicalVertex> nextVertex = convertExecutionActions(logicalEdges, n.getAction());
                 newNext.addAll(nextVertex);
             });
             next = newNext;
         }
 
-        Map<Integer, ExecutionVertex> vertexes = new HashMap<>();
-        actions.forEach((key, value) -> vertexes.put(key, new ExecutionVertex(key, value,
-                executionVertexes.get(key).getParallelism())));
+        Map<Integer, LogicalVertex> vertexes = new HashMap<>();
+        actions.forEach((key, value) -> vertexes.put(key, new LogicalVertex(key, value,
+                logicalVertexes.get(key).getParallelism())));
 
         return new ExecutionPlan(PipelineGenerator.generatePipelines(edgeMap.entrySet().stream()
-                .flatMap(e -> e.getValue().stream().map(d -> new ExecutionEdge(vertexes.get(e.getKey()),
-                        vertexes.get(d))))
+                .flatMap(e -> e.getValue().stream().map(d -> new ExecutionEdge(convertFromLogical(vertexes.get(e.getKey())),
+                        convertFromLogical(vertexes.get(d)))))
                 .collect(Collectors.toList())));
     }
 
-    private List<ExecutionVertex> convertExecutionActions(List<ExecutionEdge> executionEdges, Action start) {
+    private ExecutionVertex convertFromLogical(LogicalVertex vertex) {
+        return new ExecutionVertex(vertex.getVertexId(), vertex.getAction(), vertex.getParallelism());
+    }
+
+    private List<LogicalVertex> convertExecutionActions(List<LogicalEdge> logicalEdges, Action start) {
 
         Action end = start;
         Action executionAction;
@@ -90,7 +92,7 @@ public class ExecutionPlanGenerator {
             return Collections.emptyList();
         } else {
             List<SeaTunnelTransform> transforms = new ArrayList<>();
-            for (TransformAction t : findMigrateTransform(executionEdges, start)) {
+            for (TransformAction t : findMigrateTransform(logicalEdges, start)) {
                 transforms.add(t.getTransform());
                 end = t;
             }
@@ -112,9 +114,9 @@ public class ExecutionPlanGenerator {
 
         final Action e = end;
         // find next should be converted action
-        List<ExecutionVertex> nextStarts = executionEdges.stream().filter(edge -> edge.getLeftVertex().getAction().equals(e))
-                .map(ExecutionEdge::getRightVertex).collect(Collectors.toList());
-        for (ExecutionVertex n : nextStarts) {
+        List<LogicalVertex> nextStarts = logicalEdges.stream().filter(edge -> edge.getLeftVertex().getAction().equals(e))
+                .map(LogicalEdge::getRightVertex).collect(Collectors.toList());
+        for (LogicalVertex n : nextStarts) {
             if (!edgeMap.containsKey(executionAction.getId())) {
                 edgeMap.put(executionAction.getId(), new ArrayList<>());
             }
@@ -123,7 +125,7 @@ public class ExecutionPlanGenerator {
         return nextStarts;
     }
 
-    private List<TransformAction> findMigrateTransform(List<ExecutionEdge> executionEdges, Action start) {
+    private List<TransformAction> findMigrateTransform(List<LogicalEdge> executionEdges, Action start) {
         List<Action> actionAfterStart =
                 executionEdges.stream().filter(edge -> edge.getLeftVertex().getAction().equals(start))
                         .map(edge -> edge.getRightVertex().getAction()).collect(Collectors.toList());
