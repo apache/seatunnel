@@ -80,6 +80,9 @@ public class SeaTunnelHazelcastClient {
         try {
             ClientMessage response = invocation.invoke().get();
             return serializationService.toObject(decoder.apply(response));
+        } catch (InterruptedException i) {
+            Thread.currentThread().interrupt();
+            return null;
         } catch (Throwable t) {
             throw ExceptionUtil.rethrow(t);
         }
