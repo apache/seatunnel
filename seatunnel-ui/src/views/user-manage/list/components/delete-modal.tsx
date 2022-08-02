@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-import { defineComponent, PropType } from 'vue'
+import { defineComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Modal from '@/components/modal'
+import type { PropType } from 'vue'
 
 const props = {
   showModal: {

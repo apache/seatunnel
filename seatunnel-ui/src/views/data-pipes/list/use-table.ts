@@ -30,7 +30,8 @@ export function useTable() {
     totalPage: ref(1),
     row: {},
     loading: ref(false),
-    showDeleteModal: ref(false)
+    showDeleteModal: ref(false),
+    showPublishModal: ref(false)
   })
 
   const createColumns = (state: any) => {
@@ -59,7 +60,7 @@ export function useTable() {
             default: () => [
               h(NButton, { text: true }, t('data_pipes.execute')),
               h(NButton, { text: true }, t('data_pipes.edit')),
-              h(NButton, { text: true }, t('data_pipes.publish')),
+              h(NButton, { text: true, onClick: () => handlePublish(row) }, t('data_pipes.publish')),
               h(
                 NButton,
                 {
@@ -83,6 +84,11 @@ export function useTable() {
 
   const handleDelete = (row: any) => {
     state.showDeleteModal = true
+    state.row = row
+  }
+
+  const handlePublish = (row: any) => {
+    state.showPublishModal = true
     state.row = row
   }
 

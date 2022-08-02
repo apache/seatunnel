@@ -31,7 +31,7 @@ const props = {
   }
 }
 
-const DeleteModal = defineComponent({
+const PublishModal = defineComponent({
   props,
   emits: ['cancelModal', 'confirmModal'],
   setup(props, ctx) {
@@ -48,17 +48,17 @@ const DeleteModal = defineComponent({
   render() {
     return (
       <Modal
-        title={this.t('data_pipes.delete')}
+        title={this.t('data_pipes.publish')}
         show={this.showModal}
         onCancel={this.handleCancel}
         onConfirm={this.handleConfirm}
       >
         {{
-          default: () => <span>{this.t('data_pipes.data_pipes_delete_tips')}</span>
+          default: () => <span>{this.t('data_pipes.data_pipes_publish_tips')}</span>
         }}
       </Modal>
     )
   }
 })
 
-export default DeleteModal
+export default PublishModal
