@@ -63,7 +63,7 @@ public class LogicalEdge implements IdentifiedDataSerializable {
 
     @Override
     public int getClassId() {
-        return JobDataSerializerHook.EDGE;
+        return JobDataSerializerHook.LOGICAL_EDGE;
     }
 
     @Override

@@ -46,7 +46,7 @@ public class LogicalVertex implements IdentifiedDataSerializable {
 
     @Override
     public int getClassId() {
-        return JobDataSerializerHook.VERTEX;
+        return JobDataSerializerHook.LOGICAL_VERTEX;
     }
 
     @Override

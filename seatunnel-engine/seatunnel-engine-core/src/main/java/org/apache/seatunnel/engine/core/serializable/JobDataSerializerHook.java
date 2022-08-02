@@ -44,12 +44,12 @@ public final class JobDataSerializerHook implements DataSerializerHook {
     /**
      * Serialization ID of the {@link LogicalVertex} class.
      */
-    public static final int VERTEX = 1;
+    public static final int LOGICAL_VERTEX = 1;
 
     /**
      * Serialization ID of the {@link LogicalEdge} class.
      */
-    public static final int EDGE = 2;
+    public static final int LOGICAL_EDGE = 2;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_JOB_DATA_SERIALIZER_FACTORY,
@@ -73,9 +73,9 @@ public final class JobDataSerializerHook implements DataSerializerHook {
             switch (typeId) {
                 case LOGICAL_DAG:
                     return new LogicalDag();
-                case VERTEX:
+                case LOGICAL_VERTEX:
                     return new LogicalVertex();
-                case EDGE:
+                case LOGICAL_EDGE:
                     return new LogicalEdge();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
