@@ -26,8 +26,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import com.google.common.collect.Lists;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.types.Row;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -39,9 +39,9 @@ public class FlinkTaskExecuteCommandTest {
         FlinkApiTaskExecuteCommand flinkTaskExecuteCommand = new FlinkApiTaskExecuteCommand(null);
         // check success
         flinkTaskExecuteCommand.checkPluginType(JobMode.BATCH, sources);
-        Assert.assertThrows("checkPluginType should throw IllegalException", IllegalArgumentException.class, () -> {
-            flinkTaskExecuteCommand.checkPluginType(JobMode.STREAMING, sources);
-        });
+        Assertions.assertThrows(IllegalArgumentException.class,
+            () -> flinkTaskExecuteCommand.checkPluginType(JobMode.STREAMING, sources),
+            "checkPluginType should throw IllegalException");
     }
 
     private static class MockBatchSource implements FlinkBatchSource {

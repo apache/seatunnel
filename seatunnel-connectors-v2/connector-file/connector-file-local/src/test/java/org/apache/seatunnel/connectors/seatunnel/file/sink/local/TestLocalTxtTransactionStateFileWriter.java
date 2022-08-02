@@ -27,17 +27,14 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.Transacti
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransactionFileNameGenerator;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@RunWith(JUnit4.class)
 public class TestLocalTxtTransactionStateFileWriter {
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -85,23 +82,23 @@ public class TestLocalTxtTransactionStateFileWriter {
 
         Optional<FileCommitInfo> fileCommitInfoOptional = fileWriter.prepareCommit();
         //check file exists and file content
-        Assert.assertTrue(fileCommitInfoOptional.isPresent());
+        Assertions.assertTrue(fileCommitInfoOptional.isPresent());
         FileCommitInfo fileCommitInfo = fileCommitInfoOptional.get();
         String transactionDir = tmpPath + "/seatunnel/" + jobId + "/" + transactionId;
-        Assert.assertEquals(transactionDir, fileCommitInfo.getTransactionDir());
-        Assert.assertEquals(2, fileCommitInfo.getNeedMoveFiles().size());
+        Assertions.assertEquals(transactionDir, fileCommitInfo.getTransactionDir());
+        Assertions.assertEquals(2, fileCommitInfo.getNeedMoveFiles().size());
         Map<String, String> needMoveFiles = fileCommitInfo.getNeedMoveFiles();
-        Assert.assertEquals(targetPath + "/c3=str1/c4=str2/" + transactionId + ".txt", needMoveFiles.get(transactionDir + "/c3=str1/c4=str2/" + transactionId + ".txt"));
-        Assert.assertEquals(targetPath + "/c3=str1/c4=str3/" + transactionId + ".txt", needMoveFiles.get(transactionDir + "/c3=str1/c4=str3/" + transactionId + ".txt"));
+        Assertions.assertEquals(targetPath + "/c3=str1/c4=str2/" + transactionId + ".txt", needMoveFiles.get(transactionDir + "/c3=str1/c4=str2/" + transactionId + ".txt"));
+        Assertions.assertEquals(targetPath + "/c3=str1/c4=str3/" + transactionId + ".txt", needMoveFiles.get(transactionDir + "/c3=str1/c4=str3/" + transactionId + ".txt"));
 
         Map<String, List<String>> partitionDirAndValsMap = fileCommitInfo.getPartitionDirAndValsMap();
-        Assert.assertEquals(2, partitionDirAndValsMap.size());
-        Assert.assertTrue(partitionDirAndValsMap.keySet().contains("c3=str1/c4=str2"));
-        Assert.assertTrue(partitionDirAndValsMap.keySet().contains("c3=str1/c4=str3"));
-        Assert.assertTrue(partitionDirAndValsMap.get("c3=str1/c4=str2").size() == 2);
-        Assert.assertEquals("str1", partitionDirAndValsMap.get("c3=str1/c4=str2").get(0));
-        Assert.assertEquals("str2", partitionDirAndValsMap.get("c3=str1/c4=str2").get(1));
-        Assert.assertEquals("str1", partitionDirAndValsMap.get("c3=str1/c4=str3").get(0));
-        Assert.assertEquals("str3", partitionDirAndValsMap.get("c3=str1/c4=str3").get(1));
+        Assertions.assertEquals(2, partitionDirAndValsMap.size());
+        Assertions.assertTrue(partitionDirAndValsMap.keySet().contains("c3=str1/c4=str2"));
+        Assertions.assertTrue(partitionDirAndValsMap.keySet().contains("c3=str1/c4=str3"));
+        Assertions.assertTrue(partitionDirAndValsMap.get("c3=str1/c4=str2").size() == 2);
+        Assertions.assertEquals("str1", partitionDirAndValsMap.get("c3=str1/c4=str2").get(0));
+        Assertions.assertEquals("str2", partitionDirAndValsMap.get("c3=str1/c4=str2").get(1));
+        Assertions.assertEquals("str1", partitionDirAndValsMap.get("c3=str1/c4=str3").get(0));
+        Assertions.assertEquals("str3", partitionDirAndValsMap.get("c3=str1/c4=str3").get(1));
     }
 }

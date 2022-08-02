@@ -19,8 +19,8 @@ package org.apache.seatunnel.core.flink;
 
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileNotFoundException;
 import java.util.Arrays;
@@ -42,6 +42,6 @@ public class FlinkEnvParameterParserTest {
         String[] expected = {"-Dexecution.parallelism=1",
             "-Dexecution.checkpoint.interval=10000", "-Dexecution.checkpoint.data-uri=hdfs://localhost:9000/checkpoint", "-Dname=tom", "-Dage=1"};
         Arrays.sort(expected);
-        Assert.assertArrayEquals(expected, envParameters.toArray());
+        Assertions.assertArrayEquals(expected, envParameters.toArray());
     }
 }

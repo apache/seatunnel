@@ -25,17 +25,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.util.List;
 
-@RunWith(JUnit4.class)
-public class TestHiveSinkConfig {
+public class HiveSinkConfigTest {
 
-    @Test
+    /**
+     * test hive sink config.
+     * <p> TODO: Uncouple from the hive environment
+     */
     public void testCreateHiveSinkConfig() {
         String[] fieldNames = new String[]{"name", "age"};
         SeaTunnelDataType[] seaTunnelDataTypes = new SeaTunnelDataType[]{BasicType.STRING_TYPE, BasicType.INT_TYPE};

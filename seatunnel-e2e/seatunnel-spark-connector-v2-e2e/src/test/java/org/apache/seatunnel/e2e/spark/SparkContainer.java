@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.e2e.spark;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -62,7 +62,7 @@ public abstract class SparkContainer {
 
     private static final int WAIT_SPARK_JOB_SUBMIT = 5000;
 
-    @Before
+    @BeforeEach
     public void before() {
         master = new GenericContainer<>(SPARK_DOCKER_IMAGE)
             .withNetwork(NETWORK)
@@ -78,7 +78,7 @@ public abstract class SparkContainer {
         LOG.info("Spark container started");
     }
 
-    @After
+    @AfterEach
     public void close() {
         if (master != null) {
             master.stop();

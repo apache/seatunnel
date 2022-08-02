@@ -46,6 +46,12 @@
             <artifactId>pulsar</artifactId>
             <version>${testcontainer.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>junit</artifactId>
+                    <groupId>junit</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Pulsar bundles the latest bookkeeper & zookeeper, -->
@@ -71,6 +77,12 @@
             <artifactId>pulsar-broker</artifactId>
             <version>${pulsar.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>junit</artifactId>
+                    <groupId>junit</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- Pulsar use a newer commons-lang3 in broker. -->
         <!-- Bump the version only for testing. -->
