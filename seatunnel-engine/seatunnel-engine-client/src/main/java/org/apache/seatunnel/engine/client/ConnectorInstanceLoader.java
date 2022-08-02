@@ -40,6 +40,10 @@ import java.util.List;
 import scala.Serializable;
 
 public class ConnectorInstanceLoader {
+    private ConnectorInstanceLoader() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static ImmutablePair<SeaTunnelSource, List<URL>> loadSourceInstance(Config sourceConfig) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
         PluginIdentifier pluginIdentifier = PluginIdentifier.of(

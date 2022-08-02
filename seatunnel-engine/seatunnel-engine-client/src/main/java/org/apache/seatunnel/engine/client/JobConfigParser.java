@@ -81,7 +81,13 @@ public class JobConfigParser {
         List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
 
-        if (sinkConfigs.size() == 1 && sourceConfigs.size() == 1 & transformConfigs.size() <= 1) {
+        if (CollectionUtils.isEmpty(sinkConfigs) || CollectionUtils.isEmpty(sourceConfigs)) {
+            throw new JobDefineCheckExceptionSeaTunnel("Source And Sink can not be null");
+        }
+
+        if (sinkConfigs.size() == 1
+            && sourceConfigs.size() == 1
+            && (CollectionUtils.isEmpty(transformConfigs) || transformConfigs.size() == 1)) {
             sampleAnalyze(sourceConfigs, transformConfigs, sinkConfigs);
         } else {
             complexAnalyze(sourceConfigs, transformConfigs, sinkConfigs);
@@ -241,9 +247,11 @@ public class JobConfigParser {
         sourceAction.setParallelism(getSourceParallelism(sourceConfigs.get(0)));
 
         ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, List<URL>>
-            sinkListImmutablePair;
+            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
 
-        if (transformConfigs.size() != 0) {
+        Action sinkUpstreamAction = sourceAction;
+
+        if (!CollectionUtils.isEmpty(transformConfigs)) {
             ImmutablePair<SeaTunnelTransform, List<URL>> transformListImmutablePair =
                 ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0));
 
@@ -257,31 +265,18 @@ public class JobConfigParser {
             initTransformParallelism(transformConfigs, sourceAction, transformListImmutablePair.getLeft(),
                 transformAction);
 
-            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
-
-            SinkAction sinkAction = createSinkAction(
-                idGenerator.getNextId(),
-                sinkListImmutablePair.getLeft().getPluginName(),
-                Lists.newArrayList(transformAction),
-                sinkListImmutablePair.getLeft(),
-                sinkListImmutablePair.getRight()
-            );
-            sinkAction.setParallelism(transformAction.getParallelism());
-            actions.add(sinkAction);
-        } else {
-            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
-
-            SinkAction sinkAction = createSinkAction(
-                idGenerator.getNextId(),
-                sinkListImmutablePair.getLeft().getPluginName(),
-                Lists.newArrayList(sourceAction),
-                sinkListImmutablePair.getLeft(),
-                sinkListImmutablePair.getRight()
-            );
-
-            sinkAction.setParallelism(sourceAction.getParallelism());
-            actions.add(sinkAction);
+            sinkUpstreamAction = transformAction;
         }
+
+        SinkAction sinkAction = createSinkAction(
+            idGenerator.getNextId(),
+            sinkListImmutablePair.getLeft().getPluginName(),
+            Lists.newArrayList(sinkUpstreamAction),
+            sinkListImmutablePair.getLeft(),
+            sinkListImmutablePair.getRight()
+        );
+        sinkAction.setParallelism(sinkUpstreamAction.getParallelism());
+        actions.add(sinkAction);
     }
 
     private void initTransformParallelism(List<? extends Config> transformConfigs, Action upstreamAction,

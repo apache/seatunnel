@@ -100,7 +100,6 @@ public class SeaTunnelHazelcastClient {
     }
 
     public CompletableFuture<Void> requestOnAnyMemberAndGetCompletableFuture(@NonNull ClientMessage request) {
-        UUID masterUuid = hazelcastClient.getClientClusterService().getMasterMember().getUuid();
-        return requestAndGetCompletableFuture(masterUuid, request);
+        return requestAndGetCompletableFuture(null, request);
     }
 }
