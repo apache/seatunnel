@@ -395,7 +395,6 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Apache Hadoop Auth (org.apache.hadoop:hadoop-auth:2.7.4 - no url defined)
      (Apache License, Version 2.0) Apache Hadoop Auth (org.apache.hadoop:hadoop-auth:3.0.0 - no url defined)
      (Apache License, Version 2.0) Apache Hadoop Client (org.apache.hadoop:hadoop-client:2.6.5 - no url defined)
-     (Apache License, Version 2.0) Email (com.sun.mail:javax.mail:7.4.1 - no url defined)
      (Apache License, Version 2.0) Apache Hadoop Client (org.apache.hadoop:hadoop-client:3.0.0 - no url defined)
      (Apache License, Version 2.0) Apache Hadoop Common (org.apache.hadoop:hadoop-common:2.6.5 - no url defined)
      (Apache License, Version 2.0) Apache Hadoop Common (org.apache.hadoop:hadoop-common:2.7.7 - no url defined)
