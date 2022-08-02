@@ -89,7 +89,6 @@ public class KuduInputFormat implements Serializable {
 
         List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
-
         for (int i = 0; i < seaTunnelDataTypes.length; i++) {
             Object seatunnelField;
             SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[i];
@@ -136,7 +135,7 @@ public class KuduInputFormat implements Serializable {
                 seaTunnelDataTypes.add(KuduTypeMapper.mapping(columnSchemaList, i));
             }
         } catch (Exception e) {
-            LOGGER.warn("get row type info exception", e);
+            LOGGER.warn("get row type info exception.", e);
             throw new PrepareFailException("kudu", PluginType.SOURCE, e.toString());
         }
         return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
