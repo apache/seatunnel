@@ -18,14 +18,19 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.util.UUID;
 
 public class SeaTunnelTask implements Task {
 
@@ -34,6 +39,11 @@ public class SeaTunnelTask implements Task {
     private final PhysicalExecutionFlow executionFlow;
     private final long taskID;
     private Progress progress;
+
+    // TODO init memberID in task execution service
+    private UUID memberID = UUID.randomUUID();
+    // TODO add master address
+    private Address master = new Address();
 
     public SeaTunnelTask(long taskID, PhysicalExecutionFlow executionFlow) {
         this.taskID = taskID;
@@ -64,16 +74,19 @@ public class SeaTunnelTask implements Task {
 
     private void register() {
         if (startFromSource()) {
-            // TODO send to master
-//            operationService.send(new RegisterOperation(),);
+            operationService.invokeOnTarget(SeaTunnelServer.SERVICE_NAME, new RegisterOperation(taskID, memberID),
+                    master);
         }
     }
 
+    private void requestSplit() {
+        operationService.invokeOnTarget(SeaTunnelServer.SERVICE_NAME, new RequestSplitOperation<>(taskID,
+                memberID), master);
+    }
 
     private boolean startFromSource() {
         return executionFlow.getAction() instanceof SourceAction;
     }
-
 
     @Override
     public void setOperationService(OperationService operationService) {

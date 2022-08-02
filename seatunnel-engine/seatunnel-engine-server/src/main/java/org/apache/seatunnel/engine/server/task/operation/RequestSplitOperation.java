@@ -27,28 +27,24 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import java.io.IOException;
 import java.util.UUID;
 
-/**
- * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
- * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
- */
-public class RegisterOperation extends Operation implements IdentifiedDataSerializable {
+public class RequestSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
 
     private UUID memberID;
 
     private long taskID;
 
-    public RegisterOperation() {
+    public RequestSplitOperation() {
     }
 
-    public RegisterOperation(long taskID, UUID memberID) {
-        this.taskID = taskID;
+    public RequestSplitOperation(long taskID, UUID memberID) {
         this.memberID = memberID;
+        this.taskID = taskID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        // TODO register reader to enumerator
+        // TODO ask source split enumerator return split
     }
 
     @Override
@@ -77,6 +73,6 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
 
     @Override
     public int getClassId() {
-        return TaskOperationFactory.REGISTER_TYPE;
+        return TaskOperationFactory.REQUEST_SPLIT_TYPE;
     }
 }

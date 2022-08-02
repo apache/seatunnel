@@ -36,7 +36,8 @@ public class SourceSplitEnumeratorTask extends CoordinatorTask {
     @Override
     public void init() throws Exception {
         this.progress = new Progress();
-        enumerator = this.source.getSource().createEnumerator(new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism()));
+        enumerator = this.source.getSource()
+                .createEnumerator(new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this.operationService));
         enumerator.open();
     }
 
@@ -66,6 +67,10 @@ public class SourceSplitEnumeratorTask extends CoordinatorTask {
 
     private void receivedReader(int readId) {
         enumerator.registerReader(readId);
+    }
+
+    private void requestSplit(int taskID) {
+        enumerator.handleSplitRequest(taskID);
     }
 
 }

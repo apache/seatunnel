@@ -26,12 +26,17 @@ public class TaskOperationFactory implements DataSerializableFactory {
 
     public static final int REGISTER_TYPE = 1;
 
+    public static final int REQUEST_SPLIT_TYPE = 2;
+
     @Override
     public IdentifiedDataSerializable create(int typeId) {
-        if (typeId == REGISTER_TYPE) {
-            return new RegisterOperation();
-        } else {
-            return null;
+        switch (typeId) {
+            case 1:
+                return new RegisterOperation();
+            case 2:
+                return new RequestSplitOperation<>();
+            default:
+                return null;
         }
     }
 }
