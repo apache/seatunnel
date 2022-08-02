@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task;
+package org.apache.seatunnel.engine.server.master;
 
-import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalExecutionFlow;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 
@@ -27,34 +28,31 @@ import lombok.NonNull;
 
 import java.io.IOException;
 
-public class SeaTunnelTask implements Task {
+public class JobMaster implements Task {
 
-    private static final long serialVersionUID = 2604309561613784425L;
-    private OperationService operationService;
-    private final PhysicalExecutionFlow executionFlow;
-    private final long taskID;
-    private Progress progress;
+    private final LogicalDag logicalDag;
+    private PhysicalPlan physicalPlan;
 
-    public SeaTunnelTask(long taskID, PhysicalExecutionFlow executionFlow) {
-        this.taskID = taskID;
-        this.executionFlow = executionFlow;
+    public JobMaster() {
+        this.logicalDag = new LogicalDag();
     }
 
     @Override
-    public void init() {
-        progress = new Progress();
+    public void init() throws Exception {
+        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag);
+
     }
 
     @NonNull
     @Override
     public ProgressState call() {
-        return progress.toState();
+        return ProgressState.DONE;
     }
 
     @NonNull
     @Override
     public Long getTaskID() {
-        return taskID;
+        return null;
     }
 
     @Override
@@ -62,21 +60,8 @@ public class SeaTunnelTask implements Task {
         Task.super.close();
     }
 
-    private void register() {
-        if (startFromSource()) {
-            // TODO send to master
-//            operationService.send(new RegisterOperation(),);
-        }
-    }
-
-
-    private boolean startFromSource() {
-        return executionFlow.getAction() instanceof SourceAction;
-    }
-
-
     @Override
     public void setOperationService(OperationService operationService) {
-        this.operationService = operationService;
+        Task.super.setOperationService(operationService);
     }
 }
