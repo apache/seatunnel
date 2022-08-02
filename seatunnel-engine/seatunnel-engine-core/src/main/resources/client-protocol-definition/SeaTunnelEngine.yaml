@@ -39,3 +39,18 @@ methods:
           nullable: false
           since: 2.0
           doc: ''
+
+  - id: 2
+    name: submitJob
+    since: 2.0
+    doc: ''
+    request:
+      retryable: false
+      partitionIdentifier: -1
+      params:
+        - name: jobImmutableInformation
+          type: Data
+          nullable: false
+          since: 2.0
+          doc: ''
+    response: {}
