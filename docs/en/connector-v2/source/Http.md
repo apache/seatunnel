@@ -18,7 +18,7 @@ http request url
 
 ### method [string]
 
-http request method, supports GET, POST, PUT, DELETE method.
+http request method, only supports GET, POST method.
 
 ### headers [Map]
 
@@ -37,7 +37,7 @@ http body
 simple:
 
 ```hocon
-HttpSource {
+Http {
         url = "http://localhost/test/query"
         method = "GET"
         headers {

@@ -47,7 +47,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public String getPluginName() {
-        return "HttpSource";
+        return "Http";
     }
 
     @Override
