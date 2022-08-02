@@ -15,20 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server;
+package org.apache.seatunnel.engine.core.job;
 
-import org.apache.seatunnel.engine.common.Constant;
+public interface Job {
+    long getJobId();
 
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-
-public class SeaTunnelServerStarter {
-
-    public static void main(String[] args) {
-        Config config = new Config();
-        config.getSecurityConfig().setEnabled(false);
-        config.getJetConfig().setEnabled(false);
-        config.setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
-        HazelcastInstanceFactory.newHazelcastInstance(config, Thread.currentThread().getName(), new SeaTunnelNodeContext());
-    }
+    void submitJob();
 }

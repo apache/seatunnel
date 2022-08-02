@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server;
+package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import lombok.NonNull;
 
-public class SeaTunnelServerStarter {
+public class JobClient {
+    private SeaTunnelHazelcastClient hazelcastClient;
 
-    public static void main(String[] args) {
-        Config config = new Config();
-        config.getSecurityConfig().setEnabled(false);
-        config.getJetConfig().setEnabled(false);
-        config.setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
-        HazelcastInstanceFactory.newHazelcastInstance(config, Thread.currentThread().getName(), new SeaTunnelNodeContext());
+    public JobClient(@NonNull SeaTunnelHazelcastClient hazelcastClient) {
+        this.hazelcastClient = hazelcastClient;
+    }
+
+    public long getNewJobId() {
+        return hazelcastClient.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+    }
+
+    public JobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
+        return new JobProxy(hazelcastClient, jobImmutableInformation);
     }
 }

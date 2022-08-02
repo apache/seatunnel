@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.core.dag.actions;
 
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,15 +31,19 @@ public abstract class AbstractAction implements Action {
 
     private int parallelism = 1;
 
-    protected AbstractAction(int id, @NonNull String name, @NonNull List<Action> upstreams) {
+    private List<URL> jarUrls;
+
+    protected AbstractAction(int id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull List<URL> jarUrls) {
         this.id = id;
         this.name = name;
         this.upstreams = upstreams;
+        this.jarUrls = jarUrls;
     }
 
-    protected AbstractAction(int id, @NonNull String name) {
+    protected AbstractAction(int id, @NonNull String name, @NonNull List<URL> jarUrls) {
         this.id = id;
         this.name = name;
+        this.jarUrls = jarUrls;
     }
 
     @NonNull
@@ -76,5 +81,10 @@ public abstract class AbstractAction implements Action {
     @Override
     public int getId() {
         return id;
+    }
+
+    @Override
+    public List<URL> getJarUrls() {
+        return jarUrls;
     }
 }
