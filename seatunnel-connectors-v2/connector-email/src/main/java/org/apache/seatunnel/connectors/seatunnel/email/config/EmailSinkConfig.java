@@ -30,11 +30,17 @@ public class EmailSinkConfig {
     private static final String EMAIL_AUTHORIZATION_CODE = "email_authorization_code";
     private static final String EMAIL_MESSAGE_HEADLINE = "email_message_headline";
     private static final String EMAIL_MESSAGE_CONTENT = "email_message_content";
+    private static final String EMAIL_HOST = "email_host";
+    private static final String EMAIL_TRANSPORT_PROTOCOL = "email_transport_protocol";
+    private static final String EMAIL_SMTP_AUTH = "email_smtp_auth";
     private String emailFromAddress;
     private String emailToAddress;
     private String emailAuthorizationCode;
     private String emailMessageHeadline;
     private String emailMessageContent;
+    private String emailHost;
+    private String emailTransportProtocol;
+    private String emailSmtpAuth;
 
     public EmailSinkConfig(@NonNull Config pluginConfig) {
         if (pluginConfig.hasPath(EMAIL_FROM_ADDRESS)) {
@@ -51,6 +57,15 @@ public class EmailSinkConfig {
         }
         if (pluginConfig.hasPath(EMAIL_MESSAGE_CONTENT)) {
             this.emailMessageContent = pluginConfig.getString(EMAIL_MESSAGE_CONTENT);
+        }
+        if (pluginConfig.hasPath(EMAIL_HOST)) {
+            this.emailHost = pluginConfig.getString(EMAIL_HOST);
+        }
+        if (pluginConfig.hasPath(EMAIL_TRANSPORT_PROTOCOL)) {
+            this.emailTransportProtocol = pluginConfig.getString(EMAIL_TRANSPORT_PROTOCOL);
+        }
+        if (pluginConfig.hasPath(EMAIL_SMTP_AUTH)) {
+            this.emailSmtpAuth = pluginConfig.getString(EMAIL_SMTP_AUTH);
         }
     }
 }

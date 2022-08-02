@@ -79,11 +79,11 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         createFile();
         Properties properties = new Properties();
 
-        properties.setProperty("mail.host", "smtp.qq.com");
+        properties.setProperty("mail.host", config.getEmailHost());
 
-        properties.setProperty("mail.transport.protocol", "smtp");
+        properties.setProperty("mail.transport.protocol", config.getEmailTransportProtocol());
 
-        properties.setProperty("mail.smtp.auth", "true");
+        properties.setProperty("mail.smtp.auth", config.getEmailSmtpAuth());
 
         try {
             MailSSLSocketFactory sf = new MailSSLSocketFactory();
