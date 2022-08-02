@@ -19,17 +19,9 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
 
-import com.hazelcast.core.HazelcastInstance;
-import lombok.NonNull;
-
 public interface SeaTunnelClientInstance {
 
-    /**
-     * Returns the underlying Hazelcast IMDG instance used by SeaTunnel Engine Client. It will
-     * be a client, depending on the type of this
-     */
-    @NonNull
-    HazelcastInstance getHazelcastInstance();
-
     JobExecutionEnvironment createExecutionContext(String filePath, JobConfig config);
+
+    JobClient createJobClient();
 }

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.List;
 
 @SuppressWarnings("checkstyle:ClassTypeParameterName")
@@ -30,15 +31,17 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
     public SinkAction(int id,
                       @NonNull String name,
                       @NonNull List<Action> upstreams,
-                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
-        super(id, name, upstreams);
+                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+                      @NonNull List<URL> jarUrls) {
+        super(id, name, upstreams, jarUrls);
         this.sink = sink;
     }
 
     public SinkAction(int id,
                       @NonNull String name,
-                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
-        super(id, name);
+                      @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+                      @NonNull List<URL> jarUrls) {
+        super(id, name, jarUrls);
         this.sink = sink;
     }
 }

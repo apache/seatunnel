@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.List;
 
 public class PartitionTransformAction extends AbstractAction {
@@ -29,15 +30,17 @@ public class PartitionTransformAction extends AbstractAction {
     public PartitionTransformAction(int id,
                                     @NonNull String name,
                                     @NonNull List<Action> upstreams,
-                                    @NonNull PartitionSeaTunnelTransform partitionTransformation) {
-        super(id, name, upstreams);
+                                    @NonNull PartitionSeaTunnelTransform partitionTransformation,
+                                    @NonNull List<URL> jarUrls) {
+        super(id, name, upstreams, jarUrls);
         this.partitionTransformation = partitionTransformation;
     }
 
     public PartitionTransformAction(int id,
                                     @NonNull String name,
-                                    @NonNull PartitionSeaTunnelTransform partitionTransformation) {
-        super(id, name);
+                                    @NonNull PartitionSeaTunnelTransform partitionTransformation,
+                                    @NonNull List<URL> jarUrls) {
+        super(id, name, jarUrls);
         this.partitionTransformation = partitionTransformation;
     }
 }

@@ -22,12 +22,15 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 @RunWith(JUnit4.class)
 public class JobConfigParserTest {
@@ -38,7 +41,8 @@ public class JobConfigParserTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file.conf");
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
-        List<Action> actions = jobConfigParser.parse();
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        List<Action> actions = parse.getLeft();
         Assert.assertEquals(1, actions.size());
 
         Assert.assertEquals("LocalFile", actions.get(0).getName());
@@ -55,7 +59,8 @@ public class JobConfigParserTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
-        List<Action> actions = jobConfigParser.parse();
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        List<Action> actions = parse.getLeft();
         Assert.assertEquals(1, actions.size());
 
         Assert.assertEquals("LocalFile", actions.get(0).getName());

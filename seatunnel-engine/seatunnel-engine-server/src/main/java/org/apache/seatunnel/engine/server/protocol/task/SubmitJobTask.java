@@ -17,34 +17,35 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
-import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
-import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
+import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class PrintMessageTask extends AbstractSeaTunnelMessageTask<String, String> {
+public class SubmitJobTask extends AbstractSeaTunnelMessageTask<Data, Void> {
 
-    protected PrintMessageTask(ClientMessage clientMessage, Node node, Connection connection) {
+    protected SubmitJobTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(clientMessage, node, connection,
-            SeaTunnelPrintMessageCodec::decodeRequest,
-            SeaTunnelPrintMessageCodec::encodeResponse);
+            SeaTunnelSubmitJobCodec::decodeRequest,
+            x -> SeaTunnelSubmitJobCodec.encodeResponse());
     }
 
     @Override
     protected Operation prepareOperation() {
-        return new PrintMessageOperation(parameters);
+        return new SubmitJobOperation(parameters);
     }
 
     @Override
     public String getMethodName() {
-        return "printMessage";
+        return "submitJob";
     }
 
     @Override
     public Object[] getParameters() {
-        return new Object[0];
+        return new Object[]{};
     }
 }

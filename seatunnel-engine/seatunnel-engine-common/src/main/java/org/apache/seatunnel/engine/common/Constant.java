@@ -19,4 +19,8 @@ package org.apache.seatunnel.engine.common;
 
 public class Constant {
     public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+
+    public static final String SEATUNNEL_ID_GENERATOR_NAME = "SeaTunnelIdGenerator";
+
+    public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "SeaTunnel";
 }
