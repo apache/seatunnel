@@ -20,6 +20,7 @@ import { NSpace, NCard, NButton, NBreadcrumb, NBreadcrumbItem, NTabs, NTabPane }
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import MonacoEditor from '@/components/monaco-editor'
+import DetailOverview from './components/detail-overview'
 import type { Router } from 'vue-router'
 
 const DataPipesDetail = defineComponent({
@@ -56,9 +57,11 @@ const DataPipesDetail = defineComponent({
             </NSpace>
           }}
         </NCard>
-        <NTabs type='segment' class='mt-7'>
+        <NTabs type='segment' class='mt-9'>
           <NTabPane name='overview' tab={this.t('data_pipes.overview')}>
-            <NCard>overview</NCard>
+            <NCard>
+              <DetailOverview />
+            </NCard>
           </NTabPane>
           <NTabPane name='script' tab={this.t('data_pipes.script')}>
             <NCard>
