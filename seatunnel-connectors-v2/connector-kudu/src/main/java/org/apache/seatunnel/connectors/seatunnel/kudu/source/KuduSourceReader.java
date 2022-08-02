@@ -38,14 +38,14 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KuduSourceReader.class);
 
-    private final Context context;
+    private final SourceReader.Context context;
 
     private final KuduInputFormat kuduInputFormat;
     Deque<KuduSourceSplit> splits = new LinkedList<>();
 
     boolean noMoreSplit;
 
-    public KuduSourceReader(KuduInputFormat kuduInputFormat, Context context) {
+    public KuduSourceReader(KuduInputFormat kuduInputFormat, SourceReader.Context context) {
         this.context = context;
         this.kuduInputFormat = kuduInputFormat;
     }

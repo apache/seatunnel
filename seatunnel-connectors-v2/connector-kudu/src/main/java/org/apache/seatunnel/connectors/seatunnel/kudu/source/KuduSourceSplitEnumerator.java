@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 
 public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSourceSplit, KuduSourceState> {
 
-    private final Context<KuduSourceSplit> enumeratorContext;
+    private final SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext;
     private PartitionParameter partitionParameter;
     List<KuduSourceSplit> allSplit = new ArrayList<>();
     private Long maxVal;
@@ -36,7 +36,7 @@ public class KuduSourceSplitEnumerator implements SourceSplitEnumerator<KuduSour
     private Long batchSize;
     private Integer batchNum;
 
-    public KuduSourceSplitEnumerator(Context<KuduSourceSplit> enumeratorContext, PartitionParameter partitionParameter) {
+    public KuduSourceSplitEnumerator(SourceSplitEnumerator.Context<KuduSourceSplit> enumeratorContext, PartitionParameter partitionParameter) {
         this.enumeratorContext = enumeratorContext;
         this.partitionParameter = partitionParameter;
     }
