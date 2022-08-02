@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
@@ -80,9 +81,11 @@ public class EsRestClient {
         request.setJsonEntity(requestBody);
         try {
             Response response = restClient.performRequest(request);
-            if (response.getStatusLine().getStatusCode() == 200) {
+            if (response == null) {
+                throw new BulkElasticsearchException("bulk es Response is null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 ObjectMapper objectMapper = new ObjectMapper();
-
                 String entity = EntityUtils.toString(response.getEntity());
                 JsonNode json = objectMapper.readTree(entity);
                 int took = json.get("took").asInt();
