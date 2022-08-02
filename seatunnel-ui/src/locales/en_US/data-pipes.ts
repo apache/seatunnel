@@ -55,5 +55,6 @@ export default {
   output_metrics: 'Output Metrics',
   end_time: 'End Time',
   data_pipes_delete_tips:
-    'Whether to delete the data Pipe，It cannot be restored after being deleted.'
+    'Whether to delete the data Pipe，It cannot be restored after being deleted.',
+  data_pipes_publish_tips: 'Whether to Publish the data pipe.'
 }

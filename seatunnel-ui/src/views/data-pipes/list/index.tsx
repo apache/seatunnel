@@ -20,6 +20,7 @@ import { useI18n } from 'vue-i18n'
 import { useTable } from './use-table'
 import { NButton, NCard, NDataTable, NPagination, NSpace } from 'naive-ui'
 import DeleteModal from './components/delete-modal'
+import PublishModal from './components/publish-modal'
 
 const DataPipesList = defineComponent({
   setup() {
@@ -34,11 +35,20 @@ const DataPipesList = defineComponent({
       state.showDeleteModal = false
     }
 
+    const handleCancelPublishModal = () => {
+      state.showPublishModal = false
+    }
+
+    const handleConfirmPublishModal = () => {
+      state.showPublishModal = false
+    }
+
+
     onMounted(() => {
       createColumns(state)
     })
 
-    return { t, ...toRefs(state), handleCancelDeleteModal, handleConfirmDeleteModal }
+    return { t, ...toRefs(state), handleCancelDeleteModal, handleConfirmDeleteModal, handleCancelPublishModal, handleConfirmPublishModal }
   },
   render() {
     return (
@@ -74,6 +84,12 @@ const DataPipesList = defineComponent({
           row={this.row}
           onCancelModal={this.handleCancelDeleteModal}
           onConfirmModal={this.handleConfirmDeleteModal}
+        />
+        <PublishModal
+          showModal={this.showPublishModal}
+          row={this.row}
+          onCancelModal={this.handleCancelPublishModal}
+          onConfirmModal={this.handleConfirmPublishModal}
         />
       </NSpace>
     )
