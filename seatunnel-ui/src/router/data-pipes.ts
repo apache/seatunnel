@@ -37,6 +37,14 @@ export default {
       meta: {
         title: 'data-pipes-list'
       }
+    },
+    {
+      path: '/data-pipes/:dataPipeCode',
+      name: 'data-pipes-detail',
+      component: components['data-pipes-detail'],
+      meta: {
+        title: 'data-pipes-detail'
+      }
     }
   ]
 }

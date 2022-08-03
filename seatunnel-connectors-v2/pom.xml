@@ -44,18 +44,12 @@
         <module>connector-file</module>
         <module>connector-hudi</module>
         <module>connector-assert</module>
+        <module>connector-dingtalk</module>
     </modules>
 
     <dependencies>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-        </dependency>
     </dependencies>
+
     <build>
         <plugins>
             <plugin>

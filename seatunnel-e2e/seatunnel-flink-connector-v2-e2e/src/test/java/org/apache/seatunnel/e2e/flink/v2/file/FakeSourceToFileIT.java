@@ -19,8 +19,8 @@ package org.apache.seatunnel.e2e.flink.v2.file;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;

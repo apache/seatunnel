@@ -23,8 +23,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -46,8 +46,8 @@ public class CompleteTest {
         String sql1 = config.getConfigList("transform").get(1).getString("sql");
         String sql2 = config.getConfigList("transform").get(2).getString("sql");
 
-        Assert.assertTrue(sql1.contains("shanghai"));
-        Assert.assertTrue(sql2.contains("20190318"));
+        Assertions.assertTrue(sql1.contains("shanghai"));
+        Assertions.assertTrue(sql2.contains("20190318"));
 
     }
 

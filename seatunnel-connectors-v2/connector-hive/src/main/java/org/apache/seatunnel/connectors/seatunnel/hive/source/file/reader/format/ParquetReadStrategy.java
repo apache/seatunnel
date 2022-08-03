@@ -32,6 +32,8 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.hadoop.ParquetFileReader;
@@ -47,6 +49,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,8 +58,13 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
     private SeaTunnelRowType seaTunnelRowType;
 
+    private static final byte[] PARQUET_MAGIC = new byte[]{(byte) 'P', (byte) 'A', (byte) 'R', (byte) '1'};
+
     @Override
     public void read(String path, Collector<SeaTunnelRow> output) throws Exception {
+        if (Boolean.FALSE.equals(checkFileType(path))) {
+            throw new Exception("please check file type");
+        }
         Path filePath = new Path(path);
         HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, getConfiguration());
         int fieldsCount = seaTunnelRowType.getTotalFields();
@@ -145,6 +153,27 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             }
         } else {
             return new BigDecimal(new BigInteger(value.getBytes()), scale);
+        }
+    }
+
+    @Override
+    boolean checkFileType(String path) {
+        boolean checkResult;
+        byte[] magic = new byte[PARQUET_MAGIC.length];
+        try {
+            Configuration configuration = getConfiguration();
+            FileSystem fileSystem = FileSystem.get(configuration);
+            Path filePath = new Path(path);
+            FSDataInputStream in = fileSystem.open(filePath);
+            // try to get header information in a parquet file
+            in.seek(0);
+            in.readFully(magic);
+            checkResult = Arrays.equals(magic, PARQUET_MAGIC);
+            in.close();
+            return checkResult;
+        } catch (HivePluginException | IOException e) {
+            String errorMsg = String.format("Check parquet file [%s] error", path);
+            throw new RuntimeException(errorMsg, e);
         }
     }
 
