@@ -27,7 +27,6 @@ import com.hazelcast.internal.yaml.YamlLoader;
 import com.hazelcast.internal.yaml.YamlMapping;
 import com.hazelcast.internal.yaml.YamlNode;
 import com.hazelcast.jet.impl.util.ExceptionUtil;
-import lombok.NonNull;
 import org.w3c.dom.Node;
 
 import java.io.InputStream;
