@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.spi.impl.operationservice.OperationService;
 
@@ -50,7 +49,6 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
-//        operationService.invokeOnTarget(SeaTunnelServer.SERVICE_NAME,)
     }
 
     @Override

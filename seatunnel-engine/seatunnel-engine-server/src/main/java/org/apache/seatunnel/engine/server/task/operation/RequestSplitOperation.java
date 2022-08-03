@@ -44,6 +44,7 @@ public class RequestSplitOperation<SplitT> extends Operation implements Identifi
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
+        server.getTaskExecutionService().getExecutionContext(taskID);
         // TODO ask source split enumerator return split
     }
 
