@@ -16,7 +16,7 @@ Write data to Kudu.
 
 ### kudu_master [string]
 
-`kudu_master` The address of kudu master,such as '192.168.88.110:7051'.
+`kudu_master`  The address of kudu master,such as '192.168.88.110:7051'.
 
 ### kudu_table [string]
 
