@@ -207,8 +207,9 @@ public class ClickhouseFileSinkWriter implements SinkWriter<SeaTunnelRow, CKComm
 
     private void attachClickhouseLocalFileToServer(Shard shard, List<String> clickhouseLocalFiles) throws ClickHouseException {
         String hostAddress = shard.getNode().getAddress().getHostName();
+        String user = readerOption.getNodeUser().getOrDefault(hostAddress, "root");
         String password = readerOption.getNodePassword().getOrDefault(hostAddress, null);
-        FileTransfer fileTransfer = FileTransferFactory.createFileTransfer(this.readerOption.getCopyMethod(), hostAddress, password);
+        FileTransfer fileTransfer = FileTransferFactory.createFileTransfer(this.readerOption.getCopyMethod(), hostAddress, user, password);
         fileTransfer.init();
         fileTransfer.transferAndChown(clickhouseLocalFiles, shardLocalDataPaths.get(shard).get(0) + "detached/");
         fileTransfer.close();

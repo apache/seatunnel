@@ -126,7 +126,7 @@ public class HellpSourceIT extends FlinkContainer {
     @Test
     public void testHellpSource() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/hello/hellosource.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
         // do some other assertion here
     }
 }

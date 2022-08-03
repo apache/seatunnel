@@ -19,17 +19,36 @@ import { defineComponent, onMounted, toRefs } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTable } from './use-table'
 import { NButton, NCard, NDataTable, NPagination, NSpace } from 'naive-ui'
+import DeleteModal from './components/delete-modal'
+import PublishModal from './components/publish-modal'
 
 const DataPipesList = defineComponent({
   setup() {
     const { t } = useI18n()
     const { state, createColumns } = useTable()
 
+    const handleCancelDeleteModal = () => {
+      state.showDeleteModal = false
+    }
+
+    const handleConfirmDeleteModal = () => {
+      state.showDeleteModal = false
+    }
+
+    const handleCancelPublishModal = () => {
+      state.showPublishModal = false
+    }
+
+    const handleConfirmPublishModal = () => {
+      state.showPublishModal = false
+    }
+
+
     onMounted(() => {
       createColumns(state)
     })
 
-    return { t, ...toRefs(state) }
+    return { t, ...toRefs(state), handleCancelDeleteModal, handleConfirmDeleteModal, handleCancelPublishModal, handleConfirmPublishModal }
   },
   render() {
     return (
@@ -44,7 +63,7 @@ const DataPipesList = defineComponent({
         <NCard>
           <NSpace vertical>
             <NDataTable
-              loading={this.loadingRef}
+              loading={this.loading}
               columns={this.columns}
               data={this.tableData}
             />
@@ -60,6 +79,18 @@ const DataPipesList = defineComponent({
             </NSpace>
           </NSpace>
         </NCard>
+        <DeleteModal
+          showModal={this.showDeleteModal}
+          row={this.row}
+          onCancelModal={this.handleCancelDeleteModal}
+          onConfirmModal={this.handleConfirmDeleteModal}
+        />
+        <PublishModal
+          showModal={this.showPublishModal}
+          row={this.row}
+          onCancelModal={this.handleCancelPublishModal}
+          onConfirmModal={this.handleConfirmPublishModal}
+        />
       </NSpace>
     )
   }

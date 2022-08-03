@@ -21,7 +21,8 @@ import java.io.Serializable;
 
 public enum FileFormat implements Serializable {
     CSV("csv"),
-    TEXT("txt");
+    TEXT("txt"),
+    PARQUET("parquet");
 
     private String suffix;
 

@@ -124,6 +124,7 @@
         <flink.version>1.13.6</flink.version>
         <hudi.version>0.11.1</hudi.version>
         <orc.version>1.5.6</orc.version>
+        <avro.version>1.8.2</avro.version>
         <hive.exec.version>2.3.9</hive.exec.version>
         <commons.logging.version>1.2</commons.logging.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
@@ -183,8 +184,7 @@
         <docker.hub>apache</docker.hub>
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
-        <junit.version>4.13.2</junit.version>
-        <junit5.version>5.8.2</junit5.version>
+        <junit.version>5.9.0</junit.version>
         <tispark.version>2.4.1</tispark.version>
         <druid.version>0.22.1</druid.version>
         <sshd.version>2.7.0</sshd.version>
@@ -208,18 +208,20 @@
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
-        <powermock.version>2.0.9</powermock.version>
         <hadoop2.version>2.6.5</hadoop2.version>
         <hadoop3.version>3.0.0</hadoop3.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
         <jmockdata.version>4.3.0</jmockdata.version>
         <snappy-java.version>1.1.8.3</snappy-java.version>
         <spring-boot.version>2.6.8</spring-boot.version>
+        <spring.version>5.3.20</spring.version>
         <mybatis-spring-boot-starter.version>2.2.2</mybatis-spring-boot-starter.version>
         <druid-spring-boot-starter.version>1.2.9</druid-spring-boot-starter.version>
         <springfox-swagger.version>2.6.1</springfox-swagger.version>
         <swagger-annotations.version>1.5.10</swagger-annotations.version>
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
+        <jsoup.version>1.14.3</jsoup.version>
+        <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
     </properties>
 
     <dependencyManagement>
@@ -447,6 +449,10 @@
                         <groupId>org.glassfish.web</groupId>
                         <artifactId>javax.servlet.jsp</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -566,23 +572,16 @@
             </dependency>
 
             <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
                 <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter-engine</artifactId>
-                <version>${junit5.version}</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-params</artifactId>
-                <version>${junit5.version}</version>
+                <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -619,6 +618,10 @@
                     <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>junit</artifactId>
+                        <groupId>junit</groupId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -685,18 +688,6 @@
                 <version>${guava.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-module-junit4</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-api-mockito2</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
             <dependency>
                 <groupId>com.github.jsonzou</groupId>
                 <artifactId>jmockdata</artifactId>
@@ -928,6 +919,14 @@
                 <artifactId>hibernate-validator</artifactId>
                 <version>${hibernate.validator.version}</version>
             </dependency>
+
+            <!--      http      -->
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -953,9 +952,13 @@
             <version>${slf4j.version}</version>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>test</scope>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
         </dependency>
     </dependencies>
 

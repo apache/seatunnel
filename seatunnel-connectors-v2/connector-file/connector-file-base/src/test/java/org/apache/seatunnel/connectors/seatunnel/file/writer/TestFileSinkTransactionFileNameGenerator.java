@@ -20,15 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransactionFileNameGenerator;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-@RunWith(PowerMockRunner.class)
 public class TestFileSinkTransactionFileNameGenerator {
 
     @Test
@@ -37,11 +34,11 @@ public class TestFileSinkTransactionFileNameGenerator {
         DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy.MM.dd");
         final String formattedDate = df.format(ZonedDateTime.now());
         String fileName = fileNameGenerator.generateFileName("T_12345678_1_0");
-        Assert.assertTrue(fileName.startsWith("test_T_12345678_1_0_"));
-        Assert.assertTrue(fileName.endsWith(formattedDate + ".txt"));
+        Assertions.assertTrue(fileName.startsWith("test_T_12345678_1_0_"));
+        Assertions.assertTrue(fileName.endsWith(formattedDate + ".txt"));
 
         fileNameGenerator = new FileSinkTransactionFileNameGenerator(FileFormat.TEXT, null, "yyyy.MM.dd");
         fileName = fileNameGenerator.generateFileName("T_12345678_1_0");
-        Assert.assertEquals("T_12345678_1_0.txt", fileName);
+        Assertions.assertEquals("T_12345678_1_0.txt", fileName);
     }
 }

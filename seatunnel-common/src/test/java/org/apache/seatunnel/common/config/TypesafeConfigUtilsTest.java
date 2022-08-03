@@ -20,13 +20,13 @@ package org.apache.seatunnel.common.config;
 import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
 import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfigThrowable;
 import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,38 +40,36 @@ public class TypesafeConfigUtilsTest {
         Map<String, String> configMap = new HashMap<>();
         configMap.put("test.t0", "v0");
         configMap.put("test.t1", "v1");
-        Assert.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
+        Assertions.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
 
         subConfig = extractSubConfig(config, "test.", false);
         configMap = new HashMap<>();
         configMap.put("t0", "v0");
         configMap.put("t1", "v1");
-        Assert.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
+        Assertions.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
     }
 
     @Test
     public void testHasSubConfig() {
         Config config = getConfig();
         boolean hasSubConfig = hasSubConfig(config, "test.");
-        Assert.assertTrue(hasSubConfig);
+        Assertions.assertTrue(hasSubConfig);
 
         hasSubConfig = hasSubConfig(config, "test1.");
-        Assert.assertFalse(hasSubConfig);
+        Assertions.assertFalse(hasSubConfig);
     }
 
     @Test
     public void testExtractSubConfigThrowable() {
         Config config = getConfig();
 
-        assertThrows("config is empty", ConfigRuntimeException.class, () -> {
-            extractSubConfigThrowable(config, "test1.", false);
-        });
+        assertThrows(ConfigRuntimeException.class, () -> extractSubConfigThrowable(config, "test1.", false), "config is empty");
 
         Config subConfig = extractSubConfigThrowable(config, "test.", false);
         Map<String, String> configMap = new HashMap<>();
         configMap.put("t0", "v0");
         configMap.put("t1", "v1");
-        Assert.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
+        Assertions.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
     }
 
     public Config getConfig() {
@@ -87,7 +85,7 @@ public class TypesafeConfigUtilsTest {
     @Test
     public void testGetConfig() {
         Config config = getConfig();
-        Assert.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
-        Assert.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
+        Assertions.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l1", Long.parseLong("101")));
+        Assertions.assertEquals(Long.parseLong("100"), (long) TypesafeConfigUtils.getConfig(config, "l2", Long.parseLong("100")));
     }
 }

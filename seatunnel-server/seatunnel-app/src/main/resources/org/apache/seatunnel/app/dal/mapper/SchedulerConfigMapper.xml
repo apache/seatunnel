@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.apache.seatunnel.app.dal.mapper.SchedulerConfigMapper">
+    <resultMap id="BaseResultMap" type="org.apache.seatunnel.app.dal.entity.SchedulerConfig">
+        <id column="id" jdbcType="INTEGER" property="id"/>
+        <result column="script_id" jdbcType="INTEGER" property="scriptId"/>
+        <result column="trigger_expression" jdbcType="VARCHAR" property="triggerExpression"/>
+        <result column="retry_times" jdbcType="INTEGER" property="retryTimes"/>
+        <result column="retry_interval" jdbcType="INTEGER" property="retryInterval"/>
+        <result column="active_start_time" jdbcType="TIMESTAMP" property="activeStartTime"/>
+        <result column="active_end_time" jdbcType="TIMESTAMP" property="activeEndTime"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="creator_id" jdbcType="INTEGER" property="creatorId"/>
+        <result column="update_id" jdbcType="INTEGER" property="updateId"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id,
+        script_id,
+        trigger_expression,
+        retry_times,
+        retry_interval,
+        active_start_time,
+        active_end_time,
+        create_time,
+        update_time,
+        creator_id,
+        update_id
+    </sql>
+    <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from scheduler_config
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+        delete
+        from scheduler_config
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" keyColumn="id" keyProperty="id"
+            parameterType="org.apache.seatunnel.app.dal.entity.SchedulerConfig" useGeneratedKeys="true">
+        insert into scheduler_config (script_id, trigger_expression, retry_times, retry_interval,
+                                      active_start_time, active_end_time, create_time,
+                                      update_time, creator_id, update_id)
+        values (#{scriptId,jdbcType=INTEGER}, #{retryTimes,jdbcType=INTEGER}, #{retryInterval,jdbcType=INTEGER},
+                #{activeStartTime,jdbcType=TIMESTAMP}, #{activeEndTime,jdbcType=TIMESTAMP},
+                #{createTime,jdbcType=TIMESTAMP},
+                #{updateTime,jdbcType=TIMESTAMP}, #{creatorId,jdbcType=INTEGER}, #{updateId,jdbcType=INTEGER})
+    </insert>
+    <select id="selectByScriptId" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from scheduler_config
+        where script_id = #{scriptId,jdbcType=INTEGER}
+    </select>
+</mapper>

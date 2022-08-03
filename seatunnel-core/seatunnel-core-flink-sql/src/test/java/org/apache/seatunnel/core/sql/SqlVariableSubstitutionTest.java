@@ -23,8 +23,8 @@ import org.apache.seatunnel.core.flink.utils.CommandLineUtils;
 import org.apache.seatunnel.core.sql.job.JobInfo;
 
 import org.apache.commons.io.FileUtils;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -41,12 +41,12 @@ public class SqlVariableSubstitutionTest {
         String configFilePath = flinkArgs.getConfigFile();
         String jobContent = FileUtils.readFileToString(new File(configFilePath), StandardCharsets.UTF_8);
         JobInfo jobInfo = new JobInfo(jobContent);
-        Assert.assertFalse(jobInfo.getJobContent().contains("events"));
-        Assert.assertFalse(jobInfo.getJobContent().contains("print_table"));
+        Assertions.assertFalse(jobInfo.getJobContent().contains("events"));
+        Assertions.assertFalse(jobInfo.getJobContent().contains("print_table"));
 
         jobInfo.substitute(flinkArgs.getVariables());
-        Assert.assertTrue(jobInfo.getJobContent().contains("events"));
-        Assert.assertTrue(jobInfo.getJobContent().contains("print_table"));
+        Assertions.assertTrue(jobInfo.getJobContent().contains("events"));
+        Assertions.assertTrue(jobInfo.getJobContent().contains("print_table"));
     }
 
 }

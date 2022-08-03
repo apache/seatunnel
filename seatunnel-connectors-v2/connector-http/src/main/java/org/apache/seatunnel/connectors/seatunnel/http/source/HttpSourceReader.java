@@ -71,7 +71,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
                 // signal to the source that we have reached the end of the data.
-                LOGGER.info("Closed the bounded fake source");
+                LOGGER.info("Closed the bounded http source");
                 context.signalNoMoreElement();
             }
         }
