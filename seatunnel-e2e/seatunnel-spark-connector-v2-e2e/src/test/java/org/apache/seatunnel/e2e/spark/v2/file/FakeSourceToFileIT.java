@@ -37,7 +37,7 @@ public class FakeSourceToFileIT extends SparkContainer {
     @Test
     public void testFakeSourceToLocalFileText() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_text.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     /**
@@ -46,7 +46,7 @@ public class FakeSourceToFileIT extends SparkContainer {
     @Test
     public void testFakeSourceToLocalFileParquet() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_parquet.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     /**
@@ -55,7 +55,7 @@ public class FakeSourceToFileIT extends SparkContainer {
     @Test
     public void testFakeSourceToHdfsFileText() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_text.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     /**
@@ -64,6 +64,6 @@ public class FakeSourceToFileIT extends SparkContainer {
     @Test
     public void testFakeSourceToHdfsFileParquet() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_parquet.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
