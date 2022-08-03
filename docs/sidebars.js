@@ -87,7 +87,7 @@ const sidebars = {
                   label: 'Sink',
                   link: {
                       type: 'generated-index',
-                      title: 'Source-V2 of SeaTunnel',
+                      title: 'Sink-V2 of SeaTunnel',
                       description: 'List all Sink supported Apache SeaTunnel for now.',
                       // Should remove the `v2` suffix when we migrate all sink to v2 and delete the old one
                       slug: '/category/sink-v2',
@@ -150,7 +150,7 @@ const sidebars = {
           label: 'Sink',
           link: {
             type: 'generated-index',
-            title: 'Source of SeaTunnel',
+            title: 'Sink of SeaTunnel',
             description: 'List all sink supported Apache SeaTunnel for now.',
             slug: '/category/sink',
             keywords: ['sink'],
