@@ -171,6 +171,7 @@
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
         <kudu.version>1.11.1</kudu.version>
+        <email.version>1.5.6</email.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
@@ -269,6 +270,12 @@
                 <groupId>org.apache.kudu</groupId>
                 <artifactId>kudu-client</artifactId>
                 <version>${kudu.version}</version>
+            </dependency>
+            <!--email -->
+            <dependency>
+                <groupId>com.sun.mail</groupId>
+                <artifactId>javax.mail</artifactId>
+                <version>${email.version}</version>
             </dependency>
             <!--flink-->
             <dependency>

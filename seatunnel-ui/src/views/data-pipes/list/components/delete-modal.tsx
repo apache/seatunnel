@@ -54,7 +54,9 @@ const DeleteModal = defineComponent({
         onConfirm={this.handleConfirm}
       >
         {{
-          default: () => <span>{this.t('data_pipes.data_pipes_delete_tips')}</span>
+          default: () => (
+            <span>{this.t('data_pipes.data_pipes_delete_tips')}</span>
+          )
         }}
       </Modal>
     )

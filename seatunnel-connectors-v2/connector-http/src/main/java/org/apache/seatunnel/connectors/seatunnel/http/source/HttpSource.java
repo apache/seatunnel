@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.BODY;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.HEADERS;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.METHOD;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.METHOD_DEFAULT_VALUE;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.PARAMS;
-import static org.apache.seatunnel.connectors.seatunnel.http.config.Config.URL;
-
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -39,17 +32,16 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Map;
-import java.util.stream.Collectors;
-
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
-    private final HttpSourceParameter parameter = new HttpSourceParameter();
+    private final HttpParameter httpParameter = new HttpParameter();
     private SeaTunnelRowType rowType;
     private SeaTunnelContext seaTunnelContext;
 
@@ -65,29 +57,11 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
-        this.parameter.setUrl(pluginConfig.getString(URL));
-
-        if (pluginConfig.hasPath(METHOD)) {
-            this.parameter.setMethod(pluginConfig.getString(METHOD));
-        } else {
-            this.parameter.setMethod(METHOD_DEFAULT_VALUE);
-        }
-
-        if (pluginConfig.hasPath(HEADERS)) {
-            this.parameter.setHeaders(pluginConfig.getConfig(HEADERS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
-        }
-
-        if (pluginConfig.hasPath(PARAMS)) {
-            this.parameter.setHeaders(pluginConfig.getConfig(PARAMS).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> String.valueOf(entry.getValue().unwrapped()), (v1, v2) -> v2)));
-        }
-
-        if (pluginConfig.hasPath(BODY)) {
-            this.parameter.setBody(pluginConfig.getString(BODY));
-        }
+        this.httpParameter.buildWithConfig(pluginConfig);
         // TODO support user custom row type
         this.rowType = new SeaTunnelRowType(new String[]{"content"}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
     }
@@ -104,6 +78,6 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(this.parameter, readerContext);
+        return new HttpSourceReader(this.httpParameter, readerContext);
     }
 }
