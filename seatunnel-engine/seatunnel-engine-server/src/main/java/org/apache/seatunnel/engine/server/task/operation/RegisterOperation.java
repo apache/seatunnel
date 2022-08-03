@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
-import org.apache.seatunnel.engine.server.task.TaskFactory;
+import org.apache.seatunnel.engine.server.task.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -76,11 +76,11 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
 
     @Override
     public int getFactoryId() {
-        return TaskFactory.FACTORY_ID;
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskFactory.REGISTER_TYPE;
+        return TaskDataSerializerHook.REGISTER_TYPE;
     }
 }

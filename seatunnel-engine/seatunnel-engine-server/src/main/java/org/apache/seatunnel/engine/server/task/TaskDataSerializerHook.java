@@ -17,16 +17,17 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
 
+import com.hazelcast.internal.serialization.DataSerializerHook;
+import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
 import com.hazelcast.nio.serialization.DataSerializableFactory;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
-public class TaskFactory implements DataSerializableFactory {
-
-    public static final int FACTORY_ID = 10;
+public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int REGISTER_TYPE = 1;
 
@@ -35,20 +36,37 @@ public class TaskFactory implements DataSerializableFactory {
     public static final int ASSIGN_SPLIT_TYPE = 3;
 
     public static final int TASK_GROUP_INFO_TYPE = 4;
+    public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
+            SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
+            SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY_ID
+    );
 
     @Override
-    public IdentifiedDataSerializable create(int typeId) {
-        switch (typeId) {
-            case REGISTER_TYPE:
-                return new RegisterOperation();
-            case REQUEST_SPLIT_TYPE:
-                return new RequestSplitOperation();
-            case ASSIGN_SPLIT_TYPE:
-                return new AssignSplitOperation();
-            case TASK_GROUP_INFO_TYPE:
-                return new TaskGroupInfo();
-            default:
-                return null;
+    public int getFactoryId() {
+        return FACTORY_ID;
+    }
+
+    @Override
+    public DataSerializableFactory createFactory() {
+        return new Factory();
+    }
+
+    private static class Factory implements DataSerializableFactory {
+
+        @Override
+        public IdentifiedDataSerializable create(int typeId) {
+            switch (typeId) {
+                case REGISTER_TYPE:
+                    return new RegisterOperation();
+                case REQUEST_SPLIT_TYPE:
+                    return new RequestSplitOperation();
+                case ASSIGN_SPLIT_TYPE:
+                    return new AssignSplitOperation();
+                case TASK_GROUP_INFO_TYPE:
+                    return new TaskGroupInfo();
+                default:
+                    return null;
+            }
         }
     }
 }

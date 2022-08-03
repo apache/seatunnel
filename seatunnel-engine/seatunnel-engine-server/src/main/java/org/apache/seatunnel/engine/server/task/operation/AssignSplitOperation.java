@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
-import org.apache.seatunnel.engine.server.task.TaskFactory;
+import org.apache.seatunnel.engine.server.task.TaskDataSerializerHook;
 
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
@@ -26,11 +26,11 @@ public class AssignSplitOperation extends Operation implements IdentifiedDataSer
 
     @Override
     public int getFactoryId() {
-        return TaskFactory.FACTORY_ID;
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskFactory.ASSIGN_SPLIT_TYPE;
+        return TaskDataSerializerHook.ASSIGN_SPLIT_TYPE;
     }
 }

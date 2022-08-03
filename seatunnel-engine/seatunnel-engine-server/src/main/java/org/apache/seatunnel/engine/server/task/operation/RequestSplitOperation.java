@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.task.TaskFactory;
+import org.apache.seatunnel.engine.server.task.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -69,11 +69,11 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
 
     @Override
     public int getFactoryId() {
-        return TaskFactory.FACTORY_ID;
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskFactory.REQUEST_SPLIT_TYPE;
+        return TaskDataSerializerHook.REQUEST_SPLIT_TYPE;
     }
 }

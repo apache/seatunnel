@@ -51,12 +51,12 @@ public class TaskGroupInfo implements IdentifiedDataSerializable {
 
     @Override
     public int getFactoryId() {
-        return TaskFactory.TASK_GROUP_INFO_TYPE;
+        return TaskDataSerializerHook.TASK_GROUP_INFO_TYPE;
     }
 
     @Override
     public int getClassId() {
-        return TaskFactory.FACTORY_ID;
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
