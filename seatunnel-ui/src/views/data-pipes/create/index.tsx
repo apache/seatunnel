@@ -20,9 +20,7 @@ import { defineComponent } from 'vue'
 const DataPipesCreate = defineComponent({
   setup() {},
   render() {
-    return (
-      <div></div>
-    )
+    return <div></div>
   }
 })
 

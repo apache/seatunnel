@@ -43,12 +43,18 @@ const DataPipesList = defineComponent({
       state.showPublishModal = false
     }
 
-
     onMounted(() => {
       createColumns(state)
     })
 
-    return { t, ...toRefs(state), handleCancelDeleteModal, handleConfirmDeleteModal, handleCancelPublishModal, handleConfirmPublishModal }
+    return {
+      t,
+      ...toRefs(state),
+      handleCancelDeleteModal,
+      handleConfirmDeleteModal,
+      handleCancelPublishModal,
+      handleConfirmPublishModal
+    }
   },
   render() {
     return (
