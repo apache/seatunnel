@@ -57,7 +57,5 @@ export default {
   execute_time: 'Execute Time',
   data_pipes_delete_tips:
     'Whether to delete the data Pipe，It cannot be restored after being deleted.',
-  data_pipes_publish_tips: 'Whether to Publish the data pipe.',
-  please_select_log: 'Please select log',
-  search: 'Search'
+  data_pipes_publish_tips: 'Whether to Publish the data pipe.'
 }
