@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckExceptionSeaTunnel;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -70,19 +71,27 @@ public class JobConfigParser {
     private List<Action> actions = new ArrayList<>();
     private Set<URL> jarUrlsSet = new HashSet<>();
 
-    protected JobConfigParser(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator) {
+    private JobConfig jobConfig;
+
+    protected JobConfigParser(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator, @NonNull JobConfig jobConfig) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
+        this.jobConfig = jobConfig;
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
         Config seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
+        List<? extends Config> envConfigs = seaTunnelJobConfig.getConfigList("env");
         List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
         List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
 
         if (CollectionUtils.isEmpty(sinkConfigs) || CollectionUtils.isEmpty(sourceConfigs)) {
             throw new JobDefineCheckExceptionSeaTunnel("Source And Sink can not be null");
+        }
+
+        if (!CollectionUtils.isEmpty(envConfigs)) {
+            jobConfigAnalyze(envConfigs);
         }
 
         if (sinkConfigs.size() == 1
@@ -93,6 +102,10 @@ public class JobConfigParser {
             complexAnalyze(sourceConfigs, transformConfigs, sinkConfigs);
         }
         return new ImmutablePair<>(actions, jarUrlsSet);
+    }
+
+    private void jobConfigAnalyze(List<? extends Config> envConfigs) {
+        // TODO Resolve env configuration and set jobConfig
     }
 
     /**

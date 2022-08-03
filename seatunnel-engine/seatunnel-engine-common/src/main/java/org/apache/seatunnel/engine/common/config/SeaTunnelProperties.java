@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.engine.common.Constant;
+import com.hazelcast.spi.properties.HazelcastProperty;
 
-import com.hazelcast.client.config.ClientConfig;
+/**
+ * Defines the names and default values for internal Hazelcast SeaTunnel properties.
+ */
+public final class SeaTunnelProperties {
+    public static final HazelcastProperty SEATUNNEL_HOME = new HazelcastProperty("seatunnel.home", "");
 
-public class SeaTunnelClientConfig extends ClientConfig {
-
-    /**
-     * Creates a new config instance with default group name for SeaTunnel Engine
-     */
-    public SeaTunnelClientConfig() {
-        super();
-        setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
+    private SeaTunnelProperties() {
     }
 }
 
