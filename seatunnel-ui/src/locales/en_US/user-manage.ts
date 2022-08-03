@@ -26,7 +26,7 @@ export default {
   operation: 'Operation',
   enable: 'Enable',
   disable: 'Disable',
-  edite: 'Edite',
+  edit: 'Edit',
   delete: 'Delete',
   active: 'Active',
   inactive: 'Inactive',

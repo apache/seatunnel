@@ -65,8 +65,8 @@ export function useTable() {
               h(NButton, { text: true }, t('user_manage.enable')),
               h(
                 NButton,
-                { text: true, onClick: () => handleEdite(row) },
-                t('user_manage.edite')
+                { text: true, onClick: () => handleEdit(row) },
+                t('user_manage.edit')
               ),
               h(
                 NButton,
@@ -79,7 +79,7 @@ export function useTable() {
     ]
   }
 
-  const handleEdite = (row: any) => {
+  const handleEdit = (row: any) => {
     state.showFormModal = true
     state.status = 1
     state.row = row
