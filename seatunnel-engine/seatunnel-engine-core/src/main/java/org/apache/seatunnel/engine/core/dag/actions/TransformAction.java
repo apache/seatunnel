@@ -43,4 +43,8 @@ public class TransformAction extends AbstractAction {
         super(id, name, jarUrls);
         this.transform = transform;
     }
+
+    public SeaTunnelTransform getTransform() {
+        return transform;
+    }
 }

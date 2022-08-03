@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.NonNull;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+public class JavaQueueAction extends AbstractAction {
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    private static final long serialVersionUID = -1646055642481336747L;
+
+    public JavaQueueAction(int id, @NonNull String name, @NonNull List<Action> upstreams) {
+        super(id, name, upstreams, Collections.emptyList());
+    }
+
+    public JavaQueueAction(int id, @NonNull String name) {
+        super(id, name, Collections.emptyList());
     }
 }

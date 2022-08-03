@@ -21,10 +21,10 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
-import com.google.common.collect.Lists;
 import lombok.NonNull;
 
 import java.io.Serializable;
+import java.net.URL;
 import java.util.List;
 
 public class PhysicalSourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
@@ -36,16 +36,18 @@ public class PhysicalSourceAction<T, SplitT extends SourceSplit, StateT extends 
     public PhysicalSourceAction(int id,
                                 @NonNull String name,
                                 @NonNull SeaTunnelSource<T, SplitT, StateT> source,
+                                @NonNull List<URL> jarUrls,
                                 List<SeaTunnelTransform> transforms) {
-        super(id, name, Lists.newArrayList());
+        super(id, name, jarUrls);
         this.source = source;
         this.transforms = transforms;
     }
 
     protected PhysicalSourceAction(int id, @NonNull String name, @NonNull List<Action> upstreams,
                                    @NonNull SeaTunnelSource<T, SplitT, StateT> source,
+                                   @NonNull List<URL> jarUrls,
                                    List<SeaTunnelTransform> transforms) {
-        super(id, name, upstreams);
+        super(id, name, upstreams, jarUrls);
         this.source = source;
         this.transforms = transforms;
     }

@@ -17,24 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.engine.server.execution.Task;
-
-import com.hazelcast.spi.impl.operationservice.OperationService;
-
-public abstract class CoordinatorTask implements Task {
-
-    protected OperationService operationService;
-
-    protected long taskID;
+public abstract class CoordinatorTask extends AbstractTask {
 
     private static final long serialVersionUID = -3957168748281681077L;
 
-    @Override
-    public void setOperationService(OperationService operationService) {
-        this.operationService = operationService;
-    }
-
     public CoordinatorTask(long taskID) {
-        this.taskID = taskID;
+        super(taskID);
     }
 }

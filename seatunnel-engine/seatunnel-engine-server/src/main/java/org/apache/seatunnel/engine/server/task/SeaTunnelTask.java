@@ -20,25 +20,25 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalExecutionFlow;
-import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.operationservice.OperationService;
-import lombok.NonNull;
 
 import java.io.IOException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
-public class SeaTunnelTask implements Task {
+public class SeaTunnelTask extends AbstractTask {
 
     private static final long serialVersionUID = 2604309561613784425L;
-    private OperationService operationService;
     private final PhysicalExecutionFlow executionFlow;
-    private final long taskID;
-    private Progress progress;
 
     // TODO init memberID in task execution service
     private UUID memberID = UUID.randomUUID();
@@ -46,30 +46,17 @@ public class SeaTunnelTask implements Task {
     private Address master = new Address();
 
     public SeaTunnelTask(long taskID, PhysicalExecutionFlow executionFlow) {
-        this.taskID = taskID;
+        super(taskID);
         this.executionFlow = executionFlow;
     }
 
     @Override
     public void init() {
-        progress = new Progress();
-    }
-
-    @NonNull
-    @Override
-    public ProgressState call() {
-        return progress.toState();
-    }
-
-    @NonNull
-    @Override
-    public Long getTaskID() {
-        return taskID;
     }
 
     @Override
     public void close() throws IOException {
-        Task.super.close();
+        super.close();
     }
 
     private void register() {
@@ -86,6 +73,22 @@ public class SeaTunnelTask implements Task {
 
     private boolean startFromSource() {
         return executionFlow.getAction() instanceof SourceAction;
+    }
+
+    @Override
+    public Set<URL> getJarsUrl() {
+        List<PhysicalExecutionFlow> now = Collections.singletonList(executionFlow);
+        Set<URL> urls = new HashSet<>();
+        List<PhysicalExecutionFlow> next = new ArrayList<>();
+        while (!now.isEmpty()) {
+            next.clear();
+            now.forEach(n -> {
+                urls.addAll(n.getAction().getJarUrls());
+                next.addAll(n.getNext());
+            });
+            now = next;
+        }
+        return urls;
     }
 
     @Override

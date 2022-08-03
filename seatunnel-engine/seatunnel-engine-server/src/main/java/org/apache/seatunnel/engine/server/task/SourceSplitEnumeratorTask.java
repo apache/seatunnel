@@ -19,38 +19,24 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.PhysicalSourceAction;
-import org.apache.seatunnel.engine.server.execution.ProgressState;
-
-import lombok.NonNull;
 
 import java.io.IOException;
+import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
 public class SourceSplitEnumeratorTask extends CoordinatorTask {
 
     private static final long serialVersionUID = -3713701594297977775L;
 
     private final PhysicalSourceAction<?, ?, ?> source;
-    private Progress progress;
     private SourceSplitEnumerator<?, ?> enumerator;
 
     @Override
     public void init() throws Exception {
-        this.progress = new Progress();
         enumerator = this.source.getSource()
                 .createEnumerator(new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this.operationService));
         enumerator.open();
-    }
-
-    @NonNull
-    @Override
-    public ProgressState call() {
-        return progress.toState();
-    }
-
-    @NonNull
-    @Override
-    public Long getTaskID() {
-        return (long) source.getId();
     }
 
     @Override
@@ -73,4 +59,8 @@ public class SourceSplitEnumeratorTask extends CoordinatorTask {
         enumerator.handleSplitRequest(taskID);
     }
 
+    @Override
+    public Set<URL> getJarsUrl() {
+        return new HashSet<>(source.getJarUrls());
+    }
 }

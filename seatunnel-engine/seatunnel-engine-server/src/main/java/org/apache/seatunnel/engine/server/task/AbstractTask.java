@@ -17,24 +17,44 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.Task;
+
+import com.hazelcast.spi.impl.operationservice.OperationService;
+import lombok.NonNull;
 
 import java.net.URL;
-import java.util.HashSet;
 import java.util.Set;
 
-public class SinkAggregatedCommitterTask extends CoordinatorTask {
+public abstract class AbstractTask implements Task {
+    private static final long serialVersionUID = -2524701323779523718L;
 
-    private static final long serialVersionUID = 5906594537520393503L;
-    private final SinkAction<?, ?, ?, ?> sink;
+    protected OperationService operationService;
+    protected long taskID;
 
-    public SinkAggregatedCommitterTask(long taskID, SinkAction<?, ?, ?, ?> sink) {
-        super(taskID);
-        this.sink = sink;
+    protected Progress progress;
+
+    public AbstractTask(long taskID) {
+        this.taskID = taskID;
+        this.progress = new Progress();
     }
 
+    public abstract Set<URL> getJarsUrl();
+
     @Override
-    public Set<URL> getJarsUrl() {
-        return new HashSet<>(sink.getJarUrls());
+    public void setOperationService(OperationService operationService) {
+        this.operationService = operationService;
+    }
+
+    @NonNull
+    @Override
+    public ProgressState call() {
+        return progress.toState();
+    }
+
+    @NonNull
+    @Override
+    public Long getTaskID() {
+        return taskID;
     }
 }

@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.task;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+import java.net.URL;
+import java.util.Set;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+public class TaskGroupInfo {
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    private final TaskGroup group;
+
+    private final Set<URL> jars;
+
+    public TaskGroupInfo(TaskGroup group, Set<URL> jars) {
+        this.group = group;
+        this.jars = jars;
     }
+
+    public TaskGroup getGroup() {
+        return group;
+    }
+
+    public Set<URL> getJars() {
+        return jars;
+    }
+
 }
