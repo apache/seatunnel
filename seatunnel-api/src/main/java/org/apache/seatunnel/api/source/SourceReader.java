@@ -114,6 +114,6 @@ public interface SourceReader<T, SplitT extends SourceSplit> extends AutoCloseab
          *
          * @param sourceEvent the source event to coordinator.
          */
-        void sendSourceEventToCoordinator(SourceEvent sourceEvent);
+        void sendSourceEventToEnumerator(SourceEvent sourceEvent);
     }
 }

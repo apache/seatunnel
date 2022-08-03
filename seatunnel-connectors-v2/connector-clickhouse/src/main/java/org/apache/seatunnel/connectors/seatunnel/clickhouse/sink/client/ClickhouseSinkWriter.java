@@ -193,10 +193,10 @@ public class ClickhouseSinkWriter implements SinkWriter<SeaTunnelRow, CKCommitIn
                 new BigDecimalInjectFunction(),
                 new DateInjectFunction(),
                 new DateTimeInjectFunction(),
+                new LongInjectFunction(),
                 new DoubleInjectFunction(),
                 new FloatInjectFunction(),
                 new IntInjectFunction(),
-                new LongInjectFunction(),
                 new StringInjectFunction()
         );
         ClickhouseFieldInjectFunction defaultFunction = new StringInjectFunction();

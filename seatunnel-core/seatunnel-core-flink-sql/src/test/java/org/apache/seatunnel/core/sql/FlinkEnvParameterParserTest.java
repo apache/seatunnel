@@ -19,8 +19,8 @@ package org.apache.seatunnel.core.sql;
 
 import org.apache.seatunnel.core.flink.args.FlinkCommandArgs;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,6 +32,6 @@ public class FlinkEnvParameterParserTest {
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setVariables(Arrays.asList("age=18", "name=zhangsan"));
         List<String> envParameters = FlinkEnvParameterParser.getEnvParameters(flinkCommandArgs);
-        Assert.assertArrayEquals(new String[]{"-Dage=18", "-Dname=zhangsan"}, envParameters.toArray());
+        Assertions.assertArrayEquals(new String[]{"-Dage=18", "-Dname=zhangsan"}, envParameters.toArray());
     }
 }

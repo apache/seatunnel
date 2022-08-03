@@ -17,6 +17,7 @@
     limitations under the License.
 
 -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -82,11 +83,35 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-hadoop</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-local</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-hudi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-dingtalk</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+          <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-email</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+          <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-elasticsearch</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
-
 
     <build>
         <plugins>

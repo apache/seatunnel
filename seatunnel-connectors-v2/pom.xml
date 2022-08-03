@@ -28,7 +28,6 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <packaging>pom</packaging>
-
     <artifactId>seatunnel-connectors-v2</artifactId>
 
     <modules>
@@ -36,25 +35,33 @@
         <module>connector-clickhouse</module>
         <module>connector-console</module>
         <module>connector-fake</module>
-        <module>connector-hive</module>
         <module>connector-http</module>
         <module>connector-jdbc</module>
         <module>connector-kafka</module>
         <module>connector-pulsar</module>
         <module>connector-socket</module>
+        <module>connector-hive</module>
+        <module>connector-file</module>
+        <module>connector-hudi</module>
         <module>connector-assert</module>
+        <module>connector-email</module>
+        <module>connector-dingtalk</module>
         <module>connector-elasticsearch</module>
     </modules>
 
     <dependencies>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

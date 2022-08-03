@@ -33,8 +33,8 @@ import java.io.Serializable;
  * @param <SplitT> The type of splits handled by the source.
  * @param <StateT> The type of checkpoint states.
  */
-public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
-    extends Serializable, PluginIdentifierInterface, SeaTunnelPluginLifeCycle, SeaTunnelRuntimeEnvironment {
+public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
+    extends Serializable, PluginIdentifierInterface, SeaTunnelPluginLifeCycle, SeaTunnelContextAware {
 
     /**
      * Get the boundedness of this source.
@@ -94,6 +94,8 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT>
      *
      * @return enumerator state serializer.
      */
-    Serializer<StateT> getEnumeratorStateSerializer();
+    default Serializer<StateT> getEnumeratorStateSerializer(){
+        return new DefaultSerializer<>();
+    }
 
 }

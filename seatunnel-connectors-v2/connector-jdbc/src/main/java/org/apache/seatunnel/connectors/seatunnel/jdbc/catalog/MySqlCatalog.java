@@ -130,7 +130,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                 getPrimaryKey(metaData, tablePath.getDatabaseName(), tablePath.getTableName());
 
             PreparedStatement ps =
-                conn.prepareStatement(String.format("SELECT * FROM %s LIMIT 1;", tablePath.getFullName()));
+                conn.prepareStatement(String.format("SELECT * FROM %s WHERE 1 = 0;", tablePath.getFullName()));
 
             ResultSetMetaData tableMetaData = ps.getMetaData();
 

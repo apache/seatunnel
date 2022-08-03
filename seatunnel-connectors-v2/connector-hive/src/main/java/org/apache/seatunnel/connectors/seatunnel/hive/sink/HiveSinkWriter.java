@@ -20,48 +20,73 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.FileWriter;
-import org.apache.seatunnel.connectors.seatunnel.hive.sink.file.writer.HdfsTxtFileWriter;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkState;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs.HdfsFileSinkPlugin;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkTransactionFileNameGenerator;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.google.common.collect.Lists;
 import lombok.NonNull;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, HiveSinkState> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HiveSinkWriter.class);
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private SeaTunnelRowType seaTunnelRowTypeInfo;
     private Config pluginConfig;
-    private SinkWriter.Context context;
-    private long jobId;
+    private Context context;
+    private String jobId;
 
-    private FileWriter fileWriter;
+    private TransactionStateFileWriter fileWriter;
 
     private HiveSinkConfig hiveSinkConfig;
 
-    public HiveSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowType,
+    public HiveSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                           @NonNull Config pluginConfig,
                           @NonNull SinkWriter.Context context,
-                          long jobId) {
-        this.seaTunnelRowType = seaTunnelRowType;
+                          @NonNull HiveSinkConfig hiveSinkConfig,
+                          @NonNull String jobId) {
+        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
         this.pluginConfig = pluginConfig;
         this.context = context;
         this.jobId = jobId;
+        this.hiveSinkConfig = hiveSinkConfig;
+        this.fileWriter = createFileWriter();
 
-        hiveSinkConfig = new HiveSinkConfig(this.pluginConfig);
-        fileWriter = new HdfsTxtFileWriter(this.seaTunnelRowType,
-            hiveSinkConfig,
-            this.jobId,
-            this.context.getIndexOfSubtask());
+        fileWriter.beginTransaction(1L);
+    }
+
+    public HiveSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
+                          @NonNull Config pluginConfig,
+                          @NonNull SinkWriter.Context context,
+                          @NonNull HiveSinkConfig hiveSinkConfig,
+                          @NonNull String jobId,
+                          @NonNull List<HiveSinkState> hiveSinkStates) {
+        this.seaTunnelRowTypeInfo = seaTunnelRowTypeInfo;
+        this.pluginConfig = pluginConfig;
+        this.context = context;
+        this.jobId = jobId;
+        this.hiveSinkConfig = hiveSinkConfig;
+        this.fileWriter = createFileWriter();
+
+        // Rollback dirty transaction
+        if (hiveSinkStates.size() > 0) {
+            List<String> transactionAfter = fileWriter.getTransactionAfter(hiveSinkStates.get(0).getTransactionId());
+            fileWriter.abortTransactions(transactionAfter);
+        }
+        fileWriter.beginTransaction(hiveSinkStates.get(0).getCheckpointId() + 1);
     }
 
     @Override
@@ -71,18 +96,12 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     @Override
     public Optional<HiveCommitInfo> prepareCommit() throws IOException {
-        fileWriter.finishAndCloseWriteFile();
-        /**
-         * We will clear the needMoveFiles in {@link #snapshotState()}, So we need copy the needMoveFiles map here.
-         */
-        Map<String, String> commitInfoMap = new HashMap<>(fileWriter.getNeedMoveFiles().size());
-        commitInfoMap.putAll(fileWriter.getNeedMoveFiles());
-        return Optional.of(new HiveCommitInfo(commitInfoMap));
-    }
-
-    @Override
-    public void abortPrepare() {
-        fileWriter.abort();
+        Optional<FileCommitInfo> fileCommitInfoOptional = fileWriter.prepareCommit();
+        if (fileCommitInfoOptional.isPresent()) {
+            FileCommitInfo fileCommitInfo = fileCommitInfoOptional.get();
+            return Optional.of(new HiveCommitInfo(fileCommitInfo, hiveSinkConfig.getHiveMetaUris(), this.hiveSinkConfig.getTable()));
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -92,8 +111,50 @@ public class HiveSinkWriter implements SinkWriter<SeaTunnelRow, HiveCommitInfo, 
 
     @Override
     public List<HiveSinkState> snapshotState(long checkpointId) throws IOException {
-        //reset FileWrite
-        fileWriter.resetFileWriter(System.currentTimeMillis() + "");
-        return Lists.newArrayList(new HiveSinkState(hiveSinkConfig));
+        List<FileSinkState> fileSinkStates = fileWriter.snapshotState(checkpointId);
+        if (!CollectionUtils.isEmpty(fileSinkStates)) {
+            return fileSinkStates.stream().map(state ->
+                    new HiveSinkState(state.getTransactionId(), state.getCheckpointId()))
+                .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public void abortPrepare() {
+        fileWriter.abortTransaction();
+    }
+
+    private TransactionStateFileWriter createFileWriter() {
+        SinkFileSystemPlugin sinkFileSystemPlugin = new HdfsFileSinkPlugin();
+        Optional<TransactionStateFileWriter> transactionStateFileWriterOpt = sinkFileSystemPlugin.getTransactionStateFileWriter(this.seaTunnelRowTypeInfo,
+                getFilenameGenerator(),
+                getPartitionDirNameGenerator(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getSinkColumnsIndexInRow(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getTmpPath(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getPath(),
+                this.jobId,
+                this.context.getIndexOfSubtask(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getFieldDelimiter(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getRowDelimiter(),
+                sinkFileSystemPlugin.getFileSystem().get());
+        if (!transactionStateFileWriterOpt.isPresent()) {
+            throw new RuntimeException("A TransactionStateFileWriter is need");
+        }
+        return transactionStateFileWriterOpt.get();
+    }
+
+    private FileSinkTransactionFileNameGenerator getFilenameGenerator() {
+        return new FileSinkTransactionFileNameGenerator(
+                this.hiveSinkConfig.getTextFileSinkConfig().getFileFormat(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getFileNameExpression(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getFileNameTimeFormat());
+    }
+
+    private FileSinkPartitionDirNameGenerator getPartitionDirNameGenerator() {
+        return new FileSinkPartitionDirNameGenerator(
+                this.hiveSinkConfig.getTextFileSinkConfig().getPartitionFieldList(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getPartitionFieldsIndexInRow(),
+                this.hiveSinkConfig.getTextFileSinkConfig().getPartitionDirExpression());
     }
 }

@@ -19,7 +19,7 @@ package org.apache.seatunnel.e2e.spark.http;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -33,7 +33,7 @@ public class HttpSourceToConsoleIT extends SparkContainer {
     public void testHttpSourceToConsoleSine() throws IOException, InterruptedException {
         // skip this test case, since there exist some problem to run streaming in e2e
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/http/httpsource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
 }

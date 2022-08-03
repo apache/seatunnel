@@ -19,8 +19,8 @@ package org.apache.seatunnel.e2e.flink.sql.fake;
 
 import org.apache.seatunnel.e2e.flink.sql.FlinkContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -32,6 +32,6 @@ public class DatagenToConsoleIT extends FlinkContainer {
     public void testDatagenToConsole() throws IOException, URISyntaxException, InterruptedException {
         final String configFile = "/fake/flink.sql.conf";
         Container.ExecResult execResult = executeSeaTunnelFlinkSqlJob(configFile);
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

@@ -1,5 +1,7 @@
 # Package Files #
 *.jar
+*.zip
+*.tar.gz
 
 # see JDK-8214300
 .attach_pid*
@@ -10,9 +12,15 @@ hs_err_pid*
 # build targets
 target/
 
+# Log file
+*.log
+/logs
+logs.zip
+
 # Intellij Idea files
 .idea/
 *.iml
+.idea/*
 
 .DS_Store
 
@@ -30,7 +38,6 @@ third-party-dependencies.txt
 dependency-reduced-pom.xml
 
 apidoc
-*.tar.gz
 
 # Python
 *.py[cod]

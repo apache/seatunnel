@@ -33,7 +33,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnvironment> {
@@ -47,12 +49,12 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         this.flinkSourcePluginDiscovery = new FlinkSourcePluginDiscovery();
         this.flinkTransformPluginDiscovery = new FlinkTransformPluginDiscovery();
         this.flinkSinkPluginDiscovery = new FlinkSinkPluginDiscovery();
-        List<URL> pluginJars = new ArrayList<>();
+        Set<URL> pluginJars = new HashSet<>();
         // since we didn't split the transform plugin jars, we just need to register the source/sink plugin jars
         pluginJars.addAll(flinkSourcePluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SOURCE)));
         pluginJars.addAll(flinkSinkPluginDiscovery.getPluginJarPaths(getPluginIdentifiers(PluginType.SINK)));
-        this.pluginJars = pluginJars;
-        this.getEnvironment().registerPlugin(pluginJars);
+        this.pluginJars = new ArrayList<>(pluginJars);
+        this.getEnvironment().registerPlugin(this.pluginJars);
     }
 
     @Override
@@ -63,7 +65,7 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseSource<FlinkEnvironment> pluginInstance = flinkSourcePluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseSource<FlinkEnvironment> pluginInstance = flinkSourcePluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());
@@ -77,7 +79,7 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseTransform<FlinkEnvironment> pluginInstance = flinkTransformPluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseTransform<FlinkEnvironment> pluginInstance = flinkTransformPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());
@@ -91,7 +93,7 @@ public class FlinkExecutionContext extends AbstractExecutionContext<FlinkEnviron
         return configList.stream()
             .map(pluginConfig -> {
                 PluginIdentifier pluginIdentifier = PluginIdentifier.of(engineType, pluginType, pluginConfig.getString("plugin_name"));
-                BaseSink<FlinkEnvironment> pluginInstance = flinkSinkPluginDiscovery.getPluginInstance(pluginIdentifier);
+                BaseSink<FlinkEnvironment> pluginInstance = flinkSinkPluginDiscovery.createPluginInstance(pluginIdentifier);
                 pluginInstance.setConfig(pluginConfig);
                 return pluginInstance;
             }).collect(Collectors.toList());

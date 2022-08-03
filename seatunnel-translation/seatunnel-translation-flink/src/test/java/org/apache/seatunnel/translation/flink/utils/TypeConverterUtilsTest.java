@@ -24,8 +24,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TypeConverterUtilsTest {
     //--------------------------------------------------------------
@@ -34,53 +34,52 @@ public class TypeConverterUtilsTest {
 
     @Test
     public void convertStringType() {
-        Assert.assertEquals(BasicTypeInfo.STRING_TYPE_INFO, TypeConverterUtils.convert(BasicType.STRING_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.STRING_TYPE_INFO, TypeConverterUtils.convert(BasicType.STRING_TYPE));
     }
 
     @Test
     public void convertIntegerType() {
-        Assert.assertEquals(BasicTypeInfo.INT_TYPE_INFO, TypeConverterUtils.convert(BasicType.INT_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.INT_TYPE_INFO, TypeConverterUtils.convert(BasicType.INT_TYPE));
     }
 
     @Test
     public void convertBooleanType() {
-        Assert.assertEquals(BasicTypeInfo.BOOLEAN_TYPE_INFO, TypeConverterUtils.convert(BasicType.BOOLEAN_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.BOOLEAN_TYPE_INFO, TypeConverterUtils.convert(BasicType.BOOLEAN_TYPE));
     }
 
     @Test
     public void convertDoubleType() {
-        Assert.assertEquals(BasicTypeInfo.DOUBLE_TYPE_INFO, TypeConverterUtils.convert(BasicType.DOUBLE_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.DOUBLE_TYPE_INFO, TypeConverterUtils.convert(BasicType.DOUBLE_TYPE));
     }
 
     @Test
     public void convertLongType() {
-        Assert.assertEquals(BasicTypeInfo.LONG_TYPE_INFO, TypeConverterUtils.convert(BasicType.LONG_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.LONG_TYPE_INFO, TypeConverterUtils.convert(BasicType.LONG_TYPE));
     }
 
     @Test
     public void convertFloatType() {
-        Assert.assertEquals(BasicTypeInfo.FLOAT_TYPE_INFO, TypeConverterUtils.convert(BasicType.FLOAT_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.FLOAT_TYPE_INFO, TypeConverterUtils.convert(BasicType.FLOAT_TYPE));
     }
 
     @Test
     public void convertByteType() {
-        Assert.assertEquals(BasicTypeInfo.BYTE_TYPE_INFO, TypeConverterUtils.convert(BasicType.BYTE_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.BYTE_TYPE_INFO, TypeConverterUtils.convert(BasicType.BYTE_TYPE));
     }
 
     @Test
     public void convertShortType() {
-        Assert.assertEquals(BasicTypeInfo.SHORT_TYPE_INFO, TypeConverterUtils.convert(BasicType.SHORT_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.SHORT_TYPE_INFO, TypeConverterUtils.convert(BasicType.SHORT_TYPE));
     }
 
     @Test
-    @SuppressWarnings("MagicNumber")
     public void convertBigDecimalType() {
-        Assert.assertEquals(new BigDecimalTypeInfo(30, 2), TypeConverterUtils.convert(new DecimalType(30, 2)));
+        Assertions.assertEquals(new BigDecimalTypeInfo(30, 2), TypeConverterUtils.convert(new DecimalType(30, 2)));
     }
 
     @Test
     public void convertNullType() {
-        Assert.assertEquals(BasicTypeInfo.VOID_TYPE_INFO, TypeConverterUtils.convert(BasicType.VOID_TYPE));
+        Assertions.assertEquals(BasicTypeInfo.VOID_TYPE_INFO, TypeConverterUtils.convert(BasicType.VOID_TYPE));
     }
 
     //--------------------------------------------------------------
@@ -89,41 +88,41 @@ public class TypeConverterUtilsTest {
 
     @Test
     public void convertBooleanArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BOOLEAN_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.BOOLEAN_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BOOLEAN_ARRAY_TYPE));
     }
 
     @Test
     public void convertStringArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.STRING_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.STRING_ARRAY_TYPE));
     }
 
     @Test
     public void convertDoubleArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.DOUBLE_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.DOUBLE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.DOUBLE_ARRAY_TYPE));
     }
 
     @Test
     public void convertIntegerArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.INT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.INT_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.INT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.INT_ARRAY_TYPE));
     }
 
     @Test
     public void convertLongArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.LONG_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.LONG_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.LONG_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.LONG_ARRAY_TYPE));
     }
 
     @Test
     public void convertFloatArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.FLOAT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.FLOAT_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.FLOAT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.FLOAT_ARRAY_TYPE));
     }
 
     @Test
     public void convertByteArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.BYTE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BYTE_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.BYTE_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.BYTE_ARRAY_TYPE));
     }
 
     @Test
     public void convertShortArrayType() {
-        Assert.assertEquals(BasicArrayTypeInfo.SHORT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.SHORT_ARRAY_TYPE));
+        Assertions.assertEquals(BasicArrayTypeInfo.SHORT_ARRAY_TYPE_INFO, TypeConverterUtils.convert(ArrayType.SHORT_ARRAY_TYPE));
     }
 }

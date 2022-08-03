@@ -28,7 +28,7 @@ public class ReflectionUtils {
 
         Optional<Method> method = Optional.empty();
         Method m;
-        for (; clazz != Object.class; clazz = clazz.getSuperclass()) {
+        for (; clazz != null; clazz = clazz.getSuperclass()) {
             try {
                 m = clazz.getDeclaredMethod(methodName, parameterTypes);
                 m.setAccessible(true);
@@ -61,7 +61,7 @@ public class ReflectionUtils {
             field.setAccessible(true);
             field.set(object, value);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException("Incompatible KafkaProducer version", e);
+            throw new RuntimeException("field set failed", e);
         }
     }
 
@@ -80,9 +80,14 @@ public class ReflectionUtils {
     public static Object invoke(
             Object object, String methodName, Class<?>[] argTypes, Object[] args) {
         try {
-            Method method = object.getClass().getDeclaredMethod(methodName, argTypes);
-            method.setAccessible(true);
-            return method.invoke(object, args);
+            Optional<Method> method = getDeclaredMethod(object.getClass(), methodName, argTypes);
+            if (method.isPresent()) {
+                method.get().setAccessible(true);
+                return method.get().invoke(object, args);
+            } else {
+                throw new NoSuchMethodException(String.format("method invoke failed, no such method '%s' in '%s'",
+                        methodName, object.getClass()));
+            }
         } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException("method invoke failed", e);
         }

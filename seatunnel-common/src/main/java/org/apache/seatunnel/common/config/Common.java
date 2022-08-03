@@ -35,11 +35,17 @@ public class Common {
 
     private static DeployMode MODE;
 
+    private static boolean STARTER = false;
+
     /**
      * Set mode. return false in case of failure
      */
     public static void setDeployMode(DeployMode mode) {
         MODE = mode;
+    }
+
+    public static void setStarter(boolean inStarter) {
+        STARTER = inStarter;
     }
 
     public static DeployMode getDeployMode() {
@@ -54,7 +60,7 @@ public class Common {
      * When running seatunnel in --master yarn or --master mesos, you can put plugins related files in plugins dir.
      */
     public static Path appRootDir() {
-        if (DeployMode.CLIENT == MODE) {
+        if (DeployMode.CLIENT == MODE || STARTER) {
             try {
                 String path = Common.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
                 path = new File(path).getPath();

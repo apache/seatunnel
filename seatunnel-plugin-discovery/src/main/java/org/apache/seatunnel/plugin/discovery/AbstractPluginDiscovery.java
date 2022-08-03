@@ -20,6 +20,7 @@ package org.apache.seatunnel.plugin.discovery;
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
@@ -28,6 +29,8 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -40,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
@@ -47,10 +51,26 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractPluginDiscovery.class);
     private final Path pluginDir;
 
-    protected final ConcurrentHashMap<PluginIdentifier, Optional<T>> pluginInstanceMap =
-        new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+    /**
+     * Add jar url to classloader. The different engine should have different logic to add url into
+     * their own classloader
+     */
+    private BiConsumer<ClassLoader, URL> addURLToClassLoader = (classLoader, url) -> {
+        if (classLoader instanceof URLClassLoader) {
+            ReflectionUtils.invoke(classLoader, "addURL", url);
+        } else {
+            throw new UnsupportedOperationException("can't support custom load jar");
+        }
+    };
+
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
-        new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+            new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
+
+    public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
+        this.pluginDir = Common.connectorJarDir(pluginSubDir);
+        this.addURLToClassLoader = addURLToClassloader;
+        LOGGER.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+    }
 
     public AbstractPluginDiscovery(String pluginSubDir) {
         this.pluginDir = Common.connectorJarDir(pluginSubDir);
@@ -60,27 +80,69 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     @Override
     public List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-            .map(this::getPluginJarPath)
-            .filter(Optional::isPresent)
-            .map(Optional::get).distinct()
-            .collect(Collectors.toList());
+                .map(this::getPluginJarPath)
+                .filter(Optional::isPresent)
+                .map(Optional::get).distinct()
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<T> getAllPlugins(List<PluginIdentifier> pluginIdentifiers) {
         return pluginIdentifiers.stream()
-            .map(this::getPluginInstance).distinct()
+            .map(this::createPluginInstance).distinct()
             .collect(Collectors.toList());
     }
 
     @Override
-    public T getPluginInstance(PluginIdentifier pluginIdentifier) {
-        Optional<T> pluginInstance = pluginInstanceMap
-            .computeIfAbsent(pluginIdentifier, this::createPluginInstance);
-        if (!pluginInstance.isPresent()) {
-            throw new IllegalArgumentException("Can't find plugin: " + pluginIdentifier);
+    public T createPluginInstance(PluginIdentifier pluginIdentifier) {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        T pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
+        if (pluginInstance != null) {
+            LOGGER.info("Load plugin: {} from classpath", pluginIdentifier);
+            return pluginInstance;
         }
-        return pluginInstance.get();
+        Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
+        // if the plugin jar not exist in classpath, will load from plugin dir.
+        if (pluginJarPath.isPresent()) {
+            try {
+                // use current thread classloader to avoid different classloader load same class error.
+                this.addURLToClassLoader.accept(classLoader, pluginJarPath.get());
+            } catch (Exception e) {
+                LOGGER.warn("can't load jar use current thread classloader, use URLClassLoader instead now." +
+                        " message: " + e.getMessage());
+                classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
+            }
+            pluginInstance = loadPluginInstance(pluginIdentifier, classLoader);
+            if (pluginInstance != null) {
+                LOGGER.info("Load plugin: {} from path: {} use classloader: {}",
+                        pluginIdentifier, pluginJarPath.get(), classLoader.getClass().getName());
+                return pluginInstance;
+            }
+        }
+        throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
+    }
+
+    @Nullable
+    private T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {
+        ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
+        for (T t : serviceLoader) {
+            if (t instanceof Plugin) {
+                // old api
+                Plugin<?> pluginInstance = (Plugin<?>) t;
+                if (StringUtils.equalsIgnoreCase(pluginInstance.getPluginName(), pluginIdentifier.getPluginName())) {
+                    return (T) pluginInstance;
+                }
+            } else if (t instanceof PluginIdentifierInterface) {
+                // new api
+                PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
+                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(), pluginIdentifier.getPluginName())) {
+                    return (T) pluginIdentifierInstance;
+                }
+            } else {
+                throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
+            }
+        }
+        return null;
     }
 
     /**
@@ -145,37 +207,5 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             LOGGER.warn("Cannot get plugin URL: " + targetPluginFiles[0], e);
             return Optional.empty();
         }
-    }
-
-    private Optional<T> createPluginInstance(PluginIdentifier pluginIdentifier) {
-        Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
-        ClassLoader classLoader;
-        // if the plugin jar not exist in plugin dir, will load from classpath.
-        if (pluginJarPath.isPresent()) {
-            LOGGER.info("Load plugin: {} from path: {}", pluginIdentifier, pluginJarPath.get());
-            classLoader = new URLClassLoader(new URL[]{pluginJarPath.get()}, Thread.currentThread().getContextClassLoader());
-        } else {
-            LOGGER.info("Load plugin: {} from classpath", pluginIdentifier);
-            classLoader = Thread.currentThread().getContextClassLoader();
-        }
-        ServiceLoader<T> serviceLoader = ServiceLoader.load(getPluginBaseClass(), classLoader);
-        for (T t : serviceLoader) {
-            if (t instanceof Plugin) {
-                // old api
-                Plugin<?> pluginInstance = (Plugin<?>) t;
-                if (StringUtils.equalsIgnoreCase(pluginInstance.getPluginName(), pluginIdentifier.getPluginName())) {
-                    return Optional.of((T) pluginInstance);
-                }
-            } else if (t instanceof PluginIdentifierInterface) {
-                // new api
-                PluginIdentifierInterface pluginIdentifierInstance = (PluginIdentifierInterface) t;
-                if (StringUtils.equalsIgnoreCase(pluginIdentifierInstance.getPluginName(), pluginIdentifier.getPluginName())) {
-                    return Optional.of((T) pluginIdentifierInstance);
-                }
-            } else {
-                throw new UnsupportedOperationException("Plugin instance: " + t + " is not supported.");
-            }
-        }
-        return Optional.empty();
     }
 }
