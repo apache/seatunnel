@@ -60,7 +60,11 @@ export function useTable() {
             default: () => [
               h(NButton, { text: true }, t('data_pipes.execute')),
               h(NButton, { text: true }, t('data_pipes.edit')),
-              h(NButton, { text: true, onClick: () => handlePublish(row) }, t('data_pipes.publish')),
+              h(
+                NButton,
+                { text: true, onClick: () => handlePublish(row) },
+                t('data_pipes.publish')
+              ),
               h(
                 NButton,
                 {
