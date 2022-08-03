@@ -18,29 +18,23 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
-import org.apache.seatunnel.engine.server.execution.ProgressState;
 
-import lombok.NonNull;
+import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
 public class SinkAggregatedCommitterTask extends CoordinatorTask {
 
     private static final long serialVersionUID = 5906594537520393503L;
     private final SinkAction<?, ?, ?, ?> sink;
 
-    @NonNull
-    @Override
-    public ProgressState call() {
-        return null;
-    }
-
-    @NonNull
-    @Override
-    public Long getTaskID() {
-        return (long) sink.getId();
-    }
-
     public SinkAggregatedCommitterTask(long taskID, SinkAction<?, ?, ?, ?> sink) {
         super(taskID);
         this.sink = sink;
+    }
+
+    @Override
+    public Set<URL> getJarsUrl() {
+        return new HashSet<>(sink.getJarUrls());
     }
 }

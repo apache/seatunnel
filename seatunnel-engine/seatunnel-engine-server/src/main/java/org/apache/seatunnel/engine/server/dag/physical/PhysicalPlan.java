@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.server.task.CoordinatorTask;
-import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
 
 import java.util.List;
 
@@ -35,20 +34,20 @@ public class PhysicalPlan {
     }
 
     public static class SubPlan {
-        private final List<SeaTunnelTask> tasks;
+        private final List<TaskGroupInfo> tasks;
 
-        private final List<CoordinatorTask> coordinatorTasks;
+        private final List<TaskGroupInfo> coordinatorTasks;
 
-        public SubPlan(List<SeaTunnelTask> tasks, List<CoordinatorTask> coordinatorTasks) {
+        public SubPlan(List<TaskGroupInfo> tasks, List<TaskGroupInfo> coordinatorTasks) {
             this.tasks = tasks;
             this.coordinatorTasks = coordinatorTasks;
         }
 
-        public List<SeaTunnelTask> getTasks() {
+        public List<TaskGroupInfo> getTasks() {
             return tasks;
         }
 
-        public List<CoordinatorTask> getCoordinatorTasks() {
+        public List<TaskGroupInfo> getCoordinatorTasks() {
             return coordinatorTasks;
         }
     }

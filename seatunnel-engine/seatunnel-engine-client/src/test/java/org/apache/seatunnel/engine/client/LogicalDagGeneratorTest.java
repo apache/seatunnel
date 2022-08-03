@@ -21,28 +21,37 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 
 import com.hazelcast.internal.json.JsonObject;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.net.URL;
+import java.util.List;
+import java.util.Set;
 
 @RunWith(JUnit4.class)
 public class LogicalDagGeneratorTest {
     @Test
     public void testLogicalGenerator() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath  = TestUtils.getResource("/fakesource_to_file_complex.conf");
+        String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setBoundedness(Boundedness.BOUNDED);
         jobConfig.setName("fake_to_file");
-        JobExecutionEnvironment jobExecutionEnv = new JobExecutionEnvironment(jobConfig, filePath);
-        jobExecutionEnv.addAction(jobExecutionEnv.getJobConfigParser().parse());
 
-        LogicalDagGenerator logicalDagGenerator = jobExecutionEnv.getLogicalDagGenerator();
+        IdGenerator idGenerator = new IdGenerator();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair = new JobConfigParser(filePath, idGenerator).parse();
+
+        LogicalDagGenerator logicalDagGenerator =
+            new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
         LogicalDag logicalDag = logicalDagGenerator.generate();
         JsonObject logicalDagJson = logicalDag.getLogicalDagAsJson();
         String result =

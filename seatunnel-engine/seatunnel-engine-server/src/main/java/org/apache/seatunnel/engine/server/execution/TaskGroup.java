@@ -21,10 +21,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Collection;
 
 @Data
 @AllArgsConstructor
 public class TaskGroup implements Serializable {
     private final Collection<Task> tasks;
+
+    public TaskGroup(Task... tasks) {
+        this.tasks = Arrays.asList(tasks);
+    }
 }

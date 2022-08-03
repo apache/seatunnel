@@ -24,6 +24,8 @@ import com.google.common.collect.Lists;
 import lombok.NonNull;
 
 import java.io.Serializable;
+import java.net.URL;
+import java.util.List;
 
 public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
 
@@ -32,8 +34,9 @@ public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializ
 
     public SourceAction(int id,
                         @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source) {
-        super(id, name, Lists.newArrayList());
+                        @NonNull SeaTunnelSource<T, SplitT, StateT> source,
+                        @NonNull List<URL> jarUrls) {
+        super(id, name, Lists.newArrayList(), jarUrls);
         this.source = source;
     }
 

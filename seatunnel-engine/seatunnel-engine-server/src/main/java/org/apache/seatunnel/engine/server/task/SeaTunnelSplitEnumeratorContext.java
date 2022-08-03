@@ -20,16 +20,22 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+
+import com.hazelcast.spi.impl.operationservice.OperationService;
 
 import java.util.List;
 import java.util.Set;
 
 public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
 
-    private int parallelism;
+    private final int parallelism;
 
-    public SeaTunnelSplitEnumeratorContext(int parallelism) {
+    private final OperationService operationService;
+
+    public SeaTunnelSplitEnumeratorContext(int parallelism, OperationService operationService) {
         this.parallelism = parallelism;
+        this.operationService = operationService;
     }
 
     @Override
@@ -44,12 +50,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
-
-    }
-
-    @Override
-    public void assignSplit(int subtaskId, SplitT split) {
-        SourceSplitEnumerator.Context.super.assignSplit(subtaskId, split);
+//        operationService.invokeOnTarget(SeaTunnelServer.SERVICE_NAME,)
     }
 
     @Override

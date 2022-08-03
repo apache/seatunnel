@@ -30,11 +30,14 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ExecutionPlanGenerator {
@@ -92,20 +95,24 @@ public class ExecutionPlanGenerator {
             return Collections.emptyList();
         } else {
             List<SeaTunnelTransform> transforms = new ArrayList<>();
+            Set<URL> jars = new HashSet<>();
             for (TransformAction t : findMigrateTransform(logicalEdges, start)) {
                 transforms.add(t.getTransform());
+                jars.addAll(t.getJarUrls());
                 end = t;
             }
             if (start instanceof SourceAction) {
                 SourceAction<?, ?, ?> source = (SourceAction<?, ?, ?>) start;
+                jars.addAll(source.getJarUrls());
                 executionAction = new PhysicalSourceAction<>(start.getId(), start.getName(),
-                        source.getSource(), transforms);
+                        source.getSource(), new ArrayList<>(jars), transforms);
                 actions.put(start.getId(), start);
             } else if (start instanceof TransformAction) {
-
                 TransformAction transform = (TransformAction) start;
+                jars.addAll(transform.getJarUrls());
                 transforms.add(0, transform.getTransform());
-                executionAction = new TransformChainAction(start.getId(), start.getName(), transforms);
+                executionAction = new TransformChainAction(start.getId(), start.getName(),
+                        new ArrayList<>(jars), transforms);
                 actions.put(start.getId(), executionAction);
             } else {
                 throw new UnknownActionException(start);

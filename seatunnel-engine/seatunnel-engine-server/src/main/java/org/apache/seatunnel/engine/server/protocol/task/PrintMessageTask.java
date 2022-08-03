@@ -17,68 +17,25 @@
 
 package org.apache.seatunnel.engine.server.protocol.task;
 
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 
-import com.google.common.base.Function;
 import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.task.AbstractInvocationMessageTask;
-import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.spi.exception.RetryableHazelcastException;
-import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-import java.security.Permission;
-
-public class PrintMessageTask extends AbstractInvocationMessageTask<String> {
+public class PrintMessageTask extends AbstractSeaTunnelMessageTask<String, String> {
 
     protected PrintMessageTask(ClientMessage clientMessage, Node node, Connection connection) {
-        super(clientMessage, node, connection);
-    }
-
-    @Override
-    protected InvocationBuilder getInvocationBuilder(Operation op) {
-        Address masterAddress = nodeEngine.getMasterAddress();
-        if (masterAddress == null) {
-            throw new RetryableHazelcastException("master not yet known");
-        }
-        return nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-            op, masterAddress);
+        super(clientMessage, node, connection,
+            SeaTunnelPrintMessageCodec::decodeRequest,
+            SeaTunnelPrintMessageCodec::encodeResponse);
     }
 
     @Override
     protected Operation prepareOperation() {
         return new PrintMessageOperation(parameters);
-    }
-
-    @Override
-    protected String decodeClientMessage(ClientMessage clientMessage) {
-        Function<ClientMessage, String> decodeRequest = SeaTunnelPrintMessageCodec::decodeRequest;
-        return decodeRequest.apply(clientMessage);
-    }
-
-    @Override
-    protected ClientMessage encodeResponse(Object response) {
-        Function<String, ClientMessage> encodeResponse = SeaTunnelPrintMessageCodec::encodeResponse;
-        return encodeResponse.apply((String) response);
-    }
-
-    @Override
-    public String getServiceName() {
-        return Constant.SEATUNNEL_SERVICE_NAME;
-    }
-
-    @Override
-    public Permission getRequiredPermission() {
-        return null;
-    }
-
-    @Override
-    public String getDistributedObjectName() {
-        return null;
     }
 
     @Override

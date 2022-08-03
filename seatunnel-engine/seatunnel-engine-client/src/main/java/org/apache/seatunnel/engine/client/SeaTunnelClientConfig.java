@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.engine.common.Constant;
+
 import com.hazelcast.client.config.ClientConfig;
 
 public class SeaTunnelClientConfig extends ClientConfig {
@@ -25,9 +27,8 @@ public class SeaTunnelClientConfig extends ClientConfig {
      * Creates a new config instance with default group name for SeaTunnel Engine
      */
     public SeaTunnelClientConfig() {
-        // TODO we should get cluster name from server config instead of return a constant name.
         super();
-        setClusterName("SeaTunnel Engine");
+        setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
     }
 }
 
