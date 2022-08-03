@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -32,7 +32,7 @@ public class ReflectionUtilsTest {
 
         URLClassLoader classLoader = new URLClassLoader(new URL[]{}, Thread.currentThread().getContextClassLoader());
         ReflectionUtils.invoke(classLoader, "addURL", new URL("file:///test"));
-        Assert.assertArrayEquals(classLoader.getURLs(), new URL[]{new URL("file:///test")});
+        Assertions.assertArrayEquals(classLoader.getURLs(), new URL[]{new URL("file:///test")});
     }
 
 }

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.app.dal.dao.impl;
 
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.SCRIPT_ALREADY_EXIST;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.SCRIPT_ALREADY_EXIST;
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.ScriptStatusEnum;

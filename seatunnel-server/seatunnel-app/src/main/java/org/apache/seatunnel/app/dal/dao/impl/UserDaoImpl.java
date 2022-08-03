@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.app.dal.dao.impl;
 
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.NO_SUCH_USER;
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.USER_ALREADY_EXISTS;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_USER;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.USER_ALREADY_EXISTS;
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.UserStatusEnum;
@@ -91,5 +91,10 @@ public class UserDaoImpl implements IUserDao {
         final User user = new User();
         user.setUsername(dto.getName());
         return userMapper.selectBySelectiveAndPage(user, pageNo * pageSize, pageSize);
+    }
+
+    @Override
+    public User getById(int operatorId) {
+        return userMapper.selectByPrimaryKey(operatorId);
     }
 }

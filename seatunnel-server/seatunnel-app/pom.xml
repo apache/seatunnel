@@ -141,6 +141,18 @@
             <artifactId>scala-library</artifactId>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-spi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-scheduler-dolphinscheduler</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

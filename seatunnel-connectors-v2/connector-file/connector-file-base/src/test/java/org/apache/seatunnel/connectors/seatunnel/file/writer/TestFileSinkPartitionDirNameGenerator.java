@@ -25,15 +25,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.PartitionDirNameGenerator;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.modules.junit4.PowerMockRunner;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@RunWith(PowerMockRunner.class)
 public class TestFileSinkPartitionDirNameGenerator {
 
     @SuppressWarnings({"checkstyle:MagicNumber", "checkstyle:RegexpSingleline"})
@@ -56,14 +53,14 @@ public class TestFileSinkPartitionDirNameGenerator {
 
         PartitionDirNameGenerator partitionDirNameGenerator = new FileSinkPartitionDirNameGenerator(partitionFieldList, partitionFieldsIndexInRow, "${v0}/${v1}");
         String partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow).keySet().toArray()[0].toString();
-        Assert.assertEquals("test/3", partitionDir);
+        Assertions.assertEquals("test/3", partitionDir);
 
         partitionDirNameGenerator = new FileSinkPartitionDirNameGenerator(partitionFieldList, partitionFieldsIndexInRow, "${k0}=${v0}/${k1}=${v1}");
         partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow).keySet().toArray()[0].toString();
-        Assert.assertEquals("c3=test/c4=3", partitionDir);
+        Assertions.assertEquals("c3=test/c4=3", partitionDir);
 
         partitionDirNameGenerator = new FileSinkPartitionDirNameGenerator(null, null, "${k0}=${v0}/${k1}=${v1}");
         partitionDir = partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow).keySet().toArray()[0].toString();
-        Assert.assertEquals(Constant.NON_PARTITION, partitionDir);
+        Assertions.assertEquals(Constant.NON_PARTITION, partitionDir);
     }
 }

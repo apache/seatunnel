@@ -20,12 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseFileCopyMethod;
 
 public class FileTransferFactory {
-    public static FileTransfer createFileTransfer(ClickhouseFileCopyMethod type, String host, String password) {
+    public static FileTransfer createFileTransfer(ClickhouseFileCopyMethod type, String host, String user, String password) {
         switch (type) {
             case SCP:
-                return new ScpFileTransfer(host, password);
+                return new ScpFileTransfer(host, user, password);
             case RSYNC:
-                return new RsyncFileTransfer(host, password);
+                return new RsyncFileTransfer(host, user, password);
             default:
                 throw new RuntimeException("unsupported clickhouse file copy method:" + type);
         }

@@ -23,12 +23,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.apache.hadoop.hive.metastore.api.Table;
 
-import java.io.Serializable;
-
 @Data
 @AllArgsConstructor
-public class HiveAggregatedCommitInfo implements Serializable {
+public class HiveAggregatedCommitInfo extends BaseHiveCommitInfo {
+
     private FileAggregatedCommitInfo fileAggregatedCommitInfo;
-    private String hiveMetastoreUris;
-    private Table table;
+
+    public HiveAggregatedCommitInfo(FileAggregatedCommitInfo fileAggregatedCommitInfo, String hiveMetastoreUris, Table table) {
+        super(hiveMetastoreUris, table);
+        this.fileAggregatedCommitInfo = fileAggregatedCommitInfo;
+    }
 }

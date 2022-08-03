@@ -19,8 +19,8 @@ package org.apache.seatunnel.e2e.spark.v2.file;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -34,6 +34,6 @@ public class FakeSourceToFileIT extends SparkContainer {
     @Test
     public void testFakeSourceToFile() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
