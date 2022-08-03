@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.app.common;
 
+import org.apache.seatunnel.server.common.SeatunnelErrorEnum;
+
 public class Result<T> {
 
     private static final Result<Void> OK = success();

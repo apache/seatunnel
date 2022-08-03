@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.Constant;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionFileNameGenerator;
 
+import lombok.Data;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
 
@@ -31,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+@Data
 public class FileSinkTransactionFileNameGenerator implements TransactionFileNameGenerator {
     private FileFormat fileFormat;
 
@@ -55,8 +58,8 @@ public class FileSinkTransactionFileNameGenerator implements TransactionFileName
         final String formattedDate = df.format(ZonedDateTime.now());
 
         final Map<String, String> valuesMap = new HashMap<>(4);
-        valuesMap.put("uuid", UUID.randomUUID().toString());
-        valuesMap.put("now", formattedDate);
+        valuesMap.put(Constants.UUID, UUID.randomUUID().toString());
+        valuesMap.put(Constants.NOW, formattedDate);
         valuesMap.put(timeFormat, formattedDate);
         valuesMap.put(Constant.TRANSACTION_EXPRESSION, transactionId);
         String substitute = VariablesSubstitute.substitute(fileNameExpression, valuesMap);

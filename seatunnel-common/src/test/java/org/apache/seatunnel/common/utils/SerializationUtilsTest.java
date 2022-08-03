@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,14 +34,14 @@ public class SerializationUtilsTest {
         data.put("seatunnelTest", "apache SeaTunnel");
         data.put("中 文", "Apache Asia");
         String configStr = SerializationUtils.objectToString(data);
-        Assert.assertNotNull(configStr);
+        Assertions.assertNotNull(configStr);
 
         HashMap<String, String> dataAfter = SerializationUtils.stringToObject(configStr);
 
-        Assert.assertEquals(dataAfter, data);
+        Assertions.assertEquals(dataAfter, data);
 
         data.put("key2", "");
-        Assert.assertNotEquals(dataAfter, data);
+        Assertions.assertNotEquals(dataAfter, data);
 
     }
 
@@ -65,9 +65,9 @@ public class SerializationUtilsTest {
 
         ArrayList<HashMap<String, String>> array2 = SerializationUtils.deserialize(result);
 
-        Assert.assertEquals(array2, array);
+        Assertions.assertEquals(array2, array);
 
-        Assert.assertThrows(SerializationException.class, () -> SerializationUtils.deserialize(new byte[]{1, 0, 1}));
+        Assertions.assertThrows(SerializationException.class, () -> SerializationUtils.deserialize(new byte[]{1, 0, 1}));
 
     }
 

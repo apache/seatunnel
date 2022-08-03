@@ -114,13 +114,16 @@ public class ClickhouseFileSink implements SeaTunnelSink<SeaTunnelRow, Clickhous
         } else {
             fields = new ArrayList<>(tableSchema.keySet());
         }
+        Map<String, String> nodeUser = config.getObjectList(NODE_PASS).stream()
+                .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
+                    configObject -> configObject.toConfig().hasPath(USERNAME) ? configObject.toConfig().getString(USERNAME) : "root"));
         Map<String, String> nodePassword = config.getObjectList(NODE_PASS).stream()
                 .collect(Collectors.toMap(configObject -> configObject.toConfig().getString(NODE_ADDRESS),
                     configObject -> configObject.toConfig().getString(PASSWORD)));
 
         proxy.close();
         this.readerOption = new FileReaderOption(shardMetadata, tableSchema, fields, config.getString(CLICKHOUSE_LOCAL_PATH),
-                ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD)), nodePassword);
+                ClickhouseFileCopyMethod.from(config.getString(COPY_METHOD)), nodeUser, nodePassword);
     }
 
     @Override
