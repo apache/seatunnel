@@ -101,6 +101,11 @@
             <artifactId>connector-dingtalk</artifactId>
             <version>${project.version}</version>
         </dependency>
+          <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-email</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

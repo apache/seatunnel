@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+package org.apache.seatunnel.connectors.seatunnel.http.config;
 
-const DataPipesEdit = defineComponent({
-  setup() {},
-  render() {
-    return (
-      <div></div>
-    )
-  }
-})
-
-export default DataPipesEdit
+public class HttpConfig {
+    public static final String URL = "url";
+    public static final String METHOD = "method";
+    public static final String METHOD_DEFAULT_VALUE = "GET";
+    public static final String HEADERS = "headers";
+    public static final String PARAMS = "params";
+    public static final String BODY = "body";
+}

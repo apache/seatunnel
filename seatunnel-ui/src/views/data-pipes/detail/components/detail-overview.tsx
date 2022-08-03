@@ -19,6 +19,7 @@ import { defineComponent, onMounted, toRefs } from 'vue'
 import { NGi, NGrid, NSpace, NTabs, NTabPane, NDataTable } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useDetailOverview } from './use-detail-overview'
+import Log from '@/components/log'
 
 const DetailOverview = defineComponent({
   setup() {
@@ -39,46 +40,81 @@ const DetailOverview = defineComponent({
           <NGi>{this.t('data_pipes.output_metrics')}</NGi>
         </NGrid>
         <NGrid x-gap='12' cols='4'>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}>
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.bytes_per_second')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.bytes_per_second')}
+            </span>
           </NGi>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}>
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.record_per_second')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.record_per_second')}
+            </span>
           </NGi>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}>
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.bytes_per_second')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.bytes_per_second')}
+            </span>
           </NGi>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']} >
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.record_per_second')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.record_per_second')}
+            </span>
           </NGi>
         </NGrid>
         <NGrid x-gap='12' cols='4'>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}>
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.total_bytes')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.total_bytes')}
+            </span>
           </NGi>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}>
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.total_records')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.total_records')}
+            </span>
           </NGi>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}>
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.total_bytes')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.total_bytes')}
+            </span>
           </NGi>
-          <NGi class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']} >
+          <NGi
+            class={['flex', 'justify-between', 'py-4', 'px-3', 'bg-gray-50']}
+          >
             <span>1212</span>
-            <span class='text-gray-400'>{this.t('data_pipes.total_records')}</span>
+            <span class='text-gray-400'>
+              {this.t('data_pipes.total_records')}
+            </span>
           </NGi>
         </NGrid>
         <NTabs type='line' justify-content='space-evenly' class='mt-7'>
           <NTabPane name='run-log' tab={this.t('data_pipes.run_log')}>
-
+            <Log />
           </NTabPane>
-          <NTabPane name='historical-run-logs' tab={this.t('data_pipes.historical_run_logs')}>
+          <NTabPane
+            name='historical-run-logs'
+            tab={this.t('data_pipes.historical_run_logs')}
+          >
             <NDataTable
               loading={this.loading}
               columns={this.columns}

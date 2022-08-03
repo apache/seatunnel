@@ -15,16 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.config;
-
-public class Config {
-    public static final String URL = "url";
-
-    public static final String METHOD = "method";
-    public static final String METHOD_DEFAULT_VALUE = "GET";
-
-    public static final String HEADERS = "headers";
-    public static final String PARAMS = "params";
-    public static final String BODY = "body";
-
+export default {
+  please_select_log: 'Please select log',
+  search: 'Search'
 }

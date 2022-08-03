@@ -14,9 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type { MaybeArray } from 'naive-ui/es/_utils'
 
-type OnUpdateValue = <T extends string>(value: T) => void
-type OnUpdateValueImpl = (value: string) => void
+import { defineComponent } from 'vue'
+import { NButton, NInput, NInputGroup, NLog, NSpace } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 
-export { MaybeArray, OnUpdateValue, OnUpdateValueImpl }
+const Log = defineComponent({
+  setup() {
+    const { t } = useI18n()
+
+    return { t }
+  },
+  render() {
+    return (
+      <NSpace vertical>
+        <NInputGroup>
+          <NInput placeholder={this.t('log.please_select_log')} />
+          <NButton ghost>{this.t('log.search')}</NButton>
+        </NInputGroup>
+        <NLog rows={30} log={'test'} class={['py-5', 'px-3', 'bg-gray-50']} />
+      </NSpace>
+    )
+  }
+})
+
+export default Log

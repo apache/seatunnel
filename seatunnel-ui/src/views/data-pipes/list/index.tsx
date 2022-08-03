@@ -19,12 +19,15 @@ import { defineComponent, onMounted, toRefs } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTable } from './use-table'
 import { NButton, NCard, NDataTable, NPagination, NSpace } from 'naive-ui'
+import { useRouter } from 'vue-router'
 import DeleteModal from './components/delete-modal'
 import PublishModal from './components/publish-modal'
+import type { Router } from 'vue-router'
 
 const DataPipesList = defineComponent({
   setup() {
     const { t } = useI18n()
+    const router: Router = useRouter()
     const { state, createColumns } = useTable()
 
     const handleCancelDeleteModal = () => {
@@ -43,12 +46,23 @@ const DataPipesList = defineComponent({
       state.showPublishModal = false
     }
 
+    const handleCreate = () => {
+      router.push({ path: '/data-pipes/create' })
+    }
 
     onMounted(() => {
       createColumns(state)
     })
 
-    return { t, ...toRefs(state), handleCancelDeleteModal, handleConfirmDeleteModal, handleCancelPublishModal, handleConfirmPublishModal }
+    return {
+      t,
+      ...toRefs(state),
+      handleCancelDeleteModal,
+      handleConfirmDeleteModal,
+      handleCancelPublishModal,
+      handleConfirmPublishModal,
+      handleCreate
+    }
   },
   render() {
     return (
@@ -56,7 +70,9 @@ const DataPipesList = defineComponent({
         <NCard title={this.t('data_pipes.data_pipes')}>
           {{
             'header-extra': () => (
-              <NButton>{this.t('data_pipes.create')}</NButton>
+              <NButton onClick={this.handleCreate}>
+                {this.t('data_pipes.create')}
+              </NButton>
             )
           }}
         </NCard>
