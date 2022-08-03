@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.dag.execution;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import java.util.List;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+public class ExecutionPlan {
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+    private final List<Pipeline> pipelines;
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    ExecutionPlan(List<Pipeline> pipelines) {
+        this.pipelines = pipelines;
+    }
+
+    public List<Pipeline> getPipelines() {
+        return pipelines;
     }
 }

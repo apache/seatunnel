@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.core.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalEdge;
-import org.apache.seatunnel.engine.core.dag.logicaldag.LogicalVertex;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
@@ -38,17 +38,17 @@ import com.hazelcast.spi.annotation.PrivateApi;
 public final class JobDataSerializerHook implements DataSerializerHook {
 
     /**
-     * Serialization ID of the {@link org.apache.seatunnel.engine.core.dag.logicaldag.LogicalDag} class.
+     * Serialization ID of the {@link LogicalDag} class.
      */
     public static final int LOGICAL_DAG = 0;
 
     /**
-     * Serialization ID of the {@link org.apache.seatunnel.engine.core.dag.logicaldag.LogicalVertex} class.
+     * Serialization ID of the {@link LogicalVertex} class.
      */
     public static final int LOGICAL_VERTEX = 1;
 
     /**
-     * Serialization ID of the {@link org.apache.seatunnel.engine.core.dag.logicaldag.LogicalEdge} class.
+     * Serialization ID of the {@link LogicalEdge} class.
      */
     public static final int LOGICAL_EDGE = 2;
 

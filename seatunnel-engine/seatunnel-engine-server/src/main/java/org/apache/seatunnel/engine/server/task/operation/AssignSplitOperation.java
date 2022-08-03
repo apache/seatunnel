@@ -15,50 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.logicaldag;
+package org.apache.seatunnel.engine.server.task.operation;
 
-import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
+import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class LogicalVertex implements IdentifiedDataSerializable {
-    private Integer vertexId;
-    private Action action;
-    private int parallelism;
+public class AssignSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
 
-    public LogicalVertex() {
+    private List<SplitT> splits;
+    private int taskID;
+
+    public AssignSplitOperation() {
+    }
+
+    public AssignSplitOperation(int taskID, List<SplitT> splits) {
+        this.splits = splits;
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        out.writeObject(splits);
+        out.writeInt(taskID);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        splits = in.readObject();
+        taskID = in.readInt();
     }
 
     @Override
     public int getFactoryId() {
-        return JobDataSerializerHook.FACTORY_ID;
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return JobDataSerializerHook.LOGICAL_VERTEX;
-    }
-
-    @Override
-    public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeInt(vertexId);
-        out.writeObject(action);
-        out.writeInt(parallelism);
-    }
-
-    @Override
-    public void readData(ObjectDataInput in) throws IOException {
-        vertexId = in.readInt();
-        action = in.readObject();
-        parallelism = in.readInt();
+        return TaskDataSerializerHook.ASSIGN_SPLIT_TYPE;
     }
 }

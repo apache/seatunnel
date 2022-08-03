@@ -25,22 +25,26 @@ import java.net.URL;
 import java.util.List;
 
 public class TransformAction extends AbstractAction {
-    private SeaTunnelTransform transformation;
+    private SeaTunnelTransform transform;
 
     public TransformAction(int id,
                            @NonNull String name,
                            @NonNull List<Action> upstreams,
-                           @NonNull SeaTunnelTransform transformation,
+                           @NonNull SeaTunnelTransform transform,
                            @NonNull List<URL> jarUrls) {
         super(id, name, upstreams, jarUrls);
-        this.transformation = transformation;
+        this.transform = transform;
     }
 
     public TransformAction(int id,
                            @NonNull String name,
-                           @NonNull SeaTunnelTransform transformation,
+                           @NonNull SeaTunnelTransform transform,
                            @NonNull List<URL> jarUrls) {
         super(id, name, jarUrls);
-        this.transformation = transformation;
+        this.transform = transform;
+    }
+
+    public SeaTunnelTransform getTransform() {
+        return transform;
     }
 }

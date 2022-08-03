@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.core.dag.actions;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+public class UnknownActionException extends RuntimeException {
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+    private static final long serialVersionUID = 6566687693833135857L;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
-
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    public UnknownActionException(Action action) {
+        super("Unknown Action: " + action.getClass().getName());
     }
 }
