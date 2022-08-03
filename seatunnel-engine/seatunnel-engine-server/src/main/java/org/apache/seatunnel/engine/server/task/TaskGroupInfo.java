@@ -17,23 +17,31 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import com.hazelcast.internal.nio.IOUtil;
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.Set;
 
-public class TaskGroupInfo {
+public class TaskGroupInfo implements IdentifiedDataSerializable {
 
-    private final TaskGroup group;
+    private Data group;
 
-    private final Set<URL> jars;
+    private Set<URL> jars;
 
-    public TaskGroupInfo(TaskGroup group, Set<URL> jars) {
+    public TaskGroupInfo() {
+    }
+
+    public TaskGroupInfo(Data group, Set<URL> jars) {
         this.group = group;
         this.jars = jars;
     }
 
-    public TaskGroup getGroup() {
+    public Data getGroup() {
         return group;
     }
 
@@ -41,4 +49,25 @@ public class TaskGroupInfo {
         return jars;
     }
 
+    @Override
+    public int getFactoryId() {
+        return TaskFactory.TASK_GROUP_INFO_TYPE;
+    }
+
+    @Override
+    public int getClassId() {
+        return TaskFactory.FACTORY_ID;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeObject(jars);
+        IOUtil.writeData(out, group);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        jars = in.readObject();
+        group = IOUtil.readData(in);
+    }
 }

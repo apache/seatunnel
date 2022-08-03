@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation;
+package org.apache.seatunnel.engine.server.task;
+
+import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
 
 import com.hazelcast.nio.serialization.DataSerializableFactory;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
-public class TaskOperationFactory implements DataSerializableFactory {
+public class TaskFactory implements DataSerializableFactory {
 
     public static final int FACTORY_ID = 10;
 
@@ -28,13 +32,21 @@ public class TaskOperationFactory implements DataSerializableFactory {
 
     public static final int REQUEST_SPLIT_TYPE = 2;
 
+    public static final int ASSIGN_SPLIT_TYPE = 3;
+
+    public static final int TASK_GROUP_INFO_TYPE = 4;
+
     @Override
     public IdentifiedDataSerializable create(int typeId) {
         switch (typeId) {
-            case 1:
+            case REGISTER_TYPE:
                 return new RegisterOperation();
-            case 2:
-                return new RequestSplitOperation<>();
+            case REQUEST_SPLIT_TYPE:
+                return new RequestSplitOperation();
+            case ASSIGN_SPLIT_TYPE:
+                return new AssignSplitOperation();
+            case TASK_GROUP_INFO_TYPE:
+                return new TaskGroupInfo();
             default:
                 return null;
         }

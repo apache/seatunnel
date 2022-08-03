@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.task.TaskFactory;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -33,21 +35,23 @@ import java.util.UUID;
  */
 public class RegisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private UUID memberID;
-
-    private long taskID;
+    private long readerTaskID;
+    private long enumeratorTaskID;
 
     public RegisterOperation() {
     }
 
-    public RegisterOperation(long taskID, UUID memberID) {
-        this.taskID = taskID;
-        this.memberID = memberID;
+    public RegisterOperation(long readerTaskID, long enumeratorTaskID) {
+        this.readerTaskID = readerTaskID;
+        this.enumeratorTaskID = enumeratorTaskID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
+        UUID readerUUID = getCallerUuid();
+        TaskExecutionContext executionContext =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
         // TODO register reader to enumerator
     }
 
@@ -59,24 +63,24 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeObject(memberID);
-        out.writeLong(taskID);
+        out.writeLong(readerTaskID);
+        out.writeLong(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        memberID = in.readObject();
-        taskID = in.readLong();
+        readerTaskID = in.readLong();
+        enumeratorTaskID = in.readLong();
     }
 
     @Override
     public int getFactoryId() {
-        return TaskOperationFactory.FACTORY_ID;
+        return TaskFactory.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskOperationFactory.REGISTER_TYPE;
+        return TaskFactory.REGISTER_TYPE;
     }
 }

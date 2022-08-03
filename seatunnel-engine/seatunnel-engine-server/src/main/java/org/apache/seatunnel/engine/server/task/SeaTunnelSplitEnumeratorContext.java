@@ -20,8 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-
-import com.hazelcast.spi.impl.operationservice.OperationService;
+import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
 
 import java.util.List;
 import java.util.Set;
@@ -30,11 +29,11 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     private final int parallelism;
 
-    private final OperationService operationService;
+    private final SourceSplitEnumeratorTask<SplitT> task;
 
-    public SeaTunnelSplitEnumeratorContext(int parallelism, OperationService operationService) {
+    public SeaTunnelSplitEnumeratorContext(int parallelism, SourceSplitEnumeratorTask<SplitT> task) {
         this.parallelism = parallelism;
-        this.operationService = operationService;
+        this.task = task;
     }
 
     @Override
@@ -49,6 +48,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
+        task.sendToMember(new AssignSplitOperation(), task.getTaskMemberID(subtaskId));
     }
 
     @Override

@@ -18,13 +18,10 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalExecutionFlow;
+import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
+import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
-
-import com.hazelcast.cluster.Address;
-import com.hazelcast.spi.impl.operationservice.OperationService;
 
 import java.io.IOException;
 import java.net.URL;
@@ -38,15 +35,16 @@ import java.util.UUID;
 public class SeaTunnelTask extends AbstractTask {
 
     private static final long serialVersionUID = 2604309561613784425L;
-    private final PhysicalExecutionFlow executionFlow;
+    private final Flow executionFlow;
 
     // TODO init memberID in task execution service
     private UUID memberID = UUID.randomUUID();
-    // TODO add master address
-    private Address master = new Address();
+    private int enumeratorTaskID = -1;
 
-    public SeaTunnelTask(long taskID, PhysicalExecutionFlow executionFlow) {
+    public SeaTunnelTask(long taskID, Flow executionFlow) {
         super(taskID);
+        // TODO add enumerator task ID
+        enumeratorTaskID = 1;
         this.executionFlow = executionFlow;
     }
 
@@ -61,38 +59,36 @@ public class SeaTunnelTask extends AbstractTask {
 
     private void register() {
         if (startFromSource()) {
-            operationService.invokeOnTarget(SeaTunnelServer.SERVICE_NAME, new RegisterOperation(taskID, memberID),
-                    master);
+            sendToMaster(new RegisterOperation(taskID, enumeratorTaskID));
         }
     }
 
     private void requestSplit() {
-        operationService.invokeOnTarget(SeaTunnelServer.SERVICE_NAME, new RequestSplitOperation<>(taskID,
-                memberID), master);
+        sendToMaster(new RequestSplitOperation(taskID, enumeratorTaskID));
     }
 
     private boolean startFromSource() {
-        return executionFlow.getAction() instanceof SourceAction;
+        if (executionFlow instanceof PhysicalExecutionFlow) {
+            return ((PhysicalExecutionFlow) executionFlow).getAction() instanceof SourceAction;
+        }
+        return false;
     }
 
     @Override
     public Set<URL> getJarsUrl() {
-        List<PhysicalExecutionFlow> now = Collections.singletonList(executionFlow);
+        List<Flow> now = Collections.singletonList(executionFlow);
         Set<URL> urls = new HashSet<>();
-        List<PhysicalExecutionFlow> next = new ArrayList<>();
+        List<Flow> next = new ArrayList<>();
         while (!now.isEmpty()) {
             next.clear();
             now.forEach(n -> {
-                urls.addAll(n.getAction().getJarUrls());
+                if (n instanceof PhysicalExecutionFlow) {
+                    urls.addAll(((PhysicalExecutionFlow) n).getAction().getJarUrls());
+                }
                 next.addAll(n.getNext());
             });
             now = next;
         }
         return urls;
-    }
-
-    @Override
-    public void setOperationService(OperationService operationService) {
-        this.operationService = operationService;
     }
 }

@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 
+import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
@@ -33,14 +34,15 @@ public class JobMaster implements Task {
     private final LogicalDag logicalDag;
     private PhysicalPlan physicalPlan;
 
+    private NodeEngine nodeEngine;
+
     public JobMaster() {
         this.logicalDag = new LogicalDag();
     }
 
     @Override
     public void init() throws Exception {
-        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag);
-
+        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine);
     }
 
     @NonNull

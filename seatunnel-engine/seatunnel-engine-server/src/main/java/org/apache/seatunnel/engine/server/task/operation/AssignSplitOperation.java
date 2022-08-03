@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.engine.server.task.operation;
 
-import lombok.NonNull;
+import org.apache.seatunnel.engine.server.task.TaskFactory;
 
-import java.util.Collections;
-import java.util.List;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class JavaQueueAction extends AbstractAction {
+public class AssignSplitOperation extends Operation implements IdentifiedDataSerializable {
 
-    private static final long serialVersionUID = -1646055642481336747L;
-
-    public JavaQueueAction(int id, @NonNull String name, @NonNull List<Action> upstreams) {
-        super(id, name, upstreams, Collections.emptyList());
+    @Override
+    public int getFactoryId() {
+        return TaskFactory.FACTORY_ID;
     }
 
-    public JavaQueueAction(int id, @NonNull String name) {
-        super(id, name, Collections.emptyList());
+    @Override
+    public int getClassId() {
+        return TaskFactory.ASSIGN_SPLIT_TYPE;
     }
 }

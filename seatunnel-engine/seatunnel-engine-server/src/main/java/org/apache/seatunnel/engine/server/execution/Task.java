@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.OperationService;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.UUID;
 
 public interface Task extends Serializable {
 
@@ -42,6 +45,16 @@ public interface Task extends Serializable {
     }
 
     default void setOperationService(OperationService operationService) {
+    }
+
+    default <E> InvocationFuture<E> sendToMaster(Operation operation) {
+        // TODO add method send operation to master
+        return null;
+    }
+
+    default <E> InvocationFuture<E> sendToMember(Operation operation, UUID memberID) {
+        // TODO add method send operation to member
+        return null;
     }
 
 }

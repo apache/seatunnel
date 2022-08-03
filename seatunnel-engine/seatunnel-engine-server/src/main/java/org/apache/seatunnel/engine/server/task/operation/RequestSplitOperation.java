@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.task.TaskFactory;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -25,26 +26,25 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.UUID;
 
-public class RequestSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
+public class RequestSplitOperation extends Operation implements IdentifiedDataSerializable {
 
-    private UUID memberID;
+    private long enumeratorTaskID;
 
     private long taskID;
 
     public RequestSplitOperation() {
     }
 
-    public RequestSplitOperation(long taskID, UUID memberID) {
-        this.memberID = memberID;
+    public RequestSplitOperation(long taskID, long enumeratorTaskID) {
+        this.enumeratorTaskID = enumeratorTaskID;
         this.taskID = taskID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(taskID);
+        server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
         // TODO ask source split enumerator return split
     }
 
@@ -56,24 +56,24 @@ public class RequestSplitOperation<SplitT> extends Operation implements Identifi
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeObject(memberID);
+        out.writeLong(enumeratorTaskID);
         out.writeLong(taskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        memberID = in.readObject();
+        enumeratorTaskID = in.readLong();
         taskID = in.readLong();
     }
 
     @Override
     public int getFactoryId() {
-        return TaskOperationFactory.FACTORY_ID;
+        return TaskFactory.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskOperationFactory.REQUEST_SPLIT_TYPE;
+        return TaskFactory.REQUEST_SPLIT_TYPE;
     }
 }

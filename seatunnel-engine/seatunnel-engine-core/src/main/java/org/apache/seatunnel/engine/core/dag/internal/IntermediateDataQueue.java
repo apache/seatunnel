@@ -15,17 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical;
+package org.apache.seatunnel.engine.core.dag.internal;
 
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
+import java.io.Serializable;
 
-import com.hazelcast.spi.impl.NodeEngine;
+public class IntermediateDataQueue implements Serializable {
 
-public class PhysicalPlanUtils {
+    private static final long serialVersionUID = -3049265155605303992L;
 
-    public static PhysicalPlan fromLogicalDAG(LogicalDag logicalDag, NodeEngine nodeEngine) {
-        return new PhysicalPlanGenerator(new ExecutionPlanGenerator(logicalDag).generate(), nodeEngine).generate();
+    private final int id;
+    private final int parallelism;
+    private final String name;
+
+    public IntermediateDataQueue(int id, String name, int parallelism) {
+        this.id = id;
+        this.name = name;
+        this.parallelism = parallelism;
     }
 
+    public int getId() {
+        return id;
+    }
+
+    public int getParallelism() {
+        return parallelism;
+    }
+
+    public String getName() {
+        return name;
+    }
 }

@@ -15,34 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical;
+package org.apache.seatunnel.engine.server.dag.physical.flow;
 
-import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.internal.IntermediateDataQueue;
 
 import java.util.Collections;
 import java.util.List;
 
-public class PhysicalExecutionFlow {
+public class IntermediateExecutionFlow extends Flow {
 
-    private final Action action;
+    private final IntermediateDataQueue queue;
 
-    private final List<PhysicalExecutionFlow> next;
-
-    public PhysicalExecutionFlow(Action action, List<PhysicalExecutionFlow> next) {
-        this.action = action;
-        this.next = next;
+    public IntermediateExecutionFlow(IntermediateDataQueue queue) {
+        super(Collections.emptyList());
+        this.queue = queue;
     }
 
-    public PhysicalExecutionFlow(Action action) {
-        this.action = action;
-        this.next = Collections.emptyList();
+    public IntermediateExecutionFlow(IntermediateDataQueue queue, List<Flow> next) {
+        super(next);
+        this.queue = queue;
     }
 
-    public Action getAction() {
-        return action;
-    }
-
-    public List<PhysicalExecutionFlow> getNext() {
-        return next;
+    public IntermediateDataQueue getQueue() {
+        return queue;
     }
 }

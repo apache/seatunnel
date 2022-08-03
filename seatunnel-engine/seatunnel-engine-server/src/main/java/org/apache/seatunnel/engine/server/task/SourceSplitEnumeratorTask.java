@@ -17,25 +17,32 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.PhysicalSourceAction;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
-public class SourceSplitEnumeratorTask extends CoordinatorTask {
+public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
 
     private static final long serialVersionUID = -3713701594297977775L;
 
-    private final PhysicalSourceAction<?, ?, ?> source;
+    private final PhysicalSourceAction<?, SplitT, ?> source;
     private SourceSplitEnumerator<?, ?> enumerator;
+    private SeaTunnelSplitEnumeratorContext<SplitT> context;
+    private Map<Integer, UUID> taskMemberMapping;
 
     @Override
     public void init() throws Exception {
-        enumerator = this.source.getSource()
-                .createEnumerator(new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this.operationService));
+        context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
+        enumerator = this.source.getSource().createEnumerator(context);
+        taskMemberMapping = new HashMap<>();
         enumerator.open();
     }
 
@@ -46,17 +53,26 @@ public class SourceSplitEnumeratorTask extends CoordinatorTask {
         }
     }
 
-    public SourceSplitEnumeratorTask(long taskID, PhysicalSourceAction<?, ?, ?> source) {
+    public SourceSplitEnumeratorTask(long taskID, PhysicalSourceAction<?, SplitT, ?> source) {
         super(taskID);
         this.source = source;
     }
 
-    private void receivedReader(int readId) {
-        enumerator.registerReader(readId);
+    private void receivedReader(int readerId, UUID memberID) {
+        this.addTaskMemberMapping(readerId, memberID);
+        enumerator.registerReader(readerId);
     }
 
     private void requestSplit(int taskID) {
         enumerator.handleSplitRequest(taskID);
+    }
+
+    private void addTaskMemberMapping(int taskID, UUID memberID) {
+        taskMemberMapping.put(taskID, memberID);
+    }
+
+    public UUID getTaskMemberID(int taskID) {
+        return taskMemberMapping.get(taskID);
     }
 
     @Override

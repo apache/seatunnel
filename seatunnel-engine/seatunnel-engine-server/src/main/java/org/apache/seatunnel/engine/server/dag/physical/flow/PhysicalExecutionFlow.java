@@ -15,17 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical;
+package org.apache.seatunnel.engine.server.dag.physical.flow;
 
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 
-import com.hazelcast.spi.impl.NodeEngine;
+import java.util.Collections;
+import java.util.List;
 
-public class PhysicalPlanUtils {
+public class PhysicalExecutionFlow extends Flow {
 
-    public static PhysicalPlan fromLogicalDAG(LogicalDag logicalDag, NodeEngine nodeEngine) {
-        return new PhysicalPlanGenerator(new ExecutionPlanGenerator(logicalDag).generate(), nodeEngine).generate();
+    private final Action action;
+
+    public PhysicalExecutionFlow(Action action, List<Flow> next) {
+        super(next);
+        this.action = action;
     }
 
+    public PhysicalExecutionFlow(Action action) {
+        super(Collections.emptyList());
+        this.action = action;
+    }
+
+    public Action getAction() {
+        return action;
+    }
 }
