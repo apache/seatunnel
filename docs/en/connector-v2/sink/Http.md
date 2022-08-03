@@ -28,7 +28,7 @@ http headers
 simple:
 
 ```hocon
-HttpSink {
+Http {
         url = "http://localhost/test/webhook"
         headers {
             token = "9e32e859ef044462a257e1fc76730066"
