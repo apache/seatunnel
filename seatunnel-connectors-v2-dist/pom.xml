@@ -105,6 +105,7 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-kudu</artifactId>
             <version>${project.version}</version>
+          </dependency>
           <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-email</artifactId>
