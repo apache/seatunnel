@@ -32,11 +32,7 @@ const Log = defineComponent({
           <NInput placeholder={this.t('log.please_select_log')} />
           <NButton ghost>{this.t('log.search')}</NButton>
         </NInputGroup>
-        <NLog
-          rows={30}
-          log={'test'}
-          class={['py-5', 'px-3', 'bg-gray-50']}
-        />
+        <NLog rows={30} log={'test'} class={['py-5', 'px-3', 'bg-gray-50']} />
       </NSpace>
     )
   }
