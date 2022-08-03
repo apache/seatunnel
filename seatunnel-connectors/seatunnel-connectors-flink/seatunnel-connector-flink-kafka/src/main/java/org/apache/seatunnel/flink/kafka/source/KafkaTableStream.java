@@ -110,8 +110,19 @@ public class KafkaTableStream implements FlinkStreamSource {
             }
         }
         String schemaContent = config.getString(SCHEMA);
-        format = FormatType.from(config.getString(SOURCE_FORMAT).trim().toLowerCase());
-        schemaInfo = JsonUtils.parseArray(schemaContent);
+        String sourceFormat = config.getString(SOURCE_FORMAT).trim().toLowerCase();
+        format = FormatType.from(sourceFormat);
+        switch (sourceFormat){
+            case "csv":
+                schemaInfo = JsonUtils.parseArray(schemaContent);
+                break;
+            case "json":
+            case "avro":
+                schemaInfo = JsonUtils.parseObject(schemaContent);
+                break;
+            default:
+                break;
+        }
     }
 
     @Override
