@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task;
+package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
 import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;

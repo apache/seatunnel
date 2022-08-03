@@ -16,4 +16,4 @@
 #
 
 org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook
-org.apache.seatunnel.engine.server.task.TaskDataSerializerHook
+org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook

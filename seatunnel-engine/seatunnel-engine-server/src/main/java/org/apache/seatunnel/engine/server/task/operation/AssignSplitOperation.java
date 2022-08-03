@@ -17,12 +17,39 @@
 
 package org.apache.seatunnel.engine.server.task.operation;
 
-import org.apache.seatunnel.engine.server.task.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class AssignSplitOperation extends Operation implements IdentifiedDataSerializable {
+import java.io.IOException;
+import java.util.List;
+
+public class AssignSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
+
+    private List<SplitT> splits;
+    private int taskID;
+
+    public AssignSplitOperation() {
+    }
+
+    public AssignSplitOperation(int taskID, List<SplitT> splits) {
+        this.splits = splits;
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        out.writeObject(splits);
+        out.writeInt(taskID);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        splits = in.readObject();
+        taskID = in.readInt();
+    }
 
     @Override
     public int getFactoryId() {

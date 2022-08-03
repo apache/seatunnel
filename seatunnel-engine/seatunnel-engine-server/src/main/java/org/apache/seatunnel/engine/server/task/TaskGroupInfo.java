@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+
 import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
