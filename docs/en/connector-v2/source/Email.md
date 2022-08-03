@@ -4,7 +4,7 @@
 
 Send the data as a file to email.
 
- The tested kudu version is 1.5.6.
+ The tested email version is 1.5.6.
 
 ## Options
 
@@ -64,8 +64,8 @@ The body of the entire message.
       email_transport_protocol="smtp"
       email_smtp_auth="true"
       email_authorization_code=""
-      email_message_headline="这个是标题"
-      email_message_content="这个是内容"
+      email_message_headline=""
+      email_message_content=""
    }
 
 ```
