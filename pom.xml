@@ -170,6 +170,7 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
+        <email.version>1.5.6</email.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
@@ -263,7 +264,12 @@
                 <artifactId>lz4</artifactId>
                 <version>1.3.0</version>
             </dependency>
-
+            <!--email -->
+            <dependency>
+                <groupId>com.sun.mail</groupId>
+                <artifactId>javax.mail</artifactId>
+                <version>${email.version}</version>
+            </dependency>
             <!--flink-->
             <dependency>
                 <groupId>org.apache.flink</groupId>
