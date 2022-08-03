@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.dag.physical.flow;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+public class PhysicalExecutionFlow extends Flow {
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    private final Action action;
+
+    public PhysicalExecutionFlow(Action action, List<Flow> next) {
+        super(next);
+        this.action = action;
+    }
+
+    public PhysicalExecutionFlow(Action action) {
+        super(Collections.emptyList());
+        this.action = action;
+    }
+
+    public Action getAction() {
+        return action;
     }
 }

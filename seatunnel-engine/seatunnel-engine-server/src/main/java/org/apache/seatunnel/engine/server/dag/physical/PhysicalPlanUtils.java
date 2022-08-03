@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.dag.physical;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+import com.hazelcast.spi.impl.NodeEngine;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+public class PhysicalPlanUtils {
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    public static PhysicalPlan fromLogicalDAG(LogicalDag logicalDag, NodeEngine nodeEngine) {
+        return new PhysicalPlanGenerator(new ExecutionPlanGenerator(logicalDag).generate(), nodeEngine).generate();
     }
+
 }

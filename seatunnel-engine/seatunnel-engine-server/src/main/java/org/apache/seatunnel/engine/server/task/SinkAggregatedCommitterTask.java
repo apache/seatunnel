@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.task;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+public class SinkAggregatedCommitterTask extends CoordinatorTask {
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    private static final long serialVersionUID = 5906594537520393503L;
+    private final SinkAction<?, ?, ?, ?> sink;
+
+    public SinkAggregatedCommitterTask(long taskID, SinkAction<?, ?, ?, ?> sink) {
+        super(taskID);
+        this.sink = sink;
+    }
+
+    @Override
+    public Set<URL> getJarsUrl() {
+        return new HashSet<>(sink.getJarUrls());
     }
 }

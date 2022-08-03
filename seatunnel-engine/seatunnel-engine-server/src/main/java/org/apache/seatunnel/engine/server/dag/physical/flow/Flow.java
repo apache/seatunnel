@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.dag.physical.flow;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import java.util.List;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+public abstract class Flow {
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+    protected final List<Flow> next;
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    public Flow(List<Flow> next) {
+        this.next = next;
+    }
+
+    public List<Flow> getNext() {
+        return next;
     }
 }

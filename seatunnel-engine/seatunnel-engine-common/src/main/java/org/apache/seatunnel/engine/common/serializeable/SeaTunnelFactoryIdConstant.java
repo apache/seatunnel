@@ -39,4 +39,8 @@ public final class SeaTunnelFactoryIdConstant {
     public static final String SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY =
         "hazelcast.serialization.ds.seatunnel.engine.config";
     public static final int SEATUNNEL_CONFIG_DATA_SERIALIZER_FACTORY_ID = -30003;
+
+    public static final String SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY =
+            "hazelcast.serialization.ds.seatunnel.engine.task";
+    public static final int SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY_ID = -30004;
 }
