@@ -17,30 +17,36 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
-import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import lombok.NonNull;
 
 import java.net.URL;
 import java.util.List;
 
-public class PartitionTransformAction extends AbstractAction {
-    private final PartitionSeaTunnelTransform partitionTransformation;
+public class TransformChainAction extends AbstractAction {
 
-    public PartitionTransformAction(int id,
-                                    @NonNull String name,
-                                    @NonNull List<Action> upstreams,
-                                    @NonNull PartitionSeaTunnelTransform partitionTransformation,
-                                    @NonNull List<URL> jarUrls) {
+    private static final long serialVersionUID = -340174711145367535L;
+    private final List<SeaTunnelTransform> transforms;
+
+    public TransformChainAction(int id,
+                                @NonNull String name,
+                                @NonNull List<Action> upstreams,
+                                @NonNull List<URL> jarUrls,
+                                @NonNull List<SeaTunnelTransform> transforms) {
         super(id, name, upstreams, jarUrls);
-        this.partitionTransformation = partitionTransformation;
+        this.transforms = transforms;
     }
 
-    public PartitionTransformAction(int id,
-                                    @NonNull String name,
-                                    @NonNull PartitionSeaTunnelTransform partitionTransformation,
-                                    @NonNull List<URL> jarUrls) {
+    public TransformChainAction(int id,
+                                @NonNull String name,
+                                @NonNull List<URL> jarUrls,
+                                @NonNull List<SeaTunnelTransform> transforms) {
         super(id, name, jarUrls);
-        this.partitionTransformation = partitionTransformation;
+        this.transforms = transforms;
+    }
+
+    public List<SeaTunnelTransform> getTransforms() {
+        return transforms;
     }
 }

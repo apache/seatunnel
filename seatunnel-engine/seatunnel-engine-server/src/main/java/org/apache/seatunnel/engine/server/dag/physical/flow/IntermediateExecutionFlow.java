@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.dag.physical.flow;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.engine.core.dag.internal.IntermediateDataQueue;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+public class IntermediateExecutionFlow extends Flow {
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    private final IntermediateDataQueue queue;
+
+    public IntermediateExecutionFlow(IntermediateDataQueue queue) {
+        super(Collections.emptyList());
+        this.queue = queue;
+    }
+
+    public IntermediateExecutionFlow(IntermediateDataQueue queue, List<Flow> next) {
+        super(next);
+        this.queue = queue;
+    }
+
+    public IntermediateDataQueue getQueue() {
+        return queue;
     }
 }

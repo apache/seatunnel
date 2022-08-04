@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.dag.execution;
+
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
-
 @Data
 @AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
-
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
-    }
+public class ExecutionVertex {
+    private Integer vertexId;
+    private Action action;
+    private int parallelism;
 }

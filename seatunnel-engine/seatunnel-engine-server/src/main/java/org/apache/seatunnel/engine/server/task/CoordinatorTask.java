@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.task;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+public abstract class CoordinatorTask extends AbstractTask {
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+    private static final long serialVersionUID = -3957168748281681077L;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
-
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    public CoordinatorTask(long taskID) {
+        super(taskID);
     }
 }

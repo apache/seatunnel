@@ -15,46 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.task;
 
-import com.hazelcast.spi.impl.operationservice.Operation;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.Task;
+
 import com.hazelcast.spi.impl.operationservice.OperationService;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.UUID;
+import java.net.URL;
+import java.util.Set;
 
-public interface Task extends Serializable {
+public abstract class AbstractTask implements Task {
+    private static final long serialVersionUID = -2524701323779523718L;
 
-    default void init() throws Exception {
+    protected OperationService operationService;
+    protected long taskID;
+
+    protected Progress progress;
+
+    public AbstractTask(long taskID) {
+        this.taskID = taskID;
+        this.progress = new Progress();
+    }
+
+    public abstract Set<URL> getJarsUrl();
+
+    @Override
+    public void setOperationService(OperationService operationService) {
+        this.operationService = operationService;
     }
 
     @NonNull
-    ProgressState call();
+    @Override
+    public ProgressState call() {
+        return progress.toState();
+    }
 
     @NonNull
-    Long getTaskID();
-
-    default boolean isCooperative() {
-        return false;
+    @Override
+    public Long getTaskID() {
+        return taskID;
     }
-
-    default void close() throws IOException {
-    }
-
-    default void setOperationService(OperationService operationService) {
-    }
-
-    default <E> InvocationFuture<E> sendToMaster(Operation operation) {
-        // TODO add method send operation to master
-        return null;
-    }
-
-    default <E> InvocationFuture<E> sendToMember(Operation operation, UUID memberID) {
-        // TODO add method send operation to member
-        return null;
-    }
-
 }

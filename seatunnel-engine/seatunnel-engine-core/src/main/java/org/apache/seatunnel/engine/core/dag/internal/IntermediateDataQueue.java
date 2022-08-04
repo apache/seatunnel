@@ -15,21 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
+package org.apache.seatunnel.engine.core.dag.internal;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+public class IntermediateDataQueue implements Serializable {
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    private static final long serialVersionUID = -3049265155605303992L;
+
+    private final int id;
+    private final int parallelism;
+    private final String name;
+
+    public IntermediateDataQueue(int id, String name, int parallelism) {
+        this.id = id;
+        this.name = name;
+        this.parallelism = parallelism;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public int getParallelism() {
+        return parallelism;
+    }
+
+    public String getName() {
+        return name;
     }
 }

@@ -24,6 +24,8 @@ import java.io.Serializable;
  * unique.
  */
 public class IdGenerator implements Serializable {
+
+    private static final long serialVersionUID = 7683323453014131725L;
     private int id = 0;
 
     public int getNextId() {

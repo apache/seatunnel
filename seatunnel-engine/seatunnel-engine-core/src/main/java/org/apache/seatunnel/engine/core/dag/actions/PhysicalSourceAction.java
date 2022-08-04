@@ -19,28 +19,44 @@ package org.apache.seatunnel.engine.core.dag.actions;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
-import com.google.common.collect.Lists;
 import lombok.NonNull;
 
 import java.io.Serializable;
 import java.net.URL;
 import java.util.List;
 
-public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
+public class PhysicalSourceAction<T, SplitT extends SourceSplit, StateT extends Serializable> extends AbstractAction {
 
-    private static final long serialVersionUID = -4104531889750766731L;
+    private static final long serialVersionUID = 4222477901364853468L;
     private final SeaTunnelSource<T, SplitT, StateT> source;
+    private final List<SeaTunnelTransform> transforms;
 
-    public SourceAction(int id,
-                        @NonNull String name,
-                        @NonNull SeaTunnelSource<T, SplitT, StateT> source,
-                        @NonNull List<URL> jarUrls) {
-        super(id, name, Lists.newArrayList(), jarUrls);
+    public PhysicalSourceAction(int id,
+                                @NonNull String name,
+                                @NonNull SeaTunnelSource<T, SplitT, StateT> source,
+                                @NonNull List<URL> jarUrls,
+                                List<SeaTunnelTransform> transforms) {
+        super(id, name, jarUrls);
         this.source = source;
+        this.transforms = transforms;
+    }
+
+    protected PhysicalSourceAction(int id, @NonNull String name, @NonNull List<Action> upstreams,
+                                   @NonNull SeaTunnelSource<T, SplitT, StateT> source,
+                                   @NonNull List<URL> jarUrls,
+                                   List<SeaTunnelTransform> transforms) {
+        super(id, name, upstreams, jarUrls);
+        this.source = source;
+        this.transforms = transforms;
     }
 
     public SeaTunnelSource<T, SplitT, StateT> getSource() {
         return source;
+    }
+
+    public List<SeaTunnelTransform> getTransforms() {
+        return transforms;
     }
 }

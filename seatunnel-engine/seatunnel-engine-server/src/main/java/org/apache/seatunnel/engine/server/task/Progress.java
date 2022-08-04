@@ -15,21 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.server.task;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collection;
+public class Progress {
 
-@Data
-@AllArgsConstructor
-public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+    private boolean madeProgress;
+    private boolean isDone;
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
+    public Progress() {
+        isDone = true;
+        madeProgress = false;
     }
+
+    public void start() {
+        isDone = false;
+        madeProgress = false;
+    }
+
+    public void makeProgress() {
+        isDone = false;
+        madeProgress = true;
+    }
+
+    public void done() {
+        isDone = true;
+    }
+
+    public ProgressState toState() {
+        return ProgressState.valueOf(madeProgress, isDone);
+    }
+
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.logicaldag;
+package org.apache.seatunnel.engine.core.dag.logical;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -56,10 +56,11 @@ import java.util.Set;
  * as it passes through the processors.
  */
 public class LogicalDag implements IdentifiedDataSerializable {
+
     private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
     private JobConfig jobConfig;
-    private Set<LogicalEdge> edges = new LinkedHashSet<>();
-    private Map<Integer, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
+    private final Set<LogicalEdge> edges = new LinkedHashSet<>();
+    private final Map<Integer, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
     private IdGenerator idGenerator;
 
     public LogicalDag() {
@@ -71,6 +72,48 @@ public class LogicalDag implements IdentifiedDataSerializable {
         this.idGenerator = idGenerator;
     }
 
+    public void addLogicalVertex(LogicalVertex logicalVertex) {
+        logicalVertexMap.put(logicalVertex.getVertexId(), logicalVertex);
+    }
+
+    public void addEdge(LogicalEdge logicalEdge) {
+        edges.add(logicalEdge);
+    }
+
+    public Set<LogicalEdge> getEdges() {
+        return this.edges;
+    }
+
+    public Map<Integer, LogicalVertex> getLogicalVertexMap() {
+        return logicalVertexMap;
+    }
+
+    @NonNull
+    public JsonObject getLogicalDagAsJson() {
+        JsonObject logicalDag = new JsonObject();
+        JsonArray vertices = new JsonArray();
+
+        logicalVertexMap.values().stream().forEach(v -> {
+            JsonObject vertex = new JsonObject();
+            vertex.add("id", v.getVertexId());
+            vertex.add("name", v.getAction().getName() + "(id=" + v.getVertexId() + ")");
+            vertex.add("parallelism", v.getParallelism());
+            vertices.add(vertex);
+        });
+        logicalDag.add("vertices", vertices);
+
+        JsonArray edges = new JsonArray();
+        this.edges.stream().forEach(e -> {
+            JsonObject edge = new JsonObject();
+            edge.add("leftVertex", e.getLeftVertex().getAction().getName());
+            edge.add("rightVertex", e.getRightVertex().getAction().getName());
+            edges.add(edge);
+        });
+
+        logicalDag.add("edges", edges);
+        return logicalDag;
+    }
+
     @Override
     public int getFactoryId() {
         return JobDataSerializerHook.FACTORY_ID;
@@ -79,14 +122,6 @@ public class LogicalDag implements IdentifiedDataSerializable {
     @Override
     public int getClassId() {
         return JobDataSerializerHook.LOGICAL_DAG;
-    }
-
-    public void addLogicalVertex(LogicalVertex logicalVertex) {
-        logicalVertexMap.put(logicalVertex.getVertexId(), logicalVertex);
-    }
-
-    public void addEdge(LogicalEdge logicalEdge) {
-        edges.add(logicalEdge);
     }
 
     @Override
@@ -128,31 +163,5 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
         jobConfig = in.readObject();
         idGenerator = in.readObject();
-    }
-
-    @NonNull
-    public JsonObject getLogicalDagAsJson() {
-        JsonObject logicalDag = new JsonObject();
-        JsonArray vertices = new JsonArray();
-
-        logicalVertexMap.values().stream().forEach(v -> {
-            JsonObject vertex = new JsonObject();
-            vertex.add("id", v.getVertexId());
-            vertex.add("name", v.getAction().getName() + "(id=" + v.getVertexId() + ")");
-            vertex.add("parallelism", v.getParallelism());
-            vertices.add(vertex);
-        });
-        logicalDag.add("vertices", vertices);
-
-        JsonArray edges = new JsonArray();
-        this.edges.stream().forEach(e -> {
-            JsonObject edge = new JsonObject();
-            edge.add("leftVertex", e.getLeftVertex().getAction().getName());
-            edge.add("rightVertex", e.getRightVertex().getAction().getName());
-            edges.add(edge);
-        });
-
-        logicalDag.add("edges", edges);
-        return logicalDag;
     }
 }
