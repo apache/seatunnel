@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import { defineComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
@@ -26,23 +26,53 @@ import {
   NIcon,
   NInput,
   NSpace,
-  NTooltip
+  NTooltip,
+  NDropdown
 } from 'naive-ui'
 import { BulbOutlined } from '@vicons/antd'
 import MonacoEditor from '@/components/monaco-editor'
 import Log from '@/components/log'
+import ConfigurationModal from './components/configuration-modal'
 import type { Router } from 'vue-router'
+import type { Ref } from 'vue'
 
 const DataPipesCreate = defineComponent({
   setup() {
     const { t } = useI18n()
     const router: Router = useRouter()
+    const showConfigurationModal: Ref<boolean> = ref(false)
+    const configurationType: Ref<
+      'engine-parameter' | 'self-defined-parameter'
+    > = ref('engine-parameter')
 
     const handleClickDataPipes = () => {
       router.push({ path: '/data-pipes/list' })
     }
 
-    return { t, handleClickDataPipes }
+    const handleSelectConfiguration = (
+      key: 'engine-parameter' | 'self-defined-parameter'
+    ) => {
+      configurationType.value = key
+      showConfigurationModal.value = true
+    }
+
+    const handleCancelConfigurationModal = () => {
+      showConfigurationModal.value = false
+    }
+
+    const handleConfirmConfigurationModal = () => {
+      showConfigurationModal.value = false
+    }
+
+    return {
+      t,
+      showConfigurationModal,
+      configurationType,
+      handleClickDataPipes,
+      handleSelectConfiguration,
+      handleCancelConfigurationModal,
+      handleConfirmConfigurationModal
+    }
   },
   render() {
     return (
@@ -98,7 +128,24 @@ const DataPipesCreate = defineComponent({
               <NButton secondary>{this.t('data_pipes.execute')}</NButton>
               <NButton secondary>{this.t('data_pipes.kill')}</NButton>
               <NButton secondary>{this.t('data_pipes.stop')}</NButton>
-              <NButton secondary>{this.t('data_pipes.configuration')}</NButton>
+              <NDropdown
+                trigger='click'
+                options={[
+                  {
+                    label: this.t('data_pipes.engine_parameter'),
+                    key: 'engine-parameter'
+                  },
+                  {
+                    label: this.t('data_pipes.self_defined_parameter'),
+                    key: 'self-defined-parameter'
+                  }
+                ]}
+                onSelect={this.handleSelectConfiguration}
+              >
+                <NButton secondary>
+                  {this.t('data_pipes.configuration')}
+                </NButton>
+              </NDropdown>
             </NSpace>
             <MonacoEditor />
           </NSpace>
@@ -106,6 +153,12 @@ const DataPipesCreate = defineComponent({
         <NCard>
           <Log />
         </NCard>
+        <ConfigurationModal
+          type={this.configurationType}
+          showModal={this.showConfigurationModal}
+          onCancelModal={this.handleCancelConfigurationModal}
+          onConfirmModal={this.handleConfirmConfigurationModal}
+        />
       </NSpace>
     )
   }
