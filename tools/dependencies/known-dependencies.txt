@@ -28,7 +28,7 @@ apacheds-i18n-2.0.0-M15.jar
 apacheds-kerberos-codec-2.0.0-M15.jar
 api-asn1-api-1.0.0-M20.jar
 api-util-1.0.0-M20.jar
-apiguardian-api-1.1.0.jar
+apiguardian-api-1.1.2.jar
 asm-5.0.4.jar
 asm-7.1.jar
 asm-all-5.0.2.jar

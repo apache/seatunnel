@@ -165,7 +165,8 @@
                       value="^java\.util\.logging\.Logging,
                       ^sun\.misc\.BASE64Encoder,
                       ^sun\.misc\.BASE64Decoder,
-                      ^jdk\.internal\.jline\.internal\.Nullable"/>
+                      ^jdk\.internal\.jline\.internal\.Nullable,
+                      ^org\.junit\.(?!jupiter\.).+"/>
         </module>
 
         <module name="OuterTypeFilename">

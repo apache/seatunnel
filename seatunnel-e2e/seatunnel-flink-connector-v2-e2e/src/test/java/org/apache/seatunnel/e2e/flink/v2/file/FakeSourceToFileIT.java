@@ -19,16 +19,47 @@ package org.apache.seatunnel.e2e.flink.v2.file;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
 public class FakeSourceToFileIT extends FlinkContainer {
+
+    /**
+     * fake source -> local text file sink
+     */
     @Test
-    public void testFakeSourceToFileSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    public void testFakeSourceToLocalFileText() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_local_text.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     *  fake source -> local parquet file sink
+     */
+    @Test
+    public void testFakeSourceToLocalFileParquet() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_local_parquet.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * fake source -> hdfs text file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileText() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_hdfs_text.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * fake source -> hdfs parquet file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileParquet() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_hdfs_parquet.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

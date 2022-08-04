@@ -41,6 +41,10 @@ public final class Constants {
 
     public static final String CHECKPOINT_ID = "checkpoint.id";
 
+    public static final String UUID = "uuid";
+
+    public static final String NOW = "now";
+
     private Constants() {
     }
 }

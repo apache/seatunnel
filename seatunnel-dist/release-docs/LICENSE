@@ -613,7 +613,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache License, Version 2.0) Woodstox (com.fasterxml.woodstox:woodstox-core:5.0.3 - https://github.com/FasterXML/woodstox)
      (The Apache License, Version 2.0) empty (org.spark-project.spark:unused:1.0.0 - http://nexus.sonatype.org/oss-repository-hosting.html/unused)
      (The Apache License, Version 2.0) net.thisptr:jackson-jq (net.thisptr:jackson-jq:0.0.10 - https://github.com/eiiches/jackson-jq/jackson-jq)
-     (The Apache License, Version 2.0) org.apiguardian:apiguardian-api (org.apiguardian:apiguardian-api:1.1.0 - https://github.com/apiguardian-team/apiguardian)
+     (The Apache License, Version 2.0) org.apiguardian:apiguardian-api (org.apiguardian:apiguardian-api:1.1.2 - https://github.com/apiguardian-team/apiguardian)
      (The Apache License, Version 2.0) org.jetbrains.kotlin:kotlin-stdlib (org.jetbrains.kotlin:kotlin-stdlib:1.4.10 - https://kotlinlang.org/)
      (The Apache License, Version 2.0) org.jetbrains.kotlin:kotlin-stdlib-common (org.jetbrains.kotlin:kotlin-stdlib-common:1.4.0 - https://kotlinlang.org/)
      (The Apache License, Version 2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk7 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.4.10 - https://kotlinlang.org/)
