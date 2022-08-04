@@ -19,10 +19,10 @@ package org.apache.seatunnel.e2e.spark.v2.clickhouse;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.ClickHouseContainer;
@@ -43,7 +43,7 @@ public class ClickhouseSourceToConsoleIT extends SparkContainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClickhouseSourceToConsoleIT.class);
     private ClickHouseContainer clickhouse;
 
-    @Before
+    @BeforeEach
     public void startClickhouseContainer() throws InterruptedException, ClassNotFoundException {
         clickhouse = new ClickHouseContainer(DockerImageName.parse("yandex/clickhouse-server:22.1.3.7"))
                 .withNetwork(NETWORK)
@@ -61,7 +61,7 @@ public class ClickhouseSourceToConsoleIT extends SparkContainer {
     @Test
     public void testFakeSourceToClickhouseSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/clickhouse/clickhousesource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     private void initializeClickhouseTable() {
@@ -94,7 +94,7 @@ public class ClickhouseSourceToConsoleIT extends SparkContainer {
         }
     }
 
-    @After
+    @AfterEach
     public void closeClickhouseContainer() {
         if (clickhouse != null) {
             clickhouse.stop();
