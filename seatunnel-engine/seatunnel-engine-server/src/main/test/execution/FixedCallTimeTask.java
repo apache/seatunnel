@@ -20,39 +20,42 @@ package execution;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 
-import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * For test use, only print logs
- */
-public class TestTask implements Task {
-
+public class FixedCallTimeTask implements Task {
+    long callTime;
+    String name;
+    long currentTime;
+    CopyOnWriteArrayList<Long> lagList;
     AtomicBoolean stop;
-    private final ILogger logger;
 
-    public TestTask(AtomicBoolean stop, ILogger logger){
+    public FixedCallTimeTask(long callTime, String name, AtomicBoolean stop, CopyOnWriteArrayList<Long> lagList){
+        this.callTime = callTime;
+        this.name = name;
         this.stop = stop;
-        this.logger = logger;
+        this.lagList = lagList;
     }
 
     @NonNull
     @Override
     public ProgressState call() {
-        ProgressState progressState;
-        if (!stop.get()){
-            logger.info("TestTask is running.........");
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-            }
-            progressState = ProgressState.MADE_PROGRESS;
-        }else {
-            progressState = ProgressState.DONE;
+        if(currentTime != 0){
+            lagList.add(System.currentTimeMillis() - currentTime);
         }
-        return progressState;
+        currentTime = System.currentTimeMillis();
+
+        try {
+            Thread.sleep(callTime);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e.toString());
+        }
+        if(stop.get()){
+            return ProgressState.DONE;
+        }
+        return ProgressState.MADE_PROGRESS;
     }
 
     @NonNull

@@ -59,6 +59,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         taskExecutionService = new TaskExecutionService(
             nodeEngine, nodeEngine.getProperties()
         );
+        taskExecutionService.start();
     }
 
     @Override
@@ -68,7 +69,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void shutdown(boolean terminate) {
-
+        taskExecutionService.shutdown();
     }
 
     @Override

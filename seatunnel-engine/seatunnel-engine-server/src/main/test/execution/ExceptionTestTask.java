@@ -15,29 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package execution;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.Task;
 
-public class TaskExecutionContext {
+import lombok.AllArgsConstructor;
+import lombok.NonNull;
+import lombok.SneakyThrows;
 
-    // future which is Task submit
-    public volatile CompletableFuture<Void> executionFuture;
+import java.util.List;
 
-    // future which can only be used to cancel the local execution.
-    private volatile CompletableFuture<Void> cancellationFuture;
+@AllArgsConstructor
+public class ExceptionTestTask implements Task {
+    long callTime;
+    String name;
+    List<Throwable> throwE;
 
-    public TaskExecutionContext(
-        CompletableFuture<Void> executionFuture,
-        CompletableFuture<Void> cancellationFuture
-    ) {
-        this.executionFuture = executionFuture;
-        this.cancellationFuture = cancellationFuture;
+    @SneakyThrows
+    @NonNull
+    @Override
+    public ProgressState call() {
+        if(!throwE.isEmpty()){
+            throw throwE.get(0);
+        }else {
+            Thread.sleep(callTime);
+        }
+        return ProgressState.MADE_PROGRESS;
     }
 
-    public CompletableFuture<Void> cancel() {
-        cancellationFuture.cancel(true);
-        return executionFuture;
+    @NonNull
+    @Override
+    public Long getTaskID() {
+        return (long) this.hashCode();
     }
-
 }

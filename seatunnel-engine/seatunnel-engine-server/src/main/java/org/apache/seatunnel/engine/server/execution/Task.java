@@ -37,7 +37,7 @@ public interface Task extends Serializable {
     @NonNull
     Long getTaskID();
 
-    default boolean isCooperative() {
+    default boolean isThreadsShare() {
         return false;
     }
 
