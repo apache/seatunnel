@@ -20,10 +20,10 @@ package org.apache.seatunnel.e2e.flink.v2.jdbc;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -46,7 +46,7 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
     private PostgreSQLContainer<?> psl;
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    @Before
+    @BeforeEach
     public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
         psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
                 .withNetwork(NETWORK)
@@ -74,7 +74,7 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
     @Test
     public void testFakeSourceToJdbcSink() throws SQLException, IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_jdbc.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
         // query result
         String sql = "select * from test";
         try (Connection connection = DriverManager.getConnection(psl.getJdbcUrl(), psl.getUsername(), psl.getPassword())) {
@@ -84,11 +84,11 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
             while (resultSet.next()) {
                 result.add(resultSet.getString("name"));
             }
-            Assert.assertFalse(result.isEmpty());
+            Assertions.assertFalse(result.isEmpty());
         }
     }
 
-    @After
+    @AfterEach
     public void closeClickHouseContainer() {
         if (psl != null) {
             psl.stop();

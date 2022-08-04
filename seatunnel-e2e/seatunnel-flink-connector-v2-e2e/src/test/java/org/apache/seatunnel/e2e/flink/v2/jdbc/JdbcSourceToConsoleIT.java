@@ -19,10 +19,10 @@ package org.apache.seatunnel.e2e.flink.v2.jdbc;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -44,7 +44,7 @@ public class JdbcSourceToConsoleIT extends FlinkContainer {
     private PostgreSQLContainer<?> psl;
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    @Before
+    @BeforeEach
     public void startPostgreSqlContainer() throws InterruptedException, ClassNotFoundException, SQLException {
         psl = new PostgreSQLContainer<>(DockerImageName.parse("postgres:alpine3.16"))
                 .withNetwork(NETWORK)
@@ -90,10 +90,10 @@ public class JdbcSourceToConsoleIT extends FlinkContainer {
     @Test
     public void testFakeSourceToJdbcSink() throws SQLException, IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbcsource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
-    @After
+    @AfterEach
     public void closePostgreSqlContainer() {
         if (psl != null) {
             psl.stop();
