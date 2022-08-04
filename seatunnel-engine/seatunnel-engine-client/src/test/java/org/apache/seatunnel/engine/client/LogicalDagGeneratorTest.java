@@ -48,7 +48,7 @@ public class LogicalDagGeneratorTest {
         jobConfig.setName("fake_to_file");
 
         IdGenerator idGenerator = new IdGenerator();
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = new JobConfigParser(filePath, idGenerator).parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair = new JobConfigParser(filePath, idGenerator, new JobConfig()).parse();
 
         LogicalDagGenerator logicalDagGenerator =
             new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
