@@ -71,5 +71,7 @@ public class SeaTunnelClientTest {
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
         JobProxy jobProxy = jobExecutionEnv.execute();
+
+        Assert.assertNotNull(jobProxy);
     }
 }
