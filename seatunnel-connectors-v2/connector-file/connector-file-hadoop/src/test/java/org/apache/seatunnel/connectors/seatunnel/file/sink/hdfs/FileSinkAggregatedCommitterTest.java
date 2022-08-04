@@ -21,8 +21,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitI
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCommitter;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+@EnabledOnOs(value = {OS.MAC, OS.LINUX})
 public class FileSinkAggregatedCommitterTest {
     @SuppressWarnings("checkstyle:UnnecessaryParentheses")
     @Test
@@ -59,9 +62,9 @@ public class FileSinkAggregatedCommitterTest {
         fileAggregatedCommitInfoList.add(fileAggregatedCommitInfo);
         fileSinkAggregatedCommitter.commit(fileAggregatedCommitInfoList);
 
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
-        Assert.assertTrue(!HdfsUtils.fileExist(transactionDir));
+        Assertions.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
+        Assertions.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
+        Assertions.assertTrue(!HdfsUtils.fileExist(transactionDir));
     }
 
     @SuppressWarnings("checkstyle:UnnecessaryParentheses")
@@ -95,13 +98,13 @@ public class FileSinkAggregatedCommitterTest {
         fileCommitInfoList.add(fileCommitInfo1);
 
         FileAggregatedCommitInfo combine = fileSinkAggregatedCommitter.combine(fileCommitInfoList);
-        Assert.assertEquals(1, combine.getTransactionMap().size());
-        Assert.assertEquals(4, combine.getTransactionMap().get(transactionDir).size());
-        Assert.assertEquals(targetDir + "/c3=3/c4=rrr/test1.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=3/c4=rrr/test1.txt"));
-        Assert.assertEquals(targetDir + "/c3=4/c4=bbb/test1.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=bbb/test1.txt"));
-        Assert.assertEquals(targetDir + "/c3=4/c4=rrr/test2.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=rrr/test2.txt"));
-        Assert.assertEquals(targetDir + "/c3=4/c4=bbb/test2.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=bbb/test2.txt"));
-        Assert.assertEquals(3, combine.getPartitionDirAndValsMap().keySet().size());
+        Assertions.assertEquals(1, combine.getTransactionMap().size());
+        Assertions.assertEquals(4, combine.getTransactionMap().get(transactionDir).size());
+        Assertions.assertEquals(targetDir + "/c3=3/c4=rrr/test1.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=3/c4=rrr/test1.txt"));
+        Assertions.assertEquals(targetDir + "/c3=4/c4=bbb/test1.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=bbb/test1.txt"));
+        Assertions.assertEquals(targetDir + "/c3=4/c4=rrr/test2.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=rrr/test2.txt"));
+        Assertions.assertEquals(targetDir + "/c3=4/c4=bbb/test2.txt", combine.getTransactionMap().get(transactionDir).get(transactionDir + "/c3=4/c4=bbb/test2.txt"));
+        Assertions.assertEquals(3, combine.getPartitionDirAndValsMap().keySet().size());
     }
 
     @SuppressWarnings("checkstyle:UnnecessaryParentheses")
@@ -128,15 +131,15 @@ public class FileSinkAggregatedCommitterTest {
         fileAggregatedCommitInfoList.add(fileAggregatedCommitInfo);
         fileSinkAggregatedCommitter.commit(fileAggregatedCommitInfoList);
 
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
-        Assert.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
-        Assert.assertTrue(!HdfsUtils.fileExist(transactionDir));
+        Assertions.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
+        Assertions.assertTrue(HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
+        Assertions.assertTrue(!HdfsUtils.fileExist(transactionDir));
 
         fileSinkAggregatedCommitter.abort(fileAggregatedCommitInfoList);
-        Assert.assertTrue(!HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
-        Assert.assertTrue(!HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
+        Assertions.assertTrue(!HdfsUtils.fileExist(targetDir + "/c3=4/c4=bbb/test1.txt"));
+        Assertions.assertTrue(!HdfsUtils.fileExist(targetDir + "/c3=4/c4=rrr/test1.txt"));
 
         // transactionDir will being delete when abort
-        Assert.assertTrue(!HdfsUtils.fileExist(transactionDir));
+        Assertions.assertTrue(!HdfsUtils.fileExist(transactionDir));
     }
 }

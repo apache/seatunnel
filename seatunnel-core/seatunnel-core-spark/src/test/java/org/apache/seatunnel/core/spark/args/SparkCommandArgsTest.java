@@ -20,8 +20,8 @@ package org.apache.seatunnel.core.spark.args;
 import org.apache.seatunnel.common.config.DeployMode;
 
 import com.beust.jcommander.JCommander;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
@@ -35,10 +35,10 @@ public class SparkCommandArgsTest {
             .addObject(sparkArgs)
             .build()
             .parse(args);
-        Assert.assertEquals("app.conf", sparkArgs.getConfigFile());
-        Assert.assertEquals(DeployMode.CLIENT, sparkArgs.getDeployMode());
-        Assert.assertEquals("yarn", sparkArgs.getMaster());
-        Assert.assertEquals(Arrays.asList("city=shijiazhuang", "name=Tom"), sparkArgs.getVariables());
+        Assertions.assertEquals("app.conf", sparkArgs.getConfigFile());
+        Assertions.assertEquals(DeployMode.CLIENT, sparkArgs.getDeployMode());
+        Assertions.assertEquals("yarn", sparkArgs.getMaster());
+        Assertions.assertEquals(Arrays.asList("city=shijiazhuang", "name=Tom"), sparkArgs.getVariables());
     }
 
     @Test

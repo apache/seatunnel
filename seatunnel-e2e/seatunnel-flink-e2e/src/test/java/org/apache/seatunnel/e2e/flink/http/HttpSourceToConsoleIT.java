@@ -19,8 +19,8 @@ package org.apache.seatunnel.e2e.flink.http;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -30,6 +30,6 @@ public class HttpSourceToConsoleIT extends FlinkContainer {
     @Test
     public void testHttpSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/http/httpsource_to_console.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

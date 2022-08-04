@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -71,7 +71,7 @@ public abstract class FlinkContainer {
             "parallelism.default: 4",
             "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false"));
 
-    @Before
+    @BeforeEach
     public void before() {
         jobManager = new GenericContainer<>(FLINK_DOCKER_IMAGE)
                 .withCommand("jobmanager")
@@ -96,7 +96,7 @@ public abstract class FlinkContainer {
         LOG.info("Flink containers are started.");
     }
 
-    @After
+    @AfterEach
     public void close() {
         if (taskManager != null) {
             taskManager.stop();

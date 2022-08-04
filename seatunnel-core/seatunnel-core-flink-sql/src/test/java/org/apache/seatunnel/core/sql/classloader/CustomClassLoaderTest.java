@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.core.sql.classloader;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -30,6 +30,6 @@ public class CustomClassLoaderTest {
 
         File file = new File(ClassLoader.getSystemResource("flink.sql.conf.template").getPath());
         classLoader.addJar(file.toPath());
-        Assert.assertEquals(classLoader.getURLs()[0].toString(), file.toURI().toString());
+        Assertions.assertEquals(classLoader.getURLs()[0].toString(), file.toURI().toString());
     }
 }

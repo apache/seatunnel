@@ -27,8 +27,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.types.Row;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -48,7 +48,7 @@ public class FileSourceTest {
         try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
             fileSource.prepare(flinkEnvironment);
             DataSet<Row> data = fileSource.getData(flinkEnvironment);
-            Assert.assertNotNull(data);
+            Assertions.assertNotNull(data);
         }
     }
 
@@ -60,7 +60,7 @@ public class FileSourceTest {
         try (FileSource fileSource = createFileSource(configFile, flinkEnvironment)) {
             fileSource.prepare(flinkEnvironment);
             DataSet<Row> data = fileSource.getData(flinkEnvironment);
-            Assert.assertNotNull(data);
+            Assertions.assertNotNull(data);
         }
     }
 

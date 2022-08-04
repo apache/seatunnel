@@ -92,13 +92,13 @@ public class HiveSinkConfig implements Serializable {
 
         try {
             table = hiveMetaStoreClient.getTable(dbName, tableName);
-            String inputFormat = table.getSd().getInputFormat();
+            String outputFormat = table.getSd().getOutputFormat();
             Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
-            if ("org.apache.hadoop.mapred.TextInputFormat".equals(inputFormat)) {
+            if ("org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat".equals(outputFormat)) {
                 config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()))
                         .withValue(FIELD_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("field.delim")))
                         .withValue(ROW_DELIMITER, ConfigValueFactory.fromAnyRef(parameters.get("line.delim")));
-            } else if ("org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat".equals(inputFormat)) {
+            } else if ("org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat".equals(outputFormat)) {
                 config = config.withValue(FILE_FORMAT, ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
             } else {
                 throw new RuntimeException("Only support text or parquet file now");
