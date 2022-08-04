@@ -15,10 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.server.common;
+package org.apache.seatunnel.spi.scheduler.dto;
 
-public class Constants {
-    public static final String BLANK_SPACE = " ";
-    public static final String COMMA = ",";
-    public static final String UNDERLINE = "_";
+import lombok.Builder;
+import lombok.Data;
+
+import java.util.Date;
+
+@Data
+@Builder
+public class ComplementDataDto {
+    private Date startTime;
+    private Date endTime;
+    private Integer parallelismNum;
 }
