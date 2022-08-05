@@ -117,6 +117,8 @@ public class KafkaTableStream implements FlinkStreamSource {
                 schemaInfo = JsonUtils.parseArray(schemaContent);
                 break;
             case "json":
+                schemaInfo = schemaContent;
+                break;
             case "avro":
                 schemaInfo = JsonUtils.parseObject(schemaContent);
                 break;

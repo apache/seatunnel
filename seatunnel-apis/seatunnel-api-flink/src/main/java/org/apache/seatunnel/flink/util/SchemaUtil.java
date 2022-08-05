@@ -18,6 +18,8 @@
 package org.apache.seatunnel.flink.util;
 
 import org.apache.seatunnel.flink.enums.FormatType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
@@ -52,12 +54,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.TimeZone;
 import java.util.regex.Pattern;
 
 public final class SchemaUtil {
 
     private static final Pattern DASH_COMPILE = Pattern.compile("-");
-
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().setTimeZone(TimeZone.getDefault());
     private SchemaUtil() {
     }
 
@@ -65,7 +68,7 @@ public final class SchemaUtil {
 
         switch (format) {
             case JSON:
-                getJsonSchema(schema, (ObjectNode) info);
+                getJsonSchema(schema, (String) info);
                 break;
             case CSV:
                 getCsvSchema(schema, (ArrayNode) info);
@@ -117,8 +120,27 @@ public final class SchemaUtil {
         return formatDescriptor;
     }
 
-    private static void getJsonSchema(Schema schema, ObjectNode json) {
-        Iterator<Map.Entry<String, JsonNode>> nodeIterator = json.fields();
+    private static void getJsonSchema(Schema schema, String json) {
+	try {
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(json);
+            if (jsonNode.isArray()) {
+                Iterator<JsonNode> elements = jsonNode.elements();
+                while (elements.hasNext()){
+                    ObjectNode objectNode = (ObjectNode)elements.next();
+                    parseJsonSchema(schema, objectNode);
+                }
+            }else {
+                parseJsonSchema(schema, (ObjectNode) jsonNode);
+            }
+
+        }catch (JsonProcessingException e){
+            throw new RuntimeException("Json deserialization exception.", e);
+        }
+
+    }
+
+    private static void parseJsonSchema(Schema schema, ObjectNode schemaObject) {
+        Iterator<Map.Entry<String, JsonNode>> nodeIterator = schemaObject.fields();
         while (nodeIterator.hasNext()) {
             Map.Entry<String, JsonNode> entry = nodeIterator.next();
             String key = entry.getKey();
