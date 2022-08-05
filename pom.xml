@@ -223,6 +223,7 @@
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
         <jsoup.version>1.14.3</jsoup.version>
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
+        <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
     </properties>
 
     <dependencyManagement>
