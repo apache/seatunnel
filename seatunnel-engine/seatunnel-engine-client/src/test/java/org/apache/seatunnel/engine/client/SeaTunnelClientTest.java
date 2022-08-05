@@ -20,12 +20,14 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelClientConfig;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.google.common.collect.Lists;
-import com.hazelcast.config.Config;
+import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -39,19 +41,16 @@ public class SeaTunnelClientTest {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        Config config = new Config();
-        config.getSecurityConfig().setEnabled(false);
-        config.getJetConfig().setEnabled(false);
-        config.setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
-        config.getNetworkConfig().setPort(50001);
-        HazelcastInstanceFactory.newHazelcastInstance(config, Thread.currentThread().getName(),
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
+            Thread.currentThread().getName(),
             new SeaTunnelNodeContext());
     }
 
     @Test
     public void testSayHello() {
         SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
-        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
+        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:5801"));
         SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
 
         String msg = "Hello world";
@@ -67,11 +66,12 @@ public class SeaTunnelClientTest {
         jobConfig.setBoundedness(Boundedness.BOUNDED);
         jobConfig.setName("fake_to_file");
 
-        SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
-        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:50001"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
         JobProxy jobProxy = jobExecutionEnv.execute();
+
+        Assert.assertNotNull(jobProxy);
     }
 }

@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 
+import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
 import com.hazelcast.client.impl.clientside.HazelcastClientProxy;
 import com.hazelcast.client.impl.protocol.ClientMessage;
@@ -37,11 +38,11 @@ public class SeaTunnelHazelcastClient {
     private final HazelcastClientInstanceImpl hazelcastClient;
     private final SerializationService serializationService;
 
-    public SeaTunnelHazelcastClient(@NonNull SeaTunnelClientConfig seaTunnelClientConfig) {
-        Preconditions.checkNotNull(seaTunnelClientConfig, "config");
+    public SeaTunnelHazelcastClient(@NonNull ClientConfig clientConfig) {
+        Preconditions.checkNotNull(clientConfig, "config");
         this.hazelcastClient =
             ((HazelcastClientProxy) com.hazelcast.client.HazelcastClient.newHazelcastClient(
-                seaTunnelClientConfig)).client;
+                clientConfig)).client;
         this.serializationService = hazelcastClient.getSerializationService();
         ExceptionUtil.registerSeaTunnelExceptions(hazelcastClient.getClientExceptionFactory());
     }
