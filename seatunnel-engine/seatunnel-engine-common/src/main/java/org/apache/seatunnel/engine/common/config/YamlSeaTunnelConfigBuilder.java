@@ -48,8 +48,7 @@ public class YamlSeaTunnelConfigBuilder extends AbstractYamlConfigBuilder {
         this.in = locator.getIn();
     }
 
-    public YamlSeaTunnelConfigBuilder(InputStream inputStream) {
-        checkTrue(inputStream != null, "inputStream can't be null");
+    public YamlSeaTunnelConfigBuilder(@Nonnull InputStream inputStream) {
         this.in = inputStream;
     }
 
