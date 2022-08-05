@@ -15,18 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.exception;
+package org.apache.seatunnel.engine.server.execution;
 
-public class JobNotFoundExceptionSeaTunnel extends SeaTunnelEngineException {
-    public JobNotFoundExceptionSeaTunnel(long jobId) {
-        super("Job with id " + jobId + " not found");
+public class TaskExecutionState {
+
+    private final long taskExecutionId;
+
+    private final ExecutionState executionState;
+
+    private Throwable throwable;
+
+    public TaskExecutionState(long taskExecutionId, ExecutionState executionState, Throwable throwable) {
+        this.taskExecutionId = taskExecutionId;
+        this.executionState = executionState;
+        this.throwable = throwable;
     }
 
-    public JobNotFoundExceptionSeaTunnel(String message) {
-        super(message);
+    public ExecutionState getExecutionState() {
+        return executionState;
     }
 
-    public JobNotFoundExceptionSeaTunnel(String message, Throwable cause) {
-        super(message, cause);
+    public Throwable getThrowable() {
+        return throwable;
+    }
+
+    public long getTaskExecutionId() {
+        return taskExecutionId;
     }
 }

@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.execution;
+package org.apache.seatunnel.engine.common.exception;
 
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-
-import lombok.NonNull;
-
-import java.util.List;
-
-public class ExecutionPlan {
-
-    private final List<Pipeline> pipelines;
-
-    private final JobImmutableInformation jobImmutableInformation;
-
-    public ExecutionPlan(@NonNull List<Pipeline> pipelines, @NonNull JobImmutableInformation jobImmutableInformation) {
-        this.pipelines = pipelines;
-        this.jobImmutableInformation = jobImmutableInformation;
+public class JobNotFoundException extends SeaTunnelEngineException {
+    public JobNotFoundException(long jobId) {
+        super("Job with id " + jobId + " not found");
     }
 
-    public List<Pipeline> getPipelines() {
-        return pipelines;
+    public JobNotFoundException(String message) {
+        super(message);
     }
 
-    public JobImmutableInformation getJobImmutableInformation() {
-        return jobImmutableInformation;
+    public JobNotFoundException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

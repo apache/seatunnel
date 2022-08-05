@@ -15,30 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.execution;
+package org.apache.seatunnel.engine.common.exception;
 
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+public class JobDefineCheckException extends SeaTunnelEngineException {
 
-import lombok.NonNull;
-
-import java.util.List;
-
-public class ExecutionPlan {
-
-    private final List<Pipeline> pipelines;
-
-    private final JobImmutableInformation jobImmutableInformation;
-
-    public ExecutionPlan(@NonNull List<Pipeline> pipelines, @NonNull JobImmutableInformation jobImmutableInformation) {
-        this.pipelines = pipelines;
-        this.jobImmutableInformation = jobImmutableInformation;
+    public JobDefineCheckException(String message) {
+        super(message);
     }
 
-    public List<Pipeline> getPipelines() {
-        return pipelines;
-    }
-
-    public JobImmutableInformation getJobImmutableInformation() {
-        return jobImmutableInformation;
+    public JobDefineCheckException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

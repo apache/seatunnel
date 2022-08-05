@@ -42,7 +42,7 @@ public class JobMaster implements Task {
 
     @Override
     public void init() throws Exception {
-        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine);
+        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine, System.currentTimeMillis());
     }
 
     @NonNull

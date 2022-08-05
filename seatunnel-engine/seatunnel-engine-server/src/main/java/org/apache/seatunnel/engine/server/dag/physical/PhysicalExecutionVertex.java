@@ -17,5 +17,18 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import lombok.Data;
+import lombok.NonNull;
+
+@Data
 public class PhysicalExecutionVertex {
+
+    private final Long id;
+
+    public PhysicalExecutionVertex(@NonNull Long id) {
+        this.id = id;
+    }
+
+    public void deploy() {
+    }
 }

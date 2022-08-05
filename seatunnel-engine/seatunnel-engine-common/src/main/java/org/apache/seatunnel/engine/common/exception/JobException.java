@@ -17,13 +17,17 @@
 
 package org.apache.seatunnel.engine.common.exception;
 
-public class JobDefineCheckExceptionSeaTunnel extends SeaTunnelEngineException {
+public class JobException extends SeaTunnelEngineException {
 
-    public JobDefineCheckExceptionSeaTunnel(String message) {
+    public JobException(String message) {
         super(message);
     }
 
-    public JobDefineCheckExceptionSeaTunnel(String message, Throwable cause) {
+    public JobException(String message, Throwable cause) {
         super(message, cause);
+    }
+
+    public JobException(long jobId, String message, Throwable cause) {
+        super("Job with id [" + jobId + "] Exception " + message, cause);
     }
 }
