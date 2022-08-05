@@ -31,11 +31,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TestTask implements Task {
 
     AtomicBoolean stop;
+    long sleep;
     private final ILogger logger;
 
-    public TestTask(AtomicBoolean stop, ILogger logger){
+    public TestTask(AtomicBoolean stop, ILogger logger, long sleep){
         this.stop = stop;
         this.logger = logger;
+        this.sleep = sleep;
     }
 
     @NonNull
@@ -45,7 +47,7 @@ public class TestTask implements Task {
         if (!stop.get()){
             logger.info("TestTask is running.........");
             try {
-                Thread.sleep(2000);
+                Thread.sleep(sleep);
             } catch (InterruptedException e) {
             }
             progressState = ProgressState.MADE_PROGRESS;

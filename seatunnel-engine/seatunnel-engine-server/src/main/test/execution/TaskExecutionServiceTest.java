@@ -37,10 +37,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -53,23 +50,24 @@ public class TaskExecutionServiceTest {
     SeaTunnelServer service = instance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     ILogger logger = instance.node.nodeEngine.getLogger(TaskExecutionServiceTest.class);
 
+    long taskRunTime = 30000;
 
     @Test
     public void testAll() throws InterruptedException {
-        System.out.println("----------start Cancel test----------");
+        logger.info("----------start Cancel test----------");
         testCancel();
 
-        System.out.println("----------start Finish test----------");
+        logger.info("----------start Finish test----------");
         testFinish();
 
-        System.out.println("----------start Delay test----------");
+        logger.info("----------start Delay test----------");
         testDelay();
         testDelay();
 
-        System.out.println("----------start ThrowException test----------");
+        logger.info("----------start ThrowException test----------");
         testThrowException();
 
-        System.out.println("----------start CriticalCallTime test----------");
+        logger.info("----------start CriticalCallTime test----------");
         testCriticalCallTime();
 
     }
@@ -87,17 +85,19 @@ public class TaskExecutionServiceTest {
         int callTime = 50;
 
         //Create tasks with critical delays
-        List<Task> criticalTask = buildStopTestTask(callTime,count, stopMark, stopTime);
+        List<Task> criticalTask = buildStopTestTask(callTime, count, stopMark, stopTime);
 
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
         List<TaskExecutionContext> collect = criticalTask.stream().map(taskExecutionService::submitThreadShareTask).collect(Collectors.toList());
 
+        // Run it for a while
+        Thread.sleep(taskRunTime);
+
         //stop task
-        Thread.sleep(10000);
         stopMark.set(true);
 
-        Thread.sleep(count*callTime);
+        Thread.sleep(count * callTime);
 
         // Check all task ends right
         collect.forEach(xt -> {
@@ -105,7 +105,7 @@ public class TaskExecutionServiceTest {
         });
 
         //Check that each Task is only Done once
-        assertEquals(count,stopTime.size());
+        assertEquals(count, stopTime.size());
 
     }
 
@@ -114,17 +114,23 @@ public class TaskExecutionServiceTest {
 
         AtomicBoolean stopMark = new AtomicBoolean(false);
 
+        long t1Sleep = 100;
+        long t2Sleep = 50;
+
+        long lowLagSleep = 50;
+        long highLagSleep = 1500;
+
         List<Throwable> t1throwable = new ArrayList<>();
-        ExceptionTestTask t1 = new ExceptionTestTask(100, "t1", t1throwable);
+        ExceptionTestTask t1 = new ExceptionTestTask(t1Sleep, "t1", t1throwable);
 
         List<Throwable> t2throwable = new ArrayList<>();
-        ExceptionTestTask t2 = new ExceptionTestTask(50, "t2", t2throwable);
+        ExceptionTestTask t2 = new ExceptionTestTask(t2Sleep, "t2", t2throwable);
 
         //Create low lat tasks
-        List<Task> lowLagTask = buildFixedTestTask(50, 10, stopMark, new CopyOnWriteArrayList<>());
+        List<Task> lowLagTask = buildFixedTestTask(lowLagSleep, 10, stopMark, new CopyOnWriteArrayList<>());
 
         //Create high lat tasks
-        List<Task> highLagTask = buildFixedTestTask(1500, 5, stopMark, new CopyOnWriteArrayList<>());
+        List<Task> highLagTask = buildFixedTestTask(highLagSleep, 5, stopMark, new CopyOnWriteArrayList<>());
 
         List<Task> tasks = new ArrayList<>();
         tasks.addAll(highLagTask);
@@ -139,19 +145,18 @@ public class TaskExecutionServiceTest {
 
         TaskExecutionContext t2c = taskExecutionService.submitThreadShareTask(t2);
 
-        Thread.sleep(2000);
+        Thread.sleep(taskRunTime);
 
         t1throwable.add(new IOException());
         t2throwable.add(new IOException());
-        Thread.sleep(200);
+        Thread.sleep(t1Sleep + t2Sleep);
 
         assertTrue(t1c.executionFuture.isCompletedExceptionally());
         assertTrue(t2c.executionFuture.isCompletedExceptionally());
 
         stopMark.set(true);
-
-        Thread.sleep(3000);
-        taskCts.forEach(c-> {
+        Thread.sleep(lowLagSleep * 10 + highLagSleep);
+        taskCts.forEach(c -> {
             assertTrue(c.executionFuture.isDone());
         });
 
@@ -161,25 +166,29 @@ public class TaskExecutionServiceTest {
     public void testCancel() throws InterruptedException {
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
+        long sleepTime = 2000;
+
         AtomicBoolean stop = new AtomicBoolean(false);
-        TestTask testTask = new TestTask(stop, logger);
+        TestTask testTask = new TestTask(stop, logger, sleepTime);
 
         TaskExecutionContext taskExecutionContext = taskExecutionService.submitTask(testTask);
 
-        Thread.sleep(10000);
+        Thread.sleep(taskRunTime);
 
         taskExecutionContext.cancel();
 
-        Thread.sleep(1000);
+        Thread.sleep(sleepTime + 100);
         assertTrue(taskExecutionContext.executionFuture.isCompletedExceptionally());
     }
 
     public void testFinish() throws InterruptedException {
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
+        long sleepTime = 2000;
+
         AtomicBoolean stop = new AtomicBoolean(false);
         AtomicBoolean futureMark = new AtomicBoolean(false);
-        TestTask testTasklet = new TestTask(stop, logger);
+        TestTask testTasklet = new TestTask(stop, logger, sleepTime);
 
         TaskExecutionContext taskExecutionContext = taskExecutionService.submitTask(testTasklet);
         taskExecutionContext.executionFuture.whenComplete(new BiConsumer<Void, Throwable>() {
@@ -189,11 +198,11 @@ public class TaskExecutionServiceTest {
             }
         });
 
-        Thread.sleep(3000);
+        Thread.sleep(taskRunTime);
 
         stop.set(true);
 
-        Thread.sleep(3000);
+        Thread.sleep(sleepTime + 100);
 
 
         assertTrue(taskExecutionContext.executionFuture.isDone());
@@ -202,16 +211,19 @@ public class TaskExecutionServiceTest {
 
     public void testDelay() throws InterruptedException {
 
+        long lowLagSleep = 10;
+        long highLagSleep = 1500;
+
         AtomicBoolean stopMark = new AtomicBoolean(false);
 
         CopyOnWriteArrayList<Long> lowLagList = new CopyOnWriteArrayList<>();
         CopyOnWriteArrayList<Long> highLagList = new CopyOnWriteArrayList<>();
 
         //Create low lat tasks
-        List<Task> lowLagTask = buildFixedTestTask(10,10, stopMark, lowLagList);
+        List<Task> lowLagTask = buildFixedTestTask(lowLagSleep, 10, stopMark, lowLagList);
 
         //Create high lat tasks
-        List<Task> highLagTask = buildFixedTestTask(1500, 5, stopMark, highLagList);
+        List<Task> highLagTask = buildFixedTestTask(highLagSleep, 5, stopMark, highLagList);
 
         List<Task> taskTrackers = new ArrayList<>();
         taskTrackers.addAll(highLagTask);
@@ -221,7 +233,7 @@ public class TaskExecutionServiceTest {
         LinkedBlockingDeque<Task> taskQueue = new LinkedBlockingDeque<>(taskTrackers);
 
 
-        System.out.println("task size is : " + taskTrackers.size());
+        logger.info("task size is : " + taskTrackers.size());
 
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
@@ -229,16 +241,14 @@ public class TaskExecutionServiceTest {
 
 
         //stop tasks
-        Thread.sleep(60000);
+        Thread.sleep(taskRunTime);
         stopMark.set(true);
 
-        Thread.sleep(1000);
+        Thread.sleep(lowLagSleep*10 + highLagSleep);
         //Check all task ends right
         collect.forEach(xt -> {
             assertTrue(xt.executionFuture.isDone());
         });
-
-        Thread.sleep(1000);
 
         //Computation Delay
         double lowAvg = lowLagList.stream().mapToLong(x -> x).average().getAsDouble();
@@ -246,15 +256,15 @@ public class TaskExecutionServiceTest {
 
         assertTrue(lowAvg < 400);
 
-        System.out.println(lowAvg);
-        System.out.println(highAvg);
+        logger.info("lowAvg : " + lowAvg);
+        logger.info("highAvg : " + highAvg);
 
     }
 
     public List<Task> buildFixedTestTask(long callTime, long count, AtomicBoolean stopMart, CopyOnWriteArrayList<Long> lagList) {
         List<Task> taskQueue = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            taskQueue.add(new FixedCallTimeTask(callTime, callTime + "t" + i, stopMart, lagList));
+            taskQueue.add(new FixedCallTestTimeTask(callTime, callTime + "t" + i, stopMart, lagList));
         }
         return taskQueue;
     }

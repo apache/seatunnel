@@ -25,14 +25,14 @@ import lombok.NonNull;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class FixedCallTimeTask implements Task {
+public class FixedCallTestTimeTask implements Task {
     long callTime;
     String name;
     long currentTime;
     CopyOnWriteArrayList<Long> lagList;
     AtomicBoolean stop;
 
-    public FixedCallTimeTask(long callTime, String name, AtomicBoolean stop, CopyOnWriteArrayList<Long> lagList){
+    public FixedCallTestTimeTask(long callTime, String name, AtomicBoolean stop, CopyOnWriteArrayList<Long> lagList){
         this.callTime = callTime;
         this.name = name;
         this.stop = stop;

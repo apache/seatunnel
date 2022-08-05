@@ -106,7 +106,7 @@ public class TaskCallTimer extends Thread {
                     currentTime = System.currentTimeMillis();
                     executionTime = this.nextExecutionTime;
                     if (!wait && executionTime <= currentTime) {
-                        timeoutAction(this.taskTracker.expiredTimes.incrementAndGet());
+                        timeoutAct(this.taskTracker.expiredTimes.incrementAndGet());
                         break;
                     }
                 }
@@ -128,7 +128,7 @@ public class TaskCallTimer extends Thread {
     /**
      * The action to be performed when the task call method execution times out
      */
-    private void timeoutAction(int expiredTimes) {
+    private void timeoutAct(int expiredTimes) {
         if (expiredTimes >= 1) {
             // 1 busWork keep on running
             keep.set(true);

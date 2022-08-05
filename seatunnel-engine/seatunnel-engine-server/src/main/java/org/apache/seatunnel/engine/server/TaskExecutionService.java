@@ -177,7 +177,6 @@ public class TaskExecutionService {
      * BusWork is used to poll the task call method,
      * When a task times out, a new BusWork will be created to take over the execution of the task
      */
-
     public final class BusWork implements Runnable {
 
         AtomicBoolean keep = new AtomicBoolean(true);
@@ -273,26 +272,4 @@ public class TaskExecutionService {
             return false;
         }
     }
-
-    /**
-     * The action to be performed when the task call method execution times out
-     */
-    private final class TimeoutAction implements Runnable {
-        AtomicBoolean keep;
-        RunBusWorkSupplier runBusWorkSupplier;
-
-        public TimeoutAction(AtomicBoolean keep, RunBusWorkSupplier runBusWorkSupplier) {
-            this.keep = keep;
-            this.runBusWorkSupplier = runBusWorkSupplier;
-        }
-
-        @Override
-        public void run() {
-            // 1 Stop the current busWork from continuing to execute the new Task
-            keep.set(false);
-            // 2 Submit a new BusWork to execute other tasks
-            runBusWorkSupplier.runNewBusWork(false);
-        }
-    }
-
 }
