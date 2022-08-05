@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.core.starter.seatunnel;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
 
-    public static final String SEATUNNEL_ID_GENERATOR_NAME = "SeaTunnelIdGenerator";
+import com.beust.jcommander.JCommander;
 
-    public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
+public class CommandLineUtils {
 
-    /**
-     * The default port number for the cluster auto-discovery mechanism's
-     * multicast communication.
-     */
-    public static final int DEFAULT_SEATUNNEL_MULTICAST_PORT = 53326;
+    private CommandLineUtils() {
+        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
+    }
 
-    public static final String SYSPROP_SEATUNNEL_CONFIG = "hazelcast.seatunnel.config";
-
-    public static final String HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX = "seatunnel";
-
-    public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel-default.yaml";
+    public static SeaTunnelCommandArgs parseSeaTunnelArgs(String[] args) {
+        SeaTunnelCommandArgs seatunnelCommandArgs = new SeaTunnelCommandArgs();
+        JCommander.newBuilder()
+            .addObject(seatunnelCommandArgs)
+            .build()
+            .parse(args);
+        return seatunnelCommandArgs;
+    }
 }

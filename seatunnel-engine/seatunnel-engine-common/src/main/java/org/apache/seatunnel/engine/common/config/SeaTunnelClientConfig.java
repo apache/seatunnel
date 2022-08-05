@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common;
+package org.apache.seatunnel.engine.common.config;
 
-public class Constant {
-    public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
+import org.apache.seatunnel.engine.common.Constant;
 
-    public static final String SEATUNNEL_ID_GENERATOR_NAME = "SeaTunnelIdGenerator";
+import com.hazelcast.client.config.ClientConfig;
 
-    public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
+public class SeaTunnelClientConfig extends ClientConfig {
 
     /**
-     * The default port number for the cluster auto-discovery mechanism's
-     * multicast communication.
+     * Creates a new config instance with default group name for SeaTunnel Engine
      */
-    public static final int DEFAULT_SEATUNNEL_MULTICAST_PORT = 53326;
-
-    public static final String SYSPROP_SEATUNNEL_CONFIG = "hazelcast.seatunnel.config";
-
-    public static final String HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX = "seatunnel";
-
-    public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel-default.yaml";
+    public SeaTunnelClientConfig() {
+        super();
+        setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
+    }
 }
+

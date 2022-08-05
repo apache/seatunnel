@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 
@@ -40,7 +41,7 @@ public class JobConfigParserTest {
     public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file.conf");
-        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
+        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), new JobConfig());
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assert.assertEquals(1, actions.size());
@@ -58,7 +59,7 @@ public class JobConfigParserTest {
     public void testComplexJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
-        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator());
+        JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), new JobConfig());
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
         Assert.assertEquals(1, actions.size());
