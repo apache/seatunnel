@@ -18,12 +18,11 @@
 package org.apache.seatunnel.flink.util;
 
 import org.apache.seatunnel.flink.enums.FormatType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
@@ -54,8 +53,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.TimeZone;
 import java.util.regex.Pattern;
+import java.util.TimeZone;
+
 
 public final class SchemaUtil {
 
@@ -129,11 +129,11 @@ public final class SchemaUtil {
                     ObjectNode objectNode = (ObjectNode)elements.next();
                     parseJsonSchema(schema, objectNode);
                 }
-            }else {
-                parseJsonSchema(schema, (ObjectNode) jsonNode);
+            } else {
+                parseJsonSchema(schema, (ObjectNode)jsonNode);
             }
 
-        }catch (JsonProcessingException e){
+        } catch (JsonProcessingException e){
             throw new RuntimeException("Json deserialization exception.", e);
         }
 
