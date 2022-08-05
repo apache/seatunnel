@@ -71,13 +71,7 @@ public class LocalParquetTransactionStateFileWriter extends AbstractTransactionS
         ParquetWriter<GenericRecord> writer = getOrCreateWriter(filePath);
         Schema schema = buildSchemaWithRowType();
         GenericRecordBuilder recordBuilder = new GenericRecordBuilder(schema);
-        sinkColumnsIndexInRow.forEach(index -> {
-            if (seaTunnelRowTypeInfo.getFieldType(index).equals(BasicType.STRING_TYPE)) {
-                recordBuilder.set(seaTunnelRowTypeInfo.getFieldName(index), seaTunnelRow.getField(index).toString());
-            } else {
-                recordBuilder.set(seaTunnelRowTypeInfo.getFieldName(index), seaTunnelRow.getField(index));
-            }
-        });
+        sinkColumnsIndexInRow.forEach(index -> recordBuilder.set(seaTunnelRowTypeInfo.getFieldName(index), seaTunnelRow.getField(index)));
         GenericData.Record record = recordBuilder.build();
         try {
             writer.write(record);
