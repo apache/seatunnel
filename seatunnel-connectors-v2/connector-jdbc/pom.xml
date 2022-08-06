@@ -55,6 +55,10 @@
             <artifactId>ali-phoenix-shaded-thin-client</artifactId>
             <version>${phoenix.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

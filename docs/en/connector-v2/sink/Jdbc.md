@@ -15,21 +15,21 @@ Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` f
 
 ## Options
 
-| name | type | required | default value |
-| --- | --- | --- | --- |
-| url | String | Yes | - |
-| driver | String | Yes | - |
-| user | String | No | - |
-| password | String | No | - |
-| query | String | Yes | - |
-| connection_check_timeout_sec | Int | No | 30 |
-| max_retries | Int | No | 3 |
-| batch_size | Int | No | 300 |
-| batch_interval_ms | Int | No | 1000 |
-| is_exactly_once | Boolean | No | false |
-| xa_data_source_class_name | String | No | - |
-| max_commit_attempts | Int | No | 3 |
-| transaction_timeout_sec | Int | No | -1 |
+| name                         | type    | required | default value |
+|------------------------------|---------|----------|---------------|
+| url                          | String  | Yes      | -             |
+| driver                       | String  | Yes      | -             |
+| user                         | String  | No       | -             |
+| password                     | String  | No       | -             |
+| query                        | String  | Yes      | -             |
+| connection_check_timeout_sec | Int     | No       | 30            |
+| max_retries                  | Int     | No       | 3             |
+| batch_size                   | Int     | No       | 300           |
+| batch_interval_ms            | Int     | No       | 1000          |
+| is_exactly_once              | Boolean | No       | false         |
+| xa_data_source_class_name    | String  | No       | -             |
+| max_commit_attempts          | Int     | No       | 3             |
+| transaction_timeout_sec      | Int     | No       | -1            |
 
 ### driver [string]
 The jdbc class name used to connect to the remote data source, if you use MySQL the value is com.mysql.cj.jdbc.Driver.
@@ -64,7 +64,7 @@ For batch writing, when the number of buffers reaches the number of `batch_size`
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to set `xa_data_source_class_name`.
 
 ### xa_data_source_class_name[string]
-The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource` and postgresql is `org.postgresql.xa.PGXADataSource`
+The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and please refer to appendix for other data sources
 
 ### max_commit_attempts[int]
 The number of retries for transaction commit failures
@@ -76,7 +76,16 @@ The timeout after the transaction is opened, the default is -1 (never timeout). 
 In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup. For example, postgres needs to set `max_prepared_transactions > 1`
 Such as `ALTER SYSTEM set max_prepared_transactions to 10`.
 
-## Example
+## appendix
+there are some reference value for params above.
+
+| datasource | driver                   | url                                       | xa_data_source_class_name           | maven                                                         |
+|------------|--------------------------|-------------------------------------------|-------------------------------------|---------------------------------------------------------------|
+| mysql      | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test          | com.mysql.cj.jdbc.MysqlXADataSource | https://mvnrepository.com/artifact/mysql/mysql-connector-java |
+| postgresql | org.postgresql.Driver    | jdbc:postgresql://localhost:5432/postgres | org.postgresql.xa.PGXADataSource    | https://mvnrepository.com/artifact/org.postgresql/postgresql  |                                                             |
+| dm         | dm.jdbc.driver.DmDriver  | jdbc:dm://localhost:5236                  | dm.jdbc.driver.DmdbXADataSource     | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18  |
+
+## Example for mysql
 Simple
 ```
 jdbc {
@@ -106,3 +115,7 @@ jdbc {
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
 }
 ```
+
+
+## Example for DM
+
