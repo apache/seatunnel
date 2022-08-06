@@ -1,5 +1,7 @@
 # HdfsFile
 
+> HDFS file sink connector
+
 ## Description
 
 Output data to hdfs file. Support bounded and unbounded job.
