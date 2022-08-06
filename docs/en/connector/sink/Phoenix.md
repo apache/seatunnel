@@ -1,5 +1,7 @@
 # Phoenix
 
+> Phoenix sink connector
+
 ## Description
 
 Export data to `Phoenix` , compatible with `Kerberos` authentication
