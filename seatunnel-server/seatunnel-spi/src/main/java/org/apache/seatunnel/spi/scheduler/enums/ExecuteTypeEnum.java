@@ -15,10 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.server.common;
+package org.apache.seatunnel.spi.scheduler.enums;
 
-public class Constants {
-    public static final String BLANK_SPACE = " ";
-    public static final String COMMA = ",";
-    public static final String UNDERLINE = "_";
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_ELEMENT;
+
+import org.apache.seatunnel.server.common.SeatunnelException;
+
+public enum ExecuteTypeEnum {
+    TEMPORARY,
+    MANUAL,
+    SCHEDULER,
+    RERUN,
+    ;
+
+    public static ExecuteTypeEnum parse(int executeType) {
+        for (ExecuteTypeEnum value : values()) {
+            if (value.ordinal() == executeType) {
+                return value;
+            }
+        }
+        throw new SeatunnelException(NO_SUCH_ELEMENT);
+    }
 }

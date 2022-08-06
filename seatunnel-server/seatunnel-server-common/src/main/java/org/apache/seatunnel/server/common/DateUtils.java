@@ -39,6 +39,10 @@ public class DateUtils {
         return format(date2LocalDateTime(date), DEFAULT_DATETIME_FORMAT);
     }
 
+    public static String format(Date date, String format) {
+        return format(date2LocalDateTime(date), format);
+    }
+
     public static String format(LocalDateTime localDateTime, String format) {
         return localDateTime.format(DateTimeFormatter.ofPattern(format));
     }
