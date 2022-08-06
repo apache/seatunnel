@@ -18,6 +18,7 @@
 package org.apache.seatunnel.app.controller;
 
 import org.apache.seatunnel.app.common.Result;
+import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.app.service.ITaskService;
 
 import io.swagger.annotations.ApiOperation;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,5 +63,11 @@ public class TaskController {
     @ApiOperation(value = "list instance", httpMethod = "GET")
     Result<List<InstanceSimpleInfoRes>> listInstance(@RequestBody @NotNull InstanceListReq req) {
         return Result.success(iTaskService.listInstance(req));
+    }
+
+    @PostMapping("/tmpExecute")
+    @ApiOperation(value = "execute script temporary", httpMethod = "GET")
+    Result<InstanceSimpleInfoRes> tmpExecute(@RequestBody @NotNull ExecuteReq req) {
+        return Result.success(iTaskService.tmpExecute(req));
     }
 }

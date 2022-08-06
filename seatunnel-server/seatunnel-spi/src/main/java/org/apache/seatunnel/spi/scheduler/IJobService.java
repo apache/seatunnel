@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.spi.scheduler;
 
+import org.apache.seatunnel.spi.scheduler.dto.ExecuteDto;
+import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobListDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobSimpleInfoDto;
@@ -31,4 +33,5 @@ public interface IJobService {
 
     List<JobSimpleInfoDto> list(JobListDto dto);
 
+    InstanceDto execute(ExecuteDto dto);
 }

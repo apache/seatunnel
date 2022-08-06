@@ -27,9 +27,9 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DATA_TOTAL_LIST;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DEFAULT_FILE_SUFFIX;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DELAY_TIME_DEFAULT;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DELETE_PROCESS_DEFINITION;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DEPENDENCE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DESCRIPTION_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DRY_RUN;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.END_TIME;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.ENVIRONMENT_CODE_DEFAULT;
@@ -80,7 +80,6 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_TYPE_FILE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_TYPE_FILE_CONTENT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RESOURCE_TYPE_FILE_SUFFIX_DEFAULT;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.RUN_MODE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SCHEDULE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SCHEDULE_ID;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SCHEDULE_OFFLINE;
@@ -91,7 +90,6 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SUCCESS_NODE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.SWITCH_RESULT_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_DEFINITION_JSON;
-import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_DEPEND_TYPE_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_INSTANCE_ID;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_PRIORITY_DEFAULT;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.TASK_RELATION_JSON;
@@ -187,7 +185,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-    public ProcessDefinitionDto createOrUpdateProcessDefinition(UpdateProcessDefinitionDto dto) {
+            public ProcessDefinitionDto createOrUpdateProcessDefinition(UpdateProcessDefinitionDto dto) {
         // gen task code
         final List<Long> taskCodes = genTaskCodes(defaultProjectCode, GEN_NUM_DEFAULT);
 
@@ -257,23 +255,12 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-    public void startProcessDefinition(long processDefinitionCode) {
-        final StartProcessDefinitionDto dto = StartProcessDefinitionDto.builder()
-                .processDefinitionCode(processDefinitionCode)
-                .failureStrategy(FAILURE_STRATEGY_DEFAULT)
-                .warningType(WARNING_TYPE_DEFAULT)
-                .warningGroupId(WARNING_GROUP_ID_DEFAULT)
-                .taskDependType(TASK_DEPEND_TYPE_DEFAULT)
-                .runMode(RUN_MODE_DEFAULT)
-                .processInstancePriority(PROCESS_INSTANCE_PRIORITY_DEFAULT)
-                .workerGroup(WORKER_GROUP_DEFAULT)
-                .dryRun(DRY_RUN)
-                .build();
-
+    public void startProcessDefinition(StartProcessDefinitionDto dto) {
         final Map result = HttpUtils.builder()
-                .withUrl(apiPrefix.concat(String.format(START_PROCESS_INSTANCE, processDefinitionCode)))
+                .withUrl(apiPrefix.concat(String.format(START_PROCESS_INSTANCE, defaultProjectCode)))
                 .withMethod(Connection.Method.POST)
-                .withRequestBody(this.objectToString(dto))
+                .withData(dto.toMap())
+                .withRequestBody(this.objectToString(null))
                 .withToken(TOKEN, token)
                 .execute(Map.class);
         checkResult(result, false);
@@ -435,6 +422,16 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
         return taskInstanceList.stream().map(m -> this.mapToPojo(m, TaskInstanceDto.class)).collect(Collectors.toList());
     }
 
+    @Override
+    public void deleteProcessDefinition(long code) {
+        final Map result = HttpUtils.builder()
+                .withUrl(apiPrefix.concat(String.format(DELETE_PROCESS_DEFINITION, defaultProjectCode, code)))
+                .withMethod(Connection.Method.DELETE)
+                .withToken(TOKEN, token)
+                .execute(Map.class);
+        checkResult(result, false);
+    }
+
     private ProjectDto queryProjectCodeByName(String projectName) throws IOException {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(QUERY_PROJECT_LIST_PAGING))
@@ -494,6 +491,9 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
 
     private List<LocalParam> getLocalParams(TaskDescriptionDto taskDescriptionDto) {
         final Map<String, Object> params = taskDescriptionDto.getParams();
+        if (CollectionUtils.isEmpty(params)) {
+            return Collections.emptyList();
+        }
         final List<LocalParam> localParams = Lists.newArrayListWithCapacity(params.size());
         params.forEach((k, v) -> {
             final LocalParam localParam = new LocalParam();

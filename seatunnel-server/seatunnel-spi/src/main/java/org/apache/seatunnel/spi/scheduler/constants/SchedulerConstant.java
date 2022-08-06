@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.server.common;
+package org.apache.seatunnel.spi.scheduler.constants;
 
-public class Constants {
-    public static final String BLANK_SPACE = " ";
-    public static final String COMMA = ",";
-    public static final String UNDERLINE = "_";
+public class SchedulerConstant {
+    public static final int RETRY_INTERVAL_DEFAULT = 0;
+    public static final int RETRY_TIMES_DEFAULT = 0;
+    public static final String NEVER_TRIGGER_EXPRESSION = "* * * ? * * 1970";
 }
