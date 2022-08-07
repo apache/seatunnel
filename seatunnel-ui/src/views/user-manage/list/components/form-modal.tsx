@@ -73,7 +73,7 @@ const FormModal = defineComponent({
         title={
           this.status === 0
             ? this.t('user_manage.create')
-            : this.t('user_manage.edite')
+            : this.t('user_manage.edit')
         }
         show={this.showModal}
         onCancel={this.handleCancel}
