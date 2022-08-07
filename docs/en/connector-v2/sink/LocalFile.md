@@ -1,5 +1,7 @@
 # LocalFile
 
+> Local file sink connector
+
 ## Description
 
 Output data to local file. Support bounded and unbounded job.

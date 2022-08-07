@@ -1,5 +1,7 @@
 # MongoDB
 
+> MongoDB sink connector
+
 ## Description
 
 Write data to `MongoDB`
