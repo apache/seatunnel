@@ -1,6 +1,6 @@
 # Assert
 
-> # Sink plugin: Assert [Flink]
+> Assert sink connector
 
 ## Description
 

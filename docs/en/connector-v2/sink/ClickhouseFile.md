@@ -1,5 +1,7 @@
 # ClickhouseFile
 
+> Clickhouse file sink connector
+
 ## Description
 
 Generate the clickhouse data file with the clickhouse-local program, and then send it to the clickhouse

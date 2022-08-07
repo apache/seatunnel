@@ -1,5 +1,7 @@
 # Kudu
 
+> Kudu source connector
+
 ## Description
 
 Read data from Kudu.

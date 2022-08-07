@@ -1,5 +1,7 @@
 # Kudu
 
+> Kudu source connector
+
 ## Description
 
 Used to read data from Kudu. Currently, only supports Query with Batch Mode.

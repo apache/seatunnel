@@ -1,4 +1,7 @@
 # JDBC
+
+> JDBC sink connector
+
 ## Description
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once semantics (using XA transaction guarantee).
 ## Options

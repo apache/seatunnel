@@ -1,5 +1,7 @@
 # Flink SQL Kafka Connector
 
+> Kafka connector based by flink sql
+
 ## Description
 
 With kafka connector, we can read data from kafka and write data to kafka using Flink SQL. Refer to the [Kafka connector](https://nightlies.apache.org/flink/flink-docs-release-1.13/docs/connectors/table/kafka/) for more details.

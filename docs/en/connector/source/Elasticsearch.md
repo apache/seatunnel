@@ -1,5 +1,7 @@
 # Elasticsearch
 
+> Elasticsearch source connector
+
 ## Description
 
 Read data from Elasticsearch
