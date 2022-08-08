@@ -74,7 +74,6 @@ public class JobMaster implements Runnable {
     @Override
     public void run() {
         try {
-            init();
             LOGGER.info("I will sleep 2000ms");
             Thread.sleep(2000);
         } catch (Exception e) {
