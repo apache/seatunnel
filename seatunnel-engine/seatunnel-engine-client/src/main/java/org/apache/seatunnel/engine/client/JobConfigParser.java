@@ -73,7 +73,8 @@ public class JobConfigParser {
 
     private JobConfig jobConfig;
 
-    protected JobConfigParser(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator, @NonNull JobConfig jobConfig) {
+    protected JobConfigParser(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator,
+                              @NonNull JobConfig jobConfig) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
@@ -81,7 +82,7 @@ public class JobConfigParser {
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
         Config seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
-        List<? extends Config> envConfigs = seaTunnelJobConfig.getConfigList("env");
+        Config envConfigs = seaTunnelJobConfig.getConfig("env");
         List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
         List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
@@ -90,9 +91,7 @@ public class JobConfigParser {
             throw new JobDefineCheckException("Source And Sink can not be null");
         }
 
-        if (!CollectionUtils.isEmpty(envConfigs)) {
-            jobConfigAnalyze(envConfigs);
-        }
+        jobConfigAnalyze(envConfigs);
 
         if (sinkConfigs.size() == 1
             && sourceConfigs.size() == 1
@@ -104,7 +103,7 @@ public class JobConfigParser {
         return new ImmutablePair<>(actions, jarUrlsSet);
     }
 
-    private void jobConfigAnalyze(List<? extends Config> envConfigs) {
+    private void jobConfigAnalyze(Config envConfigs) {
         // TODO Resolve env configuration and set jobConfig
     }
 

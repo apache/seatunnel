@@ -20,9 +20,7 @@ package org.apache.seatunnel.engine.server.execution;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.net.URL;
 import java.util.Collection;
-import java.util.Set;
 
 @Data
 public class TaskGroup implements Serializable {

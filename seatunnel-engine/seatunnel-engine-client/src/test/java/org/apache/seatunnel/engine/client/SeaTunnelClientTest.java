@@ -44,7 +44,7 @@ public class SeaTunnelClientTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
-            new SeaTunnelNodeContext());
+            new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
 
     @Test
@@ -71,5 +71,7 @@ public class SeaTunnelClientTest {
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
         JobProxy jobProxy = jobExecutionEnv.execute();
+
+        Assert.assertNotNull(jobProxy);
     }
 }

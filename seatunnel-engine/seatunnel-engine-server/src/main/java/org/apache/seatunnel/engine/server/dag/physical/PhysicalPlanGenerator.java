@@ -55,6 +55,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class PhysicalPlanGenerator {
 
@@ -92,7 +93,8 @@ public class PhysicalPlanGenerator {
         AtomicInteger index = new AtomicInteger(-1);
         CopyOnWriteArrayList<NonCompletableFuture<PipelineState>> waitForCompleteBySubPlanList =
             new CopyOnWriteArrayList<>();
-        List<SubPlan> subPlans = edgesList.stream().map(edges -> {
+
+        Stream<SubPlan> subPlanStream = edgesList.stream().map(edges -> {
             int currIndex = index.incrementAndGet();
             CopyOnWriteArrayList<NonCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList =
                 new CopyOnWriteArrayList<>();
@@ -121,9 +123,9 @@ public class PhysicalPlanGenerator {
                 pipelineFuture,
                 waitForCompleteByPhysicalVertexList.toArray(
                     new NonCompletableFuture[waitForCompleteByPhysicalVertexList.size()]));
-        }).collect(Collectors.toList());
+        });
 
-        PhysicalPlan physicalPlan = new PhysicalPlan(subPlans,
+        PhysicalPlan physicalPlan = new PhysicalPlan(subPlanStream.collect(Collectors.toList()),
             executorService,
             jobImmutableInformation,
             initializationTimestamp,

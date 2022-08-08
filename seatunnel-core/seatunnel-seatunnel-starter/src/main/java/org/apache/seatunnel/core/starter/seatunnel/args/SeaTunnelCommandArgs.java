@@ -26,7 +26,7 @@ import java.util.List;
 public class SeaTunnelCommandArgs extends AbstractCommandArgs {
 
     /**
-     * Undefined parameters parsed will be stored here as flink command parameters.
+     * Undefined parameters parsed will be stored here as seatunnel engint command parameters.
      */
     private List<String> seatunnelParams;
 

@@ -17,7 +17,6 @@
 package org.apache.seatunnel.engine.common.config;
 
 import static com.hazelcast.internal.config.yaml.W3cDomUtil.asW3cNode;
-import static com.hazelcast.internal.util.Preconditions.checkTrue;
 
 import com.hazelcast.config.AbstractYamlConfigBuilder;
 import com.hazelcast.config.InvalidConfigurationException;
@@ -27,6 +26,7 @@ import com.hazelcast.internal.yaml.YamlLoader;
 import com.hazelcast.internal.yaml.YamlMapping;
 import com.hazelcast.internal.yaml.YamlNode;
 import com.hazelcast.jet.impl.util.ExceptionUtil;
+import lombok.NonNull;
 import org.w3c.dom.Node;
 
 import java.io.InputStream;
@@ -48,8 +48,7 @@ public class YamlSeaTunnelConfigBuilder extends AbstractYamlConfigBuilder {
         this.in = locator.getIn();
     }
 
-    public YamlSeaTunnelConfigBuilder(InputStream inputStream) {
-        checkTrue(inputStream != null, "inputStream can't be null");
+    public YamlSeaTunnelConfigBuilder(@NonNull InputStream inputStream) {
         this.in = inputStream;
     }
 
