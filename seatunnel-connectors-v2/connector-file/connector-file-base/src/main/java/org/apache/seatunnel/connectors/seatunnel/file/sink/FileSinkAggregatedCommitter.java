@@ -34,8 +34,7 @@ import java.util.Set;
 
 public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter.class);
-
-    private FileSystemCommitter fileSystemCommitter;
+    private final FileSystemCommitter fileSystemCommitter;
 
     public FileSinkAggregatedCommitter(@NonNull FileSystemCommitter fileSystemCommitter) {
         this.fileSystemCommitter = fileSystemCommitter;
@@ -46,8 +45,8 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         if (aggregatedCommitInfoList == null || aggregatedCommitInfoList.size() == 0) {
             return null;
         }
-        List errorAggregatedCommitInfoList = new ArrayList();
-        aggregatedCommitInfoList.stream().forEach(aggregateCommitInfo -> {
+        List<FileAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
+        aggregatedCommitInfoList.forEach(aggregateCommitInfo -> {
             try {
                 fileSystemCommitter.commitTransaction(aggregateCommitInfo);
             } catch (Exception e) {
@@ -66,12 +65,8 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         }
         Map<String, Map<String, String>> aggregateCommitInfo = new HashMap<>();
         Map<String, List<String>> partitionDirAndValsMap = new HashMap<>();
-        commitInfos.stream().forEach(commitInfo -> {
-            Map<String, String> needMoveFileMap = aggregateCommitInfo.get(commitInfo.getTransactionDir());
-            if (needMoveFileMap == null) {
-                needMoveFileMap = new HashMap<>();
-                aggregateCommitInfo.put(commitInfo.getTransactionDir(), needMoveFileMap);
-            }
+        commitInfos.forEach(commitInfo -> {
+            Map<String, String> needMoveFileMap = aggregateCommitInfo.computeIfAbsent(commitInfo.getTransactionDir(), k -> new HashMap<>());
             needMoveFileMap.putAll(commitInfo.getNeedMoveFiles());
             Set<Map.Entry<String, List<String>>> entries = commitInfo.getPartitionDirAndValsMap().entrySet();
             if (!CollectionUtils.isEmpty(entries)) {
@@ -86,10 +81,9 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         if (aggregatedCommitInfoList == null || aggregatedCommitInfoList.size() == 0) {
             return;
         }
-        aggregatedCommitInfoList.stream().forEach(aggregateCommitInfo -> {
+        aggregatedCommitInfoList.forEach(aggregateCommitInfo -> {
             try {
                 fileSystemCommitter.abortTransaction(aggregateCommitInfo);
-
             } catch (Exception e) {
                 LOGGER.error("abort aggregateCommitInfo error ", e);
             }
