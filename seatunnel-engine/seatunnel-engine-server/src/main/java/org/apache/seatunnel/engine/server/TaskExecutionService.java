@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.engine.server;
 
+import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
+import static com.hazelcast.jet.impl.util.Util.uncheckRun;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.stream.Collectors.partitioningBy;
+import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -34,12 +39,15 @@ import com.hazelcast.spi.properties.HazelcastProperties;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -80,85 +88,70 @@ public class TaskExecutionService {
         return executionContexts.get(taskId);
     }
 
-    /**
-     * Submit a TaskGroup and run the Task in it
-     */
-    public Map<Long, TaskExecutionContext> submitTask(
-        TaskGroup taskGroup
+    private void submitThreadShareTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
+        tasks.stream()
+            .map(t -> new TaskTracker(t, taskGroupExecutionTracker))
+            .forEach(threadShareTaskQueue::add);
+    }
+
+    private void submitBlockingTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
+
+        CountDownLatch startedLatch = new CountDownLatch(tasks.size());
+        taskGroupExecutionTracker.blockingFutures = tasks
+            .stream()
+            .map(t -> new BlockingWorker(new TaskTracker(t, taskGroupExecutionTracker), startedLatch))
+            .map(executorService::submit)
+            .collect(toList());
+
+        // Do not return from this method until all workers have started. Otherwise
+        // on cancellation there is a race where the executor might not have started
+        // the worker yet. This would result in taskletDone() never being called for
+        // a worker.
+        uncheckRun(startedLatch::await);
+    }
+
+    public CompletableFuture<Void> submitTaskGroup(
+        TaskGroup taskGroup,
+        CompletableFuture<Void> cancellationFuture
     ) {
-        Map<Long, TaskExecutionContext> contextMap = new HashMap<>(taskGroup.getTasks().size());
-        taskGroup.getTasks().forEach(task -> {
-            contextMap.put(task.getTaskID(), submitTask(task));
-        });
-        return contextMap;
-    }
-
-    public TaskExecutionContext submitTask(Task task) {
-        return task.isThreadsShare() ? submitThreadShareTask(task) : submitBlockingTask(task);
-    }
-
-    /**
-     * Submit a Task that exclusively use the thread
-     */
-    public TaskExecutionContext submitBlockingTask(Task task) {
-        CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
-        TaskTracker taskTracker = new TaskTracker(task, cancellationFuture, logger);
-        taskTracker.taskRuntimeFutures =
-            executorService.submit(new BlockingWorker(taskTracker));
-
-        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(
-            taskTracker.taskFuture,
-            cancellationFuture
-        );
-
-        executionContexts.put(task.getTaskID(), taskExecutionContext);
-        return taskExecutionContext;
-    }
-
-    /**
-     * Submit a Task that can share threads
-     */
-    public TaskExecutionContext submitThreadShareTask(Task task) {
-
-        CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
-
-        TaskTracker taskTracker = new TaskTracker(task, cancellationFuture, logger);
-        taskTracker.taskRuntimeFutures = new CompletableFuture<Void>();
-
-        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(
-            taskTracker.taskFuture,
-            cancellationFuture
-        );
-
-        threadShareTaskQueue.add(taskTracker);
-
-        executionContexts.put(task.getTaskID(), taskExecutionContext);
-        return taskExecutionContext;
+        Collection<Task> tasks = taskGroup.getTasks();
+        final TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(tasks.size(), cancellationFuture);
+        try {
+            final Map<Boolean, List<Task>> byCooperation =
+                tasks.stream().collect(partitioningBy(Task::isThreadsShare));
+            submitThreadShareTask(executionTracker, byCooperation.get(true));
+            submitBlockingTask(executionTracker, byCooperation.get(false));
+        } catch (Throwable t) {
+            executionTracker.future.internalCompleteExceptionally(t);
+        }
+        return executionTracker.future;
     }
 
     private final class BlockingWorker implements Runnable {
 
         private final TaskTracker tracker;
+        private final CountDownLatch startedLatch;
 
-        private BlockingWorker(TaskTracker tracker) {
+        private BlockingWorker(TaskTracker tracker, CountDownLatch startedLatch) {
             this.tracker = tracker;
+            this.startedLatch = startedLatch;
         }
 
         @Override
         public void run() {
             final Task t = tracker.task;
             try {
+                startedLatch.countDown();
                 t.init();
                 ProgressState result;
                 do {
                     result = t.call();
-                } while (!result.isDone() && !isShutdown && !tracker.taskRuntimeFutures.isCancelled());
-
+                } while (!result.isDone() && !isShutdown && !tracker.taskGroupExecutionTracker.executionCompletedExceptionally());
             } catch (Throwable e) {
                 logger.warning("Exception in " + t, e);
-                tracker.taskFuture.internalCompleteExceptionally(e);
+                tracker.taskGroupExecutionTracker.exception(e);
             } finally {
-                tracker.taskFuture.internalComplete();
+                tracker.taskGroupExecutionTracker.taskDone();
             }
         }
     }
@@ -198,8 +191,9 @@ public class TaskExecutionService {
                 TaskTracker taskTracker = null != exclusiveTaskTracker.get() ?
                     exclusiveTaskTracker.get() :
                     taskqueue.takeFirst();
-                NonCompletableFuture future = taskTracker.taskFuture;
-                if (taskTracker.taskRuntimeFutures.isCancelled()) {
+                TaskGroupExecutionTracker taskGroupExecutionTracker = taskTracker.taskGroupExecutionTracker;
+                if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                    taskGroupExecutionTracker.taskDone();
                     if (null != exclusiveTaskTracker.get()) {
                         // If it's exclusive need to end the work
                         break;
@@ -221,7 +215,8 @@ public class TaskExecutionService {
                     }
                 } catch (Throwable e) {
                     //task Failure and complete
-                    future.internalCompleteExceptionally(e);
+                    taskGroupExecutionTracker.exception(e);
+                    taskGroupExecutionTracker.taskDone();
                     //If it's exclusive need to end the work
                     logger.warning("Exception in " + taskTracker.task, e);
                     if (null != exclusiveTaskTracker.get()) {
@@ -235,7 +230,7 @@ public class TaskExecutionService {
                 if (null != call) {
                     if (call.isDone()) {
                         //If it's exclusive, you need to end the work
-                        future.internalComplete();
+                        taskGroupExecutionTracker.taskDone();
                         if (null != exclusiveTaskTracker.get()) {
                             break;
                         }
@@ -272,4 +267,50 @@ public class TaskExecutionService {
             return false;
         }
     }
+
+    /**
+     * Internal utility class to track the overall state of tasklet execution.
+     * There's one instance of this class per job.
+     */
+    public final class TaskGroupExecutionTracker {
+
+        final NonCompletableFuture future = new NonCompletableFuture();
+        volatile List<Future<?>> blockingFutures = emptyList();
+
+        private final AtomicInteger completionLatch;
+        private final AtomicReference<Throwable> executionException = new AtomicReference<>();
+
+        TaskGroupExecutionTracker(int taskletCount, CompletableFuture<Void> cancellationFuture) {
+            this.completionLatch = new AtomicInteger(taskletCount);
+            cancellationFuture.whenComplete(withTryCatch(logger, (r, e) -> {
+                if (e == null) {
+                    e = new IllegalStateException("cancellationFuture should be completed exceptionally");
+                }
+                exception(e);
+                // Don't interrupt the threads. We require that they do not block for too long,
+                // interrupting them might make the termination faster, but can also cause troubles.
+                blockingFutures.forEach(f -> f.cancel(false));
+            }));
+        }
+
+        void exception(Throwable t) {
+            executionException.compareAndSet(null, t);
+        }
+
+        void taskDone() {
+            if (completionLatch.decrementAndGet() == 0) {
+                Throwable ex = executionException.get();
+                if (ex == null) {
+                    future.internalComplete();
+                } else {
+                    future.internalCompleteExceptionally(ex);
+                }
+            }
+        }
+
+        boolean executionCompletedExceptionally() {
+            return executionException.get() != null;
+        }
+    }
+
 }

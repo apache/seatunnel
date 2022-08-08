@@ -33,11 +33,13 @@ public class TestTask implements Task {
     AtomicBoolean stop;
     long sleep;
     private final ILogger logger;
+    boolean isThreadsShare;
 
-    public TestTask(AtomicBoolean stop, ILogger logger, long sleep){
+    public TestTask(AtomicBoolean stop, ILogger logger, long sleep, boolean isThreadsShare){
         this.stop = stop;
         this.logger = logger;
         this.sleep = sleep;
+        this.isThreadsShare = isThreadsShare;
     }
 
     @NonNull
@@ -65,6 +67,6 @@ public class TestTask implements Task {
 
     @Override
     public boolean isThreadsShare() {
-        return true;
+        return isThreadsShare;
     }
 }

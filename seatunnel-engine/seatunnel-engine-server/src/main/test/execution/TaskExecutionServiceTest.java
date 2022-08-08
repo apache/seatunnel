@@ -17,14 +17,15 @@
 
 package execution;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -37,11 +38,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 
 
 public class TaskExecutionServiceTest {
@@ -50,7 +51,7 @@ public class TaskExecutionServiceTest {
     SeaTunnelServer service = instance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     ILogger logger = instance.node.nodeEngine.getLogger(TaskExecutionServiceTest.class);
 
-    long taskRunTime = 30000;
+    long taskRunTime = 2000;
 
     @Test
     public void testAll() throws InterruptedException {
@@ -72,6 +73,56 @@ public class TaskExecutionServiceTest {
 
     }
 
+    public void testCancel() throws InterruptedException {
+        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+
+        long sleepTime = 300;
+
+        AtomicBoolean stop = new AtomicBoolean(false);
+        TestTask testTask1 = new TestTask(stop, logger, sleepTime,true);
+        TestTask testTask2 = new TestTask(stop, logger, sleepTime,false);
+
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
+
+        CompletableFuture<Void> voidCompletableFuture = taskExecutionService.submitTaskGroup(new TaskGroup(testTask1,testTask2), cancellationFuture);
+
+        cancellationFuture.cancel(true);
+
+        await().atMost(sleepTime + 100, TimeUnit.MILLISECONDS).untilAsserted(()->{
+            assertTrue(voidCompletableFuture.isCompletedExceptionally());
+        });
+    }
+
+    public void testFinish() throws InterruptedException {
+        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+
+        long sleepTime = 300;
+
+        AtomicBoolean stop = new AtomicBoolean(false);
+        AtomicBoolean futureMark = new AtomicBoolean(false);
+        TestTask testTask1 = new TestTask(stop, logger, sleepTime,true);
+        TestTask testTask2 = new TestTask(stop, logger, sleepTime,false);
+
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
+
+        CompletableFuture<Void> voidCompletableFuture = taskExecutionService.submitTaskGroup(new TaskGroup(testTask1,testTask2), cancellationFuture);
+        voidCompletableFuture.whenComplete(new BiConsumer<Void, Throwable>() {
+            @Override
+            public void accept(Void unused, Throwable throwable) {
+                futureMark.set(true);
+            }
+        });
+
+        stop.set(true);
+
+        await().atMost(sleepTime + 100, TimeUnit.MILLISECONDS).untilAsserted(()->{
+            assertTrue(voidCompletableFuture.isDone());
+        });
+
+        assertTrue(futureMark.get());
+    }
+
+
     /**
      * Test task execution time is the same as the timer timeout
      */
@@ -89,7 +140,7 @@ public class TaskExecutionServiceTest {
 
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
-        List<TaskExecutionContext> collect = criticalTask.stream().map(taskExecutionService::submitThreadShareTask).collect(Collectors.toList());
+        CompletableFuture<Void> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup(criticalTask), new CompletableFuture<Void>());
 
         // Run it for a while
         Thread.sleep(taskRunTime);
@@ -97,11 +148,9 @@ public class TaskExecutionServiceTest {
         //stop task
         stopMark.set(true);
 
-        Thread.sleep(count * callTime);
-
         // Check all task ends right
-        collect.forEach(xt -> {
-            assertTrue(xt.executionFuture.isDone());
+        await().atMost(count * callTime, TimeUnit.MILLISECONDS).untilAsserted(()->{
+            assertTrue(taskCts.isDone());
         });
 
         //Check that each Task is only Done once
@@ -118,7 +167,7 @@ public class TaskExecutionServiceTest {
         long t2Sleep = 50;
 
         long lowLagSleep = 50;
-        long highLagSleep = 1500;
+        long highLagSleep = 300;
 
         List<Throwable> t1throwable = new ArrayList<>();
         ExceptionTestTask t1 = new ExceptionTestTask(t1Sleep, "t1", t1throwable);
@@ -137,82 +186,35 @@ public class TaskExecutionServiceTest {
         tasks.addAll(lowLagTask);
         Collections.shuffle(tasks);
 
-        List<TaskExecutionContext> taskCts = tasks.stream().map(task -> task.getTaskID() % 2 == 0 ?
-            taskExecutionService.submitBlockingTask(task) :
-            taskExecutionService.submitThreadShareTask(task)).collect(Collectors.toList());
 
-        TaskExecutionContext t1c = taskExecutionService.submitThreadShareTask(t1);
+        CompletableFuture<Void> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup(tasks), new CompletableFuture<Void>());
 
-        TaskExecutionContext t2c = taskExecutionService.submitThreadShareTask(t2);
+
+        CompletableFuture<Void> t1c = taskExecutionService.submitTaskGroup(new TaskGroup(t1), new CompletableFuture<Void>());
+
+        CompletableFuture<Void> t2c = taskExecutionService.submitTaskGroup(new TaskGroup(t2), new CompletableFuture<Void>());
 
         Thread.sleep(taskRunTime);
 
         t1throwable.add(new IOException());
         t2throwable.add(new IOException());
-        Thread.sleep(t1Sleep + t2Sleep);
 
-        assertTrue(t1c.executionFuture.isCompletedExceptionally());
-        assertTrue(t2c.executionFuture.isCompletedExceptionally());
+        await().atMost(t1Sleep + t2Sleep, TimeUnit.MILLISECONDS).untilAsserted(()->{
+            assertTrue(t1c.isCompletedExceptionally());
+            assertTrue(t2c.isCompletedExceptionally());
+        });
 
         stopMark.set(true);
-        Thread.sleep(lowLagSleep * 10 + highLagSleep);
-        taskCts.forEach(c -> {
-            assertTrue(c.executionFuture.isDone());
+
+        await().atMost(lowLagSleep * 10 + highLagSleep, TimeUnit.MILLISECONDS).untilAsserted(()->{
+            assertTrue(taskCts.isDone());
         });
-
-
-    }
-
-    public void testCancel() throws InterruptedException {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
-
-        long sleepTime = 2000;
-
-        AtomicBoolean stop = new AtomicBoolean(false);
-        TestTask testTask = new TestTask(stop, logger, sleepTime);
-
-        TaskExecutionContext taskExecutionContext = taskExecutionService.submitTask(testTask);
-
-        Thread.sleep(taskRunTime);
-
-        taskExecutionContext.cancel();
-
-        Thread.sleep(sleepTime + 100);
-        assertTrue(taskExecutionContext.executionFuture.isCompletedExceptionally());
-    }
-
-    public void testFinish() throws InterruptedException {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
-
-        long sleepTime = 2000;
-
-        AtomicBoolean stop = new AtomicBoolean(false);
-        AtomicBoolean futureMark = new AtomicBoolean(false);
-        TestTask testTasklet = new TestTask(stop, logger, sleepTime);
-
-        TaskExecutionContext taskExecutionContext = taskExecutionService.submitTask(testTasklet);
-        taskExecutionContext.executionFuture.whenComplete(new BiConsumer<Void, Throwable>() {
-            @Override
-            public void accept(Void unused, Throwable throwable) {
-                futureMark.set(true);
-            }
-        });
-
-        Thread.sleep(taskRunTime);
-
-        stop.set(true);
-
-        Thread.sleep(sleepTime + 100);
-
-
-        assertTrue(taskExecutionContext.executionFuture.isDone());
-        assertTrue(futureMark.get());
     }
 
     public void testDelay() throws InterruptedException {
 
         long lowLagSleep = 10;
-        long highLagSleep = 1500;
+        long highLagSleep = 300;
 
         AtomicBoolean stopMark = new AtomicBoolean(false);
 
@@ -225,29 +227,29 @@ public class TaskExecutionServiceTest {
         //Create high lat tasks
         List<Task> highLagTask = buildFixedTestTask(highLagSleep, 5, stopMark, highLagList);
 
-        List<Task> taskTrackers = new ArrayList<>();
-        taskTrackers.addAll(highLagTask);
-        taskTrackers.addAll(lowLagTask);
-        Collections.shuffle(taskTrackers);
+        List<Task> tasks = new ArrayList<>();
+        tasks.addAll(highLagTask);
+        tasks.addAll(lowLagTask);
+        Collections.shuffle(tasks);
 
-        LinkedBlockingDeque<Task> taskQueue = new LinkedBlockingDeque<>(taskTrackers);
+        TaskGroup taskGroup = new TaskGroup(tasks);
 
 
-        logger.info("task size is : " + taskTrackers.size());
+        logger.info("task size is : " + taskGroup.getTasks().size());
 
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
-        List<TaskExecutionContext> collect = taskQueue.stream().map(taskExecutionService::submitThreadShareTask).collect(Collectors.toList());
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
 
+        CompletableFuture<Void> voidCompletableFuture = taskExecutionService.submitTaskGroup(taskGroup, cancellationFuture);
 
         //stop tasks
         Thread.sleep(taskRunTime);
         stopMark.set(true);
 
-        Thread.sleep(lowLagSleep*10 + highLagSleep);
         //Check all task ends right
-        collect.forEach(xt -> {
-            assertTrue(xt.executionFuture.isDone());
+        await().atMost(lowLagSleep * 10 + highLagSleep, TimeUnit.MILLISECONDS).untilAsserted(()->{
+            assertTrue(voidCompletableFuture.isDone());
         });
 
         //Computation Delay
