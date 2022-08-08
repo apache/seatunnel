@@ -24,7 +24,6 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 
 import com.hazelcast.spi.impl.NodeEngine;
-import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -60,10 +59,5 @@ public class JobMaster implements Task {
     @Override
     public void close() throws IOException {
         Task.super.close();
-    }
-
-    @Override
-    public void setOperationService(OperationService operationService) {
-        Task.super.setOperationService(operationService);
     }
 }

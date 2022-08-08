@@ -28,6 +28,9 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class TaskGroup implements Serializable {
+    //TODO iD is required. The construction method needs to be modified later
+    private long id;
+
     private final Collection<Task> tasks;
 
     public TaskGroup(List<Task> tasks) {

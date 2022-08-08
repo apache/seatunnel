@@ -17,27 +17,31 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+
+import com.hazelcast.cluster.Address;
+import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
+import com.hazelcast.spi.impl.operationservice.Operation;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 public class TaskExecutionContext {
 
-    // future which is Task submit
-    public volatile CompletableFuture<Void> executionFuture;
+    private final Task task;
+    private final NodeEngineImpl nodeEngine;
 
-    // future which can only be used to cancel the local execution.
-    private volatile CompletableFuture<Void> cancellationFuture;
-
-    public TaskExecutionContext(
-        CompletableFuture<Void> executionFuture,
-        CompletableFuture<Void> cancellationFuture
-    ) {
-        this.executionFuture = executionFuture;
-        this.cancellationFuture = cancellationFuture;
+    public TaskExecutionContext(Task task, NodeEngineImpl nodeEngine) {
+        this.task = task;
+        this.nodeEngine = nodeEngine;
     }
 
-    public CompletableFuture<Void> cancel() {
-        cancellationFuture.cancel(true);
-        return executionFuture;
+    public  <E> InvocationFuture<E> sendToMaster(Operation operation) {
+        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());
+        return invocationBuilder.invoke();
     }
 
+    public <E> InvocationFuture<E> sendToMember(Operation operation, Address memberID) {
+        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, memberID);
+        return invocationBuilder.invoke();
+    }
 }

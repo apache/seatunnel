@@ -27,6 +27,7 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -50,8 +51,7 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         UUID readerUUID = getCallerUuid();
-        TaskExecutionContext executionContext =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
+        Set<TaskExecutionContext> executionContext = server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
         // TODO register reader to enumerator
     }
 

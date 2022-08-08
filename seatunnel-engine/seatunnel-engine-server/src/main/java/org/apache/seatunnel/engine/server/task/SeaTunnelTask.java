@@ -59,12 +59,12 @@ public class SeaTunnelTask extends AbstractTask {
 
     private void register() {
         if (startFromSource()) {
-            sendToMaster(new RegisterOperation(taskID, enumeratorTaskID));
+            this.executionContext.sendToMaster(new RegisterOperation(taskID, enumeratorTaskID));
         }
     }
 
     private void requestSplit() {
-        sendToMaster(new RequestSplitOperation(taskID, enumeratorTaskID));
+        this.executionContext.sendToMaster(new RequestSplitOperation(taskID, enumeratorTaskID));
     }
 
     private boolean startFromSource() {

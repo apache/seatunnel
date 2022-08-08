@@ -19,8 +19,8 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 
-import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
 import java.net.URL;
@@ -29,7 +29,7 @@ import java.util.Set;
 public abstract class AbstractTask implements Task {
     private static final long serialVersionUID = -2524701323779523718L;
 
-    protected OperationService operationService;
+    protected TaskExecutionContext executionContext;
     protected long taskID;
 
     protected Progress progress;
@@ -42,8 +42,8 @@ public abstract class AbstractTask implements Task {
     public abstract Set<URL> getJarsUrl();
 
     @Override
-    public void setOperationService(OperationService operationService) {
-        this.operationService = operationService;
+    public void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+        this.executionContext = taskExecutionContext;
     }
 
     @NonNull

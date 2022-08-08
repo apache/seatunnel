@@ -33,7 +33,6 @@ import org.apache.seatunnel.engine.server.execution.TaskTracker;
 
 import com.hazelcast.jet.impl.util.NonCompletableFuture;
 import com.hazelcast.logging.ILogger;
-import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import lombok.NonNull;
@@ -42,6 +41,7 @@ import lombok.SneakyThrows;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -60,14 +60,14 @@ import java.util.concurrent.atomic.AtomicReference;
 public class TaskExecutionService {
 
     private final String hzInstanceName;
-    private final NodeEngine nodeEngine;
+    private final NodeEngineImpl nodeEngine;
     private final ILogger logger;
     private volatile boolean isShutdown;
     private final LinkedBlockingDeque<TaskTracker> threadShareTaskQueue = new LinkedBlockingDeque<>();
     private final ExecutorService executorService = newCachedThreadPool(new BlockingTaskThreadFactory());
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
-    private final ConcurrentMap<Long, TaskExecutionContext> executionContexts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, Set<TaskExecutionContext>> executionContexts = new ConcurrentHashMap<>();
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -84,8 +84,8 @@ public class TaskExecutionService {
         executorService.shutdownNow();
     }
 
-    public TaskExecutionContext getExecutionContext(long taskId) {
-        return executionContexts.get(taskId);
+    public Set<TaskExecutionContext> getExecutionContext(long taskGroupId) {
+        return executionContexts.get(taskGroupId);
     }
 
     private void submitThreadShareTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
@@ -117,10 +117,18 @@ public class TaskExecutionService {
         Collection<Task> tasks = taskGroup.getTasks();
         final TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(tasks.size(), cancellationFuture);
         try {
+            Set<TaskExecutionContext> taskExecutionContexts = ConcurrentHashMap.newKeySet();
             final Map<Boolean, List<Task>> byCooperation =
-                tasks.stream().collect(partitioningBy(Task::isThreadsShare));
+                tasks.stream()
+                    .peek(x -> {
+                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine);
+                        x.setTaskExecutionContext(taskExecutionContext);
+                        taskExecutionContexts.add(taskExecutionContext);
+                    })
+                    .collect(partitioningBy(Task::isThreadsShare));
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
+            executionContexts.put(taskGroup.getId(), taskExecutionContexts);
         } catch (Throwable t) {
             executionTracker.future.internalCompleteExceptionally(t);
         }
