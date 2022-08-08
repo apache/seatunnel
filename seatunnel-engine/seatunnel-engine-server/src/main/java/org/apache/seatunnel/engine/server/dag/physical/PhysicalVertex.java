@@ -18,20 +18,26 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 
+import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
+
+import java.net.URL;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /**
  * PhysicalVertex is responsible for the scheduling and execution of a single task parallel
  * Each {@link org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex} generates some PhysicalVertex.
  * And the number of PhysicalVertex equals the {@link ExecutionVertex#getParallelism()}.
- * <p>
- * When PhysicalVertex is schedule, It will create a {@link PhysicalExecutionVertex} and call the {@link PhysicalExecutionVertex#deploy()}
- * method. If a TaskGroup failed, PhysicalVertex will create a new PhysicalExecutionVertex and deploy it to retry the TaskGroup.
  */
 public class PhysicalVertex {
 
@@ -42,39 +48,90 @@ public class PhysicalVertex {
      */
     private final int subTaskGroupIndex;
 
-    private final String taskNameWithSubtask;
+    private final String taskNameWithSubtaskAndPipeline;
 
     private final int parallelism;
 
-    private PhysicalExecutionVertex currentExecutionVertex; // this field must never be null
-
     private final TaskGroup taskGroup;
 
-    private final PhysicalPlan physicalPlan;
+    private final ExecutorService executorService;
 
-    public PhysicalVertex(int subTaskGroupIndex, int parallelism, @NonNull TaskGroup taskGroup, @NonNull PhysicalPlan physicalPlan) {
+    private final FlakeIdGenerator flakeIdGenerator;
+
+    private final int pipelineIndex;
+
+    private final int totalPipelineNum;
+
+    private final Set<URL> pluginJarsUrls;
+
+    /**
+     * When PhysicalVertex status turn to end, complete this future. And then the waitForCompleteByPhysicalVertex
+     * in {@link SubPlan} whenComplete method will be called.
+     */
+    private final CompletableFuture<TaskExecutionState> taskFuture;
+
+
+    /**
+     * This future only can completion by the task run in {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
+     */
+    private NonCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
+
+    public PhysicalVertex(int subTaskGroupIndex,
+                          @NonNull ExecutorService executorService,
+                          int parallelism,
+                          @NonNull TaskGroup taskGroup,
+                          @NonNull CompletableFuture<TaskExecutionState> taskFuture,
+                          @NonNull FlakeIdGenerator flakeIdGenerator,
+                          int pipelineIndex,
+                          int totalPipelineNum,
+                          Set<URL> pluginJarsUrls) {
         this.subTaskGroupIndex = subTaskGroupIndex;
+        this.executorService = executorService;
         this.parallelism = parallelism;
         this.taskGroup = taskGroup;
-        this.taskNameWithSubtask =
+        this.flakeIdGenerator = flakeIdGenerator;
+        this.pipelineIndex = pipelineIndex;
+        this.totalPipelineNum = totalPipelineNum;
+        this.pluginJarsUrls = pluginJarsUrls;
+        this.taskNameWithSubtaskAndPipeline =
             String.format(
-                "%s (%d/%d)",
+                "task: [%s (%d/%d)], pipeline: [%d/%d]",
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
-                parallelism);
-
-        this.currentExecutionVertex = new PhysicalExecutionVertex();
-        this.physicalPlan = physicalPlan;
-        this.physicalPlan.addExecution(currentExecutionVertex);
+                parallelism,
+                pipelineIndex,
+                totalPipelineNum);
+        this.taskFuture = taskFuture;
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     public void deploy() throws JobException {
-        currentExecutionVertex.deploy();
-    }
 
-    public void executionFinished() {
-        LOGGER.info(String.format("The SubTask {} ({x}/{}) finished", taskGroup.getTaskGroupName(), subTaskGroupIndex + 1,
-            parallelism));
-        executionTask.executionVertexFinished();
+        // TODO really submit job to ExecutionService and get a NonCompletableFuture<ExecutionState>
+        long executionId = flakeIdGenerator.newId();
+        CompletableFuture<TaskExecutionState> uCompletableFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(5000);
+                return new TaskExecutionState(executionId, ExecutionState.FINISHED, null);
+            } catch (InterruptedException e) {
+                return new TaskExecutionState(executionId, ExecutionState.FAILED, e);
+            }
+        }, executorService);
+
+        waitForCompleteByExecutionService = new NonCompletableFuture<TaskExecutionState>(uCompletableFuture);
+        waitForCompleteByExecutionService.whenComplete((v, t) -> {
+            if (t != null) {
+                // TODO t.getMessage() need be replace
+                LOGGER.info(String.format("The Task {} Failed with Exception: {}",
+                    this.taskNameWithSubtaskAndPipeline,
+                    t.getMessage()));
+                taskFuture.complete(new TaskExecutionState(executionId, ExecutionState.FAILED, t));
+            } else {
+                LOGGER.info(String.format("The Task {} end with state {}",
+                    this.taskNameWithSubtaskAndPipeline,
+                    v));
+                taskFuture.complete(v);
+            }
+        });
     }
 }

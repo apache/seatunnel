@@ -17,18 +17,16 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 
-import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 
 public class SeaTunnelServerStarter {
 
     public static void main(String[] args) {
-        Config config = new Config();
-        config.getSecurityConfig().setEnabled(false);
-        config.getJetConfig().setEnabled(false);
-        config.setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
-        HazelcastInstanceFactory.newHazelcastInstance(config, Thread.currentThread().getName(), new SeaTunnelNodeContext());
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
+            Thread.currentThread().getName(), new SeaTunnelNodeContext());
     }
 }

@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical;
+package org.apache.seatunnel.engine.common.exception;
 
-import lombok.Data;
-import lombok.NonNull;
-
-@Data
-public class PhysicalExecutionVertex {
-
-    private final Long id;
-
-    public PhysicalExecutionVertex(@NonNull Long id) {
-        this.id = id;
+public class JobCanceledException extends SeaTunnelEngineException {
+    public JobCanceledException(long jobId) {
+        super("Job with id " + jobId + " canceled");
     }
 
-    public void deploy() {
+    public JobCanceledException(String message) {
+        super(message);
+    }
+
+    public JobCanceledException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

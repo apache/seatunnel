@@ -17,36 +17,37 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.core.job.PipelineState;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
-import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class PhysicalPlan {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalPlan.class);
 
-    private List<SubPlan> plans;
+    private final List<SubPlan> pipelineList;
 
-    private int finishedPipelineNum;
+    private AtomicInteger finishedPipelineNum = new AtomicInteger(0);
 
-    private JobStatus jobStatus = JobStatus.CREATED;
+    private AtomicInteger canceledPipelineNum = new AtomicInteger(0);
+
+    private AtomicInteger failedPipelineNum = new AtomicInteger(0);
+
+    private AtomicReference<JobStatus> jobStatus = new AtomicReference<>();
 
     private final JobImmutableInformation jobImmutableInformation;
-
-    /**
-     * The currently executed tasks, for callbacks.
-     */
-    private final List<>
 
     /**
      * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
@@ -57,46 +58,59 @@ public class PhysicalPlan {
     private final long[] stateTimestamps;
 
     /**
-     * when job status turn to end, complete this future.
+     * when job status turn to end, complete this future. And then the waitForCompleteByPhysicalPlan
+     * in {@link org.apache.seatunnel.engine.server.scheduler.JobScheduler} whenComplete method will be called.
      */
-    private final CompletableFuture<JobStatus> jobEndFuture = new CompletableFuture<>();
+    private final CompletableFuture<JobStatus> jobEndFuture;
 
 
+    /**
+     * This future only can completion by the {@link SubPlan } subPlanFuture.
+     * When subPlanFuture completed, this NonCompletableFuture's whenComplete method will be called.
+     */
+    private final NonCompletableFuture<PipelineState>[] waitForCompleteBySubPlan;
 
-    public PhysicalPlan(@NonNull List<SubPlan> plans,
+    private final ExecutorService executorService;
+
+    public PhysicalPlan(@NonNull List<SubPlan> pipelineList,
+                        @NonNull ExecutorService executorService,
                         @NonNull JobImmutableInformation jobImmutableInformation,
-                        long initializationTimestamp) {
-        this.plans = plans;
+                        long initializationTimestamp,
+                        @NonNull NonCompletableFuture<PipelineState>[] waitForCompleteBySubPlan) {
+        this.executorService = executorService;
         this.jobImmutableInformation = jobImmutableInformation;
         stateTimestamps = new long[JobStatus.values().length];
         this.stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
+        this.jobStatus.set(JobStatus.CREATED);
         this.stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
-    }
+        this.jobEndFuture = new CompletableFuture<JobStatus>();
+        this.waitForCompleteBySubPlan = waitForCompleteBySubPlan;
+        this.pipelineList = pipelineList;
 
-    public PhysicalPlan(@NonNull JobImmutableInformation jobImmutableInformation, long initializationTimestamp) {
-        this.jobImmutableInformation = jobImmutableInformation;
-        stateTimestamps = new long[JobStatus.values().length];
-        this.stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
-        this.stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
-        this.currentExecutionMap = new LinkedHashMap<>();
-    }
-
-    public List<SubPlan> getPlans() {
-        return plans;
-    }
-
-    public void pipelineFinished() {
-        finishedPipelineNum++;
-        if (finishedPipelineNum == plans.size()) {
-            // check whether we are still in "RUNNING" and trigger the final cleanup
-            if (jobStatus == JobStatus.RUNNING) {
-
-                if (updateJobState(JobStatus.RUNNING, JobStatus.FINISHED)) {
-                    LOGGER.info("Job {}({}) finished", jobInformation.getJobName(), jobInformation.getJobId());
-                    jobEndFuture.complete(jobStatus);
+        Arrays.stream(this.waitForCompleteBySubPlan).forEach(x -> {
+            x.whenComplete((v, t) -> {
+                if (PipelineState.CANCELED.equals(v)) {
+                    canceledPipelineNum.incrementAndGet();
+                } else if (PipelineState.FAILED.equals(v)) {
+                    failedPipelineNum.incrementAndGet();
                 }
-            }
-        }
+
+                if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                    if (failedPipelineNum.get() > 0) {
+                        jobStatus.set(JobStatus.FAILING);
+                    } else if (canceledPipelineNum.get() > 0) {
+                        jobStatus.set(JobStatus.CANCELED);
+                    } else {
+                        jobStatus.set(JobStatus.FINISHED);
+                    }
+                    jobEndFuture.complete(jobStatus.get());
+                }
+            });
+        });
+    }
+
+    public List<SubPlan> getPipelineList() {
+        return pipelineList;
     }
 
     public void turnToRunning() {
@@ -115,8 +129,8 @@ public class PhysicalPlan {
         }
 
         // now do the actual state transition
-        if (jobStatus == current) {
-            jobStatus = targetState;
+        if (jobStatus.get() == current) {
+            jobStatus.set(targetState);
             LOGGER.info(String.format("Job {} ({}) turn from state {} to {}.",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
@@ -132,24 +146,5 @@ public class PhysicalPlan {
 
     public CompletableFuture<JobStatus> getJobEndCompletableFuture() {
         return this.jobEndFuture;
-    }
-
-    public void executionTaskFinish() {
-        final int currFinishedNum = ++numFinishedExecutionTask;
-        if (currFinishedNum == tasks.size()) {
-
-            // check whether we are still in "RUNNING" and trigger the final cleanup
-            if (jobStatus == JobStatus.RUNNING) {
-
-                if (updateJobState(JobStatus.RUNNING, JobStatus.FINISHED)) {
-                    LOG.info("Job {}({}) finished", jobInformation.getJobName(), jobInformation.getJobId());
-                    jobEndFuture.complete(jobStatus);
-                }
-            }
-        }
-    }
-
-    public void setPlans(List<SubPlan> plans) {
-        this.plans = plans;
     }
 }

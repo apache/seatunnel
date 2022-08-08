@@ -15,27 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config;
+package org.apache.seatunnel.engine.core.job;
 
-import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
-
-import lombok.Data;
-
-@Data
-public class EngineConfig {
-    private int backupCount;
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    private int serverExecutorPoolSize = 20;
-
-    public EngineConfig setBackupCount(int newBackupCount) {
-        checkBackupCount(newBackupCount, 0);
-        this.backupCount = newBackupCount;
-        return this;
-    }
-
-    public EngineConfig setServerExecutorPoolSize(int serverExecutorPoolSize) {
-        this.serverExecutorPoolSize = serverExecutorPoolSize;
-        return this;
-    }
+public enum StatusUpdate {
+    STOP,
+    CANCEL;
 }

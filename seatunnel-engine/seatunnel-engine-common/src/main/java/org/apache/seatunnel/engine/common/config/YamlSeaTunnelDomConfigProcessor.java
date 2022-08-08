@@ -71,6 +71,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue("backup-count", getTextContent(node))
                     );
                     break;
+                case "server-executor-pool-size":
+                    engineConfig.setServerExecutorPoolSize(
+                        getIntegerValue("server-executor-pool-size", getTextContent(node))
+                    );
+                    break;
                 default:
                     throw new AssertionError("Unrecognized element: " + name);
             }
