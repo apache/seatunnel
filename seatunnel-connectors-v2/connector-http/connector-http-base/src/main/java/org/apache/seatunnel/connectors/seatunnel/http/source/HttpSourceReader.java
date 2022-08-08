@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse.STATUS_OK;
-
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -62,7 +60,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
             HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams());
-            if (STATUS_OK == response.getCode()) {
+            if (HttpResponse.STATUS_OK == response.getCode()) {
                 output.collect(new SeaTunnelRow(new Object[] {response.getContent()}));
                 return;
             }
