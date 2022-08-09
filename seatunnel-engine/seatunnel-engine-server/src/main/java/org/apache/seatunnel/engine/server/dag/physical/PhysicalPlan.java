@@ -147,4 +147,8 @@ public class PhysicalPlan {
     public CompletableFuture<JobStatus> getJobEndCompletableFuture() {
         return this.jobEndFuture;
     }
+
+    public JobImmutableInformation getJobImmutableInformation() {
+        return jobImmutableInformation;
+    }
 }

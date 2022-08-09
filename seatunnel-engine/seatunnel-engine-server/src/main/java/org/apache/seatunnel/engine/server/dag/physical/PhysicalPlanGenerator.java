@@ -155,7 +155,8 @@ public class PhysicalPlanGenerator {
                 CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
                 waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
 
-                return new PhysicalVertex(atomicInteger.incrementAndGet(),
+                return new PhysicalVertex(idGenerator.getNextId(),
+                    atomicInteger.incrementAndGet(),
                     executorService,
                     collect.size(),
                     new TaskGroup("SinkAggregatedCommitterTask", Lists.newArrayList(t)),
@@ -182,7 +183,8 @@ public class PhysicalPlanGenerator {
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
                     waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
 
-                    t.add(new PhysicalVertex(i,
+                    t.add(new PhysicalVertex(idGenerator.getNextId(),
+                        i,
                         executorService,
                         flow.getAction().getParallelism(),
                         new TaskGroup("PartitionTransformTask", Lists.newArrayList(seaTunnelTask)),
@@ -207,7 +209,8 @@ public class PhysicalPlanGenerator {
             CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
             waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
 
-            return new PhysicalVertex(atomicInteger.incrementAndGet(),
+            return new PhysicalVertex(idGenerator.getNextId(),
+                atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
                 new TaskGroup(s.getName(), Lists.newArrayList(t)),
@@ -243,7 +246,8 @@ public class PhysicalPlanGenerator {
                     waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
 
                     // TODO We need give every task a appropriate name
-                    t.add(new PhysicalVertex(i,
+                    t.add(new PhysicalVertex(idGenerator.getNextId(),
+                        i,
                         executorService,
                         flow.getAction().getParallelism(),
                         new TaskGroup("SourceTask",

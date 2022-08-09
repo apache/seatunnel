@@ -15,21 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.engine.server.resourcemanager;
 
-import java.io.Serializable;
+import com.hazelcast.cluster.Address;
 
-/**
- * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all Vertices in a DAG are
- * unique.
- */
-public class IdGenerator implements Serializable {
-
-    private static final long serialVersionUID = 7683323453014131725L;
-    private long id = 0;
-
-    public long getNextId() {
-        id++;
-        return id;
-    }
+public interface ResourceManager {
+    Address applyForResource(Long jobId, Long physicalVertexId);
 }

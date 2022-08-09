@@ -43,6 +43,8 @@ public class PhysicalVertex {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalVertex.class);
 
+    private final long physicalVertexId;
+
     /**
      * the index of PhysicalVertex
      */
@@ -76,7 +78,8 @@ public class PhysicalVertex {
      */
     private NonCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
 
-    public PhysicalVertex(int subTaskGroupIndex,
+    public PhysicalVertex(long physicalVertexId,
+                          int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
                           int parallelism,
                           @NonNull TaskGroup taskGroup,
@@ -85,6 +88,7 @@ public class PhysicalVertex {
                           int pipelineIndex,
                           int totalPipelineNum,
                           Set<URL> pluginJarsUrls) {
+        this.physicalVertexId = physicalVertexId;
         this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
         this.parallelism = parallelism;
@@ -133,5 +137,9 @@ public class PhysicalVertex {
                 taskFuture.complete(v);
             }
         });
+    }
+
+    public long getPhysicalVertexId() {
+        return physicalVertexId;
     }
 }

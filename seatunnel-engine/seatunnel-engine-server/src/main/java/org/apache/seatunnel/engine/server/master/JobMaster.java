@@ -22,7 +22,10 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.SimpleResourceManager;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
@@ -30,6 +33,8 @@ import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 public class JobMaster implements Runnable {
@@ -45,6 +50,8 @@ public class JobMaster implements Runnable {
 
     private FlakeIdGenerator flakeIdGenerator;
 
+    private ResourceManager resourceManager;
+
     public JobMaster(@NonNull Data jobImmutableInformation,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService) {
@@ -53,6 +60,8 @@ public class JobMaster implements Runnable {
         this.executorService = executorService;
         flakeIdGenerator =
             this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
+
+        this.resourceManager = new SimpleResourceManager();
     }
 
     public void init() throws Exception {
@@ -79,5 +88,17 @@ public class JobMaster implements Runnable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public ResourceManager getResourceManager() {
+        return resourceManager;
+    }
+
+    public Map<Integer, Long> getTaskDefineIdAndExecutionIdMap() {
+        return taskDefineIdAndExecutionIdMap;
+    }
+
+    public Map<Long, Address> getTaskExecutionIdAndAddressMap() {
+        return taskExecutionIdAndAddressMap;
     }
 }
