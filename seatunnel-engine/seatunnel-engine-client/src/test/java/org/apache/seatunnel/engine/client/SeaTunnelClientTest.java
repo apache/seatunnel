@@ -44,7 +44,7 @@ public class SeaTunnelClientTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
-            new SeaTunnelNodeContext());
+            new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
 
     @Test

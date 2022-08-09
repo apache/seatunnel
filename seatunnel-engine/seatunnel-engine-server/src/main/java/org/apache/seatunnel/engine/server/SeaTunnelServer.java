@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.serialization.Data;
@@ -30,9 +31,12 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
+import lombok.NonNull;
 
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SeaTunnelServer implements ManagedService, MembershipAwareService, LiveOperationsTracker {
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
@@ -43,13 +47,20 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private TaskExecutionService taskExecutionService;
 
-    public SeaTunnelServer(Node node) {
+    private final ExecutorService executorService;
+
+    private final SeaTunnelConfig seaTunnelConfig;
+
+    public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
         this.liveOperationRegistry = new LiveOperationRegistry();
+        this.seaTunnelConfig = seaTunnelConfig;
+        this.executorService =
+            Executors.newFixedThreadPool(seaTunnelConfig.getEngineConfig().getServerExecutorPoolSize());
         logger.info("SeaTunnel server start...");
     }
 
-    public TaskExecutionService getTaskExecutionService(){
+    public TaskExecutionService getTaskExecutionService() {
         return this.taskExecutionService;
     }
 
@@ -103,21 +114,19 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      */
     @SuppressWarnings("checkstyle:MagicNumber")
     public CompletableFuture<Void> submitJob(Data jobImmutableInformation) {
-        // TODO Here we need new a JobMaster and run it.
-        JobImmutableInformation jobInformation = nodeEngine.getSerializationService().toObject(jobImmutableInformation);
-        logger.info("Job [" + jobInformation.getJobId() + "] submit");
-        logger.info("Job [" + jobInformation.getJobId() + "] jar urls " + jobInformation.getPluginJarsUrls());
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        new Thread(() -> {
+        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService);
+        executorService.submit(() -> {
             try {
-                Thread.sleep(2000);
-                logger.info("I am sleep 2000 ms");
-            } catch (InterruptedException e) {
+                jobMaster.init();
+            } catch (Throwable e) {
                 throw new RuntimeException(e);
             } finally {
+                // We specify that when init is complete, the submitJob is complete
                 voidCompletableFuture.complete(null);
             }
-        }).start();
+            jobMaster.run();
+        });
         return voidCompletableFuture;
     }
 }

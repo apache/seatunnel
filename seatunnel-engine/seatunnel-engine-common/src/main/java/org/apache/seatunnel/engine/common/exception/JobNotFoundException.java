@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server;
+package org.apache.seatunnel.engine.common.exception;
 
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+public class JobNotFoundException extends SeaTunnelEngineException {
+    public JobNotFoundException(long jobId) {
+        super("Job with id " + jobId + " not found");
+    }
 
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+    public JobNotFoundException(String message) {
+        super(message);
+    }
 
-public class SeaTunnelServerStarter {
-
-    public static void main(String[] args) {
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
-            Thread.currentThread().getName(), new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
+    public JobNotFoundException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

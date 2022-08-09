@@ -17,19 +17,14 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Collection;
 
 @Data
-@AllArgsConstructor
 public class TaskGroup implements Serializable {
-    private final Collection<Task> tasks;
+    private final String taskGroupName;
 
-    public TaskGroup(Task... tasks) {
-        this.tasks = Arrays.asList(tasks);
-    }
+    private final Collection<Task> tasks;
 }

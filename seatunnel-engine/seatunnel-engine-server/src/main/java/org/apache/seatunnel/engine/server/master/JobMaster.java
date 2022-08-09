@@ -17,53 +17,67 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
-import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
 
+import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
-import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
-import java.io.IOException;
+import java.util.concurrent.ExecutorService;
 
-public class JobMaster implements Task {
+public class JobMaster implements Runnable {
+    private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
-    private final LogicalDag logicalDag;
+    private LogicalDag logicalDag;
     private PhysicalPlan physicalPlan;
+    private final Data jobImmutableInformation;
 
-    private NodeEngine nodeEngine;
+    private final NodeEngine nodeEngine;
 
-    public JobMaster() {
-        this.logicalDag = new LogicalDag();
+    private final ExecutorService executorService;
+
+    private FlakeIdGenerator flakeIdGenerator;
+
+    public JobMaster(@NonNull Data jobImmutableInformation,
+                     @NonNull NodeEngine nodeEngine,
+                     @NonNull ExecutorService executorService) {
+        this.jobImmutableInformation = jobImmutableInformation;
+        this.nodeEngine = nodeEngine;
+        this.executorService = executorService;
+        flakeIdGenerator =
+            this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
     }
 
-    @Override
     public void init() throws Exception {
-        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine);
+        JobImmutableInformation jobInformation = nodeEngine.getSerializationService().toObject(jobImmutableInformation);
+        LOGGER.info("Job [" + jobInformation.getJobId() + "] submit");
+        LOGGER.info("Job [" + jobInformation.getJobId() + "] jar urls " + jobInformation.getPluginJarsUrls());
+
+        // TODO Use classloader load the connector jars and deserialize logicalDag
+        this.logicalDag = new LogicalDag();
+        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag,
+                nodeEngine,
+                jobInformation,
+                System.currentTimeMillis(),
+                executorService,
+                flakeIdGenerator);
     }
 
-    @NonNull
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public ProgressState call() {
-        return ProgressState.DONE;
-    }
-
-    @NonNull
-    @Override
-    public Long getTaskID() {
-        return null;
-    }
-
-    @Override
-    public void close() throws IOException {
-        Task.super.close();
-    }
-
-    @Override
-    public void setOperationService(OperationService operationService) {
-        Task.super.setOperationService(operationService);
+    public void run() {
+        try {
+            LOGGER.info("I will sleep 2000ms");
+            Thread.sleep(2000);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

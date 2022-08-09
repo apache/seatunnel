@@ -15,15 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.exception;
+package org.apache.seatunnel.engine.server.execution;
 
-public class JobDefineCheckExceptionSeaTunnel extends SeaTunnelEngineException {
+public class TaskExecutionState {
 
-    public JobDefineCheckExceptionSeaTunnel(String message) {
-        super(message);
+    private final long taskExecutionId;
+
+    private final ExecutionState executionState;
+
+    private Throwable throwable;
+
+    public TaskExecutionState(long taskExecutionId, ExecutionState executionState, Throwable throwable) {
+        this.taskExecutionId = taskExecutionId;
+        this.executionState = executionState;
+        this.throwable = throwable;
     }
 
-    public JobDefineCheckExceptionSeaTunnel(String message, Throwable cause) {
-        super(message, cause);
+    public ExecutionState getExecutionState() {
+        return executionState;
+    }
+
+    public Throwable getThrowable() {
+        return throwable;
+    }
+
+    public long getTaskExecutionId() {
+        return taskExecutionId;
     }
 }

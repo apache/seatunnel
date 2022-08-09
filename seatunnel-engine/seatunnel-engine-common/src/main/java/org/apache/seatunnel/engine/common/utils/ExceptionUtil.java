@@ -16,8 +16,8 @@
 
 package org.apache.seatunnel.engine.common.utils;
 
-import org.apache.seatunnel.engine.common.exception.JobDefineCheckExceptionSeaTunnel;
-import org.apache.seatunnel.engine.common.exception.JobNotFoundExceptionSeaTunnel;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
@@ -36,8 +36,8 @@ public final class ExceptionUtil {
 
     private static final List<ImmutableTriple<Integer, Class<? extends Throwable>, ClientExceptionFactory.ExceptionFactory>> EXCEPTIONS = Arrays.asList(
         new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START, SeaTunnelEngineException.class, SeaTunnelEngineException::new),
-        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1, JobNotFoundExceptionSeaTunnel.class, JobNotFoundExceptionSeaTunnel::new),
-        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 2, JobDefineCheckExceptionSeaTunnel.class, JobDefineCheckExceptionSeaTunnel::new)
+        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1, JobNotFoundException.class, JobNotFoundException::new),
+        new ImmutableTriple<>(ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 2, JobDefineCheckException.class, JobDefineCheckException::new)
     );
 
     private ExceptionUtil() {
