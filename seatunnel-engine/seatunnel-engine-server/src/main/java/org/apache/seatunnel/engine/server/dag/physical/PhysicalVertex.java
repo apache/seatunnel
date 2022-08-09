@@ -122,12 +122,12 @@ public class PhysicalVertex {
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
             if (t != null) {
                 // TODO t.getMessage() need be replace
-                LOGGER.info(String.format("The Task {} Failed with Exception: {}",
+                LOGGER.info(String.format("The Task %s Failed with Exception: %s",
                     this.taskNameWithSubtaskAndPipeline,
                     t.getMessage()));
                 taskFuture.complete(new TaskExecutionState(executionId, ExecutionState.FAILED, t));
             } else {
-                LOGGER.info(String.format("The Task {} end with state {}",
+                LOGGER.info(String.format("The Task %s end with state %s",
                     this.taskNameWithSubtaskAndPipeline,
                     v));
                 taskFuture.complete(v);

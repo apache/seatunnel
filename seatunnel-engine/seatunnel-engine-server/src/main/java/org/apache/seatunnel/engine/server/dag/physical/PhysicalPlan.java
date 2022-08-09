@@ -131,7 +131,7 @@ public class PhysicalPlan {
         // now do the actual state transition
         if (jobStatus.get() == current) {
             jobStatus.set(targetState);
-            LOGGER.info(String.format("Job {} ({}) turn from state {} to {}.",
+            LOGGER.info(String.format("Job %s (%s) turn from state %s to %s.",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
                 current,

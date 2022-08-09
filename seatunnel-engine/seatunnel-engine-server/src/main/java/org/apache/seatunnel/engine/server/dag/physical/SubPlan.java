@@ -108,13 +108,13 @@ public class SubPlan {
 
                 if (finishedTaskNum.incrementAndGet() == (physicalVertexList.size() + coordinatorVertexList.size())) {
                     if (failedTaskNum.get() > 0) {
-                        LOGGER.info(String.format("Pipeline failed {}", this.pipelineNameWithIndex));
+                        LOGGER.info(String.format("Pipeline failed %s", this.pipelineNameWithIndex));
                         pipelineState.set(PipelineState.FAILED);
                     } else if (canceledTaskNum.get() > 0) {
-                        LOGGER.info(String.format("Pipeline canceled {}", this.pipelineNameWithIndex));
+                        LOGGER.info(String.format("Pipeline canceled %s", this.pipelineNameWithIndex));
                         pipelineState.set(PipelineState.CANCELED);
                     } else {
-                        LOGGER.info(String.format("Pipeline finished {}", this.pipelineNameWithIndex));
+                        LOGGER.info(String.format("Pipeline finished %s", this.pipelineNameWithIndex));
                         pipelineState.set(PipelineState.FINISHED);
                     }
                     pipelineFuture.complete(pipelineState.get());
