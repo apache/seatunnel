@@ -17,14 +17,23 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+
 import com.hazelcast.instance.impl.DefaultNodeContext;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.instance.impl.NodeExtension;
+import lombok.NonNull;
 
 public class SeaTunnelNodeContext extends DefaultNodeContext {
 
+    private final SeaTunnelConfig seaTunnelConfig;
+
+    public SeaTunnelNodeContext(@NonNull SeaTunnelConfig seaTunnelConfig) {
+        this.seaTunnelConfig = seaTunnelConfig;
+    }
+
     @Override
-    public NodeExtension createNodeExtension(Node node) {
-        return new org.apache.seatunnel.engine.server.NodeExtension(node);
+    public NodeExtension createNodeExtension(@NonNull Node node) {
+        return new org.apache.seatunnel.engine.server.NodeExtension(node, seaTunnelConfig);
     }
 }

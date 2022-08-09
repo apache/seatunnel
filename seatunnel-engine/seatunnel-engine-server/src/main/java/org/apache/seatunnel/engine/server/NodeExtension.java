@@ -17,18 +17,21 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+
 import com.hazelcast.cluster.ClusterState;
 import com.hazelcast.instance.impl.DefaultNodeExtension;
 import com.hazelcast.instance.impl.Node;
+import lombok.NonNull;
 
 import java.util.Map;
 
 public class NodeExtension extends DefaultNodeExtension {
     private final NodeExtensionCommon extCommon;
 
-    public NodeExtension(Node node) {
+    public NodeExtension(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         super(node);
-        extCommon = new NodeExtensionCommon(node, new SeaTunnelServer(node));
+        extCommon = new NodeExtensionCommon(node, new SeaTunnelServer(node, seaTunnelConfig));
     }
 
     @Override

@@ -15,18 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server;
+package org.apache.seatunnel.engine.server.scheduler;
 
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+public interface JobScheduler {
+    void startScheduling();
 
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-
-public class SeaTunnelServerStarter {
-
-    public static void main(String[] args) {
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
-            Thread.currentThread().getName(), new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
-    }
+    boolean updateExecutionState();
 }
