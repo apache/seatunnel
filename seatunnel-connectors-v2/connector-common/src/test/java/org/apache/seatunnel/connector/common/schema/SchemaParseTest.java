@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connector.common.SchemaParseTest;
+package org.apache.seatunnel.connector.common.schema;
 
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -40,7 +43,7 @@ public class SchemaParseTest {
                 .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
         config = config.getConfig("schema");
         SeatunnelSchema seatunnelSchema = SeatunnelSchema.buildWithConfig(config);
-        System.out.println(seatunnelSchema.getSeaTunnelRowType());
+        Assertions.assertNotNull(seatunnelSchema);
     }
 
     @Test
@@ -52,7 +55,7 @@ public class SchemaParseTest {
                 .resolveWith(ConfigFactory.systemProperties(), ConfigResolveOptions.defaults().setAllowUnresolved(true));
         config = config.getConfig("schema");
         SeatunnelSchema seatunnelSchema = SeatunnelSchema.buildWithConfig(config);
-        System.out.println(seatunnelSchema.getSeaTunnelRowType());
+        Assertions.assertNotNull(seatunnelSchema);
     }
 
     public static String getTestConfigFile(String configFile) throws FileNotFoundException, URISyntaxException {
