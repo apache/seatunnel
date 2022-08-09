@@ -28,7 +28,6 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-
 import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
