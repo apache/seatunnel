@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
 
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,6 +28,8 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.hadoop.fs.FSDataOutputStream;
 
 import java.io.IOException;
 import java.util.HashMap;
