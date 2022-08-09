@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.api.transform;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+public interface Collector<T> {
 
-import java.util.Collections;
-import java.util.List;
+    /**
+     * Emits a record.
+     *
+     * @param record The record to collect.
+     */
+    void collect(T record);
 
-public class IntermediateExecutionFlow extends Flow {
-
-    private final IntermediateQueue queue;
-
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
-    }
-
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
-    }
-
-    public IntermediateQueue getQueue() {
-        return queue;
-    }
+    /**
+     * Closes the collector. If any data was buffered, that data will be flushed.
+     */
+    void close();
 }

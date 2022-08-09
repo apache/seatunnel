@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
 import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.UnregisterOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -37,6 +38,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int ASSIGN_SPLIT_TYPE = 3;
 
     public static final int TASK_GROUP_INFO_TYPE = 4;
+
+    public static final int NO_MORE_ELEMENT_TYPE = 5;
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY_ID
@@ -62,9 +65,11 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                 case REQUEST_SPLIT_TYPE:
                     return new RequestSplitOperation();
                 case ASSIGN_SPLIT_TYPE:
-                    return new AssignSplitOperation();
+                    return new AssignSplitOperation<>();
                 case TASK_GROUP_INFO_TYPE:
                     return new TaskGroupInfo();
+                case NO_MORE_ELEMENT_TYPE:
+                    return new UnregisterOperation();
                 default:
                     return null;
             }

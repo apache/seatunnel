@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.engine.server.task.flow;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import java.io.IOException;
 
-import java.util.Collections;
-import java.util.List;
+public interface FlowLifeCycle {
 
-public class IntermediateExecutionFlow extends Flow {
-
-    private final IntermediateQueue queue;
-
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
+    default void init() throws Exception {
     }
 
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
+    default void close() throws IOException {
     }
 
-    public IntermediateQueue getQueue() {
-        return queue;
+    default void handleMessage(Object message) throws Exception {
     }
+
 }

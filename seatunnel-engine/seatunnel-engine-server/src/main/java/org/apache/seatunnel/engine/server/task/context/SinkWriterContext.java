@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.engine.server.task.context;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import org.apache.seatunnel.api.sink.SinkWriter;
 
-import java.util.Collections;
-import java.util.List;
+public class SinkWriterContext implements SinkWriter.Context {
 
-public class IntermediateExecutionFlow extends Flow {
+    private static final long serialVersionUID = -3082515319043725121L;
+    private final int indexID;
 
-    private final IntermediateQueue queue;
-
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
+    public SinkWriterContext(int indexID) {
+        this.indexID = indexID;
     }
 
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
-    }
-
-    public IntermediateQueue getQueue() {
-        return queue;
+    @Override
+    public int getIndexOfSubtask() {
+        return indexID;
     }
 }

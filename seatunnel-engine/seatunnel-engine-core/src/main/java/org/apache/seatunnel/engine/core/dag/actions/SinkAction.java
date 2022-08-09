@@ -44,4 +44,8 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
         super(id, name, jarUrls);
         this.sink = sink;
     }
+
+    public SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> getSink() {
+        return sink;
+    }
 }

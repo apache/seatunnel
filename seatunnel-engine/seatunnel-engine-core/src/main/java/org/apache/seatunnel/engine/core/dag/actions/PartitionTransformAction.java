@@ -25,6 +25,7 @@ import java.net.URL;
 import java.util.List;
 
 public class PartitionTransformAction extends AbstractAction {
+
     private final PartitionSeaTunnelTransform partitionTransformation;
 
     public PartitionTransformAction(int id,

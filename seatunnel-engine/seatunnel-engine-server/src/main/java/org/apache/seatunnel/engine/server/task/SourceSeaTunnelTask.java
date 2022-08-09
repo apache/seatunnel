@@ -17,44 +17,37 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
-import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
-import java.net.URL;
-import java.util.Set;
+public class SourceSeaTunnelTask<T> extends SeaTunnelTask<Record> {
 
-public abstract class AbstractTask implements Task {
-    private static final long serialVersionUID = -2524701323779523718L;
-
-    protected OperationService operationService;
-    protected int taskID;
-
-    protected Progress progress;
-
-    public AbstractTask(int taskID) {
-        this.taskID = taskID;
-        this.progress = new Progress();
+    public SourceSeaTunnelTask(int taskID, Flow executionFlow) {
+        super(taskID, executionFlow);
     }
 
-    public abstract Set<URL> getJarsUrl();
+    private SeaTunnelSourceCollector<T> collector;
+    private final Object checkpointLock = new Object();
 
     @Override
-    public void setOperationService(OperationService operationService) {
-        this.operationService = operationService;
+    public void init() throws Exception {
+        super.init();
+        collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
     }
 
     @NonNull
     @Override
+    @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
+        if (startFlowLifeCycle instanceof SourceFlowLifeCycle) {
+            ((SourceFlowLifeCycle<T, ?>) startFlowLifeCycle).collect(collector);
+        } else {
+            throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+        }
         return progress.toState();
-    }
-
-    @NonNull
-    @Override
-    public Long getTaskID() {
-        return (long) taskID;
     }
 }

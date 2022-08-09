@@ -15,28 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.engine.core.dag.internal;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import java.io.Serializable;
 
-import java.util.Collections;
-import java.util.List;
+public class IntermediateQueue implements Serializable {
 
-public class IntermediateExecutionFlow extends Flow {
+    private static final long serialVersionUID = -3049265155605303992L;
 
-    private final IntermediateQueue queue;
+    private final int id;
+    private final int parallelism;
+    private final String name;
 
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
+    public IntermediateQueue(int id, String name, int parallelism) {
+        this.id = id;
+        this.name = name;
+        this.parallelism = parallelism;
     }
 
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
+    public int getId() {
+        return id;
     }
 
-    public IntermediateQueue getQueue() {
-        return queue;
+    public int getParallelism() {
+        return parallelism;
+    }
+
+    public String getName() {
+        return name;
     }
 }

@@ -15,28 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.engine.server.task.flow;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+/**
+ * A processing component that gets one piece of data at one time from other components inside the engine
+ *
+ * @see OneOutputFlowLifeCycle
+ * @see SourceFlowLifeCycle
+ */
+public interface OneInputFlowLifeCycle<T> extends FlowLifeCycle {
 
-import java.util.Collections;
-import java.util.List;
+    void received(T row);
 
-public class IntermediateExecutionFlow extends Flow {
-
-    private final IntermediateQueue queue;
-
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
-    }
-
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
-    }
-
-    public IntermediateQueue getQueue() {
-        return queue;
-    }
 }

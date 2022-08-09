@@ -32,7 +32,7 @@ public interface Task extends Serializable {
     }
 
     @NonNull
-    ProgressState call();
+    ProgressState call() throws Exception;
 
     @NonNull
     Long getTaskID();
@@ -55,6 +55,10 @@ public interface Task extends Serializable {
     default <E> InvocationFuture<E> sendToMember(Operation operation, UUID memberID) {
         // TODO add method send operation to member
         return null;
+    }
+
+    default void receivedMessage(Object message) {
+
     }
 
 }

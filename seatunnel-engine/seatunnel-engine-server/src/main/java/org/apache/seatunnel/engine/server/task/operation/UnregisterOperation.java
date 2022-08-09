@@ -26,37 +26,37 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.List;
 
-public class AssignSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
+public class UnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private List<SplitT> splits;
-    private int taskID;
+    private int currentTaskID;
+    private int enumeratorTaskID;
 
-    public AssignSplitOperation() {
+    public UnregisterOperation() {
     }
 
-    public AssignSplitOperation(int taskID, List<SplitT> splits) {
-        this.splits = splits;
+    public UnregisterOperation(int currentTaskID, int enumeratorTaskID) {
+        this.currentTaskID = currentTaskID;
+        this.enumeratorTaskID = enumeratorTaskID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(taskID);
-        // TODO send split to task
+        server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
+        // TODO send to enumerator
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(splits);
-        out.writeInt(taskID);
+        out.writeInt(currentTaskID);
+        out.writeInt(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        splits = in.readObject();
-        taskID = in.readInt();
+        currentTaskID = in.readInt();
+        enumeratorTaskID = in.readInt();
     }
 
     @Override
@@ -66,6 +66,6 @@ public class AssignSplitOperation<SplitT> extends Operation implements Identifie
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.ASSIGN_SPLIT_TYPE;
+        return TaskDataSerializerHook.NO_MORE_ELEMENT_TYPE;
     }
 }

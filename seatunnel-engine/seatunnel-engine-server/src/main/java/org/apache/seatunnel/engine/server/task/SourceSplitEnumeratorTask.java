@@ -19,21 +19,22 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.engine.core.dag.actions.PhysicalSourceAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
 
     private static final long serialVersionUID = -3713701594297977775L;
 
-    private final PhysicalSourceAction<?, SplitT, ?> source;
+    private final SourceAction<?, SplitT, ?> source;
     private SourceSplitEnumerator<?, ?> enumerator;
     private SeaTunnelSplitEnumeratorContext<SplitT> context;
     private Map<Integer, UUID> taskMemberMapping;
@@ -42,7 +43,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public void init() throws Exception {
         context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
-        taskMemberMapping = new HashMap<>();
+        taskMemberMapping = new ConcurrentHashMap<>();
         enumerator.open();
     }
 
@@ -53,12 +54,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public SourceSplitEnumeratorTask(long taskID, PhysicalSourceAction<?, SplitT, ?> source) {
+    public SourceSplitEnumeratorTask(int taskID, SourceAction<?, SplitT, ?> source) {
         super(taskID);
         this.source = source;
     }
 
-    private void receivedReader(int readerId, UUID memberID) {
+    private void registerReader(int readerId, UUID memberID) {
         this.addTaskMemberMapping(readerId, memberID);
         enumerator.registerReader(readerId);
     }
@@ -73,6 +74,19 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     public UUID getTaskMemberID(int taskID) {
         return taskMemberMapping.get(taskID);
+    }
+
+    public Set<Integer> getRegisteredReaders() {
+        return taskMemberMapping.keySet();
+    }
+
+    private void noMoreElement(int taskID) {
+        enumerator.handleSplitRequest(taskID);
+    }
+
+    @Override
+    public void receivedMessage(Object message) {
+        // TODO custom message
     }
 
     @Override

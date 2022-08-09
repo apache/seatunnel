@@ -15,28 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.engine.server.task.flow;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
-import java.util.Collections;
 import java.util.List;
 
-public class IntermediateExecutionFlow extends Flow {
+public class TransformFlowLifeCycle<T, R> implements OneInputFlowLifeCycle<R> {
 
-    private final IntermediateQueue queue;
+    private final List<SeaTunnelTransform<T>> transform;
 
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
+    private final Collector<R> collector;
+
+    public TransformFlowLifeCycle(List<SeaTunnelTransform<T>> transform, Collector<R> collector) {
+        this.transform = transform;
+        this.collector = collector;
     }
 
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
-    }
-
-    public IntermediateQueue getQueue() {
-        return queue;
+    @Override
+    public void received(R row) {
+        T r = (T) row;
+        for (SeaTunnelTransform<T> t : transform) {
+            r = t.map(r);
+        }
+        collector.collect((R) r);
     }
 }

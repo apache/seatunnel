@@ -17,44 +17,37 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.task.flow.OneOutputFlowLifeCycle;
 
-import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
-import java.net.URL;
-import java.util.Set;
+public class MiddleSeaTunnelTask extends SeaTunnelTask<Record> {
 
-public abstract class AbstractTask implements Task {
-    private static final long serialVersionUID = -2524701323779523718L;
-
-    protected OperationService operationService;
-    protected int taskID;
-
-    protected Progress progress;
-
-    public AbstractTask(int taskID) {
-        this.taskID = taskID;
-        this.progress = new Progress();
+    public MiddleSeaTunnelTask(int taskID, Flow executionFlow) {
+        super(taskID, executionFlow);
     }
 
-    public abstract Set<URL> getJarsUrl();
+    private Collector<Record> collector;
 
     @Override
-    public void setOperationService(OperationService operationService) {
-        this.operationService = operationService;
+    public void init() throws Exception {
+        super.init();
+        collector = new SeaTunnelTransformCollector<>(outputs);
     }
 
     @NonNull
     @Override
+    @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
+        if (startFlowLifeCycle instanceof OneOutputFlowLifeCycle) {
+            ((OneOutputFlowLifeCycle<Record>) startFlowLifeCycle).collect(collector);
+        } else {
+            throw new TaskRuntimeException("SourceSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+        }
         return progress.toState();
-    }
-
-    @NonNull
-    @Override
-    public Long getTaskID() {
-        return (long) taskID;
     }
 }

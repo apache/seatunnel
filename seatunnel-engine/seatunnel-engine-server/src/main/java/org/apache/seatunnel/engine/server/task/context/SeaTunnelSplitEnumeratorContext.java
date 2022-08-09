@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task;
+package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -43,7 +45,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public Set<Integer> registeredReaders() {
-        return null;
+        return task.getRegisteredReaders();
     }
 
     @Override
@@ -53,7 +55,8 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public void signalNoMoreSplits(int subtask) {
-
+        task.sendToMember(new AssignSplitOperation<>(subtask, Collections.emptyList()),
+                task.getTaskMemberID(subtask));
     }
 
     @Override

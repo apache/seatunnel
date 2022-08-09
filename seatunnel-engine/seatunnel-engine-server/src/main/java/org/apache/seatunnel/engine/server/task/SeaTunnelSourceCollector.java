@@ -17,24 +17,34 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
-import java.net.URL;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 
-public class SinkAggregatedCommitterTask extends CoordinatorTask {
+public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
-    private static final long serialVersionUID = 5906594537520393503L;
-    private final SinkAction<?, ?, ?, ?> sink;
+    private final Object checkpointLock;
 
-    public SinkAggregatedCommitterTask(int taskID, SinkAction<?, ?, ?, ?> sink) {
-        super(taskID);
-        this.sink = sink;
+    private final List<OneInputFlowLifeCycle<Record>> outputs;
+
+    public SeaTunnelSourceCollector(Object checkpointLock, List<OneInputFlowLifeCycle<Record>> outputs) {
+        this.checkpointLock = checkpointLock;
+        this.outputs = outputs;
     }
 
     @Override
-    public Set<URL> getJarsUrl() {
-        return new HashSet<>(sink.getJarUrls());
+    public void collect(T record) {
+        synchronized (checkpointLock) {
+            for (OneInputFlowLifeCycle<Record> output : outputs) {
+                output.received(new Record(record));
+            }
+        }
+    }
+
+    @Override
+    public Object getCheckpointLock() {
+        return checkpointLock;
     }
 }

@@ -15,28 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.engine.server.task.flow;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import com.hazelcast.ringbuffer.Ringbuffer;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.Random;
 
-public class IntermediateExecutionFlow extends Flow {
+public class PartitionTransformSinkFlowLifeCycle<T> implements OneInputFlowLifeCycle<T> {
 
-    private final IntermediateQueue queue;
+    private Ringbuffer<T>[] ringbuffers;
+    private final Random random = new Random();
 
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
+    @Override
+    public void received(T row) {
+        getRingBuffer(row).add(row);
     }
 
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
-    }
-
-    public IntermediateQueue getQueue() {
-        return queue;
+    private Ringbuffer<T> getRingBuffer(T row) {
+        return ringbuffers[random.nextInt(ringbuffers.length)];
     }
 }

@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.api.table.type;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+/**
+ * Contain {@link SeaTunnelRow} or Checkpoint Barrier
+ */
+public class Record {
 
-import java.util.Collections;
-import java.util.List;
+    private final Object data;
 
-public class IntermediateExecutionFlow extends Flow {
-
-    private final IntermediateQueue queue;
-
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
-        this.queue = queue;
+    public Record(Object data) {
+        this.data = data;
     }
 
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
-    }
-
-    public IntermediateQueue getQueue() {
-        return queue;
+    public Object getData() {
+        return data;
     }
 }

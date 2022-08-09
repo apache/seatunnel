@@ -24,16 +24,16 @@ import lombok.NonNull;
 import java.net.URL;
 import java.util.List;
 
-public class TransformChainAction extends AbstractAction {
+public class TransformChainAction<T> extends AbstractAction {
 
     private static final long serialVersionUID = -340174711145367535L;
-    private final List<SeaTunnelTransform> transforms;
+    private final List<SeaTunnelTransform<T>> transforms;
 
     public TransformChainAction(int id,
                                 @NonNull String name,
                                 @NonNull List<Action> upstreams,
                                 @NonNull List<URL> jarUrls,
-                                @NonNull List<SeaTunnelTransform> transforms) {
+                                @NonNull List<SeaTunnelTransform<T>> transforms) {
         super(id, name, upstreams, jarUrls);
         this.transforms = transforms;
     }
@@ -41,12 +41,12 @@ public class TransformChainAction extends AbstractAction {
     public TransformChainAction(int id,
                                 @NonNull String name,
                                 @NonNull List<URL> jarUrls,
-                                @NonNull List<SeaTunnelTransform> transforms) {
+                                @NonNull List<SeaTunnelTransform<T>> transforms) {
         super(id, name, jarUrls);
         this.transforms = transforms;
     }
 
-    public List<SeaTunnelTransform> getTransforms() {
+    public List<SeaTunnelTransform<T>> getTransforms() {
         return transforms;
     }
 }

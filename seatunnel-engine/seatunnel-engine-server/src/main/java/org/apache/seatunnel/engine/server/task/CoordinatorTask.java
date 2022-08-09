@@ -21,7 +21,7 @@ public abstract class CoordinatorTask extends AbstractTask {
 
     private static final long serialVersionUID = -3957168748281681077L;
 
-    public CoordinatorTask(long taskID) {
+    public CoordinatorTask(int taskID) {
         super(taskID);
     }
 }

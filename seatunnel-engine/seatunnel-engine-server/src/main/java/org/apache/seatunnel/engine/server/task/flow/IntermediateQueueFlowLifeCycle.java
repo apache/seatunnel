@@ -15,28 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.flow;
+package org.apache.seatunnel.engine.server.task.flow;
 
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import org.apache.seatunnel.api.transform.Collector;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.concurrent.BlockingQueue;
 
-public class IntermediateExecutionFlow extends Flow {
+public class IntermediateQueueFlowLifeCycle<T> implements OneInputFlowLifeCycle<T>, OneOutputFlowLifeCycle<T> {
 
-    private final IntermediateQueue queue;
+    private final BlockingQueue<T> queue;
 
-    public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
+    public IntermediateQueueFlowLifeCycle(BlockingQueue<T> queue) {
         this.queue = queue;
     }
 
-    public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
-        super(next);
-        this.queue = queue;
+    @Override
+    public void received(T row) {
+        try {
+            queue.put(row);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public IntermediateQueue getQueue() {
-        return queue;
+    @Override
+    public void collect(Collector<T> collector) throws Exception {
+        while (true) {
+            T record = queue.poll();
+            if (record != null) {
+                collector.collect(record);
+            } else {
+                break;
+            }
+        }
     }
 }

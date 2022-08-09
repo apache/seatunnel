@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.dag.execution;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
-import org.apache.seatunnel.engine.core.dag.actions.PhysicalSourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
@@ -93,30 +92,26 @@ public class ExecutionPlanGenerator {
         } else if (start instanceof SinkAction) {
             actions.put(start.getId(), start);
             return Collections.emptyList();
-        } else {
-            List<SeaTunnelTransform> transforms = new ArrayList<>();
+        } else if (start instanceof SourceAction) {
+            executionAction = start;
+            actions.put(start.getId(), start);
+        } else if (start instanceof TransformAction) {
+
+            List<SeaTunnelTransform<?>> transforms = new ArrayList<>();
             Set<URL> jars = new HashSet<>();
             for (TransformAction t : findMigrateTransform(logicalEdges, start)) {
                 transforms.add(t.getTransform());
                 jars.addAll(t.getJarUrls());
                 end = t;
             }
-            if (start instanceof SourceAction) {
-                SourceAction<?, ?, ?> source = (SourceAction<?, ?, ?>) start;
-                jars.addAll(source.getJarUrls());
-                executionAction = new PhysicalSourceAction<>(start.getId(), start.getName(),
-                        source.getSource(), new ArrayList<>(jars), transforms);
-                actions.put(start.getId(), start);
-            } else if (start instanceof TransformAction) {
-                TransformAction transform = (TransformAction) start;
-                jars.addAll(transform.getJarUrls());
-                transforms.add(0, transform.getTransform());
-                executionAction = new TransformChainAction(start.getId(), start.getName(),
-                        new ArrayList<>(jars), transforms);
-                actions.put(start.getId(), executionAction);
-            } else {
-                throw new UnknownActionException(start);
-            }
+            TransformAction transform = (TransformAction) start;
+            jars.addAll(transform.getJarUrls());
+            transforms.add(0, transform.getTransform());
+            executionAction = new TransformChainAction(start.getId(), start.getName(),
+                    new ArrayList<>(jars), transforms);
+            actions.put(start.getId(), executionAction);
+        } else {
+            throw new UnknownActionException(start);
         }
 
         final Action e = end;

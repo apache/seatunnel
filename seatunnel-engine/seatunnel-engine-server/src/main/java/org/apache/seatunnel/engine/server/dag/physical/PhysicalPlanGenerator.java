@@ -20,9 +20,9 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
-import org.apache.seatunnel.engine.core.dag.actions.PhysicalSourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
-import org.apache.seatunnel.engine.core.dag.internal.IntermediateDataQueue;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionEdge;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
@@ -31,8 +31,10 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutio
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.task.MiddleSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
 
@@ -63,7 +65,7 @@ public class PhysicalPlanGenerator {
 
         // TODO Determine which tasks do not need to be restored according to state
         return new PhysicalPlan(edgesList.stream().map(edges -> {
-            List<PhysicalSourceAction<?, ?, ?>> sources = findSourceAction(edges);
+            List<SourceAction<?, ?, ?>> sources = findSourceAction(edges);
 
             List<TaskGroupInfo> coordinatorTasks = getEnumeratorTask(sources);
 
@@ -77,9 +79,9 @@ public class PhysicalPlanGenerator {
         }).collect(Collectors.toList()));
     }
 
-    private List<PhysicalSourceAction<?, ?, ?>> findSourceAction(List<ExecutionEdge> edges) {
-        return edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof PhysicalSourceAction)
-                .map(s -> (PhysicalSourceAction<?, ?, ?>) s.getLeftVertex().getAction())
+    private List<SourceAction<?, ?, ?>> findSourceAction(List<ExecutionEdge> edges) {
+        return edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof SourceAction)
+                .map(s -> (SourceAction<?, ?, ?>) s.getLeftVertex().getAction())
                 .collect(Collectors.toList());
     }
 
@@ -100,7 +102,7 @@ public class PhysicalPlanGenerator {
                 .flatMap(flow -> {
                     List<TaskGroupInfo> t = new ArrayList<>();
                     for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                        SeaTunnelTask seaTunnelTask = new SeaTunnelTask(idGenerator.getNextId(), flow);
+                        SeaTunnelTask<?> seaTunnelTask = new MiddleSeaTunnelTask(idGenerator.getNextId(), flow);
                         t.add(new TaskGroupInfo(toData(new TaskGroup(seaTunnelTask)),
                                 seaTunnelTask.getJarsUrl()));
                     }
@@ -108,7 +110,7 @@ public class PhysicalPlanGenerator {
                 }).collect(Collectors.toList());
     }
 
-    private List<TaskGroupInfo> getEnumeratorTask(List<PhysicalSourceAction<?, ?, ?>> sources) {
+    private List<TaskGroupInfo> getEnumeratorTask(List<SourceAction<?, ?, ?>> sources) {
         return sources.stream().map(s -> {
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(idGenerator.getNextId(), s);
             return new TaskGroupInfo(toData(new TaskGroup(t)), t.getJarsUrl());
@@ -116,7 +118,7 @@ public class PhysicalPlanGenerator {
     }
 
     private List<TaskGroupInfo> getSourceTask(List<ExecutionEdge> edges,
-                                              List<PhysicalSourceAction<?, ?, ?>> sources) {
+                                              List<SourceAction<?, ?, ?>> sources) {
         return sources.stream()
                 .map(s -> new PhysicalExecutionFlow(s, getNextWrapper(edges, s)))
                 .flatMap(flow -> {
@@ -126,8 +128,9 @@ public class PhysicalPlanGenerator {
                         flows.addAll(splitSinkFromFlow(flow));
                     }
                     for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                        List<SeaTunnelTask> taskList =
-                                flows.stream().map(f -> new SeaTunnelTask(idGenerator.getNextId(), f)).collect(Collectors.toList());
+                        List<SeaTunnelTask<?>> taskList =
+                                flows.stream().map(f -> new SourceSeaTunnelTask<>(idGenerator.getNextId(),
+                                        f)).collect(Collectors.toList());
                         Set<URL> jars =
                                 taskList.stream().flatMap(task -> task.getJarsUrl().stream()).collect(Collectors.toSet());
                         t.add(new TaskGroupInfo(toData(new TaskGroup(taskList.stream().map(task -> (Task) task).collect(Collectors.toList()))), jars));
@@ -143,7 +146,7 @@ public class PhysicalPlanGenerator {
         List<Flow> allFlows = new ArrayList<>();
         flow.getNext().removeAll(sinkFlows);
         sinkFlows.forEach(s -> {
-            IntermediateDataQueue queue = new IntermediateDataQueue(s.getAction().getId(),
+            IntermediateQueue queue = new IntermediateQueue(s.getAction().getId(),
                     s.getAction().getName() + "-Queue", s.getAction().getParallelism());
             IntermediateExecutionFlow intermediateFlow = new IntermediateExecutionFlow(queue);
             flow.getNext().add(intermediateFlow);
