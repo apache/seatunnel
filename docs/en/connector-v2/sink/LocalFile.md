@@ -38,7 +38,7 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 We supported as the following file types:
 
-`text` `csv` `parquet` `orc`
+`text` `csv` `parquet` `orc` `json`
 
 Please note that, The final file name will ends with the file_format's suffix, the suffix of the text file is `txt`.
 
