@@ -41,7 +41,6 @@ import lombok.SneakyThrows;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -67,7 +66,7 @@ public class TaskExecutionService {
     private final ExecutorService executorService = newCachedThreadPool(new BlockingTaskThreadFactory());
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
-    private final ConcurrentMap<Long, Set<TaskExecutionContext>> executionContexts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, ConcurrentMap<Long, TaskExecutionContext>> executionContexts = new ConcurrentHashMap<>();
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -84,7 +83,7 @@ public class TaskExecutionService {
         executorService.shutdownNow();
     }
 
-    public Set<TaskExecutionContext> getExecutionContext(long taskGroupId) {
+    public ConcurrentMap<Long, TaskExecutionContext> getExecutionContext(long taskGroupId) {
         return executionContexts.get(taskGroupId);
     }
 
@@ -115,20 +114,20 @@ public class TaskExecutionService {
         CompletableFuture<Void> cancellationFuture
     ) {
         Collection<Task> tasks = taskGroup.getTasks();
-        final TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(tasks.size(), cancellationFuture);
+        final TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(cancellationFuture, taskGroup);
         try {
-            Set<TaskExecutionContext> taskExecutionContexts = ConcurrentHashMap.newKeySet();
+            ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap = new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
                     .peek(x -> {
                         TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine);
                         x.setTaskExecutionContext(taskExecutionContext);
-                        taskExecutionContexts.add(taskExecutionContext);
+                        taskExecutionContextMap.put(x.getTaskID(), taskExecutionContext);
                     })
                     .collect(partitioningBy(Task::isThreadsShare));
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
-            executionContexts.put(taskGroup.getId(), taskExecutionContexts);
+            executionContexts.put(taskGroup.getId(), taskExecutionContextMap);
         } catch (Throwable t) {
             executionTracker.future.internalCompleteExceptionally(t);
         }
@@ -282,14 +281,16 @@ public class TaskExecutionService {
      */
     public final class TaskGroupExecutionTracker {
 
+        private final TaskGroup taskGroup;
         final NonCompletableFuture future = new NonCompletableFuture();
         volatile List<Future<?>> blockingFutures = emptyList();
 
         private final AtomicInteger completionLatch;
         private final AtomicReference<Throwable> executionException = new AtomicReference<>();
 
-        TaskGroupExecutionTracker(int taskletCount, CompletableFuture<Void> cancellationFuture) {
-            this.completionLatch = new AtomicInteger(taskletCount);
+        TaskGroupExecutionTracker(CompletableFuture<Void> cancellationFuture, TaskGroup taskGroup) {
+            this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
+            this.taskGroup = taskGroup;
             cancellationFuture.whenComplete(withTryCatch(logger, (r, e) -> {
                 if (e == null) {
                     e = new IllegalStateException("cancellationFuture should be completed exceptionally");
@@ -307,6 +308,7 @@ public class TaskExecutionService {
 
         void taskDone() {
             if (completionLatch.decrementAndGet() == 0) {
+                executionContexts.remove(taskGroup.getId());
                 Throwable ex = executionException.get();
                 if (ex == null) {
                     future.internalComplete();
