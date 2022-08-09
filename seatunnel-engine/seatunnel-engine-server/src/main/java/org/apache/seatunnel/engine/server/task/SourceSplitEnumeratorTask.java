@@ -22,12 +22,13 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 
+import com.hazelcast.cluster.Address;
+
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
@@ -37,7 +38,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private final SourceAction<?, SplitT, ?> source;
     private SourceSplitEnumerator<?, ?> enumerator;
     private SeaTunnelSplitEnumeratorContext<SplitT> context;
-    private Map<Integer, UUID> taskMemberMapping;
+    private Map<Integer, Address> taskMemberMapping;
 
     @Override
     public void init() throws Exception {
@@ -59,7 +60,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         this.source = source;
     }
 
-    private void registerReader(int readerId, UUID memberID) {
+    private void registerReader(int readerId, Address memberID) {
         this.addTaskMemberMapping(readerId, memberID);
         enumerator.registerReader(readerId);
     }
@@ -68,11 +69,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         enumerator.handleSplitRequest(taskID);
     }
 
-    private void addTaskMemberMapping(int taskID, UUID memberID) {
+    private void addTaskMemberMapping(int taskID, Address memberID) {
         taskMemberMapping.put(taskID, memberID);
     }
 
-    public UUID getTaskMemberID(int taskID) {
+    public Address getTaskMemberID(int taskID) {
         return taskMemberMapping.get(taskID);
     }
 

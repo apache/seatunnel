@@ -17,20 +17,57 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 
-import java.net.URL;
-import java.util.HashSet;
-import java.util.Set;
+import com.hazelcast.cluster.Address;
 
-public class SinkAggregatedCommitterTask extends CoordinatorTask {
+import java.net.URL;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends CoordinatorTask {
 
     private static final long serialVersionUID = 5906594537520393503L;
-    private final SinkAction<?, ?, ?, ?> sink;
+    private final SinkAction<?, ?, ?, AggregatedCommitInfoT> sink;
 
-    public SinkAggregatedCommitterTask(int taskID, SinkAction<?, ?, ?, ?> sink) {
+    private final SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter;
+
+    private final Map<Long, Address> writerAddressMap;
+
+    private final Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
+
+    public SinkAggregatedCommitterTask(int taskID, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink, SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter) {
         super(taskID);
         this.sink = sink;
+        this.aggregatedCommitter = aggregatedCommitter;
+        this.writerAddressMap = new ConcurrentHashMap<>();
+        this.checkpointCommitInfoMap = new ConcurrentHashMap<>();
+    }
+
+    @Override
+    public void init() throws Exception {
+    }
+
+    private void receivedWriterRegister(long writerID, Address address) {
+        this.writerAddressMap.put(writerID, address);
+    }
+
+    private void receivedWriterRegister(long checkpointID, AggregatedCommitInfoT[] commitInfos) {
+        if (!checkpointCommitInfoMap.containsKey(checkpointID)) {
+            checkpointCommitInfoMap.put(checkpointID, new CopyOnWriteArrayList<>());
+        }
+        checkpointCommitInfoMap.get(checkpointID).addAll(Arrays.asList(commitInfos));
+    }
+
+    @Override
+    public void receivedMessage(Object message) {
+
     }
 
     @Override

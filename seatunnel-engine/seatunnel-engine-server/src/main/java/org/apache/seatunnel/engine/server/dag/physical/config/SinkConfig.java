@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.engine.server.dag.physical.config;
 
-import org.apache.seatunnel.api.table.type.Record;
+public class SinkConfig implements FlowConfig {
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record> {
+    private long committerTaskID;
+    private boolean containCommitter;
 
-    int getPartitionCount();
+    public long getCommitterTaskID() {
+        return committerTaskID;
+    }
 
-    int getTargetCount();
+    public void setCommitterTaskID(long committerTaskID) {
+        this.committerTaskID = committerTaskID;
+    }
 
+    public boolean isContainCommitter() {
+        return containCommitter;
+    }
+
+    public void setContainCommitter(boolean containCommitter) {
+        this.containCommitter = containCommitter;
+    }
 }

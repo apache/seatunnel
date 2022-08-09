@@ -23,9 +23,9 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
-import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
-import org.apache.seatunnel.engine.server.task.operation.UnregisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceUnregisterOperation;
 
 import java.io.IOException;
 import java.util.List;
@@ -33,17 +33,17 @@ import java.util.List;
 public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowLifeCycle {
 
     private final SourceAction<T, SplitT, ?> sourceAction;
-    private final int enumeratorTaskID;
+    private final long enumeratorTaskID;
     private final SeaTunnelTask<?> runningTask;
 
     private SourceReader<T, SplitT> reader;
 
     private final int indexID;
 
-    private final int currentTaskID;
+    private final long currentTaskID;
 
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
-                               int enumeratorTaskID, SeaTunnelTask<?> runningTask, int currentTaskID) {
+                               long enumeratorTaskID, SeaTunnelTask<?> runningTask, long currentTaskID) {
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskID = enumeratorTaskID;
@@ -75,7 +75,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowL
 
     public void signalNoMoreElement() {
         // Close this reader
-        runningTask.sendToMaster(new UnregisterOperation(currentTaskID, enumeratorTaskID));
+        runningTask.sendToMaster(new SourceUnregisterOperation(currentTaskID, enumeratorTaskID));
         try {
             runningTask.close();
         } catch (Exception e) {
@@ -84,7 +84,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowL
     }
 
     private void register() {
-        runningTask.sendToMaster(new RegisterOperation(currentTaskID, enumeratorTaskID));
+        runningTask.sendToMaster(new SourceRegisterOperation(currentTaskID, enumeratorTaskID));
     }
 
     public void requestSplit() {

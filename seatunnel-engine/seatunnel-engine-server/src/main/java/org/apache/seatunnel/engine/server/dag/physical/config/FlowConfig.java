@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.engine.server.dag.physical.config;
 
-import org.apache.seatunnel.api.table.type.Record;
-
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record> {
-
-    int getPartitionCount();
-
-    int getTargetCount();
-
+/**
+ * This interface indicates that this class is the configuration information of Flow
+ */
+public interface FlowConfig {
 }

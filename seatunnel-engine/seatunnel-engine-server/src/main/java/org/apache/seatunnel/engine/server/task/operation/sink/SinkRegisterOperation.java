@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation;
+package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
@@ -29,21 +29,17 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import java.io.IOException;
 import java.util.UUID;
 
-/**
- * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
- * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
- */
-public class RegisterOperation extends Operation implements IdentifiedDataSerializable {
+public class SinkRegisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private long readerTaskID;
-    private long enumeratorTaskID;
+    private long writerTaskID;
+    private long committerTaskID;
 
-    public RegisterOperation() {
+    public SinkRegisterOperation() {
     }
 
-    public RegisterOperation(long readerTaskID, long enumeratorTaskID) {
-        this.readerTaskID = readerTaskID;
-        this.enumeratorTaskID = enumeratorTaskID;
+    public SinkRegisterOperation(long writerTaskID, long committerTaskID) {
+        this.writerTaskID = writerTaskID;
+        this.committerTaskID = committerTaskID;
     }
 
     @Override
@@ -51,8 +47,8 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
         SeaTunnelServer server = getService();
         UUID readerUUID = getCallerUuid();
         TaskExecutionContext executionContext =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
-        // TODO register reader to enumerator
+                server.getTaskExecutionService().getExecutionContext(committerTaskID);
+        // TODO register writer to committer
     }
 
     @Override
@@ -63,15 +59,15 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(readerTaskID);
-        out.writeLong(enumeratorTaskID);
+        out.writeLong(writerTaskID);
+        out.writeLong(committerTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerTaskID = in.readLong();
-        enumeratorTaskID = in.readLong();
+        writerTaskID = in.readLong();
+        committerTaskID = in.readLong();
     }
 
     @Override
@@ -81,6 +77,6 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.REGISTER_TYPE;
+        return TaskDataSerializerHook.SINK_REGISTER_TYPE;
     }
 }

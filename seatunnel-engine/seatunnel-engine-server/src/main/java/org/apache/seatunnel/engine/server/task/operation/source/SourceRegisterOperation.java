@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation;
+package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -26,37 +27,51 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.UUID;
 
-public class AssignSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
+/**
+ * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
+ * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
+ */
+public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private List<SplitT> splits;
-    private int taskID;
+    private long readerTaskID;
+    private long enumeratorTaskID;
 
-    public AssignSplitOperation() {
+    public SourceRegisterOperation() {
     }
 
-    public AssignSplitOperation(int taskID, List<SplitT> splits) {
-        this.splits = splits;
+    public SourceRegisterOperation(long readerTaskID, long enumeratorTaskID) {
+        this.readerTaskID = readerTaskID;
+        this.enumeratorTaskID = enumeratorTaskID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(taskID);
-        // TODO send split to task
+        UUID readerUUID = getCallerUuid();
+        TaskExecutionContext executionContext =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
+        // TODO register reader to enumerator
+    }
+
+    @Override
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(splits);
-        out.writeInt(taskID);
+        super.writeInternal(out);
+        out.writeLong(readerTaskID);
+        out.writeLong(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        splits = in.readObject();
-        taskID = in.readInt();
+        super.readInternal(in);
+        readerTaskID = in.readLong();
+        enumeratorTaskID = in.readLong();
     }
 
     @Override
@@ -66,6 +81,6 @@ public class AssignSplitOperation<SplitT> extends Operation implements Identifie
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.ASSIGN_SPLIT_TYPE;
+        return TaskDataSerializerHook.SOURCE_REGISTER_TYPE;
     }
 }

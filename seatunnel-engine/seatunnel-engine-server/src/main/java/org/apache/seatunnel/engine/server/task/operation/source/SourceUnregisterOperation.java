@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation;
+package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -27,15 +27,15 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class UnregisterOperation extends Operation implements IdentifiedDataSerializable {
+public class SourceUnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private int currentTaskID;
-    private int enumeratorTaskID;
+    private long currentTaskID;
+    private long enumeratorTaskID;
 
-    public UnregisterOperation() {
+    public SourceUnregisterOperation() {
     }
 
-    public UnregisterOperation(int currentTaskID, int enumeratorTaskID) {
+    public SourceUnregisterOperation(long currentTaskID, long enumeratorTaskID) {
         this.currentTaskID = currentTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
@@ -49,14 +49,14 @@ public class UnregisterOperation extends Operation implements IdentifiedDataSeri
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeInt(currentTaskID);
-        out.writeInt(enumeratorTaskID);
+        out.writeLong(currentTaskID);
+        out.writeLong(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        currentTaskID = in.readInt();
-        enumeratorTaskID = in.readInt();
+        currentTaskID = in.readLong();
+        enumeratorTaskID = in.readLong();
     }
 
     @Override
@@ -66,6 +66,6 @@ public class UnregisterOperation extends Operation implements IdentifiedDataSeri
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.NO_MORE_ELEMENT_TYPE;
+        return TaskDataSerializerHook.SOURCE_UNREGISTER_TYPE;
     }
 }

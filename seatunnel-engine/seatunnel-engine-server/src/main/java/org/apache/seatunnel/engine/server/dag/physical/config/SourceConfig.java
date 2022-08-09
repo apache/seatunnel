@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.engine.server.dag.physical.config;
 
-import org.apache.seatunnel.api.table.type.Record;
+public class SourceConfig implements FlowConfig {
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record> {
+    private long enumeratorTaskID;
 
-    int getPartitionCount();
+    public long getEnumeratorTaskID() {
+        return enumeratorTaskID;
+    }
 
-    int getTargetCount();
-
+    public void setEnumeratorTaskID(long enumeratorTaskID) {
+        this.enumeratorTaskID = enumeratorTaskID;
+    }
 }

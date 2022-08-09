@@ -29,12 +29,15 @@ import java.util.Set;
 public abstract class AbstractTask implements Task {
     private static final long serialVersionUID = -2524701323779523718L;
 
+    // TODO init jobID
+    private long jobID;
+
     protected OperationService operationService;
-    protected int taskID;
+    protected long taskID;
 
     protected Progress progress;
 
-    public AbstractTask(int taskID) {
+    public AbstractTask(long taskID) {
         this.taskID = taskID;
         this.progress = new Progress();
     }
@@ -55,6 +58,6 @@ public abstract class AbstractTask implements Task {
     @NonNull
     @Override
     public Long getTaskID() {
-        return (long) taskID;
+        return taskID;
     }
 }

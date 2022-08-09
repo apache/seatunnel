@@ -19,7 +19,10 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,13 +31,25 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
 
     private final SinkAction<T, StateT, ?, ?> sinkAction;
     private SinkWriter<T, ?, StateT> writer;
+
+    // TODO init states
     private List<StateT> states;
 
     private final int indexID;
 
-    public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, int indexID) {
+    private final long committerTaskID;
+
+    private final SeaTunnelTask<?> runningTask;
+
+    private final boolean containCommitter;
+
+    public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, int indexID,
+                             SeaTunnelTask<?> runningTask, long committerTaskID, boolean containCommitter) {
         this.sinkAction = sinkAction;
         this.indexID = indexID;
+        this.runningTask = runningTask;
+        this.committerTaskID = committerTaskID;
+        this.containCommitter = containCommitter;
     }
 
     @Override
@@ -50,10 +65,18 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
     @Override
     public void close() throws IOException {
         writer.close();
+        runningTask.sendToMaster(new SinkUnregisterOperation(runningTask.getTaskID(), committerTaskID));
+
     }
 
     @Override
     public void handleMessage(Object message) throws Exception {
+    }
+
+    private void registerCommitter() {
+        if (containCommitter) {
+            runningTask.sendToMaster(new SinkRegisterOperation(runningTask.getTaskID(), committerTaskID));
+        }
     }
 
     @Override

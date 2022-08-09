@@ -15,14 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.engine.server.dag.physical.config;
 
-import org.apache.seatunnel.api.table.type.Record;
+public class PartitionConfig implements FlowConfig {
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record> {
+    private final int partitionCount;
 
-    int getPartitionCount();
+    private final int targetCount;
 
-    int getTargetCount();
+    private final int parallelismIndex;
 
+    public PartitionConfig(int partitionCount, int targetCount, int parallelismIndex) {
+        this.partitionCount = partitionCount;
+        this.targetCount = targetCount;
+        this.parallelismIndex = parallelismIndex;
+    }
+
+    public int getPartitionCount() {
+        return partitionCount;
+    }
+
+    public int getTargetCount() {
+        return targetCount;
+    }
+
+    public int getParallelismIndex() {
+        return parallelismIndex;
+    }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
@@ -26,9 +27,14 @@ import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionEdge;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
+import org.apache.seatunnel.engine.server.dag.physical.config.FlowConfig;
+import org.apache.seatunnel.engine.server.dag.physical.config.PartitionConfig;
+import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
+import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.task.MiddleSeaTunnelTask;
@@ -41,10 +47,15 @@ import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.NodeEngine;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,6 +66,15 @@ public class PhysicalPlanGenerator {
     private final NodeEngine nodeEngine;
 
     private final IdGenerator idGenerator = new IdGenerator();
+
+    /**
+     * Save the enumerator task ID corresponding to source
+     */
+    private final Map<SourceAction<?, ?, ?>, Integer> enumeratorTaskIDMap = new HashMap<>();
+    /**
+     * Save the committer task ID corresponding to sink
+     */
+    private final Map<SinkAction<?, ?, ?, ?>, Integer> committerTaskIDMap = new HashMap<>();
 
     public PhysicalPlanGenerator(ExecutionPlan executionPlan, NodeEngine nodeEngine) {
         edgesList = executionPlan.getPipelines().stream().map(Pipeline::getEdges).collect(Collectors.toList());
@@ -69,11 +89,11 @@ public class PhysicalPlanGenerator {
 
             List<TaskGroupInfo> coordinatorTasks = getEnumeratorTask(sources);
 
+            coordinatorTasks.addAll(getCommitterTask(edges));
+
             List<TaskGroupInfo> tasks = getSourceTask(edges, sources);
 
             tasks.addAll(getPartitionTask(edges));
-
-            coordinatorTasks.addAll(getCommitterTask(edges));
 
             return new PhysicalPlan.SubPlan(tasks, coordinatorTasks);
         }).collect(Collectors.toList()));
@@ -89,20 +109,34 @@ public class PhysicalPlanGenerator {
         return edges.stream().filter(s -> s.getRightVertex().getAction() instanceof SinkAction)
                 .map(s -> (SinkAction<?, ?, ?, ?>) s.getRightVertex().getAction())
                 .map(s -> {
-                    SinkAggregatedCommitterTask t =
-                            new SinkAggregatedCommitterTask(idGenerator.getNextId(), s);
-                    return new TaskGroupInfo(toData(new TaskGroup(t)), t.getJarsUrl());
-                }).collect(Collectors.toList());
+                    Optional<? extends SinkAggregatedCommitter<?, ?>> sinkAggregatedCommitter;
+                    try {
+                        sinkAggregatedCommitter = s.getSink().createAggregatedCommitter();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    // if sinkAggregatedCommitter is empty, don't create task.
+                    if (sinkAggregatedCommitter.isPresent()) {
+                        SinkAggregatedCommitterTask<?> t =
+                                new SinkAggregatedCommitterTask(idGenerator.getNextId(), s,
+                                        sinkAggregatedCommitter.get());
+                        committerTaskIDMap.put(s, t.getTaskID().intValue());
+                        return new TaskGroupInfo(toData(new TaskGroup(t)), t.getJarsUrl());
+                    } else {
+                        return null;
+                    }
+                }).filter(Objects::nonNull).collect(Collectors.toList());
     }
 
     private List<TaskGroupInfo> getPartitionTask(List<ExecutionEdge> edges) {
         return edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof PartitionTransformAction)
                 .map(q -> (PartitionTransformAction) q.getLeftVertex().getAction())
-                .map(q -> new PhysicalExecutionFlow(q, getNextWrapper(edges, q)))
+                .map(q -> new PhysicalExecutionFlow<>(q, getNextWrapper(edges, q)))
                 .flatMap(flow -> {
                     List<TaskGroupInfo> t = new ArrayList<>();
                     for (int i = 0; i < flow.getAction().getParallelism(); i++) {
-                        SeaTunnelTask<?> seaTunnelTask = new MiddleSeaTunnelTask(idGenerator.getNextId(), flow);
+                        SeaTunnelTask<?> seaTunnelTask = new MiddleSeaTunnelTask(idGenerator.getNextId(),
+                                flow);
                         t.add(new TaskGroupInfo(toData(new TaskGroup(seaTunnelTask)),
                                 seaTunnelTask.getJarsUrl()));
                     }
@@ -113,6 +147,7 @@ public class PhysicalPlanGenerator {
     private List<TaskGroupInfo> getEnumeratorTask(List<SourceAction<?, ?, ?>> sources) {
         return sources.stream().map(s -> {
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(idGenerator.getNextId(), s);
+            enumeratorTaskIDMap.put(s, t.getTaskID().intValue());
             return new TaskGroupInfo(toData(new TaskGroup(t)), t.getJarsUrl());
         }).collect(Collectors.toList());
     }
@@ -120,17 +155,22 @@ public class PhysicalPlanGenerator {
     private List<TaskGroupInfo> getSourceTask(List<ExecutionEdge> edges,
                                               List<SourceAction<?, ?, ?>> sources) {
         return sources.stream()
-                .map(s -> new PhysicalExecutionFlow(s, getNextWrapper(edges, s)))
+                .map(s -> new PhysicalExecutionFlow<SourceAction<?, ?, ?>, SourceConfig>(s,
+                        getNextWrapper(edges, s)))
                 .flatMap(flow -> {
                     List<TaskGroupInfo> t = new ArrayList<>();
                     List<Flow> flows = new ArrayList<>(Collections.singletonList(flow));
+                    // TODO move source split sink logic to seatunnel source task
                     if (sourceWithSink(flow)) {
                         flows.addAll(splitSinkFromFlow(flow));
                     }
                     for (int i = 0; i < flow.getAction().getParallelism(); i++) {
+                        int finalParallelismIndex = i;
                         List<SeaTunnelTask<?>> taskList =
-                                flows.stream().map(f -> new SourceSeaTunnelTask<>(idGenerator.getNextId(),
-                                        f)).collect(Collectors.toList());
+                                flows.stream().map(f -> {
+                                    setFlowConfig(f, finalParallelismIndex);
+                                    return new SourceSeaTunnelTask<>(idGenerator.getNextId(), f);
+                                }).collect(Collectors.toList());
                         Set<URL> jars =
                                 taskList.stream().flatMap(task -> task.getJarsUrl().stream()).collect(Collectors.toSet());
                         t.add(new TaskGroupInfo(toData(new TaskGroup(taskList.stream().map(task -> (Task) task).collect(Collectors.toList()))), jars));
@@ -139,9 +179,52 @@ public class PhysicalPlanGenerator {
                 }).collect(Collectors.toList());
     }
 
+    /**
+     * set config for flow, some flow should have config support for execute on task.
+     *
+     * @param f                flow
+     * @param parallelismIndex the parallelism index of flow
+     */
+    @SuppressWarnings("unchecked")
+    private void setFlowConfig(Flow f, int parallelismIndex) {
+
+        if (f instanceof PhysicalExecutionFlow) {
+            PhysicalExecutionFlow<?, FlowConfig> flow = (PhysicalExecutionFlow<?, FlowConfig>) f;
+            if (flow.getAction() instanceof SourceAction) {
+                SourceConfig config = new SourceConfig();
+                config.setEnumeratorTaskID(enumeratorTaskIDMap.get((SourceAction<?, ?, ?>) flow.getAction()));
+                flow.setConfig(config);
+            } else if (flow.getAction() instanceof SinkAction) {
+                SinkConfig config = new SinkConfig();
+                if (committerTaskIDMap.containsKey((SinkAction<?, ?, ?, ?>) flow.getAction())) {
+                    config.setContainCommitter(true);
+                    config.setCommitterTaskID(committerTaskIDMap.get((SinkAction<?, ?, ?, ?>) flow.getAction()));
+                }
+                flow.setConfig(config);
+            } else if (flow.getAction() instanceof PartitionTransformAction) {
+                PartitionConfig config =
+                        new PartitionConfig(((PartitionTransformAction) flow.getAction()).getPartitionTransformation().getPartitionCount(),
+                                ((PartitionTransformAction) flow.getAction()).getPartitionTransformation().getTargetCount(),
+                                parallelismIndex);
+                flow.setConfig(config);
+            }
+
+        } else if (f instanceof IntermediateExecutionFlow) {
+            // TODO remove it after move to seatunnel source task
+            IntermediateExecutionFlow flow = (IntermediateExecutionFlow) f;
+        } else {
+            throw new UnknownFlowException(f);
+        }
+
+        if (!f.getNext().isEmpty()) {
+            f.getNext().forEach(n -> setFlowConfig(n, parallelismIndex));
+        }
+
+    }
+
     private static List<Flow> splitSinkFromFlow(Flow flow) {
-        List<PhysicalExecutionFlow> sinkFlows =
-                flow.getNext().stream().filter(f -> f instanceof PhysicalExecutionFlow).map(f -> (PhysicalExecutionFlow) f)
+        List<PhysicalExecutionFlow<?, ?>> sinkFlows =
+                flow.getNext().stream().filter(f -> f instanceof PhysicalExecutionFlow).map(f -> (PhysicalExecutionFlow<?, ?>) f)
                         .filter(f -> f.getAction() instanceof SinkAction).collect(Collectors.toList());
         List<Flow> allFlows = new ArrayList<>();
         flow.getNext().removeAll(sinkFlows);
@@ -161,9 +244,9 @@ public class PhysicalPlanGenerator {
         return allFlows;
     }
 
-    private static boolean sourceWithSink(PhysicalExecutionFlow flow) {
+    private static boolean sourceWithSink(PhysicalExecutionFlow<?, ?> flow) {
         return flow.getAction() instanceof SinkAction ||
-                flow.getNext().stream().map(f -> (PhysicalExecutionFlow) f).map(PhysicalPlanGenerator::sourceWithSink)
+                flow.getNext().stream().map(f -> (PhysicalExecutionFlow<?, ?>) f).map(PhysicalPlanGenerator::sourceWithSink)
                         .collect(Collectors.toList()).contains(true);
     }
 
@@ -175,7 +258,7 @@ public class PhysicalPlanGenerator {
                 .map(PhysicalExecutionFlow::new).collect(Collectors.toList());
         wrappers.addAll(actions.stream()
                 .filter(a -> !(a instanceof PartitionTransformAction || a instanceof SinkAction))
-                .map(a -> new PhysicalExecutionFlow(a, getNextWrapper(edges, a))).collect(Collectors.toList()));
+                .map(a -> new PhysicalExecutionFlow<>(a, getNextWrapper(edges, a))).collect(Collectors.toList()));
         return wrappers;
     }
 

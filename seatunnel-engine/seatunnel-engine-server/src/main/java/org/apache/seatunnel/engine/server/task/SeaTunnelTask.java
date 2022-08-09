@@ -25,6 +25,8 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
+import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
@@ -52,26 +54,21 @@ public abstract class SeaTunnelTask<R> extends AbstractTask {
     private static final long serialVersionUID = 2604309561613784425L;
     private final Flow executionFlow;
 
-    private int enumeratorTaskID = -1;
-
     protected FlowLifeCycle startFlowLifeCycle;
 
     protected List<OneInputFlowLifeCycle<R>> outputs;
 
     // TODO add index ID
-    private int indexID;
+    protected int indexID;
 
-    public SeaTunnelTask(int taskID, Flow executionFlow) {
+    public SeaTunnelTask(long taskID, Flow executionFlow) {
         super(taskID);
-        // TODO add enumerator task ID
-        enumeratorTaskID = 1;
         this.executionFlow = executionFlow;
     }
 
     @Override
     public void init() throws Exception {
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
-        // TODO init outputs
         progress.makeProgress();
     }
 
@@ -92,10 +89,11 @@ public abstract class SeaTunnelTask<R> extends AbstractTask {
         if (flow instanceof PhysicalExecutionFlow) {
             PhysicalExecutionFlow f = (PhysicalExecutionFlow) flow;
             if (f.getAction() instanceof SourceAction) {
-                lifeCycle = new SourceFlowLifeCycle<>((SourceAction) f.getAction(), indexID,
-                        enumeratorTaskID, this, taskID);
+                lifeCycle = createSourceFlowLifeCycle((SourceAction<?, ?, ?>) f.getAction(), (SourceConfig) f.getConfig());
             } else if (f.getAction() instanceof SinkAction) {
-                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), indexID);
+                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), indexID, this,
+                        ((SinkConfig) f.getConfig()).getCommitterTaskID(),
+                        ((SinkConfig) f.getConfig()).isContainCommitter());
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
                         new TransformFlowLifeCycle<SeaTunnelRow, Record>(((TransformChainAction) f.getAction()).getTransforms(),
@@ -119,6 +117,9 @@ public abstract class SeaTunnelTask<R> extends AbstractTask {
         lifeCycle.init();
         return lifeCycle;
     }
+
+    protected abstract SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
+                                                                           SourceConfig config);
 
     @Override
     public void close() throws IOException {

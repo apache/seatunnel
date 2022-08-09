@@ -19,15 +19,18 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.task.flow.OneOutputFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
 import lombok.NonNull;
 
 public class MiddleSeaTunnelTask extends SeaTunnelTask<Record> {
 
-    public MiddleSeaTunnelTask(int taskID, Flow executionFlow) {
+    public MiddleSeaTunnelTask(long taskID, Flow executionFlow) {
         super(taskID, executionFlow);
     }
 
@@ -37,6 +40,12 @@ public class MiddleSeaTunnelTask extends SeaTunnelTask<Record> {
     public void init() throws Exception {
         super.init();
         collector = new SeaTunnelTransformCollector<>(outputs);
+    }
+
+    @Override
+    protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
+                                                                  SourceConfig config) {
+        throw new UnsupportedOperationException("MiddleSeaTunnelTask can't create SourceFlowLifeCycle");
     }
 
     @NonNull

@@ -44,4 +44,8 @@ public class PartitionTransformAction extends AbstractAction {
         super(id, name, jarUrls);
         this.partitionTransformation = partitionTransformation;
     }
+
+    public PartitionSeaTunnelTransform getPartitionTransformation() {
+        return partitionTransformation;
+    }
 }
