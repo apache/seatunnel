@@ -1,5 +1,7 @@
 # Tidb
 
+> TiDB source connector
+
 ### Description
 
 Read data from Tidb.

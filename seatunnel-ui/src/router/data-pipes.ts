@@ -45,6 +45,22 @@ export default {
       meta: {
         title: 'data-pipes-detail'
       }
+    },
+    {
+      path: '/data-pipes/:dataPipeCode/edit',
+      name: 'data-pipes-edit',
+      component: components['data-pipes-edit'],
+      meta: {
+        title: 'data-pipes-edit'
+      }
+    },
+    {
+      path: '/data-pipes/create',
+      name: 'data-pipes-create',
+      component: components['data-pipes-create'],
+      meta: {
+        title: 'data-pipes-create'
+      }
     }
   ]
 }

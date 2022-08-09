@@ -1,4 +1,7 @@
 # Socket
+
+> Socket source connector
+
 ## Description
 
 Used to read data from Socket. Both support streaming and batch mode.

@@ -116,7 +116,6 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
     @Override
     public String beginTransaction(@NonNull Long checkpointId) {
-        this.finishAndCloseWriteFile();
         this.transactionId = "T" + Constant.TRANSACTION_ID_SPLIT + jobId + Constant.TRANSACTION_ID_SPLIT + subTaskIndex + Constant.TRANSACTION_ID_SPLIT + checkpointId;
         this.transactionDir = getTransactionDir(this.transactionId);
         this.needMoveFiles = new HashMap<>();

@@ -16,20 +16,10 @@
  */
 
 import { defineComponent, onMounted, toRefs } from 'vue'
-import {
-  NGi,
-  NGrid,
-  NSpace,
-  NTabs,
-  NTabPane,
-  NDataTable,
-  NLog,
-  NInput,
-  NButton,
-  NInputGroup
-} from 'naive-ui'
+import { NGi, NGrid, NSpace, NTabs, NTabPane, NDataTable } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useDetailOverview } from './use-detail-overview'
+import Log from '@/components/log'
 
 const DetailOverview = defineComponent({
   setup() {
@@ -119,17 +109,7 @@ const DetailOverview = defineComponent({
         </NGrid>
         <NTabs type='line' justify-content='space-evenly' class='mt-7'>
           <NTabPane name='run-log' tab={this.t('data_pipes.run_log')}>
-            <NSpace vertical>
-              <NInputGroup>
-                <NInput placeholder={this.t('data_pipes.please_select_log')} />
-                <NButton ghost>{this.t('data_pipes.search')}</NButton>
-              </NInputGroup>
-              <NLog
-                rows={30}
-                log={'test'}
-                class={['py-5', 'px-3', 'bg-gray-50']}
-              />
-            </NSpace>
+            <Log />
           </NTabPane>
           <NTabPane
             name='historical-run-logs'
