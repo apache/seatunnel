@@ -352,7 +352,6 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Apache Commons Crypto (org.apache.commons:commons-crypto:1.0.0 - http://commons.apache.org/proper/commons-crypto/)
      (Apache License, Version 2.0) Apache Commons Email (org.apache.commons:commons-email:1.5 - http://commons.apache.org/proper/commons-email/)
      (Apache License, Version 2.0) Apache Commons IO (commons-io:commons-io:2.11.0 - https://commons.apache.org/proper/commons-io/)
-     (Apache License, Version 2.0) Apache Commons IO (commons-io:commons-io:2.5 - http://commons.apache.org/proper/commons-io/)
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.4 - http://commons.apache.org/proper/commons-lang/)
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.5 - http://commons.apache.org/proper/commons-lang/)
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.6 - http://commons.apache.org/proper/commons-lang/)
@@ -685,7 +684,6 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Commons DBCP (commons-dbcp:commons-dbcp:1.4 - http://commons.apache.org/dbcp/)
      (The Apache Software License, Version 2.0) Commons Daemon (commons-daemon:commons-daemon:1.0.13 - http://commons.apache.org/daemon/)
      (The Apache Software License, Version 2.0) Commons Digester (commons-digester:commons-digester:1.8.1 - http://commons.apache.org/digester/)
-     (The Apache Software License, Version 2.0) Commons IO (commons-io:commons-io:2.4 - http://commons.apache.org/io/)
      (The Apache Software License, Version 2.0) Commons Lang (commons-lang:commons-lang:2.6 - http://commons.apache.org/lang/)
      (The Apache Software License, Version 2.0) Commons Math (org.apache.commons:commons-math3:3.1.1 - http://commons.apache.org/math/)
      (The Apache Software License, Version 2.0) Commons Net (commons-net:commons-net:3.1 - http://commons.apache.org/net/)
@@ -939,8 +937,12 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) springfox-swagger-ui (io.springfox:springfox-swagger-ui:2.6.1 - https://github.com/springfox/springfox)
      (The Apache Software License, Version 2.0) springfox-swagger2 (io.springfox:springfox-swagger2:2.6.1 - https://github.com/springfox/springfox)
      (The Apache Software License, Version 2.0) hazelcast (com.hazelcast:hazelcast:5.1 - https://github.com/hazelcast/hazelcast)
-
-
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-collectionschema:1.8.0 - https://github.com/protostuff/protostuff)     
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-core:1.8.0 - https://github.com/protostuff/protostuff)
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-api:1.8.0 - https://github.com/protostuff/protostuff)
+     (The Apache Software License, Version 2.0) protostuff (io.protostuff:protostuff-runtime:1.8.0 - https://github.com/protostuff/protostuff)
+     
+     
 ========================================================================
 MIT License
 ========================================================================
