@@ -36,7 +36,7 @@ public interface SinkWriter<T, CommitInfoT, StateT> extends Serializable {
     /**
      * write data to third party data receiver.
      *
-     * @param element the date need be written.
+     * @param element the data need be written.
      * @throws IOException throw IOException when write data failed.
      */
     void write(T element) throws IOException;
