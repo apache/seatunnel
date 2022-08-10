@@ -34,7 +34,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowL
 
     private final SourceAction<T, SplitT, ?> sourceAction;
     private final long enumeratorTaskID;
-    private final SeaTunnelTask<?> runningTask;
+    private final SeaTunnelTask runningTask;
 
     private SourceReader<T, SplitT> reader;
 
@@ -43,7 +43,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowL
     private final long currentTaskID;
 
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
-                               long enumeratorTaskID, SeaTunnelTask<?> runningTask, long currentTaskID) {
+                               long enumeratorTaskID, SeaTunnelTask runningTask, long currentTaskID) {
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskID = enumeratorTaskID;

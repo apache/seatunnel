@@ -39,12 +39,12 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
 
     private final long committerTaskID;
 
-    private final SeaTunnelTask<?> runningTask;
+    private final SeaTunnelTask runningTask;
 
     private final boolean containCommitter;
 
     public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, int indexID,
-                             SeaTunnelTask<?> runningTask, long committerTaskID, boolean containCommitter) {
+                             SeaTunnelTask runningTask, long committerTaskID, boolean containCommitter) {
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.runningTask = runningTask;

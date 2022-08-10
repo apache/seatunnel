@@ -28,7 +28,7 @@ import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
 import lombok.NonNull;
 
-public class MiddleSeaTunnelTask extends SeaTunnelTask<Record> {
+public class MiddleSeaTunnelTask extends SeaTunnelTask {
 
     public MiddleSeaTunnelTask(long jobID, long taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);

@@ -32,6 +32,7 @@ public class IntermediateQueueFlowLifeCycle<T> implements OneInputFlowLifeCycle<
     @Override
     public void received(T row) {
         try {
+            // TODO support batch put
             queue.put(row);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);

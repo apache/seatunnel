@@ -204,7 +204,7 @@ public class PhysicalPlanGenerator {
                 List<PhysicalVertex> t = new ArrayList<>();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                     setFlowConfig(flow, i);
-                    SeaTunnelTask<?> seaTunnelTask = new MiddleSeaTunnelTask(jobImmutableInformation.getJobId(),
+                    SeaTunnelTask seaTunnelTask = new MiddleSeaTunnelTask(jobImmutableInformation.getJobId(),
                             idGenerator.getNextId(), i, flow);
 
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
@@ -264,7 +264,7 @@ public class PhysicalPlanGenerator {
                 }
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                     int finalParallelismIndex = i;
-                    List<SeaTunnelTask<?>> taskList =
+                    List<SeaTunnelTask> taskList =
                             flows.stream().map(f -> {
                                 setFlowConfig(f, finalParallelismIndex);
                                 return new SourceSeaTunnelTask<>(jobImmutableInformation.getJobId(),
@@ -366,7 +366,7 @@ public class PhysicalPlanGenerator {
 
     private List<Flow> getNextWrapper(List<ExecutionEdge> edges, Action start) {
         List<Action> actions = edges.stream().filter(e -> e.getLeftVertex().getAction().equals(start))
-            .map(e -> e.getLeftVertex().getAction()).collect(Collectors.toList());
+            .map(e -> e.getRightVertex().getAction()).collect(Collectors.toList());
         List<Flow> wrappers = actions.stream()
             .filter(a -> a instanceof PartitionTransformAction || a instanceof SinkAction)
             .map(PhysicalExecutionFlow::new).collect(Collectors.toList());

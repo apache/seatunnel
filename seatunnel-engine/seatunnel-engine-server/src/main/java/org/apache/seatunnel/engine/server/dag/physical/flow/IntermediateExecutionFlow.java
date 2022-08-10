@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical.flow;
 
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 public class IntermediateExecutionFlow extends Flow {
@@ -27,7 +27,7 @@ public class IntermediateExecutionFlow extends Flow {
     private final IntermediateQueue queue;
 
     public IntermediateExecutionFlow(IntermediateQueue queue) {
-        super(Collections.emptyList());
+        super(new ArrayList<>());
         this.queue = queue;
     }
 

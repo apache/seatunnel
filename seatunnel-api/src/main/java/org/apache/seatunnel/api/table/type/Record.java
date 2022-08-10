@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import java.io.Serializable;
+
 /**
  * Contain {@link SeaTunnelRow} or Checkpoint Barrier
  */
-public class Record {
+public class Record implements Serializable {
 
     private final Object data;
 

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
@@ -26,7 +25,7 @@ import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
 import lombok.NonNull;
 
-public class SourceSeaTunnelTask<T> extends SeaTunnelTask<Record> {
+public class SourceSeaTunnelTask<T> extends SeaTunnelTask{
 
     public SourceSeaTunnelTask(long jobID, long taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);

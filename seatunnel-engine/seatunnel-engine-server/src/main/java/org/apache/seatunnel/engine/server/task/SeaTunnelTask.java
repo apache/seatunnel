@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -49,14 +48,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 
-public abstract class SeaTunnelTask<R> extends AbstractTask {
+public abstract class SeaTunnelTask extends AbstractTask {
 
     private static final long serialVersionUID = 2604309561613784425L;
     private final Flow executionFlow;
 
     protected FlowLifeCycle startFlowLifeCycle;
 
-    protected List<OneInputFlowLifeCycle<R>> outputs;
+    protected List<OneInputFlowLifeCycle<Record>> outputs;
 
     protected int indexID;
 
@@ -76,20 +75,17 @@ public abstract class SeaTunnelTask<R> extends AbstractTask {
     private FlowLifeCycle convertFlowToActionLifeCycle(Flow flow) throws Exception {
 
         FlowLifeCycle lifeCycle;
-
-        Collector<Record> collector = null;
+        List<OneInputFlowLifeCycle<Record>> flowLifeCycles = new ArrayList<>();
         if (!executionFlow.getNext().isEmpty()) {
-            List<OneInputFlowLifeCycle<Record>> flowLifeCycles = new ArrayList<>();
-
             for (Flow f : executionFlow.getNext()) {
                 flowLifeCycles.add((OneInputFlowLifeCycle<Record>) convertFlowToActionLifeCycle(f));
             }
-            collector = new SeaTunnelTransformCollector<>(flowLifeCycles);
         }
         if (flow instanceof PhysicalExecutionFlow) {
             PhysicalExecutionFlow f = (PhysicalExecutionFlow) flow;
             if (f.getAction() instanceof SourceAction) {
                 lifeCycle = createSourceFlowLifeCycle((SourceAction<?, ?, ?>) f.getAction(), (SourceConfig) f.getConfig());
+                outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
                 lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), indexID, this,
                         ((SinkConfig) f.getConfig()).getCommitterTaskID(),
@@ -97,7 +93,7 @@ public abstract class SeaTunnelTask<R> extends AbstractTask {
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
                         new TransformFlowLifeCycle<SeaTunnelRow, Record>(((TransformChainAction) f.getAction()).getTransforms(),
-                                collector);
+                                new SeaTunnelTransformCollector<>(flowLifeCycles));
             } else if (f.getAction() instanceof PartitionTransformAction) {
                 // TODO use index and taskID to create ringbuffer list
                 if (executionFlow.getNext().isEmpty()) {
