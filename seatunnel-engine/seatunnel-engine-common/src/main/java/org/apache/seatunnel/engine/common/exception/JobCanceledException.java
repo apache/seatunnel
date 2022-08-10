@@ -17,13 +17,16 @@
 
 package org.apache.seatunnel.engine.common.exception;
 
-public class JobDefineCheckExceptionSeaTunnel extends SeaTunnelEngineException {
+public class JobCanceledException extends SeaTunnelEngineException {
+    public JobCanceledException(long jobId) {
+        super("Job with id " + jobId + " canceled");
+    }
 
-    public JobDefineCheckExceptionSeaTunnel(String message) {
+    public JobCanceledException(String message) {
         super(message);
     }
 
-    public JobDefineCheckExceptionSeaTunnel(String message, Throwable cause) {
+    public JobCanceledException(String message, Throwable cause) {
         super(message, cause);
     }
 }

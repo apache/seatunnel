@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.exception;
+package org.apache.seatunnel.engine.common.config;
 
-public class JobNotFoundExceptionSeaTunnel extends SeaTunnelEngineException {
-    public JobNotFoundExceptionSeaTunnel(long jobId) {
-        super("Job with id " + jobId + " not found");
-    }
+import com.hazelcast.spi.properties.HazelcastProperty;
 
-    public JobNotFoundExceptionSeaTunnel(String message) {
-        super(message);
-    }
+/**
+ * Defines the names and default values for internal Hazelcast SeaTunnel properties.
+ */
+public final class SeaTunnelProperties {
+    public static final HazelcastProperty SEATUNNEL_HOME = new HazelcastProperty("seatunnel.home", "");
 
-    public JobNotFoundExceptionSeaTunnel(String message, Throwable cause) {
-        super(message, cause);
+    private SeaTunnelProperties() {
     }
 }
+

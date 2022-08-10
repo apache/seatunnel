@@ -15,20 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.engine.common.Constant;
+import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
 
-import com.hazelcast.client.config.ClientConfig;
+import lombok.Data;
 
-public class SeaTunnelClientConfig extends ClientConfig {
+@Data
+public class EngineConfig {
+    private int backupCount;
 
-    /**
-     * Creates a new config instance with default group name for SeaTunnel Engine
-     */
-    public SeaTunnelClientConfig() {
-        super();
-        setClusterName(Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private int serverExecutorPoolSize = 20;
+
+    public EngineConfig setBackupCount(int newBackupCount) {
+        checkBackupCount(newBackupCount, 0);
+        this.backupCount = newBackupCount;
+        return this;
+    }
+
+    public EngineConfig setServerExecutorPoolSize(int serverExecutorPoolSize) {
+        this.serverExecutorPoolSize = serverExecutorPoolSize;
+        return this;
     }
 }
-
