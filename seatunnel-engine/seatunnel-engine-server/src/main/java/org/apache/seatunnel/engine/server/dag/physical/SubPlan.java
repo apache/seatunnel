@@ -124,19 +124,23 @@ public class SubPlan {
 
                 if (finishedTaskNum.incrementAndGet() == (physicalVertexList.size() + coordinatorVertexList.size())) {
                     if (failedTaskNum.get() > 0) {
-                        LOGGER.info(String.format("%s failed", this.pipelineFullName));
-                        pipelineState.set(PipelineState.FAILED);
+                        updatePipelineState(PipelineState.FAILED);
+                        LOGGER.info(String.format("%s end with state FAILED", this.pipelineFullName));
                     } else if (canceledTaskNum.get() > 0) {
-                        LOGGER.info(String.format("%s canceled", this.pipelineFullName));
-                        pipelineState.set(PipelineState.CANCELED);
+                        updatePipelineState(PipelineState.CANCELED);
+                        LOGGER.info(String.format("%s end with state CANCELED", this.pipelineFullName));
                     } else {
-                        LOGGER.info(String.format("%s finished", this.pipelineFullName));
-                        pipelineState.set(PipelineState.FINISHED);
+                        updatePipelineState(PipelineState.FINISHED);
+                        LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
                     }
                     pipelineFuture.complete(pipelineState.get());
                 }
             });
         });
+    }
+
+    public boolean updatePipelineState(@NonNull PipelineState targetState) {
+        return updatePipelineState(pipelineState.get(), targetState);
     }
 
     public boolean updatePipelineState(@NonNull PipelineState current, @NonNull PipelineState targetState) {

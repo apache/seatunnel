@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
@@ -135,7 +134,8 @@ public class PhysicalVertex {
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public void deploy() throws JobException {
+    // This method must not throw an exception
+    public void deploy() {
 
         // TODO really submit job to ExecutionService and get a NonCompletableFuture<ExecutionState>
         long executionId = flakeIdGenerator.newId();
@@ -154,6 +154,7 @@ public class PhysicalVertex {
             try {
                 // We need not handle t, Because we will not return t from TaskExecutionService
                 // v will never be null
+                updateTaskState(executionState.get(), v.getExecutionState());
                 if (v.getThrowable() != null) {
                     LOGGER.severe(String.format("%s end with state %s and Exception: %s",
                         this.taskFullName,
@@ -164,7 +165,6 @@ public class PhysicalVertex {
                         this.taskFullName,
                         v.getExecutionState()));
                 }
-                updateTaskState(executionState.get(), v.getExecutionState());
                 taskFuture.complete(v);
             } catch (Throwable th) {
                 LOGGER.severe(

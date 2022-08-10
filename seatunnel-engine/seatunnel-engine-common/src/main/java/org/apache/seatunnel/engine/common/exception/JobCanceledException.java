@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.common.exception;
 
-import lombok.Data;
+public class JobCanceledException extends SeaTunnelEngineException {
+    public JobCanceledException(long jobId) {
+        super("Job with id " + jobId + " canceled");
+    }
 
-import java.io.Serializable;
-import java.util.Collection;
+    public JobCanceledException(String message) {
+        super(message);
+    }
 
-@Data
-public class TaskGroup implements Serializable {
-    //TODO iD is required. The construction method needs to be modified later
-    private long id;
-
-    private final String taskGroupName;
-
-    private final Collection<Task> tasks;
+    public JobCanceledException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

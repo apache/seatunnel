@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.common.exception;
 
-import lombok.Data;
+public class JobFailedException extends SeaTunnelEngineException {
+    public JobFailedException(long jobId) {
+        super("Job with id " + jobId + " failed");
+    }
 
-import java.io.Serializable;
-import java.util.Collection;
+    public JobFailedException(String message) {
+        super(message);
+    }
 
-@Data
-public class TaskGroup implements Serializable {
-    //TODO iD is required. The construction method needs to be modified later
-    private long id;
-
-    private final String taskGroupName;
-
-    private final Collection<Task> tasks;
+    public JobFailedException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

@@ -15,46 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task;
+package org.apache.seatunnel.engine.server.execution;
 
-import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
-
+import lombok.AllArgsConstructor;
 import lombok.NonNull;
+import lombok.SneakyThrows;
 
-import java.net.URL;
-import java.util.Set;
+import java.util.List;
 
-public abstract class AbstractTask implements Task {
-    private static final long serialVersionUID = -2524701323779523718L;
+@AllArgsConstructor
+public class ExceptionTestTask implements Task {
+    long callTime;
+    String name;
+    List<Throwable> throwE;
 
-    protected TaskExecutionContext executionContext;
-    protected long taskID;
-
-    protected Progress progress;
-
-    public AbstractTask(long taskID) {
-        this.taskID = taskID;
-        this.progress = new Progress();
-    }
-
-    public abstract Set<URL> getJarsUrl();
-
-    @Override
-    public void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
-        this.executionContext = taskExecutionContext;
-    }
-
+    @SneakyThrows
     @NonNull
     @Override
     public ProgressState call() {
-        return progress.toState();
+        if(!throwE.isEmpty()){
+            throw throwE.get(0);
+        }else {
+            Thread.sleep(callTime);
+        }
+        return ProgressState.MADE_PROGRESS;
     }
 
     @NonNull
     @Override
     public Long getTaskID() {
-        return taskID;
+        return (long) this.hashCode();
     }
 }

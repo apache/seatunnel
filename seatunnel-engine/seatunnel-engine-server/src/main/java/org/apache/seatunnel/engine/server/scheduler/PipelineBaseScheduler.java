@@ -29,7 +29,9 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class PipelineBaseScheduler implements JobScheduler {
     private static final ILogger LOGGER = Logger.getLogger(PipelineBaseScheduler.class);
@@ -83,23 +85,32 @@ public class PipelineBaseScheduler implements JobScheduler {
 
     private void deployPipeline(@NonNull SubPlan pipeline) {
         pipeline.updatePipelineState(PipelineState.SCHEDULED, PipelineState.DEPLOYING);
-        pipeline.getCoordinatorVertexList().forEach(coordinator -> {
-            if (coordinator.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
-                // deploy is a time-consuming operation, so we do it async
-                CompletableFuture.supplyAsync(() -> {
-                    coordinator.deploy();
-                    return null;
-                });
-            }
-        });
+        List<CompletableFuture> deployCoordinatorFuture =
+            pipeline.getCoordinatorVertexList().stream().map(coordinator -> {
+                if (coordinator.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
+                    // deploy is a time-consuming operation, so we do it async
+                    return CompletableFuture.supplyAsync(() -> {
+                        coordinator.deploy();
+                        return null;
+                    });
+                }
+                return null;
+            }).filter(x -> x != null).collect(Collectors.toList());
 
-        pipeline.getPhysicalVertexList().forEach(task -> {
-            if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
-                CompletableFuture.supplyAsync(() -> {
-                    task.deploy();
-                    return null;
-                });
-            }
+        List<CompletableFuture> deployTaskFuture =
+            pipeline.getPhysicalVertexList().stream().map(task -> {
+                if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
+                    return CompletableFuture.supplyAsync(() -> {
+                        task.deploy();
+                        return null;
+                    });
+                }
+                return null;
+            }).filter(x -> x != null).collect(Collectors.toList());
+
+        deployCoordinatorFuture.addAll(deployTaskFuture);
+        CompletableFuture.allOf(deployCoordinatorFuture.toArray(new CompletableFuture[deployCoordinatorFuture.size()])).whenComplete((v, t) -> {
+            pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING);
         });
     }
 }

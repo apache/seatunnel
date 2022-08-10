@@ -110,11 +110,11 @@ public class PhysicalPlan {
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
                     if (failedPipelineNum.get() > 0) {
-                        jobStatus.set(JobStatus.FAILING);
+                        updateJobState(JobStatus.FAILING);
                     } else if (canceledPipelineNum.get() > 0) {
-                        jobStatus.set(JobStatus.CANCELED);
+                        updateJobState(JobStatus.CANCELED);
                     } else {
-                        jobStatus.set(JobStatus.FINISHED);
+                        updateJobState(JobStatus.FINISHED);
                     }
                     jobEndFuture.complete(jobStatus.get());
                 }
@@ -143,7 +143,11 @@ public class PhysicalPlan {
         }
     }
 
-    public boolean updateJobState(JobStatus current, JobStatus targetState) {
+    public boolean updateJobState(@NonNull JobStatus targetState) {
+        return updateJobState(jobStatus.get(), targetState);
+    }
+
+    public boolean updateJobState(@NonNull JobStatus current, @NonNull JobStatus targetState) {
         // consistency check
         if (current.isEndState()) {
             String message = "Job is trying to leave terminal state " + current;
