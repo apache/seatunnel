@@ -54,7 +54,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     private final SeaTunnelRowType rowType;
 
     /**
-     * Runtime converter that converts {@link JsonNode}s into objects of Flink SQL internal data
+     * Runtime converter that converts {@link JsonNode}s into objects of internal data
      * structures.
      */
     private final JsonToRowConverters.JsonToRowConverter runtimeConverter;

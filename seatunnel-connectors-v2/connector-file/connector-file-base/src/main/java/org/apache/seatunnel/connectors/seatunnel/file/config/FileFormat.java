@@ -23,7 +23,8 @@ public enum FileFormat implements Serializable {
     CSV("csv"),
     TEXT("txt"),
     PARQUET("parquet"),
-    ORC("orc");
+    ORC("orc"),
+    JSON("json");
 
     private String suffix;
 
