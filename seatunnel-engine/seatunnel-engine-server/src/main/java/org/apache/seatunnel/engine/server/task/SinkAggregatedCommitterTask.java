@@ -42,8 +42,9 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     private final Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
 
-    public SinkAggregatedCommitterTask(int taskID, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink, SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter) {
-        super(taskID);
+    public SinkAggregatedCommitterTask(long jobID, int taskID, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink,
+                                       SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter) {
+        super(jobID, taskID);
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
         this.writerAddressMap = new ConcurrentHashMap<>();

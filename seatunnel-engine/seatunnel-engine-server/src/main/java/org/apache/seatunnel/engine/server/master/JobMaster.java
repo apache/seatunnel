@@ -63,7 +63,6 @@ public class JobMaster implements Runnable {
         // TODO Use classloader load the connector jars and deserialize logicalDag
         this.logicalDag = new LogicalDag();
         physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag,
-                nodeEngine,
                 jobInformation,
                 System.currentTimeMillis(),
                 executorService,

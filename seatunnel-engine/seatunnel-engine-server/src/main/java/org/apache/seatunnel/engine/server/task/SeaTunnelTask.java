@@ -58,11 +58,11 @@ public abstract class SeaTunnelTask<R> extends AbstractTask {
 
     protected List<OneInputFlowLifeCycle<R>> outputs;
 
-    // TODO add index ID
     protected int indexID;
 
-    public SeaTunnelTask(long taskID, Flow executionFlow) {
-        super(taskID);
+    public SeaTunnelTask(long jobID, long taskID, int indexID, Flow executionFlow) {
+        super(jobID, taskID);
+        this.indexID = indexID;
         this.executionFlow = executionFlow;
     }
 

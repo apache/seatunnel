@@ -55,8 +55,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public SourceSplitEnumeratorTask(int taskID, SourceAction<?, SplitT, ?> source) {
-        super(taskID);
+    public SourceSplitEnumeratorTask(long jobID, long taskID, SourceAction<?, SplitT, ?> source) {
+        super(jobID, taskID);
         this.source = source;
     }
 

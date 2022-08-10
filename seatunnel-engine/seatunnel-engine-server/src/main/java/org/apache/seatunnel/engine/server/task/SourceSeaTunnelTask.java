@@ -28,8 +28,8 @@ import lombok.NonNull;
 
 public class SourceSeaTunnelTask<T> extends SeaTunnelTask<Record> {
 
-    public SourceSeaTunnelTask(long taskID, Flow executionFlow) {
-        super(taskID, executionFlow);
+    public SourceSeaTunnelTask(long jobID, long taskID, int indexID, Flow executionFlow) {
+        super(jobID, taskID, indexID, executionFlow);
     }
 
     private SeaTunnelSourceCollector<T> collector;
