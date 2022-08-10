@@ -29,7 +29,7 @@ public class TaskCallTimer extends Thread {
     long nextExecutionTime;
     long delay;
 
-    TaskExecutionService.BusWork busWork;
+    TaskExecutionService.CooperativeTaskWorker cooperativeTaskWorker;
     AtomicBoolean keep;
     TaskExecutionService.RunBusWorkSupplier runBusWorkSupplier;
 
@@ -43,11 +43,11 @@ public class TaskCallTimer extends Thread {
         long delay,
         AtomicBoolean keep,
         TaskExecutionService.RunBusWorkSupplier runBusWorkSupplier,
-        TaskExecutionService.BusWork busWork) {
+        TaskExecutionService.CooperativeTaskWorker cooperativeTaskWorker) {
         this.delay = delay;
         this.keep = keep;
         this.runBusWorkSupplier = runBusWorkSupplier;
-        this.busWork = busWork;
+        this.cooperativeTaskWorker = cooperativeTaskWorker;
     }
 
     private void startTimer() {
@@ -133,7 +133,7 @@ public class TaskCallTimer extends Thread {
             // 1 busWork keep on running
             keep.set(true);
             // 2 busWork exclusive to the current taskTracker
-            busWork.exclusiveTaskTracker.set(taskTracker);
+            cooperativeTaskWorker.exclusiveTaskTracker.set(taskTracker);
             // 3 Submit a new BusWork to execute other tasks
             runBusWorkSupplier.runNewBusWork(false);
         } else {

@@ -176,10 +176,10 @@ public class TaskExecutionService {
     }
 
     /**
-     * BusWork is used to poll the task call method,
+     * CooperativeTaskWorker is used to poll the task call method,
      * When a task times out, a new BusWork will be created to take over the execution of the task
      */
-    public final class BusWork implements Runnable {
+    public final class CooperativeTaskWorker implements Runnable {
 
         AtomicBoolean keep = new AtomicBoolean(true);
         public AtomicReference<TaskTracker> exclusiveTaskTracker = new AtomicReference<>();
@@ -187,7 +187,7 @@ public class TaskExecutionService {
         public LinkedBlockingDeque<TaskTracker> taskqueue;
 
         @SuppressWarnings("checkstyle:MagicNumber")
-        public BusWork(LinkedBlockingDeque<TaskTracker> taskqueue, RunBusWorkSupplier runBusWorkSupplier) {
+        public CooperativeTaskWorker(LinkedBlockingDeque<TaskTracker> taskqueue, RunBusWorkSupplier runBusWorkSupplier) {
             logger.info(String.format("Created new BusWork : %s", this.hashCode()));
             this.taskqueue = taskqueue;
             this.timer = new TaskCallTimer(50, keep, runBusWorkSupplier, this);
@@ -270,7 +270,7 @@ public class TaskExecutionService {
 
         public boolean runNewBusWork(boolean checkTaskQueue) {
             if (!checkTaskQueue || taskQueue.size() > 0) {
-                executorService.submit(new BusWork(taskQueue, this));
+                executorService.submit(new CooperativeTaskWorker(taskQueue, this));
                 return true;
             }
             return false;
