@@ -25,7 +25,8 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
-import org.apache.seatunnel.engine.common.exception.JobDefineCheckExceptionSeaTunnel;
+import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -70,20 +71,27 @@ public class JobConfigParser {
     private List<Action> actions = new ArrayList<>();
     private Set<URL> jarUrlsSet = new HashSet<>();
 
-    protected JobConfigParser(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator) {
+    private JobConfig jobConfig;
+
+    protected JobConfigParser(@NonNull String jobDefineFilePath, @NonNull IdGenerator idGenerator,
+                              @NonNull JobConfig jobConfig) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
+        this.jobConfig = jobConfig;
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse() {
         Config seaTunnelJobConfig = new ConfigBuilder(Paths.get(jobDefineFilePath)).getConfig();
+        Config envConfigs = seaTunnelJobConfig.getConfig("env");
         List<? extends Config> sinkConfigs = seaTunnelJobConfig.getConfigList("sink");
         List<? extends Config> transformConfigs = seaTunnelJobConfig.getConfigList("transform");
         List<? extends Config> sourceConfigs = seaTunnelJobConfig.getConfigList("source");
 
         if (CollectionUtils.isEmpty(sinkConfigs) || CollectionUtils.isEmpty(sourceConfigs)) {
-            throw new JobDefineCheckExceptionSeaTunnel("Source And Sink can not be null");
+            throw new JobDefineCheckException("Source And Sink can not be null");
         }
+
+        jobConfigAnalyze(envConfigs);
 
         if (sinkConfigs.size() == 1
             && sourceConfigs.size() == 1
@@ -93,6 +101,10 @@ public class JobConfigParser {
             complexAnalyze(sourceConfigs, transformConfigs, sinkConfigs);
         }
         return new ImmutablePair<>(actions, jarUrlsSet);
+    }
+
+    private void jobConfigAnalyze(Config envConfigs) {
+        // TODO Resolve env configuration and set jobConfig
     }
 
     /**
@@ -118,7 +130,7 @@ public class JobConfigParser {
 
             actions.add(sinkAction);
             if (!config.hasPath(Plugin.SOURCE_TABLE_NAME)) {
-                throw new JobDefineCheckExceptionSeaTunnel(Plugin.SOURCE_TABLE_NAME
+                throw new JobDefineCheckException(Plugin.SOURCE_TABLE_NAME
                     + " must be set in the sink plugin config when the job have complex dependencies");
             }
             String sourceTableName = config.getString(Plugin.SOURCE_TABLE_NAME);
@@ -126,7 +138,7 @@ public class JobConfigParser {
             if (CollectionUtils.isEmpty(transformConfigList)) {
                 sourceAnalyze(sourceTableName, sinkAction);
             } else if (transformConfigList.size() > 1) {
-                throw new JobDefineCheckExceptionSeaTunnel("Only UnionTransform can have more than one upstream, "
+                throw new JobDefineCheckException("Only UnionTransform can have more than one upstream, "
                     + sinkAction.getName()
                     + " is not UnionTransform Connector");
             } else {
@@ -139,7 +151,7 @@ public class JobConfigParser {
     private void sourceAnalyze(String sourceTableName, Action action) {
         List<Config> sourceConfigList = sourceResultTableNameMap.get(sourceTableName);
         if (CollectionUtils.isEmpty(sourceConfigList)) {
-            throw new JobDefineCheckExceptionSeaTunnel(action.getName()
+            throw new JobDefineCheckException(action.getName()
                 + " source table name [" + sourceTableName + "] can not be found");
         }
 
@@ -192,7 +204,7 @@ public class JobConfigParser {
     private void initRelationMap(List<? extends Config> sourceConfigs, List<? extends Config> transformConfigs) {
         for (Config config : sourceConfigs) {
             if (!config.hasPath(Plugin.RESULT_TABLE_NAME)) {
-                throw new JobDefineCheckExceptionSeaTunnel(Plugin.RESULT_TABLE_NAME
+                throw new JobDefineCheckException(Plugin.RESULT_TABLE_NAME
                     + " must be set in the source plugin config when the job have complex dependencies");
             }
             String resultTableName = config.getString(Plugin.RESULT_TABLE_NAME);
@@ -204,12 +216,12 @@ public class JobConfigParser {
 
         for (Config config : transformConfigs) {
             if (!config.hasPath(Plugin.RESULT_TABLE_NAME)) {
-                throw new JobDefineCheckExceptionSeaTunnel(Plugin.RESULT_TABLE_NAME
+                throw new JobDefineCheckException(Plugin.RESULT_TABLE_NAME
                     + " must be set in the transform plugin config when the job have complex dependencies");
             }
 
             if (!config.hasPath(Plugin.SOURCE_TABLE_NAME)) {
-                throw new JobDefineCheckExceptionSeaTunnel(Plugin.SOURCE_TABLE_NAME
+                throw new JobDefineCheckException(Plugin.SOURCE_TABLE_NAME
                     + " must be set in the transform plugin config when the job have complex dependencies");
             }
             String resultTableName = config.getString(Plugin.RESULT_TABLE_NAME);

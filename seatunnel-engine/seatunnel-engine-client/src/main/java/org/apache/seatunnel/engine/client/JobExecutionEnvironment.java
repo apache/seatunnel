@@ -59,7 +59,7 @@ public class JobExecutionEnvironment {
     }
 
     private JobConfigParser getJobConfigParser() {
-        return new JobConfigParser(jobFilePath, idGenerator);
+        return new JobConfigParser(jobFilePath, idGenerator, jobConfig);
     }
 
     public void addAction(List<Action> actions) {

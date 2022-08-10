@@ -20,14 +20,15 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
+import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
 public class SeaTunnelClient implements SeaTunnelClientInstance {
     private SeaTunnelHazelcastClient hazelcastClient;
 
-    public SeaTunnelClient(@NonNull SeaTunnelClientConfig seaTunnelClientConfig) {
-        this.hazelcastClient = new SeaTunnelHazelcastClient(seaTunnelClientConfig);
+    public SeaTunnelClient(@NonNull ClientConfig clientConfig) {
+        this.hazelcastClient = new SeaTunnelHazelcastClient(clientConfig);
     }
 
     @Override

@@ -22,5 +22,17 @@ public class Constant {
 
     public static final String SEATUNNEL_ID_GENERATOR_NAME = "SeaTunnelIdGenerator";
 
-    public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "SeaTunnel";
+    public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
+
+    /**
+     * The default port number for the cluster auto-discovery mechanism's
+     * multicast communication.
+     */
+    public static final int DEFAULT_SEATUNNEL_MULTICAST_PORT = 53326;
+
+    public static final String SYSPROP_SEATUNNEL_CONFIG = "hazelcast.seatunnel.config";
+
+    public static final String HAZELCAST_SEATUNNEL_CONF_FILE_PREFIX = "seatunnel";
+
+    public static final String HAZELCAST_SEATUNNEL_DEFAULT_YAML = "seatunnel-default.yaml";
 }
