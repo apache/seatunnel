@@ -131,9 +131,9 @@ public class TaskExecutionService {
             submitBlockingTask(executionTracker, byCooperation.get(false));
             executionContexts.put(taskGroup.getId(), taskExecutionContextMap);
         } catch (Throwable t) {
-            executionTracker.future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
+            executionTracker.future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
         }
-        return executionTracker.future;
+        return new NonCompletableFuture<>(executionTracker.future);
     }
 
     private final class BlockingWorker implements Runnable {
@@ -284,7 +284,7 @@ public class TaskExecutionService {
     public final class TaskGroupExecutionTracker {
 
         private final TaskGroup taskGroup;
-        final NonCompletableFuture<TaskExecutionState> future = new NonCompletableFuture<>();
+        final CompletableFuture<TaskExecutionState> future = new CompletableFuture<>();
         volatile List<Future<?>> blockingFutures = emptyList();
 
         private final AtomicInteger completionLatch;
@@ -316,11 +316,11 @@ public class TaskExecutionService {
                 executionContexts.remove(taskGroup.getId());
                 Throwable ex = executionException.get();
                 if (ex == null) {
-                    future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FINISHED, null));
+                    future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FINISHED, null));
                 } else if (isCancel.get()) {
-                    future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.CANCELED, ex));
+                    future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.CANCELED, ex));
                 } else {
-                    future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, ex));
+                    future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, ex));
                 }
             }
         }
