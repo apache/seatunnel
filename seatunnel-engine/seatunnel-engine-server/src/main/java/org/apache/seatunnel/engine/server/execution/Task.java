@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import com.hazelcast.cluster.Address;
-import com.hazelcast.spi.impl.operationservice.Operation;
-import com.hazelcast.spi.impl.operationservice.OperationService;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -37,28 +33,13 @@ public interface Task extends Serializable {
     @NonNull
     Long getTaskID();
 
-    default boolean isCooperative() {
+    default boolean isThreadsShare() {
         return false;
     }
 
     default void close() throws IOException {
     }
 
-    default void setOperationService(OperationService operationService) {
+    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext){
     }
-
-    default <E> InvocationFuture<E> sendToMaster(Operation operation) {
-        // TODO add method send operation to master
-        return null;
-    }
-
-    default <E> InvocationFuture<E> sendToMember(Operation operation, Address memberID) {
-        // TODO add method send operation to member
-        return null;
-    }
-
-    default void receivedMessage(Object message) {
-
-    }
-
 }

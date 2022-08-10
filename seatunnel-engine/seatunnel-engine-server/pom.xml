@@ -47,6 +47,10 @@
             <artifactId>scala-library</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+        </dependency>
 
         <!-- test -->
         <dependency>
@@ -61,6 +65,7 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
 </project>

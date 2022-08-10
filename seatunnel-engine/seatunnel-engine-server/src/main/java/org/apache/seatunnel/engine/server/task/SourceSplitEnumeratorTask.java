@@ -60,8 +60,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         this.source = source;
     }
 
-    private void registerReader(int readerId, Address memberID) {
-        this.addTaskMemberMapping(readerId, memberID);
+    private void receivedReader(int readerId, Address memberAddr) {
+        this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader(readerId);
     }
 
@@ -69,11 +69,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         enumerator.handleSplitRequest(taskID);
     }
 
-    private void addTaskMemberMapping(int taskID, Address memberID) {
-        taskMemberMapping.put(taskID, memberID);
+    private void addTaskMemberMapping(int taskID, Address memberAddr) {
+        taskMemberMapping.put(taskID, memberAddr);
     }
 
-    public Address getTaskMemberID(int taskID) {
+    public Address getTaskMemberAddr(int taskID) {
         return taskMemberMapping.get(taskID);
     }
 

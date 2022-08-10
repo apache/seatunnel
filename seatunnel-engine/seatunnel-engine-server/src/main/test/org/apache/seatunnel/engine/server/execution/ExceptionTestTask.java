@@ -17,17 +17,33 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NonNull;
+import lombok.SneakyThrows;
 
-import java.io.Serializable;
-import java.util.Collection;
+import java.util.List;
 
-@Data
-public class TaskGroup implements Serializable {
-    //TODO iD is required. The construction method needs to be modified later
-    private long id;
+@AllArgsConstructor
+public class ExceptionTestTask implements Task {
+    long callTime;
+    String name;
+    List<Throwable> throwE;
 
-    private final String taskGroupName;
+    @SneakyThrows
+    @NonNull
+    @Override
+    public ProgressState call() {
+        if(!throwE.isEmpty()){
+            throw throwE.get(0);
+        }else {
+            Thread.sleep(callTime);
+        }
+        return ProgressState.MADE_PROGRESS;
+    }
 
-    private final Collection<Task> tasks;
+    @NonNull
+    @Override
+    public Long getTaskID() {
+        return (long) this.hashCode();
+    }
 }

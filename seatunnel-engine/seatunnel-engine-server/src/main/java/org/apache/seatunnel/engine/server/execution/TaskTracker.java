@@ -17,17 +17,22 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import lombok.Data;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 
-import java.io.Serializable;
-import java.util.Collection;
+import java.util.concurrent.atomic.AtomicInteger;
 
-@Data
-public class TaskGroup implements Serializable {
-    //TODO iD is required. The construction method needs to be modified later
-    private long id;
+public class TaskTracker {
+    public final AtomicInteger expiredTimes = new AtomicInteger(0);
+    public final TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker;
+    public final Task task;
 
-    private final String taskGroupName;
+    public TaskTracker(Task task, TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker) {
+        this.task = task;
+        this.taskGroupExecutionTracker = taskGroupExecutionTracker;
+    }
 
-    private final Collection<Task> tasks;
+    @Override
+    public String toString() {
+        return "Tracking " + task;
+    }
 }

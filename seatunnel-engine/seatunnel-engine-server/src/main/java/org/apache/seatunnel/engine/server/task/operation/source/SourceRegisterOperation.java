@@ -28,6 +28,7 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
@@ -50,8 +51,7 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         UUID readerUUID = getCallerUuid();
-        TaskExecutionContext executionContext =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
+        ConcurrentMap<Long, TaskExecutionContext> executionContextMap = server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
         // TODO register reader to enumerator
     }
 
