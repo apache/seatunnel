@@ -35,17 +35,51 @@ import java.util.Map;
 
 public class SeatunnelSchema {
     private static final String FIELD_KEY = "fields";
-    private static final String FORMAT_KEY = "format";
-    private static final String DELIMITER_KEY = "delimiter";
-    private static final String DEFAULT_DELIMITER = ",";
-    private final String format;
-    private final String delimiter;
     private final SeaTunnelRowType seaTunnelRowType;
 
-    private SeatunnelSchema(String format, String delimiter, SeaTunnelRowType seaTunnelRowType) {
-        this.format = format;
-        this.delimiter = delimiter;
+    private SeatunnelSchema(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
+    }
+
+    private static String[] parseMapGeneric(String type) {
+        int start = type.indexOf("<");
+        int end = type.lastIndexOf(">");
+        String genericType = type
+                // get the content between '<' and '>'
+                .substring(start + 1, end)
+                // replace the space between key and value
+                .replace(" ", "");
+        int index = genericType.indexOf(",");
+        String keyGenericType = genericType.substring(0, index);
+        String valueGenericType = genericType.substring(index + 1);
+        return new String[]{keyGenericType, valueGenericType};
+    }
+
+    private static String parseArrayGeneric(String type) {
+        int start = type.indexOf("<");
+        int end = type.lastIndexOf(">");
+        return type
+                // get the content between '<' and '>'
+                .substring(start + 1, end)
+                // replace the space between key and value
+                .replace(" ", "");
+    }
+
+    private static int[] parseDecimalPS(String type) {
+        int start = type.indexOf("(");
+        int end = type.lastIndexOf(")");
+        String decimalInfo = type
+                // get the content between '(' and ')'
+                .substring(start + 1, end)
+                // replace the space between precision and scale
+                .replace(" ", "");
+        String[] split = decimalInfo.split(",");
+        if (split.length < 2) {
+            throw new RuntimeException("Decimal type should assign precision and scale information");
+        }
+        int precision = Integer.parseInt(split[0]);
+        int scale = Integer.parseInt(split[1]);
+        return new int[]{precision, scale};
     }
 
     private static SeaTunnelDataType<?> parseTypeByString(String type) {
@@ -63,39 +97,22 @@ public class SeatunnelSchema {
         type = type.toUpperCase();
         if (type.contains("<") || type.contains(">")) {
             // Map type or Array type
-            int start = type.indexOf("<");
-            int end = type.lastIndexOf(">");
-            genericType = type
-                    // get the content between '<' and '>'
-                    .substring(start + 1, end)
-                    // replace the space between key and value
-                    .replace(" ", "");
-            if (type.contains("MAP")) {
-                // if map type we should split by the first ','
-                int index = genericType.indexOf(",");
-                keyGenericType = genericType.substring(0, index);
-                valueGenericType = genericType.substring(index + 1);
-                type = "MAP";
+            if (type.contains(SqlType.MAP.name())) {
+                String[] genericTypes = parseMapGeneric(type);
+                keyGenericType = genericTypes[0];
+                valueGenericType = genericTypes[1];
+                type = SqlType.MAP.name();
             } else {
-                type = "ARRAY";
+                genericType = parseArrayGeneric(type);
+                type = SqlType.ARRAY.name();
             }
         }
         if (type.contains("(")) {
             // Decimal type
-            int start = type.indexOf("(");
-            int end = type.lastIndexOf(")");
-            String decimalInfo = type
-                    // get the content between '(' and ')'
-                    .substring(start + 1, end)
-                    // replace the space between precision and scale
-                    .replace(" ", "");
-            String[] split = decimalInfo.split(",");
-            if (split.length < 2) {
-                throw new RuntimeException("Decimal type should assign precision and scale information");
-            }
-            precision = Integer.parseInt(split[0]);
-            scale = Integer.parseInt(split[1]);
-            type = "DECIMAL";
+            int[] results = parseDecimalPS(type);
+            precision = results[0];
+            scale = results[1];
+            type = SqlType.DECIMAL.name();
         }
         SqlType sqlType;
         try {
@@ -162,9 +179,9 @@ public class SeatunnelSchema {
     }
 
     public static SeatunnelSchema buildWithConfig(Config schemaConfig) {
-        CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY, FORMAT_KEY);
+        CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY);
         if (!checkResult.isSuccess()) {
-            String errorMsg = String.format("Schema config need option [%s, %s], please correct your config first", FIELD_KEY, FORMAT_KEY);
+            String errorMsg = String.format("Schema config need option [%s], please correct your config first", FIELD_KEY);
             throw new RuntimeException(errorMsg);
         }
         Config fields = schemaConfig.getConfig(FIELD_KEY);
@@ -181,21 +198,7 @@ public class SeatunnelSchema {
             i++;
         }
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
-        if (schemaConfig.hasPath(FORMAT_KEY)) {
-            String delimiter = schemaConfig.getString(DELIMITER_KEY);
-            return new SeatunnelSchema(schemaConfig.getString(FORMAT_KEY), delimiter, seaTunnelRowType);
-        } else {
-            // default json
-            return new SeatunnelSchema("json", DEFAULT_DELIMITER, seaTunnelRowType);
-        }
-    }
-
-    public String getFormat() {
-        return format;
-    }
-
-    public String getDelimiter() {
-        return delimiter;
+        return new SeatunnelSchema(seaTunnelRowType);
     }
 
     public SeaTunnelRowType getSeaTunnelRowType() {
