@@ -66,7 +66,7 @@ class Redis extends SparkBatchSource {
    */
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     // Get data from redis through keys and combine it into a dataset
-    val isSelfAchieved = if (config.getIsNull(IS_SELF_ACHIEVED_REDIS)) false else true
+    val isSelfAchieved = if (config.getIsNull(IS_SELF_ACHIEVED_REDIS)) false else config.getBoolean(IS_SELF_ACHIEVED_REDIS)
 
     val redisConfigs = RedisUtil.getRedisConfig(isSelfAchieved, config)
 

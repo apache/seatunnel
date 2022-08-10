@@ -22,8 +22,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config
 import org.apache.seatunnel.spark.redis.common.Constants.{AUTH, DB_NUM, HOST, PORT, TIMEOUT}
 
 object RedisUtil {
-  def getRedisConfig(isSelfAchieved: Boolean, config: Config): RedisConfig ={
-    if(isSelfAchieved) {
+  def getRedisConfig(isSelfAchieved: Boolean, config: Config): RedisConfig = {
+    if (isSelfAchieved) {
       new SelfAchievedRedisProxyConfig(RedisEndpoint(
         host = config.getString(HOST),
         port = config.getInt(PORT),
