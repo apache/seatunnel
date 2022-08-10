@@ -24,14 +24,16 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskCallTimer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 
-import com.hazelcast.jet.impl.util.NonCompletableFuture;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.properties.HazelcastProperties;
@@ -109,7 +111,7 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
-    public CompletableFuture<Void> submitTaskGroup(
+    public CompletableFuture<TaskExecutionState> submitTaskGroup(
         TaskGroup taskGroup,
         CompletableFuture<Void> cancellationFuture
     ) {
@@ -129,7 +131,7 @@ public class TaskExecutionService {
             submitBlockingTask(executionTracker, byCooperation.get(false));
             executionContexts.put(taskGroup.getId(), taskExecutionContextMap);
         } catch (Throwable t) {
-            executionTracker.future.internalCompleteExceptionally(t);
+            executionTracker.future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
         }
         return executionTracker.future;
     }
@@ -282,16 +284,19 @@ public class TaskExecutionService {
     public final class TaskGroupExecutionTracker {
 
         private final TaskGroup taskGroup;
-        final NonCompletableFuture future = new NonCompletableFuture();
+        final NonCompletableFuture<TaskExecutionState> future = new NonCompletableFuture<>();
         volatile List<Future<?>> blockingFutures = emptyList();
 
         private final AtomicInteger completionLatch;
         private final AtomicReference<Throwable> executionException = new AtomicReference<>();
 
+        private final AtomicBoolean isCancel = new AtomicBoolean(false);
+
         TaskGroupExecutionTracker(CompletableFuture<Void> cancellationFuture, TaskGroup taskGroup) {
             this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
             this.taskGroup = taskGroup;
             cancellationFuture.whenComplete(withTryCatch(logger, (r, e) -> {
+                isCancel.set(true);
                 if (e == null) {
                     e = new IllegalStateException("cancellationFuture should be completed exceptionally");
                 }
@@ -311,9 +316,11 @@ public class TaskExecutionService {
                 executionContexts.remove(taskGroup.getId());
                 Throwable ex = executionException.get();
                 if (ex == null) {
-                    future.internalComplete();
+                    future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FINISHED, null));
+                } else if (isCancel.get()) {
+                    future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.CANCELED, ex));
                 } else {
-                    future.internalCompleteExceptionally(ex);
+                    future.internalComplete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, ex));
                 }
             }
         }

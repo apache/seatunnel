@@ -17,16 +17,22 @@
 
 package execution;
 
+import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
+import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED;
+import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -40,6 +46,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -47,14 +54,14 @@ import java.util.function.BiConsumer;
 
 public class TaskExecutionServiceTest {
 
-    HazelcastInstanceImpl instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(new Config(), Thread.currentThread().getName(), new SeaTunnelNodeContext())).getOriginal();
+    HazelcastInstanceImpl instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(new Config(), Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
     SeaTunnelServer service = instance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     ILogger logger = instance.node.nodeEngine.getLogger(TaskExecutionServiceTest.class);
 
     long taskRunTime = 2000;
 
     @Test
-    public void testAll() throws InterruptedException {
+    public void testAll() throws InterruptedException, ExecutionException {
         logger.info("----------start Cancel test----------");
         testCancel();
 
@@ -73,7 +80,7 @@ public class TaskExecutionServiceTest {
 
     }
 
-    public void testCancel() throws InterruptedException {
+    public void testCancel() {
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
         long sleepTime = 300;
@@ -84,16 +91,16 @@ public class TaskExecutionServiceTest {
 
         CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<Void> voidCompletableFuture = taskExecutionService.submitTaskGroup(new TaskGroup(testTask1,testTask2), cancellationFuture);
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.submitTaskGroup(new TaskGroup("ts", Lists.newArrayList(testTask1,testTask2)), cancellationFuture);
 
         cancellationFuture.cancel(true);
 
-        await().atMost(sleepTime + 100, TimeUnit.MILLISECONDS).untilAsserted(()->{
-            assertTrue(voidCompletableFuture.isCompletedExceptionally());
+        await().atMost(sleepTime + 300, TimeUnit.MILLISECONDS).untilAsserted(()->{
+            assertEquals(CANCELED, completableFuture.get().getExecutionState());
         });
     }
 
-    public void testFinish() throws InterruptedException {
+    public void testFinish() {
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
         long sleepTime = 300;
@@ -105,10 +112,10 @@ public class TaskExecutionServiceTest {
 
         CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<Void> voidCompletableFuture = taskExecutionService.submitTaskGroup(new TaskGroup(testTask1,testTask2), cancellationFuture);
-        voidCompletableFuture.whenComplete(new BiConsumer<Void, Throwable>() {
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.submitTaskGroup(new TaskGroup("ts", Lists.newArrayList(testTask1,testTask2)), cancellationFuture);
+        completableFuture.whenComplete(new BiConsumer<TaskExecutionState, Throwable>() {
             @Override
-            public void accept(Void unused, Throwable throwable) {
+            public void accept(TaskExecutionState unused, Throwable throwable) {
                 futureMark.set(true);
             }
         });
@@ -116,7 +123,7 @@ public class TaskExecutionServiceTest {
         stop.set(true);
 
         await().atMost(sleepTime + 100, TimeUnit.MILLISECONDS).untilAsserted(()->{
-            assertTrue(voidCompletableFuture.isDone());
+            assertEquals(FINISHED, completableFuture.get().getExecutionState());
         });
 
         assertTrue(futureMark.get());
@@ -140,7 +147,7 @@ public class TaskExecutionServiceTest {
 
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
-        CompletableFuture<Void> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup(criticalTask), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup("t1", Lists.newArrayList(criticalTask)), new CompletableFuture<Void>());
 
         // Run it for a while
         Thread.sleep(taskRunTime);
@@ -150,7 +157,7 @@ public class TaskExecutionServiceTest {
 
         // Check all task ends right
         await().atMost(count * callTime, TimeUnit.MILLISECONDS).untilAsserted(()->{
-            assertTrue(taskCts.isDone());
+            assertEquals(FINISHED, taskCts.get().getExecutionState());
         });
 
         //Check that each Task is only Done once
@@ -187,12 +194,12 @@ public class TaskExecutionServiceTest {
         Collections.shuffle(tasks);
 
 
-        CompletableFuture<Void> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup(tasks), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup("ts", Lists.newArrayList(tasks)), new CompletableFuture<Void>());
 
 
-        CompletableFuture<Void> t1c = taskExecutionService.submitTaskGroup(new TaskGroup(t1), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> t1c = taskExecutionService.submitTaskGroup(new TaskGroup("t1", Lists.newArrayList(t1)), new CompletableFuture<Void>());
 
-        CompletableFuture<Void> t2c = taskExecutionService.submitTaskGroup(new TaskGroup(t2), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> t2c = taskExecutionService.submitTaskGroup(new TaskGroup("t2", Lists.newArrayList(t2)), new CompletableFuture<Void>());
 
         Thread.sleep(taskRunTime);
 
@@ -200,14 +207,14 @@ public class TaskExecutionServiceTest {
         t2throwable.add(new IOException());
 
         await().atMost(t1Sleep + t2Sleep, TimeUnit.MILLISECONDS).untilAsserted(()->{
-            assertTrue(t1c.isCompletedExceptionally());
-            assertTrue(t2c.isCompletedExceptionally());
+            assertEquals(FAILED, t1c.get().getExecutionState());
+            assertEquals(FAILED, t2c.get().getExecutionState());
         });
 
         stopMark.set(true);
 
         await().atMost(lowLagSleep * 10 + highLagSleep, TimeUnit.MILLISECONDS).untilAsserted(()->{
-            assertTrue(taskCts.isDone());
+            assertEquals(FINISHED, taskCts.get().getExecutionState());
         });
     }
 
@@ -232,7 +239,7 @@ public class TaskExecutionServiceTest {
         tasks.addAll(lowLagTask);
         Collections.shuffle(tasks);
 
-        TaskGroup taskGroup = new TaskGroup(tasks);
+        TaskGroup taskGroup = new TaskGroup("ts", Lists.newArrayList(tasks));
 
 
         logger.info("task size is : " + taskGroup.getTasks().size());
@@ -241,7 +248,7 @@ public class TaskExecutionServiceTest {
 
         CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<Void> voidCompletableFuture = taskExecutionService.submitTaskGroup(taskGroup, cancellationFuture);
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.submitTaskGroup(taskGroup, cancellationFuture);
 
         //stop tasks
         Thread.sleep(taskRunTime);
@@ -249,7 +256,7 @@ public class TaskExecutionServiceTest {
 
         //Check all task ends right
         await().atMost(lowLagSleep * 10 + highLagSleep, TimeUnit.MILLISECONDS).untilAsserted(()->{
-            assertTrue(voidCompletableFuture.isDone());
+            assertEquals(FINISHED, completableFuture.get().getExecutionState());
         });
 
         //Computation Delay
