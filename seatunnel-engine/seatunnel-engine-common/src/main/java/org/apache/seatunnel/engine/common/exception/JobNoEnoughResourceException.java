@@ -17,16 +17,16 @@
 
 package org.apache.seatunnel.engine.common.exception;
 
-public class JobCanceledException extends SeaTunnelEngineException {
-    public JobCanceledException(long jobId) {
-        super("Job with id " + jobId + " canceled");
+public class JobNoEnoughResourceException extends SeaTunnelEngineException {
+    public JobNoEnoughResourceException(String jobName, long jobId, int pipelineIndex, int totalPipelineNum) {
+        super(String.format("Job %s (%s), Pipeline [(%s/%s)] have no enough resource.", jobName, jobId, pipelineIndex + 1, totalPipelineNum));
     }
 
-    public JobCanceledException(String message) {
+    public JobNoEnoughResourceException(String message) {
         super(message);
     }
 
-    public JobCanceledException(String message, Throwable cause) {
+    public JobNoEnoughResourceException(String message, Throwable cause) {
         super(message, cause);
     }
 }

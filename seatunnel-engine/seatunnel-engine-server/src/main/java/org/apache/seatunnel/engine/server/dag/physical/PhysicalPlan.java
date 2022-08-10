@@ -62,7 +62,7 @@ public class PhysicalPlan {
      * in {@link org.apache.seatunnel.engine.server.scheduler.JobScheduler} whenComplete method will be called.
      */
     private final CompletableFuture<JobStatus> jobEndFuture;
-
+    private final NonCompletableFuture<JobStatus> nonCompletableFuture;
 
     /**
      * This future only can completion by the {@link SubPlan } subPlanFuture.
@@ -83,16 +83,29 @@ public class PhysicalPlan {
         this.stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
         this.jobStatus.set(JobStatus.CREATED);
         this.stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
-        this.jobEndFuture = new CompletableFuture<JobStatus>();
+        this.jobEndFuture = new CompletableFuture<>();
+        this.nonCompletableFuture = new NonCompletableFuture<>(jobEndFuture);
         this.waitForCompleteBySubPlan = waitForCompleteBySubPlan;
         this.pipelineList = pipelineList;
 
         Arrays.stream(this.waitForCompleteBySubPlan).forEach(x -> {
             x.whenComplete((v, t) -> {
+                // We need not handle t, Because we will not return t from Pipeline
                 if (PipelineState.CANCELED.equals(v)) {
                     canceledPipelineNum.incrementAndGet();
                 } else if (PipelineState.FAILED.equals(v)) {
-                    failedPipelineNum.incrementAndGet();
+                    LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
+                    cancelJob().whenComplete((v1, t1) -> {
+                        LOGGER.severe(String.format("Cancel other pipelines complete"));
+                        failedPipelineNum.incrementAndGet();
+                    });
+                } else if (!PipelineState.FINISHED.equals(v)) {
+                    LOGGER.severe(
+                        "Pipeline Failed with Unknown PipelineState, Begin to cancel other pipelines in this job.");
+                    cancelJob().whenComplete((v1, t1) -> {
+                        LOGGER.severe(String.format("Cancel other pipelines complete"));
+                        failedPipelineNum.incrementAndGet();
+                    });
                 }
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
@@ -107,6 +120,16 @@ public class PhysicalPlan {
                 }
             });
         });
+    }
+
+    public NonCompletableFuture<Void> cancelJob() {
+        CompletableFuture<Void> cancelFuture = CompletableFuture.supplyAsync(() -> {
+            // TODO Implement cancel pipeline in job.
+            return null;
+        });
+
+        cancelFuture.complete(null);
+        return new NonCompletableFuture<>(cancelFuture);
     }
 
     public List<SubPlan> getPipelineList() {
@@ -131,7 +154,7 @@ public class PhysicalPlan {
         // now do the actual state transition
         if (jobStatus.get() == current) {
             jobStatus.set(targetState);
-            LOGGER.info(String.format("Job {} ({}) turn from state {} to {}.",
+            LOGGER.info(String.format("Job %s (%s) turn from state %s to %s.",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
                 current,
@@ -144,11 +167,15 @@ public class PhysicalPlan {
         }
     }
 
-    public CompletableFuture<JobStatus> getJobEndCompletableFuture() {
-        return this.jobEndFuture;
+    public NonCompletableFuture<JobStatus> getJobEndCompletableFuture() {
+        return this.nonCompletableFuture;
     }
 
     public JobImmutableInformation getJobImmutableInformation() {
         return jobImmutableInformation;
+    }
+
+    public JobStatus getJobStatus() {
+        return jobStatus.get();
     }
 }

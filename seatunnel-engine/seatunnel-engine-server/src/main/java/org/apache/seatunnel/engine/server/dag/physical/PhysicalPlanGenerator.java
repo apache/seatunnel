@@ -122,7 +122,8 @@ public class PhysicalPlanGenerator {
                 coordinatorVertexList,
                 pipelineFuture,
                 waitForCompleteByPhysicalVertexList.toArray(
-                    new NonCompletableFuture[waitForCompleteByPhysicalVertexList.size()]));
+                    new NonCompletableFuture[waitForCompleteByPhysicalVertexList.size()]),
+                jobImmutableInformation);
         });
 
         PhysicalPlan physicalPlan = new PhysicalPlan(subPlanStream.collect(Collectors.toList()),
@@ -153,7 +154,7 @@ public class PhysicalPlanGenerator {
                     new SinkAggregatedCommitterTask(idGenerator.getNextId(), s);
 
                 CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
-                waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
+                waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture(taskFuture));
 
                 return new PhysicalVertex(idGenerator.getNextId(),
                     atomicInteger.incrementAndGet(),
@@ -164,7 +165,9 @@ public class PhysicalPlanGenerator {
                     flakeIdGenerator,
                     pipelineIndex,
                     totalPipelineNum,
-                    null);
+                    null,
+                    jobImmutableInformation,
+                    initializationTimestamp);
             }).collect(Collectors.toList());
     }
 
@@ -192,7 +195,9 @@ public class PhysicalPlanGenerator {
                         flakeIdGenerator,
                         pipelineIndex,
                         totalPipelineNum,
-                        seaTunnelTask.getJarsUrl()));
+                        seaTunnelTask.getJarsUrl(),
+                        jobImmutableInformation,
+                        initializationTimestamp));
                 }
                 return t.stream();
             }).collect(Collectors.toList());
@@ -218,7 +223,9 @@ public class PhysicalPlanGenerator {
                 flakeIdGenerator,
                 pipelineIndex,
                 totalPipelineNum,
-                t.getJarsUrl());
+                t.getJarsUrl(),
+                jobImmutableInformation,
+                initializationTimestamp);
         }).collect(Collectors.toList());
     }
 
@@ -256,7 +263,9 @@ public class PhysicalPlanGenerator {
                         flakeIdGenerator,
                         pipelineIndex,
                         totalPipelineNum,
-                        jars));
+                        jars,
+                        jobImmutableInformation,
+                        initializationTimestamp));
                 }
                 return t.stream();
             }).collect(Collectors.toList());

@@ -17,16 +17,21 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class JobProxy implements Job {
+    private static final ILogger LOGGER = Logger.getLogger(JobProxy.class);
     private SeaTunnelHazelcastClient seaTunnelHazelcastClient;
     private JobImmutableInformation jobImmutableInformation;
 
@@ -42,11 +47,11 @@ public class JobProxy implements Job {
     }
 
     @Override
-    public void submitJob() {
+    public void submitJob() throws ExecutionException, InterruptedException {
         ClientMessage request = SeaTunnelSubmitJobCodec.encodeRequest(
             seaTunnelHazelcastClient.getSerializationService().toData(jobImmutableInformation));
-        CompletableFuture<Void> voidCompletableFuture =
+        NonCompletableFuture<Void> submitJobFuture =
             seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
-        voidCompletableFuture.join();
+        submitJobFuture.get();
     }
 }

@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.exception;
+package org.apache.seatunnel.common.utils;
 
-public class JobFailedException extends SeaTunnelEngineException {
-    public JobFailedException(long jobId) {
-        super("Job with id " + jobId + " failed");
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
+public class ExceptionUtils {
+    private ExceptionUtils() {
     }
 
-    public JobFailedException(String message) {
-        super(message);
-    }
-
-    public JobFailedException(String message, Throwable cause) {
-        super(message, cause);
+    public static String getMessage(Throwable e) {
+        try (StringWriter sw = new StringWriter();
+             PrintWriter pw = new PrintWriter(sw)) {
+            // Output the error stack information to the printWriter
+            e.printStackTrace(pw);
+            pw.flush();
+            sw.flush();
+            return sw.toString();
+        } catch (Exception e1) {
+            e1.printStackTrace();
+            throw new RuntimeException("Failed to print exception logs", e1);
+        }
     }
 }

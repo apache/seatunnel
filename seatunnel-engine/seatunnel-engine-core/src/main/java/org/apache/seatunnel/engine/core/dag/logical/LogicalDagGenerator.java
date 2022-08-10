@@ -40,9 +40,9 @@ public class LogicalDagGenerator {
     private JobConfig jobConfig;
     private IdGenerator idGenerator;
 
-    private Map<Action, Collection<Integer>> alreadyTransformed = new HashMap<>();
+    private Map<Action, Collection<Long>> alreadyTransformed = new HashMap<>();
 
-    private Map<Integer, LogicalVertex> logicalIdVertexMap = new HashMap<>();
+    private Map<Long, LogicalVertex> logicalIdVertexMap = new HashMap<>();
 
     public LogicalDagGenerator(@NonNull List<Action> actions,
                                @NonNull JobConfig jobConfig,
@@ -63,12 +63,12 @@ public class LogicalDagGenerator {
         return logicalDag;
     }
 
-    private Collection<Integer> transformAction(Action action) {
+    private Collection<Long> transformAction(Action action) {
         if (alreadyTransformed.containsKey(action)) {
             return alreadyTransformed.get(action);
         }
 
-        Collection<Integer> upstreamVertexIds = new ArrayList<>();
+        Collection<Long> upstreamVertexIds = new ArrayList<>();
         List<Action> upstream = action.getUpstream();
         if (!CollectionUtils.isEmpty(upstream)) {
             for (Action upstreamAction : upstream) {
@@ -79,7 +79,7 @@ public class LogicalDagGenerator {
         LogicalVertex logicalVertex =
             new LogicalVertex(action.getId(), action, action.getParallelism());
         logicalDag.addLogicalVertex(logicalVertex);
-        Collection<Integer> transformedActions = Lists.newArrayList(logicalVertex.getVertexId());
+        Collection<Long> transformedActions = Lists.newArrayList(logicalVertex.getVertexId());
         alreadyTransformed.put(action, transformedActions);
         logicalIdVertexMap.put(logicalVertex.getVertexId(), logicalVertex);
 

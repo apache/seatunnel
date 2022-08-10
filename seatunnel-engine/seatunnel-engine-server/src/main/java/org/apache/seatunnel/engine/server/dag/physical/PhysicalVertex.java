@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
@@ -33,6 +35,7 @@ import java.net.URL;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * PhysicalVertex is responsible for the scheduling and execution of a single task parallel
@@ -50,7 +53,7 @@ public class PhysicalVertex {
      */
     private final int subTaskGroupIndex;
 
-    private final String taskNameWithSubtaskAndPipeline;
+    private final String taskFullName;
 
     private final int parallelism;
 
@@ -66,17 +69,30 @@ public class PhysicalVertex {
 
     private final Set<URL> pluginJarsUrls;
 
+    private AtomicReference<ExecutionState> executionState = new AtomicReference<>();
+
     /**
      * When PhysicalVertex status turn to end, complete this future. And then the waitForCompleteByPhysicalVertex
      * in {@link SubPlan} whenComplete method will be called.
      */
     private final CompletableFuture<TaskExecutionState> taskFuture;
 
+    /**
+     * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
+     * task transitioned into a certain state. The index into this array is the ordinal
+     * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
+     * stateTimestamps[RUNNING.ordinal()]}.
+     */
+    private final long[] stateTimestamps;
 
     /**
      * This future only can completion by the task run in {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
      */
     private NonCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
+
+    private final JobImmutableInformation jobImmutableInformation;
+
+    private final long initializationTimestamp;
 
     public PhysicalVertex(long physicalVertexId,
                           int subTaskGroupIndex,
@@ -87,7 +103,9 @@ public class PhysicalVertex {
                           @NonNull FlakeIdGenerator flakeIdGenerator,
                           int pipelineIndex,
                           int totalPipelineNum,
-                          Set<URL> pluginJarsUrls) {
+                          Set<URL> pluginJarsUrls,
+                          @NonNull JobImmutableInformation jobImmutableInformation,
+                          long initializationTimestamp) {
         this.physicalVertexId = physicalVertexId;
         this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
@@ -97,14 +115,22 @@ public class PhysicalVertex {
         this.pipelineIndex = pipelineIndex;
         this.totalPipelineNum = totalPipelineNum;
         this.pluginJarsUrls = pluginJarsUrls;
-        this.taskNameWithSubtaskAndPipeline =
+        this.jobImmutableInformation = jobImmutableInformation;
+        this.initializationTimestamp = initializationTimestamp;
+        stateTimestamps = new long[ExecutionState.values().length];
+        this.stateTimestamps[ExecutionState.INITIALIZING.ordinal()] = initializationTimestamp;
+        this.executionState.set(ExecutionState.CREATED);
+        this.stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
+        this.taskFullName =
             String.format(
-                "task: [%s (%d/%d)], pipeline: [%d/%d]",
+                "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
+                jobImmutableInformation.getJobConfig().getName(),
+                jobImmutableInformation.getJobId(),
+                pipelineIndex + 1,
+                totalPipelineNum,
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
-                parallelism,
-                pipelineIndex,
-                totalPipelineNum);
+                parallelism);
         this.taskFuture = taskFuture;
     }
 
@@ -115,25 +141,35 @@ public class PhysicalVertex {
         long executionId = flakeIdGenerator.newId();
         CompletableFuture<TaskExecutionState> uCompletableFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                Thread.sleep(5000);
+                Thread.sleep(2000);
                 return new TaskExecutionState(executionId, ExecutionState.FINISHED, null);
             } catch (InterruptedException e) {
                 return new TaskExecutionState(executionId, ExecutionState.FAILED, e);
             }
-        }, executorService);
+        });
 
-        waitForCompleteByExecutionService = new NonCompletableFuture<TaskExecutionState>(uCompletableFuture);
+        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
+        waitForCompleteByExecutionService = new NonCompletableFuture(uCompletableFuture);
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
-            if (t != null) {
-                // TODO t.getMessage() need be replace
-                LOGGER.info(String.format("The Task {} Failed with Exception: {}",
-                    this.taskNameWithSubtaskAndPipeline,
-                    t.getMessage()));
-                taskFuture.complete(new TaskExecutionState(executionId, ExecutionState.FAILED, t));
-            } else {
-                LOGGER.info(String.format("The Task {} end with state {}",
-                    this.taskNameWithSubtaskAndPipeline,
-                    v));
+            try {
+                // We need not handle t, Because we will not return t from TaskExecutionService
+                // v will never be null
+                if (v.getThrowable() != null) {
+                    LOGGER.severe(String.format("%s end with state %s and Exception: %s",
+                        this.taskFullName,
+                        v.getExecutionState(),
+                        ExceptionUtils.getMessage(v.getThrowable())));
+                } else {
+                    LOGGER.severe(String.format("%s end with state %s",
+                        this.taskFullName,
+                        v.getExecutionState()));
+                }
+                updateTaskState(executionState.get(), v.getExecutionState());
+                taskFuture.complete(v);
+            } catch (Throwable th) {
+                LOGGER.severe(
+                    String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
+                v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, null);
                 taskFuture.complete(v);
             }
         });
@@ -141,5 +177,46 @@ public class PhysicalVertex {
 
     public long getPhysicalVertexId() {
         return physicalVertexId;
+    }
+
+    public boolean updateTaskState(@NonNull ExecutionState current, @NonNull ExecutionState targetState) {
+        // consistency check
+        if (current.isEndState()) {
+            String message = "Task is trying to leave terminal state " + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (ExecutionState.SCHEDULED.equals(targetState) && !ExecutionState.CREATED.equals(current)) {
+            String message = "Only [CREATED] task can turn to [SCHEDULED]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (ExecutionState.DEPLOYING.equals(targetState) && !ExecutionState.SCHEDULED.equals(current)) {
+            String message = "Only [SCHEDULED] task can turn to [DEPLOYING]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (ExecutionState.RUNNING.equals(targetState) && !ExecutionState.DEPLOYING.equals(current)) {
+            String message = "Only [DEPLOYING] task can turn to [RUNNING]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        // now do the actual state transition
+        if (executionState.get() == current) {
+            executionState.set(targetState);
+            LOGGER.info(String.format("%s turn from state %s to %s.",
+                taskFullName,
+                current,
+                targetState));
+
+            stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
+            return true;
+        } else {
+            return false;
+        }
     }
 }

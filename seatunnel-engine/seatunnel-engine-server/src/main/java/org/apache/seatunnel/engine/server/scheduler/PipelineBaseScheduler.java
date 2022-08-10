@@ -17,20 +17,22 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
-import org.apache.seatunnel.engine.common.exception.JobException;
-import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
-import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
+import org.apache.seatunnel.engine.common.exception.JobNoEnoughResourceException;
+import org.apache.seatunnel.engine.core.job.PipelineState;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 
-import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
 import java.util.concurrent.CompletableFuture;
 
 public class PipelineBaseScheduler implements JobScheduler {
+    private static final ILogger LOGGER = Logger.getLogger(PipelineBaseScheduler.class);
     private final PhysicalPlan physicalPlan;
     private final JobMaster jobMaster;
     private final ResourceManager resourceManager;
@@ -43,30 +45,61 @@ public class PipelineBaseScheduler implements JobScheduler {
 
     @Override
     public void startScheduling() {
+        physicalPlan.turnToRunning();
         physicalPlan.getPipelineList().forEach(pipeline -> {
-            applyResourceForPipeline(pipeline).whenComplete((v, t) -> {
-                if (t != null) {
-                    ExceptionUtil.rethrow(new JobException(String.format("Apply resources for job %s"));
-                }
-            });
+            pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED);
+            if (applyResourceForPipeline(pipeline)) {
+                // deploy pipeline
+                deployPipeline(pipeline);
+            } else {
+                pipeline.failedWithNoEnoughResource();
+            }
         });
     }
 
-    private CompletableFuture<Void> applyResourceForPipeline(@NonNull SubPlan subPlan) {
-        return CompletableFuture.supplyAsync(() -> {
+    private boolean applyResourceForPipeline(@NonNull SubPlan subPlan) {
+        try {
             // apply resource for coordinators
             subPlan.getCoordinatorVertexList().forEach(coordinator -> {
                 // TODO If there is no enough resources for tasks, we need add some wait profile
+                coordinator.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
                 resourceManager.applyForResource(physicalPlan.getJobImmutableInformation().getJobId(),
                     coordinator.getPhysicalVertexId());
             });
 
             // apply resource for other tasks
             subPlan.getPhysicalVertexList().forEach(task -> {
+                task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
                 resourceManager.applyForResource(physicalPlan.getJobImmutableInformation().getJobId(),
                     task.getPhysicalVertexId());
             });
-            return null;
+        } catch (JobNoEnoughResourceException e) {
+            LOGGER.severe(e);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void deployPipeline(@NonNull SubPlan pipeline) {
+        pipeline.updatePipelineState(PipelineState.SCHEDULED, PipelineState.DEPLOYING);
+        pipeline.getCoordinatorVertexList().forEach(coordinator -> {
+            if (coordinator.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
+                // deploy is a time-consuming operation, so we do it async
+                CompletableFuture.supplyAsync(() -> {
+                    coordinator.deploy();
+                    return null;
+                });
+            }
+        });
+
+        pipeline.getPhysicalVertexList().forEach(task -> {
+            if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
+                CompletableFuture.supplyAsync(() -> {
+                    task.deploy();
+                    return null;
+                });
+            }
         });
     }
 }

@@ -31,6 +31,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 public class JobExecutionEnvironment {
 
@@ -74,7 +75,7 @@ public class JobExecutionEnvironment {
         return actions;
     }
 
-    public JobProxy execute() {
+    public JobProxy execute() throws ExecutionException, InterruptedException {
         JobClient jobClient = new JobClient(seaTunnelHazelcastClient);
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
             jobClient.getNewJobId(),
