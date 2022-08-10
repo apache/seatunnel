@@ -15,31 +15,31 @@
  * limitations under the License.
  */
 
-package execution;
-
-import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
+package org.apache.seatunnel.engine.server.execution;
 
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
-import lombok.SneakyThrows;
 
-import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @AllArgsConstructor
-public class ExceptionTestTask implements Task {
+public class StopTimeTestTask implements Task {
     long callTime;
-    String name;
-    List<Throwable> throwE;
+    CopyOnWriteArrayList<Long> stopList;
+    AtomicBoolean stop;
 
-    @SneakyThrows
     @NonNull
     @Override
     public ProgressState call() {
-        if(!throwE.isEmpty()){
-            throw throwE.get(0);
-        }else {
+        try {
             Thread.sleep(callTime);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e.toString());
+        }
+        if(stop.get()){
+            stopList.add(Thread.currentThread().getId());
+            return ProgressState.DONE;
         }
         return ProgressState.MADE_PROGRESS;
     }
@@ -48,5 +48,10 @@ public class ExceptionTestTask implements Task {
     @Override
     public Long getTaskID() {
         return (long) this.hashCode();
+    }
+
+    @Override
+    public boolean isThreadsShare() {
+        return Task.super.isThreadsShare();
     }
 }

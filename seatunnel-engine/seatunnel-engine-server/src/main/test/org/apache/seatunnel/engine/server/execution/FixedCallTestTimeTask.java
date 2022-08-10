@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-package execution;
-
-import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
+package org.apache.seatunnel.engine.server.execution;
 
 import lombok.NonNull;
 
