@@ -34,6 +34,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
@@ -108,17 +109,12 @@ public class LocalFileStorage extends AbstractCheckPointStorage {
         if (fileList.isEmpty()) {
             throw new CheckPointStorageException("No checkpoint found for job " + jobId);
         }
-        AtomicReference<PipelineState> pipelineState = new AtomicReference();
-        fileList.stream().max(Comparator.comparing(File::getAbsolutePath)).ifPresent(file -> {
-            try {
-                byte[] data = FileUtils.readFileToByteArray(file);
-                pipelineState.set(deserializeCheckPointData(data));
-            } catch (IOException ignored) {
-                log.error("Failed to read checkpoint data from file " + file.getAbsolutePath(), ignored);
-            }
-        });
-        if (null != pipelineState.get()) {
-            return pipelineState.get();
+        Optional<File> fileOptional = fileList.stream().max(Comparator.comparing(File::getName));
+        try {
+            byte[] data = FileUtils.readFileToByteArray(fileOptional.get());
+            return deserializeCheckPointData(data);
+        } catch (IOException e) {
+            log.error("Failed to read checkpoint data from file " + fileOptional.get().getAbsolutePath(), e);
         }
         throw new CheckPointStorageException("No checkpoint found for job " + jobId);
 
