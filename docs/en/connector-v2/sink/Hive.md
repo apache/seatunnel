@@ -1,5 +1,7 @@
 # Hive
 
+> Hive sink connector
+
 ## Description
 
 Write data to Hive.

@@ -1,4 +1,7 @@
 # Http
+
+> Http source connector
+
 ## Description
 
 Used to read data from Http. Both support streaming and batch mode.
