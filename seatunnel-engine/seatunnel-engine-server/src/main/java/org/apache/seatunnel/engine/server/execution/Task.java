@@ -42,4 +42,8 @@ public interface Task extends Serializable {
 
     default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext){
     }
+
+    default void receivedMessage(Object message) {
+    }
+
 }

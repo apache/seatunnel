@@ -65,7 +65,7 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
     @Override
     public void close() throws IOException {
         writer.close();
-        runningTask.sendToMaster(new SinkUnregisterOperation(runningTask.getTaskID(), committerTaskID));
+        runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(runningTask.getTaskID(), committerTaskID));
 
     }
 
@@ -75,7 +75,7 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
 
     private void registerCommitter() {
         if (containCommitter) {
-            runningTask.sendToMaster(new SinkRegisterOperation(runningTask.getTaskID(), committerTaskID));
+            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(runningTask.getTaskID(), committerTaskID));
         }
     }
 

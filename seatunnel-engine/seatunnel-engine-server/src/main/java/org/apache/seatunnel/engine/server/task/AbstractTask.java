@@ -48,6 +48,10 @@ public abstract class AbstractTask implements Task {
         this.executionContext = taskExecutionContext;
     }
 
+    public TaskExecutionContext getExecutionContext() {
+        return executionContext;
+    }
+
     @NonNull
     @Override
     public ProgressState call() throws Exception {

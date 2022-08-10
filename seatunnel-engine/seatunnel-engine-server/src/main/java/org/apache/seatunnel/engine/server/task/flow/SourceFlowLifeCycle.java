@@ -75,7 +75,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowL
 
     public void signalNoMoreElement() {
         // Close this reader
-        runningTask.sendToMaster(new SourceUnregisterOperation(currentTaskID, enumeratorTaskID));
+        runningTask.getExecutionContext().sendToMaster(new SourceUnregisterOperation(currentTaskID,
+                enumeratorTaskID));
         try {
             runningTask.close();
         } catch (Exception e) {
@@ -84,11 +85,11 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowL
     }
 
     private void register() {
-        runningTask.sendToMaster(new SourceRegisterOperation(currentTaskID, enumeratorTaskID));
+        runningTask.getExecutionContext().sendToMaster(new SourceRegisterOperation(currentTaskID, enumeratorTaskID));
     }
 
     public void requestSplit() {
-        runningTask.sendToMaster(new RequestSplitOperation(currentTaskID, enumeratorTaskID));
+        runningTask.getExecutionContext().sendToMaster(new RequestSplitOperation(currentTaskID, enumeratorTaskID));
     }
 
     private void receivedSplits(List<SplitT> splits) {

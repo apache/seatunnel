@@ -80,7 +80,8 @@ public class PhysicalPlanTest {
                 Hazelcast.getOrCreateHazelcastInstance(config).getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME));
 
         Assert.assertEquals(physicalPlan.getPipelineList().size(), 1);
-
+        Assert.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
+        Assert.assertEquals(physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 1);
     }
 
 }

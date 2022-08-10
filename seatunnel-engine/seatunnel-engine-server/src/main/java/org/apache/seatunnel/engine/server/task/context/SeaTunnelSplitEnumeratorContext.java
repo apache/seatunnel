@@ -50,13 +50,14 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
-        task.executionContext.sendToMember(new AssignSplitOperation<>(subtaskId, splits), task.getTaskMemberAddr(subtaskId));
+        task.getExecutionContext().sendToMember(new AssignSplitOperation<>(subtaskId, splits),
+                task.getTaskMemberAddr(subtaskId));
     }
 
     @Override
     public void signalNoMoreSplits(int subtask) {
-        task.sendToMember(new AssignSplitOperation<>(subtask, Collections.emptyList()),
-                task.getTaskMemberID(subtask));
+        task.getExecutionContext().sendToMember(new AssignSplitOperation<>(subtask, Collections.emptyList()),
+                task.getTaskMemberAddr(subtask));
     }
 
     @Override
