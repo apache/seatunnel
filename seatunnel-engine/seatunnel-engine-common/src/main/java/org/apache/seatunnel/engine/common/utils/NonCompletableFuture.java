@@ -62,7 +62,7 @@ public class NonCompletableFuture<T> extends CompletableFuture<T> {
         throw new UnsupportedOperationException("This future can't be completed by an outside caller");
     }
 
-    private void internalComplete(T value) {
+    public void internalComplete(T value) {
         super.complete(value);
     }
 
