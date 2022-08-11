@@ -18,7 +18,8 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
@@ -29,37 +30,37 @@ import lombok.NonNull;
 
 import java.io.IOException;
 
-public class SubmitJobOperation extends AsyncOperation {
-    private Data jobImmutableInformation;
+public class DeployTaskOperation extends AsyncOperation {
+    private Data taskImmutableInformation;
 
-    public SubmitJobOperation() {
+    public DeployTaskOperation() {
     }
 
-    public SubmitJobOperation(@NonNull Data jobImmutableInformation) {
-        this.jobImmutableInformation = jobImmutableInformation;
+    public DeployTaskOperation(@NonNull Data taskImmutableInformation) {
+        this.taskImmutableInformation = taskImmutableInformation;
+    }
+
+    @Override
+    protected NonCompletableFuture<?> doRun() throws Exception {
+        TaskExecutionService taskExecutionService = getService();
+        NonCompletableFuture<TaskExecutionState> voidCompletableFuture = taskExecutionService.deployTask(taskImmutableInformation);
+        return voidCompletableFuture;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.SUBMIT_OPERATOR;
+        return OperationDataSerializerHook.DEPLOY_TASK_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        IOUtil.writeData(out, jobImmutableInformation);
+        IOUtil.writeData(out, taskImmutableInformation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        jobImmutableInformation = IOUtil.readData(in);
-    }
-
-    @Override
-    protected NonCompletableFuture<?> doRun() throws Exception {
-        SeaTunnelServer seaTunnelServer = getService();
-        NonCompletableFuture<Void> voidCompletableFuture = seaTunnelServer.submitJob(jobImmutableInformation);
-        return voidCompletableFuture;
+        taskImmutableInformation = IOUtil.readData(in);
     }
 }

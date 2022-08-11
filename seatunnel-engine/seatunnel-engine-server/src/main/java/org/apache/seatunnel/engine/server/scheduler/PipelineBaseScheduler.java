@@ -90,7 +90,9 @@ public class PipelineBaseScheduler implements JobScheduler {
                 if (coordinator.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
                     // deploy is a time-consuming operation, so we do it async
                     return CompletableFuture.supplyAsync(() -> {
-                        coordinator.deploy();
+                        coordinator.deploy(
+                            resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
+                                coordinator.getPhysicalVertexId()));
                         return null;
                     });
                 }
@@ -101,7 +103,9 @@ public class PipelineBaseScheduler implements JobScheduler {
             pipeline.getPhysicalVertexList().stream().map(task -> {
                 if (task.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
                     return CompletableFuture.supplyAsync(() -> {
-                        task.deploy();
+                        task.deploy(
+                            resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
+                                task.getPhysicalVertexId()));
                         return null;
                     });
                 }
@@ -109,8 +113,9 @@ public class PipelineBaseScheduler implements JobScheduler {
             }).filter(x -> x != null).collect(Collectors.toList());
 
         deployCoordinatorFuture.addAll(deployTaskFuture);
-        CompletableFuture.allOf(deployCoordinatorFuture.toArray(new CompletableFuture[deployCoordinatorFuture.size()])).whenComplete((v, t) -> {
-            pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING);
-        });
+        CompletableFuture.allOf(deployCoordinatorFuture.toArray(new CompletableFuture[deployCoordinatorFuture.size()]))
+            .whenComplete((v, t) -> {
+                pipeline.updatePipelineState(PipelineState.DEPLOYING, PipelineState.RUNNING);
+            });
     }
 }

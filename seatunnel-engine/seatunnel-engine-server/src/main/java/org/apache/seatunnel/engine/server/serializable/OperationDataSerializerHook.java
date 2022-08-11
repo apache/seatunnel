@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 
@@ -36,6 +37,7 @@ import com.hazelcast.spi.annotation.PrivateApi;
 public final class OperationDataSerializerHook implements DataSerializerHook {
     public static final int PRINT_MESSAGE_OPERATOR = 0;
     public static final int SUBMIT_OPERATOR = 1;
+    public static final int DEPLOY_TASK_OPERATOR = 2;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -61,6 +63,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
                     return new PrintMessageOperation();
                 case SUBMIT_OPERATOR:
                     return new SubmitJobOperation();
+                case DEPLOY_TASK_OPERATOR:
+                    return new DeployTaskOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

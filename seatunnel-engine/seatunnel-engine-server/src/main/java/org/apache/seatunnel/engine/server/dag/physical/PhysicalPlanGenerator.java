@@ -167,7 +167,8 @@ public class PhysicalPlanGenerator {
                     totalPipelineNum,
                     null,
                     jobImmutableInformation,
-                    initializationTimestamp);
+                    initializationTimestamp,
+                    nodeEngine);
             }).collect(Collectors.toList());
     }
 
@@ -197,7 +198,8 @@ public class PhysicalPlanGenerator {
                         totalPipelineNum,
                         seaTunnelTask.getJarsUrl(),
                         jobImmutableInformation,
-                        initializationTimestamp));
+                        initializationTimestamp,
+                        nodeEngine));
                 }
                 return t.stream();
             }).collect(Collectors.toList());
@@ -225,7 +227,8 @@ public class PhysicalPlanGenerator {
                 totalPipelineNum,
                 t.getJarsUrl(),
                 jobImmutableInformation,
-                initializationTimestamp);
+                initializationTimestamp,
+                nodeEngine);
         }).collect(Collectors.toList());
     }
 
@@ -265,7 +268,8 @@ public class PhysicalPlanGenerator {
                         totalPipelineNum,
                         jars,
                         jobImmutableInformation,
-                        initializationTimestamp));
+                        initializationTimestamp,
+                        nodeEngine));
                 }
                 return t.stream();
             }).collect(Collectors.toList());

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
+import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
@@ -64,7 +64,7 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                 case ASSIGN_SPLIT_TYPE:
                     return new AssignSplitOperation();
                 case TASK_GROUP_INFO_TYPE:
-                    return new TaskGroupInfo();
+                    return new TaskGroupImmutableInformation();
                 default:
                     return null;
             }

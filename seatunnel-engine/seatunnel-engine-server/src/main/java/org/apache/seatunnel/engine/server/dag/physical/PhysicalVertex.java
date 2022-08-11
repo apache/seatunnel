@@ -25,9 +25,11 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
 import java.net.URL;
@@ -93,6 +95,8 @@ public class PhysicalVertex {
 
     private final long initializationTimestamp;
 
+    private final NodeEngine nodeEngine;
+
     public PhysicalVertex(long physicalVertexId,
                           int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
@@ -104,7 +108,8 @@ public class PhysicalVertex {
                           int totalPipelineNum,
                           Set<URL> pluginJarsUrls,
                           @NonNull JobImmutableInformation jobImmutableInformation,
-                          long initializationTimestamp) {
+                          long initializationTimestamp,
+                          @NonNull NodeEngine nodeEngine) {
         this.physicalVertexId = physicalVertexId;
         this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
@@ -120,6 +125,7 @@ public class PhysicalVertex {
         this.stateTimestamps[ExecutionState.INITIALIZING.ordinal()] = initializationTimestamp;
         this.executionState.set(ExecutionState.CREATED);
         this.stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
+        this.nodeEngine = nodeEngine;
         this.taskFullName =
             String.format(
                 "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
@@ -135,21 +141,38 @@ public class PhysicalVertex {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
-    public void deploy() {
+    public void deploy(@NonNull Address address) {
+        /**
+         TaskGroupImmutableInformation taskGroupImmutableInformation =
+         new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
+         nodeEngine.getSerializationService().toData(this.taskGroup),
+         this.pluginJarsUrls);
 
-        // TODO really submit job to ExecutionService and get a NonCompletableFuture<ExecutionState>
-        long executionId = flakeIdGenerator.newId();
-        CompletableFuture<TaskExecutionState> uCompletableFuture = CompletableFuture.supplyAsync(() -> {
+         try {
+         waitForCompleteByExecutionService = new NonCompletableFuture<>(
+         nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+         new DeployTaskOperation(nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
+         address)
+         .invoke());
+         } catch (Throwable th) {
+         LOGGER.severe(String.format("%s deploy error with Exception: %s",
+         this.taskFullName,
+         ExceptionUtils.getMessage(th)));
+         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
+         taskFuture.complete(
+         new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
+         }*/
+
+        waitForCompleteByExecutionService = new NonCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
             try {
                 Thread.sleep(2000);
-                return new TaskExecutionState(executionId, ExecutionState.FINISHED, null);
             } catch (InterruptedException e) {
-                return new TaskExecutionState(executionId, ExecutionState.FAILED, e);
+                throw new RuntimeException(e);
             }
-        });
+            return new TaskExecutionState(flakeIdGenerator.newId(), ExecutionState.FINISHED, null);
+        }));
 
         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
-        waitForCompleteByExecutionService = new NonCompletableFuture(uCompletableFuture);
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
             try {
                 // We need not handle t, Because we will not return t from TaskExecutionService
@@ -169,6 +192,7 @@ public class PhysicalVertex {
             } catch (Throwable th) {
                 LOGGER.severe(
                     String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
+                updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
                 v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, null);
                 taskFuture.complete(v);
             }

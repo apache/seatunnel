@@ -18,7 +18,11 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import com.hazelcast.cluster.Address;
+import lombok.NonNull;
 
 public interface ResourceManager {
     Address applyForResource(Long jobId, Long physicalVertexId);
+
+    @NonNull
+    Address getAppliedResource(Long jobId, Long physicalVertexId);
 }

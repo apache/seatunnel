@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.exception.JobException;
+
 import com.hazelcast.cluster.Address;
 import lombok.Data;
+import lombok.NonNull;
 
 import java.net.UnknownHostException;
 import java.util.HashMap;
@@ -32,7 +35,7 @@ public class SimpleResourceManager implements ResourceManager {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public Address applyForResource(Long jobId, Long physicalVertexId) {
+    public Address applyForResource(@NonNull Long jobId, @NonNull Long physicalVertexId) {
         try {
             Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.get(jobId);
             if (jobAddressMap == null) {
@@ -52,5 +55,17 @@ public class SimpleResourceManager implements ResourceManager {
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    @NonNull
+    public Address getAppliedResource(@NonNull Long jobId, @NonNull Long physicalVertexId) {
+        Map<Long, Address> longAddressMap = physicalVertexIdAndResourceMap.get(jobId);
+        if (null == longAddressMap || longAddressMap.isEmpty()) {
+            throw new JobException(
+                String.format("Job %s, Task %s can not found applied resource.", jobId, physicalVertexId));
+        }
+
+        return longAddressMap.get(physicalVertexId);
     }
 }
