@@ -23,8 +23,10 @@ package org.apache.seatunnel.engine.checkpoint.storage.api;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.common.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.checkpoint.storage.common.Serializer;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class AbstractCheckpointStorage implements CheckpointStorage {
@@ -51,6 +53,16 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      * record order
      */
     private final AtomicLong counter = new AtomicLong(0);
+
+    /**
+     * init storage instance
+     *
+     * @param configuration configuration
+     *                      key: storage root directory
+     *                      value: storage root directory
+     * @throws CheckpointStorageException if storage init failed
+     */
+    public abstract void initStorage(Map<String, String> configuration) throws CheckpointStorageException;
 
     public String getStorageParentDirectory() {
         return CHECKPOINT_DEFAULT_FILE_DIR;

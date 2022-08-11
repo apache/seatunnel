@@ -49,13 +49,6 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     @Override
     public void initStorage(Map<String, String> configuration) throws CheckpointStorageException {
         // Nothing to do
-        File file = new File(getStorageParentDirectory());
-        if (file.exists()) {
-            return;
-        }
-        if (!file.mkdirs()) {
-            throw new CheckpointStorageException("Failed to create check-point directory " + getStorageParentDirectory());
-        }
     }
 
     @Override
@@ -86,8 +79,13 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
     }
 
     @Override
-    public List<PipelineState> getAllCheckpoints(String jobId) {
-        Collection<File> fileList = FileUtils.listFiles(new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, false);
+    public List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException {
+        Collection<File> fileList;
+        try {
+            fileList = FileUtils.listFiles(new File(getStorageParentDirectory() + jobId), FILE_EXTENSIONS, true);
+        } catch (Exception e) {
+            throw new CheckpointStorageException("Failed to get all checkpoints for job " + jobId, e);
+        }
         if (fileList.isEmpty()) {
             return new ArrayList<>();
         }

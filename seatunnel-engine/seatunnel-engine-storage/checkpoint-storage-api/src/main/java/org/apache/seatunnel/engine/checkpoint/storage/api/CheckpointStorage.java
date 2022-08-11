@@ -24,17 +24,8 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import java.util.List;
-import java.util.Map;
 
 public interface CheckpointStorage {
-
-    /**
-     * init storage and create parent directory if not exists
-     *
-     * @param configuration configuration storage system config params
-     * @throws CheckpointStorageException if init failed
-     */
-    void initStorage(Map<String, String> configuration) throws CheckpointStorageException;
 
     /**
      * save checkpoint to storage
@@ -52,7 +43,7 @@ public interface CheckpointStorage {
      * @return All job's checkpoint data from storage
      * @throws CheckpointStorageException if get checkpoint failed
      */
-    List<PipelineState> getAllCheckpoints(String jobId);
+    List<PipelineState> getAllCheckpoints(String jobId) throws CheckpointStorageException;
 
     /**
      * get latest checkpoint of all pipelines

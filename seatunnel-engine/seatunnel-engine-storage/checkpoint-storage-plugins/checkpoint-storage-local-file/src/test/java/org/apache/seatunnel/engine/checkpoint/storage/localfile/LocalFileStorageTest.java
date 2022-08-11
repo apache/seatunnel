@@ -52,15 +52,15 @@ public class LocalFileStorageTest {
         pipelineState.setCheckpointId(2);
         STORAGE.storeCheckPoint(pipelineState);
         pipelineState.setPipelineId(2);
-        STORAGE.storeCheckPoint(pipelineState);
         pipelineState.setCheckpointId(3);
+        STORAGE.storeCheckPoint(pipelineState);
     }
 
     @Test
-    public void testGetAllCheckpoints() {
+    public void testGetAllCheckpoints() throws CheckpointStorageException {
 
         List<PipelineState> pipelineStates = STORAGE.getAllCheckpoints(JOB_ID);
-        Assertions.assertEquals(3, pipelineStates.size());
+        Assertions.assertEquals(4, pipelineStates.size());
     }
 
     @Test
@@ -84,7 +84,6 @@ public class LocalFileStorageTest {
     @After
     public void teardown() {
         STORAGE.deleteCheckpoint(JOB_ID);
-        Assertions.assertTrue(STORAGE.getAllCheckpoints(JOB_ID).isEmpty());
     }
 
 }
