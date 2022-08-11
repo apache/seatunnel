@@ -80,7 +80,7 @@ public class ClickhouseSink implements SeaTunnelSink<SeaTunnelRow, ClickhouseSin
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result = CheckConfigUtil.checkAllExists(config, HOST, DATABASE, TABLE);
 
-        boolean isCredential = config.hasPath(USERNAME) && config.hasPath(PASSWORD);
+        boolean isCredential = config.hasPath(USERNAME) || config.hasPath(PASSWORD);
 
         if (isCredential) {
             result = CheckConfigUtil.checkAllExists(config, USERNAME, PASSWORD);
