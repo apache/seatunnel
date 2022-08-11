@@ -22,9 +22,9 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
-public class SeaTunnelApiExample {
+public class SeaTunnelApiToClickHouseExample {
 
     public static void main(String[] args) throws FileNotFoundException, URISyntaxException, CommandException {
-        ExampleUtils.builder("/examples/spark.batch.conf");
+        ExampleUtils.builder("/examples/spark.batch.clickhouse.conf");
     }
 }
