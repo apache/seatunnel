@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.engine.common.loader;
 
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.List;
 
-public class SeatunnelJarLoader extends URLClassLoader {
+public class SeatunnelParentFirstClassLoader extends SeatunnelBaseClassLoader {
 
-    public SeatunnelJarLoader(List<URL> urls) {
-        this(urls.toArray(new URL[0]), SeatunnelJarLoader.class.getClassLoader());
+    public SeatunnelParentFirstClassLoader(List<URL> urls) {
+        super(urls);
     }
-
-    public SeatunnelJarLoader(URL[] urls, ClassLoader parent) {
-        super(urls, parent);
-    }
-
 }
