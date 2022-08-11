@@ -27,7 +27,6 @@ import static org.junit.Assert.assertTrue;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
-import org.apache.seatunnel.engine.server.execution.TaskGroup;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.config.Config;
@@ -38,6 +37,7 @@ import com.hazelcast.logging.ILogger;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
+import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.junit.Test;
 
@@ -92,7 +92,7 @@ public class TaskExecutionServiceTest {
 
         CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.submitTaskGroup(new TaskGroup("ts", Lists.newArrayList(testTask1,testTask2)), cancellationFuture);
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.submitTaskGroup(new TaskGroupDefaultImpl("ts", Lists.newArrayList(testTask1,testTask2)), cancellationFuture);
 
         cancellationFuture.cancel(true);
 
@@ -113,7 +113,7 @@ public class TaskExecutionServiceTest {
 
         CompletableFuture<Void> cancellationFuture = new CompletableFuture<Void>();
 
-        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.submitTaskGroup(new TaskGroup("ts", Lists.newArrayList(testTask1,testTask2)), cancellationFuture);
+        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.submitTaskGroup(new TaskGroupDefaultImpl("ts", Lists.newArrayList(testTask1,testTask2)), cancellationFuture);
         completableFuture.whenComplete(new BiConsumer<TaskExecutionState, Throwable>() {
             @Override
             public void accept(TaskExecutionState unused, Throwable throwable) {
@@ -148,7 +148,7 @@ public class TaskExecutionServiceTest {
 
         TaskExecutionService taskExecutionService = service.getTaskExecutionService();
 
-        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup("t1", Lists.newArrayList(criticalTask)), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.submitTaskGroup(new TaskGroupDefaultImpl("t1", Lists.newArrayList(criticalTask)), new CompletableFuture<Void>());
 
         // Run it for a while
         Thread.sleep(taskRunTime);
@@ -195,12 +195,12 @@ public class TaskExecutionServiceTest {
         Collections.shuffle(tasks);
 
 
-        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.submitTaskGroup(new TaskGroup("ts", Lists.newArrayList(tasks)), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.submitTaskGroup(new TaskGroupDefaultImpl("ts", Lists.newArrayList(tasks)), new CompletableFuture<Void>());
 
 
-        CompletableFuture<TaskExecutionState> t1c = taskExecutionService.submitTaskGroup(new TaskGroup("t1", Lists.newArrayList(t1)), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> t1c = taskExecutionService.submitTaskGroup(new TaskGroupDefaultImpl("t1", Lists.newArrayList(t1)), new CompletableFuture<Void>());
 
-        CompletableFuture<TaskExecutionState> t2c = taskExecutionService.submitTaskGroup(new TaskGroup("t2", Lists.newArrayList(t2)), new CompletableFuture<Void>());
+        CompletableFuture<TaskExecutionState> t2c = taskExecutionService.submitTaskGroup(new TaskGroupDefaultImpl("t2", Lists.newArrayList(t2)), new CompletableFuture<Void>());
 
         Thread.sleep(taskRunTime);
 
@@ -240,7 +240,7 @@ public class TaskExecutionServiceTest {
         tasks.addAll(lowLagTask);
         Collections.shuffle(tasks);
 
-        TaskGroup taskGroup = new TaskGroup("ts", Lists.newArrayList(tasks));
+        TaskGroupDefaultImpl taskGroup = new TaskGroupDefaultImpl("ts", Lists.newArrayList(tasks));
 
 
         logger.info("task size is : " + taskGroup.getTasks().size());
