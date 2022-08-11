@@ -278,7 +278,11 @@ icu4j-60.2.jar
 icu4j-charset-60.2.jar
 icu4j-localespi-60.2.jar
 influxdb-java-2.22.jar
+influxdb-thrift-0.13.1.jar
 ion-java-1.0.2.jar
+iotdb-session-0.13.1.jar
+iotdb-thrift-0.13.1.jar
+istack-commons-runtime-4.0.1.jar
 j2objc-annotations-1.1.jar
 jackson-annotations-2.12.6.jar
 jackson-core-2.12.6.jar
@@ -339,7 +343,10 @@ jaxb-api-2.2.11.jar
 jaxb-api-2.2.2.jar
 jaxb-api-2.3.0.jar
 jaxb-api-2.3.1.jar
+jaxb-api-2.4.0-b180830.0359.jar
+jaxb-core-3.0.2.jar
 jaxb-impl-2.2.3-1.jar
+jaxb-runtime-3.0.2.jar
 jboss-logging-3.2.1.Final.jar
 jboss-logging-3.4.1.Final.jar
 jcip-annotations-1.0-1.jar
@@ -458,6 +465,7 @@ lang-mustache-client-6.3.1.jar
 lang-mustache-client-7.5.1.jar
 leveldbjni-all-1.8.jar
 libthrift-0.9.0.jar
+libthrift-0.14.1.jar
 log4j-1.2-api-2.15.0.jar
 log4j-1.2.14.jar
 log4j-1.2.17.jar
@@ -468,7 +476,9 @@ log4j-api-2.9.1.jar
 log4j-core-2.17.1.jar
 log4j-jul-2.15.0.jar
 log4j-slf4j-impl-2.15.0.jar
+logback-classic-1.2.10.jar
 logback-classic-1.2.11.jar
+logback-core-1.2.10.jar
 logback-core-1.2.11.jar
 logging-interceptor-4.9.1.jar
 lucene-analyzers-common-7.3.1.jar
@@ -628,6 +638,7 @@ scalaj-http_2.11-2.3.0.jar
 scalap-2.11.12.jar
 seatunnel-config-base-2.1.1.jar
 seatunnel-config-shade-2.1.1.jar
+service-rpc-0.13.1.jar
 servlet-api-2.5.jar
 shims-0.9.0.jar
 shims-0.9.22.jar
@@ -701,12 +712,14 @@ transport-6.3.1.jar
 transport-7.5.1.jar
 transport-netty4-client-6.3.1.jar
 transport-netty4-client-7.5.1.jar
+tsfile-0.13.1.jar
 twill-api-0.8.0.jar
 twill-common-0.8.0.jar
 twill-core-0.8.0.jar
 twill-discovery-api-0.8.0.jar
 twill-discovery-core-0.8.0.jar
 twill-zookeeper-0.8.0.jar
+txw2-3.0.2.jar
 unused-1.0.0.jar
 uzaygezen-core-0.2.jar
 validation-api-1.1.0.Final.jar
@@ -730,5 +743,8 @@ zookeeper-3.5.9.jar
 zookeeper-jute-3.5.9.jar
 zstd-jni-1.3.3-1.jar
 zstd-jni-1.4.3-1.jar
+jakarta.activation-2.0.1.jar
 jakarta.activation-api-1.2.1.jar
 jakarta.xml.bind-api-2.3.2.jar
+jakarta.xml.bind-api-3.1.1.jar
+istack-commons-runtime-4.0.1.jar

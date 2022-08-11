@@ -116,9 +116,14 @@
             <artifactId>connector-email</artifactId>
             <version>${project.version}</version>
         </dependency>
-          <dependency>
+        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-elasticsearch</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-iotdb</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
