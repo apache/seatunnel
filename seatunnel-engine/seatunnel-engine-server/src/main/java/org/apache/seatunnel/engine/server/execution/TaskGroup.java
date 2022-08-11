@@ -25,7 +25,7 @@ import java.util.Collection;
 @Data
 public class TaskGroup implements Serializable {
     //TODO iD is required. The construction method needs to be modified later
-    private long id;
+    private final long id;
 
     private final String taskGroupName;
 

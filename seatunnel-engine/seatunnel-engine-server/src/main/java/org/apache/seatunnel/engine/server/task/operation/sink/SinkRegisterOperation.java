@@ -18,26 +18,27 @@
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.UUID;
 
 public class SinkRegisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private long writerTaskID;
-    private long committerTaskID;
+    private TaskLocation writerTaskID;
+    private TaskLocation committerTaskID;
 
     public SinkRegisterOperation() {
     }
 
-    public SinkRegisterOperation(long writerTaskID, long committerTaskID) {
+    public SinkRegisterOperation(TaskLocation writerTaskID, TaskLocation committerTaskID) {
         this.writerTaskID = writerTaskID;
         this.committerTaskID = committerTaskID;
     }
@@ -45,10 +46,10 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        UUID readerUUID = getCallerUuid();
-        TaskExecutionContext executionContext =
-                server.getTaskExecutionService().getExecutionContext(committerTaskID);
-        // TODO register writer to committer
+        Address readerAddress = getCallerAddress();
+        SinkAggregatedCommitterTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID()).get(committerTaskID.getTaskID()).getTask();
+        task.receivedWriterRegister(writerTaskID, readerAddress);
     }
 
     @Override
@@ -59,15 +60,15 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(writerTaskID);
-        out.writeLong(committerTaskID);
+        writerTaskID.writeData(out);
+        committerTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        writerTaskID = in.readLong();
-        committerTaskID = in.readLong();
+        writerTaskID.readData(in);
+        committerTaskID.readData(in);
     }
 
     @Override

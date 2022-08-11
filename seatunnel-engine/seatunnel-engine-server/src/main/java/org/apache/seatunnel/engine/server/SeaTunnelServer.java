@@ -121,7 +121,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             try {
                 jobMaster.init();
             } catch (Throwable e) {
-                throw new RuntimeException(e);
+                voidCompletableFuture.completeExceptionally(e);
+                return;
             } finally {
                 // We specify that when init is complete, the submitJob is complete
                 voidCompletableFuture.complete(null);

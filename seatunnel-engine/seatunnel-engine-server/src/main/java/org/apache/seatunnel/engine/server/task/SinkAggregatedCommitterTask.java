@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import com.hazelcast.cluster.Address;
 
@@ -42,7 +43,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     private final Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
 
-    public SinkAggregatedCommitterTask(long jobID, int taskID, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink,
+    public SinkAggregatedCommitterTask(long jobID, TaskLocation taskID, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink,
                                        SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter) {
         super(jobID, taskID);
         this.sink = sink;
@@ -55,11 +56,11 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     public void init() throws Exception {
     }
 
-    private void receivedWriterRegister(long writerID, Address address) {
-        this.writerAddressMap.put(writerID, address);
+    public void receivedWriterRegister(TaskLocation writerID, Address address) {
+        this.writerAddressMap.put(writerID.getTaskID(), address);
     }
 
-    private void receivedWriterRegister(long checkpointID, AggregatedCommitInfoT[] commitInfos) {
+    public void receivedWriterCommitInfo(long checkpointID, AggregatedCommitInfoT[] commitInfos) {
         if (!checkpointCommitInfoMap.containsKey(checkpointID)) {
             checkpointCommitInfoMap.put(checkpointID, new CopyOnWriteArrayList<>());
         }

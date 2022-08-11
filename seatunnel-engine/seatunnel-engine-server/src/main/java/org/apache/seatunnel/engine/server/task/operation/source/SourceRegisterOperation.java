@@ -19,15 +19,17 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -36,13 +38,13 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private long readerTaskID;
-    private long enumeratorTaskID;
+    private TaskLocation readerTaskID;
+    private TaskLocation enumeratorTaskID;
 
     public SourceRegisterOperation() {
     }
 
-    public SourceRegisterOperation(long readerTaskID, long enumeratorTaskID) {
+    public SourceRegisterOperation(TaskLocation readerTaskID, TaskLocation enumeratorTaskID) {
         this.readerTaskID = readerTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
@@ -50,9 +52,11 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        UUID readerUUID = getCallerUuid();
-        ConcurrentMap<Long, TaskExecutionContext> executionContextMap = server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
-        // TODO register reader to enumerator
+        Address readerAddress = getCallerAddress();
+        ConcurrentMap<Long, TaskExecutionContext> executionContextMap =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID());
+        SourceSplitEnumeratorTask<?> task = executionContextMap.get(enumeratorTaskID.getTaskID()).getTask();
+        task.receivedReader(readerTaskID, readerAddress);
     }
 
     @Override
@@ -63,15 +67,15 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(readerTaskID);
-        out.writeLong(enumeratorTaskID);
+        readerTaskID.writeData(out);
+        enumeratorTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerTaskID = in.readLong();
-        enumeratorTaskID = in.readLong();
+        readerTaskID.readData(in);
+        enumeratorTaskID.readData(in);
     }
 
     @Override

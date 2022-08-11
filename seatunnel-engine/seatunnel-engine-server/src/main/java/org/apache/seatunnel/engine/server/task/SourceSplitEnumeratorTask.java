@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 
 import com.hazelcast.cluster.Address;
@@ -30,6 +31,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
 
@@ -38,13 +40,15 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private final SourceAction<?, SplitT, ?> source;
     private SourceSplitEnumerator<?, ?> enumerator;
     private SeaTunnelSplitEnumeratorContext<SplitT> context;
-    private Map<Integer, Address> taskMemberMapping;
+    private Map<TaskLocation, Address> taskMemberMapping;
+    private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
     @Override
     public void init() throws Exception {
         context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
         taskMemberMapping = new ConcurrentHashMap<>();
+        taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
         enumerator.open();
     }
 
@@ -55,30 +59,37 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public SourceSplitEnumeratorTask(long jobID, long taskID, SourceAction<?, SplitT, ?> source) {
+    public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
         super(jobID, taskID);
         this.source = source;
     }
 
-    private void receivedReader(int readerId, Address memberAddr) {
+    public void receivedReader(TaskLocation readerId, Address memberAddr) {
         this.addTaskMemberMapping(readerId, memberAddr);
-        enumerator.registerReader(readerId);
+        enumerator.registerReader((int) readerId.getTaskID());
     }
 
-    private void requestSplit(int taskID) {
-        enumerator.handleSplitRequest(taskID);
+    public void requestSplit(long taskID) {
+        enumerator.handleSplitRequest((int) taskID);
     }
 
-    private void addTaskMemberMapping(int taskID, Address memberAddr) {
+    public void addTaskMemberMapping(TaskLocation taskID, Address memberAddr) {
         taskMemberMapping.put(taskID, memberAddr);
+        taskIDToTaskLocationMapping.put(taskID.getTaskID(), taskID);
     }
 
-    public Address getTaskMemberAddr(int taskID) {
-        return taskMemberMapping.get(taskID);
+    public Address getTaskMemberAddr(long taskID) {
+        return taskMemberMapping.get(taskIDToTaskLocationMapping.get(taskID));
     }
 
-    public Set<Integer> getRegisteredReaders() {
-        return taskMemberMapping.keySet();
+    public void removeTaskMemberMapping(long taskID) {
+        TaskLocation taskLocation = taskIDToTaskLocationMapping.get(taskID);
+        taskMemberMapping.remove(taskLocation);
+        taskIDToTaskLocationMapping.remove(taskID);
+    }
+
+    public Set<Long> getRegisteredReaders() {
+        return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskID).collect(Collectors.toSet());
     }
 
     private void noMoreElement(int taskID) {

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
@@ -46,6 +47,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int SINK_UNREGISTER_TYPE = 6;
 
     public static final int SINK_REGISTER_TYPE = 7;
+
+    public static final int TASK_LOCATION_TYPE = 8;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -81,6 +84,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SinkRegisterOperation();
                 case SINK_UNREGISTER_TYPE:
                     return new SinkUnregisterOperation();
+                case TASK_LOCATION_TYPE:
+                    return new TaskLocation();
                 default:
                     return null;
             }

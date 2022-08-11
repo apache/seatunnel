@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOpera
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
 
@@ -45,7 +46,7 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public Set<Integer> registeredReaders() {
-        return task.getRegisteredReaders();
+        return task.getRegisteredReaders().stream().map(Long::intValue).collect(Collectors.toSet());
     }
 
     @Override

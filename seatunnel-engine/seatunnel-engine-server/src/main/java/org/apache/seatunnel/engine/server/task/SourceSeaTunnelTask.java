@@ -21,13 +21,14 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
 import lombok.NonNull;
 
 public class SourceSeaTunnelTask<T> extends SeaTunnelTask{
 
-    public SourceSeaTunnelTask(long jobID, long taskID, int indexID, Flow executionFlow) {
+    public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
     }
 
@@ -43,7 +44,7 @@ public class SourceSeaTunnelTask<T> extends SeaTunnelTask{
     @Override
     protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
                                                                   SourceConfig config) {
-        return new SourceFlowLifeCycle<>(sourceAction, indexID, config.getEnumeratorTaskID(), this, taskID);
+        return new SourceFlowLifeCycle<>(sourceAction, indexID, config.getEnumeratorTask(), this, taskID);
     }
 
     @NonNull

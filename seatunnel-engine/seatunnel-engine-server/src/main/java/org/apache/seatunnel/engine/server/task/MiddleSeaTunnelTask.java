@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneOutputFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
@@ -30,7 +31,7 @@ import lombok.NonNull;
 
 public class MiddleSeaTunnelTask extends SeaTunnelTask {
 
-    public MiddleSeaTunnelTask(long jobID, long taskID, int indexID, Flow executionFlow) {
+    public MiddleSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
     }
 

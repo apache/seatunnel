@@ -35,7 +35,7 @@ public class TaskExecutionContext {
         this.nodeEngine = nodeEngine;
     }
 
-    public  <E> InvocationFuture<E> sendToMaster(Operation operation) {
+    public <E> InvocationFuture<E> sendToMaster(Operation operation) {
         InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());
         return invocationBuilder.invoke();
     }
@@ -43,5 +43,9 @@ public class TaskExecutionContext {
     public <E> InvocationFuture<E> sendToMember(Operation operation, Address memberID) {
         InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, memberID);
         return invocationBuilder.invoke();
+    }
+
+    public <T> T getTask() {
+        return (T) task;
     }
 }

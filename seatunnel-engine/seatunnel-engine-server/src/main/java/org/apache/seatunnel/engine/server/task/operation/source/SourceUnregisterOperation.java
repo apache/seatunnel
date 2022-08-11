@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -29,13 +31,13 @@ import java.io.IOException;
 
 public class SourceUnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private long currentTaskID;
-    private long enumeratorTaskID;
+    private TaskLocation currentTaskID;
+    private TaskLocation enumeratorTaskID;
 
     public SourceUnregisterOperation() {
     }
 
-    public SourceUnregisterOperation(long currentTaskID, long enumeratorTaskID) {
+    public SourceUnregisterOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
         this.currentTaskID = currentTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
@@ -43,20 +45,23 @@ public class SourceUnregisterOperation extends Operation implements IdentifiedDa
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
-        // TODO send to enumerator
+        SourceSplitEnumeratorTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).get(enumeratorTaskID.getTaskID()).getTask();
+        task.removeTaskMemberMapping(currentTaskID.getTaskID());
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeLong(currentTaskID);
-        out.writeLong(enumeratorTaskID);
+        super.writeInternal(out);
+        currentTaskID.writeData(out);
+        enumeratorTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        currentTaskID = in.readLong();
-        enumeratorTaskID = in.readLong();
+        super.readInternal(in);
+        currentTaskID.readData(in);
+        enumeratorTaskID.readData(in);
     }
 
     @Override

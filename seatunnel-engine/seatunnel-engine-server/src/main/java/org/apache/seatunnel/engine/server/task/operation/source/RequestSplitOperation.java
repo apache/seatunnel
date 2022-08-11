@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -29,14 +31,14 @@ import java.io.IOException;
 
 public class RequestSplitOperation extends Operation implements IdentifiedDataSerializable {
 
-    private long enumeratorTaskID;
+    private TaskLocation enumeratorTaskID;
 
-    private long taskID;
+    private TaskLocation taskID;
 
     public RequestSplitOperation() {
     }
 
-    public RequestSplitOperation(long taskID, long enumeratorTaskID) {
+    public RequestSplitOperation(TaskLocation taskID, TaskLocation enumeratorTaskID) {
         this.enumeratorTaskID = enumeratorTaskID;
         this.taskID = taskID;
     }
@@ -44,8 +46,9 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
-        // TODO ask source split enumerator return split
+        SourceSplitEnumeratorTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).get(enumeratorTaskID.getTaskID()).getTask();
+        task.requestSplit(taskID.getTaskID());
     }
 
     @Override
@@ -56,15 +59,15 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(enumeratorTaskID);
-        out.writeLong(taskID);
+        taskID.writeData(out);
+        enumeratorTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        enumeratorTaskID = in.readLong();
-        taskID = in.readLong();
+        taskID.readData(in);
+        enumeratorTaskID.readData(in);
     }
 
     @Override

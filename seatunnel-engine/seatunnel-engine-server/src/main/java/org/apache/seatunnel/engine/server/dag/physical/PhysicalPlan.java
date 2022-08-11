@@ -86,7 +86,9 @@ public class PhysicalPlan {
         this.jobEndFuture = new CompletableFuture<JobStatus>();
         this.waitForCompleteBySubPlan = waitForCompleteBySubPlan;
         this.pipelineList = pipelineList;
-
+        if (pipelineList.isEmpty()) {
+            throw new UnknownPhysicalPlanException("The physical plan didn't have any can execute pipeline");
+        }
         Arrays.stream(this.waitForCompleteBySubPlan).forEach(x -> {
             x.whenComplete((v, t) -> {
                 if (PipelineState.CANCELED.equals(v)) {

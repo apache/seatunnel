@@ -15,12 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.physical.config;
-
-import java.io.Serializable;
+package org.apache.seatunnel.engine.server.dag.physical;
 
 /**
- * This interface indicates that this class is the configuration information of Flow
+ * This error will be reported when encountering a physical plan that does not work properly
  */
-public interface FlowConfig extends Serializable {
+public class UnknownPhysicalPlanException extends RuntimeException {
+
+    public UnknownPhysicalPlanException() {
+    }
+
+    public UnknownPhysicalPlanException(String message) {
+        super(message);
+    }
 }

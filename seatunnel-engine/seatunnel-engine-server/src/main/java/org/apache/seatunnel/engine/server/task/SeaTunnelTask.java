@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
@@ -59,7 +60,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected int indexID;
 
-    public SeaTunnelTask(long jobID, long taskID, int indexID, Flow executionFlow) {
+    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
@@ -87,8 +88,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 lifeCycle = createSourceFlowLifeCycle((SourceAction<?, ?, ?>) f.getAction(), (SourceConfig) f.getConfig());
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
-                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), indexID, this,
-                        ((SinkConfig) f.getConfig()).getCommitterTaskID(),
+                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskID, indexID, this,
+                        ((SinkConfig) f.getConfig()).getCommitterTask(),
                         ((SinkConfig) f.getConfig()).isContainCommitter());
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =

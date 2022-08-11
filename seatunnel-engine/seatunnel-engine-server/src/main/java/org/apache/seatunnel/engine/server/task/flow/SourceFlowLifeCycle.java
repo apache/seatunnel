@@ -21,29 +21,36 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceUnregisterOperation;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowLifeCycle {
 
+    private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
+
     private final SourceAction<T, SplitT, ?> sourceAction;
-    private final long enumeratorTaskID;
+    private final TaskLocation enumeratorTaskID;
     private final SeaTunnelTask runningTask;
 
     private SourceReader<T, SplitT> reader;
 
     private final int indexID;
 
-    private final long currentTaskID;
+    private final TaskLocation currentTaskID;
 
     public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
-                               long enumeratorTaskID, SeaTunnelTask runningTask, long currentTaskID) {
+                               TaskLocation enumeratorTaskID, SeaTunnelTask runningTask, TaskLocation currentTaskID) {
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskID = enumeratorTaskID;
@@ -75,21 +82,34 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> implements FlowL
 
     public void signalNoMoreElement() {
         // Close this reader
-        runningTask.getExecutionContext().sendToMaster(new SourceUnregisterOperation(currentTaskID,
-                enumeratorTaskID));
         try {
+            runningTask.getExecutionContext().sendToMaster(new SourceUnregisterOperation(currentTaskID,
+                    enumeratorTaskID)).get();
             runningTask.close();
         } catch (Exception e) {
+            LOGGER.warning("source register failed ", e);
             throw new RuntimeException(e);
         }
     }
 
     private void register() {
-        runningTask.getExecutionContext().sendToMaster(new SourceRegisterOperation(currentTaskID, enumeratorTaskID));
+        try {
+            runningTask.getExecutionContext().sendToMaster(new SourceRegisterOperation(currentTaskID,
+                    enumeratorTaskID)).get();
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.warning("source register failed ", e);
+            throw new RuntimeException(e);
+        }
     }
 
     public void requestSplit() {
-        runningTask.getExecutionContext().sendToMaster(new RequestSplitOperation(currentTaskID, enumeratorTaskID));
+        try {
+            runningTask.getExecutionContext().sendToMaster(new RequestSplitOperation(currentTaskID,
+                    enumeratorTaskID)).get();
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.warning("source request split failed", e);
+            throw new RuntimeException(e);
+        }
     }
 
     private void receivedSplits(List<SplitT> splits) {

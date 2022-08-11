@@ -17,17 +17,19 @@
 
 package org.apache.seatunnel.engine.server.dag.physical.config;
 
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+
 public class SinkConfig implements FlowConfig {
 
-    private long committerTaskID;
+    private TaskLocation committerTask;
     private boolean containCommitter;
 
-    public long getCommitterTaskID() {
-        return committerTaskID;
+    public TaskLocation getCommitterTask() {
+        return committerTask;
     }
 
-    public void setCommitterTaskID(long committerTaskID) {
-        this.committerTaskID = committerTaskID;
+    public void setCommitterTask(TaskLocation committerTask) {
+        this.committerTask = committerTask;
     }
 
     public boolean isContainCommitter() {
