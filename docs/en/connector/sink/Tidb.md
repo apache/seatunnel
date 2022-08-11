@@ -1,5 +1,7 @@
 # TiDb
 
+> TiDB sink connector
+
 ### Description
 
 Write data to TiDB.

@@ -37,4 +37,6 @@ public interface IUserDao {
     void disable(int id);
 
     List<User> list(ListUserDto dto, int pageNo, int pageSize);
+
+    User getById(int operatorId);
 }

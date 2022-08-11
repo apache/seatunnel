@@ -18,9 +18,8 @@
 package org.apache.seatunnel.plugin.discovery.flink;
 
 import org.apache.seatunnel.flink.BaseFlinkSource;
-import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 
-public class FlinkSourcePluginDiscovery extends AbstractPluginDiscovery<BaseFlinkSource> {
+public class FlinkSourcePluginDiscovery extends FlinkAbstractPluginDiscovery<BaseFlinkSource> {
     public FlinkSourcePluginDiscovery() {
         super("flink");
     }

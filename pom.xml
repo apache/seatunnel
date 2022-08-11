@@ -87,7 +87,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
-        <module>seatunnel-server</module>
+	    <module>seatunnel-server</module>
     </modules>
 
     <profiles>
@@ -97,7 +97,6 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <modules>
-                <module>seatunnel-dependency-shade</module>
                 <module>seatunnel-connectors-v2</module>
                 <module>seatunnel-connectors-v2-dist</module>
                 <module>seatunnel-examples</module>
@@ -125,6 +124,7 @@
         <flink.version>1.13.6</flink.version>
         <hudi.version>0.11.1</hudi.version>
         <orc.version>1.5.6</orc.version>
+        <avro.version>1.8.2</avro.version>
         <hive.exec.version>2.3.9</hive.exec.version>
         <commons.logging.version>1.2</commons.logging.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
@@ -170,6 +170,8 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
+        <kudu.version>1.11.1</kudu.version>
+        <email.version>1.5.6</email.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
@@ -183,8 +185,7 @@
         <docker.hub>apache</docker.hub>
         <docker.tag>${project.version}</docker.tag>
         <jcommander.version>1.81</jcommander.version>
-        <junit.version>4.13.2</junit.version>
-        <junit5.version>5.8.2</junit5.version>
+        <junit.version>5.9.0</junit.version>
         <tispark.version>2.4.1</tispark.version>
         <druid.version>0.22.1</druid.version>
         <sshd.version>2.7.0</sshd.version>
@@ -208,18 +209,21 @@
         <slf4j.version>1.7.25</slf4j.version>
         <guava.version>19.0</guava.version>
         <auto-service.version>1.0.1</auto-service.version>
-        <powermock.version>2.0.9</powermock.version>
         <hadoop2.version>2.6.5</hadoop2.version>
         <hadoop3.version>3.0.0</hadoop3.version>
         <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
         <jmockdata.version>4.3.0</jmockdata.version>
         <snappy-java.version>1.1.8.3</snappy-java.version>
         <spring-boot.version>2.6.8</spring-boot.version>
+        <spring.version>5.3.20</spring.version>
         <mybatis-spring-boot-starter.version>2.2.2</mybatis-spring-boot-starter.version>
         <druid-spring-boot-starter.version>1.2.9</druid-spring-boot-starter.version>
         <springfox-swagger.version>2.6.1</springfox-swagger.version>
         <swagger-annotations.version>1.5.10</swagger-annotations.version>
         <hibernate.validator.version>6.2.2.Final</hibernate.validator.version>
+        <jsoup.version>1.14.3</jsoup.version>
+        <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
+        <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
     </properties>
 
     <dependencyManagement>
@@ -262,7 +266,18 @@
                 <artifactId>lz4</artifactId>
                 <version>1.3.0</version>
             </dependency>
-
+             <!--kudu -->
+            <dependency>
+                <groupId>org.apache.kudu</groupId>
+                <artifactId>kudu-client</artifactId>
+                <version>${kudu.version}</version>
+            </dependency>
+            <!--email -->
+            <dependency>
+                <groupId>com.sun.mail</groupId>
+                <artifactId>javax.mail</artifactId>
+                <version>${email.version}</version>
+            </dependency>
             <!--flink-->
             <dependency>
                 <groupId>org.apache.flink</groupId>
@@ -442,6 +457,10 @@
                         <groupId>org.glassfish.web</groupId>
                         <artifactId>javax.servlet.jsp</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -561,23 +580,16 @@
             </dependency>
 
             <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
                 <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter-engine</artifactId>
-                <version>${junit5.version}</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-params</artifactId>
-                <version>${junit5.version}</version>
+                <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -614,6 +626,10 @@
                     <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <artifactId>junit</artifactId>
+                        <groupId>junit</groupId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -680,18 +696,6 @@
                 <version>${guava.version}</version>
             </dependency>
 
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-module-junit4</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.powermock</groupId>
-                <artifactId>powermock-api-mockito2</artifactId>
-                <version>${powermock.version}</version>
-                <scope>test</scope>
-            </dependency>
             <dependency>
                 <groupId>com.github.jsonzou</groupId>
                 <artifactId>jmockdata</artifactId>
@@ -762,11 +766,6 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-jaxrs</artifactId>
                 <version>${codehaus.jackson.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.codehaus.janino</groupId>
-                <artifactId>janino</artifactId>
-                <version>${janino.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.sun.jersey</groupId>
@@ -865,11 +864,6 @@
                 <version>${curator.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.apache.curator</groupId>
-                <artifactId>curator-recipes</artifactId>
-                <version>${curator.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>com.sun.jersey</groupId>
                 <artifactId>jersey-core</artifactId>
                 <version>${jersey.version}</version>
@@ -934,6 +928,13 @@
                 <version>${hibernate.validator.version}</version>
             </dependency>
 
+            <!--      http      -->
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -959,9 +960,13 @@
             <version>${slf4j.version}</version>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>test</scope>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
         </dependency>
     </dependencies>
 

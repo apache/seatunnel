@@ -20,8 +20,8 @@ package org.apache.seatunnel.core.starter.spark.utils;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 
 import com.beust.jcommander.ParameterException;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class CommandLineUtilsTest {
 
@@ -30,13 +30,13 @@ public class CommandLineUtilsTest {
         String[] args = {"-c", "app.conf", "-e", "cluster", "-m", "local[*]"};
         SparkCommandArgs commandLineArgs = CommandLineUtils.parseSparkArgs(args);
 
-        Assert.assertEquals("app.conf", commandLineArgs.getConfigFile());
-        Assert.assertEquals("cluster", commandLineArgs.getDeployMode().getName());
+        Assertions.assertEquals("app.conf", commandLineArgs.getConfigFile());
+        Assertions.assertEquals("cluster", commandLineArgs.getDeployMode().getName());
     }
 
     @Test
     public void testParseSparkArgsException() {
         String[] args = {"-c", "app.conf", "-e", "cluster2xxx", "-m", "local[*]"};
-        Assert.assertThrows(ParameterException.class, () -> CommandLineUtils.parseSparkArgs(args));
+        Assertions.assertThrows(ParameterException.class, () -> CommandLineUtils.parseSparkArgs(args));
     }
 }

@@ -66,6 +66,8 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
     private FileSystem fileSystem;
 
+    private Map<String, List<String>> partitionDirAndValsMap;
+
     public AbstractTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                                               @NonNull TransactionFileNameGenerator transactionFileNameGenerator,
                                               @NonNull PartitionDirNameGenerator partitionDirNameGenerator,
@@ -89,7 +91,8 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
     }
 
     public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
-        String beingWrittenFileKey = this.partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow);
+        Map<String, List<String>> dataPartitionDirAndValsMap = this.partitionDirNameGenerator.generatorPartitionDir(seaTunnelRow);
+        String beingWrittenFileKey = dataPartitionDirAndValsMap.keySet().toArray()[0].toString();
         // get filePath from beingWrittenFile
         String beingWrittenFilePath = beingWrittenFile.get(beingWrittenFileKey);
         if (beingWrittenFilePath != null) {
@@ -99,6 +102,9 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
             sbf.append("/").append(beingWrittenFileKey).append("/").append(transactionFileNameGenerator.generateFileName(this.transactionId));
             String newBeingWrittenFilePath = sbf.toString();
             beingWrittenFile.put(beingWrittenFileKey, newBeingWrittenFilePath);
+            if (!Constant.NON_PARTITION.equals(dataPartitionDirAndValsMap.keySet().toArray()[0].toString())){
+                partitionDirAndValsMap.putAll(dataPartitionDirAndValsMap);
+            }
             return newBeingWrittenFilePath;
         }
     }
@@ -110,10 +116,10 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
 
     @Override
     public String beginTransaction(@NonNull Long checkpointId) {
-        this.finishAndCloseWriteFile();
         this.transactionId = "T" + Constant.TRANSACTION_ID_SPLIT + jobId + Constant.TRANSACTION_ID_SPLIT + subTaskIndex + Constant.TRANSACTION_ID_SPLIT + checkpointId;
         this.transactionDir = getTransactionDir(this.transactionId);
         this.needMoveFiles = new HashMap<>();
+        this.partitionDirAndValsMap = new HashMap<>();
         this.beingWrittenFile = new HashMap<>();
         this.beginTransaction(this.transactionId);
         this.checkpointId = checkpointId;
@@ -164,7 +170,10 @@ public abstract class AbstractTransactionStateFileWriter implements TransactionS
         // this.needMoveFiles will be clear when beginTransaction, so we need copy the needMoveFiles.
         Map<String, String> commitMap = new HashMap<>();
         commitMap.putAll(this.needMoveFiles);
-        return Optional.of(new FileCommitInfo(commitMap, this.transactionDir));
+
+        Map<String, List<String>> copyMap = this.partitionDirAndValsMap.entrySet().stream()
+            .collect(Collectors.toMap(e -> e.getKey(), e -> new ArrayList<String>(e.getValue())));
+        return Optional.of(new FileCommitInfo(commitMap, copyMap, this.transactionDir));
     }
 
     @Override

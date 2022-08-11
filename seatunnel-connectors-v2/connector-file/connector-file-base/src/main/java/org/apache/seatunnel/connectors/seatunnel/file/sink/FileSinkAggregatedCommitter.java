@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystemCommitter;
 
 import lombok.NonNull;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,11 +30,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSinkAggregatedCommitter.class);
-
-    private FileSystemCommitter fileSystemCommitter;
+    private final FileSystemCommitter fileSystemCommitter;
 
     public FileSinkAggregatedCommitter(@NonNull FileSystemCommitter fileSystemCommitter) {
         this.fileSystemCommitter = fileSystemCommitter;
@@ -44,8 +45,8 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         if (aggregatedCommitInfoList == null || aggregatedCommitInfoList.size() == 0) {
             return null;
         }
-        List errorAggregatedCommitInfoList = new ArrayList();
-        aggregatedCommitInfoList.stream().forEach(aggregateCommitInfo -> {
+        List<FileAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
+        aggregatedCommitInfoList.forEach(aggregateCommitInfo -> {
             try {
                 fileSystemCommitter.commitTransaction(aggregateCommitInfo);
             } catch (Exception e) {
@@ -63,15 +64,16 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
             return null;
         }
         Map<String, Map<String, String>> aggregateCommitInfo = new HashMap<>();
-        commitInfos.stream().forEach(commitInfo -> {
-            Map<String, String> needMoveFileMap = aggregateCommitInfo.get(commitInfo.getTransactionDir());
-            if (needMoveFileMap == null) {
-                needMoveFileMap = new HashMap<>();
-                aggregateCommitInfo.put(commitInfo.getTransactionDir(), needMoveFileMap);
-            }
+        Map<String, List<String>> partitionDirAndValsMap = new HashMap<>();
+        commitInfos.forEach(commitInfo -> {
+            Map<String, String> needMoveFileMap = aggregateCommitInfo.computeIfAbsent(commitInfo.getTransactionDir(), k -> new HashMap<>());
             needMoveFileMap.putAll(commitInfo.getNeedMoveFiles());
+            Set<Map.Entry<String, List<String>>> entries = commitInfo.getPartitionDirAndValsMap().entrySet();
+            if (!CollectionUtils.isEmpty(entries)) {
+                partitionDirAndValsMap.putAll(commitInfo.getPartitionDirAndValsMap());
+            }
         });
-        return new FileAggregatedCommitInfo(aggregateCommitInfo);
+        return new FileAggregatedCommitInfo(aggregateCommitInfo, partitionDirAndValsMap);
     }
 
     @Override
@@ -79,10 +81,9 @@ public class FileSinkAggregatedCommitter implements SinkAggregatedCommitter<File
         if (aggregatedCommitInfoList == null || aggregatedCommitInfoList.size() == 0) {
             return;
         }
-        aggregatedCommitInfoList.stream().forEach(aggregateCommitInfo -> {
+        aggregatedCommitInfoList.forEach(aggregateCommitInfo -> {
             try {
                 fileSystemCommitter.abortTransaction(aggregateCommitInfo);
-
             } catch (Exception e) {
                 LOGGER.error("abort aggregateCommitInfo error ", e);
             }

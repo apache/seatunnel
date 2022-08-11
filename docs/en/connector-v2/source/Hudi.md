@@ -1,8 +1,12 @@
 # Hudi
 
+> Hudi source connector
+
 ## Description
 
 Used to read data from Hudi. Currently, only supports hudi cow table and Snapshot Query with Batch Mode.
+
+In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
 ## Options
 

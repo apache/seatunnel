@@ -19,8 +19,8 @@ package org.apache.seatunnel.e2e.spark.v2.file;
 
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -31,10 +31,58 @@ import java.io.IOException;
  */
 public class FakeSourceToFileIT extends SparkContainer {
 
+    /**
+     *  fake source -> local text file sink
+     */
     @Test
-    @SuppressWarnings("magicnumber")
-    public void testFakeSourceToFile() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+    public void testFakeSourceToLocalFileText() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_text.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     *  fake source -> local parquet file sink
+     */
+    @Test
+    public void testFakeSourceToLocalFileParquet() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_parquet.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     *  fake source -> local json file sink
+     */
+    @Test
+    public void testFakeSourceToLocalFileJson() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_local_json.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+
+    /**
+     * fake source -> hdfs text file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileText() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_text.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * fake source -> hdfs parquet file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileParquet() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_parquet.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    /**
+     * fake source -> hdfs json file sink
+     */
+    @Test
+    public void testFakeSourceToHdfsFileJson() throws IOException, InterruptedException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/file/fakesource_to_hdfs_json.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

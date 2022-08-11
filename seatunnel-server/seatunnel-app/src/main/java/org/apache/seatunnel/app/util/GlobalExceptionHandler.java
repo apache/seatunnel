@@ -18,8 +18,8 @@
 package org.apache.seatunnel.app.util;
 
 import org.apache.seatunnel.app.common.Result;
-import org.apache.seatunnel.app.common.SeatunnelErrorEnum;
-import org.apache.seatunnel.app.common.SeatunnelException;
+import org.apache.seatunnel.server.common.SeatunnelErrorEnum;
+import org.apache.seatunnel.server.common.SeatunnelException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -52,11 +52,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(value = Exception.class)
     private Result<String> exceptionHandler(Exception e) {
         logError(e);
-        return Result.failure(SeatunnelErrorEnum.UNKNOWN);
+        return Result.failure(SeatunnelErrorEnum.UNKNOWN, e.getMessage());
     }
 
     private void logError(Throwable throwable) {
-        log.error("", throwable);
+        log.error(throwable.getMessage(), throwable);
     }
 
 }

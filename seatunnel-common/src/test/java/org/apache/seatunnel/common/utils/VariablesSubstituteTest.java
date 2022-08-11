@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,7 +26,6 @@ import java.util.HashMap;
 
 public class VariablesSubstituteTest {
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Test
     public void testSubstitute() {
         String timeFormat = "yyyyMMddHHmmss";
@@ -43,6 +42,6 @@ public class VariablesSubstituteTest {
         valuesMap.put("var1", "SeaTunnel");
         valuesMap.put("var2", "transformation");
         String newText = VariablesSubstitute.substitute(text, valuesMap);
-        Assert.assertTrue(newText.contains("SeaTunnel") && newText.contains("transformation"));
+        Assertions.assertTrue(newText.contains("SeaTunnel") && newText.contains("transformation"));
     }
 }

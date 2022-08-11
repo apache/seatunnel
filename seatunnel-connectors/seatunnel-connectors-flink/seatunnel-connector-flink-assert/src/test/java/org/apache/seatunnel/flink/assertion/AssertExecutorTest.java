@@ -17,28 +17,32 @@
 
 package org.apache.seatunnel.flink.assertion;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.apache.seatunnel.flink.assertion.rule.AssertFieldRule;
 
-import junit.framework.TestCase;
-import org.apache.commons.compress.utils.Lists;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.types.Row;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings("magicnumber")
-public class AssertExecutorTest extends TestCase {
+public class AssertExecutorTest {
     Row row = Row.withNames();
     AssertExecutor assertExecutor = new AssertExecutor();
 
-    @Override
-    protected void setUp() throws Exception {
+    @BeforeEach
+    protected void before() {
         row.setField("name", "jared");
         row.setField("age", 17);
     }
 
+    @Test
     public void testFailWithType() {
-        List<AssertFieldRule> rules = Lists.newArrayList();
+        List<AssertFieldRule> rules = new ArrayList<>();
         AssertFieldRule rule1 = new AssertFieldRule();
         rule1.setFieldName("name");
         rule1.setFieldType(Types.INT);
@@ -48,8 +52,9 @@ public class AssertExecutorTest extends TestCase {
         assertNotNull(failRule);
     }
 
+    @Test
     public void testFailWithValue() {
-        List<AssertFieldRule> rules = Lists.newArrayList();
+        List<AssertFieldRule> rules = new ArrayList<>();
         AssertFieldRule rule1 = getFieldRule4Name();
         AssertFieldRule rule2 = getFieldRule4Age();
 
@@ -65,7 +70,7 @@ public class AssertExecutorTest extends TestCase {
         rule.setFieldName("age");
         rule.setFieldType(Types.INT);
 
-        List<AssertFieldRule.AssertValueRule> valueRules = Lists.newArrayList();
+        List<AssertFieldRule.AssertValueRule> valueRules = new ArrayList<>();
 
         AssertFieldRule.AssertValueRule valueRule = new AssertFieldRule.AssertValueRule();
         valueRule.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.NOT_NULL);
@@ -88,7 +93,7 @@ public class AssertExecutorTest extends TestCase {
         rule.setFieldName("name");
         rule.setFieldType(Types.STRING);
 
-        List<AssertFieldRule.AssertValueRule> valueRules = Lists.newArrayList();
+        List<AssertFieldRule.AssertValueRule> valueRules = new ArrayList<>();
 
         AssertFieldRule.AssertValueRule valueRule = new AssertFieldRule.AssertValueRule();
         valueRule.setFieldValueRuleType(AssertFieldRule.AssertValueRuleType.NOT_NULL);

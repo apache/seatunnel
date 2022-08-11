@@ -36,14 +36,16 @@ public class ScpFileTransfer implements FileTransfer {
     private static final int SCP_PORT = 22;
 
     private final String host;
+    private final String user;
     private final String password;
 
     private ScpClient scpClient;
     private ClientSession clientSession;
     private SshClient sshClient;
 
-    public ScpFileTransfer(String host, String password) {
+    public ScpFileTransfer(String host, String user, String password) {
         this.host = host;
+        this.user = user;
         this.password = password;
     }
 
@@ -52,7 +54,7 @@ public class ScpFileTransfer implements FileTransfer {
         try {
             sshClient = SshClient.setUpDefaultClient();
             sshClient.start();
-            clientSession = sshClient.connect("root", host, SCP_PORT).verify().getSession();
+            clientSession = sshClient.connect(user, host, SCP_PORT).verify().getSession();
             if (password != null) {
                 clientSession.addPasswordIdentity(password);
             }
@@ -62,7 +64,7 @@ public class ScpFileTransfer implements FileTransfer {
             }
             scpClient = ScpClientCreator.instance().createScpClient(clientSession);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to connect to host: " + host + " by user: root on port 22", e);
+            throw new RuntimeException("Failed to connect to host: " + host + " by user: " + user + " on port 22", e);
         }
     }
 

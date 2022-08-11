@@ -27,10 +27,12 @@ import scala.sys.process.Process
 class RsyncFileTransfer(host: String) extends FileTransfer {
 
   private val LOGGER = LoggerFactory.getLogger(classOf[RsyncFileTransfer])
+  var username: String = _
   var password: String = _
 
-  def this(host: String, password: String) {
+  def this(host: String, username: String, password: String) {
     this(host)
+    this.username = username
     this.password = password
   }
 
@@ -52,7 +54,7 @@ class RsyncFileTransfer(host: String) extends FileTransfer {
       exec.append("-e")
       exec.append(sshParameter)
       exec.append(sourcePath)
-      exec.append(s"root@$host:$targetPath")
+      exec.append(s"$username@$host:$targetPath")
       val command = Process(exec)
       LOGGER.info(command.lineStream.mkString("\n"))
       // remote exec command to change file owner. Only file owner equal with server's clickhouse user can
@@ -68,7 +70,7 @@ class RsyncFileTransfer(host: String) extends FileTransfer {
   override def init(): Unit = {
     client = SshClient.setUpDefaultClient()
     client.start()
-    session = client.connect("root", this.host, 22).verify().getSession
+    session = client.connect(this.username, this.host, 22).verify().getSession
     if (password != null) {
       session.addPasswordIdentity(this.password)
     }

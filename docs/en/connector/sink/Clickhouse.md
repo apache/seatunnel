@@ -1,5 +1,7 @@
 # Clickhouse
 
+> Clickhouse sink connector
+
 ## Description
 
 Use [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) to correspond the data source according to the field name and write it into ClickHouse. The corresponding data table needs to be created in advance before use

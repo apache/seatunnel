@@ -34,6 +34,9 @@
         <module>seatunnel-flink-sql-e2e</module>
     </modules>
 
+    <properties>
+        <junit4.version>4.13.2</junit4.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -50,5 +53,24 @@
             <artifactId>seatunnel-connectors-flink-dist</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- Testcontainers 1.x is tightly coupled with the JUnit 4.x rule API-->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit4.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
