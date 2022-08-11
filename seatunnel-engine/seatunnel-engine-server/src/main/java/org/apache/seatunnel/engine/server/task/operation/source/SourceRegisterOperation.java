@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
@@ -30,7 +29,6 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
@@ -53,9 +51,8 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
-        ConcurrentMap<Long, TaskExecutionContext> executionContextMap =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID());
-        SourceSplitEnumeratorTask<?> task = executionContextMap.get(enumeratorTaskID.getTaskID()).getTask();
+        SourceSplitEnumeratorTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).getTaskGroup().getTask(enumeratorTaskID.getTaskID());
         task.receivedReader(readerTaskID, readerAddress);
     }
 

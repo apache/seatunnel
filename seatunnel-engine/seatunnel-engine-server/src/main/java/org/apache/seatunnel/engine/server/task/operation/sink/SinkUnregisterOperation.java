@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -29,13 +30,13 @@ import java.io.IOException;
 
 public class SinkUnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private long currentTaskID;
-    private long enumeratorTaskID;
+    private TaskLocation currentTaskID;
+    private TaskLocation enumeratorTaskID;
 
     public SinkUnregisterOperation() {
     }
 
-    public SinkUnregisterOperation(long currentTaskID, long enumeratorTaskID) {
+    public SinkUnregisterOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
         this.currentTaskID = currentTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
@@ -43,20 +44,20 @@ public class SinkUnregisterOperation extends Operation implements IdentifiedData
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
+        server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID());
         // TODO send to committer
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeLong(currentTaskID);
-        out.writeLong(enumeratorTaskID);
+        currentTaskID.writeData(out);
+        enumeratorTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        currentTaskID = in.readLong();
-        enumeratorTaskID = in.readLong();
+        currentTaskID.readData(in);
+        enumeratorTaskID.readData(in);
     }
 
     @Override

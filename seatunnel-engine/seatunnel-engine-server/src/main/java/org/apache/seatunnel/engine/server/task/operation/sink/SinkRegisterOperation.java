@@ -48,7 +48,8 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
         SinkAggregatedCommitterTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID()).get(committerTaskID.getTaskID()).getTask();
+                server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID())
+                        .getTaskGroup().getTask(committerTaskID.getTaskID());
         task.receivedWriterRegister(writerTaskID, readerAddress);
     }
 

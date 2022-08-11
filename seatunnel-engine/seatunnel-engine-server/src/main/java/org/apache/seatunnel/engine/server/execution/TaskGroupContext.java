@@ -17,19 +17,9 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
+import lombok.Data;
 
-public interface TaskGroup extends Serializable {
-
-    long getId();
-
-    void init();
-
-    Collection<Task> getTasks();
-
-    <T extends Task> T getTask(long taskID);
-
-    void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
+@Data
+public class TaskGroupContext {
+    final TaskGroup taskGroup;
 }

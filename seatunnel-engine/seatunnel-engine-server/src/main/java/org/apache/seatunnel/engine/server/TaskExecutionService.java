@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.execution.TaskCallTimer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 
 import com.hazelcast.logging.ILogger;
@@ -68,7 +69,7 @@ public class TaskExecutionService {
     private final ExecutorService executorService = newCachedThreadPool(new BlockingTaskThreadFactory());
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
-    private final ConcurrentMap<Long, ConcurrentMap<Long, TaskExecutionContext>> executionContexts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -85,24 +86,24 @@ public class TaskExecutionService {
         executorService.shutdownNow();
     }
 
-    public ConcurrentMap<Long, TaskExecutionContext> getExecutionContext(long taskGroupId) {
+    public TaskGroupContext getExecutionContext(long taskGroupId) {
         return executionContexts.get(taskGroupId);
     }
 
     private void submitThreadShareTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         tasks.stream()
-            .map(t -> new TaskTracker(t, taskGroupExecutionTracker))
-            .forEach(threadShareTaskQueue::add);
+                .map(t -> new TaskTracker(t, taskGroupExecutionTracker))
+                .forEach(threadShareTaskQueue::add);
     }
 
     private void submitBlockingTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
         taskGroupExecutionTracker.blockingFutures = tasks
-            .stream()
-            .map(t -> new BlockingWorker(new TaskTracker(t, taskGroupExecutionTracker), startedLatch))
-            .map(executorService::submit)
-            .collect(toList());
+                .stream()
+                .map(t -> new BlockingWorker(new TaskTracker(t, taskGroupExecutionTracker), startedLatch))
+                .map(executorService::submit)
+                .collect(toList());
 
         // Do not return from this method until all workers have started. Otherwise
         // on cancellation there is a race where the executor might not have started
@@ -112,24 +113,26 @@ public class TaskExecutionService {
     }
 
     public CompletableFuture<TaskExecutionState> submitTaskGroup(
-        TaskGroup taskGroup,
-        CompletableFuture<Void> cancellationFuture
+            TaskGroup taskGroup,
+            CompletableFuture<Void> cancellationFuture
     ) {
+        taskGroup.init();
         Collection<Task> tasks = taskGroup.getTasks();
         final TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(cancellationFuture, taskGroup);
         try {
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap = new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
-                tasks.stream()
-                    .peek(x -> {
-                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine);
-                        x.setTaskExecutionContext(taskExecutionContext);
-                        taskExecutionContextMap.put(x.getTaskID(), taskExecutionContext);
-                    })
-                    .collect(partitioningBy(Task::isThreadsShare));
+                    tasks.stream()
+                            .peek(x -> {
+                                TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine);
+                                x.setTaskExecutionContext(taskExecutionContext);
+                                taskExecutionContextMap.put(x.getTaskID(), taskExecutionContext);
+                            })
+                            .collect(partitioningBy(Task::isThreadsShare));
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
-            executionContexts.put(taskGroup.getId(), taskExecutionContextMap);
+            taskGroup.setTasksContext(taskExecutionContextMap);
+            executionContexts.put(taskGroup.getId(), new TaskGroupContext(taskGroup));
         } catch (Throwable t) {
             executionTracker.future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
         }
@@ -171,7 +174,7 @@ public class TaskExecutionService {
         @Override
         public Thread newThread(@NonNull Runnable r) {
             return new Thread(r,
-                String.format("hz.%s.seaTunnel.task.thread-%d", hzInstanceName, seq.getAndIncrement()));
+                    String.format("hz.%s.seaTunnel.task.thread-%d", hzInstanceName, seq.getAndIncrement()));
         }
     }
 
@@ -198,8 +201,8 @@ public class TaskExecutionService {
         public void run() {
             while (keep.get()) {
                 TaskTracker taskTracker = null != exclusiveTaskTracker.get() ?
-                    exclusiveTaskTracker.get() :
-                    taskqueue.takeFirst();
+                        exclusiveTaskTracker.get() :
+                        taskqueue.takeFirst();
                 TaskGroupExecutionTracker taskGroupExecutionTracker = taskTracker.taskGroupExecutionTracker;
                 if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
                     taskGroupExecutionTracker.taskDone();

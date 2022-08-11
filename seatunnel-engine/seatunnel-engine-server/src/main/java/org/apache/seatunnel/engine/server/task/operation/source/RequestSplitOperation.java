@@ -47,7 +47,8 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).get(enumeratorTaskID.getTaskID()).getTask();
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID())
+                        .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
         task.requestSplit(taskID.getTaskID());
     }
 

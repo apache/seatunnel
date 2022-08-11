@@ -46,7 +46,8 @@ public class SourceUnregisterOperation extends Operation implements IdentifiedDa
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).get(enumeratorTaskID.getTaskID()).getTask();
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID())
+                        .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
         task.removeTaskMemberMapping(currentTaskID.getTaskID());
     }
 
