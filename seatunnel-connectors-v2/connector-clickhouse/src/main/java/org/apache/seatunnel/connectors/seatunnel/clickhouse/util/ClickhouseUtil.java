@@ -26,12 +26,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class ClickhouseUtil
-{
+public class ClickhouseUtil {
 
     public static List<ClickHouseNode> createNodes(String nodeAddress, String database, String username,
-            String password)
-    {
+            String password) {
         return Arrays.stream(nodeAddress.split(",")).map(address -> {
             String[] nodeAndPort = address.split(":", 2);
             if (StringUtils.isEmpty(username) && StringUtils.isEmpty(password)) {
