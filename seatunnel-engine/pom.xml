@@ -30,6 +30,6 @@
         <module>seatunnel-engine-common</module>
         <module>seatunnel-engine-server</module>
         <module>seatunnel-engine-core</module>
-        <module>seatunnel-check-point</module>
+        <module>seatunnel-engine-storage</module>
     </modules>
 </project>
