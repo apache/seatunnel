@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
-import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
@@ -52,7 +52,7 @@ public class PhysicalVertex {
 
     private final int parallelism;
 
-    private final TaskGroup taskGroup;
+    private final TaskGroupDefaultImpl taskGroup;
 
     private final ExecutorService executorService;
 
@@ -79,7 +79,7 @@ public class PhysicalVertex {
     public PhysicalVertex(int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
                           int parallelism,
-                          @NonNull TaskGroup taskGroup,
+                          @NonNull TaskGroupDefaultImpl taskGroup,
                           @NonNull CompletableFuture<TaskExecutionState> taskFuture,
                           @NonNull FlakeIdGenerator flakeIdGenerator,
                           int pipelineIndex,

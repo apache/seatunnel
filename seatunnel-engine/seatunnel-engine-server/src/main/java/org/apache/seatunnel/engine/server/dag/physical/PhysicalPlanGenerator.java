@@ -34,7 +34,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutio
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
-import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
@@ -158,7 +158,7 @@ public class PhysicalPlanGenerator {
                 return new PhysicalVertex(atomicInteger.incrementAndGet(),
                     executorService,
                     collect.size(),
-                    new TaskGroup("SinkAggregatedCommitterTask", Lists.newArrayList(t)),
+                    new TaskGroupDefaultImpl("SinkAggregatedCommitterTask", Lists.newArrayList(t)),
                     taskFuture,
                     flakeIdGenerator,
                     pipelineIndex,
@@ -185,7 +185,7 @@ public class PhysicalPlanGenerator {
                     t.add(new PhysicalVertex(i,
                         executorService,
                         flow.getAction().getParallelism(),
-                        new TaskGroup("PartitionTransformTask", Lists.newArrayList(seaTunnelTask)),
+                        new TaskGroupDefaultImpl("PartitionTransformTask", Lists.newArrayList(seaTunnelTask)),
                         taskFuture,
                         flakeIdGenerator,
                         pipelineIndex,
@@ -210,7 +210,7 @@ public class PhysicalPlanGenerator {
             return new PhysicalVertex(atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
-                new TaskGroup(s.getName(), Lists.newArrayList(t)),
+                new TaskGroupDefaultImpl(s.getName(), Lists.newArrayList(t)),
                 taskFuture,
                 flakeIdGenerator,
                 pipelineIndex,
@@ -246,7 +246,7 @@ public class PhysicalPlanGenerator {
                     t.add(new PhysicalVertex(i,
                         executorService,
                         flow.getAction().getParallelism(),
-                        new TaskGroup("SourceTask",
+                        new TaskGroupDefaultImpl("SourceTask",
                             taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                         taskFuture,
                         flakeIdGenerator,

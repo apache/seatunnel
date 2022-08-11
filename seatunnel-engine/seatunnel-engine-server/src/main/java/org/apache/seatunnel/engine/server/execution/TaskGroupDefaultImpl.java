@@ -17,17 +17,36 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import java.io.Serializable;
+import lombok.Data;
+
 import java.util.Collection;
 import java.util.Map;
 
-public interface TaskGroup extends Serializable {
+@Data
+public class TaskGroupDefaultImpl implements TaskGroup{
+    private long id;
 
-    public long getId();
+    private final String taskGroupName;
 
-    public void init();
+    private final Collection<Task> tasks;
 
-    public Collection<Task> getTasks();
+    @Override
+    public long getId() {
+        return id;
+    }
 
-    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
+    @Override
+    public void init() {
+
+    }
+
+    @Override
+    public Collection<Task> getTasks() {
+        return tasks;
+    }
+
+    @Override
+    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap) {
+
+    }
 }
