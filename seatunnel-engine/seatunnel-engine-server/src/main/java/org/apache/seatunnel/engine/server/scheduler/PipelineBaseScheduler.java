@@ -66,14 +66,14 @@ public class PipelineBaseScheduler implements JobScheduler {
                 // TODO If there is no enough resources for tasks, we need add some wait profile
                 coordinator.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
                 resourceManager.applyForResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                    coordinator.getPhysicalVertexId());
+                    coordinator.getTaskGroup().getId());
             });
 
             // apply resource for other tasks
             subPlan.getPhysicalVertexList().forEach(task -> {
                 task.updateTaskState(ExecutionState.CREATED, ExecutionState.SCHEDULED);
                 resourceManager.applyForResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                    task.getPhysicalVertexId());
+                    task.getTaskGroup().getId());
             });
         } catch (JobNoEnoughResourceException e) {
             LOGGER.severe(e);
@@ -92,7 +92,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                     return CompletableFuture.supplyAsync(() -> {
                         coordinator.deploy(
                             resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                                coordinator.getPhysicalVertexId()));
+                                coordinator.getTaskGroup().getId()));
                         return null;
                     });
                 }
@@ -105,7 +105,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                     return CompletableFuture.supplyAsync(() -> {
                         task.deploy(
                             resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                                task.getPhysicalVertexId()));
+                                task.getTaskGroup().getId()));
                         return null;
                     });
                 }

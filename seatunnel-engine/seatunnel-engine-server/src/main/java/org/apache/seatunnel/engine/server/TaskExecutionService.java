@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.server.execution.TaskCallTimer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
@@ -73,8 +74,7 @@ public class TaskExecutionService {
     private final ExecutorService executorService = newCachedThreadPool(new BlockingTaskThreadFactory());
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
-    private final ConcurrentMap<Long, ConcurrentMap<Long, TaskExecutionContext>> executionContexts =
-        new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -91,7 +91,7 @@ public class TaskExecutionService {
         executorService.shutdownNow();
     }
 
-    public ConcurrentMap<Long, TaskExecutionContext> getExecutionContext(long taskGroupId) {
+    public TaskGroupContext getExecutionContext(long taskGroupId) {
         return executionContexts.get(taskGroupId);
     }
 
@@ -129,6 +129,7 @@ public class TaskExecutionService {
 
             // TODO Use classloader load the connector jars and deserialize Task
             taskGroup = nodeEngine.getSerializationService().toData(taskImmutableInfo.getGroup());
+            taskGroup.init();
             Collection<Task> tasks = taskGroup.getTasks();
 
             // TODO We need add a method to cancel task
@@ -145,7 +146,8 @@ public class TaskExecutionService {
                     .collect(partitioningBy(Task::isThreadsShare));
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
-            executionContexts.put(taskGroup.getId(), taskExecutionContextMap);
+            taskGroup.setTasksContext(taskExecutionContextMap);
+            executionContexts.put(taskGroup.getId(), new TaskGroupContext(taskGroup));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));

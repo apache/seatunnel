@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import lombok.Data;
-
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Map;
 
-@Data
-public class TaskGroup implements Serializable {
-    //TODO iD is required. The construction method needs to be modified later
-    private long id;
+public interface TaskGroup extends Serializable {
 
-    private final String taskGroupName;
+    public long getId();
 
-    private final Collection<Task> tasks;
+    public void init();
+
+    public Collection<Task> getTasks();
+
+    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
 }

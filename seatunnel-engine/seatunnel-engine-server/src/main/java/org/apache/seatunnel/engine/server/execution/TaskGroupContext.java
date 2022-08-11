@@ -15,14 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.execution;
 
-import com.hazelcast.cluster.Address;
-import lombok.NonNull;
+import lombok.Data;
 
-public interface ResourceManager {
-    Address applyForResource(Long jobId, Long taskId);
-
-    @NonNull
-    Address getAppliedResource(Long jobId, Long taskId);
+@Data
+public class TaskGroupContext {
+    final TaskGroup taskGroup;
 }

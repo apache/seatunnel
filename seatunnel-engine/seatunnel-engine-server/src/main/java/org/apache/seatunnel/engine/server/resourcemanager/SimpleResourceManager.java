@@ -35,7 +35,7 @@ public class SimpleResourceManager implements ResourceManager {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public Address applyForResource(@NonNull Long jobId, @NonNull Long physicalVertexId) {
+    public Address applyForResource(@NonNull Long jobId, @NonNull Long taskId) {
         try {
             Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.get(jobId);
             if (jobAddressMap == null) {
@@ -44,10 +44,10 @@ public class SimpleResourceManager implements ResourceManager {
             }
 
             Address localhost =
-                jobAddressMap.putIfAbsent(physicalVertexId, new Address("localhost", 5801));
+                jobAddressMap.putIfAbsent(taskId, new Address("localhost", 5801));
 
             if (null == localhost) {
-                localhost = jobAddressMap.get(physicalVertexId);
+                localhost = jobAddressMap.get(taskId);
             }
 
             return localhost;
@@ -59,13 +59,13 @@ public class SimpleResourceManager implements ResourceManager {
 
     @Override
     @NonNull
-    public Address getAppliedResource(@NonNull Long jobId, @NonNull Long physicalVertexId) {
+    public Address getAppliedResource(@NonNull Long jobId, @NonNull Long taskId) {
         Map<Long, Address> longAddressMap = physicalVertexIdAndResourceMap.get(jobId);
         if (null == longAddressMap || longAddressMap.isEmpty()) {
             throw new JobException(
-                String.format("Job %s, Task %s can not found applied resource.", jobId, physicalVertexId));
+                String.format("Job %s, Task %s can not found applied resource.", jobId, taskId));
         }
 
-        return longAddressMap.get(physicalVertexId);
+        return longAddressMap.get(taskId);
     }
 }

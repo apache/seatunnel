@@ -15,14 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.execution;
 
-import com.hazelcast.cluster.Address;
-import lombok.NonNull;
+import lombok.Data;
 
-public interface ResourceManager {
-    Address applyForResource(Long jobId, Long taskId);
+import java.util.Collection;
+import java.util.Map;
 
-    @NonNull
-    Address getAppliedResource(Long jobId, Long taskId);
+@Data
+public class TaskGroupDefaultImpl implements TaskGroup{
+    private long id;
+
+    private final String taskGroupName;
+
+    private final Collection<Task> tasks;
+
+    @Override
+    public long getId() {
+        return id;
+    }
+
+    @Override
+    public void init() {
+
+    }
+
+    @Override
+    public Collection<Task> getTasks() {
+        return tasks;
+    }
+
+    @Override
+    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap) {
+
+    }
 }
