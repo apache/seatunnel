@@ -1,5 +1,7 @@
 # Redis
 
+> Redis source connector
+
 ## Description
 
 Read data from Redis.

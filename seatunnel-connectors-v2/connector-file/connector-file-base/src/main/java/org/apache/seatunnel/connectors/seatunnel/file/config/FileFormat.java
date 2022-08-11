@@ -22,7 +22,9 @@ import java.io.Serializable;
 public enum FileFormat implements Serializable {
     CSV("csv"),
     TEXT("txt"),
-    PARQUET("parquet");
+    PARQUET("parquet"),
+    ORC("orc"),
+    JSON("json");
 
     private String suffix;
 

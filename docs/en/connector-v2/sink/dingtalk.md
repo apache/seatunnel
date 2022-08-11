@@ -1,5 +1,7 @@
 # DingTalk
 
+> DinkTalk sink connector
+
 ## Description
 
 A sink plugin which use DingTalk robot send message

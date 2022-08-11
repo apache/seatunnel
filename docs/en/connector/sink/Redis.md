@@ -1,5 +1,7 @@
 # Redis
 
+> Redis sink connector
+
 ## Description
 
 Write Rows to a Redis.

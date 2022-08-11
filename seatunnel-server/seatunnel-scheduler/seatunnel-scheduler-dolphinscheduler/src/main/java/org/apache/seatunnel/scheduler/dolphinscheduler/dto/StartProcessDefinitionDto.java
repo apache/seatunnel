@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.scheduler.dolphinscheduler.dto;
 
+import com.google.common.collect.Maps;
 import lombok.Builder;
 import lombok.Data;
+
+import java.util.Map;
 
 @Builder
 @Data
@@ -32,4 +35,26 @@ public class StartProcessDefinitionDto {
     private String processInstancePriority;
     private String workerGroup;
     private int dryRun;
+    private String scheduleTime;
+    private String execType;
+    private String dependentMode;
+    private Integer expectedParallelismNumber;
+
+    public Map<String, String> toMap() {
+        final Map<String, String> map = Maps.newHashMap();
+        map.put("processDefinitionCode", String.valueOf(processDefinitionCode));
+        map.put("failureStrategy", failureStrategy);
+        map.put("warningType", warningType);
+        map.put("warningGroupId", String.valueOf(warningGroupId));
+        map.put("taskDependType", taskDependType);
+        map.put("runMode", runMode);
+        map.put("processInstancePriority", processInstancePriority);
+        map.put("workerGroup", workerGroup);
+        map.put("dryRun", String.valueOf(dryRun));
+        map.put("scheduleTime", scheduleTime);
+        map.put("execType", execType);
+        map.put("dependentMode", dependentMode);
+        map.put("expectedParallelismNumber", String.valueOf(expectedParallelismNumber));
+        return map;
+    }
 }

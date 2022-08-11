@@ -22,6 +22,7 @@ import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDt
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ResourceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.SchedulerDto;
+import org.apache.seatunnel.scheduler.dolphinscheduler.dto.StartProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.UpdateProcessDefinitionDto;
 import org.apache.seatunnel.spi.scheduler.dto.JobDto;
@@ -36,7 +37,7 @@ public interface IDolphinschedulerService {
 
     ProcessDefinitionDto fetchProcessDefinitionByName(String processDefinitionName);
 
-    void startProcessDefinition(long processDefinitionCode);
+    void startProcessDefinition(StartProcessDefinitionDto dto);
 
     void updateProcessDefinitionState(long processDefinitionCode, String processDefinitionName, String state);
 
@@ -53,4 +54,6 @@ public interface IDolphinschedulerService {
     ResourceDto createOrUpdateScriptContent(String resourceName, String content);
 
     List<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto);
+
+    void deleteProcessDefinition(long code);
 }

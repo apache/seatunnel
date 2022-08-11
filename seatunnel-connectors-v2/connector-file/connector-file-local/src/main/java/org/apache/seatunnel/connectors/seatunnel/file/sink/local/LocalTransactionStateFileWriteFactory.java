@@ -73,6 +73,31 @@ public class LocalTransactionStateFileWriteFactory {
                     subTaskIndex,
                     fileSystem);
         }
+        if (fileFormat.equals(FileFormat.ORC)) {
+            return new LocalOrcTransactionStateFileWriter(
+                    seaTunnelRowTypeInfo,
+                    transactionFileNameGenerator,
+                    partitionDirNameGenerator,
+                    sinkColumnsIndexInRow,
+                    tmpPath,
+                    targetPath,
+                    jobId,
+                    subTaskIndex,
+                    fileSystem);
+        }
+        if (fileFormat.equals(FileFormat.JSON)) {
+            return new LocalJsonTransactionStateFileWriter(
+                    seaTunnelRowTypeInfo,
+                    transactionFileNameGenerator,
+                    partitionDirNameGenerator,
+                    sinkColumnsIndexInRow,
+                    tmpPath,
+                    targetPath,
+                    jobId,
+                    subTaskIndex,
+                    rowDelimiter,
+                    fileSystem);
+        }
         // if file type not supported by file connector, default txt writer will be generated
         return new LocalTxtTransactionStateFileWriter(
                     seaTunnelRowTypeInfo,

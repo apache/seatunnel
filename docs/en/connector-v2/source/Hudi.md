@@ -1,5 +1,7 @@
 # Hudi
 
+> Hudi source connector
+
 ## Description
 
 Used to read data from Hudi. Currently, only supports hudi cow table and Snapshot Query with Batch Mode.
