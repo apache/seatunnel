@@ -27,9 +27,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import java.util.Map;
 
@@ -178,6 +179,14 @@ public class SeatunnelSchema {
         }
     }
 
+    private static Map<String, String> convertConfig2Map(Config config) {
+        // Because the entrySet in typesafe config couldn't keep key-value order
+        // So use jackson parsing schema information into a map to keep key-value order
+        ConfigRenderOptions options = ConfigRenderOptions.concise();
+        String schema = config.root().render(options);
+        return JsonUtils.toMap(schema);
+    }
+
     public static SeatunnelSchema buildWithConfig(Config schemaConfig) {
         CheckResult checkResult = CheckConfigUtil.checkAllExists(schemaConfig, FIELD_KEY);
         if (!checkResult.isSuccess()) {
@@ -185,13 +194,14 @@ public class SeatunnelSchema {
             throw new RuntimeException(errorMsg);
         }
         Config fields = schemaConfig.getConfig(FIELD_KEY);
-        int fieldsNum = fields.entrySet().size();
+        Map<String, String> fieldsMap = convertConfig2Map(fields);
+        int fieldsNum = fieldsMap.size();
         int i = 0;
         String[] fieldsName = new String[fieldsNum];
         SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType<?>[fieldsNum];
-        for (Map.Entry<String, ConfigValue> entry: fields.entrySet()) {
+        for (Map.Entry<String, String> entry : fieldsMap.entrySet()) {
             String key = entry.getKey();
-            String value = entry.getValue().unwrapped().toString();
+            String value = entry.getValue();
             SeaTunnelDataType<?> dataType = parseTypeByString(value);
             fieldsName[i] = key;
             seaTunnelDataTypes[i] = dataType;
