@@ -116,7 +116,7 @@ class Clickhouse extends SparkBatchSink {
   }
 
   override def checkConfig(): CheckResult = {
-    var checkResult = checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD)
+    var checkResult = checkAllExists(config, HOST, TABLE, DATABASE)
     if (checkResult.isSuccess) {
       if (hasSubConfig(config, clickhousePrefix)) {
         extractSubConfig(config, clickhousePrefix, false).entrySet().foreach(e => {
@@ -124,8 +124,10 @@ class Clickhouse extends SparkBatchSink {
         })
       }
 
-      properties.put("user", config.getString(USERNAME))
-      properties.put("password", config.getString(PASSWORD))
+      if (config.hasPath(USERNAME) && config.hasPath(PASSWORD)) {
+        properties.put("user", config.getString(USERNAME))
+        properties.put("password", config.getString(PASSWORD))
+      }
 
       if (config.hasPath(SPLIT_MODE)) {
         splitMode = config.getBoolean(SPLIT_MODE)
