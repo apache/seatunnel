@@ -48,8 +48,6 @@ public class SeaTunnelStarter {
             JobProxy jobProxy = jobExecutionEnv.execute();
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
 
         // TODO wait for job complete and then exit
