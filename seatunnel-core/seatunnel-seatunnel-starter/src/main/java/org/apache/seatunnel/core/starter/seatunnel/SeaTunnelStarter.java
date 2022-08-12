@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import com.hazelcast.client.config.ClientConfig;
 
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
 
 public class SeaTunnelStarter {
     public static void main(String[] args) {
@@ -43,7 +44,11 @@ public class SeaTunnelStarter {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
-        JobProxy jobProxy = jobExecutionEnv.execute();
+        try {
+            JobProxy jobProxy = jobExecutionEnv.execute();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
 
         // TODO wait for job complete and then exit
     }

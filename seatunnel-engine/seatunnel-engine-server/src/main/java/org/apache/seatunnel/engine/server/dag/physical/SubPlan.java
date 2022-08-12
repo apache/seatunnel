@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineState;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
@@ -44,6 +44,8 @@ public class SubPlan {
 
     private final int totalPipelineNum;
 
+    private final JobImmutableInformation jobImmutableInformation;
+
     private AtomicInteger finishedTaskNum = new AtomicInteger(0);
 
     private AtomicInteger canceledTaskNum = new AtomicInteger(0);
@@ -52,7 +54,7 @@ public class SubPlan {
 
     private AtomicReference<PipelineState> pipelineState = new AtomicReference<>();
 
-    private final String pipelineNameWithIndex;
+    private final String pipelineFullName;
 
     /**
      * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
@@ -80,7 +82,8 @@ public class SubPlan {
                    @NonNull List<PhysicalVertex> physicalVertexList,
                    @NonNull List<PhysicalVertex> coordinatorVertexList,
                    @NonNull CompletableFuture<PipelineState> pipelineFuture,
-                   @NonNull NonCompletableFuture<TaskExecutionState>[] waitForCompleteByPhysicalVertex) {
+                   @NonNull NonCompletableFuture<TaskExecutionState>[] waitForCompleteByPhysicalVertex,
+                   @NonNull JobImmutableInformation jobImmutableInformation) {
         this.pipelineIndex = pipelineIndex;
         this.pipelineFuture = pipelineFuture;
         this.totalPipelineNum = totalPipelineNum;
@@ -91,36 +94,110 @@ public class SubPlan {
         this.stateTimestamps[PipelineState.INITIALIZING.ordinal()] = initializationTimestamp;
         this.pipelineState.set(PipelineState.CREATED);
         this.stateTimestamps[PipelineState.CREATED.ordinal()] = System.currentTimeMillis();
-        this.pipelineNameWithIndex = String.format(
-            "pipeline: [(%d/%d)]",
+        this.jobImmutableInformation = jobImmutableInformation;
+        this.pipelineFullName = String.format(
+            "Job %s (%s), Pipeline: [(%d/%d)]",
+            jobImmutableInformation.getJobConfig().getName(),
+            jobImmutableInformation.getJobId(),
             pipelineIndex + 1,
             totalPipelineNum);
 
         Arrays.stream(this.waitForCompleteByPhysicalVertex).forEach(x -> {
             x.whenComplete((v, t) -> {
-                if (ExecutionState.CANCELED.equals(v)) {
+                // We need not handle t, Because we will not return t from PhysicalVertex
+                if (ExecutionState.CANCELED.equals(v.getExecutionState())) {
                     canceledTaskNum.incrementAndGet();
-                } else if (ExecutionState.FAILED.equals(v)) {
-                    failedTaskNum.incrementAndGet();
-                } else {
-                    throw new JobException("Unknown Task end state [" + v + "]");
+                } else if (ExecutionState.FAILED.equals(v.getExecutionState())) {
+                    LOGGER.severe("Task Failed, Begin to cancel other tasks in this pipeline.");
+                    cancelPipeline().whenComplete((v1, t1) -> {
+                        LOGGER.severe(String.format("Cancel other tasks complete"));
+                        failedTaskNum.incrementAndGet();
+                    });
+                } else if (!ExecutionState.FINISHED.equals(v.getExecutionState())) {
+                    LOGGER.severe(
+                        "Task Failed with Unknown ExecutionState, Begin to cancel other tasks in this pipeline.");
+                    cancelPipeline().whenComplete((v1, t1) -> {
+                        LOGGER.severe(String.format("Cancel other tasks complete"));
+                        failedTaskNum.incrementAndGet();
+                    });
                 }
 
                 if (finishedTaskNum.incrementAndGet() == (physicalVertexList.size() + coordinatorVertexList.size())) {
                     if (failedTaskNum.get() > 0) {
-                        LOGGER.info(String.format("Pipeline failed %s", this.pipelineNameWithIndex));
-                        pipelineState.set(PipelineState.FAILED);
+                        updatePipelineState(PipelineState.FAILED);
+                        LOGGER.info(String.format("%s end with state FAILED", this.pipelineFullName));
                     } else if (canceledTaskNum.get() > 0) {
-                        LOGGER.info(String.format("Pipeline canceled %s", this.pipelineNameWithIndex));
-                        pipelineState.set(PipelineState.CANCELED);
+                        updatePipelineState(PipelineState.CANCELED);
+                        LOGGER.info(String.format("%s end with state CANCELED", this.pipelineFullName));
                     } else {
-                        LOGGER.info(String.format("Pipeline finished %s", this.pipelineNameWithIndex));
-                        pipelineState.set(PipelineState.FINISHED);
+                        updatePipelineState(PipelineState.FINISHED);
+                        LOGGER.info(String.format("%s end with state FINISHED", this.pipelineFullName));
                     }
                     pipelineFuture.complete(pipelineState.get());
                 }
             });
         });
+    }
+
+    public boolean updatePipelineState(@NonNull PipelineState targetState) {
+        return updatePipelineState(pipelineState.get(), targetState);
+    }
+
+    public boolean updatePipelineState(@NonNull PipelineState current, @NonNull PipelineState targetState) {
+        // consistency check
+        if (current.isEndState()) {
+            String message = "Pipeline is trying to leave terminal state " + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (PipelineState.SCHEDULED.equals(targetState) && !PipelineState.CREATED.equals(current)) {
+            String message = "Only [CREATED] pipeline can turn to [SCHEDULED]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (PipelineState.DEPLOYING.equals(targetState) && !PipelineState.SCHEDULED.equals(current)) {
+            String message = "Only [SCHEDULED] pipeline can turn to [DEPLOYING]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (PipelineState.RUNNING.equals(targetState) && !PipelineState.DEPLOYING.equals(current)) {
+            String message = "Only [DEPLOYING] pipeline can turn to [RUNNING]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        // now do the actual state transition
+        if (pipelineState.get() == current) {
+            pipelineState.set(targetState);
+            LOGGER.info(String.format("%s turn from state %s to %s.",
+                pipelineFullName,
+                current,
+                targetState));
+
+            stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public NonCompletableFuture<Void> cancelPipeline() {
+        CompletableFuture<Void> cancelFuture = CompletableFuture.supplyAsync(() -> {
+            // TODO Implement cancel tasks in pipeline.
+            return null;
+        });
+
+        cancelFuture.complete(null);
+        return new NonCompletableFuture<>(cancelFuture);
+    }
+
+    public void failedWithNoEnoughResource() {
+        LOGGER.severe(String.format("%s failed with have no enough resource to run.", this.getPipelineFullName()));
+        updatePipelineState(PipelineState.SCHEDULED, PipelineState.FAILED);
+        pipelineFuture.complete(PipelineState.FAILED);
     }
 
     public int getPipelineIndex() {
@@ -133,5 +210,9 @@ public class SubPlan {
 
     public List<PhysicalVertex> getCoordinatorVertexList() {
         return coordinatorVertexList;
+    }
+
+    public String getPipelineFullName() {
+        return pipelineFullName;
     }
 }

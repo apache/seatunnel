@@ -34,7 +34,7 @@ public class PipelineGenerator {
         // cache in the future
 
         return edgesList.stream().map(e -> {
-            Map<Integer, ExecutionVertex> vertexes = new HashMap<>();
+            Map<Long, ExecutionVertex> vertexes = new HashMap<>();
             List<ExecutionEdge> pipelineEdges = e.stream().map(edge -> {
                 if (!vertexes.containsKey(edge.getLeftVertexId())) {
                     vertexes.put(edge.getLeftVertexId(), edge.getLeftVertex());

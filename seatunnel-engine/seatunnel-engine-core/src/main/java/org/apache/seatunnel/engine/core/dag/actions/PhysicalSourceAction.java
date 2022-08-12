@@ -33,7 +33,7 @@ public class PhysicalSourceAction<T, SplitT extends SourceSplit, StateT extends 
     private final SeaTunnelSource<T, SplitT, StateT> source;
     private final List<SeaTunnelTransform> transforms;
 
-    public PhysicalSourceAction(int id,
+    public PhysicalSourceAction(long id,
                                 @NonNull String name,
                                 @NonNull SeaTunnelSource<T, SplitT, StateT> source,
                                 @NonNull List<URL> jarUrls,
@@ -43,7 +43,7 @@ public class PhysicalSourceAction<T, SplitT extends SourceSplit, StateT extends 
         this.transforms = transforms;
     }
 
-    protected PhysicalSourceAction(int id, @NonNull String name, @NonNull List<Action> upstreams,
+    protected PhysicalSourceAction(long id, @NonNull String name, @NonNull List<Action> upstreams,
                                    @NonNull SeaTunnelSource<T, SplitT, StateT> source,
                                    @NonNull List<URL> jarUrls,
                                    List<SeaTunnelTransform> transforms) {

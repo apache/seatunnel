@@ -32,7 +32,7 @@ public class SourceAction<T, SplitT extends SourceSplit, StateT extends Serializ
     private static final long serialVersionUID = -4104531889750766731L;
     private final SeaTunnelSource<T, SplitT, StateT> source;
 
-    public SourceAction(int id,
+    public SourceAction(long id,
                         @NonNull String name,
                         @NonNull SeaTunnelSource<T, SplitT, StateT> source,
                         @NonNull List<URL> jarUrls) {

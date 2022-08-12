@@ -24,9 +24,9 @@ public class ExecutionEdge {
     private ExecutionVertex leftVertex;
     private ExecutionVertex rightVertex;
 
-    private Integer leftVertexId;
+    private Long leftVertexId;
 
-    private Integer rightVertexId;
+    private Long rightVertexId;
 
     public ExecutionEdge(ExecutionVertex leftVertex, ExecutionVertex rightVertex) {
         this.leftVertex = leftVertex;

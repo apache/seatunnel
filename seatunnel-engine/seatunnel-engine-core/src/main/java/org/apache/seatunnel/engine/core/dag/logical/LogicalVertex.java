@@ -32,7 +32,7 @@ import java.io.IOException;
 @AllArgsConstructor
 public class LogicalVertex implements IdentifiedDataSerializable {
 
-    private Integer vertexId;
+    private Long vertexId;
     private Action action;
     private int parallelism;
 
@@ -51,14 +51,14 @@ public class LogicalVertex implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeInt(vertexId);
+        out.writeLong(vertexId);
         out.writeObject(action);
         out.writeInt(parallelism);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        vertexId = in.readInt();
+        vertexId = in.readLong();
         action = in.readObject();
         parallelism = in.readInt();
     }

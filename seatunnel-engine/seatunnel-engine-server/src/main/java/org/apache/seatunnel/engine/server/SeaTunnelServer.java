@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.instance.impl.Node;
@@ -27,6 +28,7 @@ import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.jet.impl.LiveOperationRegistry;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
@@ -39,6 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SeaTunnelServer implements ManagedService, MembershipAwareService, LiveOperationsTracker {
+    private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
     private NodeEngineImpl nodeEngine;
@@ -114,20 +117,22 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
      * call by client to submit job
      */
     @SuppressWarnings("checkstyle:MagicNumber")
-    public CompletableFuture<Void> submitJob(Data jobImmutableInformation) {
+    public NonCompletableFuture<Void> submitJob(Data jobImmutableInformation) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
         JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService);
         executorService.submit(() -> {
             try {
                 jobMaster.init();
+                jobMaster.run();
             } catch (Throwable e) {
-                throw new RuntimeException(e);
+                LOGGER.severe("submit job error: " + e.getMessage());
+                voidCompletableFuture.completeExceptionally(e);
             } finally {
                 // We specify that when init is complete, the submitJob is complete
                 voidCompletableFuture.complete(null);
             }
-            jobMaster.run();
+            //jobMaster.run();
         });
-        return voidCompletableFuture;
+        return new NonCompletableFuture(voidCompletableFuture);
     }
 }

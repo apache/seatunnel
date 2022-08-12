@@ -38,7 +38,7 @@ public interface Action extends Serializable {
 
     void setParallelism(int parallelism);
 
-    int getId();
+    long getId();
 
     List<URL> getJarUrls();
 }

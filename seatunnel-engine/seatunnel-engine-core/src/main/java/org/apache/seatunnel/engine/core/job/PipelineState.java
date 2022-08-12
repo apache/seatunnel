@@ -73,7 +73,7 @@ public enum PipelineState {
     /** Restoring last possible valid state of the pipeline if it has it. */
     INITIALIZING;
 
-    public boolean isEnd() {
+    public boolean isEndState() {
         return this == FINISHED || this == CANCELED || this == FAILED;
     }
 }

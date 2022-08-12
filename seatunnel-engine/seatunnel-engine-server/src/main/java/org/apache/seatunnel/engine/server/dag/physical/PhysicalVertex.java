@@ -17,22 +17,26 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
 import java.net.URL;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * PhysicalVertex is responsible for the scheduling and execution of a single task parallel
@@ -43,12 +47,14 @@ public class PhysicalVertex {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalVertex.class);
 
+    private final long physicalVertexId;
+
     /**
      * the index of PhysicalVertex
      */
     private final int subTaskGroupIndex;
 
-    private final String taskNameWithSubtaskAndPipeline;
+    private final String taskFullName;
 
     private final int parallelism;
 
@@ -64,19 +70,35 @@ public class PhysicalVertex {
 
     private final Set<URL> pluginJarsUrls;
 
+    private AtomicReference<ExecutionState> executionState = new AtomicReference<>();
+
     /**
      * When PhysicalVertex status turn to end, complete this future. And then the waitForCompleteByPhysicalVertex
      * in {@link SubPlan} whenComplete method will be called.
      */
     private final CompletableFuture<TaskExecutionState> taskFuture;
 
+    /**
+     * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
+     * task transitioned into a certain state. The index into this array is the ordinal
+     * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
+     * stateTimestamps[RUNNING.ordinal()]}.
+     */
+    private final long[] stateTimestamps;
 
     /**
      * This future only can completion by the task run in {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
      */
     private NonCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
 
-    public PhysicalVertex(int subTaskGroupIndex,
+    private final JobImmutableInformation jobImmutableInformation;
+
+    private final long initializationTimestamp;
+
+    private final NodeEngine nodeEngine;
+
+    public PhysicalVertex(long physicalVertexId,
+                          int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
                           int parallelism,
                           @NonNull TaskGroupDefaultImpl taskGroup,
@@ -84,7 +106,11 @@ public class PhysicalVertex {
                           @NonNull FlakeIdGenerator flakeIdGenerator,
                           int pipelineIndex,
                           int totalPipelineNum,
-                          Set<URL> pluginJarsUrls) {
+                          Set<URL> pluginJarsUrls,
+                          @NonNull JobImmutableInformation jobImmutableInformation,
+                          long initializationTimestamp,
+                          @NonNull NodeEngine nodeEngine) {
+        this.physicalVertexId = physicalVertexId;
         this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
         this.parallelism = parallelism;
@@ -93,45 +119,132 @@ public class PhysicalVertex {
         this.pipelineIndex = pipelineIndex;
         this.totalPipelineNum = totalPipelineNum;
         this.pluginJarsUrls = pluginJarsUrls;
-        this.taskNameWithSubtaskAndPipeline =
+        this.jobImmutableInformation = jobImmutableInformation;
+        this.initializationTimestamp = initializationTimestamp;
+        stateTimestamps = new long[ExecutionState.values().length];
+        this.stateTimestamps[ExecutionState.INITIALIZING.ordinal()] = initializationTimestamp;
+        this.executionState.set(ExecutionState.CREATED);
+        this.stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
+        this.nodeEngine = nodeEngine;
+        this.taskFullName =
             String.format(
-                "task: [%s (%d/%d)], pipeline: [%d/%d]",
+                "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
+                jobImmutableInformation.getJobConfig().getName(),
+                jobImmutableInformation.getJobId(),
+                pipelineIndex + 1,
+                totalPipelineNum,
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
-                parallelism,
-                pipelineIndex,
-                totalPipelineNum);
+                parallelism);
         this.taskFuture = taskFuture;
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
-    public void deploy() throws JobException {
+    // This method must not throw an exception
+    public void deploy(@NonNull Address address) {
+        /**
+         TaskGroupImmutableInformation taskGroupImmutableInformation =
+         new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
+         nodeEngine.getSerializationService().toData(this.taskGroup),
+         this.pluginJarsUrls);
 
-        // TODO really submit job to ExecutionService and get a NonCompletableFuture<ExecutionState>
-        long executionId = flakeIdGenerator.newId();
-        CompletableFuture<TaskExecutionState> uCompletableFuture = CompletableFuture.supplyAsync(() -> {
+         try {
+         waitForCompleteByExecutionService = new NonCompletableFuture<>(
+         nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+         new DeployTaskOperation(nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
+         address)
+         .invoke());
+         } catch (Throwable th) {
+         LOGGER.severe(String.format("%s deploy error with Exception: %s",
+         this.taskFullName,
+         ExceptionUtils.getMessage(th)));
+         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
+         taskFuture.complete(
+         new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
+         }*/
+
+        waitForCompleteByExecutionService = new NonCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
             try {
-                Thread.sleep(5000);
-                return new TaskExecutionState(executionId, ExecutionState.FINISHED, null);
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
-                return new TaskExecutionState(executionId, ExecutionState.FAILED, e);
+                throw new RuntimeException(e);
             }
-        }, executorService);
+            return new TaskExecutionState(flakeIdGenerator.newId(), ExecutionState.FINISHED, null);
+        }));
 
-        waitForCompleteByExecutionService = new NonCompletableFuture<TaskExecutionState>(uCompletableFuture);
+        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
-            if (t != null) {
-                // TODO t.getMessage() need be replace
-                LOGGER.info(String.format("The Task %s Failed with Exception: %s",
-                    this.taskNameWithSubtaskAndPipeline,
-                    t.getMessage()));
-                taskFuture.complete(new TaskExecutionState(executionId, ExecutionState.FAILED, t));
-            } else {
-                LOGGER.info(String.format("The Task %s end with state %s",
-                    this.taskNameWithSubtaskAndPipeline,
-                    v));
+            try {
+                // We need not handle t, Because we will not return t from TaskExecutionService
+                // v will never be null
+                updateTaskState(executionState.get(), v.getExecutionState());
+                if (v.getThrowable() != null) {
+                    LOGGER.severe(String.format("%s end with state %s and Exception: %s",
+                        this.taskFullName,
+                        v.getExecutionState(),
+                        ExceptionUtils.getMessage(v.getThrowable())));
+                } else {
+                    LOGGER.severe(String.format("%s end with state %s",
+                        this.taskFullName,
+                        v.getExecutionState()));
+                }
+                taskFuture.complete(v);
+            } catch (Throwable th) {
+                LOGGER.severe(
+                    String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
+                updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
+                v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, null);
                 taskFuture.complete(v);
             }
         });
+    }
+
+    public long getPhysicalVertexId() {
+        return physicalVertexId;
+    }
+
+    public boolean updateTaskState(@NonNull ExecutionState current, @NonNull ExecutionState targetState) {
+        // consistency check
+        if (current.isEndState()) {
+            String message = "Task is trying to leave terminal state " + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (ExecutionState.SCHEDULED.equals(targetState) && !ExecutionState.CREATED.equals(current)) {
+            String message = "Only [CREATED] task can turn to [SCHEDULED]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (ExecutionState.DEPLOYING.equals(targetState) && !ExecutionState.SCHEDULED.equals(current)) {
+            String message = "Only [SCHEDULED] task can turn to [DEPLOYING]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (ExecutionState.RUNNING.equals(targetState) && !ExecutionState.DEPLOYING.equals(current)) {
+            String message = "Only [DEPLOYING] task can turn to [RUNNING]" + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        // now do the actual state transition
+        if (executionState.get() == current) {
+            executionState.set(targetState);
+            LOGGER.info(String.format("%s turn from state %s to %s.",
+                taskFullName,
+                current,
+                targetState));
+
+            stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public TaskGroupDefaultImpl getTaskGroup() {
+        return taskGroup;
     }
 }
