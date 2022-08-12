@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -34,7 +36,6 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
 
 import com.hazelcast.config.Config;
-import com.hazelcast.core.Hazelcast;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
@@ -77,17 +78,18 @@ public class PhysicalPlanTest {
         logicalDag.addLogicalVertex(fake2Vertex);
         logicalDag.addEdge(edge);
 
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation();
+        JobConfig config = new JobConfig();
+        config.setName("test");
+        config.setBoundedness(Boundedness.BOUNDED);
 
-        Config config = new Config();
-        config.setClusterName("test");
-        config.setInstanceName("local");
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
+                nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         PhysicalPlan physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
                 jobImmutableInformation,
                 System.currentTimeMillis(),
                 Executors.newCachedThreadPool(),
-                Hazelcast.getOrCreateHazelcastInstance(config).getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME));
+                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME));
 
         Assert.assertEquals(physicalPlan.getPipelineList().size(), 1);
         Assert.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
