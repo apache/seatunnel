@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
+package org.apache.seatunnel.engine.server.dag.physical.config;
 
-/**
- * A processing component that gets one piece of data at one time from other components inside the engine
- *
- * @see OneOutputFlowLifeCycle
- * @see SourceFlowLifeCycle
- */
-public interface OneInputFlowLifeCycle<T> extends FlowLifeCycle {
+public class IntermediateQueueConfig implements FlowConfig {
 
-    void received(T record);
+    private final int queueID;
 
+    public IntermediateQueueConfig(int queueID) {
+        this.queueID = queueID;
+    }
+
+    public int getQueueID() {
+        return queueID;
+    }
 }

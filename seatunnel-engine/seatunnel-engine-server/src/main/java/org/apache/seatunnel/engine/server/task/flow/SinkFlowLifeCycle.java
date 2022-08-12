@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -58,7 +59,7 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
 
     @Override
     public void init() throws Exception {
-        if (states.isEmpty()) {
+        if (states == null || states.isEmpty()) {
             this.writer = sinkAction.getSink().createWriter(new SinkWriterContext(indexID));
         } else {
             this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
@@ -84,10 +85,14 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
     }
 
     @Override
-    public void received(R row) {
+    public void received(R record) {
         // TODO maybe received barrier, need change method to support this.
         try {
-            writer.write((T) row);
+            if (record instanceof Record) {
+                writer.write((T) ((Record) record).getData());
+            } else {
+                throw new IllegalArgumentException("unsupported record type");
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

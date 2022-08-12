@@ -27,11 +27,15 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneOutputFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
-public class MiddleSeaTunnelTask extends SeaTunnelTask {
+public class TransformSeaTunnelTask extends SeaTunnelTask {
 
-    public MiddleSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    private static final ILogger LOGGER = Logger.getLogger(TransformSeaTunnelTask.class);
+
+    public TransformSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
     }
 
@@ -40,6 +44,7 @@ public class MiddleSeaTunnelTask extends SeaTunnelTask {
     @Override
     public void init() throws Exception {
         super.init();
+        LOGGER.info("starting seatunnel transform task, index " + indexID);
         collector = new SeaTunnelTransformCollector<>(outputs);
     }
 
@@ -56,7 +61,7 @@ public class MiddleSeaTunnelTask extends SeaTunnelTask {
         if (startFlowLifeCycle instanceof OneOutputFlowLifeCycle) {
             ((OneOutputFlowLifeCycle<Record>) startFlowLifeCycle).collect(collector);
         } else {
-            throw new TaskRuntimeException("SourceSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+            throw new TaskRuntimeException("MiddleSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
         }
         return progress.toState();
     }

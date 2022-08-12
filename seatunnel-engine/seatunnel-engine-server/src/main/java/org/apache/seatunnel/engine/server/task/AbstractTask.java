@@ -53,6 +53,11 @@ public abstract class AbstractTask implements Task {
         return executionContext;
     }
 
+    @Override
+    public void init() throws Exception {
+        progress.start();
+    }
+
     @NonNull
     @Override
     public ProgressState call() throws Exception {

@@ -119,7 +119,7 @@ public class PhysicalVertex {
             }
         }, executorService);
 
-        waitForCompleteByExecutionService = new NonCompletableFuture<TaskExecutionState>(uCompletableFuture);
+        waitForCompleteByExecutionService = new NonCompletableFuture<>(uCompletableFuture);
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
             if (t != null) {
                 // TODO t.getMessage() need be replace

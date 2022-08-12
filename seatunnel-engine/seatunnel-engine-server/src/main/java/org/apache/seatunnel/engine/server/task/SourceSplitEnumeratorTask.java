@@ -20,10 +20,14 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import lombok.NonNull;
 
 import java.io.IOException;
 import java.net.URL;
@@ -35,6 +39,8 @@ import java.util.stream.Collectors;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
 
+    private static final ILogger LOGGER = Logger.getLogger(SourceSplitEnumeratorTask.class);
+
     private static final long serialVersionUID = -3713701594297977775L;
 
     private final SourceAction<?, SplitT, ?> source;
@@ -45,6 +51,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void init() throws Exception {
+        super.init();
+        LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
         taskMemberMapping = new ConcurrentHashMap<>();
@@ -62,6 +70,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
         super(jobID, taskID);
         this.source = source;
+    }
+
+    @NonNull
+    @Override
+    public ProgressState call() throws Exception {
+        return super.call();
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {

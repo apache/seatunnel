@@ -18,13 +18,16 @@
 package org.apache.seatunnel.engine.server.dag.physical.flow;
 
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
+import org.apache.seatunnel.engine.server.dag.physical.config.FlowConfig;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class IntermediateExecutionFlow extends Flow {
+public class IntermediateExecutionFlow<F extends FlowConfig> extends Flow {
 
     private final IntermediateQueue queue;
+
+    private F config;
 
     public IntermediateExecutionFlow(IntermediateQueue queue) {
         super(new ArrayList<>());
@@ -34,6 +37,14 @@ public class IntermediateExecutionFlow extends Flow {
     public IntermediateExecutionFlow(IntermediateQueue queue, List<Flow> next) {
         super(next);
         this.queue = queue;
+    }
+
+    public F getConfig() {
+        return config;
+    }
+
+    public void setConfig(F config) {
+        this.config = config;
     }
 
     public IntermediateQueue getQueue() {

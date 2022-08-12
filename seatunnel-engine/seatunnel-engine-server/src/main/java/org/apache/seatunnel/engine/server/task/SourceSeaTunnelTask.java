@@ -24,9 +24,13 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
-public class SourceSeaTunnelTask<T> extends SeaTunnelTask{
+public class SourceSeaTunnelTask<T> extends SeaTunnelTask {
+
+    private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
 
     public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID, indexID, executionFlow);
@@ -38,6 +42,7 @@ public class SourceSeaTunnelTask<T> extends SeaTunnelTask{
     @Override
     public void init() throws Exception {
         super.init();
+        LOGGER.info("starting seatunnel source task, index " + indexID);
         collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
     }
 

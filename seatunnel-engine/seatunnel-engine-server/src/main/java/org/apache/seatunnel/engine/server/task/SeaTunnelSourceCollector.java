@@ -35,10 +35,10 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     }
 
     @Override
-    public void collect(T record) {
+    public void collect(T row) {
         synchronized (checkpointLock) {
             for (OneInputFlowLifeCycle<Record> output : outputs) {
-                output.received(new Record(record));
+                output.received(new Record(row));
             }
         }
     }

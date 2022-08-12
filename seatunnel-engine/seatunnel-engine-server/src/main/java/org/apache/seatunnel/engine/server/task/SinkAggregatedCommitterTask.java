@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 
 import java.net.URL;
 import java.util.Arrays;
@@ -34,6 +36,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends CoordinatorTask {
 
+    private static final ILogger LOGGER = Logger.getLogger(SinkAggregatedCommitterTask.class);
     private static final long serialVersionUID = 5906594537520393503L;
     private final SinkAction<?, ?, ?, AggregatedCommitInfoT> sink;
 
@@ -54,6 +57,8 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     @Override
     public void init() throws Exception {
+        super.init();
+        LOGGER.info("starting seatunnel source split enumerator task, sink name: " + sink.getName());
     }
 
     public void receivedWriterRegister(TaskLocation writerID, Address address) {

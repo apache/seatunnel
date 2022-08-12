@@ -24,12 +24,14 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
+import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
@@ -39,6 +41,7 @@ import org.apache.seatunnel.engine.server.task.flow.PartitionTransformSourceFlow
 import org.apache.seatunnel.engine.server.task.flow.SinkFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQueue;
 
 import java.io.IOException;
 import java.net.URL;
@@ -47,7 +50,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 
 public abstract class SeaTunnelTask extends AbstractTask {
 
@@ -60,6 +62,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected int indexID;
 
+    private TaskGroup taskBelongGroup;
+
     public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID);
         this.indexID = indexID;
@@ -68,8 +72,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     @Override
     public void init() throws Exception {
+        super.init();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
-        progress.makeProgress();
+    }
+
+    public void setTaskGroup(TaskGroup group) {
+        this.taskBelongGroup = group;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes", "checkstyle:MagicNumber"})
@@ -77,7 +85,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
         FlowLifeCycle lifeCycle;
         List<OneInputFlowLifeCycle<Record>> flowLifeCycles = new ArrayList<>();
-        if (!executionFlow.getNext().isEmpty()) {
+        if (!flow.getNext().isEmpty()) {
             for (Flow f : executionFlow.getNext()) {
                 flowLifeCycles.add((OneInputFlowLifeCycle<Record>) convertFlowToActionLifeCycle(f));
             }
@@ -106,8 +114,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 throw new UnknownActionException(f.getAction());
             }
         } else if (flow instanceof IntermediateExecutionFlow) {
-            // TODO The logic here needs to be adjusted to satisfy the input and output using the same queue
-            lifeCycle = new IntermediateQueueFlowLifeCycle<>(new ArrayBlockingQueue<>(100));
+            IntermediateQueueConfig config =
+                    ((IntermediateExecutionFlow<IntermediateQueueConfig>) flow).getConfig();
+            lifeCycle = new IntermediateQueueFlowLifeCycle<>(((TaskGroupWithIntermediateQueue) taskBelongGroup)
+                    .getBlockingQueueCache(config.getQueueID()));
+            outputs = flowLifeCycles;
         } else {
             throw new UnknownFlowException(flow);
         }
