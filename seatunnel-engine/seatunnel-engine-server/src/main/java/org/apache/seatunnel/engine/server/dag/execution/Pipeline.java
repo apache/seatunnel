@@ -23,9 +23,9 @@ import java.util.Map;
 public class Pipeline {
     private final List<ExecutionEdge> edges;
 
-    private final Map<Integer, ExecutionVertex> vertexes;
+    private final Map<Long, ExecutionVertex> vertexes;
 
-    Pipeline(List<ExecutionEdge> edges, Map<Integer, ExecutionVertex> vertexes) {
+    Pipeline(List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
         this.edges = edges;
         this.vertexes = vertexes;
     }
@@ -34,7 +34,7 @@ public class Pipeline {
         return edges;
     }
 
-    public Map<Integer, ExecutionVertex> getVertexes() {
+    public Map<Long, ExecutionVertex> getVertexes() {
         return vertexes;
     }
 

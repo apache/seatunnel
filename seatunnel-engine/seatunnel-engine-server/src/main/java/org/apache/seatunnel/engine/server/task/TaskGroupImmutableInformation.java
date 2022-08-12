@@ -24,31 +24,23 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import lombok.AllArgsConstructor;
 
 import java.io.IOException;
 import java.net.URL;
 import java.util.Set;
 
-public class TaskGroupInfo implements IdentifiedDataSerializable {
+@lombok.Data
+@AllArgsConstructor
+public class TaskGroupImmutableInformation implements IdentifiedDataSerializable {
+    // Each deployment generates a new executionId
+    private long executionId;
 
     private Data group;
 
     private Set<URL> jars;
 
-    public TaskGroupInfo() {
-    }
-
-    public TaskGroupInfo(Data group, Set<URL> jars) {
-        this.group = group;
-        this.jars = jars;
-    }
-
-    public Data getGroup() {
-        return group;
-    }
-
-    public Set<URL> getJars() {
-        return jars;
+    public TaskGroupImmutableInformation(){
     }
 
     @Override
@@ -63,12 +55,14 @@ public class TaskGroupInfo implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeLong(executionId);
         out.writeObject(jars);
         IOUtil.writeData(out, group);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
+        executionId = in.readLong();
         jars = in.readObject();
         group = IOUtil.readData(in);
     }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
@@ -89,16 +90,16 @@ public class SeaTunnelHazelcastClient {
         }
     }
 
-    public CompletableFuture<Void> requestAndGetCompletableFuture(UUID uuid, ClientMessage request) {
+    public NonCompletableFuture<Void> requestAndGetCompletableFuture(UUID uuid, ClientMessage request) {
         ClientInvocation invocation = new ClientInvocation(hazelcastClient, request, null, uuid);
         try {
-            return invocation.invoke().thenApply(c -> null);
+            return new NonCompletableFuture<>(invocation.invoke().thenApply(c -> null));
         } catch (Throwable t) {
             throw ExceptionUtil.rethrow(t);
         }
     }
 
-    public CompletableFuture<Void> requestOnMasterAndGetCompletableFuture(@NonNull ClientMessage request) {
+    public NonCompletableFuture<Void> requestOnMasterAndGetCompletableFuture(@NonNull ClientMessage request) {
         UUID masterUuid = hazelcastClient.getClientClusterService().getMasterMember().getUuid();
         return requestAndGetCompletableFuture(masterUuid, request);
     }

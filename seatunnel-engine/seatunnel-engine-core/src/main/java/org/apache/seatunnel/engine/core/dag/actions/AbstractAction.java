@@ -27,20 +27,20 @@ public abstract class AbstractAction implements Action {
     private String name;
     private List<Action> upstreams = new ArrayList<>();
     // This is used to assign a unique ID to every Action
-    private int id;
+    private long id;
 
     private int parallelism = 1;
 
     private List<URL> jarUrls;
 
-    protected AbstractAction(int id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull List<URL> jarUrls) {
+    protected AbstractAction(long id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull List<URL> jarUrls) {
         this.id = id;
         this.name = name;
         this.upstreams = upstreams;
         this.jarUrls = jarUrls;
     }
 
-    protected AbstractAction(int id, @NonNull String name, @NonNull List<URL> jarUrls) {
+    protected AbstractAction(long id, @NonNull String name, @NonNull List<URL> jarUrls) {
         this.id = id;
         this.name = name;
         this.jarUrls = jarUrls;
@@ -79,7 +79,7 @@ public abstract class AbstractAction implements Action {
     }
 
     @Override
-    public int getId() {
+    public long getId() {
         return id;
     }
 

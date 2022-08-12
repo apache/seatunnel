@@ -24,6 +24,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -34,16 +35,20 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
+import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
+import java.net.URL;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -112,14 +117,24 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
-    public CompletableFuture<TaskExecutionState> submitTaskGroup(
-        TaskGroup taskGroup,
-        CompletableFuture<Void> cancellationFuture
+    public NonCompletableFuture<TaskExecutionState> deployTask(
+        @NonNull Data taskImmutableInformation
     ) {
-        taskGroup.init();
-        Collection<Task> tasks = taskGroup.getTasks();
-        final TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(cancellationFuture, taskGroup);
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskGroup taskGroup = null;
         try {
+            TaskGroupImmutableInformation taskImmutableInfo =
+                nodeEngine.getSerializationService().toObject(taskImmutableInformation);
+            Set<URL> jars = taskImmutableInfo.getJars();
+
+            // TODO Use classloader load the connector jars and deserialize Task
+            taskGroup = nodeEngine.getSerializationService().toData(taskImmutableInfo.getGroup());
+            taskGroup.init();
+            Collection<Task> tasks = taskGroup.getTasks();
+
+            // TODO We need add a method to cancel task
+            CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+            TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap = new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
@@ -134,9 +149,10 @@ public class TaskExecutionService {
             taskGroup.setTasksContext(taskExecutionContextMap);
             executionContexts.put(taskGroup.getId(), new TaskGroupContext(taskGroup));
         } catch (Throwable t) {
-            executionTracker.future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
+            logger.severe(ExceptionUtils.getMessage(t));
+            resultFuture.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
         }
-        return new NonCompletableFuture<>(executionTracker.future);
+        return new NonCompletableFuture<>(resultFuture);
     }
 
     private final class BlockingWorker implements Runnable {
@@ -158,7 +174,8 @@ public class TaskExecutionService {
                 ProgressState result;
                 do {
                     result = t.call();
-                } while (!result.isDone() && !isShutdown && !tracker.taskGroupExecutionTracker.executionCompletedExceptionally());
+                } while (!result.isDone() && !isShutdown &&
+                    !tracker.taskGroupExecutionTracker.executionCompletedExceptionally());
             } catch (Throwable e) {
                 logger.warning("Exception in " + t, e);
                 tracker.taskGroupExecutionTracker.exception(e);
@@ -190,7 +207,8 @@ public class TaskExecutionService {
         public LinkedBlockingDeque<TaskTracker> taskqueue;
 
         @SuppressWarnings("checkstyle:MagicNumber")
-        public CooperativeTaskWorker(LinkedBlockingDeque<TaskTracker> taskqueue, RunBusWorkSupplier runBusWorkSupplier) {
+        public CooperativeTaskWorker(LinkedBlockingDeque<TaskTracker> taskqueue,
+                                     RunBusWorkSupplier runBusWorkSupplier) {
             logger.info(String.format("Created new BusWork : %s", this.hashCode()));
             this.taskqueue = taskqueue;
             this.timer = new TaskCallTimer(50, keep, runBusWorkSupplier, this);
@@ -287,7 +305,7 @@ public class TaskExecutionService {
     public final class TaskGroupExecutionTracker {
 
         private final TaskGroup taskGroup;
-        final CompletableFuture<TaskExecutionState> future = new CompletableFuture<>();
+        final CompletableFuture<TaskExecutionState> future;
         volatile List<Future<?>> blockingFutures = emptyList();
 
         private final AtomicInteger completionLatch;
@@ -295,7 +313,9 @@ public class TaskExecutionService {
 
         private final AtomicBoolean isCancel = new AtomicBoolean(false);
 
-        TaskGroupExecutionTracker(CompletableFuture<Void> cancellationFuture, TaskGroup taskGroup) {
+        TaskGroupExecutionTracker(@NonNull CompletableFuture<Void> cancellationFuture, @NonNull TaskGroup taskGroup,
+                                  @NonNull CompletableFuture<TaskExecutionState> future) {
+            this.future = future;
             this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
             this.taskGroup = taskGroup;
             cancellationFuture.whenComplete(withTryCatch(logger, (r, e) -> {

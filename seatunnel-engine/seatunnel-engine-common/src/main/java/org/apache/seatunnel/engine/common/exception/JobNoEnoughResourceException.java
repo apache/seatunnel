@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.engine.common.exception;
 
-import java.io.Serializable;
+public class JobNoEnoughResourceException extends SeaTunnelEngineException {
+    public JobNoEnoughResourceException(String jobName, long jobId, int pipelineIndex, int totalPipelineNum) {
+        super(String.format("Job %s (%s), Pipeline [(%s/%s)] have no enough resource.", jobName, jobId, pipelineIndex + 1, totalPipelineNum));
+    }
 
-/**
- * It is used to generate the ID of each vertex in DAG. We just need to ensure that the id of all Vertices in a DAG are
- * unique.
- */
-public class IdGenerator implements Serializable {
+    public JobNoEnoughResourceException(String message) {
+        super(message);
+    }
 
-    private static final long serialVersionUID = 7683323453014131725L;
-    private long id = 0;
-
-    public long getNextId() {
-        id++;
-        return id;
+    public JobNoEnoughResourceException(String message, Throwable cause) {
+        super(message, cause);
     }
 }
