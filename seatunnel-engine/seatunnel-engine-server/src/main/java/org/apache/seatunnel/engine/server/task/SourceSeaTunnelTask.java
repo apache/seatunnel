@@ -37,11 +37,11 @@ public class SourceSeaTunnelTask<T> extends SeaTunnelTask {
     }
 
     private SeaTunnelSourceCollector<T> collector;
-    private final Object checkpointLock = new Object();
 
     @Override
     public void init() throws Exception {
         super.init();
+        Object checkpointLock = new Object();
         LOGGER.info("starting seatunnel source task, index " + indexID);
         collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
     }

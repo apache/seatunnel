@@ -38,7 +38,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     public void collect(T row) {
         synchronized (checkpointLock) {
             for (OneInputFlowLifeCycle<Record> output : outputs) {
-                output.received(new Record(row));
+                output.received(new Record<>(row));
             }
         }
     }

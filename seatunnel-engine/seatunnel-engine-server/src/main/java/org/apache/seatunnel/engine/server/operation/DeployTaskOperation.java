@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
-import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
@@ -42,8 +42,8 @@ public class DeployTaskOperation extends AsyncOperation {
 
     @Override
     protected NonCompletableFuture<?> doRun() throws Exception {
-        TaskExecutionService taskExecutionService = getService();
-        NonCompletableFuture<TaskExecutionState> voidCompletableFuture = taskExecutionService.deployTask(taskImmutableInformation);
+        SeaTunnelServer server = getService();
+        NonCompletableFuture<TaskExecutionState> voidCompletableFuture =  server.getTaskExecutionService().deployTask(taskImmutableInformation);
         return voidCompletableFuture;
     }
 

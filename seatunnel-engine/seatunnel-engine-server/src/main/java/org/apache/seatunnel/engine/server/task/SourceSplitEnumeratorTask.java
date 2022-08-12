@@ -34,6 +34,7 @@ import java.net.URL;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -49,9 +50,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
+    private CompletableFuture<ProgressState> future;
+
     @Override
     public void init() throws Exception {
         super.init();
+        future = new CompletableFuture<>();
         LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
@@ -65,6 +69,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         if (enumerator != null) {
             enumerator.close();
         }
+        future.complete(progress.done().toState());
     }
 
     public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
@@ -75,7 +80,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @NonNull
     @Override
     public ProgressState call() throws Exception {
-        return super.call();
+        return future.get();
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {

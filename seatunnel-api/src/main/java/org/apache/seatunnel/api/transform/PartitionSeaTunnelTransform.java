@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.transform;
 
 import org.apache.seatunnel.api.table.type.Record;
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record> {
+public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record<?>> {
 
     int getPartitionCount();
 

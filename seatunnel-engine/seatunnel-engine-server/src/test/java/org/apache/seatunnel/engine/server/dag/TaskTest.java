@@ -18,10 +18,11 @@
 package org.apache.seatunnel.engine.server.dag;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
-import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -33,36 +34,30 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
-import org.apache.seatunnel.engine.server.execution.TaskGroup;
 
 import com.hazelcast.config.Config;
-import com.hazelcast.core.Hazelcast;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import com.hazelcast.spi.impl.NodeEngine;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 public class TaskTest {
 
     private SeaTunnelServer service;
 
+    private NodeEngine nodeEngine;
+
     @Before
     public void before() {
         HazelcastInstanceImpl instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(new Config(), Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
-        service = instance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+        nodeEngine = instance.node.nodeEngine;
+        service = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     }
 
     @Test
@@ -98,44 +93,15 @@ public class TaskTest {
         logicalDag.addLogicalVertex(fake2Vertex);
         logicalDag.addEdge(edge);
 
-        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation();
+        JobConfig config = new JobConfig();
+        config.setName("test");
+        config.setBoundedness(Boundedness.BOUNDED);
 
-        Config config = new Config();
-        config.setClusterName("test");
-        config.setInstanceName("local");
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
+                nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        PhysicalPlan physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, jobImmutableInformation,
-                System.currentTimeMillis(),
-                Executors.newCachedThreadPool(),
-                Hazelcast.getOrCreateHazelcastInstance(config).getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME));
+        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation)).join();
 
-        List<CompletableFuture<?>> future = new ArrayList<>();
-        physicalPlan.getPipelineList().forEach(subPlan -> {
-            future.addAll(subPlan.getCoordinatorVertexList().stream().map(vertx -> {
-                try {
-                    Field field = vertx.getClass().getDeclaredField("taskGroup");
-                    field.setAccessible(true);
-                    TaskGroup group = (TaskGroup) field.get(vertx);
-                    return service.getTaskExecutionService().submitTaskGroup(group, new CompletableFuture<>());
-                } catch (NoSuchFieldException | IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            }).collect(Collectors.toList()));
-
-            future.addAll(subPlan.getPhysicalVertexList().stream().map(vertx -> {
-                try {
-                    Field field = vertx.getClass().getDeclaredField("taskGroup");
-                    field.setAccessible(true);
-                    TaskGroup group = (TaskGroup) field.get(vertx);
-                    return service.getTaskExecutionService().submitTaskGroup(group, new CompletableFuture<>());
-                } catch (NoSuchFieldException | IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            }).collect(Collectors.toList()));
-        });
-        for (CompletableFuture<?> completableFuture : future) {
-            completableFuture.join();
-        }
     }
 
 }

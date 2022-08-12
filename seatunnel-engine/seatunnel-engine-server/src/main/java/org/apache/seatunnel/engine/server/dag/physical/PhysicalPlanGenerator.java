@@ -52,6 +52,7 @@ import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQu
 
 import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -83,6 +84,8 @@ public class PhysicalPlanGenerator {
 
     private final ExecutorService executorService;
 
+    private final NodeEngine nodeEngine;
+
     private final FlakeIdGenerator flakeIdGenerator;
 
     /**
@@ -95,11 +98,13 @@ public class PhysicalPlanGenerator {
     private final Map<SinkAction<?, ?, ?, ?>, TaskLocation> committerTaskIDMap = new HashMap<>();
 
     public PhysicalPlanGenerator(@NonNull ExecutionPlan executionPlan,
+                                 @NonNull NodeEngine nodeEngine,
                                  @NonNull JobImmutableInformation jobImmutableInformation,
                                  long initializationTimestamp,
                                  @NonNull ExecutorService executorService,
                                  @NonNull FlakeIdGenerator flakeIdGenerator) {
         edgesList = executionPlan.getPipelines().stream().map(Pipeline::getEdges).collect(Collectors.toList());
+        this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
         this.initializationTimestamp = initializationTimestamp;
         this.executorService = executorService;
@@ -182,7 +187,7 @@ public class PhysicalPlanGenerator {
                                     sinkAggregatedCommitter.get());
                     committerTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
-                    waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture(taskFuture));
+                    waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
 
                     return new PhysicalVertex(idGenerator.getNextId(),
                             atomicInteger.incrementAndGet(),

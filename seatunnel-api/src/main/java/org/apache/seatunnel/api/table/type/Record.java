@@ -22,15 +22,15 @@ import java.io.Serializable;
 /**
  * Contain {@link SeaTunnelRow} or Checkpoint Barrier
  */
-public class Record implements Serializable {
+public class Record<T> implements Serializable {
 
-    private final Object data;
+    private final T data;
 
-    public Record(Object data) {
+    public Record(T data) {
         this.data = data;
     }
 
-    public Object getData() {
+    public T getData() {
         return data;
     }
 }

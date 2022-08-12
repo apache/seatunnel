@@ -19,13 +19,13 @@ package org.apache.seatunnel.engine.server.dag.physical.config;
 
 public class IntermediateQueueConfig implements FlowConfig {
 
-    private final int queueID;
+    private final long queueID;
 
-    public IntermediateQueueConfig(int queueID) {
+    public IntermediateQueueConfig(long queueID) {
         this.queueID = queueID;
     }
 
-    public int getQueueID() {
+    public long getQueueID() {
         return queueID;
     }
 }

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.dag;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -28,11 +29,16 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
+import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.instance.impl.HazelcastInstanceProxy;
+import com.hazelcast.spi.impl.NodeEngine;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -45,6 +51,9 @@ public class PhysicalPlanTest {
 
     @Test
     public void testLogicalToPhysical() throws MalformedURLException {
+
+        HazelcastInstanceImpl instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(new Config(), Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
+        NodeEngine nodeEngine = instance.node.nodeEngine;
 
         IdGenerator idGenerator = new IdGenerator();
 
@@ -74,7 +83,8 @@ public class PhysicalPlanTest {
         config.setClusterName("test");
         config.setInstanceName("local");
 
-        PhysicalPlan physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, jobImmutableInformation,
+        PhysicalPlan physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
+                jobImmutableInformation,
                 System.currentTimeMillis(),
                 Executors.newCachedThreadPool(),
                 Hazelcast.getOrCreateHazelcastInstance(config).getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME));

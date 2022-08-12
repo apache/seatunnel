@@ -18,10 +18,15 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
-import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
-import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.Progress;
+import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceUnregisterOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -45,6 +50,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int SINK_REGISTER_TYPE = 7;
 
     public static final int TASK_LOCATION_TYPE = 8;
+
+    public static final int PROGRESS_TYPE = 9;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -82,6 +89,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SinkUnregisterOperation();
                 case TASK_LOCATION_TYPE:
                     return new TaskLocation();
+                case PROGRESS_TYPE:
+                    return new Progress();
                 default:
                     return null;
             }

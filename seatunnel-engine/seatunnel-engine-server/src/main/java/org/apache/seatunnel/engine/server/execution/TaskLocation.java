@@ -24,9 +24,10 @@ import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Objects;
 
-public class TaskLocation implements IdentifiedDataSerializable {
+public class TaskLocation implements IdentifiedDataSerializable, Serializable {
 
     private long taskGroupID;
     private long taskID;
