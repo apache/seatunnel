@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.JobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelClientConfig;
@@ -75,6 +77,7 @@ public class SeaTunnelClientTest {
         JobProxy jobProxy = null;
         try {
             jobProxy = jobExecutionEnv.execute();
+            jobProxy.waitForJobComplete();
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         } catch (InterruptedException e) {

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -89,7 +89,7 @@ public class PhysicalVertex {
     /**
      * This future only can completion by the task run in {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
      */
-    private NonCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
+    private PassiveCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
 
     private final JobImmutableInformation jobImmutableInformation;
 
@@ -163,7 +163,7 @@ public class PhysicalVertex {
          new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
          }*/
 
-        waitForCompleteByExecutionService = new NonCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
+        waitForCompleteByExecutionService = new PassiveCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException e) {

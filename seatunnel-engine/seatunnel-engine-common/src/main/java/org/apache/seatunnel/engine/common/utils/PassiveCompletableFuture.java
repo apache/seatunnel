@@ -22,12 +22,12 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A future which prevents completion by outside caller
  */
-public class NonCompletableFuture<T> extends CompletableFuture<T> {
+public class PassiveCompletableFuture<T> extends CompletableFuture<T> {
 
-    public NonCompletableFuture() {
+    public PassiveCompletableFuture() {
     }
 
-    public NonCompletableFuture(CompletableFuture<T> chainedFuture) {
+    public PassiveCompletableFuture(CompletableFuture<T> chainedFuture) {
         chainedFuture.whenComplete((r, t) -> {
             if (t != null) {
                 internalCompleteExceptionally(t);

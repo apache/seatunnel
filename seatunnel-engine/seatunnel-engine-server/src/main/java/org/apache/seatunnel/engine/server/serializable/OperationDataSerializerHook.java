@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConsta
 import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.operation.WaitForJobCompleteOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -38,6 +39,7 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
     public static final int PRINT_MESSAGE_OPERATOR = 0;
     public static final int SUBMIT_OPERATOR = 1;
     public static final int DEPLOY_TASK_OPERATOR = 2;
+    public static final int WAIT_FORM_JOB_COMPLETE_OPERATOR = 3;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -65,6 +67,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
                     return new SubmitJobOperation();
                 case DEPLOY_TASK_OPERATOR:
                     return new DeployTaskOperation();
+                case WAIT_FORM_JOB_COMPLETE_OPERATOR:
+                    return new WaitForJobCompleteOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import com.hazelcast.instance.impl.Node;
@@ -35,8 +37,10 @@ import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
 import lombok.NonNull;
 
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -53,6 +57,8 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private final ExecutorService executorService;
 
     private final SeaTunnelConfig seaTunnelConfig;
+
+    private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         this.logger = node.getLogger(getClass());
@@ -116,23 +122,39 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     /**
      * call by client to submit job
      */
-    @SuppressWarnings("checkstyle:MagicNumber")
-    public NonCompletableFuture<Void> submitJob(Data jobImmutableInformation) {
+    public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
         JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService);
         executorService.submit(() -> {
             try {
                 jobMaster.init();
-                jobMaster.run();
+                runningJobMasterMap.put(jobId, jobMaster);
             } catch (Throwable e) {
-                LOGGER.severe("submit job error: " + e.getMessage());
+                LOGGER.severe(String.format("submit job %s error %s ", jobId, ExceptionUtils.getMessage(e)));
                 voidCompletableFuture.completeExceptionally(e);
             } finally {
                 // We specify that when init is complete, the submitJob is complete
                 voidCompletableFuture.complete(null);
             }
-            //jobMaster.run();
+
+            try {
+                jobMaster.run();
+            } finally {
+                runningJobMasterMap.remove(jobId);
+            }
         });
-        return new NonCompletableFuture(voidCompletableFuture);
+        return new PassiveCompletableFuture(voidCompletableFuture);
+    }
+
+    public PassiveCompletableFuture<JobStatus> waitForJobComplete(long jobId) {
+        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+        if (runningJobMaster == null) {
+            // TODO Get Job Status from JobHistoryStorage
+            CompletableFuture<JobStatus> future = new CompletableFuture<>();
+            future.complete(JobStatus.FINISHED);
+            return new PassiveCompletableFuture<>(future);
+        } else {
+            return runningJobMaster.getJobMasterCompleteFuture();
+        }
     }
 }

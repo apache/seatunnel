@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineState;
@@ -62,13 +62,13 @@ public class PhysicalPlan {
      * in {@link org.apache.seatunnel.engine.server.scheduler.JobScheduler} whenComplete method will be called.
      */
     private final CompletableFuture<JobStatus> jobEndFuture;
-    private final NonCompletableFuture<JobStatus> nonCompletableFuture;
+    private final PassiveCompletableFuture<JobStatus> passiveCompletableFuture;
 
     /**
      * This future only can completion by the {@link SubPlan } subPlanFuture.
      * When subPlanFuture completed, this NonCompletableFuture's whenComplete method will be called.
      */
-    private final NonCompletableFuture<PipelineState>[] waitForCompleteBySubPlan;
+    private final PassiveCompletableFuture<PipelineState>[] waitForCompleteBySubPlan;
 
     private final ExecutorService executorService;
 
@@ -76,7 +76,7 @@ public class PhysicalPlan {
                         @NonNull ExecutorService executorService,
                         @NonNull JobImmutableInformation jobImmutableInformation,
                         long initializationTimestamp,
-                        @NonNull NonCompletableFuture<PipelineState>[] waitForCompleteBySubPlan) {
+                        @NonNull PassiveCompletableFuture<PipelineState>[] waitForCompleteBySubPlan) {
         this.executorService = executorService;
         this.jobImmutableInformation = jobImmutableInformation;
         stateTimestamps = new long[JobStatus.values().length];
@@ -84,7 +84,7 @@ public class PhysicalPlan {
         this.jobStatus.set(JobStatus.CREATED);
         this.stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
         this.jobEndFuture = new CompletableFuture<>();
-        this.nonCompletableFuture = new NonCompletableFuture<>(jobEndFuture);
+        this.passiveCompletableFuture = new PassiveCompletableFuture<>(jobEndFuture);
         this.waitForCompleteBySubPlan = waitForCompleteBySubPlan;
         this.pipelineList = pipelineList;
 
@@ -122,14 +122,14 @@ public class PhysicalPlan {
         });
     }
 
-    public NonCompletableFuture<Void> cancelJob() {
+    public PassiveCompletableFuture<Void> cancelJob() {
         CompletableFuture<Void> cancelFuture = CompletableFuture.supplyAsync(() -> {
             // TODO Implement cancel pipeline in job.
             return null;
         });
 
         cancelFuture.complete(null);
-        return new NonCompletableFuture<>(cancelFuture);
+        return new PassiveCompletableFuture<>(cancelFuture);
     }
 
     public List<SubPlan> getPipelineList() {
@@ -171,8 +171,8 @@ public class PhysicalPlan {
         }
     }
 
-    public NonCompletableFuture<JobStatus> getJobEndCompletableFuture() {
-        return this.nonCompletableFuture;
+    public PassiveCompletableFuture<JobStatus> getJobEndCompletableFuture() {
+        return this.passiveCompletableFuture;
     }
 
     public JobImmutableInformation getJobImmutableInformation() {

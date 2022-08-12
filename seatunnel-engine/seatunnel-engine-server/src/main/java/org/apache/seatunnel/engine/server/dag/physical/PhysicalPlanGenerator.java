@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.PhysicalSourceAction;
@@ -91,12 +91,12 @@ public class PhysicalPlanGenerator {
 
         // TODO Determine which tasks do not need to be restored according to state
         AtomicInteger index = new AtomicInteger(-1);
-        CopyOnWriteArrayList<NonCompletableFuture<PipelineState>> waitForCompleteBySubPlanList =
+        CopyOnWriteArrayList<PassiveCompletableFuture<PipelineState>> waitForCompleteBySubPlanList =
             new CopyOnWriteArrayList<>();
 
         Stream<SubPlan> subPlanStream = edgesList.stream().map(edges -> {
             int currIndex = index.incrementAndGet();
-            CopyOnWriteArrayList<NonCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList =
+            CopyOnWriteArrayList<PassiveCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList =
                 new CopyOnWriteArrayList<>();
             List<PhysicalSourceAction<?, ?, ?>> sources = findSourceAction(edges);
 
@@ -113,7 +113,7 @@ public class PhysicalPlanGenerator {
                 getCommitterTask(edges, currIndex, edgesList.size(), waitForCompleteByPhysicalVertexList));
 
             CompletableFuture<PipelineState> pipelineFuture = new CompletableFuture<>();
-            waitForCompleteBySubPlanList.add(new NonCompletableFuture<>(pipelineFuture));
+            waitForCompleteBySubPlanList.add(new PassiveCompletableFuture<>(pipelineFuture));
 
             return new SubPlan(currIndex,
                 edgesList.size(),
@@ -122,7 +122,7 @@ public class PhysicalPlanGenerator {
                 coordinatorVertexList,
                 pipelineFuture,
                 waitForCompleteByPhysicalVertexList.toArray(
-                    new NonCompletableFuture[waitForCompleteByPhysicalVertexList.size()]),
+                    new PassiveCompletableFuture[waitForCompleteByPhysicalVertexList.size()]),
                 jobImmutableInformation);
         });
 
@@ -130,7 +130,7 @@ public class PhysicalPlanGenerator {
             executorService,
             jobImmutableInformation,
             initializationTimestamp,
-            waitForCompleteBySubPlanList.toArray(new NonCompletableFuture[waitForCompleteBySubPlanList.size()]));
+            waitForCompleteBySubPlanList.toArray(new PassiveCompletableFuture[waitForCompleteBySubPlanList.size()]));
         return physicalPlan;
     }
 
@@ -143,7 +143,7 @@ public class PhysicalPlanGenerator {
     private List<PhysicalVertex> getCommitterTask(List<ExecutionEdge> edges,
                                                   int pipelineIndex,
                                                   int totalPipelineNum,
-                                                  CopyOnWriteArrayList<NonCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
+                                                  CopyOnWriteArrayList<PassiveCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
         AtomicInteger atomicInteger = new AtomicInteger(-1);
         List<ExecutionEdge> collect = edges.stream().filter(s -> s.getRightVertex().getAction() instanceof SinkAction)
             .collect(Collectors.toList());
@@ -154,7 +154,7 @@ public class PhysicalPlanGenerator {
                     new SinkAggregatedCommitterTask(idGenerator.getNextId(), s);
 
                 CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
-                waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture(taskFuture));
+                waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture(taskFuture));
 
                 return new PhysicalVertex(idGenerator.getNextId(),
                     atomicInteger.incrementAndGet(),
@@ -175,7 +175,7 @@ public class PhysicalPlanGenerator {
     private List<PhysicalVertex> getPartitionTask(List<ExecutionEdge> edges,
                                                   int pipelineIndex,
                                                   int totalPipelineNum,
-                                                  CopyOnWriteArrayList<NonCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
+                                                  CopyOnWriteArrayList<PassiveCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
         return edges.stream().filter(s -> s.getLeftVertex().getAction() instanceof PartitionTransformAction)
             .map(q -> (PartitionTransformAction) q.getLeftVertex().getAction())
             .map(q -> new PhysicalExecutionFlow(q, getNextWrapper(edges, q)))
@@ -185,7 +185,7 @@ public class PhysicalPlanGenerator {
                     SeaTunnelTask seaTunnelTask = new SeaTunnelTask(idGenerator.getNextId(), flow);
 
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
-                    waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
+                    waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
 
                     t.add(new PhysicalVertex(idGenerator.getNextId(),
                         i,
@@ -208,13 +208,13 @@ public class PhysicalPlanGenerator {
     private List<PhysicalVertex> getEnumeratorTask(List<PhysicalSourceAction<?, ?, ?>> sources,
                                                    int pipelineIndex,
                                                    int totalPipelineNum,
-                                                   CopyOnWriteArrayList<NonCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
+                                                   CopyOnWriteArrayList<PassiveCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
         AtomicInteger atomicInteger = new AtomicInteger(-1);
 
         return sources.stream().map(s -> {
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(idGenerator.getNextId(), s);
             CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
-            waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
+            waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
 
             return new PhysicalVertex(idGenerator.getNextId(),
                 atomicInteger.incrementAndGet(),
@@ -236,7 +236,7 @@ public class PhysicalPlanGenerator {
                                                List<PhysicalSourceAction<?, ?, ?>> sources,
                                                int pipelineIndex,
                                                int totalPipelineNum,
-                                               CopyOnWriteArrayList<NonCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
+                                               CopyOnWriteArrayList<PassiveCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList) {
         return sources.stream()
             .map(s -> new PhysicalExecutionFlow(s, getNextWrapper(edges, s)))
             .flatMap(flow -> {
@@ -253,7 +253,7 @@ public class PhysicalPlanGenerator {
                         taskList.stream().flatMap(task -> task.getJarsUrl().stream()).collect(Collectors.toSet());
 
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
-                    waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
+                    waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
 
                     // TODO We need give every task a appropriate name
                     t.add(new PhysicalVertex(idGenerator.getNextId(),
