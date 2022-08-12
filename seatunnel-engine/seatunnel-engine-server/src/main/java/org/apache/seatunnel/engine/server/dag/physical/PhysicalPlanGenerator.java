@@ -140,7 +140,8 @@ public class PhysicalPlanGenerator {
                     coordinatorVertexList,
                     pipelineFuture,
                     waitForCompleteByPhysicalVertexList.toArray(
-                            new NonCompletableFuture[waitForCompleteByPhysicalVertexList.size()]));
+                            new NonCompletableFuture[waitForCompleteByPhysicalVertexList.size()]),
+                    jobImmutableInformation);
         });
 
         return new PhysicalPlan(subPlanStream.collect(Collectors.toList()),
@@ -181,17 +182,22 @@ public class PhysicalPlanGenerator {
                                     sinkAggregatedCommitter.get());
                     committerTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
-                    waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
+                    waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture(taskFuture));
 
-                    return new PhysicalVertex(atomicInteger.incrementAndGet(),
+                    return new PhysicalVertex(idGenerator.getNextId(),
+                            atomicInteger.incrementAndGet(),
                             executorService,
                             collect.size(),
-                            new TaskGroupDefaultImpl(taskGroupID, "SinkAggregatedCommitterTask", Lists.newArrayList(t)),
+                            new TaskGroupDefaultImpl(taskGroupID, "SinkAggregatedCommitterTask",
+                                    Lists.newArrayList(t)),
                             taskFuture,
                             flakeIdGenerator,
                             pipelineIndex,
                             totalPipelineNum,
-                            null);
+                            null,
+                            jobImmutableInformation,
+                            initializationTimestamp,
+                            nodeEngine);
                 } else {
                     return null;
                 }
@@ -216,16 +222,20 @@ public class PhysicalPlanGenerator {
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
                     waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
 
-                    t.add(new PhysicalVertex(i,
-                            executorService,
-                            flow.getAction().getParallelism(),
-                            new TaskGroupDefaultImpl(taskGroupID, "PartitionTransformTask",
-                                    Lists.newArrayList(seaTunnelTask)),
-                            taskFuture,
-                            flakeIdGenerator,
-                            pipelineIndex,
-                            totalPipelineNum,
-                            seaTunnelTask.getJarsUrl()));
+                    t.add(new PhysicalVertex(idGenerator.getNextId(),
+                        i,
+                        executorService,
+                        flow.getAction().getParallelism(),
+                        new TaskGroupDefaultImpl(taskGroupID, "PartitionTransformTask",
+                                Lists.newArrayList(seaTunnelTask)),
+                        taskFuture,
+                        flakeIdGenerator,
+                        pipelineIndex,
+                        totalPipelineNum,
+                        seaTunnelTask.getJarsUrl(),
+                        jobImmutableInformation,
+                        initializationTimestamp,
+                        nodeEngine));
                 }
                 return t.stream();
             }).collect(Collectors.toList());
@@ -245,15 +255,19 @@ public class PhysicalPlanGenerator {
             CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
             waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
 
-            return new PhysicalVertex(atomicInteger.incrementAndGet(),
-                    executorService,
-                    sources.size(),
-                    new TaskGroupDefaultImpl(taskGroupID, s.getName(), Lists.newArrayList(t)),
-                    taskFuture,
-                    flakeIdGenerator,
-                    pipelineIndex,
-                    totalPipelineNum,
-                    t.getJarsUrl());
+            return new PhysicalVertex(idGenerator.getNextId(),
+                atomicInteger.incrementAndGet(),
+                executorService,
+                sources.size(),
+                new TaskGroupDefaultImpl(taskGroupID, s.getName(), Lists.newArrayList(t)),
+                taskFuture,
+                flakeIdGenerator,
+                pipelineIndex,
+                totalPipelineNum,
+                t.getJarsUrl(),
+                jobImmutableInformation,
+                initializationTimestamp,
+                nodeEngine);
         }).collect(Collectors.toList());
     }
 
@@ -295,7 +309,8 @@ public class PhysicalPlanGenerator {
                     // TODO We need give every task a appropriate name
                     if (taskList.stream().anyMatch(TransformSeaTunnelTask.class::isInstance)) {
                         // contains IntermediateExecutionFlow in task group
-                        t.add(new PhysicalVertex(i,
+                        t.add(new PhysicalVertex(idGenerator.getNextId(),
+                                i,
                                 executorService,
                                 flow.getAction().getParallelism(),
                                 new TaskGroupWithIntermediateQueue(taskGroupID, "SourceTask",
@@ -304,9 +319,13 @@ public class PhysicalPlanGenerator {
                                 flakeIdGenerator,
                                 pipelineIndex,
                                 totalPipelineNum,
-                                jars));
+                                jars,
+                                jobImmutableInformation,
+                                initializationTimestamp,
+                                nodeEngine));
                     } else {
-                        t.add(new PhysicalVertex(i,
+                        t.add(new PhysicalVertex(idGenerator.getNextId(),
+                                i,
                                 executorService,
                                 flow.getAction().getParallelism(),
                                 new TaskGroupDefaultImpl(taskGroupID, "SourceTask",
@@ -315,7 +334,10 @@ public class PhysicalPlanGenerator {
                                 flakeIdGenerator,
                                 pipelineIndex,
                                 totalPipelineNum,
-                                jars));
+                                jars,
+                                jobImmutableInformation,
+                                initializationTimestamp,
+                                nodeEngine));
                     }
                 }
                 return t.stream();

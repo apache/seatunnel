@@ -44,10 +44,10 @@ import java.util.stream.Collectors;
 
 public class ExecutionPlanGenerator {
 
-    private final Map<Integer, List<Integer>> edgeMap = new HashMap<>();
-    private final Map<Integer, Action> actions = new HashMap<>();
+    private final Map<Long, List<Long>> edgeMap = new HashMap<>();
+    private final Map<Long, Action> actions = new HashMap<>();
 
-    private final Map<Integer, LogicalVertex> logicalVertexes;
+    private final Map<Long, LogicalVertex> logicalVertexes;
     private final List<LogicalEdge> logicalEdges;
 
     private final JobImmutableInformation jobImmutableInformation;
@@ -79,7 +79,7 @@ public class ExecutionPlanGenerator {
             next = newNext;
         }
 
-        Map<Integer, LogicalVertex> vertexes = new HashMap<>();
+        Map<Long, LogicalVertex> vertexes = new HashMap<>();
         actions.forEach((key, value) -> vertexes.put(key, new LogicalVertex(key, value,
             logicalVertexes.get(key).getParallelism())));
 

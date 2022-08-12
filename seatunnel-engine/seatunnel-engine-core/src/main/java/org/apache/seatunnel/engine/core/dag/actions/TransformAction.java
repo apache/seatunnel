@@ -27,7 +27,7 @@ import java.util.List;
 public class TransformAction extends AbstractAction {
     private final SeaTunnelTransform<?> transform;
 
-    public TransformAction(int id,
+    public TransformAction(long id,
                            @NonNull String name,
                            @NonNull List<Action> upstreams,
                            @NonNull SeaTunnelTransform<?> transform,
@@ -36,7 +36,7 @@ public class TransformAction extends AbstractAction {
         this.transform = transform;
     }
 
-    public TransformAction(int id,
+    public TransformAction(long id,
                            @NonNull String name,
                            @NonNull SeaTunnelTransform<?> transform,
                            @NonNull List<URL> jarUrls) {

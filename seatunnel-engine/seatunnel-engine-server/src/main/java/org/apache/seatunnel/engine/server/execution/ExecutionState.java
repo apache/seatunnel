@@ -23,17 +23,15 @@ package org.apache.seatunnel.engine.server.execution;
  * the state {@code CREATED} and switch states according to this diagram:
  *
  * <pre>{@code
- *  CREATED  -> SCHEDULED -> DEPLOYING -> INITIALIZING -> RUNNING -> FINISHED
- *     |            |            |          |              |
- *     |            |            |    +-----+--------------+
- *     |            |            V    V
- *     |            |         CANCELLING -----+----> CANCELED
- *     |            |                         |
- *     |            +-------------------------+
- *     |
- *     |                                   ... -> FAILED
- *     V
- * RECONCILING  -> INITIALIZING | RUNNING | FINISHED | CANCELED | FAILED
+ *  INITIALIZING -> CREATED  -> SCHEDULED -> DEPLOYING  -> RUNNING -> FINISHED
+ *                    |            |          |              |
+ *                    |            |    +-----+--------------+
+ *                    |            V    V
+ *                    |         CANCELLING -----+----> CANCELED
+ *                    |                         |
+ *                    +-------------------------+
+ *
+ *                                         ... -> FAILED
  *
  * }</pre>
  *
@@ -73,7 +71,7 @@ public enum ExecutionState {
     /** Restoring last possible valid state of the task if it has it. */
     INITIALIZING;
 
-    public boolean isEnd() {
+    public boolean isEndState() {
         return this == FINISHED || this == CANCELED || this == FAILED;
     }
 }

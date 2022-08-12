@@ -35,6 +35,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.concurrent.ExecutionException;
+
 @SuppressWarnings("checkstyle:MagicNumber")
 @RunWith(JUnit4.class)
 public class SeaTunnelClientTest {
@@ -70,7 +72,14 @@ public class SeaTunnelClientTest {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        JobProxy jobProxy = jobExecutionEnv.execute();
+        JobProxy jobProxy = null;
+        try {
+            jobProxy = jobExecutionEnv.execute();
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
 
         Assert.assertNotNull(jobProxy);
     }

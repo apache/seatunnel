@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.engine.core.job;
 
+import java.util.concurrent.ExecutionException;
+
 public interface Job {
     long getJobId();
 
-    void submitJob();
+    void submitJob() throws ExecutionException, InterruptedException;
 }

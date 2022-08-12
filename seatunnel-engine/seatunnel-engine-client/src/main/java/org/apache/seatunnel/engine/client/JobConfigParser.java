@@ -312,7 +312,7 @@ public class JobConfigParser {
         return 1;
     }
 
-    private SourceAction createSourceAction(int id,
+    private SourceAction createSourceAction(long id,
                                             @NonNull String name,
                                             @NonNull SeaTunnelSource source,
                                             List<URL> jarUrls) {
@@ -322,7 +322,7 @@ public class JobConfigParser {
         return new SourceAction(id, name, source, jarUrls);
     }
 
-    private TransformAction createTransformAction(int id,
+    private TransformAction createTransformAction(long id,
                                                   @NonNull String name,
                                                   @NonNull List<Action> upstreams,
                                                   @NonNull SeaTunnelTransform transformation,
@@ -333,7 +333,7 @@ public class JobConfigParser {
         return new TransformAction(id, name, upstreams, transformation, jarUrls);
     }
 
-    private SinkAction createSinkAction(int id,
+    private SinkAction createSinkAction(long id,
                                         @NonNull String name,
                                         @NonNull List<Action> upstreams,
                                         @NonNull SeaTunnelSink sink,
@@ -344,7 +344,7 @@ public class JobConfigParser {
         return new SinkAction(id, name, upstreams, sink, jarUrls);
     }
 
-    private TransformAction createTransformAction(int id,
+    private TransformAction createTransformAction(long id,
                                                   @NonNull String name,
                                                   @NonNull SeaTunnelTransform transformation,
                                                   List<URL> jarUrls) {
@@ -354,7 +354,7 @@ public class JobConfigParser {
         return new TransformAction(id, name, transformation, jarUrls);
     }
 
-    private SinkAction createSinkAction(int id,
+    private SinkAction createSinkAction(long id,
                                         @NonNull String name,
                                         @NonNull SeaTunnelSink sink,
                                         List<URL> jarUrls) {

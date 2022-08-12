@@ -35,9 +35,9 @@ public class LogicalEdge implements IdentifiedDataSerializable {
     private LogicalVertex leftVertex;
     private LogicalVertex rightVertex;
 
-    private Integer leftVertexId;
+    private Long leftVertexId;
 
-    private Integer rightVertexId;
+    private Long rightVertexId;
 
     public LogicalEdge(){}
 
@@ -48,7 +48,7 @@ public class LogicalEdge implements IdentifiedDataSerializable {
         this.rightVertexId = rightVertex.getVertexId();
     }
 
-    public void recoveryFromVertexMap(@NonNull Map<Integer, LogicalVertex> vertexMap) {
+    public void recoveryFromVertexMap(@NonNull Map<Long, LogicalVertex> vertexMap) {
         leftVertex = vertexMap.get(leftVertexId);
         rightVertex = vertexMap.get(rightVertexId);
 
@@ -69,13 +69,13 @@ public class LogicalEdge implements IdentifiedDataSerializable {
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         // To prevent circular serialization, we only serialize the ID of vertices for edges
-        out.writeInt(leftVertexId);
-        out.writeInt(rightVertexId);
+        out.writeLong(leftVertexId);
+        out.writeLong(rightVertexId);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        leftVertexId = in.readInt();
-        rightVertexId = in.readInt();
+        leftVertexId = in.readLong();
+        rightVertexId = in.readLong();
     }
 }

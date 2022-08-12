@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.SimpleResourceManager;
+import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
+import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
@@ -30,6 +37,7 @@ import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 public class JobMaster implements Runnable {
@@ -45,6 +53,10 @@ public class JobMaster implements Runnable {
 
     private FlakeIdGenerator flakeIdGenerator;
 
+    private ResourceManager resourceManager;
+
+    private CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
+
     public JobMaster(@NonNull Data jobImmutableInformation,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService) {
@@ -53,6 +65,8 @@ public class JobMaster implements Runnable {
         this.executorService = executorService;
         flakeIdGenerator =
             this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
+
+        this.resourceManager = new SimpleResourceManager();
     }
 
     public void init() throws Exception {
@@ -61,22 +75,49 @@ public class JobMaster implements Runnable {
         LOGGER.info("Job [" + jobInformation.getJobId() + "] jar urls " + jobInformation.getPluginJarsUrls());
 
         // TODO Use classloader load the connector jars and deserialize logicalDag
-        this.logicalDag = new LogicalDag();
+        this.logicalDag = nodeEngine.getSerializationService().toObject(jobInformation.getLogicalDag());
         physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag,
-                jobInformation,
-                System.currentTimeMillis(),
-                executorService,
-                flakeIdGenerator);
+            nodeEngine,
+            jobInformation,
+            System.currentTimeMillis(),
+            executorService,
+            flakeIdGenerator);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void run() {
         try {
-            LOGGER.info("I will sleep 2000ms");
-            Thread.sleep(2000);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            NonCompletableFuture<JobStatus> jobStatusNonCompletableFuture = physicalPlan.getJobEndCompletableFuture();
+
+            jobStatusNonCompletableFuture.whenComplete((v, t) -> {
+                // We need not handle t, Because we will not return t from physicalPlan
+                if (JobStatus.FAILING.equals(v)) {
+                    cleanJob();
+                    physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
+                }
+                jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
+            });
+
+            JobScheduler jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+            jobScheduler.startScheduling();
+        } catch (Throwable e) {
+            LOGGER.severe(String.format("Job %s (%s) run error with: %s",
+                physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
+                physicalPlan.getJobImmutableInformation().getJobId(),
+                ExceptionUtils.getMessage(e)));
+            // try to cancel job
+            physicalPlan.cancelJob();
+        } finally {
+            jobMasterCompleteFuture.join();
         }
+    }
+
+    public void cleanJob() {
+        // TODO clean something
+    }
+
+    public ResourceManager getResourceManager() {
+        return resourceManager;
     }
 }

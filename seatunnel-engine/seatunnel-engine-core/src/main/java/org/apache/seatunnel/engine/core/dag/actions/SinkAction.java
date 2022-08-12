@@ -28,7 +28,7 @@ import java.util.List;
 public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends AbstractAction {
     private final SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
-    public SinkAction(int id,
+    public SinkAction(long id,
                       @NonNull String name,
                       @NonNull List<Action> upstreams,
                       @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
@@ -37,7 +37,7 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
         this.sink = sink;
     }
 
-    public SinkAction(int id,
+    public SinkAction(long id,
                       @NonNull String name,
                       @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
                       @NonNull List<URL> jarUrls) {

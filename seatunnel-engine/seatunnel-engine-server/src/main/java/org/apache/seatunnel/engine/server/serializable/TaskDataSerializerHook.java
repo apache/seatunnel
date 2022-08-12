@@ -18,14 +18,10 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
-import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.SourceUnregisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -77,7 +73,7 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                 case ASSIGN_SPLIT_TYPE:
                     return new AssignSplitOperation<>();
                 case TASK_GROUP_INFO_TYPE:
-                    return new TaskGroupInfo();
+                    return new TaskGroupImmutableInformation();
                 case SOURCE_UNREGISTER_TYPE:
                     return new SourceUnregisterOperation();
                 case SINK_REGISTER_TYPE:

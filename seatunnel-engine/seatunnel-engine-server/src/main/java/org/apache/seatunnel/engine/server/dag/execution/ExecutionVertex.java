@@ -25,7 +25,7 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class ExecutionVertex {
-    private Integer vertexId;
+    private Long vertexId;
     private Action action;
     private int parallelism;
 }

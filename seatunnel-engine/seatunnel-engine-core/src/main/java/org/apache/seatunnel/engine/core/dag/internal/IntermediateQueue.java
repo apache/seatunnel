@@ -23,17 +23,17 @@ public class IntermediateQueue implements Serializable {
 
     private static final long serialVersionUID = -3049265155605303992L;
 
-    private final int id;
+    private final long id;
     private final int parallelism;
     private final String name;
 
-    public IntermediateQueue(int id, String name, int parallelism) {
+    public IntermediateQueue(long id, String name, int parallelism) {
         this.id = id;
         this.name = name;
         this.parallelism = parallelism;
     }
 
-    public int getId() {
+    public long getId() {
         return id;
     }
 
