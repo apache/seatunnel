@@ -58,7 +58,7 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     @Override
     public void init() throws Exception {
         super.init();
-        LOGGER.info("starting seatunnel source split enumerator task, sink name: " + sink.getName());
+        LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
     }
 
     public void receivedWriterRegister(TaskLocation writerID, Address address) {

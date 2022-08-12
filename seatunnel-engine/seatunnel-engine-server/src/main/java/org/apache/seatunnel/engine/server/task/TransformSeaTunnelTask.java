@@ -46,6 +46,9 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
         super.init();
         LOGGER.info("starting seatunnel transform task, index " + indexID);
         collector = new SeaTunnelTransformCollector<>(outputs);
+        if (!(startFlowLifeCycle instanceof OneOutputFlowLifeCycle)) {
+            throw new TaskRuntimeException("MiddleSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+        }
     }
 
     @Override
@@ -58,11 +61,7 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
     @Override
     @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
-        if (startFlowLifeCycle instanceof OneOutputFlowLifeCycle) {
-            ((OneOutputFlowLifeCycle<Record>) startFlowLifeCycle).collect(collector);
-        } else {
-            throw new TaskRuntimeException("MiddleSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
-        }
+        ((OneOutputFlowLifeCycle<Record>) startFlowLifeCycle).collect(collector);
         return progress.toState();
     }
 }

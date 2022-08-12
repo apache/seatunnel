@@ -55,7 +55,12 @@ public class TaskTest {
 
     @Before
     public void before() {
-        HazelcastInstanceImpl instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(new Config(), Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
+        Config config = new Config();
+        config.setInstanceName("test");
+        config.setClusterName("test");
+        HazelcastInstanceImpl instance =
+                ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
+                        Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
         nodeEngine = instance.node.nodeEngine;
         service = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     }

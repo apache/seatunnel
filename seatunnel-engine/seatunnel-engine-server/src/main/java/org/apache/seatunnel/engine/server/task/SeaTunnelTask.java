@@ -43,6 +43,8 @@ import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.TransformFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQueue;
 
+import lombok.NonNull;
+
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -81,7 +83,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes", "checkstyle:MagicNumber"})
-    private FlowLifeCycle convertFlowToActionLifeCycle(Flow flow) throws Exception {
+    private FlowLifeCycle convertFlowToActionLifeCycle(@NonNull Flow flow) throws Exception {
 
         FlowLifeCycle lifeCycle;
         List<OneInputFlowLifeCycle<Record>> flowLifeCycles = new ArrayList<>();

@@ -92,7 +92,7 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                 case PROGRESS_TYPE:
                     return new Progress();
                 default:
-                    return null;
+                    throw new IllegalArgumentException("Unknown type id " + typeId);
             }
         }
     }
