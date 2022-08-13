@@ -50,8 +50,10 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         // Generate a random number of rows to emit.
-        SeaTunnelRow seaTunnelRow = FakeData.generateRow();
-        output.collect(seaTunnelRow);
+        for (int i = 0; i < 10; i++) {
+            SeaTunnelRow seaTunnelRow = FakeData.generateRow();
+            output.collect(seaTunnelRow);
+        }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             LOGGER.info("Closed the bounded fake source");
