@@ -26,17 +26,11 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
-
 public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
     private final SingleSplitReaderContext context;
-
-    private final String[] names = {"Wenjun", "Fanjia", "Zongwen", "CalvinKirs"};
-    private final int[] ages = {11, 22, 33, 44};
 
     public FakeSourceReader(SingleSplitReaderContext context) {
         this.context = context;
@@ -56,13 +50,8 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         // Generate a random number of rows to emit.
-        Random random = ThreadLocalRandom.current();
-        int size = random.nextInt(10) + 1;
-        for (int i = 0; i < size; i++) {
-            int randomIndex = random.nextInt(names.length);
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[randomIndex], ages[randomIndex], System.currentTimeMillis()});
-            output.collect(seaTunnelRow);
-        }
+        SeaTunnelRow seaTunnelRow = FakeData.generateRow();
+        output.collect(seaTunnelRow);
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             LOGGER.info("Closed the bounded fake source");

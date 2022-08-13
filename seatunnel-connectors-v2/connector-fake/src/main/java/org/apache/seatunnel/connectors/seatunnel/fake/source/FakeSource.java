@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -47,8 +45,8 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public SeaTunnelRowType getProducedType() {
         return new SeaTunnelRowType(
-            new String[]{"name", "age", "timestamp"},
-            new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.LONG_TYPE});
+            FakeData.columnName,
+            FakeData.columnType);
     }
 
     @Override
