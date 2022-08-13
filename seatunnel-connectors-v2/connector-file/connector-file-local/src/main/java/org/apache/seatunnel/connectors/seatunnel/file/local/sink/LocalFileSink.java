@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
+package org.apache.seatunnel.connectors.seatunnel.file.local.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
