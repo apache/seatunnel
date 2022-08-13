@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.common.serialization;
 
+import java.math.BigDecimal;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;

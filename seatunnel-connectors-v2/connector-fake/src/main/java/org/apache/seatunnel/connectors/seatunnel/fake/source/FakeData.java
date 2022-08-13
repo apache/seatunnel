@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import java.time.LocalDateTime;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -39,7 +42,11 @@ public class FakeData {
         "c_float",
         "c_double",
         "c_string",
-        "c_decimal"
+        "c_decimal",
+        "c_local_date_time",
+        "c_local_date",
+        "c_local_time",
+        "c_byte_arr"
     };
     public static final SeaTunnelDataType<?>[] COLUMN_TYPE = new SeaTunnelDataType[]{
         BasicType.VOID_TYPE,
@@ -51,7 +58,11 @@ public class FakeData {
         BasicType.FLOAT_TYPE,
         BasicType.DOUBLE_TYPE,
         BasicType.STRING_TYPE,
-        new DecimalType(38, 16)
+        new DecimalType(38, 18),
+        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+        LocalTimeType.LOCAL_DATE_TYPE,
+        LocalTimeType.LOCAL_TIME_TYPE,
+        PrimitiveByteArrayType.INSTANCE
     };
 
     @SuppressWarnings("magicnumber")
@@ -65,8 +76,12 @@ public class FakeData {
             RandomUtils.nextLong(Integer.MAX_VALUE, Long.MAX_VALUE),
             RandomUtils.nextFloat(Float.MIN_VALUE, Float.MAX_VALUE),
             RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE),
-            RandomStringUtils.random(10),
-            BigDecimal.valueOf(RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE))
+            RandomStringUtils.randomAlphabetic(10),
+            BigDecimal.valueOf(RandomUtils.nextFloat(0, Long.MAX_VALUE)),
+            LocalDateTime.now(),
+            LocalDateTime.now().toLocalDate(),
+            LocalDateTime.now().toLocalTime(),
+            RandomStringUtils.randomAlphabetic(10).getBytes(),
         };
         if (columnValue.length != columnValue.length || columnValue.length != COLUMN_TYPE.length) {
             throw new RuntimeException("the row data should be equals to column");
