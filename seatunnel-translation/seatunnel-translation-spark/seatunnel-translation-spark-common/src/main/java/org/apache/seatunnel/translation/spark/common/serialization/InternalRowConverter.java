@@ -168,6 +168,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::reconvert);
             case STRING:
                 return field.toString();
+            case DECIMAL:
+                return ((Decimal) field).toJavaBigDecimal();
             default:
                 return field;
         }
