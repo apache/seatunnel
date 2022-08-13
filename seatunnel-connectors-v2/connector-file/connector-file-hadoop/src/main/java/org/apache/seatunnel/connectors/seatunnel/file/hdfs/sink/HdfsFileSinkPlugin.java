@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.filesystem.HdfsFileSystem;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.filesystem.HdfsFileSystemCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.writer.HdfsTransactionStateFileWriteFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystemCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
@@ -34,7 +37,7 @@ import java.util.Optional;
 public class HdfsFileSinkPlugin implements SinkFileSystemPlugin {
     @Override
     public String getPluginName() {
-        return FileSystemType.HDFS.getSinkFileSystemPluginName();
+        return FileSystemType.HDFS.getFileSystemPluginName();
     }
 
     @Override
