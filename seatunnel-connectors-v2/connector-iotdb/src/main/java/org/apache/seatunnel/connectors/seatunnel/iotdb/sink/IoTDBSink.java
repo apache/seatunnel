@@ -23,18 +23,15 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSinkState;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
 
-import java.io.IOException;
-
 @AutoService(SeaTunnelSink.class)
-public class IoTDBSink implements SeaTunnelSink<SeaTunnelRow, IoTDBSinkState, IoTDBCommitInfo, IoTDBAggregatedCommitInfo> {
+public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
@@ -60,7 +57,7 @@ public class IoTDBSink implements SeaTunnelSink<SeaTunnelRow, IoTDBSinkState, Io
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, IoTDBCommitInfo, IoTDBSinkState> createWriter(SinkWriter.Context context) throws IOException {
+    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
         return new IoTDBSinkWriter(pluginConfig, seaTunnelRowType);
     }
 }

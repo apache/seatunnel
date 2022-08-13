@@ -100,7 +100,7 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ```hocon
 sink {
-  Clickhouse {
+  IoTDB {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"

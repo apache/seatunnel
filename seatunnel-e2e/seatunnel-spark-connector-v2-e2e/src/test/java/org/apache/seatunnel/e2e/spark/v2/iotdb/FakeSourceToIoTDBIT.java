@@ -96,7 +96,7 @@ public class FakeSourceToIoTDBIT extends SparkContainer {
 
     private Session createSession() {
         return new Session.Builder()
-                .host("localhost")
+                .host(IOTDB_DOCKER_NETWORK_ALIASES)
                 .port(IOTDB_DOCKER_NETWORK_PORT)
                 .username(IOTDB_USERNAME)
                 .password(IOTDB_PASSWORD)

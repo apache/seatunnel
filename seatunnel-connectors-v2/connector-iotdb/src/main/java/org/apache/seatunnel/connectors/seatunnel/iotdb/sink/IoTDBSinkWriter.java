@@ -17,25 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.IoTDBRecord;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSerializer;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSinkState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.Optional;
 
 @Slf4j
-public class IoTDBSinkWriter implements SinkWriter<SeaTunnelRow, IoTDBCommitInfo, IoTDBSinkState> {
+public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowSerializer serializer;
     private final IoTDBSinkClient sinkClient;
@@ -52,15 +49,6 @@ public class IoTDBSinkWriter implements SinkWriter<SeaTunnelRow, IoTDBCommitInfo
     public void write(SeaTunnelRow element) throws IOException {
         IoTDBRecord record = serializer.serialize(element);
         sinkClient.write(record);
-    }
-
-    @Override
-    public Optional<IoTDBCommitInfo> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public void abortPrepare() {
     }
 
     @Override
