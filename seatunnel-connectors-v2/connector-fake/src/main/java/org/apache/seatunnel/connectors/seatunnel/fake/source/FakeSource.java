@@ -45,8 +45,8 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public SeaTunnelRowType getProducedType() {
         return new SeaTunnelRowType(
-            FakeData.columnName,
-            FakeData.columnType);
+            FakeData.COLUMN_NAME,
+            FakeData.COLUMN_TYPE);
     }
 
     @Override

@@ -1,19 +1,18 @@
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import java.math.BigDecimal;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-/**
- *
- **/
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.RandomUtils;
+
+import java.math.BigDecimal;
+
 public class FakeData {
 
-    public static final String[] columnName = new String[]{
+    public static final String[] COLUMN_NAME = new String[]{
         "c_void",
         "c_boolean",
         "c_byte",
@@ -25,7 +24,7 @@ public class FakeData {
         "c_string",
         "c_decimal"
     };
-    public static final SeaTunnelDataType<?>[] columnType = new SeaTunnelDataType[]{
+    public static final SeaTunnelDataType<?>[] COLUMN_TYPE = new SeaTunnelDataType[]{
         BasicType.VOID_TYPE,
         BasicType.BOOLEAN_TYPE,
         BasicType.BYTE_TYPE,
@@ -38,7 +37,7 @@ public class FakeData {
         new DecimalType(38, 16)
     };
 
-
+    @SuppressWarnings("magicnumber")
     public static SeaTunnelRow generateRow() {
         Object[] columnValue = {
             Void.TYPE,
@@ -52,7 +51,7 @@ public class FakeData {
             RandomStringUtils.random(10),
             BigDecimal.valueOf(RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE))
         };
-        if(columnValue.length != columnValue.length || columnValue.length != columnType.length){
+        if (columnValue.length != columnValue.length || columnValue.length != COLUMN_TYPE.length) {
             throw new RuntimeException("the row data should be equals to column");
         }
         return new SeaTunnelRow(columnValue);

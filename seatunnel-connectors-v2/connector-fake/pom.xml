@@ -28,6 +28,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>connector-fake</artifactId>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
