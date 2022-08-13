@@ -18,6 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 public class BaseSourceConfig {
-    public static final String FILE_TYPE = "file.type";
-    public static final String FILE_PATH = "file.path";
+    public static final String FILE_TYPE = "type";
+    public static final String FILE_PATH = "path";
 }
