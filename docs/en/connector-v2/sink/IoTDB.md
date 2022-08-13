@@ -10,7 +10,7 @@ Used to write data to IoTDB. Supports Batch and Streaming mode.
 
 | name                          | type              | required | default value |
 |-------------------------------|-------------------|----------|---------------|
-| node_urls                     | list<string>      | yes      | -             |
+| node_urls                     | list              | yes      | -             |
 | username                      | string            | yes      | -             |
 | password                      | string            | yes      | -             |
 | batch_size                    | int               | no       | 1024          |
@@ -28,9 +28,9 @@ Used to write data to IoTDB. Supports Batch and Streaming mode.
 | timeseries_options.data_type  | string            | no       | -             |
 | common-options                | string            | no       | -             |
 
-### node_urls [list<string>]
+### node_urls [list]
 
-`IoTDB` cluster address, the format is `host:port` , allowing multiple `hosts` to be specified. Such as `"host1:6667,host2:6667"`
+`IoTDB` cluster address, the format is `["host:port", ...]`
 
 ### username [string]
 
