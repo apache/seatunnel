@@ -35,9 +35,11 @@ import org.apache.spark.sql.catalyst.expressions.MutableLong;
 import org.apache.spark.sql.catalyst.expressions.MutableShort;
 import org.apache.spark.sql.catalyst.expressions.MutableValue;
 import org.apache.spark.sql.catalyst.expressions.SpecificInternalRow;
+import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.unsafe.types.UTF8String;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -80,6 +82,8 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType, InternalRowConverter::convert);
             case STRING:
                 return UTF8String.fromString((String) field);
+            case DECIMAL:
+                return Decimal.apply((BigDecimal) field);
             default:
                 return field;
         }
