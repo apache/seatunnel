@@ -25,8 +25,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 
-import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -370,7 +370,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             if (tagVal < unionVector.fields.length) {
                 ColumnVector fieldVector = unionVector.fields[tagVal];
                 Object unionValue = readColumn(fieldVector, fieldType, rowNum);
-                columnValuePair = new Pair<>(fieldType, unionValue);
+                columnValuePair = Pair.of(fieldType, unionValue);
             } else {
                 throw new RuntimeException(
                         "readUnionVal: union tag value out of range for union column vectors"
