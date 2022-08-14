@@ -77,7 +77,7 @@ public class FakeData {
             RandomUtils.nextFloat(Float.MIN_VALUE, Float.MAX_VALUE),
             RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE),
             RandomStringUtils.randomAlphabetic(10),
-            BigDecimal.valueOf(RandomUtils.nextFloat(0, Long.MAX_VALUE)),
+            BigDecimal.valueOf(RandomUtils.nextLong(Integer.MAX_VALUE,Long.MAX_VALUE),18),
             LocalDateTime.now(),
             LocalDateTime.now().toLocalDate(),
             LocalDateTime.now().toLocalTime(),
@@ -89,4 +89,7 @@ public class FakeData {
         return new SeaTunnelRow(columnValue);
     }
 
+    public static void main(String[] args) {
+        System.out.println(BigDecimal.valueOf(RandomUtils.nextDouble(0, Long.MAX_VALUE)));
+    }
 }
