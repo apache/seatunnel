@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import java.time.LocalDateTime;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -29,6 +28,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class FakeData {
 
@@ -77,7 +77,7 @@ public class FakeData {
             RandomUtils.nextFloat(Float.MIN_VALUE, Float.MAX_VALUE),
             RandomUtils.nextDouble(Float.MAX_VALUE, Double.MAX_VALUE),
             RandomStringUtils.randomAlphabetic(10),
-            BigDecimal.valueOf(RandomUtils.nextLong(Integer.MAX_VALUE,Long.MAX_VALUE),18),
+            BigDecimal.valueOf(RandomUtils.nextLong(Integer.MAX_VALUE, Long.MAX_VALUE), 18),
             LocalDateTime.now(),
             LocalDateTime.now().toLocalDate(),
             LocalDateTime.now().toLocalTime(),
@@ -87,9 +87,5 @@ public class FakeData {
             throw new RuntimeException("the row data should be equals to column");
         }
         return new SeaTunnelRow(columnValue);
-    }
-
-    public static void main(String[] args) {
-        System.out.println(BigDecimal.valueOf(RandomUtils.nextDouble(0, Long.MAX_VALUE)));
     }
 }
