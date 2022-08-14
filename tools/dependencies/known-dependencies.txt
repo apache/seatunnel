@@ -44,6 +44,7 @@ avatica-core-1.20.0.jar
 avatica-metrics-1.20.0.jar
 avro-1.7.7.jar
 avro-1.8.2.jar
+awaitility-4.2.0.jar
 aws-java-sdk-core-1.12.37.jar
 aws-java-sdk-ec2-1.12.37.jar
 aws-java-sdk-kms-1.12.37.jar
@@ -476,9 +477,7 @@ log4j-api-2.9.1.jar
 log4j-core-2.17.1.jar
 log4j-jul-2.15.0.jar
 log4j-slf4j-impl-2.15.0.jar
-logback-classic-1.2.10.jar
 logback-classic-1.2.11.jar
-logback-core-1.2.10.jar
 logback-core-1.2.11.jar
 logging-interceptor-4.9.1.jar
 lucene-analyzers-common-7.3.1.jar
@@ -747,4 +746,3 @@ jakarta.activation-2.0.1.jar
 jakarta.activation-api-1.2.1.jar
 jakarta.xml.bind-api-2.3.2.jar
 jakarta.xml.bind-api-3.1.1.jar
-istack-commons-runtime-4.0.1.jar

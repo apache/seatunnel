@@ -941,6 +941,12 @@
                 <groupId>org.apache.iotdb</groupId>
                 <artifactId>iotdb-session</artifactId>
                 <version>${iotdb.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
