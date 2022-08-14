@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.spark.v2.iotdb;
 
+import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
+
 import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import com.google.common.collect.Lists;
@@ -30,6 +32,8 @@ import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -38,40 +42,44 @@ import org.testcontainers.lifecycle.Startables;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
 public class FakeSourceToIoTDBIT extends SparkContainer {
 
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
-    private static final String IOTDB_DOCKER_NETWORK_ALIASES = "iotdb";
-    private static final int IOTDB_DOCKER_NETWORK_PORT = 6667;
+    private static final String IOTDB_HOST = "spark_e2e_iotdb";
+    private static final int IOTDB_PORT = 6668;
     private static final String IOTDB_USERNAME = "root";
     private static final String IOTDB_PASSWORD = "root";
 
     private GenericContainer<?> iotdbServer;
     private Session session;
 
-    //@BeforeEach
+    @BeforeEach
     public void startIoTDBContainer() throws Exception {
         iotdbServer = new GenericContainer<>(IOTDB_DOCKER_IMAGE)
                 .withNetwork(NETWORK)
-                .withNetworkAliases(IOTDB_DOCKER_NETWORK_ALIASES)
+                .withNetworkAliases(IOTDB_HOST)
                 .withLogConsumer(new Slf4jLogConsumer(log));
         iotdbServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", IOTDB_DOCKER_NETWORK_PORT, IOTDB_DOCKER_NETWORK_PORT)));
+                String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();
         log.info("IoTDB container started");
         // wait for IoTDB fully start
-        Thread.sleep(5000L);
         session = createSession();
+        given().ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(() -> session.open());
         initIoTDBTimeseries();
     }
 
     /**
      * fake source -> IoTDB sink
      */
-    //@Test
+    @Test
     public void testFakeSourceToIoTDB() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/iotdb/fakesource_to_iotdb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -94,15 +102,14 @@ public class FakeSourceToIoTDBIT extends SparkContainer {
 
     private Session createSession() {
         return new Session.Builder()
-                .host(IOTDB_DOCKER_NETWORK_ALIASES)
-                .port(IOTDB_DOCKER_NETWORK_PORT)
+                .host("localhost")
+                .port(IOTDB_PORT)
                 .username(IOTDB_USERNAME)
                 .password(IOTDB_PASSWORD)
                 .build();
     }
 
     private void initIoTDBTimeseries() throws Exception {
-        session.open();
         session.setStorageGroup("root.ln");
         session.createTimeseries("root.ln.d1.status",
                 TSDataType.BOOLEAN, TSEncoding.PLAIN, CompressionType.SNAPPY);

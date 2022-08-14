@@ -225,6 +225,7 @@
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
         <iotdb.version>0.13.1</iotdb.version>
+        <awaitility.version>4.2.0</awaitility.version>
     </properties>
 
     <dependencyManagement>
@@ -940,6 +941,13 @@
                 <groupId>org.apache.iotdb</groupId>
                 <artifactId>iotdb-session</artifactId>
                 <version>${iotdb.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>${awaitility.version}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

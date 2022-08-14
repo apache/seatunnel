@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.flink.v2.iotdb;
 
+import static org.awaitility.Awaitility.given;
+
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
@@ -40,14 +42,15 @@ import org.testcontainers.lifecycle.Startables;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
 public class FakeSourceToIoTDBIT extends FlinkContainer {
 
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
-    private static final String IOTDB_DOCKER_NETWORK_ALIASES = "iotdb";
-    private static final int IOTDB_DOCKER_NETWORK_PORT = 6667;
+    private static final String IOTDB_HOST = "flink_e2e_iotdb";
+    private static final int IOTDB_PORT = 6667;
     private static final String IOTDB_USERNAME = "root";
     private static final String IOTDB_PASSWORD = "root";
 
@@ -58,15 +61,18 @@ public class FakeSourceToIoTDBIT extends FlinkContainer {
     public void startIoTDBContainer() throws Exception {
         iotdbServer = new GenericContainer<>(IOTDB_DOCKER_IMAGE)
                 .withNetwork(NETWORK)
-                .withNetworkAliases(IOTDB_DOCKER_NETWORK_ALIASES)
+                .withNetworkAliases(IOTDB_HOST)
                 .withLogConsumer(new Slf4jLogConsumer(log));
         iotdbServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:%s", IOTDB_DOCKER_NETWORK_PORT, IOTDB_DOCKER_NETWORK_PORT)));
+                String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();
         log.info("IoTDB container started");
         // wait for IoTDB fully start
-        Thread.sleep(5000L);
         session = createSession();
+        given().ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(() -> session.open());
         initIoTDBTimeseries();
     }
 
@@ -97,14 +103,13 @@ public class FakeSourceToIoTDBIT extends FlinkContainer {
     private Session createSession() {
         return new Session.Builder()
                 .host("localhost")
-                .port(IOTDB_DOCKER_NETWORK_PORT)
+                .port(IOTDB_PORT)
                 .username(IOTDB_USERNAME)
                 .password(IOTDB_PASSWORD)
                 .build();
     }
 
     private void initIoTDBTimeseries() throws Exception {
-        session.open();
         session.setStorageGroup("root.ln");
         session.createTimeseries("root.ln.d1.status",
                 TSDataType.BOOLEAN, TSEncoding.PLAIN, CompressionType.SNAPPY);
