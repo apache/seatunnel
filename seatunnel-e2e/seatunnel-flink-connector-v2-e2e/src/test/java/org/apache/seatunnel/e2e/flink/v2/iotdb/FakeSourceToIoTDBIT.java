@@ -96,7 +96,7 @@ public class FakeSourceToIoTDBIT extends FlinkContainer {
 
     private Session createSession() {
         return new Session.Builder()
-                .host(IOTDB_DOCKER_NETWORK_ALIASES)
+                .host("localhost")
                 .port(IOTDB_DOCKER_NETWORK_PORT)
                 .username(IOTDB_USERNAME)
                 .password(IOTDB_PASSWORD)
