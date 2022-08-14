@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -26,10 +25,10 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
-import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
+
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import java.io.IOException;
+import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSink.class)
 public class WeChatSink extends HttpSink {
@@ -38,6 +37,7 @@ public class WeChatSink extends HttpSink {
     public String getPluginName() {
         return "WeChat";
     }
+
     private final HttpParameter httpParameter = new HttpParameter();
 
     private final String webHookUrl = "url";
