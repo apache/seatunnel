@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
+package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
+import java.io.Serializable;
 
-import com.google.auto.service.AutoService;
+public enum FileSystemType implements Serializable {
+    HDFS("HdfsFile"),
+    LOCAL("LocalFile");
 
-@AutoService(SeaTunnelSink.class)
-public class LocalFileSink extends AbstractFileSink {
-    @Override
-    public SinkFileSystemPlugin getSinkFileSystemPlugin() {
-        return new LocalFileSinkPlugin();
+    private final String fileSystemPluginName;
+
+    FileSystemType(String fileSystemPluginName) {
+        this.fileSystemPluginName = fileSystemPluginName;
+    }
+
+    public String getFileSystemPluginName() {
+        return fileSystemPluginName;
     }
 }
