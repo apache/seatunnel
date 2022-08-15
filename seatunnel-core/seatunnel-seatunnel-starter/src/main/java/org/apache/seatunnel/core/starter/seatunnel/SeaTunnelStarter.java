@@ -21,9 +21,9 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
+import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobProxy;
-import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 
@@ -44,14 +44,13 @@ public class SeaTunnelStarter {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
+        JobProxy jobProxy;
         try {
-            JobProxy jobProxy = jobExecutionEnv.execute();
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
+            jobProxy = jobExecutionEnv.execute();
+        } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
 
-        // TODO wait for job complete and then exit
+        jobProxy.waitForJobComplete();
     }
 }

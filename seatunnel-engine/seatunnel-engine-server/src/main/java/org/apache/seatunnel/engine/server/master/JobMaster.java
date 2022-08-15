@@ -75,7 +75,8 @@ public class JobMaster implements Runnable {
         jobImmutableInformation = nodeEngine.getSerializationService().toObject(
             jobImmutableInformationData);
         LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] submit");
-        LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
+        LOGGER.info(
+            "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
 
         // TODO Use classloader load the connector jars and deserialize logicalDag
         this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
@@ -91,7 +92,8 @@ public class JobMaster implements Runnable {
     @Override
     public void run() {
         try {
-            PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture = physicalPlan.getJobEndCompletableFuture();
+            PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
+                physicalPlan.getJobEndCompletableFuture();
 
             jobStatusPassiveCompletableFuture.whenComplete((v, t) -> {
                 // We need not handle t, Because we will not return t from physicalPlan
