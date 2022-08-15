@@ -940,12 +940,6 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) springfox-swagger2 (io.springfox:springfox-swagger2:2.6.1 - https://github.com/springfox/springfox)
 
      (The Apache Software License, Version 2.0) awaitility (org.awaitility:awaitility:4.2.0 - https://github.com/awaitility/awaitility)
-     (The Apache Software License, Version 2.0) Apache IoTDB (org.apache.iotdb:influxdb-thrift:0.13.1 - https://github.com/apache/iotdb)
-     (The Apache Software License, Version 2.0) Apache IoTDB (org.apache.iotdb:iotdb-session:0.13.1 - https://github.com/apache/iotdb)
-     (The Apache Software License, Version 2.0) Apache IoTDB (org.apache.iotdb:iotdb-thrift:0.13.1 - https://github.com/apache/iotdb)
-     (The Apache Software License, Version 2.0) Apache IoTDB (org.apache.iotdb:service-rpc:0.13.1 - https://github.com/apache/iotdb)
-     (The Apache Software License, Version 2.0) Apache IoTDB (org.apache.iotdb:tsfile:0.13.1 - https://github.com/apache/iotdb)
-     (The Apache Software License, Version 2.0) Apache Thrift (org.apache.thrift:libthrift:0.14.1 - http://thrift.apache.org)
 
 ========================================================================
 MIT License

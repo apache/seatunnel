@@ -31,15 +31,15 @@
             <artifactId>seatunnel-core-flink</artifactId>
             <version>${project.version}</version>
         </dependency>
-
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-connectors-v2-dist</artifactId>
+            <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
         </dependency>
     </dependencies>
-
 </project>

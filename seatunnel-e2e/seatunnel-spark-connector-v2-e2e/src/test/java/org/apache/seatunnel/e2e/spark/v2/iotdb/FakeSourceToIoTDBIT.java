@@ -30,7 +30,10 @@ import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
 import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -54,7 +57,7 @@ public class FakeSourceToIoTDBIT extends SparkContainer {
     private GenericContainer<?> iotdbServer;
     private Session session;
 
-    //@BeforeEach
+    @BeforeEach
     public void startIoTDBContainer() throws Exception {
         iotdbServer = new GenericContainer<>(IOTDB_DOCKER_IMAGE)
                 .withNetwork(NETWORK)
@@ -76,7 +79,7 @@ public class FakeSourceToIoTDBIT extends SparkContainer {
     /**
      * fake source -> IoTDB sink
      */
-    //@Test
+    @Test
     public void testFakeSourceToIoTDB() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/iotdb/fakesource_to_iotdb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -114,7 +117,7 @@ public class FakeSourceToIoTDBIT extends SparkContainer {
                 TSDataType.INT64, TSEncoding.PLAIN, CompressionType.SNAPPY);
     }
 
-    //@AfterEach
+    @AfterEach
     public void closeIoTDBContainer() {
         if (iotdbServer != null) {
             iotdbServer.stop();
