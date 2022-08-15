@@ -73,11 +73,6 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
     }
 
     @Override
-    public void receivedMessage(Object message) {
-
-    }
-
-    @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(sink.getJarUrls());
     }

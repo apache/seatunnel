@@ -18,15 +18,18 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
-/**
- * A processing component that gets one piece of data at one time from other components inside the engine
- *
- * @see OneOutputFlowLifeCycle
- * @see SourceFlowLifeCycle
- */
-public interface OneInputFlowLifeCycle<T> extends FlowLifeCycle {
+public class AbstractFlowLifeCycle implements FlowLifeCycle {
 
-    void received(T record) throws IOException;
+    private final CompletableFuture<Void> completableFuture;
 
+    public AbstractFlowLifeCycle(CompletableFuture<Void> completableFuture) {
+        this.completableFuture = completableFuture;
+    }
+
+    @Override
+    public void close() throws IOException {
+        completableFuture.complete(null);
+    }
 }

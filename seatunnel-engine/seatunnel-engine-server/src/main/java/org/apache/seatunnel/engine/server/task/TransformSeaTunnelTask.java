@@ -31,6 +31,8 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
+import java.util.concurrent.CompletableFuture;
+
 public class TransformSeaTunnelTask extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(TransformSeaTunnelTask.class);
@@ -39,29 +41,30 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
         super(jobID, taskID, indexID, executionFlow);
     }
 
-    private Collector<Record> collector;
+    private Collector<Record<?>> collector;
 
     @Override
     public void init() throws Exception {
         super.init();
         LOGGER.info("starting seatunnel transform task, index " + indexID);
-        collector = new SeaTunnelTransformCollector<>(outputs);
+        collector = new SeaTunnelTransformCollector(outputs);
         if (!(startFlowLifeCycle instanceof OneOutputFlowLifeCycle)) {
-            throw new TaskRuntimeException("MiddleSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+            throw new TaskRuntimeException("TransformSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
         }
     }
 
     @Override
     protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
-                                                                  SourceConfig config) {
-        throw new UnsupportedOperationException("MiddleSeaTunnelTask can't create SourceFlowLifeCycle");
+                                                                  SourceConfig config, CompletableFuture<Void> completableFuture) {
+        throw new UnsupportedOperationException("TransformSeaTunnelTask can't create SourceFlowLifeCycle");
     }
 
     @NonNull
     @Override
     @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
-        ((OneOutputFlowLifeCycle<Record>) startFlowLifeCycle).collect(collector);
+        ((OneOutputFlowLifeCycle<Record<?>>) startFlowLifeCycle).collect(collector);
+        checkDone();
         return progress.toState();
     }
 }

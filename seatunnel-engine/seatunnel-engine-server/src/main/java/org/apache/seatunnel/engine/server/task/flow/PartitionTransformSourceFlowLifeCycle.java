@@ -21,11 +21,17 @@ import org.apache.seatunnel.api.transform.Collector;
 
 import com.hazelcast.ringbuffer.Ringbuffer;
 
-public class PartitionTransformSourceFlowLifeCycle<T> implements OneOutputFlowLifeCycle<T> {
+import java.util.concurrent.CompletableFuture;
+
+public class PartitionTransformSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneOutputFlowLifeCycle<T> {
 
     private Ringbuffer<T>[] ringbuffers;
     // TODO checkpoint offset
     private long[] offset;
+
+    public PartitionTransformSourceFlowLifeCycle(CompletableFuture<Void> completableFuture) {
+        super(completableFuture);
+    }
 
     @Override
     public void collect(Collector<T> collector) throws Exception {
@@ -46,5 +52,6 @@ public class PartitionTransformSourceFlowLifeCycle<T> implements OneOutputFlowLi
                     }).toCompletableFuture().join();
             offset[i] += size;
         }
+        // TODO received ClosedSign to close this FlowLifeCycle.
     }
 }

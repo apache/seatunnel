@@ -17,28 +17,37 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-public class TransformFlowLifeCycle<T, R> implements OneInputFlowLifeCycle<R> {
+public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
 
     private final List<SeaTunnelTransform<T>> transform;
 
-    private final Collector<R> collector;
+    private final Collector<Record<?>> collector;
 
-    public TransformFlowLifeCycle(List<SeaTunnelTransform<T>> transform, Collector<R> collector) {
+    public TransformFlowLifeCycle(List<SeaTunnelTransform<T>> transform, Collector<Record<?>> collector,
+                                  CompletableFuture<Void> completableFuture) {
+        super(completableFuture);
         this.transform = transform;
         this.collector = collector;
     }
 
     @Override
-    public void received(R row) {
-        T r = (T) row;
-        for (SeaTunnelTransform<T> t : transform) {
-            r = t.map(r);
+    public void received(Record<?> row) {
+        if (row.getData() instanceof ClosedSign) {
+            collector.collect(row);
+        } else {
+            T r = (T) row.getData();
+            for (SeaTunnelTransform<T> t : transform) {
+                r = t.map(r);
+            }
+            collector.collect(new Record<>(r));
         }
-        collector.collect((R) r);
     }
 }

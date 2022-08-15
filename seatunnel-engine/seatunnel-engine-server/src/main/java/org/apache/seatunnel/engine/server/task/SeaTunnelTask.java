@@ -52,6 +52,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public abstract class SeaTunnelTask extends AbstractTask {
 
@@ -60,7 +61,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected FlowLifeCycle startFlowLifeCycle;
 
-    protected List<OneInputFlowLifeCycle<Record>> outputs;
+    protected List<OneInputFlowLifeCycle<Record<?>>> outputs;
+
+    protected List<CompletableFuture<Void>> flowFutures;
 
     protected int indexID;
 
@@ -75,6 +78,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void init() throws Exception {
         super.init();
+        flowFutures = new ArrayList<>();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
     }
 
@@ -86,31 +90,34 @@ public abstract class SeaTunnelTask extends AbstractTask {
     private FlowLifeCycle convertFlowToActionLifeCycle(@NonNull Flow flow) throws Exception {
 
         FlowLifeCycle lifeCycle;
-        List<OneInputFlowLifeCycle<Record>> flowLifeCycles = new ArrayList<>();
+        List<OneInputFlowLifeCycle<Record<?>>> flowLifeCycles = new ArrayList<>();
         if (!flow.getNext().isEmpty()) {
             for (Flow f : executionFlow.getNext()) {
-                flowLifeCycles.add((OneInputFlowLifeCycle<Record>) convertFlowToActionLifeCycle(f));
+                flowLifeCycles.add((OneInputFlowLifeCycle<Record<?>>) convertFlowToActionLifeCycle(f));
             }
         }
+        CompletableFuture<Void> completableFuture = new CompletableFuture<>();
+        flowFutures.add(completableFuture);
         if (flow instanceof PhysicalExecutionFlow) {
             PhysicalExecutionFlow f = (PhysicalExecutionFlow) flow;
             if (f.getAction() instanceof SourceAction) {
-                lifeCycle = createSourceFlowLifeCycle((SourceAction<?, ?, ?>) f.getAction(), (SourceConfig) f.getConfig());
+                lifeCycle = createSourceFlowLifeCycle((SourceAction<?, ?, ?>) f.getAction(),
+                        (SourceConfig) f.getConfig(), completableFuture);
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
                 lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskID, indexID, this,
                         ((SinkConfig) f.getConfig()).getCommitterTask(),
-                        ((SinkConfig) f.getConfig()).isContainCommitter());
+                        ((SinkConfig) f.getConfig()).isContainCommitter(), completableFuture);
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
-                        new TransformFlowLifeCycle<SeaTunnelRow, Record>(((TransformChainAction) f.getAction()).getTransforms(),
-                                new SeaTunnelTransformCollector<>(flowLifeCycles));
+                        new TransformFlowLifeCycle<SeaTunnelRow>(((TransformChainAction) f.getAction()).getTransforms(),
+                                new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
             } else if (f.getAction() instanceof PartitionTransformAction) {
                 // TODO use index and taskID to create ringbuffer list
                 if (executionFlow.getNext().isEmpty()) {
-                    lifeCycle = new PartitionTransformSinkFlowLifeCycle<>();
+                    lifeCycle = new PartitionTransformSinkFlowLifeCycle(completableFuture);
                 } else {
-                    lifeCycle = new PartitionTransformSourceFlowLifeCycle<>();
+                    lifeCycle = new PartitionTransformSourceFlowLifeCycle(completableFuture);
                 }
             } else {
                 throw new UnknownActionException(f.getAction());
@@ -118,8 +125,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
         } else if (flow instanceof IntermediateExecutionFlow) {
             IntermediateQueueConfig config =
                     ((IntermediateExecutionFlow<IntermediateQueueConfig>) flow).getConfig();
-            lifeCycle = new IntermediateQueueFlowLifeCycle<>(((TaskGroupWithIntermediateQueue) taskBelongGroup)
-                    .getBlockingQueueCache(config.getQueueID()));
+            lifeCycle = new IntermediateQueueFlowLifeCycle(completableFuture,
+                    ((TaskGroupWithIntermediateQueue) taskBelongGroup)
+                            .getBlockingQueueCache(config.getQueueID()));
             outputs = flowLifeCycles;
         } else {
             throw new UnknownFlowException(flow);
@@ -129,18 +137,19 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     protected abstract SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
-                                                                           SourceConfig config);
+                                                                           SourceConfig config,
+                                                                           CompletableFuture<Void> completableFuture);
 
-    @Override
-    public void close() throws IOException {
-        // TODO regress close
-        startFlowLifeCycle.close();
-        progress.done();
+    protected void checkDone() {
+        if (flowFutures.stream().allMatch(CompletableFuture::isDone)) {
+            progress.done();
+        }
     }
 
     @Override
-    public void receivedMessage(Object message) {
-        // TODO send to which flow?
+    public void close() throws IOException {
+        startFlowLifeCycle.close();
+        progress.done();
     }
 
     @Override

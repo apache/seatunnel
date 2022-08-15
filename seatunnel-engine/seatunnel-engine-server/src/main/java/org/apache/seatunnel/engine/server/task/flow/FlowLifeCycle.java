@@ -27,7 +27,4 @@ public interface FlowLifeCycle {
     default void close() throws IOException {
     }
 
-    default void handleMessage(Object message) throws Exception {
-    }
-
 }

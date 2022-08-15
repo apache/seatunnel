@@ -17,23 +17,29 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
+import java.io.IOException;
 import java.util.List;
 
-public class SeaTunnelTransformCollector<T> implements Collector<T> {
+public class SeaTunnelTransformCollector implements Collector<Record<?>> {
 
-    private final List<OneInputFlowLifeCycle<T>> outputs;
+    private final List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
-    public SeaTunnelTransformCollector(List<OneInputFlowLifeCycle<T>> outputs) {
+    public SeaTunnelTransformCollector(List<OneInputFlowLifeCycle<Record<?>>> outputs) {
         this.outputs = outputs;
     }
 
     @Override
-    public void collect(T record) {
-        for (OneInputFlowLifeCycle<T> output : outputs) {
-            output.received(record);
+    public void collect(Record<?> record) {
+        for (OneInputFlowLifeCycle<Record<?>> output : outputs) {
+            try {
+                output.received(record);
+            } catch (IOException e) {
+                throw new TaskRuntimeException(e);
+            }
         }
     }
 

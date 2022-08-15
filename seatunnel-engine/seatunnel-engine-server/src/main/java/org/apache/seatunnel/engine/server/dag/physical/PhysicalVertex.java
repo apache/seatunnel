@@ -169,20 +169,23 @@ public class PhysicalVertex {
         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
             try {
-                // We need not handle t, Because we will not return t from TaskExecutionService
-                // v will never be null
-                updateTaskState(executionState.get(), v.getExecutionState());
-                if (v.getThrowable() != null) {
-                    LOGGER.severe(String.format("%s end with state %s and Exception: %s",
-                            this.taskFullName,
-                            v.getExecutionState(),
-                            ExceptionUtils.getMessage(v.getThrowable())));
+                if (t != null) {
+                    LOGGER.severe("An unexpected error occurred while the task was running", t);
+                    taskFuture.completeExceptionally(t);
                 } else {
-                    LOGGER.severe(String.format("%s end with state %s",
-                        this.taskFullName,
-                        v.getExecutionState()));
+                    updateTaskState(executionState.get(), v.getExecutionState());
+                    if (v.getThrowable() != null) {
+                        LOGGER.severe(String.format("%s end with state %s and Exception: %s",
+                                this.taskFullName,
+                                v.getExecutionState(),
+                                ExceptionUtils.getMessage(v.getThrowable())));
+                    } else {
+                        LOGGER.severe(String.format("%s end with state %s",
+                                this.taskFullName,
+                                v.getExecutionState()));
+                    }
+                    taskFuture.complete(v);
                 }
-                taskFuture.complete(v);
             } catch (Throwable th) {
                 LOGGER.severe(
                     String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));

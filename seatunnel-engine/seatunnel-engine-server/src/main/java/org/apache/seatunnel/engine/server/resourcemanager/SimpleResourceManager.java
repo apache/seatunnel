@@ -44,7 +44,7 @@ public class SimpleResourceManager implements ResourceManager {
             }
 
             Address localhost =
-                    jobAddressMap.putIfAbsent(taskId, new Address("localhost", 5801));
+                    jobAddressMap.putIfAbsent(taskId, new Address("192.168.5.101", 5701));
             if (null == localhost) {
                 localhost = jobAddressMap.get(taskId);
             }

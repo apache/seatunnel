@@ -60,7 +60,7 @@ public class TaskTest {
         config.setClusterName("test");
         HazelcastInstanceImpl instance =
                 ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
-                        Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
+                        "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
         nodeEngine = instance.node.nodeEngine;
         service = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     }
@@ -76,19 +76,19 @@ public class TaskTest {
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
                 Collections.singletonList(new URL("file:///fake.jar")));
-        LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
+        LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 1);
 
         FakeSource fakeSource2 = new FakeSource();
         fakeSource2.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource2,
                 Collections.singletonList(new URL("file:///fake.jar")));
-        LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
+        LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 1);
 
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
                 Collections.singletonList(new URL("file:///console.jar")));
-        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
+        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 1);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
 
@@ -105,7 +105,7 @@ public class TaskTest {
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation));
+        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation)).join();
 
     }
 

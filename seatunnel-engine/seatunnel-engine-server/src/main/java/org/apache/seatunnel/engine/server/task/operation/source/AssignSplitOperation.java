@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task.operation.source;
 
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -28,35 +31,37 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 import java.io.IOException;
 import java.util.List;
 
-public class AssignSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
+public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation implements IdentifiedDataSerializable {
 
     private List<SplitT> splits;
-    private int taskID;
+    private TaskLocation taskID;
 
     public AssignSplitOperation() {
     }
 
-    public AssignSplitOperation(int taskID, List<SplitT> splits) {
+    public AssignSplitOperation(TaskLocation taskID, List<SplitT> splits) {
+        this.taskID = taskID;
         this.splits = splits;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(taskID);
-        // TODO send split to task
+        SourceSeaTunnelTask<?, SplitT> task =
+                server.getTaskExecutionService().getExecutionContext(taskID.getTaskGroupID()).getTaskGroup().getTask(taskID.getTaskID());
+        task.receivedSourceSplit(splits);
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeObject(splits);
-        out.writeInt(taskID);
+        taskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         splits = in.readObject();
-        taskID = in.readInt();
+        taskID.readData(in);
     }
 
     @Override

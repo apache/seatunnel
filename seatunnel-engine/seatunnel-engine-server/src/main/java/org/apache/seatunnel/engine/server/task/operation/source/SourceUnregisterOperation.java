@@ -48,7 +48,7 @@ public class SourceUnregisterOperation extends Operation implements IdentifiedDa
         SourceSplitEnumeratorTask<?> task =
                 server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID())
                         .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
-        task.removeTaskMemberMapping(currentTaskID.getTaskID());
+        task.readerFinished(currentTaskID.getTaskID());
     }
 
     @Override

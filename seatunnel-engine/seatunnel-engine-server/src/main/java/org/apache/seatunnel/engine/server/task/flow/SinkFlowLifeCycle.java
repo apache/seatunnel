@@ -25,11 +25,13 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
+import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R> {
+public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
 
     private final SinkAction<T, StateT, ?, ?> sinkAction;
     private SinkWriter<T, ?, StateT> writer;
@@ -48,7 +50,9 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
     private final boolean containCommitter;
 
     public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskID, int indexID,
-                             SeaTunnelTask runningTask, TaskLocation committerTaskID, boolean containCommitter) {
+                             SeaTunnelTask runningTask, TaskLocation committerTaskID,
+                             boolean containCommitter, CompletableFuture<Void> completableFuture) {
+        super(completableFuture);
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.runningTask = runningTask;
@@ -69,13 +73,11 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
 
     @Override
     public void close() throws IOException {
+        super.close();
         writer.close();
-        runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskID, committerTaskID));
-
-    }
-
-    @Override
-    public void handleMessage(Object message) throws Exception {
+        if (containCommitter) {
+            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskID, committerTaskID));
+        }
     }
 
     private void registerCommitter() {
@@ -85,13 +87,13 @@ public class SinkFlowLifeCycle<T, R, StateT> implements OneInputFlowLifeCycle<R>
     }
 
     @Override
-    public void received(R record) {
+    public void received(Record<?> record) {
         // TODO maybe received barrier, need change method to support this.
         try {
-            if (record instanceof Record) {
-                writer.write((T) ((Record) record).getData());
+            if (record.getData() instanceof ClosedSign) {
+                this.close();
             } else {
-                throw new IllegalArgumentException("unsupported record type");
+                writer.write((T) record.getData());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

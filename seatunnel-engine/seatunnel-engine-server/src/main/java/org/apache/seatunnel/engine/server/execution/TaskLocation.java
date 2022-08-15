@@ -79,6 +79,14 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
     }
 
     @Override
+    public String toString() {
+        return "TaskLocation{" +
+                "taskGroupID=" + taskGroupID +
+                ", taskID=" + taskID +
+                '}';
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;

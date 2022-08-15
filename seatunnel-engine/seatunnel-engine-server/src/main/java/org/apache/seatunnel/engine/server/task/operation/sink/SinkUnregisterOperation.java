@@ -31,33 +31,33 @@ import java.io.IOException;
 public class SinkUnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation currentTaskID;
-    private TaskLocation enumeratorTaskID;
+    private TaskLocation committerTaskID;
 
     public SinkUnregisterOperation() {
     }
 
-    public SinkUnregisterOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
+    public SinkUnregisterOperation(TaskLocation currentTaskID, TaskLocation committerTaskID) {
         this.currentTaskID = currentTaskID;
-        this.enumeratorTaskID = enumeratorTaskID;
+        this.committerTaskID = committerTaskID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID());
+        server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID());
         // TODO send to committer
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         currentTaskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        committerTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         currentTaskID.readData(in);
-        enumeratorTaskID.readData(in);
+        committerTaskID.readData(in);
     }
 
     @Override

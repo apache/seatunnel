@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.flow;
-
-import java.io.IOException;
+package org.apache.seatunnel.engine.server.task.record;
 
 /**
- * A processing component that gets one piece of data at one time from other components inside the engine
- *
- * @see OneOutputFlowLifeCycle
- * @see SourceFlowLifeCycle
+ * This sign used for flow closed, send this sign in the
+ * {@link org.apache.seatunnel.api.table.type.Record} to next flow
  */
-public interface OneInputFlowLifeCycle<T> extends FlowLifeCycle {
-
-    void received(T record) throws IOException;
-
+public class ClosedSign {
+    public ClosedSign() {
+    }
 }

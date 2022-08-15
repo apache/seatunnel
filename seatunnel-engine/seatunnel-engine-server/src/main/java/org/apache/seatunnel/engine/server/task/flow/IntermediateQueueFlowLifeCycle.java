@@ -17,34 +17,47 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
+import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 
-public class IntermediateQueueFlowLifeCycle<T> implements OneInputFlowLifeCycle<T>, OneOutputFlowLifeCycle<T> {
+public class IntermediateQueueFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>>,
+        OneOutputFlowLifeCycle<Record<?>> {
 
-    private final BlockingQueue<T> queue;
+    private final BlockingQueue<Record<?>> queue;
 
-    public IntermediateQueueFlowLifeCycle(BlockingQueue<T> queue) {
+    public IntermediateQueueFlowLifeCycle(CompletableFuture<Void> completableFuture,
+                                          BlockingQueue<Record<?>> queue) {
+        super(completableFuture);
         this.queue = queue;
     }
 
     @Override
-    public void received(T row) {
+    public void received(Record<?> row) {
         try {
             // TODO support batch put
             queue.put(row);
-        } catch (InterruptedException e) {
+            if (row.getData() instanceof ClosedSign) {
+                this.close();
+            }
+        } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void collect(Collector<T> collector) throws Exception {
+    public void collect(Collector<Record<?>> collector) throws Exception {
         while (true) {
-            T record = queue.poll();
+            Record<?> record = queue.poll();
             if (record != null) {
                 collector.collect(record);
+                if (record.getData() instanceof ClosedSign) {
+                    this.close();
+                }
             } else {
                 break;
             }

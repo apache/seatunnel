@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
@@ -46,7 +47,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private final SourceAction<?, SplitT, ?> source;
     private SourceSplitEnumerator<?, ?> enumerator;
-    private SeaTunnelSplitEnumeratorContext<SplitT> context;
+    private int maxReaderSize;
+    private AtomicInteger unfinishedReaders;
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
@@ -57,10 +59,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         super.init();
         future = new CompletableFuture<>();
         LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
-        context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
+        SeaTunnelSplitEnumeratorContext<SplitT> context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
+        maxReaderSize = source.getParallelism();
+        unfinishedReaders = new AtomicInteger(maxReaderSize);
         enumerator.open();
     }
 
@@ -80,10 +84,17 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @NonNull
     @Override
     public ProgressState call() throws Exception {
-        return future.get();
+        if (maxReaderSize == taskMemberMapping.size()) {
+            LOGGER.info("received enough reader, starting enumerator...");
+            enumerator.run();
+            return future.get();
+        } else {
+            return progress.toState();
+        }
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {
+        LOGGER.info("received reader register, readerID: " + readerId);
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader((int) readerId.getTaskID());
     }
@@ -101,6 +112,21 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskMemberMapping.get(taskIDToTaskLocationMapping.get(taskID));
     }
 
+    public TaskLocation getTaskMemberLocation(long taskID) {
+        return taskIDToTaskLocationMapping.get(taskID);
+    }
+
+    public void readerFinished(long taskID) {
+        removeTaskMemberMapping(taskID);
+        if (unfinishedReaders.decrementAndGet() == 0) {
+            try {
+                this.close();
+            } catch (Exception e) {
+                throw new TaskRuntimeException(e);
+            }
+        }
+    }
+
     public void removeTaskMemberMapping(long taskID) {
         TaskLocation taskLocation = taskIDToTaskLocationMapping.get(taskID);
         taskMemberMapping.remove(taskLocation);
@@ -113,11 +139,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private void noMoreElement(int taskID) {
         enumerator.handleSplitRequest(taskID);
-    }
-
-    @Override
-    public void receivedMessage(Object message) {
-        // TODO custom message
     }
 
     @Override

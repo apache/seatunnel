@@ -20,31 +20,45 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
+import java.io.IOException;
 import java.util.List;
 
 public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final Object checkpointLock;
 
-    private final List<OneInputFlowLifeCycle<Record>> outputs;
+    private final List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
-    public SeaTunnelSourceCollector(Object checkpointLock, List<OneInputFlowLifeCycle<Record>> outputs) {
+    public SeaTunnelSourceCollector(Object checkpointLock, List<OneInputFlowLifeCycle<Record<?>>> outputs) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
     }
 
     @Override
     public void collect(T row) {
-        synchronized (checkpointLock) {
-            for (OneInputFlowLifeCycle<Record> output : outputs) {
-                output.received(new Record<>(row));
-            }
+        try {
+            sendRecordToNext(new Record<>(row));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
     public Object getCheckpointLock() {
         return checkpointLock;
+    }
+
+    public void close() throws IOException {
+        sendRecordToNext(new Record<>(new ClosedSign()));
+    }
+
+    private void sendRecordToNext(Record<?> record) throws IOException {
+        synchronized (checkpointLock) {
+            for (OneInputFlowLifeCycle<Record<?>> output : outputs) {
+                output.received(record);
+            }
+        }
     }
 }

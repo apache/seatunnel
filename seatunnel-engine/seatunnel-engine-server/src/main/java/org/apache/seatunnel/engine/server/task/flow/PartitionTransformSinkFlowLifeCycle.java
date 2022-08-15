@@ -17,21 +17,38 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.server.task.record.ClosedSign;
+
 import com.hazelcast.ringbuffer.Ringbuffer;
 
+import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class PartitionTransformSinkFlowLifeCycle<T> implements OneInputFlowLifeCycle<T> {
+public class PartitionTransformSinkFlowLifeCycle extends AbstractFlowLifeCycle implements OneInputFlowLifeCycle<Record<?>> {
 
-    private Ringbuffer<T>[] ringbuffers;
+    private Ringbuffer<Record<?>>[] ringbuffers;
+    private AtomicInteger closeSigns;
     private final Random random = new Random();
 
-    @Override
-    public void received(T row) {
-        getRingBuffer(row).add(row);
+    public PartitionTransformSinkFlowLifeCycle(CompletableFuture<Void> completableFuture) {
+        super(completableFuture);
+        closeSigns = new AtomicInteger();
     }
 
-    private Ringbuffer<T> getRingBuffer(T row) {
+    @Override
+    public void received(Record<?> row) throws IOException {
+        getRingBuffer(row).add(row);
+        if (row.getData() instanceof ClosedSign) {
+            if (closeSigns.incrementAndGet() == ringbuffers.length) {
+                this.close();
+            }
+        }
+    }
+
+    private Ringbuffer<Record<?>> getRingBuffer(Record<?> row) {
         return ringbuffers[random.nextInt(ringbuffers.length)];
     }
 }

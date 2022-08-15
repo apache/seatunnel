@@ -36,7 +36,7 @@ public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
         super(id, taskGroupName, tasks);
     }
 
-    private Map<Long, BlockingQueue<Record>> blockingQueueCache = null;
+    private Map<Long, BlockingQueue<Record<?>>> blockingQueueCache = null;
 
     @Override
     public void init() {
@@ -45,7 +45,7 @@ public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
                 .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
     }
 
-    public BlockingQueue<Record> getBlockingQueueCache(long id) {
+    public BlockingQueue<Record<?>> getBlockingQueueCache(long id) {
         if (!blockingQueueCache.containsKey(id)) {
             blockingQueueCache.put(id, new ArrayBlockingQueue<>(QUEUE_SIZE));
         }

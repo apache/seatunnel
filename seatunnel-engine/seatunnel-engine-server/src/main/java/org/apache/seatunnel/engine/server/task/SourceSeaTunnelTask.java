@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
@@ -28,7 +29,10 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
-public class SourceSeaTunnelTask<T> extends SeaTunnelTask {
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
 
@@ -36,31 +40,35 @@ public class SourceSeaTunnelTask<T> extends SeaTunnelTask {
         super(jobID, taskID, indexID, executionFlow);
     }
 
-    private SeaTunnelSourceCollector<T> collector;
-
     @Override
     public void init() throws Exception {
         super.init();
         Object checkpointLock = new Object();
         LOGGER.info("starting seatunnel source task, index " + indexID);
-        collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
+        if (!(startFlowLifeCycle instanceof SourceFlowLifeCycle)) {
+            throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
+        } else {
+            SeaTunnelSourceCollector<T> collector = new SeaTunnelSourceCollector<>(checkpointLock, outputs);
+            ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
+        }
     }
 
     @Override
     protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
-                                                                  SourceConfig config) {
-        return new SourceFlowLifeCycle<>(sourceAction, indexID, config.getEnumeratorTask(), this, taskID);
+                                                                  SourceConfig config, CompletableFuture<Void> completableFuture) {
+        return new SourceFlowLifeCycle<>(sourceAction, indexID, config.getEnumeratorTask(), this, taskID, completableFuture);
     }
 
     @NonNull
     @Override
     @SuppressWarnings("unchecked")
     public ProgressState call() throws Exception {
-        if (startFlowLifeCycle instanceof SourceFlowLifeCycle) {
-            ((SourceFlowLifeCycle<T, ?>) startFlowLifeCycle).collect(collector);
-        } else {
-            throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
-        }
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).collect();
+        checkDone();
         return progress.toState();
+    }
+
+    public void receivedSourceSplit(List<SplitT> splits) {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSplits(splits);
     }
 }
