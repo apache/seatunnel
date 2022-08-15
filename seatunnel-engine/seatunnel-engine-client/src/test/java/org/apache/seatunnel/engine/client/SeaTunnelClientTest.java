@@ -78,9 +78,7 @@ public class SeaTunnelClientTest {
         try {
             jobProxy = jobExecutionEnv.execute();
             jobProxy.waitForJobComplete();
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
+        } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
 
