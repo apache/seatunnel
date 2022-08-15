@@ -44,7 +44,6 @@ avatica-core-1.20.0.jar
 avatica-metrics-1.20.0.jar
 avro-1.7.7.jar
 avro-1.8.2.jar
-awaitility-4.2.0.jar
 aws-java-sdk-core-1.12.37.jar
 aws-java-sdk-ec2-1.12.37.jar
 aws-java-sdk-kms-1.12.37.jar
