@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task;
+package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
+import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> implements SourceSplitEnumerator.Context<SplitT> {
 
@@ -43,17 +46,20 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit> impleme
 
     @Override
     public Set<Integer> registeredReaders() {
-        return null;
+        return task.getRegisteredReaders().stream().map(Long::intValue).collect(Collectors.toSet());
     }
 
     @Override
     public void assignSplit(int subtaskId, List<SplitT> splits) {
-        task.executionContext.sendToMember(new AssignSplitOperation<>(subtaskId, splits), task.getTaskMemberAddr(subtaskId));
+        task.getExecutionContext().sendToMember(new AssignSplitOperation<>(task.getTaskMemberLocation(subtaskId),
+                splits), task.getTaskMemberAddr(subtaskId));
     }
 
     @Override
-    public void signalNoMoreSplits(int subtask) {
-
+    public void signalNoMoreSplits(int subtaskId) {
+        task.getExecutionContext().sendToMember(
+                new AssignSplitOperation<>(task.getTaskMemberLocation(subtaskId), Collections.emptyList()),
+                task.getTaskMemberAddr(subtaskId));
     }
 
     @Override

@@ -133,6 +133,6 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
             }
             //jobMaster.run();
         });
-        return new NonCompletableFuture(voidCompletableFuture);
+        return new NonCompletableFuture<>(voidCompletableFuture);
     }
 }

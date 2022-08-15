@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.physical.flow;
 
+import java.io.Serializable;
 import java.util.List;
 
-public abstract class Flow {
+public abstract class Flow implements Serializable {
 
     protected final List<Flow> next;
 

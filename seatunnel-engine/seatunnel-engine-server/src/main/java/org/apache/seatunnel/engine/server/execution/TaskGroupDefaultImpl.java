@@ -17,18 +17,27 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import lombok.Data;
-
 import java.util.Collection;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-@Data
-public class TaskGroupDefaultImpl implements TaskGroup{
-    private long id;
+public class TaskGroupDefaultImpl implements TaskGroup {
+    private final long id;
 
     private final String taskGroupName;
 
-    private final Collection<Task> tasks;
+    private final Map<Long, Task> tasks;
+
+    public TaskGroupDefaultImpl(long id, String taskGroupName, Collection<Task> tasks) {
+        this.id = id;
+        this.taskGroupName = taskGroupName;
+        this.tasks = tasks.stream().collect(Collectors.toMap(Task::getTaskID, Function.identity()));
+    }
+
+    public String getTaskGroupName() {
+        return taskGroupName;
+    }
 
     @Override
     public long getId() {
@@ -42,7 +51,12 @@ public class TaskGroupDefaultImpl implements TaskGroup{
 
     @Override
     public Collection<Task> getTasks() {
-        return tasks;
+        return tasks.values();
+    }
+
+    @Override
+    public <T extends Task> T getTask(long taskID) {
+        return (T) tasks.get(taskID);
     }
 
     @Override

@@ -45,12 +45,12 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
 
     @Override
     public int getFactoryId() {
-        return TaskDataSerializerHook.TASK_GROUP_INFO_TYPE;
+        return TaskDataSerializerHook.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.FACTORY_ID;
+        return TaskDataSerializerHook.TASK_GROUP_INFO_TYPE;
     }
 
     @Override
