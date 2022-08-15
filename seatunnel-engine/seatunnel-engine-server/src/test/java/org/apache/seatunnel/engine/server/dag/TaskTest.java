@@ -105,7 +105,7 @@ public class TaskTest {
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation)).join();
+        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation));
 
     }
 
