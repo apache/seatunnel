@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
+package org.apache.seatunnel.connectors.seatunnel.file.local.sink.util;
 
 import lombok.NonNull;
 import org.slf4j.Logger;

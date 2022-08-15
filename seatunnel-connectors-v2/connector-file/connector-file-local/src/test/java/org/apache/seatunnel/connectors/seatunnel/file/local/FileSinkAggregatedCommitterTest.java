@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
+package org.apache.seatunnel.connectors.seatunnel.file.local;
 
+import org.apache.seatunnel.connectors.seatunnel.file.local.sink.filesystem.LocalFileSystemCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.local.sink.util.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSinkAggregatedCommitter;

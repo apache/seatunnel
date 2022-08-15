@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
+package org.apache.seatunnel.connectors.seatunnel.file.local.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
+import com.google.auto.service.AutoService;
 
-public class LocalFileSystem implements FileSystem {
+@AutoService(SeaTunnelSink.class)
+public class LocalFileSink extends AbstractFileSink {
     @Override
-    public void deleteFile(String path) throws IOException {
-        File file = new File(path);
-        file.delete();
-    }
-
-    @Override
-    public List<String> dirList(String dirPath) throws IOException {
-        File file = new File(dirPath);
-        String[] list = file.list();
-        if (list == null) {
-            return null;
-        }
-        return Arrays.asList(list);
+    public SinkFileSystemPlugin getSinkFileSystemPlugin() {
+        return new LocalFileSinkPlugin();
     }
 }
