@@ -66,6 +66,11 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
         new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
 
+    public AbstractPluginDiscovery(@Nullable Path absolutePluginDir) {
+        this.pluginDir = absolutePluginDir;
+        LOGGER.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+    }
+
     public AbstractPluginDiscovery(String pluginSubDir, BiConsumer<ClassLoader, URL> addURLToClassloader) {
         this.pluginDir = Common.connectorJarDir(pluginSubDir);
         this.addURLToClassLoader = addURLToClassloader;
