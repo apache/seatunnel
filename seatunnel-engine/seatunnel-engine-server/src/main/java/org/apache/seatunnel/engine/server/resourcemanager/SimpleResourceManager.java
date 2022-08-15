@@ -35,7 +35,7 @@ public class SimpleResourceManager implements ResourceManager {
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public Address applyForResource(@NonNull Long jobId, @NonNull Long taskId) {
+    public Address applyForResource(long jobId, long taskId) {
         try {
             Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.get(jobId);
             if (jobAddressMap == null) {
@@ -58,7 +58,7 @@ public class SimpleResourceManager implements ResourceManager {
 
     @Override
     @NonNull
-    public Address getAppliedResource(@NonNull Long jobId, @NonNull Long taskId) {
+    public Address getAppliedResource(long jobId, long taskId) {
         Map<Long, Address> longAddressMap = physicalVertexIdAndResourceMap.get(jobId);
         if (null == longAddressMap || longAddressMap.isEmpty()) {
             throw new JobException(

@@ -86,7 +86,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         this.taskBelongGroup = group;
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes", "checkstyle:MagicNumber"})
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private FlowLifeCycle convertFlowToActionLifeCycle(@NonNull Flow flow) throws Exception {
 
         FlowLifeCycle lifeCycle;

@@ -21,8 +21,8 @@ import com.hazelcast.cluster.Address;
 import lombok.NonNull;
 
 public interface ResourceManager {
-    Address applyForResource(Long jobId, Long taskId);
+    Address applyForResource(long jobId, long taskId);
 
     @NonNull
-    Address getAppliedResource(Long jobId, Long taskId);
+    Address getAppliedResource(long jobId, long taskId);
 }
