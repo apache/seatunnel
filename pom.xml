@@ -224,6 +224,7 @@
         <jsoup.version>1.14.3</jsoup.version>
         <javax.annotation-api.version>1.3.2</javax.annotation-api.version>
         <elasticsearch-rest-client.version>7.5.1</elasticsearch-rest-client.version>
+        <checker.qual.version>3.10.0</checker.qual.version>
         <iotdb.version>0.13.1</iotdb.version>
         <awaitility.version>4.2.0</awaitility.version>
     </properties>
@@ -351,7 +352,6 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
-                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -937,6 +937,12 @@
                 <version>${jsoup.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>checker-qual</artifactId>
+                <version>${checker.qual.version}</version>
+            </dependency>
+            
             <dependency>
                 <groupId>org.apache.iotdb</groupId>
                 <artifactId>iotdb-session</artifactId>

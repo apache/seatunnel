@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.local;
+package org.apache.seatunnel.connectors.seatunnel.file.local.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.local.sink.filesystem.LocalFileSystem;
+import org.apache.seatunnel.connectors.seatunnel.file.local.sink.filesystem.LocalFileSystemCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.local.sink.writer.LocalTransactionStateFileWriteFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystemCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
@@ -34,7 +37,7 @@ import java.util.Optional;
 public class LocalFileSinkPlugin implements SinkFileSystemPlugin {
     @Override
     public String getPluginName() {
-        return FileSystemType.LOCAL.getSinkFileSystemPluginName();
+        return FileSystemType.LOCAL.getFileSystemPluginName();
     }
 
     @Override
