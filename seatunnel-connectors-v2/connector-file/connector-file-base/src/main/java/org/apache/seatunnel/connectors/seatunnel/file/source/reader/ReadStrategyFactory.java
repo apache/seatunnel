@@ -31,8 +31,8 @@ public class ReadStrategyFactory {
             FileFormat fileFormat = FileFormat.valueOf(fileType.toUpperCase());
             return fileFormat.getReadStrategy();
         } catch (IllegalArgumentException e) {
-            log.warn("File source connector not support this file type [{}], it will be treated as a plain text file", fileType);
-            return new TextReadStrategy();
+            String errorMsg = String.format("File source connector not support this file type [%s], please check your config", fileType);
+            throw new RuntimeException(errorMsg);
         }
     }
 }
