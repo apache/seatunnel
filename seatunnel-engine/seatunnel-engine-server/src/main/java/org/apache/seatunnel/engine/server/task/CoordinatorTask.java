@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+
 public abstract class CoordinatorTask extends AbstractTask {
 
     private static final long serialVersionUID = -3957168748281681077L;
 
-    public CoordinatorTask(long taskID) {
-        super(taskID);
+    public CoordinatorTask(long jobID, TaskLocation taskID) {
+        super(jobID, taskID);
     }
 }

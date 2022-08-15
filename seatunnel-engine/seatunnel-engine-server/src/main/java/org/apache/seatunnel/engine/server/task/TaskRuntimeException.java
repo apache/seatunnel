@@ -15,33 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.internal;
+package org.apache.seatunnel.engine.server.task;
 
-import java.io.Serializable;
+public class TaskRuntimeException extends RuntimeException {
 
-public class IntermediateDataQueue implements Serializable {
-
-    private static final long serialVersionUID = -3049265155605303992L;
-
-    private final long id;
-    private final int parallelism;
-    private final String name;
-
-    public IntermediateDataQueue(long id, String name, int parallelism) {
-        this.id = id;
-        this.name = name;
-        this.parallelism = parallelism;
+    public TaskRuntimeException() {
     }
 
-    public long getId() {
-        return id;
+    public TaskRuntimeException(String message) {
+        super(message);
     }
 
-    public int getParallelism() {
-        return parallelism;
+    public TaskRuntimeException(String message, Throwable cause) {
+        super(message, cause);
     }
 
-    public String getName() {
-        return name;
+    public TaskRuntimeException(Throwable cause) {
+        super(cause);
+    }
+
+    public TaskRuntimeException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
     }
 }

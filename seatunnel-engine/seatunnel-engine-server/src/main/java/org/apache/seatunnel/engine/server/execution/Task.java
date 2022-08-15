@@ -28,7 +28,7 @@ public interface Task extends Serializable {
     }
 
     @NonNull
-    ProgressState call();
+    ProgressState call() throws Exception;
 
     @NonNull
     Long getTaskID();
@@ -42,4 +42,5 @@ public interface Task extends Serializable {
 
     default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext){
     }
+
 }

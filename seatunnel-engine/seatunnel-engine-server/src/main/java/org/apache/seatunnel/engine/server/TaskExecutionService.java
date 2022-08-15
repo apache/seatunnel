@@ -128,7 +128,7 @@ public class TaskExecutionService {
             Set<URL> jars = taskImmutableInfo.getJars();
 
             // TODO Use classloader load the connector jars and deserialize Task
-            taskGroup = nodeEngine.getSerializationService().toData(taskImmutableInfo.getGroup());
+            taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             taskGroup.init();
             Collection<Task> tasks = taskGroup.getTasks();
 

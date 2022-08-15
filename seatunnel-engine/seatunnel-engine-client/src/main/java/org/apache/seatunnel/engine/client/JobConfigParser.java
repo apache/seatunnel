@@ -208,9 +208,7 @@ public class JobConfigParser {
                     + " must be set in the source plugin config when the job have complex dependencies");
             }
             String resultTableName = config.getString(Plugin.RESULT_TABLE_NAME);
-            if (sourceResultTableNameMap.get(resultTableName) == null) {
-                sourceResultTableNameMap.put(resultTableName, new ArrayList<>());
-            }
+            sourceResultTableNameMap.computeIfAbsent(resultTableName, k -> new ArrayList<>());
             sourceResultTableNameMap.get(resultTableName).add(config);
         }
 
@@ -227,14 +225,10 @@ public class JobConfigParser {
             String resultTableName = config.getString(Plugin.RESULT_TABLE_NAME);
             String sourceTableName = config.getString(Plugin.SOURCE_TABLE_NAME);
 
-            if (transformResultTableNameMap.get(resultTableName) == null) {
-                transformResultTableNameMap.put(resultTableName, new ArrayList<>());
-            }
+            transformResultTableNameMap.computeIfAbsent(resultTableName, k -> new ArrayList<>());
             transformResultTableNameMap.get(resultTableName).add(config);
 
-            if (transformSourceTableNameMap.get(sourceTableName) == null) {
-                transformSourceTableNameMap.put(sourceTableName, new ArrayList<>());
-            }
+            transformSourceTableNameMap.computeIfAbsent(sourceTableName, k -> new ArrayList<>());
             transformSourceTableNameMap.get(sourceTableName).add(config);
 
         }
@@ -293,7 +287,7 @@ public class JobConfigParser {
 
     private void initTransformParallelism(List<? extends Config> transformConfigs, Action upstreamAction,
                                           SeaTunnelTransform seaTunnelTransform, TransformAction transformAction) {
-        if ((seaTunnelTransform instanceof PartitionSeaTunnelTransform)
+        if (seaTunnelTransform instanceof PartitionSeaTunnelTransform
             && transformConfigs.get(0).hasPath(CollectionConstants.PARALLELISM)) {
             transformAction.setParallelism(transformConfigs
                 .get(0)
@@ -307,7 +301,7 @@ public class JobConfigParser {
     private int getSourceParallelism(Config sourceConfig) {
         if (sourceConfig.hasPath(CollectionConstants.PARALLELISM)) {
             int sourceParallelism = sourceConfig.getInt(CollectionConstants.PARALLELISM);
-            return sourceParallelism < 1 ? 1 : sourceParallelism;
+            return Math.max(sourceParallelism, 1);
         }
         return 1;
     }

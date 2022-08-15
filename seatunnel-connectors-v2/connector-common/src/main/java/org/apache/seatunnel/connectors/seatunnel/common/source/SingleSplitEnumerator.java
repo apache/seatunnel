@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 public class SingleSplitEnumerator implements SourceSplitEnumerator<SingleSplit, SingleSplitEnumeratorState> {
     protected final SourceSplitEnumerator.Context<SingleSplit> context;
@@ -61,8 +62,9 @@ public class SingleSplitEnumerator implements SourceSplitEnumerator<SingleSplit,
         if (assigned || pendingSplit == null) {
             return;
         }
-        if (context.registeredReaders().contains(0)) {
-            context.assignSplit(0, pendingSplit);
+        Set<Integer> readers = context.registeredReaders();
+        if (!readers.isEmpty()) {
+            context.assignSplit(readers.stream().findFirst().get(), pendingSplit);
             assigned = true;
         }
     }
