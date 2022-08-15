@@ -33,7 +33,6 @@ import org.apache.iotdb.tsfile.read.common.RowRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -79,7 +78,7 @@ public class FakeSourceToIoTDBIT extends SparkContainer {
     /**
      * fake source -> IoTDB sink
      */
-    @Test
+    //@Test
     public void testFakeSourceToIoTDB() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelSparkJob("/iotdb/fakesource_to_iotdb.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
