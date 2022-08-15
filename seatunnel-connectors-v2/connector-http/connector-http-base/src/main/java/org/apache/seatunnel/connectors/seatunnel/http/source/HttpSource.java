@@ -41,9 +41,9 @@ import com.google.auto.service.AutoService;
 
 @AutoService(SeaTunnelSource.class)
 public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
-    private final HttpParameter httpParameter = new HttpParameter();
-    private SeaTunnelRowType rowType;
-    private SeaTunnelContext seaTunnelContext;
+    protected final HttpParameter httpParameter = new HttpParameter();
+    protected SeaTunnelRowType rowType;
+    protected SeaTunnelContext seaTunnelContext;
 
     @Override
     public String getPluginName() {
