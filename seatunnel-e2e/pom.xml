@@ -26,31 +26,32 @@
     <artifactId>seatunnel-e2e</artifactId>
     <packaging>pom</packaging>
 
-    <modules>
-        <module>seatunnel-flink-e2e</module>
-        <module>seatunnel-spark-e2e</module>
-        <module>seatunnel-flink-connector-v2-e2e</module>
-        <module>seatunnel-spark-connector-v2-e2e</module>
-        <module>seatunnel-flink-sql-e2e</module>
-    </modules>
+    <profiles>
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-flink-e2e</module>
+                <module>seatunnel-spark-e2e</module>
+                <module>seatunnel-flink-connector-v2-e2e</module>
+                <module>seatunnel-spark-connector-v2-e2e</module>
+                <module>seatunnel-flink-sql-e2e</module>
+                <module>seatunnel-engine-e2e</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>engine-all</id>
+            <modules>
+                <module>seatunnel-engine-e2e</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>release</id>
+        </profile>
+    </profiles>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-v2-dist</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-spark-dist</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-connectors-flink-dist</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-    </dependencies>
     <build>
         <plugins>
             <plugin>

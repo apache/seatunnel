@@ -59,29 +59,27 @@ public class JobProxy implements Job {
     }
 
     @Override
-    public void waitForJobComplete() {
+    public JobStatus waitForJobComplete() {
+        JobStatus jobStatus = null;
         PassiveCompletableFuture<JobStatus> jobFuture =
             seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
                 SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobImmutableInformation.getJobId()),
                 response -> {
                     return JobStatus.values()[SeaTunnelWaitForJobCompleteCodec.decodeResponse(response)];
                 });
-
-        jobFuture.whenComplete((v, t) -> {
-            if (null != t) {
-                LOGGER.info(String.format("Job %s (%s) end with state %s, and throw Exception: %s",
-                    jobImmutableInformation.getJobId(),
-                    jobImmutableInformation.getJobConfig().getName(),
-                    v,
-                    ExceptionUtils.getMessage(t)));
-            } else {
-                LOGGER.info(String.format("Job %s (%s) end with state %s",
-                    jobImmutableInformation.getJobId(),
-                    jobImmutableInformation.getJobConfig().getName(),
-                    v));
-            }
-        });
-
-        jobFuture.join();
+        try {
+            jobStatus = jobFuture.get();
+            LOGGER.info(String.format("Job %s (%s) end with state %s",
+                jobImmutableInformation.getJobId(),
+                jobImmutableInformation.getJobConfig().getName(),
+                jobStatus));
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.info(String.format("Job %s (%s) end with unknown state, and throw Exception: %s",
+                jobImmutableInformation.getJobId(),
+                jobImmutableInformation.getJobConfig().getName(),
+                ExceptionUtils.getMessage(e)));
+            throw new RuntimeException(e);
+        }
+        return jobStatus;
     }
 }

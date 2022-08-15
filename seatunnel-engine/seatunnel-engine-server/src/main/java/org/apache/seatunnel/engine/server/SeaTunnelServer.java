@@ -65,7 +65,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.executorService =
-            Executors.newFixedThreadPool(seaTunnelConfig.getEngineConfig().getServerExecutorPoolSize());
+            Executors.newCachedThreadPool();
         logger.info("SeaTunnel server start...");
     }
 

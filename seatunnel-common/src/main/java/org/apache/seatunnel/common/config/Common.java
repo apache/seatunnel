@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.config;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -97,14 +99,24 @@ public class Common {
      * Plugin Connector Jar Dir
      */
     public static Path connectorJarDir(String engine) {
-        return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
+        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
+        if (StringUtils.isBlank(seatunnelHome)) {
+            return Paths.get(appRootDir().toString(), "connectors", engine.toLowerCase());
+        } else {
+            return Paths.get(seatunnelHome, "connectors", engine.toLowerCase());
+        }
     }
 
     /**
      * Plugin Connector Dir
      */
     public static Path connectorDir() {
-        return Paths.get(appRootDir().toString(), "connectors");
+        String seatunnelHome = System.getProperty("SEATUNNEL_HOME");
+        if (StringUtils.isBlank(seatunnelHome)) {
+            return Paths.get(appRootDir().toString(), "connectors");
+        } else {
+            return Paths.get(seatunnelHome, "connectors");
+        }
     }
 
     public static Path pluginTarball() {

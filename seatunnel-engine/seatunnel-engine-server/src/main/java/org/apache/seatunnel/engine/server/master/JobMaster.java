@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -32,10 +33,12 @@ import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -78,8 +81,14 @@ public class JobMaster implements Runnable {
         LOGGER.info(
             "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
 
-        // TODO Use classloader load the connector jars and deserialize logicalDag
-        this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
+        if (!CollectionUtils.isEmpty(jobImmutableInformation.getPluginJarsUrls())) {
+            this.logicalDag =
+                CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
+                    new SeatunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls()),
+                    jobImmutableInformation.getLogicalDag());
+        } else {
+            this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
+        }
         physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,

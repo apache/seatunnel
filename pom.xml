@@ -80,10 +80,7 @@
         <module>seatunnel-common</module>
         <module>seatunnel-apis</module>
         <module>seatunnel-core</module>
-        <module>seatunnel-transforms</module>
-        <module>seatunnel-connectors</module>
         <module>seatunnel-api</module>
-        <module>seatunnel-translation</module>
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-dist</module>
@@ -92,11 +89,32 @@
     </modules>
 
     <profiles>
+        <!-- Use in CI, UT and integration test -->
         <profile>
             <id>all</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
+            <modules>
+                <module>seatunnel-transforms</module>
+                <module>seatunnel-translation</module>
+                <module>seatunnel-connectors</module>
+                <module>seatunnel-connectors-v2</module>
+                <module>seatunnel-connectors-v2-dist</module>
+                <module>seatunnel-examples</module>
+                <module>seatunnel-e2e</module>
+            </modules>
+        </profile>
+        <!--
+            profile engine-all is used to build the package that not contains spark and flink things. For example
+            spark and flink connectors
+            spark and flink e2e and examples
+            spark and flink starters
+            spark and flink transforms
+            spark and flink translation
+        -->
+        <profile>
+            <id>engine-all</id>
             <modules>
                 <module>seatunnel-connectors-v2</module>
                 <module>seatunnel-connectors-v2-dist</module>
@@ -106,6 +124,11 @@
         </profile>
         <profile>
             <id>release</id>
+            <modules>
+                <module>seatunnel-transforms</module>
+                <module>seatunnel-translation</module>
+                <module>seatunnel-connectors</module>
+            </modules>
         </profile>
     </profiles>
 
@@ -1055,6 +1078,7 @@
                             </jacoco-agent.destfile>
                         </systemPropertyVariables>
                         <excludes>
+                            <!--                            <exclude>seatunnel-e2e/seatunnel-engine-e2e/src/test/java/org/apache/seatunnel/engine/e2e/*IT.java</exclude>-->
                             <exclude>**/*IT.java</exclude>
                         </excludes>
                     </configuration>
@@ -1065,6 +1089,11 @@
                     <version>${maven-failsafe-plugin.version}</version>
                     <configuration>
                         <skip>${skipIT}</skip>
+                        <includes>
+                            <include>
+                                **/JobExecutionIT.java
+                            </include>
+                        </includes>
                     </configuration>
                     <executions>
                         <execution>

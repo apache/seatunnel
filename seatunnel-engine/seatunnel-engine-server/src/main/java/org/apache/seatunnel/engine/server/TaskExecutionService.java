@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -37,12 +38,15 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import lombok.NonNull;
 import lombok.SneakyThrows;
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.net.URL;
 import java.util.Collection;
@@ -127,8 +131,15 @@ public class TaskExecutionService {
                 nodeEngine.getSerializationService().toObject(taskImmutableInformation);
             Set<URL> jars = taskImmutableInfo.getJars();
 
-            // TODO Use classloader load the connector jars and deserialize Task
-            taskGroup = nodeEngine.getSerializationService().toData(taskImmutableInfo.getGroup());
+            if (!CollectionUtils.isEmpty(jars)) {
+                taskGroup =
+                    CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
+                        new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars)),
+                        taskImmutableInfo.getGroup());
+            } else {
+                taskGroup = nodeEngine.getSerializationService().toData(taskImmutableInfo.getGroup());
+            }
+
             taskGroup.init();
             Collection<Task> tasks = taskGroup.getTasks();
 
