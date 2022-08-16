@@ -21,9 +21,8 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -38,22 +37,24 @@ public class WeChatSink extends HttpSink {
         return "WeChat";
     }
 
-    private final HttpParameter httpParameter = new HttpParameter();
+    private Config pluginConfig;
 
-    private final String webHookUrl = "url";
+    private SeaTunnelRowType seaTunnelRowType;
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        if (pluginConfig.getIsNull(webHookUrl)) {
-            throw new PrepareFailException(getPluginName(), PluginType.SINK,
-                    String.format("Config must include column : %s", webHookUrl));
-        }
-        httpParameter.setUrl(pluginConfig.getString(webHookUrl));
+        this.pluginConfig = pluginConfig;
+        super.prepare(pluginConfig);
+    }
+
+    @Override
+    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
+        super.setTypeInfo(seaTunnelRowType);
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new WeChatHttpSinkWriter(httpParameter);
+        return new WeChatHttpSinkWriter(super.httpParameter, pluginConfig, seaTunnelRowType);
     }
-
 }

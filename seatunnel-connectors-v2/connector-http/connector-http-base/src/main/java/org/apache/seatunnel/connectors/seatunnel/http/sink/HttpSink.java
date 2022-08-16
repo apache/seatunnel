@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 
 @AutoService(SeaTunnelSink.class)
 public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private final HttpParameter httpParameter = new HttpParameter();
+    protected final HttpParameter httpParameter = new HttpParameter();
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
 
