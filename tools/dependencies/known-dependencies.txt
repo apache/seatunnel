@@ -84,8 +84,6 @@ commons-digester-1.8.1.jar
 commons-email-1.5.jar
 commons-httpclient-3.1.jar
 commons-io-2.11.0.jar
-commons-io-2.4.jar
-commons-io-2.5.jar
 commons-lang-2.6.jar
 commons-lang3-3.4.jar
 commons-logging-1.2.jar
@@ -606,6 +604,10 @@ poi-ooxml-4.1.2.jar
 poi-ooxml-schemas-4.1.2.jar
 protobuf-java-2.5.0.jar
 protobuf-java-3.17.1.jar
+protostuff-api-1.8.0.jar
+protostuff-collectionschema-1.8.0.jar
+protostuff-core-1.8.0.jar
+protostuff-runtime-1.8.0.jar
 rank-eval-client-6.3.1.jar
 rank-eval-client-7.5.1.jar
 re2j-1.1.jar
