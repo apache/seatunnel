@@ -48,7 +48,7 @@ public class JdbcGreenplumToConsoleIT extends SparkContainer {
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
     private static final String GREENPLUM_HOSTNAME = "spark_e2e_greenplum_source";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
-    private static final int GREENPLUM_PORT = 543203;
+    private static final int GREENPLUM_PORT = 5437;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_JDBC_URL = String.format("jdbc:postgresql://localhost:%s/testdb", GREENPLUM_PORT);
