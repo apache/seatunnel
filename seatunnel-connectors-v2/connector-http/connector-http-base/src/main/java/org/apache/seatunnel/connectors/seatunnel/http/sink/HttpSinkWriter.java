@@ -34,9 +34,9 @@ import java.util.Objects;
 
 public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSinkWriter.class);
-    private final HttpClientProvider httpClient = HttpClientProvider.getInstance();
-    private final SeaTunnelRowType seaTunnelRowType;
-    private final HttpParameter httpParameter;
+    protected final HttpClientProvider httpClient = HttpClientProvider.getInstance();
+    protected final SeaTunnelRowType seaTunnelRowType;
+    protected final HttpParameter httpParameter;
 
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
         this.seaTunnelRowType = seaTunnelRowType;
