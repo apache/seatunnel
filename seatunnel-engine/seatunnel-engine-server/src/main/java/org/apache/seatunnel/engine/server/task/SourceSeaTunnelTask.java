@@ -36,8 +36,8 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
 
-    public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
-        super(jobID, taskID, indexID, executionFlow);
+    public SourceSeaTunnelTask(long jobID, TaskLocation taskID, Long vertexId, int indexID, Flow executionFlow) {
+        super(jobID, taskID, vertexId, indexID, executionFlow);
     }
 
     @Override

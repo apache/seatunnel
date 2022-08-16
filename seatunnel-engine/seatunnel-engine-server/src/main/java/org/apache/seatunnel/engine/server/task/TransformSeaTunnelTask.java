@@ -37,8 +37,8 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(TransformSeaTunnelTask.class);
 
-    public TransformSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
-        super(jobID, taskID, indexID, executionFlow);
+    public TransformSeaTunnelTask(long jobID, TaskLocation taskID, Long vertexId, int indexID, Flow executionFlow) {
+        super(jobID, taskID, vertexId, indexID, executionFlow);
     }
 
     private Collector<Record<?>> collector;

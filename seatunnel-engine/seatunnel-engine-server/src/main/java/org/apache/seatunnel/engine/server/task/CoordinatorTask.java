@@ -23,7 +23,12 @@ public abstract class CoordinatorTask extends AbstractTask {
 
     private static final long serialVersionUID = -3957168748281681077L;
 
-    public CoordinatorTask(long jobID, TaskLocation taskID) {
-        super(jobID, taskID);
+    public CoordinatorTask(long jobID, TaskLocation taskID, Long vertexId) {
+        super(jobID, taskID, vertexId);
+    }
+
+    @Override
+    public String getVertexKey() {
+        return vertexId + "Coordinator";
     }
 }

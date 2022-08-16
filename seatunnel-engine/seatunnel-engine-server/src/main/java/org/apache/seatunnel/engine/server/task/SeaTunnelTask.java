@@ -69,8 +69,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private TaskGroup taskBelongGroup;
 
-    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
-        super(jobID, taskID);
+    public SeaTunnelTask(long jobID, TaskLocation taskID, Long vertexId, int indexID, Flow executionFlow) {
+        super(jobID, taskID, vertexId);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
     }

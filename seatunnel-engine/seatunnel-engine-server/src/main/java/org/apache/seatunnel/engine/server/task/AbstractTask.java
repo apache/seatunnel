@@ -32,13 +32,17 @@ public abstract class AbstractTask implements Task {
 
     protected TaskExecutionContext executionContext;
     protected final long jobID;
+
+    protected final Long vertexId;
+
     protected final TaskLocation taskID;
 
     protected Progress progress;
 
-    public AbstractTask(long jobID, TaskLocation taskID) {
+    public AbstractTask(long jobID, TaskLocation taskID, Long vertexId) {
         this.taskID = taskID;
         this.jobID = jobID;
+        this.vertexId = vertexId;
         this.progress = new Progress();
     }
 
@@ -68,5 +72,15 @@ public abstract class AbstractTask implements Task {
     @Override
     public Long getTaskID() {
         return taskID.getTaskID();
+    }
+
+    @Override
+    public Long getJobId() {
+        return jobID;
+    }
+
+    @Override
+    public String getVertexKey() {
+        return vertexId.toString();
     }
 }

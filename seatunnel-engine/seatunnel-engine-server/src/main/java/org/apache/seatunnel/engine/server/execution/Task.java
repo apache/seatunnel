@@ -30,6 +30,16 @@ public interface Task extends Serializable {
     @NonNull
     ProgressState call() throws Exception;
 
+    /** The job that the task belongs to. */
+    Long getJobId();
+
+    /**
+     * The vertex key in the {@link org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex} whose code the task executes.
+     * <br> When the user changes the parallelism, the key will not change.
+     */
+    String getVertexKey();
+
+    /** The task ID of {@link org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex}, It changes due to changes in parallelism. */
     @NonNull
     Long getTaskID();
 

@@ -74,7 +74,7 @@ import java.util.stream.Stream;
 
 public class PhysicalPlanGenerator {
 
-    private final List<List<ExecutionEdge>> edgesList;
+    private final List<Pipeline> pipelines;
 
     private final IdGenerator idGenerator = new IdGenerator();
 
@@ -103,7 +103,7 @@ public class PhysicalPlanGenerator {
                                  long initializationTimestamp,
                                  @NonNull ExecutorService executorService,
                                  @NonNull FlakeIdGenerator flakeIdGenerator) {
-        edgesList = executionPlan.getPipelines().stream().map(Pipeline::getEdges).collect(Collectors.toList());
+        this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
         this.initializationTimestamp = initializationTimestamp;
@@ -114,32 +114,34 @@ public class PhysicalPlanGenerator {
     public PhysicalPlan generate() {
 
         // TODO Determine which tasks do not need to be restored according to state
-        AtomicInteger index = new AtomicInteger(-1);
         CopyOnWriteArrayList<NonCompletableFuture<PipelineState>> waitForCompleteBySubPlanList =
             new CopyOnWriteArrayList<>();
 
-        Stream<SubPlan> subPlanStream = edgesList.stream().map(edges -> {
-            int currIndex = index.incrementAndGet();
+        final int totalPipelineNum = pipelines.size();
+        Stream<SubPlan> subPlanStream = pipelines.stream().map(pipeline -> {
+            final int pipelineId = pipeline.getId();
+            final List<ExecutionEdge> edges = pipeline.getEdges();
+
             CopyOnWriteArrayList<NonCompletableFuture<TaskExecutionState>> waitForCompleteByPhysicalVertexList =
                 new CopyOnWriteArrayList<>();
             List<SourceAction<?, ?, ?>> sources = findSourceAction(edges);
 
             List<PhysicalVertex> coordinatorVertexList =
-                getEnumeratorTask(sources, currIndex, edgesList.size(), waitForCompleteByPhysicalVertexList);
+                getEnumeratorTask(sources, pipelineId, totalPipelineNum, waitForCompleteByPhysicalVertexList);
             coordinatorVertexList.addAll(
-                    getCommitterTask(edges, currIndex, edgesList.size(), waitForCompleteByPhysicalVertexList));
+                    getCommitterTask(edges, pipelineId, totalPipelineNum, waitForCompleteByPhysicalVertexList));
 
             List<PhysicalVertex> physicalVertexList =
-                getSourceTask(edges, sources, currIndex, edgesList.size(), waitForCompleteByPhysicalVertexList);
+                getSourceTask(edges, sources, pipelineId, totalPipelineNum, waitForCompleteByPhysicalVertexList);
 
             physicalVertexList.addAll(
-                getPartitionTask(edges, currIndex, edgesList.size(), waitForCompleteByPhysicalVertexList));
+                getPartitionTask(edges, pipelineId, totalPipelineNum, waitForCompleteByPhysicalVertexList));
 
             CompletableFuture<PipelineState> pipelineFuture = new CompletableFuture<>();
             waitForCompleteBySubPlanList.add(new NonCompletableFuture<>(pipelineFuture));
 
-            return new SubPlan(currIndex,
-                    edgesList.size(),
+            return new SubPlan(pipelineId,
+                    totalPipelineNum,
                     initializationTimestamp,
                     physicalVertexList,
                     coordinatorVertexList,
@@ -183,7 +185,9 @@ public class PhysicalPlanGenerator {
                     long taskGroupID = idGenerator.getNextId();
                     SinkAggregatedCommitterTask<?> t =
                             new SinkAggregatedCommitterTask(jobImmutableInformation.getJobId(),
-                                    new TaskLocation(taskGroupID, idGenerator.getNextId()), s,
+                                    new TaskLocation(taskGroupID, idGenerator.getNextId()),
+                                    s.getId(),
+                                    s,
                                     sinkAggregatedCommitter.get());
                     committerTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
@@ -222,7 +226,7 @@ public class PhysicalPlanGenerator {
                     long taskGroupID = idGenerator.getNextId();
                     setFlowConfig(flow, i);
                     SeaTunnelTask seaTunnelTask = new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                            new TaskLocation(taskGroupID, idGenerator.getNextId()), i, flow);
+                            new TaskLocation(taskGroupID, idGenerator.getNextId()), flow.getAction().getId(), i, flow);
 
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
                     waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
@@ -255,7 +259,7 @@ public class PhysicalPlanGenerator {
         return sources.stream().map(s -> {
             long taskGroupID = idGenerator.getNextId();
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(jobImmutableInformation.getJobId(),
-                    new TaskLocation(taskGroupID, idGenerator.getNextId()), s);
+                    new TaskLocation(taskGroupID, idGenerator.getNextId()), s.getId(), s);
             enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
             CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
             waitForCompleteByPhysicalVertexList.add(new NonCompletableFuture<>(taskFuture));
@@ -297,12 +301,14 @@ public class PhysicalPlanGenerator {
                                 setFlowConfig(f, finalParallelismIndex);
                                 if (f instanceof PhysicalExecutionFlow) {
                                     return new SourceSeaTunnelTask<>(jobImmutableInformation.getJobId(),
-                                            new TaskLocation(taskGroupID, idGenerator.getNextId()),
-                                            finalParallelismIndex, f);
+                                        new TaskLocation(taskGroupID, idGenerator.getNextId()),
+                                        flow.getAction().getId(),
+                                        finalParallelismIndex, f);
                                 } else {
                                     return new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                                            new TaskLocation(taskGroupID, idGenerator.getNextId()),
-                                            finalParallelismIndex, f);
+                                        new TaskLocation(taskGroupID, idGenerator.getNextId()),
+                                        flow.getAction().getId(),
+                                        finalParallelismIndex, f);
                                 }
                             }).collect(Collectors.toList());
                     Set<URL> jars =

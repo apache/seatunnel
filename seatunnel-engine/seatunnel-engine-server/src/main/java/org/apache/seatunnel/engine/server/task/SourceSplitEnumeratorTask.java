@@ -76,8 +76,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         future.complete(progress.done().toState());
     }
 
-    public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
-        super(jobID, taskID);
+    public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, Long vertexId, SourceAction<?, SplitT, ?> source) {
+        super(jobID, taskID, vertexId);
         this.source = source;
     }
 
