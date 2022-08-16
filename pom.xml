@@ -170,8 +170,10 @@
         <mongo-spark.version>2.2.0</mongo-spark.version>
         <spark-redis.version>2.6.0</spark-redis.version>
         <commons-lang3.version>3.4</commons-lang3.version>
+        <commons-io.version>2.11.0</commons-io.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
+        <protostuff.version>1.8.0</protostuff.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
         <codec.version>1.13</codec.version>
@@ -853,6 +855,28 @@
                 <groupId>commons-digester</groupId>
                 <artifactId>commons-digester</artifactId>
                 <version>${commons.digester.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.protostuff</groupId>
+                <artifactId>protostuff-core</artifactId>
+                <version>${protostuff.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.protostuff</groupId>
+                <artifactId>protostuff-runtime</artifactId>
+                <version>${protostuff.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.auto.service</groupId>
+                <artifactId>auto-service</artifactId>
+                <version>${auto-service.version}</version>
+                <scope>provided</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.curator</groupId>
