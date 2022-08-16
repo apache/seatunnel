@@ -17,5 +17,12 @@
 
 package org.apache.seatunnel.api.transform;
 
-public interface PartitionSeaTunnelTransform extends SeaTunnelTransform {
+import org.apache.seatunnel.api.table.type.Record;
+
+public interface PartitionSeaTunnelTransform extends SeaTunnelTransform<Record<?>> {
+
+    int getPartitionCount();
+
+    int getTargetCount();
+
 }

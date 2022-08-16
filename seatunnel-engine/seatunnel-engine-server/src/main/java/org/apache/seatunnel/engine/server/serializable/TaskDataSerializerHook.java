@@ -18,10 +18,15 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
-import org.apache.seatunnel.engine.server.task.operation.AssignSplitOperation;
-import org.apache.seatunnel.engine.server.task.operation.RegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceUnregisterOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -30,13 +35,24 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 
 public class TaskDataSerializerHook implements DataSerializerHook {
 
-    public static final int REGISTER_TYPE = 1;
+    public static final int SOURCE_REGISTER_TYPE = 1;
 
     public static final int REQUEST_SPLIT_TYPE = 2;
 
     public static final int ASSIGN_SPLIT_TYPE = 3;
 
     public static final int TASK_GROUP_INFO_TYPE = 4;
+
+    public static final int SOURCE_UNREGISTER_TYPE = 5;
+
+    public static final int SINK_UNREGISTER_TYPE = 6;
+
+    public static final int SINK_REGISTER_TYPE = 7;
+
+    public static final int TASK_LOCATION_TYPE = 8;
+
+    public static final int PROGRESS_TYPE = 9;
+
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY_ID
@@ -57,16 +73,26 @@ public class TaskDataSerializerHook implements DataSerializerHook {
         @Override
         public IdentifiedDataSerializable create(int typeId) {
             switch (typeId) {
-                case REGISTER_TYPE:
-                    return new RegisterOperation();
+                case SOURCE_REGISTER_TYPE:
+                    return new SourceRegisterOperation();
                 case REQUEST_SPLIT_TYPE:
                     return new RequestSplitOperation();
                 case ASSIGN_SPLIT_TYPE:
-                    return new AssignSplitOperation();
+                    return new AssignSplitOperation<>();
                 case TASK_GROUP_INFO_TYPE:
                     return new TaskGroupImmutableInformation();
+                case SOURCE_UNREGISTER_TYPE:
+                    return new SourceUnregisterOperation();
+                case SINK_REGISTER_TYPE:
+                    return new SinkRegisterOperation();
+                case SINK_UNREGISTER_TYPE:
+                    return new SinkUnregisterOperation();
+                case TASK_LOCATION_TYPE:
+                    return new TaskLocation();
+                case PROGRESS_TYPE:
+                    return new Progress();
                 default:
-                    return null;
+                    throw new IllegalArgumentException("Unknown type id " + typeId);
             }
         }
     }

@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation;
+package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -27,50 +28,41 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.UUID;
 
-/**
- * For {@link org.apache.seatunnel.api.source.SourceReader} to register with
- * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
- */
-public class RegisterOperation extends Operation implements IdentifiedDataSerializable {
+public class SourceUnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private long readerTaskID;
-    private long enumeratorTaskID;
+    private TaskLocation currentTaskID;
+    private TaskLocation enumeratorTaskID;
 
-    public RegisterOperation() {
+    public SourceUnregisterOperation() {
     }
 
-    public RegisterOperation(long readerTaskID, long enumeratorTaskID) {
-        this.readerTaskID = readerTaskID;
+    public SourceUnregisterOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
+        this.currentTaskID = currentTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        UUID readerUUID = getCallerUuid();
-        TaskGroupContext executionContext = server.getTaskExecutionService().getExecutionContext(enumeratorTaskID);
-        // TODO register reader to enumerator
-    }
-
-    @Override
-    public String getServiceName() {
-        return SeaTunnelServer.SERVICE_NAME;
+        SourceSplitEnumeratorTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID())
+                        .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+        task.readerFinished(currentTaskID.getTaskID());
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeLong(readerTaskID);
-        out.writeLong(enumeratorTaskID);
+        currentTaskID.writeData(out);
+        enumeratorTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerTaskID = in.readLong();
-        enumeratorTaskID = in.readLong();
+        currentTaskID.readData(in);
+        enumeratorTaskID.readData(in);
     }
 
     @Override
@@ -80,6 +72,6 @@ public class RegisterOperation extends Operation implements IdentifiedDataSerial
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.REGISTER_TYPE;
+        return TaskDataSerializerHook.SOURCE_UNREGISTER_TYPE;
     }
 }

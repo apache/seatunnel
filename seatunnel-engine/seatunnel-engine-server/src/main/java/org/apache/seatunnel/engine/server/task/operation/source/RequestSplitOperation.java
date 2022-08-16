@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.operation;
+package org.apache.seatunnel.engine.server.task.operation.source;
 
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -25,30 +28,47 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
-import java.util.List;
 
-public class AssignSplitOperation<SplitT> extends Operation implements IdentifiedDataSerializable {
+public class RequestSplitOperation extends Operation implements IdentifiedDataSerializable {
 
-    private List<SplitT> splits;
-    private int taskID;
+    private TaskLocation enumeratorTaskID;
 
-    public AssignSplitOperation() {
+    private TaskLocation taskID;
+
+    public RequestSplitOperation() {
     }
 
-    public AssignSplitOperation(int taskID, List<SplitT> splits) {
-        this.splits = splits;
+    public RequestSplitOperation(TaskLocation taskID, TaskLocation enumeratorTaskID) {
+        this.enumeratorTaskID = enumeratorTaskID;
+        this.taskID = taskID;
+    }
+
+    @Override
+    public void run() throws Exception {
+        SeaTunnelServer server = getService();
+        SourceSplitEnumeratorTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID())
+                        .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+        task.requestSplit(taskID.getTaskID());
+    }
+
+    @Override
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(splits);
-        out.writeInt(taskID);
+        super.writeInternal(out);
+        taskID.writeData(out);
+        enumeratorTaskID.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        splits = in.readObject();
-        taskID = in.readInt();
+        super.readInternal(in);
+        taskID.readData(in);
+        enumeratorTaskID.readData(in);
     }
 
     @Override
@@ -58,6 +78,6 @@ public class AssignSplitOperation<SplitT> extends Operation implements Identifie
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.ASSIGN_SPLIT_TYPE;
+        return TaskDataSerializerHook.REQUEST_SPLIT_TYPE;
     }
 }

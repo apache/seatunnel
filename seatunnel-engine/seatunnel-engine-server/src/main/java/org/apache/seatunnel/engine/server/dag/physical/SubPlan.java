@@ -110,14 +110,14 @@ public class SubPlan {
                 } else if (ExecutionState.FAILED.equals(v.getExecutionState())) {
                     LOGGER.severe("Task Failed, Begin to cancel other tasks in this pipeline.");
                     cancelPipeline().whenComplete((v1, t1) -> {
-                        LOGGER.severe(String.format("Cancel other tasks complete"));
+                        LOGGER.severe("Cancel other tasks complete");
                         failedTaskNum.incrementAndGet();
                     });
                 } else if (!ExecutionState.FINISHED.equals(v.getExecutionState())) {
                     LOGGER.severe(
                         "Task Failed with Unknown ExecutionState, Begin to cancel other tasks in this pipeline.");
                     cancelPipeline().whenComplete((v1, t1) -> {
-                        LOGGER.severe(String.format("Cancel other tasks complete"));
+                        LOGGER.severe("Cancel other tasks complete");
                         failedTaskNum.incrementAndGet();
                     });
                 }
