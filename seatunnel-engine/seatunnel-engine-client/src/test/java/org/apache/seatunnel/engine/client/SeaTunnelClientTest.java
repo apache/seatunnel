@@ -72,7 +72,6 @@ public class SeaTunnelClientTest {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        // TODO support after committer can shutdown
         JobProxy jobProxy;
         try {
             jobProxy = jobExecutionEnv.execute();
