@@ -3,36 +3,39 @@ package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
-import org.neo4j.driver.*;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Query;
+import org.neo4j.driver.Session;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-
-import static org.neo4j.driver.Values.parameters;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Neo4jCommitInfo, Neo4jState> {
 
+    private final Neo4jConfig config;
     private final transient Driver driver;
+    private final transient Session session;
 
-    public Neo4jSinkWriter(DriverBuilder driverBuilder) {
-        this.driver = driverBuilder.build();
+    public Neo4jSinkWriter(Neo4jConfig neo4jConfig) {
+        this.config = neo4jConfig;
+        this.driver = config.getDriverBuilder().build();
+        this.session = driver.session();
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        try (final Session session = driver.session()){
-            session.writeTransaction(tx -> {
-                final Result run = tx.run("CREATE (a:Person {name: $name, age: $age})",
-                        parameters("name", element.getField(0), "age", element.getField(1)));
-
-                final Query query = run.consume().query();
-                System.out.println("query = " + query);
-                return 1;
-            });
-        }
+        final Map<String, Object> queryParamPosition = config.getQueryParamPosition().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> element.getField((Integer) e.getValue())));
+        final Query query = new Query(config.getQuery(), queryParamPosition);
+        session.writeTransaction(tx -> {
+            tx.run(query);
+            return null;
+        });
     }
 
     @Override
@@ -52,6 +55,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Neo4jCommitInfo
 
     @Override
     public void close() throws IOException {
+        session.close();
         driver.close();
     }
 }
