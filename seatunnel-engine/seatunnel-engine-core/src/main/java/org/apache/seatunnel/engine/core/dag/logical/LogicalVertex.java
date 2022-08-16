@@ -23,20 +23,78 @@ import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
-@Data
-@AllArgsConstructor
+@Getter
+@Setter
 public class LogicalVertex implements IdentifiedDataSerializable {
 
     private Long vertexId;
     private Action action;
+
+    /**
+     * List of edges with incoming data.
+     */
+    private final List<LogicalEdge> inputs = new ArrayList<>();
+
+    /**
+     * List of edges with outgoing data.
+     */
+    private final List<LogicalEdge> outputs = new ArrayList<>();
+
+    /**
+     * Number of subtasks to split this task into at runtime.
+     */
     private int parallelism;
 
     public LogicalVertex() {
+    }
+
+    public LogicalVertex(Long vertexId, Action action, int parallelism) {
+        this.vertexId = vertexId;
+        this.action = action;
+        this.parallelism = parallelism;
+    }
+
+    public void addInput(LogicalVertex input) {
+        inputs.add(new LogicalEdge(input, this));
+    }
+
+    public void addOutput(LogicalVertex output) {
+        outputs.add(new LogicalEdge(this, output));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LogicalVertex that = (LogicalVertex) o;
+        return Objects.equals(vertexId, that.vertexId)
+            && Objects.equals(action, that.action);
+    }
+
+    @Override
+    public String toString() {
+        return "LogicalVertex{" +
+            "jobVertexId=" + vertexId +
+            ", action=" + action +
+            ", parallelism=" + parallelism +
+            '}';
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(vertexId, action);
     }
 
     @Override

@@ -21,28 +21,29 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
-import org.apache.commons.collections4.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class LogicalDagGenerator {
     private static final ILogger LOGGER = Logger.getLogger(LogicalDagGenerator.class);
     private List<Action> actions;
-    private LogicalDag logicalDag;
     private JobConfig jobConfig;
     private IdGenerator idGenerator;
 
-    private Map<Action, Collection<Long>> alreadyTransformed = new HashMap<>();
+    private final Map<Long, LogicalVertex> logicalVertexMap = new HashMap<>();
+    private final Set<LogicalEdge> logicalEdges = new LinkedHashSet<>();
 
-    private Map<Long, LogicalVertex> logicalIdVertexMap = new HashMap<>();
+    private final Map<Long, Set<Long>> inputVerticesMap = new HashMap<>();
+
+    private final Map<Long, Set<Long>> outputVerticesMap = new HashMap<>();
 
     public LogicalDagGenerator(@NonNull List<Action> actions,
                                @NonNull JobConfig jobConfig,
@@ -56,39 +57,42 @@ public class LogicalDagGenerator {
     }
 
     public LogicalDag generate() {
-        logicalDag = new LogicalDag(jobConfig, idGenerator);
-        for (Action action : actions) {
-            transformAction(action);
-        }
-        return logicalDag;
+        actions.forEach(this::createLogicalVertex);
+        connectVertices();
+        return new LogicalDagOptimizer(logicalVertexMap, logicalEdges, jobConfig)
+            .expandAndOptimize();
     }
 
-    private Collection<Long> transformAction(Action action) {
-        if (alreadyTransformed.containsKey(action)) {
-            return alreadyTransformed.get(action);
-        }
+    private void createLogicalVertex(Action action) {
+        final Long logicalVertexId = action.getId();
+        // connection vertices info
+        final Set<Long> inputs = inputVerticesMap.computeIfAbsent(logicalVertexId, id -> new HashSet<>());
+        action.getUpstream().forEach(inputAction -> {
+            createLogicalVertex(inputAction);
+            inputs.add(inputAction.getId());
+            outputVerticesMap.computeIfAbsent(inputAction.getId(), id -> new HashSet<>())
+                .add(logicalVertexId);
+        });
 
-        Collection<Long> upstreamVertexIds = new ArrayList<>();
-        List<Action> upstream = action.getUpstream();
-        if (!CollectionUtils.isEmpty(upstream)) {
-            for (Action upstreamAction : upstream) {
-                upstreamVertexIds.addAll(transformAction(upstreamAction));
-            }
-        }
+        final LogicalVertex logicalVertex = new LogicalVertex(logicalVertexId, action, action.getParallelism());
+        logicalVertexMap.put(logicalVertexId, logicalVertex);
+    }
 
-        LogicalVertex logicalVertex =
-            new LogicalVertex(action.getId(), action, action.getParallelism());
-        logicalDag.addLogicalVertex(logicalVertex);
-        Collection<Long> transformedActions = Lists.newArrayList(logicalVertex.getVertexId());
-        alreadyTransformed.put(action, transformedActions);
-        logicalIdVertexMap.put(logicalVertex.getVertexId(), logicalVertex);
+    private void connectVertices() {
+        logicalVertexMap.forEach((id, logicalVertex) -> {
+            inputVerticesMap.getOrDefault(id, new HashSet<>())
+                .forEach(inputVertexId -> {
+                    LogicalEdge edge = new LogicalEdge(logicalVertexMap.get(inputVertexId), logicalVertex);
+                    logicalVertex.addInput(logicalVertexMap.get(inputVertexId));
+                    logicalEdges.add(edge);
+                });
 
-        if (!CollectionUtils.isEmpty(upstreamVertexIds)) {
-            upstreamVertexIds.stream().forEach(id -> {
-                LogicalEdge logicalEdge = new LogicalEdge(logicalIdVertexMap.get(id), logicalVertex);
-                logicalDag.addEdge(logicalEdge);
-            });
-        }
-        return transformedActions;
+            outputVerticesMap.getOrDefault(id, new HashSet<>())
+                .forEach(outputVertexId -> {
+                    LogicalEdge edge = new LogicalEdge(logicalVertex, logicalVertexMap.get(outputVertexId));
+                    logicalVertex.addOutput(logicalVertexMap.get(outputVertexId));
+                    logicalEdges.add(edge);
+                });
+        });
     }
 }

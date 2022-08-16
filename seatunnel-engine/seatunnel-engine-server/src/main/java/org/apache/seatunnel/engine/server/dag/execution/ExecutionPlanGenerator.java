@@ -17,37 +17,19 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.engine.core.dag.actions.Action;
-import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
-import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
-import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
-import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
-import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
-import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
+import com.google.common.base.Preconditions;
 import lombok.NonNull;
 
-import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ExecutionPlanGenerator {
-
-    private final Map<Long, List<Long>> edgeMap = new HashMap<>();
-    private final Map<Long, Action> actions = new HashMap<>();
-
-    private final Map<Long, LogicalVertex> logicalVertexes;
     private final List<LogicalEdge> logicalEdges;
 
     private final JobImmutableInformation jobImmutableInformation;
@@ -57,101 +39,27 @@ public class ExecutionPlanGenerator {
     public ExecutionPlanGenerator(@NonNull LogicalDag logicalPlan,
                                   @NonNull JobImmutableInformation jobImmutableInformation,
                                   long initializationTimestamp) {
-        this.logicalVertexes = new HashMap<>(logicalPlan.getLogicalVertexMap());
+        Preconditions.checkArgument(logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
+
         this.logicalEdges = new ArrayList<>(logicalPlan.getEdges());
         this.jobImmutableInformation = jobImmutableInformation;
         this.initializationTimestamp = initializationTimestamp;
     }
 
     public ExecutionPlan generate() {
-
-        if (logicalVertexes == null) {
-            throw new IllegalArgumentException("ExecutionPlan Builder must have LogicalPlan and Action");
-        }
-        List<LogicalVertex> next = logicalVertexes.values().stream().filter(a -> a.getAction() instanceof SourceAction)
-            .collect(Collectors.toList());
-        while (!next.isEmpty()) {
-            List<LogicalVertex> newNext = new ArrayList<>();
-            next.forEach(n -> {
-                List<LogicalVertex> nextVertex = convertExecutionActions(logicalEdges, n.getAction());
-                newNext.addAll(nextVertex);
-            });
-            next = newNext;
-        }
-
-        Map<Long, LogicalVertex> vertexes = new HashMap<>();
-        actions.forEach((key, value) -> vertexes.put(key, new LogicalVertex(key, value,
-            logicalVertexes.get(key).getParallelism())));
-
-        return new ExecutionPlan(PipelineGenerator.generatePipelines(edgeMap.entrySet().stream()
-            .flatMap(e -> e.getValue().stream().map(d -> new ExecutionEdge(convertFromLogical(vertexes.get(e.getKey())),
-                convertFromLogical(vertexes.get(d)))))
-            .collect(Collectors.toList())), jobImmutableInformation);
+        List<ExecutionEdge> executionEdges = createExecutionEdges(logicalEdges);
+        return new ExecutionPlan(PipelineGenerator.generatePipelines(executionEdges), jobImmutableInformation);
     }
 
-    private ExecutionVertex convertFromLogical(LogicalVertex vertex) {
+    private static ExecutionVertex convertFromLogical(LogicalVertex vertex) {
         return new ExecutionVertex(vertex.getVertexId(), vertex.getAction(), vertex.getParallelism());
     }
 
-    private List<LogicalVertex> convertExecutionActions(List<LogicalEdge> logicalEdges, Action start) {
-
-        Action end = start;
-        Action executionAction;
-        if (start instanceof PartitionTransformAction) {
-            executionAction = start;
-            actions.put(start.getId(), start);
-        } else if (start instanceof SinkAction) {
-            actions.put(start.getId(), start);
-            return Collections.emptyList();
-        } else if (start instanceof SourceAction) {
-            executionAction = start;
-            actions.put(start.getId(), start);
-        } else if (start instanceof TransformAction) {
-
-            List<SeaTunnelTransform<?>> transforms = new ArrayList<>();
-            Set<URL> jars = new HashSet<>();
-            for (TransformAction t : findMigrateTransform(logicalEdges, start)) {
-                transforms.add(t.getTransform());
-                jars.addAll(t.getJarUrls());
-                end = t;
-            }
-            TransformAction transform = (TransformAction) start;
-            jars.addAll(transform.getJarUrls());
-            transforms.add(0, transform.getTransform());
-            executionAction = new TransformChainAction(start.getId(), start.getName(),
-                    new ArrayList<>(jars), transforms);
-            actions.put(start.getId(), executionAction);
-        } else {
-            throw new UnknownActionException(start);
-        }
-
-        final Action e = end;
-        // find next should be converted action
-        List<LogicalVertex> nextStarts =
-            logicalEdges.stream().filter(edge -> edge.getLeftVertex().getAction().equals(e))
-                .map(LogicalEdge::getRightVertex).collect(Collectors.toList());
-        for (LogicalVertex n : nextStarts) {
-            if (!edgeMap.containsKey(executionAction.getId())) {
-                edgeMap.put(executionAction.getId(), new ArrayList<>());
-            }
-            edgeMap.get(executionAction.getId()).add(n.getAction().getId());
-        }
-        return nextStarts;
-    }
-
-    private List<TransformAction> findMigrateTransform(List<LogicalEdge> executionEdges, Action start) {
-        List<Action> actionAfterStart =
-            executionEdges.stream().filter(edge -> edge.getLeftVertex().getAction().equals(start))
-                .map(edge -> edge.getRightVertex().getAction()).collect(Collectors.toList());
-        // make sure the start's next only have one LogicalTransform, so it can be migrated.
-        if (actionAfterStart.size() != 1 || actionAfterStart.get(0) instanceof PartitionTransformAction ||
-            actionAfterStart.get(0) instanceof SinkAction) {
-            return Collections.emptyList();
-        } else {
-            List<TransformAction> transforms = new ArrayList<>();
-            transforms.add((TransformAction) actionAfterStart.get(0));
-            transforms.addAll(findMigrateTransform(executionEdges, actionAfterStart.get(0)));
-            return transforms;
-        }
+    public static List<ExecutionEdge> createExecutionEdges(List<LogicalEdge> logicalEdges) {
+        return logicalEdges.stream()
+            .map(logicalEdge -> new ExecutionEdge(
+                convertFromLogical(logicalEdge.getInputVertex()),
+                convertFromLogical(logicalEdge.getTargetVertex())))
+            .collect(Collectors.toList());
     }
 }
