@@ -20,6 +20,9 @@ public class Neo4jConfig implements Serializable {
     public static final String KEY_DATABASE = "database";
     public static final String KEY_QUERY = "query";
     public static final String KEY_QUERY_PARAM_POSITION = "queryParamPosition";
+    public static final String KEY_MAX_TRANSACTION_RETRY_TIME = "max_transaction_retry_time";
+    public static final String KEY_MAX_CONNECTION_TIMEOUT = "max_connection_timeout";
+
 
     private DriverBuilder driverBuilder;
     private String query;

@@ -10,13 +10,12 @@ import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Neo4jCommitInfo, Neo4jState> {
+public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     private final Neo4jConfig config;
     private final transient Driver driver;
@@ -40,13 +39,8 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Neo4jCommitInfo
     }
 
     @Override
-    public Optional<Neo4jCommitInfo> prepareCommit() throws IOException {
+    public Optional<Void> prepareCommit() throws IOException {
         return Optional.empty();
-    }
-
-    @Override
-    public List<Neo4jState> snapshotState(long checkpointId) throws IOException {
-        return SinkWriter.super.snapshotState(checkpointId);
     }
 
     @Override
