@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.dag;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
@@ -100,12 +99,12 @@ public class TaskTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setBoundedness(Boundedness.BOUNDED);
+        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation));
+        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation)).join();
 
     }
 

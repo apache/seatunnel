@@ -19,11 +19,13 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import lombok.NonNull;
 
 import java.net.URL;
 import java.util.Arrays;
@@ -63,6 +65,13 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     public void receivedWriterRegister(TaskLocation writerID, Address address) {
         this.writerAddressMap.put(writerID.getTaskID(), address);
+    }
+
+    @NonNull
+    @Override
+    public ProgressState call() throws Exception {
+        // TODO done after commit success and sink all close
+        return progress.done().toState();
     }
 
     public void receivedWriterCommitInfo(long checkpointID, AggregatedCommitInfoT[] commitInfos) {

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
-import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.Constant;
@@ -80,7 +80,7 @@ public class PhysicalPlanTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setBoundedness(Boundedness.BOUNDED);
+        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());

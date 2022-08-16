@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelClientConfig;
@@ -65,20 +65,20 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setBoundedness(Boundedness.BOUNDED);
+        jobConfig.setMode(JobMode.BATCH);
         jobConfig.setName("fake_to_file");
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        JobProxy jobProxy = null;
+        // TODO support after committer can shutdown
+        JobProxy jobProxy;
         try {
             jobProxy = jobExecutionEnv.execute();
-            Assert.assertNotNull(jobProxy);
         } catch (ExecutionException | InterruptedException e) {
-            // TODO throw exception after fix sink.setTypeInfo in ConnectorInstanceLoader
-            //            throw new RuntimeException(e);
+            throw new RuntimeException(e);
         }
+        Assert.assertNotNull(jobProxy);
     }
 }
