@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.SinkFileSystemPlugin;
 
-import org.apache.hadoop.fs.Path;
+import com.google.auto.service.AutoService;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
-
-public class HdfsFileSystem implements FileSystem {
+@AutoService(SeaTunnelSink.class)
+public class HdfsFileSink extends AbstractFileSink {
     @Override
-    public void deleteFile(String path) throws IOException {
-        HdfsUtils.deleteFile(path);
-    }
-
-    @Override
-    public List<String> dirList(String dirPath) throws IOException {
-        List<Path> paths = HdfsUtils.dirList(dirPath);
-        return paths.stream().map(dir -> dir.getName()).collect(Collectors.toList());
+    public SinkFileSystemPlugin getSinkFileSystemPlugin() {
+        return new HdfsFileSinkPlugin();
     }
 }

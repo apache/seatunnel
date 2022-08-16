@@ -15,16 +15,33 @@
  * limitations under the License.
  */
 
-import mapping from './mapping'
-import trim from './trim'
-import regex from './regex'
-import log from './log'
+import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
+import utils from '@/utils'
 
-const utils = {
-  mapping,
-  trim,
-  regex,
-  log
+const handleError = (res: AxiosResponse<any, any>) => {
+  if (import.meta.env.MODE === 'development') {
+    utils.log.capsule('SeaTunnel', 'UI')
+    utils.log.error(res)
+  }
+  window.$message.error(res.data.msg)
 }
 
-export default utils
+const baseRequestConfig: AxiosRequestConfig = {
+  timeout: 6000
+}
+
+const service = axios.create(baseRequestConfig)
+
+const err = (err: AxiosError): Promise<AxiosError> => {
+  return Promise.reject(err)
+}
+
+service.interceptors.request.use((config: AxiosRequestConfig<any>) => {
+  return config
+}, err)
+
+service.interceptors.response.use((res: AxiosResponse) => {
+  return res.data
+}, err)
+
+export { service as axios }

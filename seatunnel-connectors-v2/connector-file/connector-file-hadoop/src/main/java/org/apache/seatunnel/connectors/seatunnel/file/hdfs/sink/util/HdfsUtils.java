@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.util;
 
 import lombok.NonNull;
 import org.apache.hadoop.conf.Configuration;
