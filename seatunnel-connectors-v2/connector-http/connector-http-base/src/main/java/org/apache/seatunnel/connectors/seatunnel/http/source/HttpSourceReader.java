@@ -33,11 +33,10 @@ import java.io.IOException;
 import java.util.Objects;
 
 public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
-
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSourceReader.class);
-    private final SingleSplitReaderContext context;
-    private final HttpParameter httpParameter;
-    private HttpClientProvider httpClient;
+    protected final SingleSplitReaderContext context;
+    protected final HttpParameter httpParameter;
+    protected HttpClientProvider httpClient;
 
     public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context) {
         this.context = context;

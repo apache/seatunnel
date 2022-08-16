@@ -17,22 +17,56 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
+
 import java.io.Serializable;
 
 public enum FileFormat implements Serializable {
-    CSV("csv"),
-    TEXT("txt"),
-    PARQUET("parquet"),
-    ORC("orc"),
-    JSON("json");
+    CSV("csv") {
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new TextReadStrategy();
+        }
+    },
+    TEXT("txt") {
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new TextReadStrategy();
+        }
+    },
+    PARQUET("parquet") {
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new ParquetReadStrategy();
+        }
+    },
+    ORC("orc") {
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new OrcReadStrategy();
+        }
+    },
+    JSON("json") {
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new TextReadStrategy();
+        }
+    };
 
-    private String suffix;
+    private final String suffix;
 
-    private FileFormat(String suffix) {
+    FileFormat(String suffix) {
         this.suffix = suffix;
     }
 
     public String getSuffix() {
         return "." + suffix;
+    }
+
+    public ReadStrategy getReadStrategy() {
+        return null;
     }
 }
