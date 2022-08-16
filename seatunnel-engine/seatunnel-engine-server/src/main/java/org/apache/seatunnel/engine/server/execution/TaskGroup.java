@@ -23,11 +23,13 @@ import java.util.Map;
 
 public interface TaskGroup extends Serializable {
 
-    public long getId();
+    long getId();
 
-    public void init();
+    void init();
 
-    public Collection<Task> getTasks();
+    Collection<Task> getTasks();
 
-    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
+    <T extends Task> T getTask(long taskID);
+
+    void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
 }

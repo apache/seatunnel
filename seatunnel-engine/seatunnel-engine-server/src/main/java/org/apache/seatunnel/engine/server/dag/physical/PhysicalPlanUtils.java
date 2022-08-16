@@ -36,11 +36,11 @@ public class PhysicalPlanUtils {
                                               @NonNull ExecutorService executorService,
                                               @NonNull FlakeIdGenerator flakeIdGenerator) {
         return new PhysicalPlanGenerator(
-            new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, initializationTimestamp).generate(),
-            nodeEngine,
-            jobImmutableInformation,
-            initializationTimestamp,
-            executorService,
-            flakeIdGenerator).generate();
+                new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, initializationTimestamp).generate(),
+                nodeEngine,
+                jobImmutableInformation,
+                initializationTimestamp,
+                executorService,
+                flakeIdGenerator).generate();
     }
 }

@@ -23,5 +23,9 @@ import org.apache.seatunnel.api.source.SeaTunnelContextAware;
 
 import java.io.Serializable;
 
-public interface SeaTunnelTransform extends Serializable, PluginIdentifierInterface, SeaTunnelPluginLifeCycle, SeaTunnelContextAware {
+public interface SeaTunnelTransform<T> extends Serializable, PluginIdentifierInterface,
+        SeaTunnelPluginLifeCycle, SeaTunnelContextAware {
+
+    T map(T row);
+
 }

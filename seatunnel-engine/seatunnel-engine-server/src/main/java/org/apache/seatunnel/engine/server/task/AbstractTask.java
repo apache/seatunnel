@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import lombok.NonNull;
 
@@ -30,12 +31,14 @@ public abstract class AbstractTask implements Task {
     private static final long serialVersionUID = -2524701323779523718L;
 
     protected TaskExecutionContext executionContext;
-    protected long taskID;
+    protected final long jobID;
+    protected final TaskLocation taskID;
 
     protected Progress progress;
 
-    public AbstractTask(long taskID) {
+    public AbstractTask(long jobID, TaskLocation taskID) {
         this.taskID = taskID;
+        this.jobID = jobID;
         this.progress = new Progress();
     }
 
@@ -46,15 +49,24 @@ public abstract class AbstractTask implements Task {
         this.executionContext = taskExecutionContext;
     }
 
+    public TaskExecutionContext getExecutionContext() {
+        return executionContext;
+    }
+
+    @Override
+    public void init() throws Exception {
+        progress.start();
+    }
+
     @NonNull
     @Override
-    public ProgressState call() {
+    public ProgressState call() throws Exception {
         return progress.toState();
     }
 
     @NonNull
     @Override
     public Long getTaskID() {
-        return taskID;
+        return taskID.getTaskID();
     }
 }

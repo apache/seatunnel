@@ -87,7 +87,9 @@ public class PhysicalPlan {
         this.passiveCompletableFuture = new PassiveCompletableFuture<>(jobEndFuture);
         this.waitForCompleteBySubPlan = waitForCompleteBySubPlan;
         this.pipelineList = pipelineList;
-
+        if (pipelineList.isEmpty()) {
+            throw new UnknownPhysicalPlanException("The physical plan didn't have any can execute pipeline");
+        }
         Arrays.stream(this.waitForCompleteBySubPlan).forEach(x -> {
             x.whenComplete((v, t) -> {
                 // We need not handle t, Because we will not return t from Pipeline
