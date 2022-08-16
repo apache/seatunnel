@@ -140,7 +140,7 @@ public class LogicalDagOptimizer {
             chainedVertices.stream()
                 .peek(vertex -> oldToNewIdMap.put(vertex.getVertexId(), newId))
                 .map(LogicalVertex::getAction)
-                .map(action -> ((TransformAction) action))
+                .map(action -> (TransformAction) action)
                 .forEach(action -> {
                     transforms.add(action.getTransform());
                     jars.addAll(action.getJarUrls());

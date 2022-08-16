@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
-import com.google.common.base.Preconditions;
 import lombok.NonNull;
 
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ public class ExecutionPlanGenerator {
     public ExecutionPlanGenerator(@NonNull LogicalDag logicalPlan,
                                   @NonNull JobImmutableInformation jobImmutableInformation,
                                   long initializationTimestamp) {
-        Preconditions.checkArgument(logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
+        checkArgument(logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
 
         this.logicalEdges = new ArrayList<>(logicalPlan.getEdges());
         this.jobImmutableInformation = jobImmutableInformation;
