@@ -17,6 +17,7 @@ public class DriverBuilder implements Serializable {
     private String password;
     private String bearerToken;
     private String kerberosTicket;
+    private String database;
 
     public static DriverBuilder create(URI uri) {
         return new DriverBuilder(uri);

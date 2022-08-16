@@ -7,6 +7,7 @@ import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jConfig;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Query;
 import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,7 +25,7 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Neo4jCommitInfo
     public Neo4jSinkWriter(Neo4jConfig neo4jConfig) {
         this.config = neo4jConfig;
         this.driver = config.getDriverBuilder().build();
-        this.session = driver.session();
+        this.session = driver.session(SessionConfig.forDatabase(neo4jConfig.getDriverBuilder().getDatabase()));
     }
 
     @Override

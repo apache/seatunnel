@@ -42,17 +42,20 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Neo4jState, Neo4jC
     public void prepare(Config config) throws PrepareFailException {
         neo4jConfig.setDriverBuilder(prepareDriver(config));
 
-        CheckConfigUtil.checkAllExists(config, KEY_QUERY, KEY_QUERY_PARAM_POSITION);
+        final CheckResult queryConfigCheck = CheckConfigUtil.checkAllExists(config, KEY_QUERY, KEY_QUERY_PARAM_POSITION);
+        if (!queryConfigCheck.isSuccess()) {
+            throw new PrepareFailException(KEY_SINK_PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg());
+        }
         neo4jConfig.setQuery(config.getString(KEY_QUERY));
         neo4jConfig.setQueryParamPosition(config.getObject(KEY_QUERY_PARAM_POSITION).unwrapped());
     }
 
     private DriverBuilder prepareDriver(Config config) {
-        final CheckResult uriParamCheck = CheckConfigUtil.checkAllExists(config, KEY_NEO4J_URI);
-        final CheckResult authParamCheck = CheckConfigUtil.checkAtLeastOneExists(config, KEY_USERNAME, KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET);
-        final CheckResult paramCheck = CheckConfigUtil.mergeCheckResults(uriParamCheck, authParamCheck);
-        if (!paramCheck.isSuccess()) {
-            throw new PrepareFailException(KEY_SINK_PLUGIN_NAME, PluginType.SINK, paramCheck.getMsg());
+        final CheckResult uriConfigCheck = CheckConfigUtil.checkAllExists(config, KEY_NEO4J_URI, KEY_DATABASE);
+        final CheckResult authConfigCheck = CheckConfigUtil.checkAtLeastOneExists(config, KEY_USERNAME, KEY_BEARER_TOKEN, KEY_KERBEROS_TICKET);
+        final CheckResult mergedConfigCheck = CheckConfigUtil.mergeCheckResults(uriConfigCheck, authConfigCheck);
+        if (!mergedConfigCheck.isSuccess()) {
+            throw new PrepareFailException(KEY_SINK_PLUGIN_NAME, PluginType.SINK, mergedConfigCheck.getMsg());
         }
 
         final URI uri = URI.create(config.getString(KEY_NEO4J_URI));
@@ -64,7 +67,7 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Neo4jState, Neo4jC
 
         if (config.hasPath(KEY_USERNAME)) {
             final CheckResult pwParamCheck = CheckConfigUtil.checkAllExists(config, KEY_PASSWORD);
-            if (!paramCheck.isSuccess()) {
+            if (!mergedConfigCheck.isSuccess()) {
                 throw new PrepareFailException(KEY_SINK_PLUGIN_NAME, PluginType.SINK, pwParamCheck.getMsg());
             }
             final String username = config.getString(KEY_USERNAME);
@@ -81,6 +84,9 @@ public class Neo4jSink implements SeaTunnelSink<SeaTunnelRow, Neo4jState, Neo4jC
             AuthTokens.kerberos(kerberosTicket);
             driverBuilder.setBearerToken(kerberosTicket);
         }
+
+        driverBuilder.setDatabase(config.getString(KEY_DATABASE));
+
         return driverBuilder;
     }
 
