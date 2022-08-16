@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -55,10 +56,10 @@ public class WeChatHttpSinkWriter extends HttpSinkWriter {
         }
         HashMap<Object, Object> objectMap = new HashMap<>();
         objectMap.put(WeChatSinkConfig.WECHAT_SEND_MSG_CONTENT_KEY, stringBuffer.toString());
-        if (!weChatSinkConfig.getMentionedMobileList().isEmpty()) {
+        if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedList())) {
             objectMap.put(WeChatSinkConfig.MENTIONED_LIST, weChatSinkConfig.getMentionedList());
         }
-        if (!weChatSinkConfig.getMentionedMobileList().isEmpty()) {
+        if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedMobileList())) {
             objectMap.put(WeChatSinkConfig.MENTIONED_MOBILE_LIST, weChatSinkConfig.getMentionedMobileList());
         }
         //SeaTunnelRowWrapper can used to post wechat web hook

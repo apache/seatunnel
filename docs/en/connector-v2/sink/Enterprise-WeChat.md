@@ -5,11 +5,11 @@
 ## Description
 
 A sink plugin which use Enterprise WeChat robot send message
-> For example, if the data from upstream is [`"告警状态": "firing", "告警时间": "2022-08-03 01:38:49"，"告警内容": "磁盘使用超出阈值"`], the output content to WeChat Robot is the following:
+> For example, if the data from upstream is [`"alarmStatus": "firing", "alarmTime": "2022-08-03 01:38:49"，"alarmContent": "The disk usage exceeds the threshold"`], the output content to WeChat Robot is the following:
 > ```
-> 告警状态: firing 
-> 告警时间: 2022-08-03 01:38:49
-> 告警内容: 磁盘使用超出阈值
+> alarmStatus: firing 
+> alarmTime: 2022-08-03 01:38:49
+> alarmContent: The disk usage exceeds the threshold
 > ```
 **Tips: WeChat sink only support `string` webhook and the data from source will be treated as body content in web hook.**
 
