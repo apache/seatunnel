@@ -1,0 +1,53 @@
+# Enterprise WeChat
+
+> Enterprise WeChat sink connector
+
+## Description
+
+A sink plugin which use Enterprise WeChat robot send message
+> For example, if the data from upstream is [`"告警状态": "firing", "告警时间": "2022-08-03 01:38:49"，"告警内容": "磁盘使用超出阈值"`], the output content to WeChat Robot is the following:
+> ```
+> 告警状态: firing 
+> 告警时间: 2022-08-03 01:38:49
+> 告警内容: 磁盘使用超出阈值
+> ```
+**Tips: WeChat sink only support `string` webhook and the data from source will be treated as body content in web hook.**
+
+
+##  Options
+
+| name | type   | required | default value |
+| --- |--------|----------| --- |
+| url | String | Yes      | - |
+| mentioned_list | array | No       | - |
+| mentioned_mobile_list | array | No       | - |
+
+### url [string]
+
+Enterprise WeChat webhook url format is https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=XXXXXX（string）
+
+### mentioned_list [array]
+
+A list of userids to remind the specified members in the group (@ a member), @ all means to remind everyone. If the developer can't get the userid, he can use called_ mobile_ list
+
+### mentioned_mobile_list [array]
+
+Mobile phone number list, remind the group member corresponding to the mobile phone number (@ a member), @ all means remind everyone
+
+## Example
+
+simple:
+
+```hocon
+WeChat {
+        url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693axxx6-7aoc-4bc4-97a0-0ec2sifa5aaa"
+    }
+```
+
+```hocon
+WeChat {
+        url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693axxx6-7aoc-4bc4-97a0-0ec2sifa5aaa"
+        mentioned_list=["wangqing","@all"]
+        mentioned_mobile_list=["13800001111","@all"]
+    }
+```
