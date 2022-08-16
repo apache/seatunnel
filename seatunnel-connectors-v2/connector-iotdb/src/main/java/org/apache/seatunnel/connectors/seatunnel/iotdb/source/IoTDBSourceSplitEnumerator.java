@@ -51,7 +51,7 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
         this.conf = conf;
     }
 
-    public IoTDBSourceSplitEnumerator(Context<IoTDBSourceSplit> context, IoTDBSourceState sourceState, Map<String, Object> conf) {
+    public IoTDBSourceSplitEnumerator(SourceSplitEnumerator.Context<IoTDBSourceSplit> context, IoTDBSourceState sourceState, Map<String, Object> conf) {
         this(context, conf);
         this.assignedSplit = sourceState.getAssignedSplit();
     }
@@ -159,12 +159,12 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    public void notifyCheckpointComplete(long checkpointId) {
         //nothing to do
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         //nothing to do
     }
 
