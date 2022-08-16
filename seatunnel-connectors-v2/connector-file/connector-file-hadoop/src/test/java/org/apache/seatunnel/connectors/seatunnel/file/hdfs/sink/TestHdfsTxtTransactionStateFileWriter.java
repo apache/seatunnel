@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.filesystem.HdfsFileSystem;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.writer.HdfsTxtTransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.transaction.TransactionStateFileWriter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.FileSinkPartitionDirNameGenerator;
