@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.io.IOException;
 import java.util.HashMap;
