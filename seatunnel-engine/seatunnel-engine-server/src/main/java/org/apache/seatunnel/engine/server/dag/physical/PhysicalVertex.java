@@ -18,19 +18,12 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-<<<<<<< HEAD
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-=======
-import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
->>>>>>> apache/st-engine
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
-import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
-import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -149,7 +142,6 @@ public class PhysicalVertex {
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
     public void deploy(@NonNull Address address) {
-<<<<<<< HEAD
         /**
          TaskGroupImmutableInformation taskGroupImmutableInformation =
          new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
@@ -179,28 +171,6 @@ public class PhysicalVertex {
             }
             return new TaskExecutionState(flakeIdGenerator.newId(), ExecutionState.FINISHED, null);
         }));
-=======
-
-        TaskGroupImmutableInformation taskGroupImmutableInformation =
-                new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
-                        nodeEngine.getSerializationService().toData(this.taskGroup),
-                        this.pluginJarsUrls);
-
-        try {
-            waitForCompleteByExecutionService = new NonCompletableFuture<>(
-                    nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                                    new DeployTaskOperation(nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
-                                    address)
-                            .invoke());
-        } catch (Throwable th) {
-            LOGGER.severe(String.format("%s deploy error with Exception: %s",
-                    this.taskFullName,
-                    ExceptionUtils.getMessage(th)));
-            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
-            taskFuture.complete(
-                    new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
-        }
->>>>>>> apache/st-engine
 
         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
@@ -212,13 +182,13 @@ public class PhysicalVertex {
                     updateTaskState(executionState.get(), v.getExecutionState());
                     if (v.getThrowable() != null) {
                         LOGGER.severe(String.format("%s end with state %s and Exception: %s",
-                                this.taskFullName,
-                                v.getExecutionState(),
-                                ExceptionUtils.getMessage(v.getThrowable())));
+                            this.taskFullName,
+                            v.getExecutionState(),
+                            ExceptionUtils.getMessage(v.getThrowable())));
                     } else {
                         LOGGER.severe(String.format("%s end with state %s",
-                                this.taskFullName,
-                                v.getExecutionState()));
+                            this.taskFullName,
+                            v.getExecutionState()));
                     }
                     taskFuture.complete(v);
                 }
