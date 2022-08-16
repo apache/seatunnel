@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -40,6 +41,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.spi.impl.NodeEngine;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -105,8 +107,9 @@ public class TaskTest {
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation));
-
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+            service.submitJob(jobImmutableInformation.getJobId(),
+                nodeEngine.getSerializationService().toData(jobImmutableInformation));
+        Assert.assertNotNull(voidPassiveCompletableFuture);
     }
-
 }

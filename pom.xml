@@ -1113,11 +1113,6 @@
                     <version>${maven-failsafe-plugin.version}</version>
                     <configuration>
                         <skip>${skipIT}</skip>
-                        <includes>
-                            <include>
-                                **/JobExecutionIT.java
-                            </include>
-                        </includes>
                     </configuration>
                     <executions>
                         <execution>

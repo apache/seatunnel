@@ -39,6 +39,16 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-engine-client</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-file-local</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-fake</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
