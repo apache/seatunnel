@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.filesystem;
 
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.util.HdfsUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystemCommitter;
 
