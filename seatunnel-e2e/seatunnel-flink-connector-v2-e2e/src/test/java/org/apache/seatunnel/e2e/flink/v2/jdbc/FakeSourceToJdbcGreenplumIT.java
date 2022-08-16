@@ -49,9 +49,9 @@ import java.util.stream.Stream;
 public class FakeSourceToJdbcGreenplumIT extends FlinkContainer {
 
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
-    private static final String GREENPLUM_HOSTNAME = "flink_e2e_greenplum";
+    private static final String GREENPLUM_HOSTNAME = "flink_e2e_greenplum_sink";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
-    private static final int GREENPLUM_PORT = 5432;
+    private static final int GREENPLUM_PORT = 543202;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_JDBC_URL = String.format("jdbc:postgresql://localhost:%s/testdb", GREENPLUM_PORT);

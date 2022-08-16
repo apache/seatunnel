@@ -48,9 +48,9 @@ import java.util.stream.Stream;
 public class FakeSourceToJdbcGreenplumIT extends SparkContainer {
 
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
-    private static final String GREENPLUM_HOSTNAME = "spark_e2e_greenplum";
+    private static final String GREENPLUM_HOSTNAME = "spark_e2e_greenplum_sink";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
-    private static final int GREENPLUM_PORT = 5433;
+    private static final int GREENPLUM_PORT = 543204;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_JDBC_URL = String.format("jdbc:postgresql://localhost:%s/testdb", GREENPLUM_PORT);
