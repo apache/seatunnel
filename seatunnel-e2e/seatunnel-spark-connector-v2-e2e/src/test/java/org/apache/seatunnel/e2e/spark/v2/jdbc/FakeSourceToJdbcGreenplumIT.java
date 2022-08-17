@@ -48,25 +48,27 @@ import java.util.stream.Stream;
 public class FakeSourceToJdbcGreenplumIT extends SparkContainer {
 
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
-    private static final String GREENPLUM_HOSTNAME = "spark_e2e_greenplum_sink";
-    private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
+    private static final String GREENPLUM_CONTAINER_HOST = "spark_e2e_greenplum_sink";
+    private static final int GREENPLUM_CONTAINER_PORT = 5432;
+    private static final String GREENPLUM_HOST = "localhost";
     private static final int GREENPLUM_PORT = 5438;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
-    private static final String GREENPLUM_JDBC_URL = String.format("jdbc:postgresql://localhost:%s/testdb", GREENPLUM_PORT);
+    private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
+    private static final String GREENPLUM_JDBC_URL = String.format(
+            "jdbc:postgresql://%:%s/testdb", GREENPLUM_HOST, GREENPLUM_PORT);
 
     private GenericContainer<?> greenplumServer;
     private Connection jdbcConnection;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @BeforeEach
     public void startGreenplumContainer() throws ClassNotFoundException, SQLException {
         greenplumServer = new GenericContainer<>(GREENPLUM_IMAGE)
                 .withNetwork(NETWORK)
-                .withNetworkAliases(GREENPLUM_HOSTNAME)
+                .withNetworkAliases(GREENPLUM_CONTAINER_HOST)
                 .withLogConsumer(new Slf4jLogConsumer(log));
         greenplumServer.setPortBindings(Lists.newArrayList(
-                String.format("%s:5432", GREENPLUM_PORT)));
+                String.format("%s:%s", GREENPLUM_PORT, GREENPLUM_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(greenplumServer)).join();
         log.info("Greenplum container started");
         // wait for Greenplum fully start
