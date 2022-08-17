@@ -38,7 +38,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected final SingleSplitReaderContext context;
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
     public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.context = context;
