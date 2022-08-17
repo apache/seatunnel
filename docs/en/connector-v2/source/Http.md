@@ -9,15 +9,15 @@ Used to read data from Http. Both support streaming and batch mode.
 ##  Options
 
 | name          | type   | required | default value |
-|---------------|--------|---------|---------------|
-| url           | String | Yes     | -             |
-| schema        | config | Yes     | -             |
-| schema.fields | config | Yes     | -             |
-| format        | string | No      | json          |
-| method        | String | No      | get           |
-| headers       | Map    | No      | -             |
-| params        | Map    | No      | -             |
-| body          | String | No      | -             |
+|---------------|--------|----------|---------------|
+| url           | String | Yes      | -             |
+| schema        | config | No       | -             |
+| schema.fields | config | No       | -             |
+| format        | string | No       | json          |
+| method        | String | No       | get           |
+| headers       | Map    | No       | -             |
+| params        | Map    | No       | -             |
+| body          | String | No       | -             |
 
 ### url [string]
 
@@ -41,11 +41,57 @@ http body
 
 ### format [String]
 
-the format of upstream data, now only support `json`
+the format of upstream data, now only support `json` `text`, default `json`.
+
+when you assign format is `json`, you should also assign schema option, for example:
+
+upstream data is the following:
+
+```json
+
+{"code":  200, "data":  "get success", "success":  true}
+
+```
+
+you should assign schema as the following:
+
+```hocon
+
+schema {
+    fields {
+        code = int
+        data = string
+        success = boolean
+    }
+}
+
+```
+
+connector will generate data as the following:
+
+| code | data        | success |
+|------|-------------|---------|
+| 200  | get success | true    |
+
+when you assign format is `text`, connector will do nothing for upstream data, for example:
+
+upstream data is the following:
+
+```json
+
+{"code":  200, "data":  "get success", "success":  true}
+
+```
+
+connector will generate data as the following:
+
+| content |
+|---------|
+| {"code":  200, "data":  "get success", "success":  true}        |
 
 ### schema [Config]
 
-#### fields
+#### fields [Config]
 
 the schema fields of upstream data
 
