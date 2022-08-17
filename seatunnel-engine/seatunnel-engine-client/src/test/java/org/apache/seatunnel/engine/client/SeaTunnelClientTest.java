@@ -79,10 +79,10 @@ public class SeaTunnelClientTest {
         JobProxy jobProxy;
         try {
             jobProxy = jobExecutionEnv.execute();
+            Assert.assertNotNull(jobProxy);
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Assert.assertNotNull(jobProxy);
     }
 
     @After
