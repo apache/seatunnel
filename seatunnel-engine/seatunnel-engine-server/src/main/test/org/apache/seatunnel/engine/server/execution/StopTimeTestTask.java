@@ -46,7 +46,7 @@ public class StopTimeTestTask implements Task {
 
     @NonNull
     @Override
-    public Long getTaskID() {
+    public Long getTaskInfo() {
         return (long) this.hashCode();
     }
 

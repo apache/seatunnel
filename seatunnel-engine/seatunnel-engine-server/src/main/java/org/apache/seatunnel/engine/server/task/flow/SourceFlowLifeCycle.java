@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
@@ -41,28 +41,28 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
     private static final ILogger LOGGER = Logger.getLogger(SourceFlowLifeCycle.class);
 
     private final SourceAction<T, SplitT, ?> sourceAction;
-    private final TaskLocation enumeratorTaskID;
+    private final TaskInfo enumeratorTaskInfo;
     private final SeaTunnelTask runningTask;
 
     private SourceReader<T, SplitT> reader;
 
     private final int indexID;
 
-    private final TaskLocation currentTaskID;
+    private final TaskInfo currentTaskInfo;
 
     private SeaTunnelSourceCollector<T> collector;
 
     private volatile boolean closed;
 
-    public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction, int indexID,
-                               TaskLocation enumeratorTaskID, SeaTunnelTask runningTask,
-                               TaskLocation currentTaskID, CompletableFuture<Void> completableFuture) {
+    public SourceFlowLifeCycle(SourceAction<T, SplitT, ?> sourceAction,
+                               TaskInfo enumeratorTaskInfo, SeaTunnelTask runningTask,
+                               TaskInfo currentTaskInfo, CompletableFuture<Void> completableFuture) {
         super(completableFuture);
         this.sourceAction = sourceAction;
-        this.indexID = indexID;
-        this.enumeratorTaskID = enumeratorTaskID;
+        this.indexID = currentTaskInfo.getIndex();
+        this.enumeratorTaskInfo = enumeratorTaskInfo;
         this.runningTask = runningTask;
-        this.currentTaskID = currentTaskID;
+        this.currentTaskInfo = currentTaskInfo;
     }
 
     public void setCollector(SeaTunnelSourceCollector<T> collector) {
@@ -95,8 +95,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
         try {
             this.closed = true;
             collector.close();
-            runningTask.getExecutionContext().sendToMaster(new SourceUnregisterOperation(currentTaskID,
-                    enumeratorTaskID)).get();
+            runningTask.getExecutionContext().sendToMaster(new SourceUnregisterOperation(currentTaskInfo,
+                    enumeratorTaskInfo)).get();
             this.close();
         } catch (Exception e) {
             LOGGER.warning("source close failed ", e);
@@ -106,8 +106,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     private void register() {
         try {
-            runningTask.getExecutionContext().sendToMaster(new SourceRegisterOperation(currentTaskID,
-                    enumeratorTaskID)).get();
+            runningTask.getExecutionContext().sendToMaster(new SourceRegisterOperation(currentTaskInfo,
+                    enumeratorTaskInfo)).get();
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.warning("source register failed ", e);
             throw new RuntimeException(e);
@@ -116,8 +116,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     public void requestSplit() {
         try {
-            runningTask.getExecutionContext().sendToMaster(new RequestSplitOperation(currentTaskID,
-                    enumeratorTaskID)).get();
+            runningTask.getExecutionContext().sendToMaster(new RequestSplitOperation(currentTaskInfo,
+                    enumeratorTaskInfo)).get();
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.warning("source request split failed", e);
             throw new RuntimeException(e);

@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -46,9 +46,9 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
 
     private final Map<Long, List<AggregatedCommitInfoT>> checkpointCommitInfoMap;
 
-    public SinkAggregatedCommitterTask(long jobID, TaskLocation taskID, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink,
+    public SinkAggregatedCommitterTask(TaskInfo taskInfo, SinkAction<?, ?, ?, AggregatedCommitInfoT> sink,
                                        SinkAggregatedCommitter<?, AggregatedCommitInfoT> aggregatedCommitter) {
-        super(jobID, taskID);
+        super(taskInfo);
         this.sink = sink;
         this.aggregatedCommitter = aggregatedCommitter;
         this.writerAddressMap = new ConcurrentHashMap<>();
@@ -61,8 +61,8 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
     }
 
-    public void receivedWriterRegister(TaskLocation writerID, Address address) {
-        this.writerAddressMap.put(writerID.getTaskID(), address);
+    public void receivedWriterRegister(TaskInfo writerID, Address address) {
+        this.writerAddressMap.put(writerID.getTaskInfo(), address);
     }
 
     public void receivedWriterCommitInfo(long checkpointID, AggregatedCommitInfoT[] commitInfos) {

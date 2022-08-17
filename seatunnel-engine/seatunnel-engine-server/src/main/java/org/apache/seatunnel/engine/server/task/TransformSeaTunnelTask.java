@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.task.flow.OneOutputFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
@@ -37,8 +37,8 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(TransformSeaTunnelTask.class);
 
-    public TransformSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
-        super(jobID, taskID, indexID, executionFlow);
+    public TransformSeaTunnelTask(TaskInfo taskInfo, Flow executionFlow) {
+        super(taskInfo, executionFlow);
     }
 
     private Collector<Record<?>> collector;
@@ -46,7 +46,7 @@ public class TransformSeaTunnelTask extends SeaTunnelTask {
     @Override
     public void init() throws Exception {
         super.init();
-        LOGGER.info("starting seatunnel transform task, index " + indexID);
+        LOGGER.info("starting seatunnel transform task, " + taskInfo.toBasicLog());
         collector = new SeaTunnelTransformCollector(outputs);
         if (!(startFlowLifeCycle instanceof OneOutputFlowLifeCycle)) {
             throw new TaskRuntimeException("TransformSeaTunnelTask only support OneOutputFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());

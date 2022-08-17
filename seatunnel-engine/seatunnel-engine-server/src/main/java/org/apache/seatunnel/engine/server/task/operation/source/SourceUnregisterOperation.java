@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
@@ -31,38 +31,38 @@ import java.io.IOException;
 
 public class SourceUnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation currentTaskID;
-    private TaskLocation enumeratorTaskID;
+    private TaskInfo currentTaskInfo;
+    private TaskInfo enumeratorTaskInfo;
 
     public SourceUnregisterOperation() {
     }
 
-    public SourceUnregisterOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
-        this.currentTaskID = currentTaskID;
-        this.enumeratorTaskID = enumeratorTaskID;
+    public SourceUnregisterOperation(TaskInfo currentTaskInfo, TaskInfo enumeratorTaskInfo) {
+        this.currentTaskInfo = currentTaskInfo;
+        this.enumeratorTaskInfo = enumeratorTaskInfo;
     }
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SourceSplitEnumeratorTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID())
-                        .getTaskGroup().getTask(enumeratorTaskID.getTaskID());
-        task.readerFinished(currentTaskID.getTaskID());
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskInfo.getTaskGroupId())
+                        .getTaskGroup().getTask(enumeratorTaskInfo.getIndex());
+        task.readerFinished(currentTaskInfo.getTaskInfo());
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        currentTaskID.writeData(out);
-        enumeratorTaskID.writeData(out);
+        currentTaskInfo.writeData(out);
+        enumeratorTaskInfo.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        currentTaskID.readData(in);
-        enumeratorTaskID.readData(in);
+        currentTaskInfo.readData(in);
+        enumeratorTaskInfo.readData(in);
     }
 
     @Override

@@ -27,12 +27,12 @@ public class TaskGroupDefaultImpl implements TaskGroup {
 
     private final String taskGroupName;
 
-    private final Map<Long, Task> tasks;
+    private final Map<TaskInfo, Task> tasks;
 
     public TaskGroupDefaultImpl(long id, String taskGroupName, Collection<Task> tasks) {
         this.id = id;
         this.taskGroupName = taskGroupName;
-        this.tasks = tasks.stream().collect(Collectors.toMap(Task::getTaskID, Function.identity()));
+        this.tasks = tasks.stream().collect(Collectors.toMap(Task::getTaskInfo, Function.identity()));
     }
 
     public String getTaskGroupName() {
@@ -55,12 +55,12 @@ public class TaskGroupDefaultImpl implements TaskGroup {
     }
 
     @Override
-    public <T extends Task> T getTask(long taskID) {
-        return (T) tasks.get(taskID);
+    public <T extends Task> T getTask(TaskInfo taskInfo) {
+        return (T) tasks.get(taskInfo);
     }
 
     @Override
-    public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap) {
+    public void setTasksContext(Map<TaskInfo, TaskExecutionContext> taskExecutionContextMap) {
 
     }
 }

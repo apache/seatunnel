@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 
@@ -32,15 +32,15 @@ import java.io.IOException;
 
 public class SinkRegisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation writerTaskID;
-    private TaskLocation committerTaskID;
+    private TaskInfo writerTaskInfo;
+    private TaskInfo committerTaskInfo;
 
     public SinkRegisterOperation() {
     }
 
-    public SinkRegisterOperation(TaskLocation writerTaskID, TaskLocation committerTaskID) {
-        this.writerTaskID = writerTaskID;
-        this.committerTaskID = committerTaskID;
+    public SinkRegisterOperation(TaskInfo writerTaskInfo, TaskInfo committerTaskInfo) {
+        this.writerTaskInfo = writerTaskInfo;
+        this.committerTaskInfo = committerTaskInfo;
     }
 
     @Override
@@ -48,9 +48,9 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
         SinkAggregatedCommitterTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID())
-                        .getTaskGroup().getTask(committerTaskID.getTaskID());
-        task.receivedWriterRegister(writerTaskID, readerAddress);
+                server.getTaskExecutionService().getExecutionContext(committerTaskInfo.getTaskGroupId())
+                        .getTaskGroup().getTask(committerTaskInfo);
+        task.receivedWriterRegister(writerTaskInfo, readerAddress);
     }
 
     @Override
@@ -61,15 +61,15 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        writerTaskID.writeData(out);
-        committerTaskID.writeData(out);
+        writerTaskInfo.writeData(out);
+        committerTaskInfo.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        writerTaskID.readData(in);
-        committerTaskID.readData(in);
+        writerTaskInfo.readData(in);
+        committerTaskInfo.readData(in);
     }
 
     @Override

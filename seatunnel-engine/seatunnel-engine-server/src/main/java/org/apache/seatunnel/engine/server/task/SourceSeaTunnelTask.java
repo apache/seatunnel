@@ -22,7 +22,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.Flow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
 import com.hazelcast.logging.ILogger;
@@ -36,15 +36,15 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
 
-    public SourceSeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
-        super(jobID, taskID, indexID, executionFlow);
+    public SourceSeaTunnelTask(TaskInfo taskInfo, Flow executionFlow) {
+        super(taskInfo, executionFlow);
     }
 
     @Override
     public void init() throws Exception {
         super.init();
         Object checkpointLock = new Object();
-        LOGGER.info("starting seatunnel source task, index " + indexID);
+        LOGGER.info("Starting SeaTunnel source task, " + taskInfo.toBasicLog());
         if (!(startFlowLifeCycle instanceof SourceFlowLifeCycle)) {
             throw new TaskRuntimeException("SourceSeaTunnelTask only support SourceFlowLifeCycle, but get " + startFlowLifeCycle.getClass().getName());
         } else {
@@ -56,7 +56,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
     @Override
     protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(SourceAction<?, ?, ?> sourceAction,
                                                                   SourceConfig config, CompletableFuture<Void> completableFuture) {
-        return new SourceFlowLifeCycle<>(sourceAction, indexID, config.getEnumeratorTask(), this, taskID, completableFuture);
+        return new SourceFlowLifeCycle<>(sourceAction, config.getEnumeratorTask(), this, taskInfo, completableFuture);
     }
 
     @NonNull

@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
@@ -34,13 +34,13 @@ import java.util.List;
 public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation implements IdentifiedDataSerializable {
 
     private List<SplitT> splits;
-    private TaskLocation taskID;
+    private TaskInfo taskInfo;
 
     public AssignSplitOperation() {
     }
 
-    public AssignSplitOperation(TaskLocation taskID, List<SplitT> splits) {
-        this.taskID = taskID;
+    public AssignSplitOperation(TaskInfo taskInfo, List<SplitT> splits) {
+        this.taskInfo = taskInfo;
         this.splits = splits;
     }
 
@@ -48,20 +48,20 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SourceSeaTunnelTask<?, SplitT> task =
-                server.getTaskExecutionService().getExecutionContext(taskID.getTaskGroupID()).getTaskGroup().getTask(taskID.getTaskID());
+                server.getTaskExecutionService().getExecutionContext(taskInfo.getTaskGroupId()).getTaskGroup().getTask(taskInfo);
         task.receivedSourceSplit(splits);
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         out.writeObject(splits);
-        taskID.writeData(out);
+        taskInfo.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         splits = in.readObject();
-        taskID.readData(in);
+        taskInfo.readData(in);
     }
 
     @Override

@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.engine.server.dag.physical.config;
 
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 
 public class SourceConfig implements FlowConfig {
 
-    private TaskLocation enumeratorTask;
+    private TaskInfo enumeratorTask;
 
-    public TaskLocation getEnumeratorTask() {
+    public TaskInfo getEnumeratorTask() {
         return enumeratorTask;
     }
 
-    public void setEnumeratorTask(TaskLocation enumeratorTask) {
+    public void setEnumeratorTask(TaskInfo enumeratorTask) {
         this.enumeratorTask = enumeratorTask;
     }
 }

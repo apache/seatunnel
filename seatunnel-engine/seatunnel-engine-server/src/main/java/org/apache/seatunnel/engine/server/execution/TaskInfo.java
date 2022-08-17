@@ -27,33 +27,48 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
-public class TaskLocation implements IdentifiedDataSerializable, Serializable {
+public class TaskInfo implements IdentifiedDataSerializable, Serializable {
+    public static final Integer COORDINATOR_INDEX = -1;
 
-    private long taskGroupID;
-    private long taskID;
+    private long taskGroupId;
 
-    public TaskLocation() {
+    private long jobId;
+
+    private long pipelineId;
+
+    private long vertexId;
+
+    private int index;
+
+    public TaskInfo() {
     }
 
-    public TaskLocation(long taskGroupID, long taskID) {
-        this.taskGroupID = taskGroupID;
-        this.taskID = taskID;
+    public TaskInfo(long taskGroupId, long jobId, long pipelineId, long vertexId, int index) {
+        this.taskGroupId = taskGroupId;
+        this.jobId = jobId;
+        this.pipelineId = pipelineId;
+        this.vertexId = vertexId;
+        this.index = index;
     }
 
-    public long getTaskGroupID() {
-        return taskGroupID;
+    public long getTaskGroupId() {
+        return taskGroupId;
     }
 
-    public void setTaskGroupID(long taskGroupID) {
-        this.taskGroupID = taskGroupID;
+    public long getJobId() {
+        return jobId;
     }
 
-    public long getTaskID() {
-        return taskID;
+    public long getPipelineId() {
+        return pipelineId;
     }
 
-    public void setTaskID(long taskID) {
-        this.taskID = taskID;
+    public long getVertexId() {
+        return vertexId;
+    }
+
+    public int getIndex() {
+        return index;
     }
 
     @Override
@@ -68,22 +83,35 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeLong(taskGroupID);
-        out.writeLong(taskID);
+        out.writeLong(taskGroupId);
+        out.writeLong(jobId);
+        out.writeLong(pipelineId);
+        out.writeLong(vertexId);
+        out.writeInt(index);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        taskGroupID = in.readLong();
-        taskID = in.readLong();
+        taskGroupId = in.readLong();
+        jobId = in.readLong();
+        pipelineId = in.readLong();
+        vertexId = in.readLong();
+        index = in.readInt();
+    }
+
+    public String toBasicLog() {
+        return String.format("task info, job: %s, pipeline: %s, task: %s, index: %s", jobId, pipelineId, vertexId, index);
     }
 
     @Override
     public String toString() {
-        return "TaskLocation{" +
-                "taskGroupID=" + taskGroupID +
-                ", taskID=" + taskID +
-                '}';
+        return "TaskInfo{" +
+            "taskGroupId=" + taskGroupId +
+            ", jobId=" + jobId +
+            ", pipelineId=" + pipelineId +
+            ", vertexId=" + vertexId +
+            ", index=" + index +
+            '}';
     }
 
     @Override
@@ -94,12 +122,16 @@ public class TaskLocation implements IdentifiedDataSerializable, Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TaskLocation that = (TaskLocation) o;
-        return taskGroupID == that.taskGroupID && taskID == that.taskID;
+        TaskInfo that = (TaskInfo) o;
+        return taskGroupId == that.taskGroupId
+            && jobId == that.jobId
+            && pipelineId == that.pipelineId
+            && vertexId == that.vertexId
+            && index == that.index;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(taskGroupID, taskID);
+        return Objects.hash(taskGroupId, jobId, pipelineId, vertexId, index);
     }
 }

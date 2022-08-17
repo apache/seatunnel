@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
@@ -41,23 +41,23 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
 
     private final int indexID;
 
-    private final TaskLocation taskID;
+    private final TaskInfo taskInfo;
 
-    private final TaskLocation committerTaskID;
+    private final TaskInfo committerTaskInfo;
 
     private final SeaTunnelTask runningTask;
 
     private final boolean containCommitter;
 
-    public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskLocation taskID, int indexID,
-                             SeaTunnelTask runningTask, TaskLocation committerTaskID,
+    public SinkFlowLifeCycle(SinkAction<T, StateT, ?, ?> sinkAction, TaskInfo taskInfo,
+                             SeaTunnelTask runningTask, TaskInfo committerTaskInfo,
                              boolean containCommitter, CompletableFuture<Void> completableFuture) {
         super(completableFuture);
         this.sinkAction = sinkAction;
-        this.indexID = indexID;
+        this.indexID = taskInfo.getIndex();
         this.runningTask = runningTask;
-        this.taskID = taskID;
-        this.committerTaskID = committerTaskID;
+        this.taskInfo = taskInfo;
+        this.committerTaskInfo = committerTaskInfo;
         this.containCommitter = containCommitter;
     }
 
@@ -76,13 +76,13 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
         super.close();
         writer.close();
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskID, committerTaskID));
+            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskInfo, committerTaskInfo));
         }
     }
 
     private void registerCommitter() {
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskID, committerTaskID));
+            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskInfo, committerTaskInfo));
         }
     }
 

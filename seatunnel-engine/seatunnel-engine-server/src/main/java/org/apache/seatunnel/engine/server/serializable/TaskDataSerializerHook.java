@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
@@ -88,7 +88,7 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                 case SINK_UNREGISTER_TYPE:
                     return new SinkUnregisterOperation();
                 case TASK_LOCATION_TYPE:
-                    return new TaskLocation();
+                    return new TaskInfo();
                 case PROGRESS_TYPE:
                     return new Progress();
                 default:

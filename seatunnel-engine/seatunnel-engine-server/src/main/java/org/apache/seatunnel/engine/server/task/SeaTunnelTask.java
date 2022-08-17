@@ -32,7 +32,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.IntermediateExecutio
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
@@ -65,13 +65,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected List<CompletableFuture<Void>> flowFutures;
 
-    protected int indexID;
-
     private TaskGroup taskBelongGroup;
 
-    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
-        super(jobID, taskID);
-        this.indexID = indexID;
+    public SeaTunnelTask(TaskInfo taskInfo, Flow executionFlow) {
+        super(taskInfo);
         this.executionFlow = executionFlow;
     }
 
@@ -105,7 +102,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         (SourceConfig) f.getConfig(), completableFuture);
                 outputs = flowLifeCycles;
             } else if (f.getAction() instanceof SinkAction) {
-                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskID, indexID, this,
+                lifeCycle = new SinkFlowLifeCycle<>((SinkAction) f.getAction(), taskInfo, this,
                         ((SinkConfig) f.getConfig()).getCommitterTask(),
                         ((SinkConfig) f.getConfig()).isContainCommitter(), completableFuture);
             } else if (f.getAction() instanceof TransformChainAction) {
@@ -113,7 +110,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         new TransformFlowLifeCycle<SeaTunnelRow>(((TransformChainAction) f.getAction()).getTransforms(),
                                 new SeaTunnelTransformCollector(flowLifeCycles), completableFuture);
             } else if (f.getAction() instanceof PartitionTransformAction) {
-                // TODO use index and taskID to create ringbuffer list
+                // TODO use index and taskInfo to create ringbuffer list
                 if (executionFlow.getNext().isEmpty()) {
                     lifeCycle = new PartitionTransformSinkFlowLifeCycle(completableFuture);
                 } else {

@@ -31,7 +31,7 @@ public interface Task extends Serializable {
     ProgressState call() throws Exception;
 
     @NonNull
-    Long getTaskID();
+    TaskInfo getTaskInfo();
 
     default boolean isThreadsShare() {
         return false;

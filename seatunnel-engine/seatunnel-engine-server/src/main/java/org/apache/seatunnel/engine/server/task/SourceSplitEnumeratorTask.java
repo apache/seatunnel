@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 
 import com.hazelcast.cluster.Address;
@@ -49,8 +49,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SourceSplitEnumerator<?, ?> enumerator;
     private int maxReaderSize;
     private AtomicInteger unfinishedReaders;
-    private Map<TaskLocation, Address> taskMemberMapping;
-    private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
+    private Map<TaskInfo, Address> taskMemberMapping;
+    private Map<Integer, TaskInfo> subtaskIdToTaskInfoMap;
 
     private CompletableFuture<ProgressState> future;
 
@@ -62,7 +62,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         SeaTunnelSplitEnumeratorContext<SplitT> context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
         taskMemberMapping = new ConcurrentHashMap<>();
-        taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
+        subtaskIdToTaskInfoMap = new ConcurrentHashMap<>();
         maxReaderSize = source.getParallelism();
         unfinishedReaders = new AtomicInteger(maxReaderSize);
         enumerator.open();
@@ -76,8 +76,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         future.complete(progress.done().toState());
     }
 
-    public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
-        super(jobID, taskID);
+    public SourceSplitEnumeratorTask(TaskInfo taskInfo, SourceAction<?, SplitT, ?> source) {
+        super(taskInfo);
         this.source = source;
     }
 
@@ -93,31 +93,31 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public void receivedReader(TaskLocation readerId, Address memberAddr) {
-        LOGGER.info("received reader register, readerID: " + readerId);
-        this.addTaskMemberMapping(readerId, memberAddr);
-        enumerator.registerReader((int) readerId.getTaskID());
+    public void receivedReader(TaskInfo readerTaskInfo, Address memberAddr) {
+        LOGGER.info("received reader register, " + readerTaskInfo.toBasicLog());
+        this.addTaskMemberMapping(readerTaskInfo, memberAddr);
+        enumerator.registerReader(readerTaskInfo.getIndex());
     }
 
-    public void requestSplit(long taskID) {
-        enumerator.handleSplitRequest((int) taskID);
+    public void requestSplit(long subtaskId) {
+        enumerator.handleSplitRequest((int) subtaskId);
     }
 
-    public void addTaskMemberMapping(TaskLocation taskID, Address memberAddr) {
-        taskMemberMapping.put(taskID, memberAddr);
-        taskIDToTaskLocationMapping.put(taskID.getTaskID(), taskID);
+    public void addTaskMemberMapping(TaskInfo taskInfo, Address memberAddr) {
+        taskMemberMapping.put(taskInfo, memberAddr);
+        subtaskIdToTaskInfoMap.put(taskInfo.getIndex(), taskInfo);
     }
 
-    public Address getTaskMemberAddr(long taskID) {
-        return taskMemberMapping.get(taskIDToTaskLocationMapping.get(taskID));
+    public Address getTaskMemberAddr(int subtaskId) {
+        return taskMemberMapping.get(subtaskIdToTaskInfoMap.get(subtaskId));
     }
 
-    public TaskLocation getTaskMemberLocation(long taskID) {
-        return taskIDToTaskLocationMapping.get(taskID);
+    public TaskInfo getTaskInfo(int subtaskId) {
+        return subtaskIdToTaskInfoMap.get(subtaskId);
     }
 
-    public void readerFinished(long taskID) {
-        removeTaskMemberMapping(taskID);
+    public void readerFinished(long taskInfo) {
+        removeTaskMemberMapping(taskInfo);
         if (unfinishedReaders.decrementAndGet() == 0) {
             try {
                 this.close();
@@ -127,18 +127,18 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
     }
 
-    public void removeTaskMemberMapping(long taskID) {
-        TaskLocation taskLocation = taskIDToTaskLocationMapping.get(taskID);
-        taskMemberMapping.remove(taskLocation);
-        taskIDToTaskLocationMapping.remove(taskID);
+    public void removeTaskMemberMapping(long taskInfo) {
+        TaskInfo taskInfo = subtaskIdToTaskInfoMap.get(taskInfo);
+        taskMemberMapping.remove(taskInfo);
+        subtaskIdToTaskInfoMap.remove(taskInfo);
     }
 
     public Set<Long> getRegisteredReaders() {
-        return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskID).collect(Collectors.toSet());
+        return taskMemberMapping.keySet().stream().map(TaskInfo::getTaskInfo).collect(Collectors.toSet());
     }
 
-    private void noMoreElement(int taskID) {
-        enumerator.handleSplitRequest(taskID);
+    private void noMoreElement(int taskInfo) {
+        enumerator.handleSplitRequest(taskInfo);
     }
 
     @Override

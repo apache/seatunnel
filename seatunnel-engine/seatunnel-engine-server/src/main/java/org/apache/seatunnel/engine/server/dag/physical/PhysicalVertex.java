@@ -49,8 +49,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class PhysicalVertex {
 
     private static final ILogger LOGGER = Logger.getLogger(PhysicalVertex.class);
+    public static final Integer COORDINATOR_INDEX = -1;
 
-    private final long physicalVertexId;
+    private final long executionVertexId;
 
     /**
      * the index of PhysicalVertex
@@ -100,7 +101,7 @@ public class PhysicalVertex {
 
     private final NodeEngine nodeEngine;
 
-    public PhysicalVertex(long physicalVertexId,
+    public PhysicalVertex(long executionVertexId,
                           int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
                           int parallelism,
@@ -113,7 +114,7 @@ public class PhysicalVertex {
                           @NonNull JobImmutableInformation jobImmutableInformation,
                           long initializationTimestamp,
                           @NonNull NodeEngine nodeEngine) {
-        this.physicalVertexId = physicalVertexId;
+        this.executionVertexId = executionVertexId;
         this.subTaskGroupIndex = subTaskGroupIndex;
         this.executorService = executorService;
         this.parallelism = parallelism;
@@ -137,7 +138,7 @@ public class PhysicalVertex {
                 pipelineIndex + 1,
                 totalPipelineNum,
                 taskGroup.getTaskGroupName(),
-                subTaskGroupIndex + 1,
+                subTaskGroupIndex == COORDINATOR_INDEX ? 1 : subTaskGroupIndex + 1,
                 parallelism);
         this.taskFuture = taskFuture;
     }
@@ -196,8 +197,8 @@ public class PhysicalVertex {
         });
     }
 
-    public long getPhysicalVertexId() {
-        return physicalVertexId;
+    public String getPhysicalVertexId() {
+        return "" + executionVertexId + subTaskGroupIndex;
     }
 
     public boolean updateTaskState(@NonNull ExecutionState current, @NonNull ExecutionState targetState) {

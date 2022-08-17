@@ -29,7 +29,7 @@ public interface TaskGroup extends Serializable {
 
     Collection<Task> getTasks();
 
-    <T extends Task> T getTask(long taskID);
+    <T extends Task> T getTask(TaskInfo taskInfo);
 
-    void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap);
+    void setTasksContext(Map<TaskInfo, TaskExecutionContext> taskExecutionContextMap);
 }
