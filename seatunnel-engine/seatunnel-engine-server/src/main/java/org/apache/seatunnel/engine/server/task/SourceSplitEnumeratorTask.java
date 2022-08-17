@@ -137,10 +137,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskID).collect(Collectors.toSet());
     }
 
-    private void noMoreElement(int taskID) {
-        enumerator.handleSplitRequest(taskID);
-    }
-
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(source.getJarUrls());

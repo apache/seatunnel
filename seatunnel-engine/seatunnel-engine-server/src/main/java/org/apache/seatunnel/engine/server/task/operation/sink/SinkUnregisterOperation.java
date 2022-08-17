@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation.sink;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -44,8 +45,9 @@ public class SinkUnregisterOperation extends Operation implements IdentifiedData
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID());
-        // TODO send to committer
+        SinkAggregatedCommitterTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID()).getTaskGroup().getTask(committerTaskID.getTaskID());
+        task.receivedWriterUnregister(currentTaskID);
     }
 
     @Override

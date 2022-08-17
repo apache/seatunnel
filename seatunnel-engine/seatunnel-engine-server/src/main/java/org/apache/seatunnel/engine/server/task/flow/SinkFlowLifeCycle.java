@@ -69,6 +69,7 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
             this.writer = sinkAction.getSink().restoreWriter(new SinkWriterContext(indexID), states);
         }
         states = null;
+        registerCommitter();
     }
 
     @Override
@@ -76,13 +77,15 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
         super.close();
         writer.close();
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskID, committerTaskID));
+            runningTask.getExecutionContext().sendToMaster(new SinkUnregisterOperation(taskID,
+                    committerTaskID)).join();
         }
     }
 
     private void registerCommitter() {
         if (containCommitter) {
-            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskID, committerTaskID));
+            runningTask.getExecutionContext().sendToMaster(new SinkRegisterOperation(taskID,
+                    committerTaskID)).join();
         }
     }
 
