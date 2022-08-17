@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
@@ -52,7 +53,7 @@ public enum FileFormat implements Serializable {
     JSON("json") {
         @Override
         public ReadStrategy getReadStrategy() {
-            return new TextReadStrategy();
+            return new JsonReadStrategy();
         }
     };
 
