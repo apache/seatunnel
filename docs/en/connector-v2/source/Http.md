@@ -8,15 +8,19 @@ Used to read data from Http. Both support streaming and batch mode.
 
 ##  Options
 
-| name | type   | required | default value |
-| --- |--------| --- | --- |
-| url | String | Yes | - |
-| method | String | No | GET |
-| headers | Map    | No | - |
-| params | Map | No | - |
-| body | String | No | - |
+| name          | type   | required | default value |
+|---------------|--------|---------|---------------|
+| url           | String | Yes     | -             |
+| schema        | config | Yes     | -             |
+| schema.fields | config | Yes     | -             |
+| format        | string | No      | json          |
+| method        | String | No      | get           |
+| headers       | Map    | No      | -             |
+| params        | Map    | No      | -             |
+| body          | String | No      | -             |
 
 ### url [string]
+
 http request url
 
 ### method [string]
@@ -35,25 +39,31 @@ http params
 
 http body
 
+### format [String]
+
+the format of upstream data, now only support `json`
+
+### schema [Config]
+
+#### fields
+
+the schema fields of upstream data
+
 ## Example
 
 simple:
 
 ```hocon
 Http {
-        url = "http://localhost/test/query"
-        method = "GET"
-        headers {
-            token = "9e32e859ef044462a257e1fc76730066"
-        }
-        params {
-            id = "1"
-            type = "TEST"
-        }
-        body = "{
-            \"code\": 5945141259552,
-            \"name\": \"test\"
-        }"
+    url = "https://tyrantlucifer.com/api/getDemoData"
+    schema {
+      fields {
+        code = int
+        message = string
+        data = string
+        ok = boolean
+      }
     }
+}
 ```
 
