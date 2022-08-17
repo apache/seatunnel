@@ -55,6 +55,7 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         // Generate a random number of rows to emit.
         for (int i = 0; i < 10; i++) {
             SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
+            System.out.println(seaTunnelRow);
             output.collect(seaTunnelRow);
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {

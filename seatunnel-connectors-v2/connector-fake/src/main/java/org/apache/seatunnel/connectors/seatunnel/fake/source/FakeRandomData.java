@@ -25,15 +25,21 @@ import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -85,8 +91,25 @@ public class FakeRandomData {
             DecimalType decimalType = (DecimalType) fieldType;
             return new BigDecimal(RandomStringUtils.randomNumeric(decimalType.getPrecision() - decimalType.getScale()) + "." +
                 RandomStringUtils.randomNumeric(decimalType.getPrecision() - decimalType.getScale()));
+        } else if (fieldType instanceof ArrayType) {
+            ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
+            BasicType<?> elementType = arrayType.getElementType();
+            Object value = randomColumnValue(elementType);
+            Object arr = Array.newInstance(elementType.getTypeClass(), 1);
+            Array.set(arr, 0, value);
+            return arr;
+        } else if (fieldType instanceof MapType) {
+            MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
+            SeaTunnelDataType<?> keyType = mapType.getKeyType();
+            Object key = randomColumnValue(keyType);
+            SeaTunnelDataType<?> valueType = mapType.getValueType();
+            Object value = randomColumnValue(valueType);
+            return new HashMap<Object, Object>() {{
+                put(key, value);
+            }};
+        } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
+            return Void.TYPE;
         } else {
-            // todo: complex column
             throw new IllegalStateException("Unexpected value: " + fieldType);
         }
     }
