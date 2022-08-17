@@ -6,6 +6,12 @@
 
 Used to write data to IoTDB. Supports Batch and Streaming mode.
 
+:::tip
+
+There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
+
+:::
+
 ## Options
 
 | name                          | type              | required | default value |

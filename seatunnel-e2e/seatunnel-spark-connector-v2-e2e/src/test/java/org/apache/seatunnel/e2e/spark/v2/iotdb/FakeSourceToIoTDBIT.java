@@ -48,7 +48,7 @@ import java.util.stream.Stream;
 public class FakeSourceToIoTDBIT extends SparkContainer {
 
     private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
-    private static final String IOTDB_HOST = "spark_e2e_iotdb";
+    private static final String IOTDB_HOST = "spark_e2e_iotdb_sink";
     private static final int IOTDB_PORT = 6668;
     private static final String IOTDB_USERNAME = "root";
     private static final String IOTDB_PASSWORD = "root";
