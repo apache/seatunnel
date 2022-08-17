@@ -39,6 +39,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.spi.impl.NodeEngine;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -52,14 +53,15 @@ public class TaskTest {
 
     private NodeEngine nodeEngine;
 
+    private HazelcastInstanceImpl instance;
+
     @Before
     public void before() {
         Config config = new Config();
         config.setInstanceName("test");
         config.setClusterName("test");
-        HazelcastInstanceImpl instance =
-                ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
-                        "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
+        instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
+                "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
         nodeEngine = instance.node.nodeEngine;
         service = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     }
@@ -105,7 +107,11 @@ public class TaskTest {
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation)).join();
+    }
 
+    @After
+    public void after() {
+        instance.shutdown();
     }
 
 }
