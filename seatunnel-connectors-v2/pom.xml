@@ -48,6 +48,7 @@
         <module>connector-email</module>
         <module>connector-dingtalk</module>
         <module>connector-elasticsearch</module>
+        <module>connector-iotdb</module>
         <module>connector-neo4j</module>
     </modules>
 

@@ -17,17 +17,18 @@ Engine Supported and plugin name
 
 ## Options
 
-| name                | type     | required | default value |
-|---------------------|----------|----------|---------------|
-| host                | string   | no       | "localhost"   |
-| port                | int      | no       | 6379          |
-| auth                | string   | no       |               |
-| db_num              | int      | no       | 0             |
-| keys_or_key_pattern | string   | yes      |               |
-| partition_num       | int      | no       | 3             |
-| data_type           | string   | no       | "KV"          |
-| timeout             | int      | no       | 2000          |
-| common-options      | string   | yes      |               |
+| name                | type    | required | default value |
+|---------------------|---------|----------|---------------|
+| host                | string  | no       | "localhost"   |
+| port                | int     | no       | 6379          |
+| auth                | string  | no       |               |
+| db_num              | int     | no       | 0             |
+| keys_or_key_pattern | string  | yes      |               |
+| partition_num       | int     | no       | 3             |
+| data_type           | string  | no       | "KV"          |
+| timeout             | int     | no       | 2000          |
+| common-options      | string  | yes      |               |
+| is_self_achieved    | boolean | no       | false         |
 
 ### host [string]
 
@@ -65,6 +66,10 @@ Redis timeout
 
 Source Plugin common parameters, refer to [Source Plugin](common-options.mdx) for details
 
+### is_self_achieved [boolean]
+
+If a redis access by a self-achieved redis proxy, which is not support redis function of "info Replication"
+
 ## Example
 
 ```bash
@@ -77,6 +82,7 @@ redis {
   partition_num = 20
   data_type = "HASH"
   result_table_name = "hash_result_table"
+  is_self_achieved = false
 }
 ```
 

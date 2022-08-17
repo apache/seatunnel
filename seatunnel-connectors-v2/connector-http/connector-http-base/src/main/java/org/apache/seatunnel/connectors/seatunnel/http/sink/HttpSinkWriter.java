@@ -17,41 +17,38 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.sink;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Objects;
 
 public class HttpSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSinkWriter.class);
-    private final HttpClientProvider httpClient = HttpClientProvider.getInstance();
-    private final SeaTunnelRowType seaTunnelRowType;
-    private final HttpParameter httpParameter;
+    protected final HttpClientProvider httpClient = HttpClientProvider.getInstance();
+    protected final SeaTunnelRowType seaTunnelRowType;
+    protected final HttpParameter httpParameter;
+    protected final SerializationSchema serializationSchema;
 
     public HttpSinkWriter(SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.httpParameter = httpParameter;
+        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        HashMap<Object, Object> objectMap = new HashMap<>();
-        int totalFields = seaTunnelRowType.getTotalFields();
-        for (int i = 0; i < totalFields; i++) {
-            objectMap.put(seaTunnelRowType.getFieldName(i), element.getField(i));
-        }
-        String body = objectMapper.writeValueAsString(objectMap);
+        byte[] serialize = serializationSchema.serialize(element);
+        String body = new String(serialize);
         try {
             // only support post web hook
             HttpResponse response = httpClient.doPost(httpParameter.getUrl(), httpParameter.getHeaders(), body);
