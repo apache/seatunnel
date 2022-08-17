@@ -56,7 +56,7 @@ public class FakeSourceToJdbcGreenplumIT extends SparkContainer {
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
     private static final String GREENPLUM_JDBC_URL = String.format(
-            "jdbc:postgresql://%:%s/testdb", GREENPLUM_HOST, GREENPLUM_PORT);
+            "jdbc:postgresql://%s:%s/testdb", GREENPLUM_HOST, GREENPLUM_PORT);
 
     private GenericContainer<?> greenplumServer;
     private Connection jdbcConnection;
