@@ -60,22 +60,27 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL, HttpConfig.SCHEMA);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL);
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
         }
         this.httpParameter.buildWithConfig(pluginConfig);
-        Config schema = pluginConfig.getConfig(HttpConfig.SCHEMA);
-        this.rowType = SeatunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+        if (pluginConfig.hasPath(HttpConfig.SCHEMA)) {
+            Config schema = pluginConfig.getConfig(HttpConfig.SCHEMA);
+            this.rowType = SeatunnelSchema.buildWithConfig(schema).getSeaTunnelRowType();
+        } else {
+            this.rowType = SeatunnelSchema.buildSimpleTextSchema();
+        }
+        // TODO: use format SPI
+        // default use json format
         String format;
         if (pluginConfig.hasPath(HttpConfig.FORMAT)) {
             format = pluginConfig.getString(HttpConfig.FORMAT);
+            this.deserializationSchema = null;
         } else {
             format = HttpConfig.DEFAULT_FORMAT;
+            this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
         }
-        // TODO: use format SPI
-        // Temporary use json format
-        this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 
     @Override

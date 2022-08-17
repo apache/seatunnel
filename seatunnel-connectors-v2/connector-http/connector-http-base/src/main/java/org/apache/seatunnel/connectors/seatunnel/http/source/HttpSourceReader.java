@@ -63,8 +63,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         try {
             HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams());
             if (HttpResponse.STATUS_OK == response.getCode()) {
-                byte[] bytes = response.getContent().getBytes();
-                output.collect(deserializationSchema.deserialize(bytes));
+                String content = response.getContent();
+                if (deserializationSchema != null) {
+                    deserializationSchema.deserialize(content.getBytes(), output);
+                } else {
+                    // TODO: use seatunnel-text-format
+                    output.collect(new SeaTunnelRow(new Object[]{content}));
+                }
                 return;
             }
             LOGGER.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
