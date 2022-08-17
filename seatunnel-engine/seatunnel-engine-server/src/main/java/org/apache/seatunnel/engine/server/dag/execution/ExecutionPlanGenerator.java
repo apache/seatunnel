@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -34,7 +37,6 @@ import lombok.NonNull;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -43,12 +45,47 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ExecutionPlanGenerator {
+    /**
+     * The action ID needs to be regenerated because of the source, sink, and chain.
+     */
+    private final IdGenerator idGenerator = new IdGenerator();
 
-    private final Map<Long, List<Long>> edgeMap = new HashMap<>();
-    private final Map<Long, Action> actions = new HashMap<>();
+    /**
+     * key: the id of the execution vertex.
+     * <br> value: the execution vertex.
+     */
+    private final Map<Long, ExecutionVertex> executionVertexMap = new HashMap<>();
 
-    private final Map<Long, LogicalVertex> logicalVertexes;
+    /**
+     * key: the vertex id.
+     * <br> value: The input vertices of this vertex.
+     *
+     * <p>When chaining vertices, it need to query whether the vertex has multiple input vertices. </p>
+     */
+    private final Map<Long, List<LogicalVertex>> inputVerticesMap = new HashMap<>();
+
+    /**
+     * key: the vertex id.
+     * <br> value: The target vertices of this vertex.
+     *
+     * <p>When chaining vertices, it need to query whether the vertex has multiple target vertices. </p>
+     */
+    private final Map<Long, List<LogicalVertex>> targetVerticesMap = new HashMap<>();
+
+    /**
+     * key: logical vertex id.
+     * <br> value: execution vertex id.
+     *
+     * <p>The chaining will cause multiple {@link LogicalVertex} mapping to the same {@link ExecutionVertex}. </p>
+     */
+    private final Map<Long, Long> logicalToExecutionMap = new HashMap<>();
+
+    /**
+     * When chaining, the edge will be removed {@link #findChainedVertices} if it can be chained.
+     */
     private final List<LogicalEdge> logicalEdges;
+
+    private final List<LogicalVertex> logicalVertices;
 
     private final JobImmutableInformation jobImmutableInformation;
 
@@ -57,101 +94,135 @@ public class ExecutionPlanGenerator {
     public ExecutionPlanGenerator(@NonNull LogicalDag logicalPlan,
                                   @NonNull JobImmutableInformation jobImmutableInformation,
                                   long initializationTimestamp) {
-        this.logicalVertexes = new HashMap<>(logicalPlan.getLogicalVertexMap());
+        checkArgument(logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
+
         this.logicalEdges = new ArrayList<>(logicalPlan.getEdges());
+        this.logicalVertices = new ArrayList<>(logicalPlan.getLogicalVertexMap().values());
         this.jobImmutableInformation = jobImmutableInformation;
         this.initializationTimestamp = initializationTimestamp;
     }
 
     public ExecutionPlan generate() {
-
-        if (logicalVertexes == null) {
-            throw new IllegalArgumentException("ExecutionPlan Builder must have LogicalPlan and Action");
-        }
-        List<LogicalVertex> next = logicalVertexes.values().stream().filter(a -> a.getAction() instanceof SourceAction)
-            .collect(Collectors.toList());
-        while (!next.isEmpty()) {
-            List<LogicalVertex> newNext = new ArrayList<>();
-            next.forEach(n -> {
-                List<LogicalVertex> nextVertex = convertExecutionActions(logicalEdges, n.getAction());
-                newNext.addAll(nextVertex);
-            });
-            next = newNext;
-        }
-
-        Map<Long, LogicalVertex> vertexes = new HashMap<>();
-        actions.forEach((key, value) -> vertexes.put(key, new LogicalVertex(key, value,
-            logicalVertexes.get(key).getParallelism())));
-
-        return new ExecutionPlan(PipelineGenerator.generatePipelines(edgeMap.entrySet().stream()
-            .flatMap(e -> e.getValue().stream().map(d -> new ExecutionEdge(convertFromLogical(vertexes.get(e.getKey())),
-                convertFromLogical(vertexes.get(d)))))
-            .collect(Collectors.toList())), jobImmutableInformation);
+        fillVerticesMap();
+        getSourceVertices().forEach(sourceVertex -> {
+            List<LogicalVertex> vertices = new ArrayList<>();
+            vertices.add(sourceVertex);
+            for (int index = 0; index < vertices.size(); index++) {
+                LogicalVertex vertex = vertices.get(index);
+                createExecutionVertex(vertex);
+                vertices.addAll(targetVerticesMap.get(vertex.getVertexId()));
+            }
+        });
+        List<ExecutionEdge> executionEdges = createExecutionEdges();
+        return new ExecutionPlan(PipelineGenerator.generatePipelines(executionEdges), jobImmutableInformation);
     }
 
-    private ExecutionVertex convertFromLogical(LogicalVertex vertex) {
-        return new ExecutionVertex(vertex.getVertexId(), vertex.getAction(), vertex.getParallelism());
+    public List<ExecutionEdge> createExecutionEdges() {
+        return logicalEdges.stream()
+            .map(logicalEdge -> new ExecutionEdge(
+                executionVertexMap.get(logicalToExecutionMap.get(logicalEdge.getInputVertexId())),
+                executionVertexMap.get(logicalToExecutionMap.get(logicalEdge.getTargetVertexId())))
+            ).collect(Collectors.toList());
     }
 
-    private List<LogicalVertex> convertExecutionActions(List<LogicalEdge> logicalEdges, Action start) {
+    private void fillVerticesMap() {
+        logicalEdges.forEach(logicalEdge -> {
+            inputVerticesMap.computeIfAbsent(logicalEdge.getTargetVertexId(), id -> new ArrayList<>())
+                .add(logicalEdge.getInputVertex());
+            targetVerticesMap.computeIfAbsent(logicalEdge.getInputVertexId(), id -> new ArrayList<>())
+                .add(logicalEdge.getTargetVertex());
+        });
+    }
 
-        Action end = start;
-        Action executionAction;
-        if (start instanceof PartitionTransformAction) {
-            executionAction = start;
-            actions.put(start.getId(), start);
-        } else if (start instanceof SinkAction) {
-            actions.put(start.getId(), start);
-            return Collections.emptyList();
-        } else if (start instanceof SourceAction) {
-            executionAction = start;
-            actions.put(start.getId(), start);
-        } else if (start instanceof TransformAction) {
+    private List<LogicalVertex> getSourceVertices() {
+        List<LogicalVertex> sourceVertices = new ArrayList<>();
+        for (LogicalVertex logicalVertex : logicalVertices) {
+            List<LogicalVertex> inputVertices = inputVerticesMap.get(logicalVertex.getVertexId());
+            if (inputVertices == null || inputVertices.size() == 0) {
+                sourceVertices.add(logicalVertex);
+            }
+        }
+        return sourceVertices;
+    }
 
-            List<SeaTunnelTransform<?>> transforms = new ArrayList<>();
+    private void createExecutionVertex(LogicalVertex logicalVertex) {
+        if (logicalToExecutionMap.containsKey(logicalVertex.getVertexId())) {
+            return;
+        }
+        final ArrayList<LogicalVertex> chainedVertices = new ArrayList<>();
+        findChainedVertices(logicalVertex, chainedVertices);
+        final long newId = idGenerator.getNextId();
+        Action newAction;
+        if (chainedVertices.size() < 1) {
+            newAction = recreateAction(logicalVertex.getAction(), newId);
+        } else {
+            List<SeaTunnelTransform> transforms = new ArrayList<>(chainedVertices.size());
+            List<String> names = new ArrayList<>(chainedVertices.size());
             Set<URL> jars = new HashSet<>();
-            for (TransformAction t : findMigrateTransform(logicalEdges, start)) {
-                transforms.add(t.getTransform());
-                jars.addAll(t.getJarUrls());
-                end = t;
-            }
-            TransformAction transform = (TransformAction) start;
-            jars.addAll(transform.getJarUrls());
-            transforms.add(0, transform.getTransform());
-            executionAction = new TransformChainAction(start.getId(), start.getName(),
-                    new ArrayList<>(jars), transforms);
-            actions.put(start.getId(), executionAction);
-        } else {
-            throw new UnknownActionException(start);
+            chainedVertices.stream()
+                .peek(vertex -> logicalToExecutionMap.put(vertex.getVertexId(), newId))
+                .map(LogicalVertex::getAction)
+                .map(action -> (TransformAction) action)
+                .forEach(action -> {
+                    transforms.add(action.getTransform());
+                    jars.addAll(action.getJarUrls());
+                    names.add(action.getName());
+                });
+            newAction = new TransformChainAction(newId,
+                String.join("->", names),
+                new ArrayList<>(jars),
+                transforms);
         }
-
-        final Action e = end;
-        // find next should be converted action
-        List<LogicalVertex> nextStarts =
-            logicalEdges.stream().filter(edge -> edge.getLeftVertex().getAction().equals(e))
-                .map(LogicalEdge::getRightVertex).collect(Collectors.toList());
-        for (LogicalVertex n : nextStarts) {
-            if (!edgeMap.containsKey(executionAction.getId())) {
-                edgeMap.put(executionAction.getId(), new ArrayList<>());
-            }
-            edgeMap.get(executionAction.getId()).add(n.getAction().getId());
-        }
-        return nextStarts;
+        ExecutionVertex executionVertex = new ExecutionVertex(newId, newAction, logicalVertex.getParallelism());
+        executionVertexMap.put(newId, executionVertex);
+        logicalToExecutionMap.put(logicalVertex.getVertexId(), executionVertex.getVertexId());
     }
 
-    private List<TransformAction> findMigrateTransform(List<LogicalEdge> executionEdges, Action start) {
-        List<Action> actionAfterStart =
-            executionEdges.stream().filter(edge -> edge.getLeftVertex().getAction().equals(start))
-                .map(edge -> edge.getRightVertex().getAction()).collect(Collectors.toList());
-        // make sure the start's next only have one LogicalTransform, so it can be migrated.
-        if (actionAfterStart.size() != 1 || actionAfterStart.get(0) instanceof PartitionTransformAction ||
-            actionAfterStart.get(0) instanceof SinkAction) {
-            return Collections.emptyList();
+    private static Action recreateAction(Action action, Long id) {
+        Action newAction;
+        if (action instanceof PartitionTransformAction) {
+            newAction = new PartitionTransformAction(id,
+                action.getName(),
+                action.getUpstream(),
+                ((PartitionTransformAction) action).getPartitionTransformation(),
+                action.getJarUrls());
+        } else if (action instanceof SinkAction) {
+            newAction = new SinkAction<>(id,
+                action.getName(),
+                action.getUpstream(),
+                ((SinkAction<?, ?, ?, ?>) action).getSink(),
+                action.getJarUrls());
+        } else if (action instanceof SourceAction){
+            newAction = new SourceAction<>(id,
+                action.getName(),
+                ((SourceAction<?, ?, ?>) action).getSource(),
+                action.getJarUrls());
         } else {
-            List<TransformAction> transforms = new ArrayList<>();
-            transforms.add((TransformAction) actionAfterStart.get(0));
-            transforms.addAll(findMigrateTransform(executionEdges, actionAfterStart.get(0)));
-            return transforms;
+            throw new UnknownActionException(action);
+        }
+        return newAction;
+    }
+
+    private void findChainedVertices(LogicalVertex logicalVertex, List<LogicalVertex> chainedVertices) {
+        Action action = logicalVertex.getAction();
+        // Currently only support Transform action chaining.
+        if (action instanceof TransformAction) {
+            if (chainedVertices.size() == 0) {
+                chainedVertices.add(logicalVertex);
+            } else if (inputVerticesMap.get(logicalVertex.getVertexId()).size() == 1) {
+                // It cannot be chained to any input vertex if it has multiple input vertices.
+                logicalEdges.remove(new LogicalEdge(chainedVertices.get(chainedVertices.size() - 1), logicalVertex));
+                chainedVertices.add(logicalVertex);
+            } else {
+                return;
+            }
+        } else {
+            return;
+        }
+
+        // It cannot chain to any target vertex if it has multiple target vertices.
+        if (targetVerticesMap.get(logicalVertex.getVertexId()).size() == 1) {
+            findChainedVertices(targetVerticesMap.get(logicalVertex.getVertexId()).get(0), chainedVertices);
         }
     }
 }
