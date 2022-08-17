@@ -19,10 +19,7 @@ name: Backend
 on:
   push:
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - 'seatunnel-ui/**'
+    paths:
       - 'seatunnel-engine/**'
 
 concurrency:
@@ -155,7 +152,7 @@ jobs:
           cache: 'maven'
       - name: Run Unit tests
         run: |
-          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+          ./mvnw -B -T 1C clean verify -D"maven.test.skip"=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -P engine_all
         env:
           MAVEN_OPTS: -Xmx2048m
 
@@ -178,6 +175,6 @@ jobs:
           cache: 'maven'
       - name: Run Integration tests
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -P engine_all
         env:
           MAVEN_OPTS: -Xmx2048m
