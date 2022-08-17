@@ -1102,7 +1102,6 @@
                             </jacoco-agent.destfile>
                         </systemPropertyVariables>
                         <excludes>
-                            <!--                            <exclude>seatunnel-e2e/seatunnel-engine-e2e/src/test/java/org/apache/seatunnel/engine/e2e/*IT.java</exclude>-->
                             <exclude>**/*IT.java</exclude>
                         </excludes>
                     </configuration>
