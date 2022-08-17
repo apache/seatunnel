@@ -53,7 +53,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
 
-    private static final long THREAD_WAIT_TIME = 100L;
+    private static final long THREAD_WAIT_TIME = 500L;
 
     private Map<String, Object> conf;
 
@@ -86,17 +86,24 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
             Thread.sleep(THREAD_WAIT_TIME);
             return;
         }
+        Session session = buildSession(conf);
         sourceSplits.forEach(source -> {
             try {
-                read(source, conf, output);
+                read(session, source, output);
             } catch (Exception e) {
                 throw new RuntimeException("IotDB source read error", e);
             }
         });
+
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // signal to the source that we have reached the end of the data.
+            log.info("Closed the bounded fake source");
+            context.signalNoMoreElement();
+        }
     }
 
-    private void read(IoTDBSourceSplit split, Map<String, Object> conf, Collector<SeaTunnelRow> output) throws Exception {
-        Session session = buildSession(conf);
+    private void read(Session session, IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
+
         session.open();
         try (SessionDataSet dataSet = session.executeQueryStatement(split.getQuery())) {
             while (dataSet.hasNext()) {
@@ -110,12 +117,6 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
             }
         } finally {
             session.close();
-        }
-
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            // signal to the source that we have reached the end of the data.
-            log.info("Closed the bounded fake source");
-            context.signalNoMoreElement();
         }
     }
 
