@@ -110,7 +110,9 @@ public class ExecutionPlanGenerator {
             for (int index = 0; index < vertices.size(); index++) {
                 LogicalVertex vertex = vertices.get(index);
                 createExecutionVertex(vertex);
-                vertices.addAll(targetVerticesMap.get(vertex.getVertexId()));
+                if (targetVerticesMap.containsKey(vertex.getVertexId())) {
+                    vertices.addAll(targetVerticesMap.get(vertex.getVertexId()));
+                }
             }
         });
         List<ExecutionEdge> executionEdges = createExecutionEdges();
