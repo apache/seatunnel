@@ -35,4 +35,6 @@ public interface ScriptMapper {
     List<Script> selectBySelectiveAndPage(@Param("script") Script script, @Param("start") int start, @Param("offset") int offset);
 
     Script selectByNameAndCreatorAndStatusNotEq(@Param("name") String name, @Param("creatorId") int creatorId, @Param("status") byte status);
+
+    int countBySelectiveAndPage(@Param("script") Script script);
 }

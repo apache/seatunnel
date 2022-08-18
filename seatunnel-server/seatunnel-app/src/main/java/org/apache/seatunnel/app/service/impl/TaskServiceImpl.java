@@ -38,9 +38,11 @@ import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.task.InstanceSimpleInfoRes;
 import org.apache.seatunnel.app.domain.response.task.JobSimpleInfoRes;
 import org.apache.seatunnel.app.service.ITaskService;
+import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.server.common.SeatunnelException;
 import org.apache.seatunnel.spi.scheduler.IInstanceService;
 import org.apache.seatunnel.spi.scheduler.IJobService;
@@ -153,27 +155,41 @@ public class TaskServiceImpl implements ITaskService {
     }
 
     @Override
-    public List<JobSimpleInfoRes> listJob(JobListReq req) {
+    public PageInfo<JobSimpleInfoRes> listJob(JobListReq req) {
         // Search from scheduler.
         final JobListDto dto = JobListDto.builder()
                 .name(req.getName())
                 .pageNo(req.getPageNo())
                 .pageSize(req.getPageSize())
                 .build();
-        final List<JobSimpleInfoDto> list = iJobService.list(dto);
-        return list.stream().map(this::translate).collect(Collectors.toList());
+        final PageData<JobSimpleInfoDto> list = iJobService.list(dto);
+        final List<JobSimpleInfoRes> data = list.getData().stream().map(this::translate).collect(Collectors.toList());
+        final PageInfo<JobSimpleInfoRes> pageInfo = new PageInfo<>();
+        pageInfo.setData(data);
+        pageInfo.setTotalCount(list.getTotalCount());
+        pageInfo.setPageNo(req.getPageNo());
+        pageInfo.setPageSize(req.getPageSize());
+
+        return pageInfo;
     }
 
     @Override
-    public List<InstanceSimpleInfoRes> listInstance(InstanceListReq req) {
+    public PageInfo<InstanceSimpleInfoRes> listInstance(InstanceListReq req) {
         // Search from scheduler.
         final InstanceListDto dto = InstanceListDto.builder()
                 .name(req.getName())
                 .pageNo(req.getPageNo())
                 .pageSize(req.getPageSize())
                 .build();
-        final List<InstanceDto> list = iInstanceService.list(dto);
-        return list.stream().map(this::translate).collect(Collectors.toList());
+        final PageData<InstanceDto> list = iInstanceService.list(dto);
+        final List<InstanceSimpleInfoRes> data = list.getData().stream().map(this::translate).collect(Collectors.toList());
+        final PageInfo<InstanceSimpleInfoRes> pageInfo = new PageInfo<>();
+        pageInfo.setData(data);
+        pageInfo.setTotalCount(list.getTotalCount());
+        pageInfo.setPageNo(req.getPageNo());
+        pageInfo.setPageSize(req.getPageSize());
+
+        return pageInfo;
     }
 
     @Override

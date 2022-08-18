@@ -15,25 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.dao;
+package org.apache.seatunnel.server.common;
 
-import org.apache.seatunnel.app.dal.entity.Script;
-import org.apache.seatunnel.app.domain.dto.script.AddEmptyScriptDto;
-import org.apache.seatunnel.app.domain.dto.script.CheckScriptDuplicateDto;
-import org.apache.seatunnel.app.domain.dto.script.ListScriptsDto;
-import org.apache.seatunnel.app.domain.dto.script.UpdateScriptContentDto;
-import org.apache.seatunnel.server.common.PageData;
+import lombok.Data;
 
-public interface IScriptDao {
-    void checkScriptDuplicate(CheckScriptDuplicateDto dto);
+import java.util.Collections;
+import java.util.List;
 
-    int addEmptyScript(AddEmptyScriptDto dto);
+@Data
+public class PageData<T> {
+    private int totalCount;
+    private List<T> data;
 
-    Script getScript(Integer id);
+    public PageData(int totalCount, List<T> data) {
+        this.totalCount = totalCount;
+        this.data = data;
+    }
 
-    void updateScriptContent(UpdateScriptContentDto dto);
+    public static <T> PageData<T> empty() {
+        return new PageData<>(0, Collections.emptyList());
+    }
 
-    void deleteScript(int id);
-
-    PageData<Script> list(ListScriptsDto dto, Integer pageNo, Integer pageSize);
+    public List<T> getData() {
+        if (data == null || data.size() == 0) {
+            return Collections.emptyList();
+        }
+        return data;
+    }
 }

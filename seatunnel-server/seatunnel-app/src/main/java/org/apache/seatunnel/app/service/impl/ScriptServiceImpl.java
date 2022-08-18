@@ -38,6 +38,7 @@ import org.apache.seatunnel.app.domain.request.script.PublishScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.script.AddEmptyScriptRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
@@ -45,6 +46,7 @@ import org.apache.seatunnel.app.service.IScriptService;
 import org.apache.seatunnel.app.service.ITaskService;
 import org.apache.seatunnel.app.util.Md5Utils;
 import org.apache.seatunnel.scheduler.dolphinscheduler.impl.InstanceServiceImpl;
+import org.apache.seatunnel.server.common.PageData;
 
 import com.google.common.base.Strings;
 import org.springframework.stereotype.Component;
@@ -143,15 +145,22 @@ public class ScriptServiceImpl implements IScriptService {
     }
 
     @Override
-    public List<ScriptSimpleInfoRes> list(ScriptListReq scriptListReq) {
+    public PageInfo<ScriptSimpleInfoRes> list(ScriptListReq scriptListReq) {
 
         final ListScriptsDto dto = ListScriptsDto.builder()
                 .name(scriptListReq.getName())
                 .status(scriptListReq.getStatus())
                 .build();
 
-        List<Script> scripts = scriptDaoImpl.list(dto, scriptListReq.getPageNo(), scriptListReq.getPageSize());
-        return scripts.stream().map(this::translate).collect(Collectors.toList());
+        PageData<Script> scripts = scriptDaoImpl.list(dto, scriptListReq.getRealPageNo(), scriptListReq.getPageSize());
+        final List<ScriptSimpleInfoRes> data = scripts.getData().stream().map(this::translate).collect(Collectors.toList());
+
+        final PageInfo<ScriptSimpleInfoRes> pageInfo = new PageInfo<>();
+        pageInfo.setPageNo(scriptListReq.getPageNo());
+        pageInfo.setPageSize(scriptListReq.getPageSize());
+        pageInfo.setTotalCount(scripts.getTotalCount());
+        pageInfo.setData(data);
+        return pageInfo;
     }
 
     @Override

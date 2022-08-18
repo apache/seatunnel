@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.dao;
+package org.apache.seatunnel.app.domain.request;
 
-import org.apache.seatunnel.app.dal.entity.Script;
-import org.apache.seatunnel.app.domain.dto.script.AddEmptyScriptDto;
-import org.apache.seatunnel.app.domain.dto.script.CheckScriptDuplicateDto;
-import org.apache.seatunnel.app.domain.dto.script.ListScriptsDto;
-import org.apache.seatunnel.app.domain.dto.script.UpdateScriptContentDto;
-import org.apache.seatunnel.server.common.PageData;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.Data;
 
-public interface IScriptDao {
-    void checkScriptDuplicate(CheckScriptDuplicateDto dto);
+@Data
+public class BasePageReq {
+    @ApiModelProperty(value = "page number", required = true, dataType = "Integer")
+    private Integer pageNo;
+    @ApiModelProperty(value = "page size", required = true, dataType = "Integer")
+    private Integer pageSize;
 
-    int addEmptyScript(AddEmptyScriptDto dto);
-
-    Script getScript(Integer id);
-
-    void updateScriptContent(UpdateScriptContentDto dto);
-
-    void deleteScript(int id);
-
-    PageData<Script> list(ListScriptsDto dto, Integer pageNo, Integer pageSize);
+    public int getRealPageNo() {
+        return pageNo - 1;
+    }
 }
