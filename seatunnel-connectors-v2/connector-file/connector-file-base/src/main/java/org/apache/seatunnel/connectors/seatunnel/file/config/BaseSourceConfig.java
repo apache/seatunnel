@@ -20,4 +20,5 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 public class BaseSourceConfig {
     public static final String FILE_TYPE = "type";
     public static final String FILE_PATH = "path";
+    public static final String SCHEMA = "schema";
 }
