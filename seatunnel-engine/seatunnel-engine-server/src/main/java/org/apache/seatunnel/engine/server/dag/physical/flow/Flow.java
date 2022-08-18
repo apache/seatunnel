@@ -31,4 +31,6 @@ public abstract class Flow implements Serializable {
     public List<Flow> getNext() {
         return next;
     }
+
+    public abstract long getFlowID();
 }
