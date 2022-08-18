@@ -15,16 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.config;
+package org.apache.seatunnel.connectors.seatunnel.iotdb.config;
 
-public class HttpConfig {
-    public static final String URL = "url";
-    public static final String METHOD = "method";
-    public static final String METHOD_DEFAULT_VALUE = "GET";
-    public static final String HEADERS = "headers";
-    public static final String PARAMS = "params";
-    public static final String BODY = "body";
-    public static final String SCHEMA = "schema";
-    public static final String FORMAT = "format";
-    public static final String DEFAULT_FORMAT = "json";
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.ToString;
+
+import java.util.List;
+
+@Getter
+@ToString
+@AllArgsConstructor
+public class CommonConfig {
+
+    public static final String NODE_URLS = "node_urls";
+    public static final String USERNAME = "username";
+    public static final String PASSWORD = "password";
+
+    private final List<String> nodeUrls;
+    private final String username;
+    private final String password;
 }

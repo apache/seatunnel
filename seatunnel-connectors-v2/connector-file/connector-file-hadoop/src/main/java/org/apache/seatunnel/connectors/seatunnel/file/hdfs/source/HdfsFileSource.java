@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
@@ -57,10 +58,19 @@ public class HdfsFileSource extends BaseFileSource {
         } catch (IOException e) {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
-        try {
-            rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
-        } catch (FilePluginException e) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read file schema error.", e);
+        // support user-defined schema
+        if (pluginConfig.hasPath(HdfsSourceConfig.SCHEMA)) {
+            Config schemaConfig = pluginConfig.getConfig(HdfsSourceConfig.SCHEMA);
+            rowType = SeatunnelSchema
+                    .buildWithConfig(schemaConfig)
+                    .getSeaTunnelRowType();
+            readStrategy.setSeaTunnelRowTypeInfo(rowType);
+        } else {
+            try {
+                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
+            } catch (FilePluginException e) {
+                throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Read file schema error.", e);
+            }
         }
     }
 }

@@ -36,6 +36,7 @@ import java.util.Map;
 
 public class SeatunnelSchema {
     private static final String FIELD_KEY = "fields";
+    private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;
 
     private SeatunnelSchema(SeaTunnelRowType seaTunnelRowType) {
@@ -209,6 +210,10 @@ public class SeatunnelSchema {
         }
         SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
         return new SeatunnelSchema(seaTunnelRowType);
+    }
+
+    public static SeaTunnelRowType buildSimpleTextSchema() {
+        return new SeaTunnelRowType(new String[]{SIMPLE_SCHEMA_FILED}, new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE});
     }
 
     public SeaTunnelRowType getSeaTunnelRowType() {
