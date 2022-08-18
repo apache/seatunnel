@@ -18,17 +18,25 @@
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import lombok.Data;
+import org.apache.hadoop.conf.Configuration;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 @Data
 public class HadoopConf implements Serializable {
-
-    private String hdfsNameKey;
-
-    private String fsHdfsImpl = "org.apache.hadoop.hdfs.DistributedFileSystem";
+    protected Map<String, String> extraOptions = new HashMap<>();
+    protected String hdfsNameKey;
+    protected String fsHdfsImpl = "org.apache.hadoop.hdfs.DistributedFileSystem";
 
     public HadoopConf(String hdfsNameKey) {
         this.hdfsNameKey = hdfsNameKey;
+    }
+
+    public void setExtraOptionsForConfiguration(Configuration configuration) {
+        if (!extraOptions.isEmpty()) {
+            extraOptions.forEach(configuration::set);
+        }
     }
 }

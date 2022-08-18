@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile");
+public class OssConf extends HadoopConf {
+    private final String fsHdfsImpl = "org.apache.seatunnel.connectors.seatunnel.file.oss.fs.OSSFileSystem";
 
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
+    @Override
+    public String getFsHdfsImpl() {
+        return fsHdfsImpl;
     }
 
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+    public OssConf(String hdfsNameKey) {
+        super(hdfsNameKey);
     }
 }

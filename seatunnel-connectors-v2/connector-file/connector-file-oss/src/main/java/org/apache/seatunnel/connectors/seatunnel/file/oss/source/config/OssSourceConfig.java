@@ -15,22 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile");
-
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
-    }
+public class OssSourceConfig extends BaseSourceConfig {
+    public static final String ACCESS_KEY = "accessKey";
+    public static final String ACCESS_SECRET = "accessSecret";
+    public static final String ENDPOINT = "endpoint";
+    public static final String BUCKET = "bucket";
 }
