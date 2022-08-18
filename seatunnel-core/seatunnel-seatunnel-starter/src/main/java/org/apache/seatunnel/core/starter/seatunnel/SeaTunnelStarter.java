@@ -39,6 +39,7 @@ public class SeaTunnelStarter {
         Common.setDeployMode(DeployMode.CLIENT);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
+        // TODO change jobConfig mode
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);

@@ -32,4 +32,12 @@
         <module>seatunnel-engine-core</module>
         <module>seatunnel-engine-storage</module>
     </modules>
+    
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 </project>

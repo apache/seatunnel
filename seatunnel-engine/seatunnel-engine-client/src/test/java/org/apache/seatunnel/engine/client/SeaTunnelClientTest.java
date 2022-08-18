@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -30,9 +30,11 @@ import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import org.junit.After;
 import org.junit.Assert;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,10 +45,12 @@ import java.util.concurrent.ExecutionException;
 @RunWith(JUnit4.class)
 public class SeaTunnelClientTest {
 
-    @BeforeClass
-    public static void beforeClass() throws Exception {
+    private HazelcastInstance instance;
+
+    @Before
+    public void beforeClass() throws Exception {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
+        instance = HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
             Thread.currentThread().getName(),
             new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
@@ -67,7 +71,7 @@ public class SeaTunnelClientTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setBoundedness(Boundedness.BOUNDED);
+        jobConfig.setMode(JobMode.BATCH);
         jobConfig.setName("fake_to_file");
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
@@ -83,5 +87,10 @@ public class SeaTunnelClientTest {
             // TODO throw exception after fix sink.setTypeInfo in ConnectorInstanceLoader
             //            throw new RuntimeException(e);
         }
+    }
+
+    @After
+    public void after() {
+        instance.shutdown();
     }
 }
