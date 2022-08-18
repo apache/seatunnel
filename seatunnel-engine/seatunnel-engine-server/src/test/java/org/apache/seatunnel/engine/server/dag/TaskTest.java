@@ -18,10 +18,10 @@
 package org.apache.seatunnel.engine.server.dag;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
 import org.apache.seatunnel.connectors.seatunnel.fake.source.FakeSource;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -34,18 +34,23 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.spi.impl.NodeEngine;
+import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collections;
+import java.util.concurrent.Executors;
 
 public class TaskTest {
 
@@ -53,14 +58,15 @@ public class TaskTest {
 
     private NodeEngine nodeEngine;
 
+    private HazelcastInstanceImpl instance;
+
     @Before
     public void before() {
         Config config = new Config();
         config.setInstanceName("test");
         config.setClusterName("test");
-        HazelcastInstanceImpl instance =
-                ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
-                        "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
+        instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
+                "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
         nodeEngine = instance.node.nodeEngine;
         service = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     }
@@ -100,13 +106,60 @@ public class TaskTest {
 
         JobConfig config = new JobConfig();
         config.setName("test");
-        config.setBoundedness(Boundedness.BOUNDED);
+        config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation));
+    }
 
+    @Test
+    public void testLogicalToPhysical() throws MalformedURLException {
+
+        IdGenerator idGenerator = new IdGenerator();
+
+        Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
+                Collections.singletonList(new URL("file:///fake.jar")));
+        LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
+
+        Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
+                Collections.singletonList(new URL("file:///fake.jar")));
+        LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
+
+        Action console = new SinkAction<>(idGenerator.getNextId(), "console", new ConsoleSink(),
+                Collections.singletonList(new URL("file:///console.jar")));
+        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
+
+        LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
+
+        LogicalDag logicalDag = new LogicalDag();
+        logicalDag.addLogicalVertex(fakeVertex);
+        logicalDag.addLogicalVertex(consoleVertex);
+        logicalDag.addLogicalVertex(fake2Vertex);
+        logicalDag.addEdge(edge);
+
+        JobConfig config = new JobConfig();
+        config.setName("test");
+        config.setMode(JobMode.BATCH);
+
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
+                nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+
+        PhysicalPlan physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
+                jobImmutableInformation,
+                System.currentTimeMillis(),
+                Executors.newCachedThreadPool(),
+                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME));
+
+        Assert.assertEquals(physicalPlan.getPipelineList().size(), 1);
+        Assert.assertEquals(physicalPlan.getPipelineList().get(0).getCoordinatorVertexList().size(), 1);
+        Assert.assertEquals(physicalPlan.getPipelineList().get(0).getPhysicalVertexList().size(), 1);
+    }
+
+    @After
+    public void after() {
+        instance.shutdown();
     }
 
 }

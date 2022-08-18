@@ -19,7 +19,9 @@ package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
@@ -135,69 +137,76 @@ public class JobConfigParser {
             }
             String sourceTableName = config.getString(Plugin.SOURCE_TABLE_NAME);
             List<Config> transformConfigList = transformResultTableNameMap.get(sourceTableName);
+            SeaTunnelDataType<?> dataType;
             if (CollectionUtils.isEmpty(transformConfigList)) {
-                sourceAnalyze(sourceTableName, sinkAction);
+                dataType = sourceAnalyze(sourceTableName, sinkAction);
             } else if (transformConfigList.size() > 1) {
                 throw new JobDefineCheckException("Only UnionTransform can have more than one upstream, "
                     + sinkAction.getName()
                     + " is not UnionTransform Connector");
             } else {
-                transformAnalyze(sourceTableName, sinkAction);
+                dataType = transformAnalyze(sourceTableName, sinkAction);
             }
-
+            sinkListImmutablePair.getLeft().setTypeInfo((SeaTunnelRowType) dataType);
         }
     }
 
-    private void sourceAnalyze(String sourceTableName, Action action) {
+    private SeaTunnelDataType sourceAnalyze(String sourceTableName, Action action) {
         List<Config> sourceConfigList = sourceResultTableNameMap.get(sourceTableName);
         if (CollectionUtils.isEmpty(sourceConfigList)) {
             throw new JobDefineCheckException(action.getName()
-                + " source table name [" + sourceTableName + "] can not be found");
+                    + " source table name [" + sourceTableName + "] can not be found");
         }
 
         // If a transform have more than one upstream action, the parallelism of this transform is the sum of the parallelism
         // of its upstream action.
+        SeaTunnelDataType dataType = null;
         AtomicInteger totalParallelism = new AtomicInteger();
-        sourceConfigList.stream().forEach(sourceConfig -> {
+        for (Config sourceConfig : sourceConfigList) {
             ImmutablePair<SeaTunnelSource, List<URL>> seaTunnelSourceListImmutablePair =
-                ConnectorInstanceLoader.loadSourceInstance(sourceConfig);
-
+                    ConnectorInstanceLoader.loadSourceInstance(sourceConfig);
+            dataType = seaTunnelSourceListImmutablePair.getLeft().getProducedType();
             SourceAction sourceAction = createSourceAction(
-                idGenerator.getNextId(),
-                sourceConfig.getString(CollectionConstants.PLUGIN_NAME),
-                seaTunnelSourceListImmutablePair.getLeft(),
-                seaTunnelSourceListImmutablePair.getRight());
+                    idGenerator.getNextId(),
+                    sourceConfig.getString(CollectionConstants.PLUGIN_NAME),
+                    seaTunnelSourceListImmutablePair.getLeft(),
+                    seaTunnelSourceListImmutablePair.getRight());
 
             int sourceParallelism = getSourceParallelism(sourceConfig);
             sourceAction.setParallelism(sourceParallelism);
             totalParallelism.set(totalParallelism.get() + sourceParallelism);
             action.addUpstream(sourceAction);
             action.setParallelism(totalParallelism.get());
-        });
+        }
+        return dataType;
     }
 
-    private void transformAnalyze(String sourceTableName, Action action) {
+    private SeaTunnelDataType<?> transformAnalyze(String sourceTableName, Action action) {
         // find upstream transform node
         List<Config> transformConfigList = transformResultTableNameMap.get(sourceTableName);
         if (CollectionUtils.isEmpty(transformConfigList)) {
-            sourceAnalyze(sourceTableName, action);
+            return sourceAnalyze(sourceTableName, action);
         } else {
             AtomicInteger totalParallelism = new AtomicInteger();
-            transformConfigList.stream().forEach(config -> {
-                ImmutablePair<SeaTunnelTransform, List<URL>> transformListImmutablePair =
-                    ConnectorInstanceLoader.loadTransformInstance(config);
-
+            SeaTunnelDataType<?> dataTypeResult = null;
+            for (Config config : transformConfigList) {
+                ImmutablePair<SeaTunnelTransform<?>, List<URL>> transformListImmutablePair =
+                        ConnectorInstanceLoader.loadTransformInstance(config);
                 TransformAction transformAction = createTransformAction(
-                    idGenerator.getNextId(),
-                    transformListImmutablePair.getLeft().getPluginName(),
-                    transformListImmutablePair.getLeft(),
-                    transformListImmutablePair.getRight());
+                        idGenerator.getNextId(),
+                        transformListImmutablePair.getLeft().getPluginName(),
+                        transformListImmutablePair.getLeft(),
+                        transformListImmutablePair.getRight());
 
                 action.addUpstream(transformAction);
-                transformAnalyze(config.getString(Plugin.SOURCE_TABLE_NAME), transformAction);
+                SeaTunnelDataType dataType = transformAnalyze(config.getString(Plugin.SOURCE_TABLE_NAME),
+                        transformAction);
+                transformListImmutablePair.getLeft().setTypeInfo(dataType);
+                dataTypeResult = transformListImmutablePair.getLeft().getProducedType();
                 totalParallelism.set(totalParallelism.get() + transformAction.getParallelism());
                 action.setParallelism(totalParallelism.get());
-            });
+            }
+            return dataTypeResult;
         }
     }
 
@@ -251,25 +260,27 @@ public class JobConfigParser {
             createSourceAction(idGenerator.getNextId(), pair.getLeft().getPluginName(), pair.getLeft(),
                 pair.getRight());
         sourceAction.setParallelism(getSourceParallelism(sourceConfigs.get(0)));
-
+        SeaTunnelDataType dataType = sourceAction.getSource().getProducedType();
         ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, List<URL>>
-            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
+                sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
 
         Action sinkUpstreamAction = sourceAction;
 
         if (!CollectionUtils.isEmpty(transformConfigs)) {
-            ImmutablePair<SeaTunnelTransform, List<URL>> transformListImmutablePair =
-                ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0));
+            ImmutablePair<SeaTunnelTransform<?>, List<URL>> transformListImmutablePair =
+                    ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0));
+            transformListImmutablePair.getLeft().setTypeInfo(dataType);
 
+            dataType = transformListImmutablePair.getLeft().getProducedType();
             TransformAction transformAction = createTransformAction(
-                idGenerator.getNextId(),
-                transformListImmutablePair.getLeft().getPluginName(),
-                Lists.newArrayList(sourceAction),
-                transformListImmutablePair.getLeft(),
-                transformListImmutablePair.getRight());
+                    idGenerator.getNextId(),
+                    transformListImmutablePair.getLeft().getPluginName(),
+                    Lists.newArrayList(sourceAction),
+                    transformListImmutablePair.getLeft(),
+                    transformListImmutablePair.getRight());
 
             initTransformParallelism(transformConfigs, sourceAction, transformListImmutablePair.getLeft(),
-                transformAction);
+                    transformAction);
 
             sinkUpstreamAction = transformAction;
         }
@@ -281,6 +292,7 @@ public class JobConfigParser {
             sinkListImmutablePair.getLeft(),
             sinkListImmutablePair.getRight()
         );
+        sinkAction.getSink().setTypeInfo((SeaTunnelRowType) dataType);
         sinkAction.setParallelism(sinkUpstreamAction.getParallelism());
         actions.add(sinkAction);
     }
