@@ -17,43 +17,31 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import com.hazelcast.logging.ILogger;
+import lombok.AllArgsConstructor;
 import lombok.NonNull;
 
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * For test use, only print logs
- */
-public class TestTask implements Task {
-
+@AllArgsConstructor
+public class StopTimeTestTask implements Task {
+    long callTime;
+    CopyOnWriteArrayList<Long> stopList;
     AtomicBoolean stop;
-    long sleep;
-    private final ILogger logger;
-    boolean isThreadsShare;
-
-    public TestTask(AtomicBoolean stop, ILogger logger, long sleep, boolean isThreadsShare){
-        this.stop = stop;
-        this.logger = logger;
-        this.sleep = sleep;
-        this.isThreadsShare = isThreadsShare;
-    }
 
     @NonNull
     @Override
     public ProgressState call() {
-        ProgressState progressState;
-        if (!stop.get()){
-            logger.info("TestTask is running.........");
-            try {
-                Thread.sleep(sleep);
-            } catch (InterruptedException e) {
-            }
-            progressState = ProgressState.MADE_PROGRESS;
-        }else {
-            progressState = ProgressState.DONE;
+        try {
+            Thread.sleep(callTime);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e.toString());
         }
-        return progressState;
+        if (stop.get()) {
+            stopList.add(Thread.currentThread().getId());
+            return ProgressState.DONE;
+        }
+        return ProgressState.MADE_PROGRESS;
     }
 
     @NonNull
@@ -64,6 +52,6 @@ public class TestTask implements Task {
 
     @Override
     public boolean isThreadsShare() {
-        return isThreadsShare;
+        return Task.super.isThreadsShare();
     }
 }

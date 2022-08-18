@@ -17,31 +17,45 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import lombok.AllArgsConstructor;
+import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@AllArgsConstructor
-public class StopTimeTestTask implements Task {
-    long callTime;
-    CopyOnWriteArrayList<Long> stopList;
+/**
+ * For test use, only print logs
+ */
+public class TestTask implements Task {
+
     AtomicBoolean stop;
+    long sleep;
+    private final ILogger logger;
+    boolean isThreadsShare;
+
+    public TestTask(AtomicBoolean stop, ILogger logger, long sleep, boolean isThreadsShare) {
+        this.stop = stop;
+        this.logger = logger;
+        this.sleep = sleep;
+        this.isThreadsShare = isThreadsShare;
+    }
 
     @NonNull
     @Override
     public ProgressState call() {
-        try {
-            Thread.sleep(callTime);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e.toString());
+        ProgressState progressState;
+        if (!stop.get()) {
+            logger.info("TestTask is running.........");
+            try {
+                Thread.sleep(sleep);
+            } catch (InterruptedException e) {
+                // The test needs to do that
+                logger.info(e.getMessage());
+            }
+            progressState = ProgressState.MADE_PROGRESS;
+        } else {
+            progressState = ProgressState.DONE;
         }
-        if(stop.get()){
-            stopList.add(Thread.currentThread().getId());
-            return ProgressState.DONE;
-        }
-        return ProgressState.MADE_PROGRESS;
+        return progressState;
     }
 
     @NonNull
@@ -52,6 +66,6 @@ public class StopTimeTestTask implements Task {
 
     @Override
     public boolean isThreadsShare() {
-        return Task.super.isThreadsShare();
+        return isThreadsShare;
     }
 }
