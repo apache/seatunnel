@@ -226,6 +226,6 @@ seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engi
 seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/config/YamlSeaTunnelConfigBuilder.java            from https://github.com/hazelcast/hazelcast
 seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/job/JobStatus.java                                    from https://github.com/apache/flink
 seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/execution/ExecutionState.java                     from https://github.com/apache/flink
-seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/utils/PassiveCompletableFuture.java               from https://github.com/apache/flink
+seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/utils/PassiveCompletableFuture.java               from https://github.com/hazelcast/hazelcast
 
 

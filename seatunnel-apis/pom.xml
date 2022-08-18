@@ -30,9 +30,35 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>seatunnel-api-base</module>
-        <module>seatunnel-api-flink</module>
-        <module>seatunnel-api-spark</module>
+
     </modules>
+
+    <profiles>
+        <profile>
+            <id>all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-api-base</module>
+                <module>seatunnel-api-flink</module>
+                <module>seatunnel-api-spark</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>engine-all</id>
+            <modules>
+                <module>seatunnel-api-base</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>release</id>
+            <modules>
+                <module>seatunnel-api-base</module>
+                <module>seatunnel-api-flink</module>
+                <module>seatunnel-api-spark</module>
+            </modules>
+        </profile>
+    </profiles>
 
 </project>
