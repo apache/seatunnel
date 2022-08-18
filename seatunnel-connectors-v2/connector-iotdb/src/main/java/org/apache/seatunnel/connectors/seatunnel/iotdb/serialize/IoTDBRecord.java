@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.http.config;
+package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
-public class HttpConfig {
-    public static final String URL = "url";
-    public static final String METHOD = "method";
-    public static final String METHOD_DEFAULT_VALUE = "GET";
-    public static final String HEADERS = "headers";
-    public static final String PARAMS = "params";
-    public static final String BODY = "body";
-    public static final String SCHEMA = "schema";
-    public static final String FORMAT = "format";
-    public static final String DEFAULT_FORMAT = "json";
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.ToString;
+import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+
+import java.util.List;
+
+@Getter
+@ToString
+@AllArgsConstructor
+public class IoTDBRecord {
+
+    private String device;
+    private Long timestamp;
+    private List<String> measurements;
+    private List<TSDataType> types;
+    private List<Object> values;
 }

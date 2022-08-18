@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -37,10 +38,12 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     protected final SingleSplitReaderContext context;
     protected final HttpParameter httpParameter;
     protected HttpClientProvider httpClient;
+    protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context) {
+    public HttpSourceReader(HttpParameter httpParameter, SingleSplitReaderContext context, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.context = context;
         this.httpParameter = httpParameter;
+        this.deserializationSchema = deserializationSchema;
     }
 
     @Override
@@ -60,7 +63,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         try {
             HttpResponse response = httpClient.execute(this.httpParameter.getUrl(), this.httpParameter.getMethod(), this.httpParameter.getHeaders(), this.httpParameter.getParams());
             if (HttpResponse.STATUS_OK == response.getCode()) {
-                output.collect(new SeaTunnelRow(new Object[] {response.getContent()}));
+                String content = response.getContent();
+                if (deserializationSchema != null) {
+                    deserializationSchema.deserialize(content.getBytes(), output);
+                } else {
+                    // TODO: use seatunnel-text-format
+                    output.collect(new SeaTunnelRow(new Object[]{content}));
+                }
                 return;
             }
             LOGGER.error("http client execute exception, http response status code:[{}], content:[{}]", response.getCode(), response.getContent());
