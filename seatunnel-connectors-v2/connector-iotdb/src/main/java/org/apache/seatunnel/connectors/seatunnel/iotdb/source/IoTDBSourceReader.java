@@ -36,12 +36,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.session.Session;
 import org.apache.iotdb.session.SessionDataSet;
 import org.apache.iotdb.session.util.Version;
 import org.apache.iotdb.tsfile.read.common.Field;
 import org.apache.iotdb.tsfile.read.common.RowRecord;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -63,6 +65,8 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
 
     private SeaTunnelRowType seaTunnelRowType;
 
+    private Session session;
+
     public IoTDBSourceReader(Map<String, Object> conf, SourceReader.Context readerContext, SeaTunnelRowType seaTunnelRowType) {
         this.conf = conf;
         this.sourceSplits = new HashSet<>();
@@ -71,13 +75,19 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
     }
 
     @Override
-    public void open() {
-        //nothing to do
+    public void open() throws IoTDBConnectionException {
+        session = buildSession(conf);
+        session.open();
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         //nothing to do
+        try {
+            session.close();
+        } catch (IoTDBConnectionException e) {
+            throw new IOException("close IoTDB session failed", e);
+        }
     }
 
     @Override
@@ -86,10 +96,9 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
             Thread.sleep(THREAD_WAIT_TIME);
             return;
         }
-        Session session = buildSession(conf);
         sourceSplits.forEach(source -> {
             try {
-                read(session, source, output);
+                read(source, output);
             } catch (Exception e) {
                 throw new RuntimeException("IotDB source read error", e);
             }
@@ -102,9 +111,7 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
         }
     }
 
-    private void read(Session session, IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
-
-        session.open();
+    private void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
         try (SessionDataSet dataSet = session.executeQueryStatement(split.getQuery())) {
             while (dataSet.hasNext()) {
                 RowRecord row = dataSet.next();
@@ -115,8 +122,6 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
                 }
                 output.collect(new SeaTunnelRow(datas));
             }
-        } finally {
-            session.close();
         }
     }
 

@@ -17,12 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PORT;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.FIELDS_K_V_SPLIT;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.FIELDS_SPLIT;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
@@ -30,13 +27,13 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -70,11 +67,8 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
                 throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "host and port and node urls are both empty");
             }
         }
-        if (pluginConfig.getString(FIELDS) == null) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "fields is empty");
-        }
-        this.typeInfo = convertToType(pluginConfig.getString(FIELDS));
-
+        SeatunnelSchema seatunnelSchema = SeatunnelSchema.buildWithConfig(pluginConfig);
+        this.typeInfo = seatunnelSchema.getSeaTunnelRowType();
         pluginConfig.entrySet().forEach(entry -> configParams.put(entry.getKey(), entry.getValue().unwrapped()));
     }
 
@@ -103,38 +97,5 @@ public class IoTDBSource implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSpl
         return new IoTDBSourceSplitEnumerator(enumeratorContext, checkpointState, configParams);
     }
 
-    private SeaTunnelRowType convertToType(String fields) {
-        String[] fieldArray = fields.split(FIELDS_SPLIT);
-
-        String[] seatunnelFields = new String[fieldArray.length];
-        SeaTunnelDataType[] stunnelTypes = new SeaTunnelDataType[fieldArray.length];
-
-        for (int i = 0; i < fieldArray.length; i++) {
-            String[] kv = fieldArray[i].split(FIELDS_K_V_SPLIT);
-            seatunnelFields[i] = kv[0];
-            stunnelTypes[i] = convertToDataType(kv[1]);
-        }
-        return new SeaTunnelRowType(seatunnelFields, stunnelTypes);
-    }
-
-    private SeaTunnelDataType convertToDataType(String type) {
-
-        switch (type) {
-            case "INT32":
-                return BasicType.INT_TYPE;
-            case "INT64":
-                return BasicType.LONG_TYPE;
-            case "FLOAT":
-                return BasicType.FLOAT_TYPE;
-            case "DOUBLE":
-                return BasicType.DOUBLE_TYPE;
-            case "TEXT":
-                return BasicType.STRING_TYPE;
-            case "BOOLEAN":
-                return BasicType.BOOLEAN_TYPE;
-            default:
-                throw new IllegalArgumentException("unknown type: " + type);
-        }
-    }
 }
 

@@ -43,25 +43,6 @@ public class SourceConfig {
     /*---------------------- multiple node configurations -------------------------*/
 
     /**
-     * multiple nodes
-     */
-    public static final String NODE_URLS = "node_urls";
-
-    /**
-     * Query fields
-     * e.g.
-     * "name:TEXT,age:INT32,height:INT32"
-     */
-    public static final String FIELDS = "fields";
-
-    /*---------------------- other configurations -------------------------*/
-
-    /**
-     * Fetches the next batch of data from the source.
-     */
-    public static final String FETCH_SIZE = "fetch_size";
-
-    /**
      * Username for the source.
      */
     public static final String USERNAME = "username";
@@ -70,6 +51,18 @@ public class SourceConfig {
      * Password for the source.
      */
     public static final String PASSWORD = "password";
+
+    /**
+     * multiple nodes
+     */
+    public static final String NODE_URLS = "node_urls";
+
+    /*---------------------- other configurations -------------------------*/
+
+    /**
+     * Fetches the next batch of data from the source.
+     */
+    public static final String FETCH_SIZE = "fetch_size";
 
     /**
      * thrift default buffer size

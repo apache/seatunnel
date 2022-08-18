@@ -45,6 +45,13 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
     private Set<IoTDBSourceSplit> assignedSplit;
     private Map<String, Object> conf;
 
+    /**
+     * A SQL statement can contain at most one where
+     * We split the SQL using the where keyword
+     * Therefore, it can be split into two SQL at most
+     */
+    private static final int SQL_WHERE_SPLIT_LENGTH = 2;
+
     public IoTDBSourceSplitEnumerator(SourceSplitEnumerator.Context<IoTDBSourceSplit> context, Map<String, Object> conf) {
         this.context = context;
         this.conf = conf;
@@ -93,6 +100,9 @@ public class IoTDBSourceSplitEnumerator implements SourceSplitEnumerator<IoTDBSo
         long end = Long.parseLong(conf.get(UPPER_BOUND).toString());
         int numPartitions = Integer.parseInt(conf.get(NUM_PARTITIONS).toString());
         String[] sqls = sql.split(SQL_WHERE);
+        if (sqls.length > SQL_WHERE_SPLIT_LENGTH) {
+            throw new IllegalArgumentException("sql should not contain more than one where");
+        }
         int size = (int) (end - start) / numPartitions + 1;
         int remainder = (int) ((end + 1 - start) % numPartitions);
         if (end - start < numPartitions) {
