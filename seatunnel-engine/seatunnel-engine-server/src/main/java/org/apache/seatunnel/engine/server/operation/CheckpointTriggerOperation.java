@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
@@ -52,7 +52,7 @@ public class CheckpointTriggerOperation extends AsyncOperation {
     }
 
     @Override
-    protected NonCompletableFuture<?> doRun() throws Exception {
+    protected PassiveCompletableFuture<?> doRun() throws Exception {
         // TODO: All source Vertexes executed
         return null;
     }
