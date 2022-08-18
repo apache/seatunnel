@@ -297,8 +297,7 @@ public class PhysicalPlanGenerator {
                     List<SeaTunnelTask> taskList =
                             flows.stream().map(f -> {
                                 setFlowConfig(f, finalParallelismIndex);
-                                long taskIDPrefix = flowTaskIDPrefixMap.computeIfAbsent(f.getFlowID(),
-                                        id -> idGenerator.getNextId());
+                                long taskIDPrefix = flowTaskIDPrefixMap.computeIfAbsent(f.getFlowID(), id -> idGenerator.getNextId());
                                 if (f instanceof PhysicalExecutionFlow) {
                                     return new SourceSeaTunnelTask<>(jobImmutableInformation.getJobId(),
                                             new TaskLocation(taskGroupID,
