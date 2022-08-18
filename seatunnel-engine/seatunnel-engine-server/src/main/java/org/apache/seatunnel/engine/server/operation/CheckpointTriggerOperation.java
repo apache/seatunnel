@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
+import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
@@ -24,7 +25,6 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
 public class CheckpointTriggerOperation extends AsyncOperation {
     private CheckpointBarrier checkpointBarrier;
@@ -52,7 +52,7 @@ public class CheckpointTriggerOperation extends AsyncOperation {
     }
 
     @Override
-    protected CompletableFuture<?> doRun() throws Exception {
+    protected NonCompletableFuture<?> doRun() throws Exception {
         // TODO: All source Vertexes executed
         return null;
     }
