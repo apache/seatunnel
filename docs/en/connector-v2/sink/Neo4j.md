@@ -63,7 +63,7 @@ The maximum amount of time to wait for a TCP connection to be established (secon
 ## Example
 ```
 sink {
-  Neo4jSink {
+  Neo4j {
     uri = "neo4j://localhost:7687"
     username = "neo4j"
     password = "1234"

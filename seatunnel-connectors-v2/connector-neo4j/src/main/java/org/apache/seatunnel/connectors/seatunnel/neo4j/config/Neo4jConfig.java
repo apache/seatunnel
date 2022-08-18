@@ -27,7 +27,7 @@ import java.util.Map;
 @Setter
 public class Neo4jConfig implements Serializable {
 
-    public static final String KEY_SINK_PLUGIN_NAME = "Neo4jSink";
+    public static final String PLUGIN_NAME = "Neo4j";
     public static final String KEY_NEO4J_URI = "uri";
     public static final String KEY_USERNAME = "username";
     public static final String KEY_PASSWORD = "password";
