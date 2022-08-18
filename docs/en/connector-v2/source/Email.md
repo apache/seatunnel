@@ -1,5 +1,7 @@
 # Email
 
+> Email source connector
+
 ## Description
 
 Send the data as a file to email.

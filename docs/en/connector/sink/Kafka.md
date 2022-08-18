@@ -1,5 +1,7 @@
 # Kafka
 
+> Kafka sink connector
+
 ## Description
 
 Write Rows to a Kafka topic.

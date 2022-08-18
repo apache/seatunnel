@@ -1,6 +1,6 @@
 # Common Options
 
-## Source common parameters
+> Common parameters of source connectors
 
 | name              | type   | required | default value |
 | ----------------- | ------ | -------- | ------------- |

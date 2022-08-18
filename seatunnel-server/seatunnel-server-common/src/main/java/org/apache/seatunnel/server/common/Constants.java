@@ -19,4 +19,6 @@ package org.apache.seatunnel.server.common;
 
 public class Constants {
     public static final String BLANK_SPACE = " ";
+    public static final String COMMA = ",";
+    public static final String UNDERLINE = "_";
 }

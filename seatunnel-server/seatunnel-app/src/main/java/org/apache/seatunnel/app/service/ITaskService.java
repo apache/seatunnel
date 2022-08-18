@@ -18,6 +18,7 @@
 package org.apache.seatunnel.app.service;
 
 import org.apache.seatunnel.app.domain.dto.job.PushScriptDto;
+import org.apache.seatunnel.app.domain.request.task.ExecuteReq;
 import org.apache.seatunnel.app.domain.request.task.InstanceListReq;
 import org.apache.seatunnel.app.domain.request.task.JobListReq;
 import org.apache.seatunnel.app.domain.request.task.RecycleScriptReq;
@@ -33,5 +34,7 @@ public interface ITaskService {
 
     List<JobSimpleInfoRes> listJob(JobListReq req);
 
-    List<InstanceSimpleInfoRes> listInstance(InstanceListReq dto);
+    List<InstanceSimpleInfoRes> listInstance(InstanceListReq req);
+
+    InstanceSimpleInfoRes tmpExecute(ExecuteReq req);
 }
