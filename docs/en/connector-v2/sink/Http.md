@@ -1,5 +1,7 @@
 # Http
 
+> Http sink connector
+
 ## Description
 
 Used to launch web hooks using data. Both support streaming and batch mode.

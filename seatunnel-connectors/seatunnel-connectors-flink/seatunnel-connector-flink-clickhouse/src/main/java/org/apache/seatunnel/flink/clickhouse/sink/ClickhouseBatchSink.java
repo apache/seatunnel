@@ -82,7 +82,11 @@ public class ClickhouseBatchSink implements FlinkBatchSink {
 
     @Override
     public CheckResult checkConfig() {
-        return CheckConfigUtil.checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD);
+        if (config.hasPath(USERNAME) && config.hasPath(PASSWORD)) {
+            return CheckConfigUtil.checkAllExists(config, HOST, TABLE, DATABASE, USERNAME, PASSWORD);
+        } else {
+            return CheckConfigUtil.checkAllExists(config, HOST, TABLE, DATABASE);
+        }
     }
 
     @Override

@@ -1,6 +1,6 @@
 # Druid
 
-> # Sink plugin: Druid [Flink]
+> Druid sink connector
 
 ## Description
 

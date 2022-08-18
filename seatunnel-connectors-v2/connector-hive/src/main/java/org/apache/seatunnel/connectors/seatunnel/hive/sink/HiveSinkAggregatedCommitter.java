@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.util.HdfsUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.FileAggregatedCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.hdfs.HdfsUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -45,11 +45,11 @@ public class HiveSinkAggregatedCommitter implements SinkAggregatedCommitter<Hive
         if (CollectionUtils.isEmpty(aggregatedCommitInfoList)) {
             return null;
         }
-        List errorAggregatedCommitInfoList = new ArrayList();
+        List<HiveAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
         HiveMetaStoreProxy hiveMetaStoreProxy = new HiveMetaStoreProxy(aggregatedCommitInfoList.get(0).getHiveMetastoreUris());
         HiveMetaStoreClient hiveMetaStoreClient = hiveMetaStoreProxy.getHiveMetaStoreClient();
         try {
-            aggregatedCommitInfoList.stream().forEach(aggregateCommitInfo -> {
+            aggregatedCommitInfoList.forEach(aggregateCommitInfo -> {
                 try {
                     for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getFileAggregatedCommitInfo().getTransactionMap().entrySet()) {
                         // rollback the file
@@ -94,12 +94,8 @@ public class HiveSinkAggregatedCommitter implements SinkAggregatedCommitter<Hive
         }
         Map<String, Map<String, String>> aggregateCommitInfo = new HashMap<>();
         Map<String, List<String>> partitionDirAndValsMap = new HashMap<>();
-        commitInfos.stream().forEach(commitInfo -> {
-            Map<String, String> needMoveFileMap = aggregateCommitInfo.get(commitInfo.getFileCommitInfo().getTransactionDir());
-            if (needMoveFileMap == null) {
-                needMoveFileMap = new HashMap<>();
-                aggregateCommitInfo.put(commitInfo.getFileCommitInfo().getTransactionDir(), needMoveFileMap);
-            }
+        commitInfos.forEach(commitInfo -> {
+            Map<String, String> needMoveFileMap = aggregateCommitInfo.computeIfAbsent(commitInfo.getFileCommitInfo().getTransactionDir(), k -> new HashMap<>());
             needMoveFileMap.putAll(commitInfo.getFileCommitInfo().getNeedMoveFiles());
             Set<Map.Entry<String, List<String>>> entries = commitInfo.getFileCommitInfo().getPartitionDirAndValsMap().entrySet();
             if (!CollectionUtils.isEmpty(entries)) {

@@ -1,5 +1,7 @@
 # Hive
 
+> Hive source connector
+
 ## Description
 
 Get data from hive

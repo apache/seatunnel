@@ -1,5 +1,7 @@
 # Apache Pulsar
 
+> Apache Pulsar source connector
+
 ## Description
 
 Source connector for Apache Pulsar. It can support both off-line and real-time jobs.

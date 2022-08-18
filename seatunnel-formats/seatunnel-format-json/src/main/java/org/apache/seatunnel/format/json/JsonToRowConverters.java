@@ -258,7 +258,7 @@ public class JsonToRowConverters implements Serializable {
     }
 
     /**
-     * Runtime converter that converts {@link JsonNode}s into objects of Flink Table & SQL internal
+     * Runtime converter that converts {@link JsonNode}s into objects of internal
      * data structures.
      */
     @FunctionalInterface
