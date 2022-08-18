@@ -32,6 +32,11 @@
     <packaging>pom</packaging>
     <dependencies>
         <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>checkpoint-storage-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.auto.service</groupId>
             <artifactId>auto-service</artifactId>
         </dependency>
@@ -39,6 +44,7 @@
     
     <modules>
         <module>checkpoint-storage-local-file</module>
+        <module>checkpoint-storage-hdfs</module>
     </modules>
 
 </project>
