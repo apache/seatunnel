@@ -23,18 +23,17 @@ import java.io.Serializable;
  * The state of {@link  org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask},
  * The task usually start in the state {@code CREATED} and switch states according to this diagram:
  * <p>
- * CREATED -> INIT  -> READY -> READER_REGISTER_COMPLETE  -> ASSIGN -> WAITING_FEEDBACK -> READER_CLOSED -> CLOSED
- * |        |          |                         |              |
- * |        |          |                         |              |
- * |        |          |                         |              |
- * |        |          |                         |              |
- * +--------+----------+-------------------------+--------------+--> CANCELLING ----> CANCELED
+ * CREATED -> INIT  -> READER_REGISTER_COMPLETE  -> ASSIGN -> WAITING_FEEDBACK -> READER_CLOSED -> CLOSED
+ * |        |          |                            |              |
+ * |        |          |                            |              |
+ * |        |          |                            |              |
+ * |        |          |                            |              |
+ * +--------+----------+----------------------------+--------------+--> CANCELLING ----> CANCELED
  *                                                  ... -> FAILED
  */
 public enum EnumeratorState implements Serializable {
     CREATED,
     INIT,
-    READY,
     READER_REGISTER_COMPLETE,
     ASSIGN,
     WAITING_FEEDBACK,
