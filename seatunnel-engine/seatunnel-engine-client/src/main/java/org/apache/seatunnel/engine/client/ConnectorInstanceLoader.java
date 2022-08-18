@@ -79,7 +79,7 @@ public class ConnectorInstanceLoader {
         return new ImmutablePair<>(seaTunnelSink, pluginJarPaths);
     }
 
-    public static ImmutablePair<SeaTunnelTransform, List<URL>> loadTransformInstance(Config transformConfig) {
+    public static ImmutablePair<SeaTunnelTransform<?>, List<URL>> loadTransformInstance(Config transformConfig) {
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery = new SeaTunnelTransformPluginDiscovery();
         PluginIdentifier pluginIdentifier = PluginIdentifier.of(
             CollectionConstants.SEATUNNEL_PLUGIN,
@@ -87,7 +87,8 @@ public class ConnectorInstanceLoader {
             transformConfig.getString(CollectionConstants.PLUGIN_NAME));
 
         List<URL> pluginJarPaths = transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
-        SeaTunnelTransform seaTunnelTransform = transformPluginDiscovery.createPluginInstance(pluginIdentifier);
+        SeaTunnelTransform<?> seaTunnelTransform =
+                transformPluginDiscovery.createPluginInstance(pluginIdentifier);
         return new ImmutablePair<>(seaTunnelTransform, pluginJarPaths);
     }
 }

@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import java.io.Serializable;
+
 /**
  * An enumeration of all states that a task can be in during its execution. Tasks usually start in
  * the state {@code CREATED} and switch states according to this diagram:
@@ -43,7 +45,7 @@ package org.apache.seatunnel.engine.server.execution;
  * <p>The states {@code FINISHED}, {@code CANCELED}, and {@code FAILED} are considered terminal
  * states.
  */
-public enum ExecutionState {
+public enum ExecutionState implements Serializable {
     CREATED,
 
     SCHEDULED,

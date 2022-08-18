@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-public class TaskExecutionState {
+import java.io.Serializable;
+
+public class TaskExecutionState implements Serializable {
 
     private final long taskExecutionId;
 

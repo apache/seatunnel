@@ -37,11 +37,7 @@ public class SimpleResourceManager implements ResourceManager {
     @Override
     public Address applyForResource(long jobId, long taskId) {
         try {
-            Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.get(jobId);
-            if (jobAddressMap == null) {
-                jobAddressMap = new HashMap<>();
-                physicalVertexIdAndResourceMap.put(jobId, jobAddressMap);
-            }
+            Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.computeIfAbsent(jobId, k -> new HashMap<>());
 
             Address localhost =
                     jobAddressMap.putIfAbsent(taskId, new Address("localhost", 5701));
