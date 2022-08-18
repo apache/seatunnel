@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.flink.v2.jdbc;
+package org.apache.seatunnel.e2e.spark.v2.jdbc;
 
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
-import org.apache.seatunnel.e2e.flink.FlinkContainer;
+import org.apache.seatunnel.e2e.spark.SparkContainer;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -36,19 +36,23 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class JdbcGreenplumToConsoleIT extends FlinkContainer {
+public class JdbcGreenplumIT extends SparkContainer {
 
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
-    private static final String GREENPLUM_CONTAINER_HOST = "flink_e2e_greenplum_source";
+    private static final String GREENPLUM_CONTAINER_HOST = "spark_e2e_greenplum";
     private static final int GREENPLUM_CONTAINER_PORT = 5432;
     private static final String GREENPLUM_HOST = "localhost";
-    private static final int GREENPLUM_PORT = 5435;
+    private static final int GREENPLUM_PORT = 5436;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
@@ -79,9 +83,22 @@ public class JdbcGreenplumToConsoleIT extends FlinkContainer {
     }
 
     @Test
-    public void testJdbcGreenplumToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_greenplum_to_console.conf");
+    public void testJdbcGreenplumSourceAndSink() throws IOException, InterruptedException, SQLException {
+        Container.ExecResult execResult = executeSeaTunnelSparkJob("/jdbc/jdbc_greenplum_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+
+        // query result
+        String sql = "select age, name from sink";
+        List<Object> result = new ArrayList<>();
+        try (Statement statement = jdbcConnection.createStatement()) {
+            ResultSet resultSet = statement.executeQuery(sql);
+            while (resultSet.next()) {
+                result.add(Arrays.asList(
+                        resultSet.getInt("age"),
+                        resultSet.getString("name")));
+            }
+        }
+        Assertions.assertEquals(100, result.size());
     }
 
     private void initializeJdbcConnection() throws SQLException {
@@ -91,17 +108,22 @@ public class JdbcGreenplumToConsoleIT extends FlinkContainer {
 
     private void initializeJdbcTable() throws SQLException {
         try (Statement statement = jdbcConnection.createStatement()) {
-            String sql = "CREATE TABLE test (\n" +
+            String createSource = "CREATE TABLE source (\n" +
                     "age INT NOT NULL,\n" +
                     "name VARCHAR(255) NOT NULL\n" +
                     ")";
-            statement.execute(sql);
+            String createSink = "CREATE TABLE sink (\n" +
+                    "age INT NOT NULL,\n" +
+                    "name VARCHAR(255) NOT NULL\n" +
+                    ")";
+            statement.execute(createSource);
+            statement.execute(createSink);
         }
     }
 
     private void batchInsertData() throws SQLException {
         int batchSize = 100;
-        String sql = "insert into test(age, name) values(?, ?)";
+        String sql = "insert into source(age, name) values(?, ?)";
 
         try {
             jdbcConnection.setAutoCommit(false);

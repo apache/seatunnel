@@ -35,6 +35,7 @@ import org.testcontainers.lifecycle.Startables;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -45,13 +46,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-public class FakeSourceToJdbcGreenplumIT extends FlinkContainer {
+public class JdbcGreenplumIT extends FlinkContainer {
 
     private static final String GREENPLUM_IMAGE = "datagrip/greenplum:6.8";
-    private static final String GREENPLUM_CONTAINER_HOST = "flink_e2e_greenplum_sink";
+    private static final String GREENPLUM_CONTAINER_HOST = "flink_e2e_greenplum";
     private static final int GREENPLUM_CONTAINER_PORT = 5432;
     private static final String GREENPLUM_HOST = "localhost";
-    private static final int GREENPLUM_PORT = 5436;
+    private static final int GREENPLUM_PORT = 5435;
     private static final String GREENPLUM_USER = "tester";
     private static final String GREENPLUM_PASSWORD = "pivotal";
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
@@ -78,15 +79,16 @@ public class FakeSourceToJdbcGreenplumIT extends FlinkContainer {
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(() -> initializeJdbcConnection());
         initializeJdbcTable();
+        batchInsertData();
     }
 
     @Test
-    public void testFakeSourceToJdbcGreenplumSink() throws SQLException, IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_jdbc_greenplum.conf");
+    public void testJdbcGreenplumSourceAndSink() throws IOException, InterruptedException, SQLException {
+        Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/jdbc_greenplum_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         // query result
-        String sql = "select age, name from test";
+        String sql = "select age, name from sink";
         List<Object> result = new ArrayList<>();
         try (Statement statement = jdbcConnection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
@@ -96,7 +98,7 @@ public class FakeSourceToJdbcGreenplumIT extends FlinkContainer {
                         resultSet.getString("name")));
             }
         }
-        Assertions.assertEquals(false, result.isEmpty());
+        Assertions.assertEquals(100, result.size());
     }
 
     private void initializeJdbcConnection() throws SQLException {
@@ -106,11 +108,37 @@ public class FakeSourceToJdbcGreenplumIT extends FlinkContainer {
 
     private void initializeJdbcTable() throws SQLException {
         try (Statement statement = jdbcConnection.createStatement()) {
-            String sql = "CREATE TABLE test (\n" +
+            String createSource = "CREATE TABLE source (\n" +
                     "age INT NOT NULL,\n" +
                     "name VARCHAR(255) NOT NULL\n" +
                     ")";
-            statement.execute(sql);
+            String createSink = "CREATE TABLE sink (\n" +
+                    "age INT NOT NULL,\n" +
+                    "name VARCHAR(255) NOT NULL\n" +
+                    ")";
+            statement.execute(createSource);
+            statement.execute(createSink);
+        }
+    }
+
+    private void batchInsertData() throws SQLException {
+        int batchSize = 100;
+        String sql = "insert into source(age, name) values(?, ?)";
+
+        try {
+            jdbcConnection.setAutoCommit(false);
+            try (PreparedStatement preparedStatement = jdbcConnection.prepareStatement(sql)) {
+                for (int i = 1; i <= batchSize; i++) {
+                    preparedStatement.setInt(1, i);
+                    preparedStatement.setString(2, String.format("test_%s", i));
+                    preparedStatement.addBatch();
+                }
+                preparedStatement.executeBatch();
+            }
+            jdbcConnection.commit();
+        } catch (SQLException e) {
+            jdbcConnection.rollback();
+            throw e;
         }
     }
 

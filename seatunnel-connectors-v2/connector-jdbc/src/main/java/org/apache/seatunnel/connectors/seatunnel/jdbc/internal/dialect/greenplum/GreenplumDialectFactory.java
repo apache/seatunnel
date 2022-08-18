@@ -22,12 +22,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
 import com.google.auto.service.AutoService;
+import lombok.NonNull;
 
 @AutoService(JdbcDialectFactory.class)
 public class GreenplumDialectFactory implements JdbcDialectFactory {
 
     @Override
-    public boolean acceptsURL(String url) {
+    public boolean acceptsURL(@NonNull String url) {
         // Support greenplum native driver: com.pivotal.jdbc.GreenplumDriver
         return url.startsWith("jdbc:pivotal:greenplum:");
     }
