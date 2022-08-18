@@ -98,7 +98,7 @@ jobs:
           cache: 'maven'
       - name: Build distribution tar
         run: >-
-          ./mvnw -B install scalastyle:check
+          ./mvnw -B -T 1C install scalastyle:check
           -D"maven.test.skip"=true
           -D"checkstyle.skip"=true
           -D"license.skipAddThirdParty"=true
@@ -125,7 +125,7 @@ jobs:
           cache: 'maven'
       - name: Install
         run: >-
-          ./mvnw -B -q install -DskipTests
+          ./mvnw -B -T 1C -q install -DskipTests
           -D"maven.test.skip"=true
           -D"maven.javadoc.skip"=true
           -D"scalastyle.skip"=true

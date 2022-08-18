@@ -71,7 +71,6 @@
             <id>release</id>
         </profile>
     </profiles>
-
     <build>
         <plugins>
             <plugin>
