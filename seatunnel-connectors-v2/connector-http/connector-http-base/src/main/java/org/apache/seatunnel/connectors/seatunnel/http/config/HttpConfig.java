@@ -24,4 +24,7 @@ public class HttpConfig {
     public static final String HEADERS = "headers";
     public static final String PARAMS = "params";
     public static final String BODY = "body";
+    public static final String SCHEMA = "schema";
+    public static final String FORMAT = "format";
+    public static final String DEFAULT_FORMAT = "json";
 }
