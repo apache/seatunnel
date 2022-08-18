@@ -15,36 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.execution;
+package org.apache.seatunnel.engine.core.checkpoint;
 
-import java.util.List;
-import java.util.Map;
+public enum CheckpointType {
+    CHECKPOINT_TYPE(true, "checkpoint"),
+    SAVEPOINT_TYPE(false, "savepoint");
 
-public class Pipeline {
+    private final boolean auto;
+    private final String name;
 
-    /** The ID of the pipeline. */
-    private final Integer id;
-
-    private final List<ExecutionEdge> edges;
-
-    private final Map<Long, ExecutionVertex> vertexes;
-
-    Pipeline(Integer id, List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
-        this.id = id;
-        this.edges = edges;
-        this.vertexes = vertexes;
+    CheckpointType(boolean auto, String name) {
+        this.auto = auto;
+        this.name = name;
     }
 
-    public Integer getId() {
-        return id;
+    public boolean isAuto() {
+        return auto;
     }
 
-    public List<ExecutionEdge> getEdges() {
-        return edges;
+    public String getName() {
+        return name;
     }
-
-    public Map<Long, ExecutionVertex> getVertexes() {
-        return vertexes;
-    }
-
 }
