@@ -120,7 +120,7 @@ public class TaskExecutionServiceTest {
 
         stop.set(true);
 
-        await().atMost(sleepTime + 100, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             assertEquals(FINISHED, completableFuture.get().getExecutionState());
         });
 
