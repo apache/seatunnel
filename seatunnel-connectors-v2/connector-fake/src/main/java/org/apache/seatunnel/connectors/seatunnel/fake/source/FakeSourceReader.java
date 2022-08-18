@@ -34,7 +34,7 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private final FakeRandomData fakeRandomData;
 
-    public FakeSourceReader(SingleSplitReaderContext context,FakeRandomData randomData) {
+    public FakeSourceReader(SingleSplitReaderContext context, FakeRandomData randomData) {
         this.context = context;
         this.fakeRandomData = randomData;
     }
@@ -55,7 +55,6 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         // Generate a random number of rows to emit.
         for (int i = 0; i < 10; i++) {
             SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
-            System.out.println(seaTunnelRow);
             output.collect(seaTunnelRow);
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {

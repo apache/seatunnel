@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.schema;
 
-
+import java.io.Serializable;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;

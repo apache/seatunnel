@@ -27,23 +27,26 @@ import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.RandomUtils;
+
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.RandomUtils;
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
 
 public class FakeRandomData {
 
@@ -64,6 +67,7 @@ public class FakeRandomData {
         return new SeaTunnelRow(randomRow.toArray());
     }
 
+    @SuppressWarnings("magicnumber")
     private Object randomColumnValue(SeaTunnelDataType<?> fieldType) {
         if (BOOLEAN_TYPE.equals(fieldType)) {
             return RandomUtils.nextInt(0, 2) == 1;
@@ -104,9 +108,11 @@ public class FakeRandomData {
             Object key = randomColumnValue(keyType);
             SeaTunnelDataType<?> valueType = mapType.getValueType();
             Object value = randomColumnValue(valueType);
-            return new HashMap<Object, Object>() {{
-                put(key, value);
-            }};
+            HashMap<Object, Object> objectObjectHashMap = new HashMap<>();
+            objectObjectHashMap.put(key, value);
+            return objectObjectHashMap;
+        } else if (fieldType instanceof PrimitiveByteArrayType) {
+            return RandomUtils.nextBytes(10);
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
             return Void.TYPE;
         } else {
@@ -114,7 +120,7 @@ public class FakeRandomData {
         }
     }
 
-
+    @SuppressWarnings("magicnumber")
     private LocalDateTime randomLocalDateTime() {
         return LocalDateTime.of(
             LocalDateTime.now().getYear(),
