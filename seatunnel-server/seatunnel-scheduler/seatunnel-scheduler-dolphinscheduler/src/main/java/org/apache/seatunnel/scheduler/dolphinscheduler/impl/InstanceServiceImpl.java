@@ -20,6 +20,7 @@ package org.apache.seatunnel.scheduler.dolphinscheduler.impl;
 import org.apache.seatunnel.scheduler.dolphinscheduler.IDolphinschedulerService;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.ListProcessInstanceDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskInstanceDto;
+import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.spi.scheduler.IInstanceService;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
@@ -40,16 +41,16 @@ public class InstanceServiceImpl implements IInstanceService {
     private IDolphinschedulerService iDolphinschedulerService;
 
     @Override
-    public List<InstanceDto> list(InstanceListDto dto) {
+    public PageData<InstanceDto> list(InstanceListDto dto) {
 
         final ListProcessInstanceDto listDto = ListProcessInstanceDto.builder()
                 .processInstanceName(dto.getName())
                 .pageNo(dto.getPageNo())
                 .pageSize(dto.getPageSize())
                 .build();
-        final List<TaskInstanceDto> taskInstanceDtos = iDolphinschedulerService.listTaskInstance(listDto);
+        final PageData<TaskInstanceDto> taskInstanceDtos = iDolphinschedulerService.listTaskInstance(listDto);
 
-        return taskInstanceDtos.stream().map(t -> InstanceDto.builder()
+        final List<InstanceDto> data = taskInstanceDtos.getData().stream().map(t -> InstanceDto.builder()
                 .instanceId(t.getId())
                 .instanceCode(t.getProcessInstanceId())
                 .instanceName(t.getProcessInstanceName())
@@ -60,5 +61,6 @@ public class InstanceServiceImpl implements IInstanceService {
                 .executionDuration(t.getDuration())
                 .retryTimes(t.getRetryTimes())
                 .build()).collect(Collectors.toList());
+        return new PageData<>(taskInstanceDtos.getTotalCount(), data);
     }
 }

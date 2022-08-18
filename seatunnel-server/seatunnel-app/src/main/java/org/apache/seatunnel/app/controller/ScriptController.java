@@ -23,6 +23,7 @@ import org.apache.seatunnel.app.domain.request.script.PublishScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.script.AddEmptyScriptRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
@@ -76,7 +77,7 @@ public class ScriptController {
 
     @PostMapping("/list")
     @ApiOperation(value = "script list", httpMethod = "POST")
-    public Result<List<ScriptSimpleInfoRes>> list(@RequestBody @NotNull ScriptListReq scriptListReq) {
+    public Result<PageInfo<ScriptSimpleInfoRes>> list(@RequestBody @NotNull ScriptListReq scriptListReq) {
         return Result.success(iScriptService.list(scriptListReq));
     }
 

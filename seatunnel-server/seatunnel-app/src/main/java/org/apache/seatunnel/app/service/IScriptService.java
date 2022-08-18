@@ -22,6 +22,7 @@ import org.apache.seatunnel.app.domain.request.script.PublishScriptReq;
 import org.apache.seatunnel.app.domain.request.script.ScriptListReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptContentReq;
 import org.apache.seatunnel.app.domain.request.script.UpdateScriptParamReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.script.AddEmptyScriptRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
@@ -35,7 +36,7 @@ public interface IScriptService {
 
     void delete(Integer id);
 
-    List<ScriptSimpleInfoRes> list(ScriptListReq scriptListReq);
+    PageInfo<ScriptSimpleInfoRes> list(ScriptListReq scriptListReq);
 
     String fetchScriptContent(Integer id);
 
