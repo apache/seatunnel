@@ -227,6 +227,7 @@
         <checker.qual.version>3.10.0</checker.qual.version>
         <iotdb.version>0.13.1</iotdb.version>
         <awaitility.version>4.2.0</awaitility.version>
+        <neo4j-java-driver.version>4.4.9</neo4j-java-driver.version>
     </properties>
 
     <dependencyManagement>
