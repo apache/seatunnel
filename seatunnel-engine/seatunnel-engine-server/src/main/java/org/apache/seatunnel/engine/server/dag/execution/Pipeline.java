@@ -21,13 +21,22 @@ import java.util.List;
 import java.util.Map;
 
 public class Pipeline {
+
+    /** The ID of the pipeline. */
+    private final Integer id;
+
     private final List<ExecutionEdge> edges;
 
     private final Map<Long, ExecutionVertex> vertexes;
 
-    Pipeline(List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
+    Pipeline(Integer id, List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
+        this.id = id;
         this.edges = edges;
         this.vertexes = vertexes;
+    }
+
+    public Integer getId() {
+        return id;
     }
 
     public List<ExecutionEdge> getEdges() {
