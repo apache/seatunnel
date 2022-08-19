@@ -32,28 +32,37 @@ import java.util.Map;
 
 @Data
 public class LogicalEdge implements IdentifiedDataSerializable {
-    private LogicalVertex leftVertex;
-    private LogicalVertex rightVertex;
 
-    private Long leftVertexId;
+    /**
+     * The input vertex connected to this edge.
+     */
+    private LogicalVertex inputVertex;
 
-    private Long rightVertexId;
+    /**
+     * The target vertex connected to this edge.
+     */
+    private LogicalVertex targetVertex;
 
-    public LogicalEdge(){}
+    private Long inputVertexId;
 
-    public LogicalEdge(LogicalVertex leftVertex, LogicalVertex rightVertex) {
-        this.leftVertex = leftVertex;
-        this.rightVertex = rightVertex;
-        this.leftVertexId = leftVertex.getVertexId();
-        this.rightVertexId = rightVertex.getVertexId();
+    private Long targetVertexId;
+
+    public LogicalEdge() {
+    }
+
+    public LogicalEdge(LogicalVertex inputVertex, LogicalVertex targetVertex) {
+        this.inputVertex = inputVertex;
+        this.targetVertex = targetVertex;
+        this.inputVertexId = inputVertex.getVertexId();
+        this.targetVertexId = targetVertex.getVertexId();
     }
 
     public void recoveryFromVertexMap(@NonNull Map<Long, LogicalVertex> vertexMap) {
-        leftVertex = vertexMap.get(leftVertexId);
-        rightVertex = vertexMap.get(rightVertexId);
+        inputVertex = vertexMap.get(inputVertexId);
+        targetVertex = vertexMap.get(targetVertexId);
 
-        checkNotNull(leftVertex);
-        checkNotNull(rightVertex);
+        checkNotNull(inputVertex);
+        checkNotNull(targetVertex);
     }
 
     @Override
@@ -69,13 +78,13 @@ public class LogicalEdge implements IdentifiedDataSerializable {
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         // To prevent circular serialization, we only serialize the ID of vertices for edges
-        out.writeLong(leftVertexId);
-        out.writeLong(rightVertexId);
+        out.writeLong(inputVertexId);
+        out.writeLong(targetVertexId);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        leftVertexId = in.readLong();
-        rightVertexId = in.readLong();
+        inputVertexId = in.readLong();
+        targetVertexId = in.readLong();
     }
 }
