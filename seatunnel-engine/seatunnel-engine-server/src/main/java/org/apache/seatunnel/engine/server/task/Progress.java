@@ -47,9 +47,8 @@ public class Progress implements IdentifiedDataSerializable, Serializable {
         madeProgress = true;
     }
 
-    public Progress done() {
+    public void done() {
         isDone = true;
-        return this;
     }
 
     public ProgressState toState() {

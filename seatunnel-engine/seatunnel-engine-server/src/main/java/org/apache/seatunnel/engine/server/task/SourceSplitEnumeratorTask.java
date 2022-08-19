@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
+import org.apache.seatunnel.engine.server.task.statemachine.EnumeratorState;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -52,12 +53,17 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
-    private CompletableFuture<ProgressState> future;
+    private EnumeratorState currState;
+
+    private CompletableFuture<Void> readerRegisterFuture;
+    private CompletableFuture<Void> readerFinishFuture;
 
     @Override
     public void init() throws Exception {
+        currState = EnumeratorState.INIT;
         super.init();
-        future = new CompletableFuture<>();
+        readerRegisterFuture = new CompletableFuture<>();
+        readerFinishFuture = new CompletableFuture<>();
         LOGGER.info("starting seatunnel source split enumerator task, source name: " + source.getName());
         SeaTunnelSplitEnumeratorContext<SplitT> context = new SeaTunnelSplitEnumeratorContext<>(this.source.getParallelism(), this);
         enumerator = this.source.getSource().createEnumerator(context);
@@ -73,30 +79,29 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         if (enumerator != null) {
             enumerator.close();
         }
-        future.complete(progress.done().toState());
+        progress.done();
     }
 
     public SourceSplitEnumeratorTask(long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
         super(jobID, taskID);
         this.source = source;
+        this.currState = EnumeratorState.CREATED;
     }
 
     @NonNull
     @Override
     public ProgressState call() throws Exception {
-        if (maxReaderSize == taskMemberMapping.size()) {
-            LOGGER.info("received enough reader, starting enumerator...");
-            enumerator.run();
-            return future.get();
-        } else {
-            return progress.toState();
-        }
+        stateProcess();
+        return progress.toState();
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {
         LOGGER.info("received reader register, readerID: " + readerId);
         this.addTaskMemberMapping(readerId, memberAddr);
         enumerator.registerReader((int) readerId.getTaskID());
+        if (maxReaderSize == taskMemberMapping.size()) {
+            readerRegisterFuture.complete(null);
+        }
     }
 
     public void requestSplit(long taskID) {
@@ -119,12 +124,47 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public void readerFinished(long taskID) {
         removeTaskMemberMapping(taskID);
         if (unfinishedReaders.decrementAndGet() == 0) {
-            try {
-                this.close();
-            } catch (Exception e) {
-                throw new TaskRuntimeException(e);
-            }
+            readerFinishFuture.complete(null);
         }
+    }
+
+    private void stateProcess() throws Exception {
+        switch (currState) {
+            case INIT:
+                waitReader();
+                currState = EnumeratorState.READER_REGISTER_COMPLETE;
+                break;
+            case READER_REGISTER_COMPLETE:
+                currState = EnumeratorState.ASSIGN;
+                LOGGER.info("received enough reader, starting enumerator...");
+                enumerator.run();
+                break;
+            case ASSIGN:
+                currState = EnumeratorState.WAITING_FEEDBACK;
+                break;
+            case WAITING_FEEDBACK:
+                readerFinishFuture.join();
+                currState = EnumeratorState.READER_CLOSED;
+                break;
+            case READER_CLOSED:
+                currState = EnumeratorState.CLOSED;
+                break;
+            case CLOSED:
+                this.close();
+                return;
+            // TODO support cancel by outside
+            case CANCELLING:
+                this.close();
+                currState = EnumeratorState.CANCELED;
+                return;
+            default:
+                throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
+        }
+        stateProcess();
+    }
+
+    private void waitReader() {
+        readerRegisterFuture.join();
     }
 
     public void removeTaskMemberMapping(long taskID) {
@@ -135,10 +175,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     public Set<Long> getRegisteredReaders() {
         return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskID).collect(Collectors.toSet());
-    }
-
-    private void noMoreElement(int taskID) {
-        enumerator.handleSplitRequest(taskID);
     }
 
     @Override

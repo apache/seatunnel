@@ -145,7 +145,6 @@ public class PhysicalVertex {
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
     public void deploy(@NonNull Address address) {
-
         TaskGroupImmutableInformation taskGroupImmutableInformation =
             new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
                 nodeEngine.getSerializationService().toData(this.taskGroup),
@@ -163,7 +162,7 @@ public class PhysicalVertex {
                 ExceptionUtils.getMessage(th)));
             updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
             taskFuture.complete(
-                new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
+                new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, th));
         }
 
         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
@@ -171,17 +170,28 @@ public class PhysicalVertex {
             try {
                 if (t != null) {
                     LOGGER.severe("An unexpected error occurred while the task was running", t);
-                    taskFuture.completeExceptionally(t);
+                    taskFuture.complete(
+                        new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED,
+                            t));
                 } else {
-                    LOGGER.info(String.format("%s end with state %s",
-                        this.taskFullName,
-                        v.getExecutionState()));
+                    updateTaskState(executionState.get(), v.getExecutionState());
+                    if (v.getThrowable() != null) {
+                        LOGGER.severe(String.format("%s end with state %s and Exception: %s",
+                            this.taskFullName,
+                            v.getExecutionState(),
+                            ExceptionUtils.getMessage(v.getThrowable())));
+                    } else {
+                        LOGGER.severe(String.format("%s end with state %s",
+                            this.taskFullName,
+                            v.getExecutionState()));
+                    }
+                    taskFuture.complete(v);
                 }
             } catch (Throwable th) {
                 LOGGER.severe(
                     String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
                 updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
-                v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, null);
+                v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, th);
                 taskFuture.complete(v);
             }
         });

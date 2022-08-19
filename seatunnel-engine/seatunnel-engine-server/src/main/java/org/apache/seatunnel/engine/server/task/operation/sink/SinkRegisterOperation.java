@@ -21,8 +21,11 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
+import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -32,6 +35,9 @@ import java.io.IOException;
 
 public class SinkRegisterOperation extends Operation implements IdentifiedDataSerializable {
 
+    private static final ILogger LOGGER = Logger.getLogger(SinkRegisterOperation.class);
+    private static final int RETRY_TIME = 5;
+    private static final int RETRY_INTERVAL = 2000;
     private TaskLocation writerTaskID;
     private TaskLocation committerTaskID;
 
@@ -47,9 +53,21 @@ public class SinkRegisterOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
-        SinkAggregatedCommitterTask<?> task =
-                server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID())
+        SinkAggregatedCommitterTask<?> task = null;
+        for (int i = 0; i < RETRY_TIME; i++) {
+            try {
+                task = server.getTaskExecutionService().getExecutionContext(committerTaskID.getTaskGroupID())
                         .getTaskGroup().getTask(committerTaskID.getTaskID());
+                break;
+            } catch (NullPointerException e) {
+                LOGGER.warning("can't get committer task , waiting task started");
+                Thread.sleep(RETRY_INTERVAL);
+            }
+        }
+        if (task == null) {
+            LOGGER.severe("can't connect with committer task");
+            throw new TaskRuntimeException("can't connect with committer task");
+        }
         task.receivedWriterRegister(writerTaskID, readerAddress);
     }
 

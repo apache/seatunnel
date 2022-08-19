@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.transform;
+package org.apache.seatunnel.engine.core.checkpoint;
 
-import org.apache.seatunnel.api.common.PluginIdentifierInterface;
-import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
-import org.apache.seatunnel.api.source.SeaTunnelContextAware;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+/** A checkpoint, pending or completed. */
+public interface Checkpoint {
 
-import java.io.Serializable;
+    long getCheckpointId();
 
-public interface SeaTunnelTransform<T> extends Serializable, PluginIdentifierInterface,
-        SeaTunnelPluginLifeCycle, SeaTunnelContextAware {
+    long getPipelineId();
 
-    T map(T row);
+    long getJobId();
 
-    void setTypeInfo(SeaTunnelDataType<T> seaTunnelRowType);
-
-    SeaTunnelDataType<T> getProducedType();
-
+    long getCheckpointTimestamp();
 }

@@ -21,6 +21,8 @@ on:
   pull_request:
     paths:
       - 'seatunnel-engine/**'
+      - 'seatunnel-engine/seatunnel-engine-e2e/**'
+      - 'seatunnel-examples/seatunnel-engine-examples/**'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -98,7 +100,7 @@ jobs:
           cache: 'maven'
       - name: Build distribution tar
         run: >-
-          ./mvnw -B install scalastyle:check
+          ./mvnw -B -T 1C install scalastyle:check
           -D"maven.test.skip"=true
           -D"checkstyle.skip"=true
           -D"license.skipAddThirdParty"=true
@@ -106,6 +108,7 @@ jobs:
           -D"maven.wagon.http.pool"=false
           -D"maven.wagon.http.retryHandler.count"=3
           -D"maven.wagon.httpconnectionManager.ttlSeconds"=120
+          -P engine-all
 
   dependency-license:
     if: github.repository == 'apache/incubator-seatunnel'
@@ -124,7 +127,7 @@ jobs:
           cache: 'maven'
       - name: Install
         run: >-
-          ./mvnw -B -q install -DskipTests
+          ./mvnw -B -T 1C -q install -DskipTests
           -D"maven.test.skip"=true
           -D"maven.javadoc.skip"=true
           -D"scalastyle.skip"=true
@@ -175,6 +178,6 @@ jobs:
           cache: 'maven'
       - name: Run Integration tests
         run: |
-          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -P engine_all
+          ./mvnw -T 1C -B verify -DskipUT=true -DskipIT=false -D"checkstyle.skip"=true -D"scalastyle.skip"=true -D"license.skipAddThirdParty"=true --no-snapshot-updates -P engine-all
         env:
           MAVEN_OPTS: -Xmx2048m

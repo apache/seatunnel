@@ -40,18 +40,38 @@
                 <module>seatunnel-flink-sql-e2e</module>
                 <module>seatunnel-engine-e2e</module>
             </modules>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-connectors-v2-dist</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-connectors-spark-dist</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-connectors-flink-dist</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>engine-all</id>
-            <modules>
-                <module>seatunnel-engine-e2e</module>
-            </modules>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-connectors-v2-dist</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <id>release</id>
         </profile>
     </profiles>
-
     <build>
         <plugins>
             <plugin>

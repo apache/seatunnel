@@ -105,8 +105,8 @@ public class LogicalDag implements IdentifiedDataSerializable {
         JsonArray edges = new JsonArray();
         this.edges.stream().forEach(e -> {
             JsonObject edge = new JsonObject();
-            edge.add("leftVertex", e.getLeftVertex().getAction().getName());
-            edge.add("rightVertex", e.getRightVertex().getAction().getName());
+            edge.add("inputVertex", e.getInputVertex().getAction().getName());
+            edge.add("targetVertex", e.getTargetVertex().getAction().getName());
             edges.add(edge);
         });
 
