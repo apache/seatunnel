@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +34,7 @@ public class PipelineGenerator {
 
         // just convert execution plan to pipeline at now. We should split it to multi pipeline with
         // cache in the future
-
+        IdGenerator idGenerator = new IdGenerator();
         return edgesList.stream().map(e -> {
             Map<Long, ExecutionVertex> vertexes = new HashMap<>();
             List<ExecutionEdge> pipelineEdges = e.stream().map(edge -> {
@@ -46,7 +48,7 @@ public class PipelineGenerator {
                 ExecutionVertex destination = vertexes.get(edge.getRightVertexId());
                 return new ExecutionEdge(source, destination);
             }).collect(Collectors.toList());
-            return new Pipeline(pipelineEdges, vertexes);
+            return new Pipeline((int) idGenerator.getNextId(), pipelineEdges, vertexes);
         }).collect(Collectors.toList());
     }
 

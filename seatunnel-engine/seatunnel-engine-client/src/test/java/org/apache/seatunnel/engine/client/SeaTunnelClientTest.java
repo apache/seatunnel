@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.JobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelClientConfig;
@@ -37,6 +39,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.concurrent.ExecutionException;
+
 @SuppressWarnings("checkstyle:MagicNumber")
 @RunWith(JUnit4.class)
 public class SeaTunnelClientTest {
@@ -47,8 +51,8 @@ public class SeaTunnelClientTest {
     public void beforeClass() throws Exception {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         instance = HazelcastInstanceFactory.newHazelcastInstance(seaTunnelConfig.getHazelcastConfig(),
-                Thread.currentThread().getName(),
-                new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
+            Thread.currentThread().getName(),
+            new SeaTunnelNodeContext(ConfigProvider.locateAndGetSeaTunnelConfig()));
     }
 
     @Test
@@ -74,13 +78,15 @@ public class SeaTunnelClientTest {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        //        JobProxy jobProxy;
-        //        try {
-        //            jobProxy = jobExecutionEnv.execute();
-        //            Assert.assertNotNull(jobProxy);
-        //        } catch (ExecutionException | InterruptedException e) {
-        //            throw new RuntimeException(e);
-        //        }
+        JobProxy jobProxy = null;
+        try {
+            jobProxy = jobExecutionEnv.execute();
+            jobProxy.waitForJobComplete();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+            // TODO throw exception after fix sink.setTypeInfo in ConnectorInstanceLoader
+            //            throw new RuntimeException(e);
+        }
     }
 
     @After

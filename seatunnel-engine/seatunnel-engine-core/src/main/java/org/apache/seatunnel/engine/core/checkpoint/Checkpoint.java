@@ -15,36 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.execution;
+package org.apache.seatunnel.engine.core.checkpoint;
 
-import java.util.List;
-import java.util.Map;
+/** A checkpoint, pending or completed. */
+public interface Checkpoint {
 
-public class Pipeline {
+    long getCheckpointId();
 
-    /** The ID of the pipeline. */
-    private final Integer id;
+    long getPipelineId();
 
-    private final List<ExecutionEdge> edges;
+    long getJobId();
 
-    private final Map<Long, ExecutionVertex> vertexes;
-
-    Pipeline(Integer id, List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
-        this.id = id;
-        this.edges = edges;
-        this.vertexes = vertexes;
-    }
-
-    public Integer getId() {
-        return id;
-    }
-
-    public List<ExecutionEdge> getEdges() {
-        return edges;
-    }
-
-    public Map<Long, ExecutionVertex> getVertexes() {
-        return vertexes;
-    }
-
+    long getCheckpointTimestamp();
 }

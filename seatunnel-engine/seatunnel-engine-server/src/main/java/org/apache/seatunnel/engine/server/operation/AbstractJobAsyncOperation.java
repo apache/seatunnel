@@ -15,36 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.execution;
+package org.apache.seatunnel.engine.server.operation;
 
-import java.util.List;
-import java.util.Map;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 
-public class Pipeline {
+import java.io.IOException;
 
-    /** The ID of the pipeline. */
-    private final Integer id;
+public abstract class AbstractJobAsyncOperation extends AsyncOperation {
+    protected long jobId;
 
-    private final List<ExecutionEdge> edges;
-
-    private final Map<Long, ExecutionVertex> vertexes;
-
-    Pipeline(Integer id, List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
-        this.id = id;
-        this.edges = edges;
-        this.vertexes = vertexes;
+    public AbstractJobAsyncOperation() {
     }
 
-    public Integer getId() {
-        return id;
+    public AbstractJobAsyncOperation(long jobId) {
+        this.jobId = jobId;
     }
 
-    public List<ExecutionEdge> getEdges() {
-        return edges;
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeLong(jobId);
     }
 
-    public Map<Long, ExecutionVertex> getVertexes() {
-        return vertexes;
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        jobId = in.readLong();
     }
-
 }

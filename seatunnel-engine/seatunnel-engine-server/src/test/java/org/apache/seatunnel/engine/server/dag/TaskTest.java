@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -82,19 +83,22 @@ public class TaskTest {
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
                 Collections.singletonList(new URL("file:///fake.jar")));
-        LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 1);
+        fake.setParallelism(3);
+        LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
         FakeSource fakeSource2 = new FakeSource();
         fakeSource2.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource2,
                 Collections.singletonList(new URL("file:///fake.jar")));
-        LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 1);
+        fake2.setParallelism(3);
+        LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 3);
 
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
                 Collections.singletonList(new URL("file:///console.jar")));
-        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 1);
+        console.setParallelism(3);
+        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
 
@@ -111,7 +115,11 @@ public class TaskTest {
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
                 nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
-        service.submitJob(nodeEngine.getSerializationService().toData(jobImmutableInformation));
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+            service.submitJob(jobImmutableInformation.getJobId(),
+                nodeEngine.getSerializationService().toData(jobImmutableInformation));
+
+        Assert.assertNotNull(voidPassiveCompletableFuture);
     }
 
     @Test

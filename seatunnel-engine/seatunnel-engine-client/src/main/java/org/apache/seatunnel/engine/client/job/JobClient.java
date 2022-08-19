@@ -15,36 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.execution;
+package org.apache.seatunnel.engine.client.job;
 
-import java.util.List;
-import java.util.Map;
+import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
-public class Pipeline {
+import lombok.NonNull;
 
-    /** The ID of the pipeline. */
-    private final Integer id;
+public class JobClient {
+    private SeaTunnelHazelcastClient hazelcastClient;
 
-    private final List<ExecutionEdge> edges;
-
-    private final Map<Long, ExecutionVertex> vertexes;
-
-    Pipeline(Integer id, List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
-        this.id = id;
-        this.edges = edges;
-        this.vertexes = vertexes;
+    public JobClient(@NonNull SeaTunnelHazelcastClient hazelcastClient) {
+        this.hazelcastClient = hazelcastClient;
     }
 
-    public Integer getId() {
-        return id;
+    public long getNewJobId() {
+        return hazelcastClient.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
     }
 
-    public List<ExecutionEdge> getEdges() {
-        return edges;
+    public JobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
+        return new JobProxy(hazelcastClient, jobImmutableInformation);
     }
-
-    public Map<Long, ExecutionVertex> getVertexes() {
-        return vertexes;
-    }
-
 }

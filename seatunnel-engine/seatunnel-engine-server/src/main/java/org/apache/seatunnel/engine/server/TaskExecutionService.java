@@ -25,7 +25,7 @@ import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -117,7 +117,7 @@ public class TaskExecutionService {
         uncheckRun(startedLatch::await);
     }
 
-    public NonCompletableFuture<TaskExecutionState> deployTask(
+    public PassiveCompletableFuture<TaskExecutionState> deployTask(
         @NonNull Data taskImmutableInformation
     ) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
@@ -134,7 +134,8 @@ public class TaskExecutionService {
 
             // TODO We need add a method to cancel task
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
-            TaskGroupExecutionTracker executionTracker = new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
+            TaskGroupExecutionTracker executionTracker =
+                new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap = new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
@@ -152,7 +153,7 @@ public class TaskExecutionService {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
         }
-        return new NonCompletableFuture<>(resultFuture);
+        return new PassiveCompletableFuture<>(resultFuture);
     }
 
     private final class BlockingWorker implements Runnable {

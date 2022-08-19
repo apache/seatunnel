@@ -23,4 +23,6 @@ public interface Job {
     long getJobId();
 
     void submitJob() throws ExecutionException, InterruptedException;
+
+    void waitForJobComplete();
 }
