@@ -226,7 +226,7 @@ public class PulsarSource<T> implements SeaTunnelSource<T, PulsarPartitionSplit,
     private void setDeserialization(Config config) {
         String format = config.getString("format");
         // TODO: format SPI
-        SeaTunnelRowType rowType = SeatunnelSchema.buildWithConfig(config.getConfig("schema")).getSeaTunnelRowType();
+        SeaTunnelRowType rowType = SeatunnelSchema.buildWithConfig(config.getConfig(SeatunnelSchema.SCHEMA)).getSeaTunnelRowType();
         deserialization = (DeserializationSchema<T>) new JsonDeserializationSchema(false, false, rowType);
     }
 
