@@ -48,10 +48,9 @@ public class SeaTunnelStarter {
         JobProxy jobProxy;
         try {
             jobProxy = jobExecutionEnv.execute();
+            jobProxy.waitForJobComplete();
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
-
-        jobProxy.waitForJobComplete();
     }
 }

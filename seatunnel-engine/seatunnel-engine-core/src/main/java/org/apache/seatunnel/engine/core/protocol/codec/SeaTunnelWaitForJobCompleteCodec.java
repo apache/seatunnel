@@ -66,9 +66,6 @@ public final class SeaTunnelWaitForJobCompleteCodec {
         return clientMessage;
     }
 
-    /**
-     *
-     */
     public static long decodeRequest(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         ClientMessage.Frame initialFrame = iterator.next();
