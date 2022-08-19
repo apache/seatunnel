@@ -116,7 +116,8 @@ public class ExecutionPlanGenerator {
             }
         });
         List<ExecutionEdge> executionEdges = createExecutionEdges();
-        return new ExecutionPlan(PipelineGenerator.generatePipelines(executionEdges), jobImmutableInformation);
+        return new ExecutionPlan(new PipelineGenerator(executionVertexMap.values(), executionEdges, true)
+            .generatePipelines(), jobImmutableInformation);
     }
 
     public List<ExecutionEdge> createExecutionEdges() {
@@ -180,7 +181,7 @@ public class ExecutionPlanGenerator {
         logicalToExecutionMap.put(logicalVertex.getVertexId(), executionVertex.getVertexId());
     }
 
-    private static Action recreateAction(Action action, Long id) {
+    public static Action recreateAction(Action action, Long id) {
         Action newAction;
         if (action instanceof PartitionTransformAction) {
             newAction = new PartitionTransformAction(id,
@@ -199,6 +200,11 @@ public class ExecutionPlanGenerator {
                 action.getName(),
                 ((SourceAction<?, ?, ?>) action).getSource(),
                 action.getJarUrls());
+        } else if (action instanceof TransformChainAction) {
+            newAction = new TransformChainAction(id,
+                action.getName(),
+                action.getJarUrls(),
+                ((TransformChainAction<?>) action).getTransforms());
         } else {
             throw new UnknownActionException(action);
         }
