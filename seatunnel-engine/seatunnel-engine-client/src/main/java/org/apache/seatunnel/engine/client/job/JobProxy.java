@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.client.job;
 
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.logging.ILogger;
@@ -47,10 +51,37 @@ public class JobProxy implements Job {
 
     @Override
     public void submitJob() throws ExecutionException, InterruptedException {
-        ClientMessage request = SeaTunnelSubmitJobCodec.encodeRequest(
+        ClientMessage request = SeaTunnelSubmitJobCodec.encodeRequest(jobImmutableInformation.getJobId(),
             seaTunnelHazelcastClient.getSerializationService().toData(jobImmutableInformation));
-        NonCompletableFuture<Void> submitJobFuture =
+        PassiveCompletableFuture<Void> submitJobFuture =
             seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
         submitJobFuture.get();
+    }
+
+    @Override
+    public void waitForJobComplete() {
+        PassiveCompletableFuture<JobStatus> jobFuture =
+            seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(
+                SeaTunnelWaitForJobCompleteCodec.encodeRequest(jobImmutableInformation.getJobId()),
+                response -> {
+                    return JobStatus.values()[SeaTunnelWaitForJobCompleteCodec.decodeResponse(response)];
+                });
+
+        jobFuture.whenComplete((v, t) -> {
+            if (null != t) {
+                LOGGER.info(String.format("Job %s (%s) end with state %s, and throw Exception: %s",
+                    jobImmutableInformation.getJobId(),
+                    jobImmutableInformation.getJobConfig().getName(),
+                    v,
+                    ExceptionUtils.getMessage(t)));
+            } else {
+                LOGGER.info(String.format("Job %s (%s) end with state %s",
+                    jobImmutableInformation.getJobId(),
+                    jobImmutableInformation.getJobConfig().getName(),
+                    v));
+            }
+        });
+
+        jobFuture.join();
     }
 }

@@ -61,9 +61,6 @@ public final class SeaTunnelPrintMessageCodec {
         return clientMessage;
     }
 
-    /**
-     *
-     */
     public static java.lang.String decodeRequest(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         //empty initial frame

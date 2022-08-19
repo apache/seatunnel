@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
@@ -45,7 +45,7 @@ public class JobMaster implements Runnable {
 
     private LogicalDag logicalDag;
     private PhysicalPlan physicalPlan;
-    private final Data jobImmutableInformation;
+    private final Data jobImmutableInformationData;
 
     private final NodeEngine nodeEngine;
 
@@ -57,10 +57,12 @@ public class JobMaster implements Runnable {
 
     private CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
 
-    public JobMaster(@NonNull Data jobImmutableInformation,
+    private JobImmutableInformation jobImmutableInformation;
+
+    public JobMaster(@NonNull Data jobImmutableInformationData,
                      @NonNull NodeEngine nodeEngine,
                      @NonNull ExecutorService executorService) {
-        this.jobImmutableInformation = jobImmutableInformation;
+        this.jobImmutableInformationData = jobImmutableInformationData;
         this.nodeEngine = nodeEngine;
         this.executorService = executorService;
         flakeIdGenerator =
@@ -70,15 +72,17 @@ public class JobMaster implements Runnable {
     }
 
     public void init() throws Exception {
-        JobImmutableInformation jobInformation = nodeEngine.getSerializationService().toObject(jobImmutableInformation);
-        LOGGER.info("Job [" + jobInformation.getJobId() + "] submit");
-        LOGGER.info("Job [" + jobInformation.getJobId() + "] jar urls " + jobInformation.getPluginJarsUrls());
+        jobImmutableInformation = nodeEngine.getSerializationService().toObject(
+            jobImmutableInformationData);
+        LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] submit");
+        LOGGER.info(
+            "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
 
         // TODO Use classloader load the connector jars and deserialize logicalDag
-        this.logicalDag = nodeEngine.getSerializationService().toObject(jobInformation.getLogicalDag());
+        this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
-            jobInformation,
+            jobImmutableInformation,
             System.currentTimeMillis(),
             executorService,
             flakeIdGenerator);
@@ -88,9 +92,10 @@ public class JobMaster implements Runnable {
     @Override
     public void run() {
         try {
-            NonCompletableFuture<JobStatus> jobStatusNonCompletableFuture = physicalPlan.getJobEndCompletableFuture();
+            PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
+                physicalPlan.getJobEndCompletableFuture();
 
-            jobStatusNonCompletableFuture.whenComplete((v, t) -> {
+            jobStatusPassiveCompletableFuture.whenComplete((v, t) -> {
                 // We need not handle t, Because we will not return t from physicalPlan
                 if (JobStatus.FAILING.equals(v)) {
                     cleanJob();
@@ -119,5 +124,13 @@ public class JobMaster implements Runnable {
 
     public ResourceManager getResourceManager() {
         return resourceManager;
+    }
+
+    public PassiveCompletableFuture<JobStatus> getJobMasterCompleteFuture() {
+        return new PassiveCompletableFuture<>(jobMasterCompleteFuture);
+    }
+
+    public JobImmutableInformation getJobImmutableInformation() {
+        return jobImmutableInformation;
     }
 }
