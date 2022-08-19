@@ -162,11 +162,11 @@ public class TaskServiceImpl implements ITaskService {
                 .pageNo(req.getPageNo())
                 .pageSize(req.getPageSize())
                 .build();
-        final PageData<JobSimpleInfoDto> list = iJobService.list(dto);
-        final List<JobSimpleInfoRes> data = list.getData().stream().map(this::translate).collect(Collectors.toList());
+        final PageData<JobSimpleInfoDto> jobPageData = iJobService.list(dto);
+        final List<JobSimpleInfoRes> data = jobPageData.getData().stream().map(this::translate).collect(Collectors.toList());
         final PageInfo<JobSimpleInfoRes> pageInfo = new PageInfo<>();
         pageInfo.setData(data);
-        pageInfo.setTotalCount(list.getTotalCount());
+        pageInfo.setTotalCount(jobPageData.getTotalCount());
         pageInfo.setPageNo(req.getPageNo());
         pageInfo.setPageSize(req.getPageSize());
 
@@ -181,11 +181,11 @@ public class TaskServiceImpl implements ITaskService {
                 .pageNo(req.getPageNo())
                 .pageSize(req.getPageSize())
                 .build();
-        final PageData<InstanceDto> list = iInstanceService.list(dto);
-        final List<InstanceSimpleInfoRes> data = list.getData().stream().map(this::translate).collect(Collectors.toList());
+        final PageData<InstanceDto> instancePageData = iInstanceService.list(dto);
+        final List<InstanceSimpleInfoRes> data = instancePageData.getData().stream().map(this::translate).collect(Collectors.toList());
         final PageInfo<InstanceSimpleInfoRes> pageInfo = new PageInfo<>();
         pageInfo.setData(data);
-        pageInfo.setTotalCount(list.getTotalCount());
+        pageInfo.setTotalCount(instancePageData.getTotalCount());
         pageInfo.setPageNo(req.getPageNo());
         pageInfo.setPageSize(req.getPageSize());
 

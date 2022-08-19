@@ -48,9 +48,9 @@ public class InstanceServiceImpl implements IInstanceService {
                 .pageNo(dto.getPageNo())
                 .pageSize(dto.getPageSize())
                 .build();
-        final PageData<TaskInstanceDto> taskInstanceDtos = iDolphinschedulerService.listTaskInstance(listDto);
+        final PageData<TaskInstanceDto> instancePageData = iDolphinschedulerService.listTaskInstance(listDto);
 
-        final List<InstanceDto> data = taskInstanceDtos.getData().stream().map(t -> InstanceDto.builder()
+        final List<InstanceDto> data = instancePageData.getData().stream().map(t -> InstanceDto.builder()
                 .instanceId(t.getId())
                 .instanceCode(t.getProcessInstanceId())
                 .instanceName(t.getProcessInstanceName())
@@ -61,6 +61,6 @@ public class InstanceServiceImpl implements IInstanceService {
                 .executionDuration(t.getDuration())
                 .retryTimes(t.getRetryTimes())
                 .build()).collect(Collectors.toList());
-        return new PageData<>(taskInstanceDtos.getTotalCount(), data);
+        return new PageData<>(instancePageData.getTotalCount(), data);
     }
 }

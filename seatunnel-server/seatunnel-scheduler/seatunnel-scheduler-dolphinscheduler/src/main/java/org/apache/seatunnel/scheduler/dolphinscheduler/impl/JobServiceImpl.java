@@ -110,8 +110,8 @@ public class JobServiceImpl implements IJobService {
                 .pageNo(dto.getPageNo())
                 .pageSize(dto.getPageSize())
                 .build();
-        final PageData<ProcessDefinitionDto> processDefinitionDtos = iDolphinschedulerService.listProcessDefinition(listDto);
-        final List<JobSimpleInfoDto> data = processDefinitionDtos.getData().stream().map(p -> JobSimpleInfoDto.builder()
+        final PageData<ProcessDefinitionDto> processPageData = iDolphinschedulerService.listProcessDefinition(listDto);
+        final List<JobSimpleInfoDto> data = processPageData.getData().stream().map(p -> JobSimpleInfoDto.builder()
                 .jobId(p.getCode())
                 .jobStatus(p.getReleaseState())
                 .createTime(p.getCreateTime())
@@ -120,7 +120,7 @@ public class JobServiceImpl implements IJobService {
                 .menderName(p.getUserName())
                 .build())
                 .collect(Collectors.toList());
-        return new PageData<>(processDefinitionDtos.getTotalCount(), data);
+        return new PageData<>(processPageData.getTotalCount(), data);
     }
 
     @Override
@@ -185,9 +185,9 @@ public class JobServiceImpl implements IJobService {
                         .pageSize(PAGE_SIZE_MIN)
                         .name(processDefinition.getName())
                         .build();
-                final PageData<InstanceDto> list = iInstanceService.list(instanceListDto);
-                if (!CollectionUtils.isEmpty(list.getData())) {
-                    instanceDto = list.getData().get(0);
+                final PageData<InstanceDto> instancePageData = iInstanceService.list(instanceListDto);
+                if (!CollectionUtils.isEmpty(instancePageData.getData())) {
+                    instanceDto = instancePageData.getData().get(0);
                     break;
                 }
                 try {
