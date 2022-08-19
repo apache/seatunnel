@@ -35,6 +35,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import java.util.Map;
 
 public class SeatunnelSchema {
+    public static final String SCHEMA = "schema";
     private static final String FIELD_KEY = "fields";
     private static final String SIMPLE_SCHEMA_FILED = "content";
     private final SeaTunnelRowType seaTunnelRowType;
