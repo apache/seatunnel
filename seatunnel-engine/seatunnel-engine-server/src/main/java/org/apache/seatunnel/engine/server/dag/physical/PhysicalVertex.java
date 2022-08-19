@@ -134,7 +134,7 @@ public class PhysicalVertex {
                 "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
-                pipelineIndex + 1,
+                pipelineIndex,
                 totalPipelineNum,
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
@@ -156,6 +156,7 @@ public class PhysicalVertex {
                         new DeployTaskOperation(nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
                         address)
                     .invoke());
+            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         } catch (Throwable th) {
             LOGGER.severe(String.format("%s deploy error with Exception: %s",
                 this.taskFullName,
@@ -165,7 +166,6 @@ public class PhysicalVertex {
                 new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, th));
         }
 
-        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
             try {
                 if (t != null) {

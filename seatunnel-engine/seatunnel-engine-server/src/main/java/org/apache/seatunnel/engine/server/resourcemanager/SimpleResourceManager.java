@@ -40,7 +40,7 @@ public class SimpleResourceManager implements ResourceManager {
             Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.computeIfAbsent(jobId, k -> new HashMap<>());
 
             Address localhost =
-                    jobAddressMap.putIfAbsent(taskId, new Address("localhost", 5701));
+                    jobAddressMap.putIfAbsent(taskId, new Address("192.168.1.10", 5801));
             if (null == localhost) {
                 localhost = jobAddressMap.get(taskId);
             }

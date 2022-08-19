@@ -137,7 +137,7 @@ public class TaskExecutionService {
                         new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars)),
                         taskImmutableInfo.getGroup());
             } else {
-                taskGroup = nodeEngine.getSerializationService().toData(taskImmutableInfo.getGroup());
+                taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
 
             taskGroup.init();
@@ -162,7 +162,7 @@ public class TaskExecutionService {
             executionContexts.put(taskGroup.getId(), new TaskGroupContext(taskGroup));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
-            resultFuture.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
+            resultFuture.completeExceptionally(t);
         }
         return new PassiveCompletableFuture<>(resultFuture);
     }

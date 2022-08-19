@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
 
+import com.google.common.collect.Sets;
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -82,21 +83,21 @@ public class TaskTest {
         fakeSource.setSeaTunnelContext(SeaTunnelContext.getContext());
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
-            Collections.singletonList(new URL("file:///fake.jar")));
+            Sets.newHashSet(new URL("file:///fake.jar")));
         fake.setParallelism(3);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
         FakeSource fakeSource2 = new FakeSource();
         fakeSource2.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource2,
-            Collections.singletonList(new URL("file:///fake.jar")));
+            Sets.newHashSet(new URL("file:///fake.jar")));
         fake2.setParallelism(3);
         LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 3);
 
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
-            Collections.singletonList(new URL("file:///console.jar")));
+            Sets.newHashSet(new URL("file:///console.jar")));
         console.setParallelism(3);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
 
@@ -128,15 +129,15 @@ public class TaskTest {
         IdGenerator idGenerator = new IdGenerator();
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
-            Collections.singletonList(new URL("file:///fake.jar")));
+            Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
 
         Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
-            Collections.singletonList(new URL("file:///fake.jar")));
+            Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
 
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", new ConsoleSink(),
-            Collections.singletonList(new URL("file:///console.jar")));
+            Sets.newHashSet(new URL("file:///console.jar")));
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);

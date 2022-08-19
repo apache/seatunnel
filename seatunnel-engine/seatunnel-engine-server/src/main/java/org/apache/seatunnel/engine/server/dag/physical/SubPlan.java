@@ -99,7 +99,7 @@ public class SubPlan {
             "Job %s (%s), Pipeline: [(%d/%d)]",
             jobImmutableInformation.getJobConfig().getName(),
             jobImmutableInformation.getJobId(),
-            pipelineIndex + 1,
+            pipelineIndex,
             totalPipelineNum);
 
         Arrays.stream(this.waitForCompleteByPhysicalVertex).forEach(x -> {

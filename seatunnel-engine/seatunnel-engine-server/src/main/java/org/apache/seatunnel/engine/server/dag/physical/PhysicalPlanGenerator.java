@@ -201,7 +201,7 @@ public class PhysicalPlanGenerator {
                         flakeIdGenerator,
                         pipelineIndex,
                         totalPipelineNum,
-                        null,
+                        s.getJarUrls(),
                         jobImmutableInformation,
                         initializationTimestamp,
                         nodeEngine);

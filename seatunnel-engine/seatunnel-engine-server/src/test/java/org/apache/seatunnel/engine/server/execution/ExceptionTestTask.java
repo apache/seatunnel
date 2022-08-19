@@ -17,40 +17,26 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import lombok.AllArgsConstructor;
 import lombok.NonNull;
+import lombok.SneakyThrows;
 
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.List;
 
-public class FixedCallTestTimeTask implements Task {
+@AllArgsConstructor
+public class ExceptionTestTask implements Task {
     long callTime;
     String name;
-    long currentTime;
-    CopyOnWriteArrayList<Long> lagList;
-    AtomicBoolean stop;
+    List<Throwable> throwE;
 
-    public FixedCallTestTimeTask(long callTime, String name, AtomicBoolean stop, CopyOnWriteArrayList<Long> lagList){
-        this.callTime = callTime;
-        this.name = name;
-        this.stop = stop;
-        this.lagList = lagList;
-    }
-
+    @SneakyThrows
     @NonNull
     @Override
     public ProgressState call() {
-        if(currentTime != 0){
-            lagList.add(System.currentTimeMillis() - currentTime);
-        }
-        currentTime = System.currentTimeMillis();
-
-        try {
+        if (!throwE.isEmpty()) {
+            throw throwE.get(0);
+        } else {
             Thread.sleep(callTime);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e.toString());
-        }
-        if(stop.get()){
-            return ProgressState.DONE;
         }
         return ProgressState.MADE_PROGRESS;
     }
@@ -59,10 +45,5 @@ public class FixedCallTestTimeTask implements Task {
     @Override
     public Long getTaskID() {
         return (long) this.hashCode();
-    }
-
-    @Override
-    public boolean isThreadsShare() {
-        return true;
     }
 }

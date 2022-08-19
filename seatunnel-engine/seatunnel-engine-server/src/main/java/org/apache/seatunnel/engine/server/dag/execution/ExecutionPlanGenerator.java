@@ -172,7 +172,7 @@ public class ExecutionPlanGenerator {
                 });
             newAction = new TransformChainAction(newId,
                 String.join("->", names),
-                new ArrayList<>(jars),
+                jars,
                 transforms);
         }
         ExecutionVertex executionVertex = new ExecutionVertex(newId, newAction, logicalVertex.getParallelism());

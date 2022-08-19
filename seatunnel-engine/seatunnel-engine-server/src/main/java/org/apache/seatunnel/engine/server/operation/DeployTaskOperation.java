@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
@@ -41,8 +41,8 @@ public class DeployTaskOperation extends AsyncOperation {
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
-        TaskExecutionService taskExecutionService = getService();
-        return taskExecutionService.deployTask(taskImmutableInformation);
+        SeaTunnelServer seaTunnelServer = getService();
+        return seaTunnelServer.getTaskExecutionService().deployTask(taskImmutableInformation);
     }
 
     @Override
