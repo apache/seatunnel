@@ -94,14 +94,14 @@ public class UserServiceImpl implements IUserService {
                 .name(userListReq.getName())
                 .build();
 
-        final PageData<User> list = userDaoImpl.list(dto, userListReq.getRealPageNo(), userListReq.getPageSize());
+        final PageData<User> userPageData = userDaoImpl.list(dto, userListReq.getRealPageNo(), userListReq.getPageSize());
 
-        final List<UserSimpleInfoRes> data = list.getData().stream().map(this::translate).collect(Collectors.toList());
+        final List<UserSimpleInfoRes> data = userPageData.getData().stream().map(this::translate).collect(Collectors.toList());
         final PageInfo<UserSimpleInfoRes> pageInfo = new PageInfo<>();
         pageInfo.setPageNo(userListReq.getPageNo());
         pageInfo.setPageSize(userListReq.getPageSize());
         pageInfo.setData(data);
-        pageInfo.setTotalCount(list.getTotalCount());
+        pageInfo.setTotalCount(userPageData.getTotalCount());
 
         return pageInfo;
     }

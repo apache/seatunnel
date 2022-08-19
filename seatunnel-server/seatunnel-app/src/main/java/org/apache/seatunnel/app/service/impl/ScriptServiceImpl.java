@@ -152,13 +152,13 @@ public class ScriptServiceImpl implements IScriptService {
                 .status(scriptListReq.getStatus())
                 .build();
 
-        PageData<Script> scripts = scriptDaoImpl.list(dto, scriptListReq.getRealPageNo(), scriptListReq.getPageSize());
-        final List<ScriptSimpleInfoRes> data = scripts.getData().stream().map(this::translate).collect(Collectors.toList());
+        PageData<Script> scriptPageData = scriptDaoImpl.list(dto, scriptListReq.getRealPageNo(), scriptListReq.getPageSize());
+        final List<ScriptSimpleInfoRes> data = scriptPageData.getData().stream().map(this::translate).collect(Collectors.toList());
 
         final PageInfo<ScriptSimpleInfoRes> pageInfo = new PageInfo<>();
         pageInfo.setPageNo(scriptListReq.getPageNo());
         pageInfo.setPageSize(scriptListReq.getPageSize());
-        pageInfo.setTotalCount(scripts.getTotalCount());
+        pageInfo.setTotalCount(scriptPageData.getTotalCount());
         pageInfo.setData(data);
         return pageInfo;
     }
