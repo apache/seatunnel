@@ -185,7 +185,7 @@ public class PhysicalPlanGenerator {
                     long taskGroupID = idGenerator.getNextId();
                     SinkAggregatedCommitterTask<?> t =
                         new SinkAggregatedCommitterTask(jobImmutableInformation.getJobId(),
-                            new TaskLocation(taskGroupID, idGenerator.getNextId()), s,
+                            new TaskLocation(taskGroupID, convertToTaskID(idGenerator.getNextId(), 1)), s,
                             sinkAggregatedCommitter.get());
                     committerTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
@@ -220,11 +220,12 @@ public class PhysicalPlanGenerator {
             .map(q -> new PhysicalExecutionFlow(q, getNextWrapper(edges, q)))
             .flatMap(flow -> {
                 List<PhysicalVertex> t = new ArrayList<>();
+                long taskIDPrefix = idGenerator.getNextId();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                     long taskGroupID = idGenerator.getNextId();
                     setFlowConfig(flow, i);
                     SeaTunnelTask seaTunnelTask = new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                        new TaskLocation(taskGroupID, idGenerator.getNextId()), i, flow);
+                        new TaskLocation(taskGroupID, convertToTaskID(taskIDPrefix, i)), i, flow);
 
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
                     waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
@@ -257,7 +258,7 @@ public class PhysicalPlanGenerator {
         return sources.stream().map(s -> {
             long taskGroupID = idGenerator.getNextId();
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(jobImmutableInformation.getJobId(),
-                new TaskLocation(taskGroupID, idGenerator.getNextId()), s);
+                new TaskLocation(taskGroupID, convertToTaskID(idGenerator.getNextId(), 1)), s);
             enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
             CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
             waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
@@ -292,18 +293,23 @@ public class PhysicalPlanGenerator {
                 if (sourceWithSink(flow)) {
                     flows.addAll(splitSinkFromFlow(flow));
                 }
+                Map<Long, Long> flowTaskIDPrefixMap = new HashMap<>();
                 for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                     int finalParallelismIndex = i;
                     List<SeaTunnelTask> taskList =
                         flows.stream().map(f -> {
                             setFlowConfig(f, finalParallelismIndex);
+                            long taskIDPrefix =
+                                flowTaskIDPrefixMap.computeIfAbsent(f.getFlowID(), id -> idGenerator.getNextId());
                             if (f instanceof PhysicalExecutionFlow) {
                                 return new SourceSeaTunnelTask<>(jobImmutableInformation.getJobId(),
-                                    new TaskLocation(taskGroupID, idGenerator.getNextId()),
+                                    new TaskLocation(taskGroupID,
+                                        convertToTaskID(taskIDPrefix, finalParallelismIndex)),
                                     finalParallelismIndex, f);
                             } else {
                                 return new TransformSeaTunnelTask(jobImmutableInformation.getJobId(),
-                                    new TaskLocation(taskGroupID, idGenerator.getNextId()),
+                                    new TaskLocation(taskGroupID,
+                                        convertToTaskID(taskIDPrefix, finalParallelismIndex)),
                                     finalParallelismIndex, f);
                             }
                         }).collect(Collectors.toList());
@@ -428,6 +434,11 @@ public class PhysicalPlanGenerator {
         return flow.getAction() instanceof SinkAction ||
             flow.getNext().stream().map(f -> (PhysicalExecutionFlow<?, ?>) f).map(PhysicalPlanGenerator::sourceWithSink)
                 .collect(Collectors.toList()).contains(true);
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private long convertToTaskID(long taskTypeID, int index) {
+        return taskTypeID * 10000 + index;
     }
 
     private List<Flow> getNextWrapper(List<ExecutionEdge> edges, Action start) {

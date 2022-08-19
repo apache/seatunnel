@@ -50,4 +50,9 @@ public class IntermediateExecutionFlow<F extends FlowConfig> extends Flow {
     public IntermediateQueue getQueue() {
         return queue;
     }
+
+    @Override
+    public long getFlowID() {
+        return queue.getId();
+    }
 }
