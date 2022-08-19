@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.flink;
 
-import com.beust.jcommander.ParameterException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -47,15 +46,4 @@ public class FlinkStarterTest {
 
     }
 
-    @Test
-    public void testBuildCommandsMissingConfig() {
-        Assertions.assertThrows(ParameterException.class,
-            () -> {
-                String[] args = {"-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
-                FlinkStarter flinkStarter = new FlinkStarter(args);
-                String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
-                // since we cannot get the actual jar path, so we just check the command contains the command
-                Assertions.assertTrue(flinkExecuteCommand.contains("--config flink.yarn.conf"));
-            }, "The following option is required: [-c | --config]");
-    }
 }
