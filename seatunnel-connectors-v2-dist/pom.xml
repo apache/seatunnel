@@ -131,6 +131,11 @@
             <artifactId>connector-iotdb</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-neo4j</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
