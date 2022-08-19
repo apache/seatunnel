@@ -8,11 +8,22 @@ Read external data source data through IoTDB. Currently supports Batch mode.
 
 ## Options
 
-| name | type | required | default value | |-----------------------|---------|----------| -- | | sql | String | Yes | -
-| | host | String | Yes | - | | port | Int | Yes | - | | node_urls | String | Yes | - | | fields | Struct | Yes | - | |
-fetch_size | Int | No | _ | | username | String | No | - | | password | Long | No | - | | lower_bound | Long | No | - |
-| upper_bound | Long | No | - | | num_partitions | Int | No | - | | thrift_default_buffer_size | Int | No | - | |
-enable_cache_leader | Boolean | No | - | | version | String | No | - |
+| name                       | type    | required | default value |
+|----------------------------|---------|----------|---------------|
+| host                       | string  | yes      | -             |
+| port                       | Int     | yes      | -             |
+| node_urls                  | string  | yes      | -             |
+| sql                        | string  | yes      |          |
+| fields                     | config  | yes      | -             |
+| fetch_size                 | int     | no       | -             |
+| username                   | string  | no       | -             |
+| password   | string  | no       | -             |
+| lower_bound                | long    | no       | -             |
+| upper_bound                | long    | no       | -             |
+| num_partitions             | int     | no       | -             |
+| thrift_default_buffer_size | int     | no       | -             |
+| enable_cache_leader        | boolean | no       | -             |
+| version                    | string  | no       | -             |
 
 ### single node, you need to set host and port to connect to the remote data source.
 
