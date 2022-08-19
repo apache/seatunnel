@@ -15,33 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.resourcemanager.thirdparty;
 
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import com.hazelcast.cluster.Address;
-import lombok.NonNull;
+public class CreateWorkerResult {
 
-import java.util.concurrent.CompletableFuture;
+    private String message;
 
-public interface ResourceManager {
-    @Deprecated
-    Address applyForResource(long jobId, long taskId);
+    private WorkerProfile workerProfile;
 
-    @NonNull
-    @Deprecated
-    Address getAppliedResource(long jobId, long taskId);
-
-    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile);
-
-    CompletableFuture<Void>[] releaseResources(long jobId, SlotProfile[] profiles);
-
-    CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
-
-    void workerRegister(WorkerProfile workerProfile);
-
-    void heartbeatFromWorker(String workerID);
+    private Throwable error;
 
 }

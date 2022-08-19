@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
@@ -52,6 +53,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int TASK_LOCATION_TYPE = 8;
 
     public static final int PROGRESS_TYPE = 9;
+
+    public static final int WORKER_TASK_LOCATION_TYPE = 10;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -91,6 +94,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new TaskLocation();
                 case PROGRESS_TYPE:
                     return new Progress();
+                case WORKER_TASK_LOCATION_TYPE:
+                    return new WorkerTaskLocation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

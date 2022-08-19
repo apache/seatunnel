@@ -15,33 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.resourcemanager.worker;
 
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import com.hazelcast.cluster.Address;
-import lombok.NonNull;
 
-import java.util.concurrent.CompletableFuture;
+public class WorkerProfile {
 
-public interface ResourceManager {
-    @Deprecated
-    Address applyForResource(long jobId, long taskId);
+    private final String workerID;
 
-    @NonNull
-    @Deprecated
-    Address getAppliedResource(long jobId, long taskId);
+    private final Address address;
 
-    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile);
+    private ResourceProfile profile;
 
-    CompletableFuture<Void>[] releaseResources(long jobId, SlotProfile[] profiles);
+    private SlotProfile[] slotProfiles;
 
-    CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
+    public WorkerProfile(String workerID, Address address) {
+        this.workerID = workerID;
+        this.address = address;
+    }
 
-    void workerRegister(WorkerProfile workerProfile);
+    public String getWorkerID() {
+        return workerID;
+    }
 
-    void heartbeatFromWorker(String workerID);
+    public Address getAddress() {
+        return address;
+    }
 
+    public ResourceProfile getProfile() {
+        return profile;
+    }
+
+    public void setProfile(ResourceProfile profile) {
+        this.profile = profile;
+    }
+
+    public SlotProfile[] getSlotProfiles() {
+        return slotProfiles;
+    }
+
+    public void setSlotProfiles(SlotProfile[] slotProfiles) {
+        this.slotProfiles = slotProfiles;
+    }
 }
