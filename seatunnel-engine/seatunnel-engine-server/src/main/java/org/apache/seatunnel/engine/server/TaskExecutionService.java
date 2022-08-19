@@ -133,7 +133,9 @@ public class TaskExecutionService {
             taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             return deployLocalTask(taskGroup, resultFuture);
         } catch (Throwable t) {
-            logger.severe(ExceptionUtils.getMessage(t));
+            logger.severe(String.format("TaskGroupID : %s  deploy error with Exception: %s",
+                taskGroup != null ? taskGroup.getId() : -1,
+                ExceptionUtils.getMessage(t)));
             resultFuture.complete(new TaskExecutionState(taskGroup != null ? taskGroup.getId() : -1, ExecutionState.FAILED, t));
         }
         return new NonCompletableFuture<>(resultFuture);
