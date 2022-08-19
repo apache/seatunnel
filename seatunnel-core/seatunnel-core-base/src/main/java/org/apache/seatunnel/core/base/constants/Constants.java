@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.constants;
+package org.apache.seatunnel.core.base.constants;
 
-public class CommonParamConstants {
-
-    public static final String RESULT_TABLE_NAME = "result_table_name";
-    public static final String SOURCE_TABLE_NAME = "source_table_name";
+public class Constants {
+    public static final int USAGE_EXIT_CODE = 234;
 }

@@ -25,7 +25,7 @@ public class FlinkStarterTest {
     static final String APP_CONF_PATH = ClassLoader.getSystemResource("app.conf").getPath();
 
     @Test
-    public void buildCommands() throws Exception {
+    public void testBuildCommands() {
         String[] args = {"--config", APP_CONF_PATH, "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
         FlinkStarter flinkStarter = new FlinkStarter(args);
         String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
@@ -44,10 +44,11 @@ public class FlinkStarterTest {
 
         String[] args3 = {"--config", APP_CONF_PATH, "-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2", "--run-mode", "run123"};
         Assertions.assertThrows(IllegalArgumentException.class, () -> new FlinkStarter(args3), "Run mode run123 not supported");
+
     }
 
     @Test
-    public void buildCommandsMissingConfig() {
+    public void testBuildCommandsMissingConfig() {
         Assertions.assertThrows(ParameterException.class,
             () -> {
                 String[] args = {"-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};

@@ -18,8 +18,8 @@
 package org.apache.seatunnel.core.spark.args;
 
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.core.base.utils.CommandLineUtils;
 
-import com.beust.jcommander.JCommander;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -30,11 +30,7 @@ public class SparkCommandArgsTest {
     @Test
     public void testParseSparkArgs() {
         String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=shijiazhuang", "-i", "name=Tom"};
-        SparkCommandArgs sparkArgs = new SparkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(sparkArgs)
-            .build()
-            .parse(args);
+        SparkCommandArgs sparkArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
         Assertions.assertEquals("app.conf", sparkArgs.getConfigFile());
         Assertions.assertEquals(DeployMode.CLIENT, sparkArgs.getDeployMode());
         Assertions.assertEquals("yarn", sparkArgs.getMaster());
@@ -44,24 +40,13 @@ public class SparkCommandArgsTest {
     @Test
     public void testHelp() {
         String[] args = {"-h"};
-        SparkCommandArgs sparkArgs = new SparkCommandArgs();
-        JCommander commander = JCommander.newBuilder()
-            .addObject(sparkArgs)
-            .build();
-        commander.parse(args);
-        if (sparkArgs.isHelp()) {
-            commander.usage();
-        }
+        CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
     }
 
     @Test
     public void testDashDash() {
         String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=guojizhuang", "--"};
-        SparkCommandArgs sparkArgs = new SparkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(sparkArgs)
-            .build()
-            .parse(args);
+        CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
     }
 
 }
