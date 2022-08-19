@@ -15,14 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.engine.server.operation;
 
-import java.util.concurrent.ExecutionException;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 
-public interface Job {
-    long getJobId();
+import java.io.IOException;
 
-    void submitJob() throws ExecutionException, InterruptedException;
+public abstract class AbstractJobAsyncOperation extends AsyncOperation {
+    protected long jobId;
 
-    void waitForJobComplete();
+    public AbstractJobAsyncOperation() {
+    }
+
+    public AbstractJobAsyncOperation(long jobId) {
+        this.jobId = jobId;
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeLong(jobId);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        jobId = in.readLong();
+    }
 }

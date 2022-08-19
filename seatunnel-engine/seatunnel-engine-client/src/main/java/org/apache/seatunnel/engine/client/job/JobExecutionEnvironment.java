@@ -1,13 +1,12 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.api.common.SeaTunnelContext;
+import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -80,10 +80,10 @@ public class JobExecutionEnvironment {
         JobClient jobClient = new JobClient(seaTunnelHazelcastClient);
         initSeaTunnelContext();
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
-                jobClient.getNewJobId(),
-                seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
-                jobConfig,
-                jarUrls);
+            jobClient.getNewJobId(),
+            seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
+            jobConfig,
+            jarUrls);
 
         JobProxy jobProxy = jobClient.createJobProxy(jobImmutableInformation);
         jobProxy.submitJob();

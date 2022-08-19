@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.engine.client.job;
 
-import java.util.concurrent.ExecutionException;
+import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
-public interface Job {
-    long getJobId();
+import lombok.NonNull;
 
-    void submitJob() throws ExecutionException, InterruptedException;
+public class JobClient {
+    private SeaTunnelHazelcastClient hazelcastClient;
 
-    void waitForJobComplete();
+    public JobClient(@NonNull SeaTunnelHazelcastClient hazelcastClient) {
+        this.hazelcastClient = hazelcastClient;
+    }
+
+    public long getNewJobId() {
+        return hazelcastClient.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+    }
+
+    public JobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
+        return new JobProxy(hazelcastClient, jobImmutableInformation);
+    }
 }

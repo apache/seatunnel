@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.engine.client.job.JobConfigParser;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -48,7 +49,8 @@ public class LogicalDagGeneratorTest {
         jobConfig.setName("fake_to_file");
 
         IdGenerator idGenerator = new IdGenerator();
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = new JobConfigParser(filePath, idGenerator, new JobConfig()).parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair =
+            new JobConfigParser(filePath, idGenerator, new JobConfig()).parse();
 
         LogicalDagGenerator logicalDagGenerator =
             new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);

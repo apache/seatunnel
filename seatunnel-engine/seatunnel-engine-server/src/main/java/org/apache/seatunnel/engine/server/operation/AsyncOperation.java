@@ -23,7 +23,7 @@ import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 import static com.hazelcast.spi.impl.operationservice.ExceptionAction.THROW_EXCEPTION;
 
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
@@ -47,7 +47,7 @@ public abstract class AsyncOperation extends Operation implements IdentifiedData
 
     @Override
     public final void run() {
-        NonCompletableFuture<?> future;
+        PassiveCompletableFuture<?> future;
         try {
             future = doRun();
         } catch (Exception e) {
@@ -58,7 +58,7 @@ public abstract class AsyncOperation extends Operation implements IdentifiedData
         future.whenComplete(withTryCatch(getLogger(), (r, f) -> doSendResponse(f != null ? peel(f) : r)));
     }
 
-    protected abstract NonCompletableFuture<?> doRun() throws Exception;
+    protected abstract PassiveCompletableFuture<?> doRun() throws Exception;
 
     @Override
     public final boolean returnsResponse() {

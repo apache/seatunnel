@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.protocol.task;
 
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 
 import com.hazelcast.client.impl.protocol.MessageTaskFactory;
 import com.hazelcast.client.impl.protocol.MessageTaskFactoryProvider;
@@ -42,7 +43,11 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
     }
 
     private void initFactories() {
-        factories.put(SeaTunnelPrintMessageCodec.REQUEST_MESSAGE_TYPE, (clientMessage, connection) -> new PrintMessageTask(clientMessage, node, connection));
-        factories.put(SeaTunnelSubmitJobCodec.REQUEST_MESSAGE_TYPE, (clientMessage, connection) -> new SubmitJobTask(clientMessage, node, connection));
+        factories.put(SeaTunnelPrintMessageCodec.REQUEST_MESSAGE_TYPE,
+            (clientMessage, connection) -> new PrintMessageTask(clientMessage, node, connection));
+        factories.put(SeaTunnelSubmitJobCodec.REQUEST_MESSAGE_TYPE,
+            (clientMessage, connection) -> new SubmitJobTask(clientMessage, node, connection));
+        factories.put(SeaTunnelWaitForJobCompleteCodec.REQUEST_MESSAGE_TYPE,
+            (clientMessage, connection) -> new WaitForJobCompleteTask(clientMessage, node, connection));
     }
 }
