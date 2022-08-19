@@ -15,36 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.dag.execution;
+package org.apache.seatunnel.engine.server.operation;
 
-import java.util.List;
-import java.util.Map;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
-public class Pipeline {
+public class WaitForJobCompleteOperation extends AbstractJobAsyncOperation {
 
-    /** The ID of the pipeline. */
-    private final Integer id;
-
-    private final List<ExecutionEdge> edges;
-
-    private final Map<Long, ExecutionVertex> vertexes;
-
-    Pipeline(Integer id, List<ExecutionEdge> edges, Map<Long, ExecutionVertex> vertexes) {
-        this.id = id;
-        this.edges = edges;
-        this.vertexes = vertexes;
+    public WaitForJobCompleteOperation() {
+        super();
     }
 
-    public Integer getId() {
-        return id;
+    public WaitForJobCompleteOperation(long jobId) {
+        super(jobId);
     }
 
-    public List<ExecutionEdge> getEdges() {
-        return edges;
+    @Override
+    protected PassiveCompletableFuture<?> doRun() throws Exception {
+        SeaTunnelServer service = getService();
+        return service.waitForJobComplete(jobId);
     }
 
-    public Map<Long, ExecutionVertex> getVertexes() {
-        return vertexes;
+    @Override
+    public int getClassId() {
+        return OperationDataSerializerHook.WAIT_FORM_JOB_COMPLETE_OPERATOR;
     }
-
 }

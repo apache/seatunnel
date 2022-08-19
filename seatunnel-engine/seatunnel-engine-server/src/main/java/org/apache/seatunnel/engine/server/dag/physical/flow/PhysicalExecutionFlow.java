@@ -49,4 +49,9 @@ public class PhysicalExecutionFlow<T extends Action, F extends FlowConfig> exten
     public T getAction() {
         return action;
     }
+
+    @Override
+    public long getFlowID() {
+        return action.getId();
+    }
 }

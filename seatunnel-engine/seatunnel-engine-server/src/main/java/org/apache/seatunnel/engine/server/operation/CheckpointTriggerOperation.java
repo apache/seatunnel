@@ -18,26 +18,22 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
-import com.hazelcast.internal.nio.IOUtil;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import lombok.NonNull;
 
 import java.io.IOException;
 
-public class SubmitJobOperation extends AbstractJobAsyncOperation {
-    private Data jobImmutableInformation;
+public class CheckpointTriggerOperation extends AsyncOperation {
+    private CheckpointBarrier checkpointBarrier;
 
-    public SubmitJobOperation() {
+    public CheckpointTriggerOperation() {
     }
 
-    public SubmitJobOperation(long jobId, @NonNull Data jobImmutableInformation) {
-        super(jobId);
-        this.jobImmutableInformation = jobImmutableInformation;
+    public CheckpointTriggerOperation(CheckpointBarrier checkpointBarrier) {
+        this.checkpointBarrier = checkpointBarrier;
     }
 
     @Override
@@ -47,19 +43,17 @@ public class SubmitJobOperation extends AbstractJobAsyncOperation {
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
-        IOUtil.writeData(out, jobImmutableInformation);
+        out.writeObject(checkpointBarrier);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
-        jobImmutableInformation = IOUtil.readData(in);
+        checkpointBarrier = in.readObject(CheckpointBarrier.class);
     }
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
-        SeaTunnelServer seaTunnelServer = getService();
-        return seaTunnelServer.submitJob(jobId, jobImmutableInformation);
+        // TODO: All source Vertexes executed
+        return null;
     }
 }

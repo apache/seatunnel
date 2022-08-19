@@ -15,25 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.client;
+package org.apache.seatunnel.engine.core.checkpoint;
 
-import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+public enum CheckpointType {
+    CHECKPOINT_TYPE(true, "checkpoint"),
+    SAVEPOINT_TYPE(false, "savepoint");
 
-import lombok.NonNull;
+    private final boolean auto;
+    private final String name;
 
-public class JobClient {
-    private SeaTunnelHazelcastClient hazelcastClient;
-
-    public JobClient(@NonNull SeaTunnelHazelcastClient hazelcastClient) {
-        this.hazelcastClient = hazelcastClient;
+    CheckpointType(boolean auto, String name) {
+        this.auto = auto;
+        this.name = name;
     }
 
-    public long getNewJobId() {
-        return hazelcastClient.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+    public boolean isAuto() {
+        return auto;
     }
 
-    public JobProxy createJobProxy(@NonNull JobImmutableInformation jobImmutableInformation) {
-        return new JobProxy(hazelcastClient, jobImmutableInformation);
+    public String getName() {
+        return name;
     }
 }

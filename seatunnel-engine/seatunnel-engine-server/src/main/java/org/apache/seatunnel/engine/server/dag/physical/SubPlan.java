@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.common.utils.NonCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineState;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -74,7 +74,7 @@ public class SubPlan {
      * This future only can completion by the {@link PhysicalVertex } taskFuture.
      * When the taskFuture in {@link PhysicalVertex} completed, The NonCompletableFuture's whenComplete method will be called
      */
-    private final NonCompletableFuture<TaskExecutionState>[] waitForCompleteByPhysicalVertex;
+    private final PassiveCompletableFuture<TaskExecutionState>[] waitForCompleteByPhysicalVertex;
 
     public SubPlan(int pipelineIndex,
                    int totalPipelineNum,
@@ -82,7 +82,7 @@ public class SubPlan {
                    @NonNull List<PhysicalVertex> physicalVertexList,
                    @NonNull List<PhysicalVertex> coordinatorVertexList,
                    @NonNull CompletableFuture<PipelineState> pipelineFuture,
-                   @NonNull NonCompletableFuture<TaskExecutionState>[] waitForCompleteByPhysicalVertex,
+                   @NonNull PassiveCompletableFuture<TaskExecutionState>[] waitForCompleteByPhysicalVertex,
                    @NonNull JobImmutableInformation jobImmutableInformation) {
         this.pipelineIndex = pipelineIndex;
         this.pipelineFuture = pipelineFuture;
@@ -184,14 +184,14 @@ public class SubPlan {
         }
     }
 
-    public NonCompletableFuture<Void> cancelPipeline() {
+    public PassiveCompletableFuture<Void> cancelPipeline() {
         CompletableFuture<Void> cancelFuture = CompletableFuture.supplyAsync(() -> {
             // TODO Implement cancel tasks in pipeline.
             return null;
         });
 
         cancelFuture.complete(null);
-        return new NonCompletableFuture<>(cancelFuture);
+        return new PassiveCompletableFuture<>(cancelFuture);
     }
 
     public void failedWithNoEnoughResource() {
