@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.LocalSourceConfig;
@@ -58,8 +59,10 @@ public class LocalFileSource extends BaseFileSource {
             throw new PrepareFailException(getPluginName(), PluginType.SOURCE, "Check file path fail.");
         }
         // support user-defined schema
-        if (pluginConfig.hasPath(LocalSourceConfig.SCHEMA)) {
-            Config schemaConfig = pluginConfig.getConfig(LocalSourceConfig.SCHEMA);
+        FileFormat fileFormat = FileFormat.valueOf(pluginConfig.getString(LocalSourceConfig.FILE_PATH).toUpperCase());
+        // only json type support user-defined schema now
+        if (pluginConfig.hasPath(SeatunnelSchema.SCHEMA) && fileFormat.equals(FileFormat.JSON)) {
+            Config schemaConfig = pluginConfig.getConfig(SeatunnelSchema.SCHEMA);
             rowType = SeatunnelSchema
                     .buildWithConfig(schemaConfig)
                     .getSeaTunnelRowType();
