@@ -37,16 +37,4 @@ public class SparkCommandArgsTest {
         Assertions.assertEquals(Arrays.asList("city=shijiazhuang", "name=Tom"), sparkArgs.getVariables());
     }
 
-    @Test
-    public void testHelp() {
-        String[] args = {"-h"};
-        CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
-    }
-
-    @Test
-    public void testDashDash() {
-        String[] args = {"-c", "app.conf", "-e", "client", "-m", "yarn", "-i", "city=guojizhuang", "--"};
-        CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
-    }
-
 }
