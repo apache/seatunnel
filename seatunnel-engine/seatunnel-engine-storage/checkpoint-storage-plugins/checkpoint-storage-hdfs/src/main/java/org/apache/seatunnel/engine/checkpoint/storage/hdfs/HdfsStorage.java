@@ -1,7 +1,33 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
+import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageStants.STORAGE_NAME_SPACE;
+
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -11,17 +37,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
-import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Set;
 
 @Slf4j
 public class HdfsStorage extends AbstractCheckpointStorage {
@@ -31,11 +52,18 @@ public class HdfsStorage extends AbstractCheckpointStorage {
 
     private static final String KERBEROS_KEY = "kerberos";
 
+    public HdfsStorage(Map<String, String> configuration) throws CheckpointStorageException {
+        this.initStorage(configuration);
+    }
+
     @Override
     public void initStorage(Map<String, String> configuration) throws CheckpointStorageException {
         Configuration hadoopConf = new Configuration();
         if (configuration.containsKey(HdfsConstants.HDFS_DEF_FS_NAME)) {
             hadoopConf.set(HdfsConstants.HDFS_DEF_FS_NAME, configuration.get(HdfsConstants.HDFS_DEF_FS_NAME));
+        }
+        if (StringUtils.isNotBlank(configuration.get(STORAGE_NAME_SPACE))) {
+            setStorageNameSpace(configuration.get(STORAGE_NAME_SPACE));
         }
         // todo support other config configurations
         if (configuration.containsKey(HdfsConstants.KERBEROS_PRINCIPAL) && configuration.containsKey(HdfsConstants.KERBEROS_KEYTAB_FILE_PATH)) {
@@ -83,7 +111,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         List<PipelineState> states = new ArrayList<>();
         fileNames.forEach(file -> {
             try {
-                states.add(readPipelineState(file));
+                states.add(readPipelineState(file, jobId));
             } catch (CheckpointStorageException e) {
                 log.error("Failed to read checkpoint data from file: " + file, e);
             }
@@ -101,27 +129,16 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         if (fileNames.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
         }
-        Map<String, String> latestPipelineMap = new HashMap<>();
-        fileNames.forEach(file -> {
-            String filePipelineId = file.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
-            int fileVersion = Integer.parseInt(file.split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-            if (latestPipelineMap.containsKey(filePipelineId)) {
-                int oldVersion = Integer.parseInt(latestPipelineMap.get(filePipelineId).split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-                if (fileVersion > oldVersion) {
-                    latestPipelineMap.put(filePipelineId, file);
-                }
-            } else {
-                latestPipelineMap.put(filePipelineId, file);
-            }
-        });
+        Set<String> latestPipelineNames = getLatestPipelineNames(fileNames);
         List<PipelineState> latestPipelineStates = new ArrayList<>();
-        latestPipelineMap.forEach((pipelineId, fileName) -> {
+        latestPipelineNames.forEach(fileName -> {
             try {
-                latestPipelineStates.add(readPipelineState(fileName));
+                latestPipelineStates.add(readPipelineState(fileName, jobId));
             } catch (CheckpointStorageException e) {
                 log.error("Failed to read pipeline state for file: {}", fileName, e);
             }
         });
+
         if (latestPipelineStates.isEmpty()) {
             throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
         }
@@ -136,21 +153,11 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
         }
 
-        AtomicReference<String> latestFileName = new AtomicReference<>(null);
-        AtomicInteger latestVersion = new AtomicInteger();
-        fileNames.forEach(file -> {
-            int fileVersion = Integer.parseInt(file.split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-            String filePipelineId = file.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
-            if (pipelineId.equals(filePipelineId) && fileVersion > latestVersion.get()) {
-                latestVersion.set(fileVersion);
-                latestFileName.set(file);
-            }
-        });
-        if (latestFileName.get() == null) {
+        String latestFileName = getLatestCheckpointFileNameByJobIdAndPipelineId(fileNames, pipelineId);
+        if (latestFileName == null) {
             throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId + ", pipeline id is: " + pipelineId);
         }
-
-        return readPipelineState(latestFileName.get());
+        return readPipelineState(latestFileName, jobId);
     }
 
     @Override
@@ -166,7 +173,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             String filePipelineId = file.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
             if (pipelineId.equals(filePipelineId)) {
                 try {
-                    pipelineStates.add(readPipelineState(file));
+                    pipelineStates.add(readPipelineState(file, jobId));
                 } catch (Exception e) {
                     log.error("Failed to read checkpoint data from file " + file, e);
                 }
@@ -222,7 +229,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
      * @param fileName file name
      * @return checkpoint data
      */
-    private PipelineState readPipelineState(String fileName) throws CheckpointStorageException {
+    private PipelineState readPipelineState(String fileName, String jobId) throws CheckpointStorageException {
+        fileName = getStorageParentDirectory() + jobId + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName;
         try (FSDataInputStream in = fs.open(new Path(fileName))) {
             byte[] datas = new byte[in.available()];
             in.read(datas);
