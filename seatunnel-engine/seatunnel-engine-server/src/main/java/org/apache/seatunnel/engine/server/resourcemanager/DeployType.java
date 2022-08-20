@@ -15,16 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager.thirdparty;
+package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
-
-import java.util.concurrent.CompletableFuture;
-
-public interface ThreePartyResourceManager {
-
-    CompletableFuture<CreateWorkerResult> createNewWorker(ResourceProfile resourceProfile);
-
-    CompletableFuture<Void> releaseWorker(String workerID);
-
+public enum DeployType {
+    STANDALONE,
+    YARN,
+    KUBERNETES
 }

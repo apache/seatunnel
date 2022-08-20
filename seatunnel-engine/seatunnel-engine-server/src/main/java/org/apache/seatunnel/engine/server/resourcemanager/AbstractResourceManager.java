@@ -17,55 +17,30 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatListener;
+import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-import com.hazelcast.cluster.Address;
-import lombok.Data;
-import lombok.NonNull;
-
-import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 
-@Data
-public class SimpleResourceManager implements ResourceManager {
+public abstract class AbstractResourceManager implements ResourceManager {
 
-    // TODO We may need more detailed resource define, instead of the resource definition method of only Address.
-    private Map<Long, Map<Long, Address>> physicalVertexIdAndResourceMap = new HashMap<>();
+    private final Map<String, WorkerProfile> registerWorker;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
-    @Override
-    public Address applyForResource(long jobId, long taskId) {
-        try {
-            Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.computeIfAbsent(jobId, k -> new HashMap<>());
+    private final WorkerHeartbeatListener listener;
 
-            Address localhost =
-                    jobAddressMap.putIfAbsent(taskId, new Address("192.168.5.105", 5701));
-            if (null == localhost) {
-                localhost = jobAddressMap.get(taskId);
-            }
+    private final HeartbeatManager heartbeatManager;
 
-            return localhost;
-
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    @NonNull
-    public Address getAppliedResource(long jobId, long taskId) {
-        Map<Long, Address> longAddressMap = physicalVertexIdAndResourceMap.get(jobId);
-        if (null == longAddressMap || longAddressMap.isEmpty()) {
-            throw new JobException(
-                String.format("Job %s, Task %s can not found applied resource.", jobId, taskId));
-        }
-
-        return longAddressMap.get(taskId);
+    public AbstractResourceManager() {
+        this.registerWorker = new ConcurrentHashMap<>();
+        this.listener = new WorkerHeartbeatListener();
+        this.heartbeatManager = new HeartbeatManager(listener);
+        heartbeatManager.start(Executors.newSingleThreadScheduledExecutor());
     }
 
     @Override
@@ -85,11 +60,20 @@ public class SimpleResourceManager implements ResourceManager {
 
     @Override
     public void workerRegister(WorkerProfile workerProfile) {
-
+        registerWorker.put(workerProfile.getWorkerID(), workerProfile);
+        heartbeatFromWorker(workerProfile.getWorkerID());
     }
 
     @Override
     public void heartbeatFromWorker(String workerID) {
+        heartbeatManager.heartbeat(workerID);
+    }
 
+    private class WorkerHeartbeatListener implements HeartbeatListener {
+        @Override
+        public void nodeDisconnected(String nodeID) {
+            heartbeatManager.removeNode(nodeID);
+            registerWorker.remove(nodeID);
+        }
     }
 }
