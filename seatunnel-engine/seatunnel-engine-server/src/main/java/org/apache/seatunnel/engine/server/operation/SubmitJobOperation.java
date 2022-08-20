@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.operation;
 
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
@@ -24,17 +25,18 @@ import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import lombok.NonNull;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
-public class SubmitJobOperation extends AsyncOperation {
+public class SubmitJobOperation extends AbstractJobAsyncOperation {
     private Data jobImmutableInformation;
 
     public SubmitJobOperation() {
     }
 
-    public SubmitJobOperation(Data jobImmutableInformation) {
+    public SubmitJobOperation(long jobId, @NonNull Data jobImmutableInformation) {
+        super(jobId);
         this.jobImmutableInformation = jobImmutableInformation;
     }
 
@@ -56,9 +58,8 @@ public class SubmitJobOperation extends AsyncOperation {
     }
 
     @Override
-    protected CompletableFuture<?> doRun() throws Exception {
+    protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        CompletableFuture<Void> voidCompletableFuture = seaTunnelServer.submitJob(jobImmutableInformation);
-        return voidCompletableFuture;
+        return seaTunnelServer.submitJob(jobId, jobImmutableInformation);
     }
 }

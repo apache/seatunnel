@@ -22,16 +22,15 @@ import static com.hazelcast.jet.impl.util.ExceptionUtil.stackTraceToString;
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
 import static com.hazelcast.spi.impl.operationservice.ExceptionAction.THROW_EXCEPTION;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
-import com.hazelcast.jet.JetException;
 import com.hazelcast.nio.serialization.HazelcastSerializationException;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.ExceptionAction;
 import com.hazelcast.spi.impl.operationservice.Operation;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Base class for async operations. Handles registration/deregistration of
@@ -48,7 +47,7 @@ public abstract class AsyncOperation extends Operation implements IdentifiedData
 
     @Override
     public final void run() {
-        CompletableFuture<?> future;
+        PassiveCompletableFuture<?> future;
         try {
             future = doRun();
         } catch (Exception e) {
@@ -59,7 +58,7 @@ public abstract class AsyncOperation extends Operation implements IdentifiedData
         future.whenComplete(withTryCatch(getLogger(), (r, f) -> doSendResponse(f != null ? peel(f) : r)));
     }
 
-    protected abstract CompletableFuture<?> doRun() throws Exception;
+    protected abstract PassiveCompletableFuture<?> doRun() throws Exception;
 
     @Override
     public final boolean returnsResponse() {
@@ -87,7 +86,7 @@ public abstract class AsyncOperation extends Operation implements IdentifiedData
                     // the response will not be sent and the operation will hang.
                     // To prevent this from happening, replace the exception with
                     // another exception that can be serialized.
-                    sendResponse(new JetException(stackTraceToString(ex)));
+                    sendResponse(new SeaTunnelEngineException(stackTraceToString(ex)));
                 } else {
                     throw e;
                 }

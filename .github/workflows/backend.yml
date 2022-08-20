@@ -23,6 +23,9 @@ on:
       - 'docs/**'
       - '**/*.md'
       - 'seatunnel-ui/**'
+      - 'seatunnel-engine/**'
+      - 'seatunnel-engine/seatunnel-engine-e2e/**'
+      - 'seatunnel-examples/seatunnel-engine-examples/**'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}

@@ -21,15 +21,16 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
-import org.apache.seatunnel.engine.client.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.client.JobProxy;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.JobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 
 import com.hazelcast.client.config.ClientConfig;
 
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
 
 public class SeaTunnelStarter {
     public static void main(String[] args) {
@@ -38,13 +39,18 @@ public class SeaTunnelStarter {
         Common.setDeployMode(DeployMode.CLIENT);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
+        // TODO change jobConfig mode
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(configFile.toString(), jobConfig);
 
-        JobProxy jobProxy = jobExecutionEnv.execute();
-
-        // TODO wait for job complete and then exit
+        JobProxy jobProxy;
+        try {
+            jobProxy = jobExecutionEnv.execute();
+            jobProxy.waitForJobComplete();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

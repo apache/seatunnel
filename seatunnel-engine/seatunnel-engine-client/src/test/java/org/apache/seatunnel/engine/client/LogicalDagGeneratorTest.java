@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.engine.client.job.JobConfigParser;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -44,18 +45,19 @@ public class LogicalDagGeneratorTest {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setBoundedness(Boundedness.BOUNDED);
+        jobConfig.setMode(JobMode.BATCH);
         jobConfig.setName("fake_to_file");
 
         IdGenerator idGenerator = new IdGenerator();
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = new JobConfigParser(filePath, idGenerator, new JobConfig()).parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair =
+            new JobConfigParser(filePath, idGenerator, new JobConfig()).parse();
 
         LogicalDagGenerator logicalDagGenerator =
             new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
         LogicalDag logicalDag = logicalDagGenerator.generate();
         JsonObject logicalDagJson = logicalDag.getLogicalDagAsJson();
         String result =
-            "{\"vertices\":[{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"FakeSource(id=3)\",\"parallelism\":3},{\"id\":1,\"name\":\"LocalFile(id=1)\",\"parallelism\":6}],\"edges\":[{\"leftVertex\":\"FakeSource\",\"rightVertex\":\"LocalFile\"},{\"leftVertex\":\"FakeSource\",\"rightVertex\":\"LocalFile\"}]}";
+            "{\"vertices\":[{\"id\":1,\"name\":\"LocalFile(id=1)\",\"parallelism\":6},{\"id\":2,\"name\":\"FakeSource(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"FakeSource(id=3)\",\"parallelism\":3}],\"edges\":[{\"inputVertex\":\"LocalFile\",\"targetVertex\":\"FakeSource\"},{\"inputVertex\":\"LocalFile\",\"targetVertex\":\"FakeSource\"}]}";
         Assert.assertEquals(result, logicalDagJson.toString());
     }
 }

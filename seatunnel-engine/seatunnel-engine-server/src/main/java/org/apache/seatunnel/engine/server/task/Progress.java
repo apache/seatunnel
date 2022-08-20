@@ -18,8 +18,16 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
-public class Progress {
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+
+import java.io.IOException;
+import java.io.Serializable;
+
+public class Progress implements IdentifiedDataSerializable, Serializable {
 
     private boolean madeProgress;
     private boolean isDone;
@@ -47,4 +55,25 @@ public class Progress {
         return ProgressState.valueOf(madeProgress, isDone);
     }
 
+    @Override
+    public int getFactoryId() {
+        return TaskDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return TaskDataSerializerHook.PROGRESS_TYPE;
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeBoolean(isDone);
+        out.writeBoolean(madeProgress);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        isDone = in.readBoolean();
+        madeProgress = in.readBoolean();
+    }
 }

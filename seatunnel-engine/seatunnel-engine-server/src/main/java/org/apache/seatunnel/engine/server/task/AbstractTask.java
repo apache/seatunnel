@@ -19,8 +19,9 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
-import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
 import java.net.URL;
@@ -29,32 +30,43 @@ import java.util.Set;
 public abstract class AbstractTask implements Task {
     private static final long serialVersionUID = -2524701323779523718L;
 
-    protected OperationService operationService;
-    protected long taskID;
+    protected TaskExecutionContext executionContext;
+    protected final long jobID;
+    protected final TaskLocation taskID;
 
     protected Progress progress;
 
-    public AbstractTask(long taskID) {
+    public AbstractTask(long jobID, TaskLocation taskID) {
         this.taskID = taskID;
+        this.jobID = jobID;
         this.progress = new Progress();
     }
 
     public abstract Set<URL> getJarsUrl();
 
     @Override
-    public void setOperationService(OperationService operationService) {
-        this.operationService = operationService;
+    public void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+        this.executionContext = taskExecutionContext;
+    }
+
+    public TaskExecutionContext getExecutionContext() {
+        return executionContext;
+    }
+
+    @Override
+    public void init() throws Exception {
+        progress.start();
     }
 
     @NonNull
     @Override
-    public ProgressState call() {
+    public ProgressState call() throws Exception {
         return progress.toState();
     }
 
     @NonNull
     @Override
     public Long getTaskID() {
-        return taskID;
+        return taskID.getTaskID();
     }
 }

@@ -17,53 +17,120 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanUtils;
-import org.apache.seatunnel.engine.server.execution.ProgressState;
-import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.SimpleResourceManager;
+import org.apache.seatunnel.engine.server.scheduler.JobScheduler;
+import org.apache.seatunnel.engine.server.scheduler.PipelineBaseScheduler;
 
+import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.hazelcast.spi.impl.NodeEngine;
-import com.hazelcast.spi.impl.operationservice.OperationService;
 import lombok.NonNull;
 
-import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
-public class JobMaster implements Task {
+public class JobMaster implements Runnable {
+    private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
-    private final LogicalDag logicalDag;
+    private LogicalDag logicalDag;
     private PhysicalPlan physicalPlan;
+    private final Data jobImmutableInformationData;
 
-    private NodeEngine nodeEngine;
+    private final NodeEngine nodeEngine;
 
-    public JobMaster() {
-        this.logicalDag = new LogicalDag();
+    private final ExecutorService executorService;
+
+    private FlakeIdGenerator flakeIdGenerator;
+
+    private ResourceManager resourceManager;
+
+    private CompletableFuture<JobStatus> jobMasterCompleteFuture = new CompletableFuture<>();
+
+    private JobImmutableInformation jobImmutableInformation;
+
+    public JobMaster(@NonNull Data jobImmutableInformationData,
+                     @NonNull NodeEngine nodeEngine,
+                     @NonNull ExecutorService executorService) {
+        this.jobImmutableInformationData = jobImmutableInformationData;
+        this.nodeEngine = nodeEngine;
+        this.executorService = executorService;
+        flakeIdGenerator =
+            this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
+
+        this.resourceManager = new SimpleResourceManager();
     }
 
-    @Override
     public void init() throws Exception {
-        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag, nodeEngine);
+        jobImmutableInformation = nodeEngine.getSerializationService().toObject(
+            jobImmutableInformationData);
+        LOGGER.info("Job [" + jobImmutableInformation.getJobId() + "] submit");
+        LOGGER.info(
+            "Job [" + jobImmutableInformation.getJobId() + "] jar urls " + jobImmutableInformation.getPluginJarsUrls());
+
+        // TODO Use classloader load the connector jars and deserialize logicalDag
+        this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
+        physicalPlan = PhysicalPlanUtils.fromLogicalDAG(logicalDag,
+            nodeEngine,
+            jobImmutableInformation,
+            System.currentTimeMillis(),
+            executorService,
+            flakeIdGenerator);
     }
 
-    @NonNull
+    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
-    public ProgressState call() {
-        return ProgressState.DONE;
+    public void run() {
+        try {
+            PassiveCompletableFuture<JobStatus> jobStatusPassiveCompletableFuture =
+                physicalPlan.getJobEndCompletableFuture();
+
+            jobStatusPassiveCompletableFuture.whenComplete((v, t) -> {
+                // We need not handle t, Because we will not return t from physicalPlan
+                if (JobStatus.FAILING.equals(v)) {
+                    cleanJob();
+                    physicalPlan.updateJobState(JobStatus.FAILING, JobStatus.FAILED);
+                }
+                jobMasterCompleteFuture.complete(physicalPlan.getJobStatus());
+            });
+
+            JobScheduler jobScheduler = new PipelineBaseScheduler(physicalPlan, this);
+            jobScheduler.startScheduling();
+        } catch (Throwable e) {
+            LOGGER.severe(String.format("Job %s (%s) run error with: %s",
+                physicalPlan.getJobImmutableInformation().getJobConfig().getName(),
+                physicalPlan.getJobImmutableInformation().getJobId(),
+                ExceptionUtils.getMessage(e)));
+            // try to cancel job
+            physicalPlan.cancelJob();
+        } finally {
+            jobMasterCompleteFuture.join();
+        }
     }
 
-    @NonNull
-    @Override
-    public Long getTaskID() {
-        return null;
+    public void cleanJob() {
+        // TODO clean something
     }
 
-    @Override
-    public void close() throws IOException {
-        Task.super.close();
+    public ResourceManager getResourceManager() {
+        return resourceManager;
     }
 
-    @Override
-    public void setOperationService(OperationService operationService) {
-        Task.super.setOperationService(operationService);
+    public PassiveCompletableFuture<JobStatus> getJobMasterCompleteFuture() {
+        return new PassiveCompletableFuture<>(jobMasterCompleteFuture);
+    }
+
+    public JobImmutableInformation getJobImmutableInformation() {
+        return jobImmutableInformation;
     }
 }

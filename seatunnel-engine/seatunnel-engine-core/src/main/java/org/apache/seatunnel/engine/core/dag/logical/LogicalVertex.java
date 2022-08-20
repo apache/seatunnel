@@ -23,20 +23,58 @@ import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.IOException;
+import java.util.Objects;
 
-@Data
-@AllArgsConstructor
+@Getter
+@Setter
 public class LogicalVertex implements IdentifiedDataSerializable {
 
-    private Integer vertexId;
+    private Long vertexId;
     private Action action;
+
+    /**
+     * Number of subtasks to split this task into at runtime.
+     */
     private int parallelism;
 
     public LogicalVertex() {
+    }
+
+    public LogicalVertex(Long vertexId, Action action, int parallelism) {
+        this.vertexId = vertexId;
+        this.action = action;
+        this.parallelism = parallelism;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LogicalVertex that = (LogicalVertex) o;
+        return Objects.equals(vertexId, that.vertexId)
+            && Objects.equals(action, that.action);
+    }
+
+    @Override
+    public String toString() {
+        return "LogicalVertex{" +
+            "jobVertexId=" + vertexId +
+            ", action=" + action +
+            ", parallelism=" + parallelism +
+            '}';
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(vertexId, action);
     }
 
     @Override
@@ -51,14 +89,14 @@ public class LogicalVertex implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
-        out.writeInt(vertexId);
+        out.writeLong(vertexId);
         out.writeObject(action);
         out.writeInt(parallelism);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        vertexId = in.readInt();
+        vertexId = in.readLong();
         action = in.readObject();
         parallelism = in.readInt();
     }

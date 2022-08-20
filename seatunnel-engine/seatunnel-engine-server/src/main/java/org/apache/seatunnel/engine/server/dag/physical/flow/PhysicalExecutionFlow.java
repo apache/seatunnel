@@ -18,25 +18,40 @@
 package org.apache.seatunnel.engine.server.dag.physical.flow;
 
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.server.dag.physical.config.FlowConfig;
 
 import java.util.Collections;
 import java.util.List;
 
-public class PhysicalExecutionFlow extends Flow {
+public class PhysicalExecutionFlow<T extends Action, F extends FlowConfig> extends Flow {
 
-    private final Action action;
+    private final T action;
+    private F config;
 
-    public PhysicalExecutionFlow(Action action, List<Flow> next) {
+    public PhysicalExecutionFlow(T action, List<Flow> next) {
         super(next);
         this.action = action;
     }
 
-    public PhysicalExecutionFlow(Action action) {
+    public PhysicalExecutionFlow(T action) {
         super(Collections.emptyList());
         this.action = action;
     }
 
-    public Action getAction() {
+    public F getConfig() {
+        return config;
+    }
+
+    public void setConfig(F config) {
+        this.config = config;
+    }
+
+    public T getAction() {
         return action;
+    }
+
+    @Override
+    public long getFlowID() {
+        return action.getId();
     }
 }

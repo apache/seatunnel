@@ -23,10 +23,9 @@ import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class SubmitJobTask extends AbstractSeaTunnelMessageTask<Data, Void> {
+public class SubmitJobTask extends AbstractSeaTunnelMessageTask<SeaTunnelSubmitJobCodec.RequestParameters, Void> {
 
     protected SubmitJobTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(clientMessage, node, connection,
@@ -36,7 +35,7 @@ public class SubmitJobTask extends AbstractSeaTunnelMessageTask<Data, Void> {
 
     @Override
     protected Operation prepareOperation() {
-        return new SubmitJobOperation(parameters);
+        return new SubmitJobOperation(parameters.jobId, parameters.jobImmutableInformation);
     }
 
     @Override

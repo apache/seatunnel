@@ -25,9 +25,10 @@ import java.net.URL;
 import java.util.List;
 
 public class PartitionTransformAction extends AbstractAction {
+
     private final PartitionSeaTunnelTransform partitionTransformation;
 
-    public PartitionTransformAction(int id,
+    public PartitionTransformAction(long id,
                                     @NonNull String name,
                                     @NonNull List<Action> upstreams,
                                     @NonNull PartitionSeaTunnelTransform partitionTransformation,
@@ -36,11 +37,15 @@ public class PartitionTransformAction extends AbstractAction {
         this.partitionTransformation = partitionTransformation;
     }
 
-    public PartitionTransformAction(int id,
+    public PartitionTransformAction(long id,
                                     @NonNull String name,
                                     @NonNull PartitionSeaTunnelTransform partitionTransformation,
                                     @NonNull List<URL> jarUrls) {
         super(id, name, jarUrls);
         this.partitionTransformation = partitionTransformation;
+    }
+
+    public PartitionSeaTunnelTransform getPartitionTransformation() {
+        return partitionTransformation;
     }
 }

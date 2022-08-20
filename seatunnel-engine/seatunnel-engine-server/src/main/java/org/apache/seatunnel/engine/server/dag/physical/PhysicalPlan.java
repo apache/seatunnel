@@ -17,38 +17,171 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.server.task.TaskGroupInfo;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineState;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import lombok.NonNull;
+
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class PhysicalPlan {
 
-    private final List<SubPlan> plans;
+    private static final ILogger LOGGER = Logger.getLogger(PhysicalPlan.class);
 
-    public PhysicalPlan(List<SubPlan> plans) {
-        this.plans = plans;
+    private final List<SubPlan> pipelineList;
+
+    private AtomicInteger finishedPipelineNum = new AtomicInteger(0);
+
+    private AtomicInteger canceledPipelineNum = new AtomicInteger(0);
+
+    private AtomicInteger failedPipelineNum = new AtomicInteger(0);
+
+    private AtomicReference<JobStatus> jobStatus = new AtomicReference<>();
+
+    private final JobImmutableInformation jobImmutableInformation;
+
+    /**
+     * Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when the
+     * execution graph transitioned into a certain state. The index into this array is the ordinal
+     * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
+     * stateTimestamps[RUNNING.ordinal()]}.
+     */
+    private final long[] stateTimestamps;
+
+    /**
+     * when job status turn to end, complete this future. And then the waitForCompleteByPhysicalPlan
+     * in {@link org.apache.seatunnel.engine.server.scheduler.JobScheduler} whenComplete method will be called.
+     */
+    private final CompletableFuture<JobStatus> jobEndFuture;
+    private final PassiveCompletableFuture<JobStatus> passiveCompletableFuture;
+
+    /**
+     * This future only can completion by the {@link SubPlan } subPlanFuture.
+     * When subPlanFuture completed, this NonCompletableFuture's whenComplete method will be called.
+     */
+    private final PassiveCompletableFuture<PipelineState>[] waitForCompleteBySubPlan;
+
+    private final ExecutorService executorService;
+
+    public PhysicalPlan(@NonNull List<SubPlan> pipelineList,
+                        @NonNull ExecutorService executorService,
+                        @NonNull JobImmutableInformation jobImmutableInformation,
+                        long initializationTimestamp,
+                        @NonNull PassiveCompletableFuture<PipelineState>[] waitForCompleteBySubPlan) {
+        this.executorService = executorService;
+        this.jobImmutableInformation = jobImmutableInformation;
+        stateTimestamps = new long[JobStatus.values().length];
+        this.stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
+        this.jobStatus.set(JobStatus.CREATED);
+        this.stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
+        this.jobEndFuture = new CompletableFuture<>();
+        this.passiveCompletableFuture = new PassiveCompletableFuture<>(jobEndFuture);
+        this.waitForCompleteBySubPlan = waitForCompleteBySubPlan;
+        this.pipelineList = pipelineList;
+        if (pipelineList.isEmpty()) {
+            throw new UnknownPhysicalPlanException("The physical plan didn't have any can execute pipeline");
+        }
+        Arrays.stream(this.waitForCompleteBySubPlan).forEach(x -> {
+            x.whenComplete((v, t) -> {
+                // We need not handle t, Because we will not return t from Pipeline
+                if (PipelineState.CANCELED.equals(v)) {
+                    canceledPipelineNum.incrementAndGet();
+                } else if (PipelineState.FAILED.equals(v)) {
+                    LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
+                    cancelJob().whenComplete((v1, t1) -> {
+                        LOGGER.severe(String.format("Cancel other pipelines complete"));
+                        failedPipelineNum.incrementAndGet();
+                    });
+                } else if (!PipelineState.FINISHED.equals(v)) {
+                    LOGGER.severe(
+                        "Pipeline Failed with Unknown PipelineState, Begin to cancel other pipelines in this job.");
+                    cancelJob().whenComplete((v1, t1) -> {
+                        LOGGER.severe(String.format("Cancel other pipelines complete"));
+                        failedPipelineNum.incrementAndGet();
+                    });
+                }
+
+                if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
+                    if (failedPipelineNum.get() > 0) {
+                        updateJobState(JobStatus.FAILING);
+                    } else if (canceledPipelineNum.get() > 0) {
+                        updateJobState(JobStatus.CANCELED);
+                    } else {
+                        updateJobState(JobStatus.FINISHED);
+                    }
+                    jobEndFuture.complete(jobStatus.get());
+                }
+            });
+        });
     }
 
-    public List<SubPlan> getPlans() {
-        return plans;
+    public PassiveCompletableFuture<Void> cancelJob() {
+        CompletableFuture<Void> cancelFuture = CompletableFuture.supplyAsync(() -> {
+            // TODO Implement cancel pipeline in job.
+            return null;
+        });
+
+        cancelFuture.complete(null);
+        return new PassiveCompletableFuture<>(cancelFuture);
     }
 
-    public static class SubPlan {
-        private final List<TaskGroupInfo> tasks;
+    public List<SubPlan> getPipelineList() {
+        return pipelineList;
+    }
 
-        private final List<TaskGroupInfo> coordinatorTasks;
+    public void turnToRunning() {
+        if (!updateJobState(JobStatus.CREATED, JobStatus.RUNNING)) {
+            throw new IllegalStateException(
+                "Job may only be scheduled from state " + JobStatus.CREATED);
+        }
+    }
 
-        public SubPlan(List<TaskGroupInfo> tasks, List<TaskGroupInfo> coordinatorTasks) {
-            this.tasks = tasks;
-            this.coordinatorTasks = coordinatorTasks;
+    public boolean updateJobState(@NonNull JobStatus targetState) {
+        return updateJobState(jobStatus.get(), targetState);
+    }
+
+    public boolean updateJobState(@NonNull JobStatus current, @NonNull JobStatus targetState) {
+        // consistency check
+        if (current.isEndState()) {
+            String message = "Job is trying to leave terminal state " + current;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
         }
 
-        public List<TaskGroupInfo> getTasks() {
-            return tasks;
-        }
+        // now do the actual state transition
+        if (jobStatus.get() == current) {
+            jobStatus.set(targetState);
+            LOGGER.info(String.format("Job %s (%s) turn from state %s to %s.",
+                jobImmutableInformation.getJobConfig().getName(),
+                jobImmutableInformation.getJobId(),
+                current,
+                targetState));
 
-        public List<TaskGroupInfo> getCoordinatorTasks() {
-            return coordinatorTasks;
+            stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
+            return true;
+        } else {
+            return false;
         }
+    }
+
+    public PassiveCompletableFuture<JobStatus> getJobEndCompletableFuture() {
+        return this.passiveCompletableFuture;
+    }
+
+    public JobImmutableInformation getJobImmutableInformation() {
+        return jobImmutableInformation;
+    }
+
+    public JobStatus getJobStatus() {
+        return jobStatus.get();
     }
 }

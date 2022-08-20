@@ -60,7 +60,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
     private static final Logger LOG = LoggerFactory.getLogger(LogicalDag.class);
     private JobConfig jobConfig;
     private final Set<LogicalEdge> edges = new LinkedHashSet<>();
-    private final Map<Integer, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
+    private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
     private IdGenerator idGenerator;
 
     public LogicalDag() {
@@ -84,7 +84,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
         return this.edges;
     }
 
-    public Map<Integer, LogicalVertex> getLogicalVertexMap() {
+    public Map<Long, LogicalVertex> getLogicalVertexMap() {
         return logicalVertexMap;
     }
 
@@ -105,8 +105,8 @@ public class LogicalDag implements IdentifiedDataSerializable {
         JsonArray edges = new JsonArray();
         this.edges.stream().forEach(e -> {
             JsonObject edge = new JsonObject();
-            edge.add("leftVertex", e.getLeftVertex().getAction().getName());
-            edge.add("rightVertex", e.getRightVertex().getAction().getName());
+            edge.add("inputVertex", e.getInputVertex().getAction().getName());
+            edge.add("targetVertex", e.getTargetVertex().getAction().getName());
             edges.add(edge);
         });
 
@@ -128,8 +128,8 @@ public class LogicalDag implements IdentifiedDataSerializable {
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeInt(logicalVertexMap.size());
 
-        for (Map.Entry<Integer, LogicalVertex> entry : logicalVertexMap.entrySet()) {
-            out.writeInt(entry.getKey());
+        for (Map.Entry<Long, LogicalVertex> entry : logicalVertexMap.entrySet()) {
+            out.writeLong(entry.getKey());
             out.writeObject(entry.getValue());
         }
 
@@ -148,7 +148,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
         int vertexCount = in.readInt();
 
         for (int i = 0; i < vertexCount; i++) {
-            Integer key = in.readInt();
+            Long key = in.readLong();
             LogicalVertex value = in.readObject();
             logicalVertexMap.put(key, value);
         }

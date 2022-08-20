@@ -32,28 +32,37 @@ import java.util.Map;
 
 @Data
 public class LogicalEdge implements IdentifiedDataSerializable {
-    private LogicalVertex leftVertex;
-    private LogicalVertex rightVertex;
 
-    private Integer leftVertexId;
+    /**
+     * The input vertex connected to this edge.
+     */
+    private LogicalVertex inputVertex;
 
-    private Integer rightVertexId;
+    /**
+     * The target vertex connected to this edge.
+     */
+    private LogicalVertex targetVertex;
 
-    public LogicalEdge(){}
+    private Long inputVertexId;
 
-    public LogicalEdge(LogicalVertex leftVertex, LogicalVertex rightVertex) {
-        this.leftVertex = leftVertex;
-        this.rightVertex = rightVertex;
-        this.leftVertexId = leftVertex.getVertexId();
-        this.rightVertexId = rightVertex.getVertexId();
+    private Long targetVertexId;
+
+    public LogicalEdge() {
     }
 
-    public void recoveryFromVertexMap(@NonNull Map<Integer, LogicalVertex> vertexMap) {
-        leftVertex = vertexMap.get(leftVertexId);
-        rightVertex = vertexMap.get(rightVertexId);
+    public LogicalEdge(LogicalVertex inputVertex, LogicalVertex targetVertex) {
+        this.inputVertex = inputVertex;
+        this.targetVertex = targetVertex;
+        this.inputVertexId = inputVertex.getVertexId();
+        this.targetVertexId = targetVertex.getVertexId();
+    }
 
-        checkNotNull(leftVertex);
-        checkNotNull(rightVertex);
+    public void recoveryFromVertexMap(@NonNull Map<Long, LogicalVertex> vertexMap) {
+        inputVertex = vertexMap.get(inputVertexId);
+        targetVertex = vertexMap.get(targetVertexId);
+
+        checkNotNull(inputVertex);
+        checkNotNull(targetVertex);
     }
 
     @Override
@@ -69,13 +78,13 @@ public class LogicalEdge implements IdentifiedDataSerializable {
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
         // To prevent circular serialization, we only serialize the ID of vertices for edges
-        out.writeInt(leftVertexId);
-        out.writeInt(rightVertexId);
+        out.writeLong(inputVertexId);
+        out.writeLong(targetVertexId);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
-        leftVertexId = in.readInt();
-        rightVertexId = in.readInt();
+        inputVertexId = in.readLong();
+        targetVertexId = in.readLong();
     }
 }

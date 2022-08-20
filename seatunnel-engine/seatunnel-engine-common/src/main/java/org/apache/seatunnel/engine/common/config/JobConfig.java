@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -30,7 +30,7 @@ import java.io.IOException;
 @Data
 public class JobConfig implements IdentifiedDataSerializable {
     private String name;
-    private Boundedness boundedness;
+    private JobMode mode;
 
     @Override
     public int getFactoryId() {

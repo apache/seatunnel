@@ -25,9 +25,17 @@ import lombok.Data;
 public class EngineConfig {
     private int backupCount;
 
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private int serverExecutorPoolSize = 20;
+
     public EngineConfig setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
+        return this;
+    }
+
+    public EngineConfig setServerExecutorPoolSize(int serverExecutorPoolSize) {
+        this.serverExecutorPoolSize = serverExecutorPoolSize;
         return this;
     }
 }
