@@ -762,7 +762,7 @@
             </dependency>
             <dependency>
                 <groupId>org.codehaus.jackson</groupId>
-                <artifactId>jackson-mapper-</artifactId>
+                <artifactId>jackson-mapper-asl</artifactId>
                 <version>${codehaus.jackson.version}</version>
             </dependency>
             <dependency>
@@ -986,15 +986,8 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-        </dependency>
 
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-        </dependency>
+
     </dependencies>
 
     <build>
