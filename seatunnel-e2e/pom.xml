@@ -47,10 +47,6 @@
             <artifactId>slf4j-log4j12</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-        </dependency>
         <!-- Testcontainers 1.x is tightly coupled with the JUnit 4.x rule API-->
         <dependency>
             <groupId>junit</groupId>

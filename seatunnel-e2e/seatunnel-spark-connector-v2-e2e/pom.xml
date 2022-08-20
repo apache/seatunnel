@@ -38,7 +38,10 @@
             <version>${project.version}</version>
         </dependency>
 
-
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+        </dependency>
     </dependencies>
 
 </project>
