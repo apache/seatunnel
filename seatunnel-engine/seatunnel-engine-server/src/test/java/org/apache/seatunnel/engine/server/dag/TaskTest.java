@@ -86,13 +86,6 @@ public class TaskTest {
         fake.setParallelism(3);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
-        FakeSource fakeSource2 = new FakeSource();
-        fakeSource2.setSeaTunnelContext(SeaTunnelContext.getContext());
-        Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource2,
-                Collections.singletonList(new URL("file:///fake.jar")));
-        fake2.setParallelism(3);
-        LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 3);
-
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
@@ -105,7 +98,6 @@ public class TaskTest {
         LogicalDag logicalDag = new LogicalDag();
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);
-        logicalDag.addLogicalVertex(fake2Vertex);
         logicalDag.addEdge(edge);
 
         JobConfig config = new JobConfig();

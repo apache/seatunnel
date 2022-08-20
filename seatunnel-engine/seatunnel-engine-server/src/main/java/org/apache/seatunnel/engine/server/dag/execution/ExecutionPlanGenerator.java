@@ -116,7 +116,7 @@ public class ExecutionPlanGenerator {
             }
         });
         List<ExecutionEdge> executionEdges = createExecutionEdges();
-        return new ExecutionPlan(new PipelineGenerator(executionVertexMap.values(), executionEdges, true)
+        return new ExecutionPlan(new PipelineGenerator(executionVertexMap.values(), executionEdges)
             .generatePipelines(), jobImmutableInformation);
     }
 

@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.core.dag.actions.PartitionTransformAction;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,24 +57,19 @@ public class PipelineGenerator {
 
     private final List<ExecutionEdge> edges;
 
-    private final boolean enableUnionSplitting;
-
     public PipelineGenerator(Collection<ExecutionVertex> vertices,
-                             List<ExecutionEdge> edges,
-                             boolean enableUnionSplitting) {
+                             List<ExecutionEdge> edges) {
         this.vertices = vertices;
-        this.enableUnionSplitting = enableUnionSplitting;
         this.edges = edges;
     }
 
     public List<Pipeline> generatePipelines() {
         List<ExecutionEdge> executionEdges = expandEdgeByParallelism(edges);
 
-        List<List<ExecutionEdge>> edgesList = enableUnionSplitting ?
-            // Maximum pipelines
-            splitUnionEdge(executionEdges) :
-            // Split into multiple unrelated pipelines
-            splitUnrelatedEdges(executionEdges);
+        // Split into multiple unrelated pipelines
+        List<List<ExecutionEdge>> edgesList = splitUnrelatedEdges(executionEdges);
+
+        edgesList = edgesList.stream().flatMap(e -> this.splitUnionEdge(e).stream()).collect(Collectors.toList());
 
         // just convert execution plan to pipeline at now. We should split it to multi pipeline with
         // cache in the future
@@ -107,15 +103,27 @@ public class PipelineGenerator {
 
     private List<List<ExecutionEdge>> splitUnionEdge(List<ExecutionEdge> edges) {
         fillVerticesMap(edges);
-        List<ExecutionVertex> sourceVertices = getSourceVertices();
-        List<List<ExecutionEdge>> pipelines = new ArrayList<>();
-        sourceVertices.forEach(sourceVertex -> splitUnionVertex(pipelines, new ArrayList<>(), sourceVertex));
-        return pipelines;
+        if (checkCanSplit(edges)) {
+            List<ExecutionVertex> sourceVertices = getSourceVertices();
+            List<List<ExecutionEdge>> pipelines = new ArrayList<>();
+            sourceVertices.forEach(sourceVertex -> splitUnionVertex(pipelines, new ArrayList<>(), sourceVertex));
+            return pipelines;
+        } else {
+            return Collections.singletonList(edges);
+        }
     }
 
-    private void splitUnionVertex(List<List<ExecutionEdge>> pipelines, List<ExecutionVertex> pipeline, ExecutionVertex currentVertex) {
-        pipeline.add(recreateVertex(currentVertex,
-            pipeline.size() == 0 ?
+    /**
+     * If this execution vertex have partition transform, can't be spilt
+     */
+    private boolean checkCanSplit(List<ExecutionEdge> edges) {
+        return edges.stream().noneMatch(e -> e.getRightVertex().getAction() instanceof PartitionTransformAction)
+                && edges.stream().anyMatch(e -> inputVerticesMap.get(e.getRightVertexId()).size() > 1);
+    }
+
+    private void splitUnionVertex(List<List<ExecutionEdge>> pipelines, List<ExecutionVertex> pipeline,
+                                  ExecutionVertex currentVertex) {
+        pipeline.add(recreateVertex(currentVertex, pipeline.size() == 0 ?
                 currentVertex.getParallelism() :
                 pipeline.get(pipeline.size() - 1).getParallelism()));
         List<ExecutionVertex> targetVertices = targetVerticesMap.get(currentVertex.getVertexId());
@@ -133,7 +141,7 @@ public class PipelineGenerator {
     }
 
     private List<ExecutionEdge> createExecutionEdges(List<ExecutionVertex> pipeline) {
-        checkArgument(pipeline == null || pipeline.size() < 2);
+        checkArgument(pipeline != null && pipeline.size() > 1);
         List<ExecutionEdge> edges = new ArrayList<>(pipeline.size() - 1);
         for (int i = 1; i < pipeline.size(); i++) {
             edges.add(new ExecutionEdge(pipeline.get(i - 1), pipeline.get(i)));
