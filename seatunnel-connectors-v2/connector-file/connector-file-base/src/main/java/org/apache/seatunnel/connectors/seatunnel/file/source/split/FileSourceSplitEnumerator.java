@@ -37,12 +37,12 @@ public class FileSourceSplitEnumerator implements SourceSplitEnumerator<FileSour
     private Set<FileSourceSplit> assignedSplit;
     private final List<String> filePaths;
 
-    public FileSourceSplitEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
+    public FileSourceSplitEnumerator(Context<FileSourceSplit> context, List<String> filePaths) {
         this.context = context;
         this.filePaths = filePaths;
     }
 
-    public FileSourceSplitEnumerator(SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths,
+    public FileSourceSplitEnumerator(Context<FileSourceSplit> context, List<String> filePaths,
                                      FileSourceState sourceState) {
         this(context, filePaths);
         this.assignedSplit = sourceState.getAssignedSplit();

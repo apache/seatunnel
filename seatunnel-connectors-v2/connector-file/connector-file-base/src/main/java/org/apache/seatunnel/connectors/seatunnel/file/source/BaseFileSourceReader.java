@@ -34,10 +34,10 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     private static final long THREAD_WAIT_TIME = 500L;
     private final ReadStrategy readStrategy;
     private final HadoopConf hadoopConf;
-    private final SourceReader.Context context;
+    private final Context context;
     private final Set<FileSourceSplit> sourceSplits;
 
-    public BaseFileSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
+    public BaseFileSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, Context context) {
         this.readStrategy = readStrategy;
         this.hadoopConf = hadoopConf;
         this.context = context;

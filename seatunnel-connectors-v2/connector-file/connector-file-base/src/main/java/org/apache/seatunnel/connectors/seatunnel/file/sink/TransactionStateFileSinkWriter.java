@@ -50,7 +50,7 @@ public class TransactionStateFileSinkWriter implements SinkWriter<SeaTunnelRow, 
 
     public TransactionStateFileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                                           @NonNull Config pluginConfig,
-                                          @NonNull SinkWriter.Context context,
+                                          @NonNull Context context,
                                           @NonNull TextFileSinkConfig textFileSinkConfig,
                                           @NonNull String jobId,
                                           @NonNull SinkFileSystemPlugin sinkFileSystemPlugin) {
@@ -89,7 +89,7 @@ public class TransactionStateFileSinkWriter implements SinkWriter<SeaTunnelRow, 
 
     public TransactionStateFileSinkWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
                                           @NonNull Config pluginConfig,
-                                          @NonNull SinkWriter.Context context,
+                                          @NonNull Context context,
                                           @NonNull TextFileSinkConfig textFileSinkConfig,
                                           @NonNull String jobId,
                                           @NonNull List<FileSinkState> fileSinkStates,
