@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.localfile;
 
-import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageStants.STORAGE_NAME_SPACE;
+import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
