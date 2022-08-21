@@ -45,8 +45,8 @@ schema = {
     }
 ```
 
-
-
+## Example
+Simple source for FakeSource which contains enough datatype
 ```hocon
 source {
   FakeSource {
