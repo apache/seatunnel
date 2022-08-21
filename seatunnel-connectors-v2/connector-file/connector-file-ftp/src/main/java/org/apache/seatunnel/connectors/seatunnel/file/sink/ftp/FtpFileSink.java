@@ -49,15 +49,27 @@ public class FtpFileSink extends AbstractFileSink {
         if (pluginConfig.hasPath(FtpConfig.FTP_HOST)) {
             this.ftpHost = pluginConfig.getString(FtpConfig.FTP_HOST);
         }
+        else {
+            throw new RuntimeException("Ftp host is required");
+        }
         if (pluginConfig.hasPath(FtpConfig.FTP_PORT)) {
             this.ftpPort = pluginConfig.getInt(FtpConfig.FTP_PORT);
+        }
+        else {
+            throw new RuntimeException("Ftp port is required");
         }
         if (pluginConfig.hasPath(FtpConfig.FTP_USERNAME)) {
             this.ftpUserName = pluginConfig.getString(FtpConfig.FTP_USERNAME);
         }
+        else {
+            throw new RuntimeException("Ftp username is required");
+        }
         if (pluginConfig.hasPath(FtpConfig.FTP_PASSWORD)) {
             this.ftpPwd = pluginConfig.getString(FtpConfig.FTP_PASSWORD);
+        } else {
+            throw new RuntimeException("Ftp password is required");
         }
+
         FtpFileUtils.initFTPClient(this.ftpHost, this.ftpPort, this.ftpUserName, this.ftpPwd);
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.util;
 
 import lombok.NonNull;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
@@ -34,43 +33,44 @@ import java.util.StringTokenizer;
 
 public class FtpFileUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(FtpFileUtils.class);
-    public static FTPClient FTPCLIENT;
-    public static  String FTP_PASSWORD;
-    public static  String FTP_USERNAME;
-    public static  String FTP_HOST;
-    public static  Integer FTP_PORT;
-    public static final int FTP_CONNECT_MAX_TIMEOUT = 30000;
+    private static volatile FTPClient FTPCLIENT;
+    private static String FTP_PASSWORD;
+    private static String FTP_USERNAME;
+    private static String FTP_HOST;
+    private static Integer FTP_PORT;
+    private static final int FTP_CONNECT_MAX_TIMEOUT = 30000;
 
     public static FTPClient getFTPClient(){
-        if (StringUtils.isBlank(FTP_HOST) || StringUtils.isBlank(FTP_USERNAME) || StringUtils.isBlank(FTP_PASSWORD) || StringUtils.isBlank(FTP_PORT.toString())) {
-            return null;
-        }
         return initFTPClient(FTP_HOST, FTP_PORT, FTP_USERNAME, FTP_PASSWORD);
     }
 
     public static FTPClient initFTPClient(@NonNull String ftpHost, @NonNull int ftpPort, @NonNull String ftpUserName, @NonNull String ftpPassword) {
-        FtpFileUtils.FTP_HOST = ftpHost;
-        FtpFileUtils.FTP_PORT = ftpPort;
-        FtpFileUtils.FTP_USERNAME = ftpUserName;
-        FtpFileUtils.FTP_PASSWORD = ftpPassword;
         if (null == FTPCLIENT) {
-            try {
-                FTPCLIENT = new FTPClient();
-                FTPCLIENT.connect(ftpHost, ftpPort);
-                FTPCLIENT.login(ftpUserName, ftpPassword);
-                FTPCLIENT.setConnectTimeout(FTP_CONNECT_MAX_TIMEOUT);
-                FTPCLIENT.setControlEncoding("utf-8");
-                FTPCLIENT.enterLocalPassiveMode();
-                FTPCLIENT.setFileType(FTPCLIENT.BINARY_FILE_TYPE);
-                if (!FTPReply.isPositiveCompletion(FTPCLIENT.getReplyCode())) {
-                    FTPCLIENT.disconnect();
+            synchronized (FtpFileUtils.class) {
+                if (null == FTPCLIENT) {
+                    FtpFileUtils.FTP_HOST = ftpHost;
+                    FtpFileUtils.FTP_PORT = ftpPort;
+                    FtpFileUtils.FTP_USERNAME = ftpUserName;
+                    FtpFileUtils.FTP_PASSWORD = ftpPassword;
+                    try {
+                        FTPCLIENT = new FTPClient();
+                        FTPCLIENT.connect(ftpHost, ftpPort);
+                        FTPCLIENT.login(ftpUserName, ftpPassword);
+                        FTPCLIENT.setConnectTimeout(FTP_CONNECT_MAX_TIMEOUT);
+                        FTPCLIENT.setControlEncoding("utf-8");
+                        FTPCLIENT.enterLocalPassiveMode();
+                        FTPCLIENT.setFileType(FTPCLIENT.BINARY_FILE_TYPE);
+                        if (!FTPReply.isPositiveCompletion(FTPCLIENT.getReplyCode())) {
+                            FTPCLIENT.disconnect();
+                        }
+                    } catch (SocketException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } finally {
+                        return FTPCLIENT;
+                    }
                 }
-            } catch (SocketException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                return FTPCLIENT;
             }
         }
         return FTPCLIENT;
