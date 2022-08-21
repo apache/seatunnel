@@ -58,6 +58,7 @@ public class JdbcGreenplumIT extends FlinkContainer {
     private static final String GREENPLUM_DRIVER = "org.postgresql.Driver";
     private static final String GREENPLUM_JDBC_URL = String.format(
             "jdbc:postgresql://%s:%s/testdb", GREENPLUM_HOST, GREENPLUM_PORT);
+    private static final List<List> TEST_DATASET = generateTestDataset();
 
     private GenericContainer<?> greenplumServer;
     private Connection jdbcConnection;
@@ -88,17 +89,17 @@ public class JdbcGreenplumIT extends FlinkContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
 
         // query result
-        String sql = "select age, name from sink";
-        List<Object> result = new ArrayList<>();
+        String sql = "select age, name from sink order by age asc";
+        List<List> result = new ArrayList<>();
         try (Statement statement = jdbcConnection.createStatement()) {
             ResultSet resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
                 result.add(Arrays.asList(
-                        resultSet.getInt("age"),
-                        resultSet.getString("name")));
+                        resultSet.getInt(1),
+                        resultSet.getString(2)));
             }
         }
-        Assertions.assertEquals(100, result.size());
+        Assertions.assertIterableEquals(TEST_DATASET, result);
     }
 
     private void initializeJdbcConnection() throws SQLException {
@@ -121,16 +122,23 @@ public class JdbcGreenplumIT extends FlinkContainer {
         }
     }
 
+    private static List<List> generateTestDataset() {
+        List<List> rows = new ArrayList<>();
+        for (int i = 1; i <= 100; i++) {
+            rows.add(Arrays.asList(i, String.format("test_%s", i)));
+        }
+        return rows;
+    }
+
     private void batchInsertData() throws SQLException {
-        int batchSize = 100;
         String sql = "insert into source(age, name) values(?, ?)";
 
         try {
             jdbcConnection.setAutoCommit(false);
             try (PreparedStatement preparedStatement = jdbcConnection.prepareStatement(sql)) {
-                for (int i = 1; i <= batchSize; i++) {
-                    preparedStatement.setInt(1, i);
-                    preparedStatement.setString(2, String.format("test_%s", i));
+                for (List row : TEST_DATASET) {
+                    preparedStatement.setInt(1, (Integer) row.get(0));
+                    preparedStatement.setString(2, (String) row.get(1));
                     preparedStatement.addBatch();
                 }
                 preparedStatement.executeBatch();
