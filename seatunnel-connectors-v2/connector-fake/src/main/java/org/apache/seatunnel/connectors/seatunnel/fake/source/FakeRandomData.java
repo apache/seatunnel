@@ -72,7 +72,7 @@ public class FakeRandomData {
         if (BOOLEAN_TYPE.equals(fieldType)) {
             return RandomUtils.nextInt(0, 2) == 1;
         } else if (BYTE_TYPE.equals(fieldType)) {
-            return (byte) RandomUtils.nextInt(0, Byte.MAX_VALUE);
+            return (byte) RandomUtils.nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE);
         } else if (SHORT_TYPE.equals(fieldType)) {
             return (short) RandomUtils.nextInt(Byte.MAX_VALUE, Short.MAX_VALUE);
         } else if (INT_TYPE.equals(fieldType)) {
@@ -94,7 +94,7 @@ public class FakeRandomData {
         } else if (fieldType instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) fieldType;
             return new BigDecimal(RandomStringUtils.randomNumeric(decimalType.getPrecision() - decimalType.getScale()) + "." +
-                RandomStringUtils.randomNumeric(decimalType.getPrecision() - decimalType.getScale()));
+                RandomStringUtils.randomNumeric(decimalType.getScale()));
         } else if (fieldType instanceof ArrayType) {
             ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
             BasicType<?> elementType = arrayType.getElementType();
@@ -116,7 +116,7 @@ public class FakeRandomData {
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
             return Void.TYPE;
         } else {
-            throw new IllegalStateException("Unexpected value: " + fieldType);
+            throw new UnsupportedOperationException("Unexpected value: " + fieldType);
         }
     }
 
