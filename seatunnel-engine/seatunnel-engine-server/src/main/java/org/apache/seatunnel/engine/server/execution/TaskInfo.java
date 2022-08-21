@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-public class TaskInfo {
+import java.io.Serializable;
+
+public class TaskInfo implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final Long jobId;
 
