@@ -72,7 +72,7 @@ public class FakeRandomData {
         if (BOOLEAN_TYPE.equals(fieldType)) {
             return RandomUtils.nextInt(0, 2) == 1;
         } else if (BYTE_TYPE.equals(fieldType)) {
-            return (byte) RandomUtils.nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE);
+            return (byte) RandomUtils.nextInt(0, 255);
         } else if (SHORT_TYPE.equals(fieldType)) {
             return (short) RandomUtils.nextInt(Byte.MAX_VALUE, Short.MAX_VALUE);
         } else if (INT_TYPE.equals(fieldType)) {
