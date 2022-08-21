@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.schema;
 
-import java.io.Serializable;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -33,8 +32,8 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
-import java.util.Map;
 import java.io.Serializable;
+import java.util.Map;
 
 public class SeatunnelSchema implements Serializable {
     public static final String SCHEMA = "schema";
