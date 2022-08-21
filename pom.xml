@@ -140,6 +140,7 @@
         <jackson.version>2.12.6</jackson.version>
         <lombok.version>1.18.0</lombok.version>
         <mysql.version>8.0.16</mysql.version>
+        <oracle.version>12.2.0.1</oracle.version>
         <postgresql.version>42.3.3</postgresql.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
@@ -355,6 +356,12 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.noraui</groupId>
+                <artifactId>ojdbc8</artifactId>
+                <version>${oracle.version}</version>
             </dependency>
 
             <dependency>
