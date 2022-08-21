@@ -62,7 +62,8 @@ public class FakeSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     @Override
     public void prepare(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
-        this.schema = SeatunnelSchema.buildWithConfig(pluginConfig);
+        assert pluginConfig.hasPath(FakeRandomData.SCHEMA);
+        this.schema = SeatunnelSchema.buildWithConfig(pluginConfig.getConfig(FakeRandomData.SCHEMA));
     }
 
     @Override

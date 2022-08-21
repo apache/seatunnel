@@ -49,7 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 
 public class FakeRandomData {
-
+    public static final String SCHEMA = "schema";
     private final SeatunnelSchema schema;
 
     public FakeRandomData(SeatunnelSchema schema) {
@@ -112,7 +112,7 @@ public class FakeRandomData {
             objectObjectHashMap.put(key, value);
             return objectObjectHashMap;
         } else if (fieldType instanceof PrimitiveByteArrayType) {
-            return RandomUtils.nextBytes(10);
+            return RandomUtils.nextBytes(100);
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
             return Void.TYPE;
         } else {
