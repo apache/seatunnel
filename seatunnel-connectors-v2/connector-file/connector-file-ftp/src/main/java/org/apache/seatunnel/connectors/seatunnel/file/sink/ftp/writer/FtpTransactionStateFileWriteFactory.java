@@ -48,7 +48,6 @@ public class FtpTransactionStateFileWriteFactory {
         FileSinkTransactionFileNameGenerator fileSinkTransactionFileNameGenerator = (FileSinkTransactionFileNameGenerator) transactionFileNameGenerator;
         FileFormat fileFormat = fileSinkTransactionFileNameGenerator.getFileFormat();
         if (fileFormat.equals(FileFormat.CSV)) {
-            // #2133 wait this issue closed, there will be replaced using csv writer
             return new FtpTxtTransactionStateFileWriter(
                     seaTunnelRowTypeInfo,
                     transactionFileNameGenerator,

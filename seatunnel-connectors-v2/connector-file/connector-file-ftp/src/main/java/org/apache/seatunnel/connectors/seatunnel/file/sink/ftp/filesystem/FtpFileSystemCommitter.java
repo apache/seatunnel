@@ -35,16 +35,13 @@ public class FtpFileSystemCommitter implements FileSystemCommitter {
                 String value = mvFileEntry.getValue();
                 FtpFileUtils.renameFile(key, value);
             }
-            // delete the transaction dir
             FtpFileUtils.deleteFiles(entry.getKey());
-
         }
     }
 
     @Override
     public void abortTransaction(@NonNull FileAggregatedCommitInfo aggregateCommitInfo) throws IOException {
         for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getTransactionMap().entrySet()) {
-            // rollback the file
             for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                 String oldFile = mvFileEntry.getKey();
                 String newFile = mvFileEntry.getValue();
@@ -52,9 +49,7 @@ public class FtpFileSystemCommitter implements FileSystemCommitter {
                     FtpFileUtils.renameFile(mvFileEntry.getValue(), mvFileEntry.getKey());
                 }
             }
-            // delete the transaction dir
             FtpFileUtils.deleteFiles(entry.getKey());
-
         }
     }
 }

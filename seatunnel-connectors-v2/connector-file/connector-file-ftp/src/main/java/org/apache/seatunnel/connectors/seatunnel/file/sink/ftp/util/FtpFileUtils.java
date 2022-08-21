@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.util;
 
 import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
@@ -33,7 +34,7 @@ import java.util.StringTokenizer;
 
 public class FtpFileUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(FtpFileUtils.class);
-    public  static FTPClient FTPCLIENT;
+    public static FTPClient FTPCLIENT;
     public static  String FTP_PASSWORD;
     public static  String FTP_USERNAME;
     public static  String FTP_HOST;
@@ -41,29 +42,37 @@ public class FtpFileUtils {
     public static final int FTP_CONNECT_MAX_TIMEOUT = 30000;
 
     public static FTPClient getFTPClient(){
-        return getFTPClient(FTP_HOST, FTP_PORT, FTP_USERNAME, FTP_PASSWORD);
+        if (StringUtils.isBlank(FTP_HOST) || StringUtils.isBlank(FTP_USERNAME) || StringUtils.isBlank(FTP_PASSWORD) || StringUtils.isBlank(FTP_PORT.toString())) {
+            return null;
+        }
+        return initFTPClient(FTP_HOST, FTP_PORT, FTP_USERNAME, FTP_PASSWORD);
     }
 
-    public static FTPClient getFTPClient(String ftpHost, int ftpPort, String ftpUserName, String ftpPassword) {
-        try {
-            FTPCLIENT = new FTPClient();
-            FTPCLIENT.connect(ftpHost, ftpPort);
-            FTPCLIENT.login(ftpUserName, ftpPassword);
-            FTPCLIENT.setConnectTimeout(FTP_CONNECT_MAX_TIMEOUT);
-            FTPCLIENT.setControlEncoding("utf-8");
-            FTPCLIENT.enterLocalPassiveMode();
-
-            FTPCLIENT.setFileType(FTPCLIENT.BINARY_FILE_TYPE);
-
-            if (!FTPReply.isPositiveCompletion(FTPCLIENT.getReplyCode())) {
-                FTPCLIENT.disconnect();
+    public static FTPClient initFTPClient(@NonNull String ftpHost, @NonNull int ftpPort, @NonNull String ftpUserName, @NonNull String ftpPassword) {
+        FtpFileUtils.FTP_HOST = ftpHost;
+        FtpFileUtils.FTP_PORT = ftpPort;
+        FtpFileUtils.FTP_USERNAME = ftpUserName;
+        FtpFileUtils.FTP_PASSWORD = ftpPassword;
+        if (null == FTPCLIENT) {
+            try {
+                FTPCLIENT = new FTPClient();
+                FTPCLIENT.connect(ftpHost, ftpPort);
+                FTPCLIENT.login(ftpUserName, ftpPassword);
+                FTPCLIENT.setConnectTimeout(FTP_CONNECT_MAX_TIMEOUT);
+                FTPCLIENT.setControlEncoding("utf-8");
+                FTPCLIENT.enterLocalPassiveMode();
+                FTPCLIENT.setFileType(FTPCLIENT.BINARY_FILE_TYPE);
+                if (!FTPReply.isPositiveCompletion(FTPCLIENT.getReplyCode())) {
+                    FTPCLIENT.disconnect();
+                }
+            } catch (SocketException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                return FTPCLIENT;
             }
-        } catch (SocketException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
-
         return FTPCLIENT;
     }
 
@@ -72,27 +81,20 @@ public class FtpFileUtils {
         if (!fileExist(outFilePath)) {
             createFile(outFilePath);
         }
-
         OutputStream outputStream = ftpClient.appendFileStream(new String(outFilePath.getBytes("UTF-8"), "iso-8859-1"));
         return outputStream;
     }
 
     public static boolean createDir(@NonNull String dirPath) throws IOException {
         FTPClient ftpClient = getFTPClient();
-
         StringTokenizer s = new StringTokenizer(dirPath, "/"); // sign
-
         s.countTokens();
-
         String pathName = "";
-
         while (s.hasMoreElements()) {
             pathName = pathName + "/" +  s.nextElement();
             try {
-
                 ftpClient.makeDirectory(pathName);
             } catch (Exception e) {
-
                 return false;
             }
         }
@@ -123,13 +125,11 @@ public class FtpFileUtils {
         else {
             return false;
         }
-
     }
 
     public static void renameFile(@NonNull String oldName, @NonNull String newName) throws IOException {
         LOGGER.info("begin rename file oldName :[" + oldName + "] to newName :[" + newName + "]");
         FTPClient ftpClient = getFTPClient();
-
         if (!FtpFileUtils.fileExist(newName)) {
             FtpFileUtils.createFile(newName);
         } else {
@@ -148,7 +148,6 @@ public class FtpFileUtils {
     }
 
     public static boolean deleteFiles(@NonNull String pathName) {
-
         FTPClient ftpClient = getFTPClient();
         try {
             FTPFile[] ftpFiles = ftpClient.listFiles(pathName);
@@ -157,7 +156,6 @@ public class FtpFileUtils {
                     FTPFile thisFile = ftpFiles[i];
                     if (thisFile.isDirectory()) {
                         deleteFiles(pathName + "/" + thisFile.getName());
-
                         ftpClient.removeDirectory(pathName);
                     } else {
                         if (!ftpClient.deleteFile(pathName)) {

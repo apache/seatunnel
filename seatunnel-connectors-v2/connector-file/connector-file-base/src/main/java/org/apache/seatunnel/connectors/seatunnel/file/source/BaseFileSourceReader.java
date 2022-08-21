@@ -37,7 +37,7 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     private final Context context;
     private final Set<FileSourceSplit> sourceSplits;
 
-    public BaseFileSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, Context context) {
+    public BaseFileSourceReader(ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
         this.readStrategy = readStrategy;
         this.hadoopConf = hadoopConf;
         this.context = context;
