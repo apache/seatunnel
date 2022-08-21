@@ -19,8 +19,8 @@ package org.apache.seatunnel.e2e.flink.file;
 
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -32,6 +32,6 @@ public class FakeSourceToFileIT extends FlinkContainer {
     @Test
     public void testFakeSource2FileSink() throws Exception {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/file/fakesource_to_file.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

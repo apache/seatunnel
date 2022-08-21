@@ -1,5 +1,7 @@
 # Http
 
+> Http source connector
+
 ## Description
 
 Get data from http or https interface
@@ -37,7 +39,7 @@ HTTP request header, json format.
 
 ### request_params[string]
 
-HTTP request parameters, json format.
+HTTP request parameters, json format. Use string with escapes to save json
 
 ### sync_path[string]
 

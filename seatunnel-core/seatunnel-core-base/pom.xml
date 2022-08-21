@@ -51,13 +51,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.beust</groupId>
-            <artifactId>jcommander</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-plugin-discovery</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <groupId>com.beust</groupId>
+            <artifactId>jcommander</artifactId>
         </dependency>
     </dependencies>
 

@@ -20,10 +20,10 @@ package org.apache.seatunnel.e2e.flink.clickhouse;
 import org.apache.seatunnel.e2e.flink.FlinkContainer;
 
 import com.google.common.collect.Lists;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -49,8 +49,7 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceToClickhouseIT.class);
 
-    @Before
-    @SuppressWarnings("magicnumber")
+    @BeforeEach
     public void startClickhouseContainer() throws InterruptedException {
         clickhouseServer = new GenericContainer<>(CLICKHOUSE_DOCKER_IMAGE)
             .withNetwork(NETWORK)
@@ -75,7 +74,7 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
     @Test
     public void testFakeSourceToClickhouseSink() throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult = executeSeaTunnelFlinkJob("/clickhouse/fakesource_to_clickhouse.conf");
-        Assert.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode());
         // query result
         try (ClickHouseConnection connection = dataSource.getConnection()) {
             ClickHouseStatement statement = connection.createStatement();
@@ -84,7 +83,7 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
             while (resultSet.next()) {
                 result.add(resultSet.getString("name"));
             }
-            Assert.assertFalse(result.isEmpty());
+            Assertions.assertFalse(result.isEmpty());
         }
     }
 
@@ -109,7 +108,7 @@ public class FakeSourceToClickhouseIT extends FlinkContainer {
         }
     }
 
-    @After
+    @AfterEach
     public void closeClickhouseContainer() {
         if (clickhouseServer != null) {
             clickhouseServer.stop();

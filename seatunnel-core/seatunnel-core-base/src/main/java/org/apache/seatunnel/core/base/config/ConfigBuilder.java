@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.base.config;
 
-import org.apache.seatunnel.apis.base.env.RuntimeEnv;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -33,20 +32,16 @@ import java.nio.file.Path;
 /**
  * Used to build the {@link  Config} from file.
  *
- * @param <ENVIRONMENT> environment type.
  */
-public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
+public class ConfigBuilder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigBuilder.class);
 
-    private static final String PLUGIN_NAME_KEY = "plugin_name";
     private final Path configFile;
-    private final EngineType engine;
     private final Config config;
 
-    public ConfigBuilder(Path configFile, EngineType engine) {
+    public ConfigBuilder(Path configFile) {
         this.configFile = configFile;
-        this.engine = engine;
         this.config = load();
     }
 
@@ -75,16 +70,4 @@ public class ConfigBuilder<ENVIRONMENT extends RuntimeEnv> {
         return config;
     }
 
-    /**
-     * check if config is valid.
-     **/
-    public void checkConfig() {
-        // check environment
-        ENVIRONMENT environment = new EnvironmentFactory<ENVIRONMENT>(config, engine).getEnvironment();
-        // check plugins
-        PluginFactory<ENVIRONMENT> pluginFactory = new PluginFactory<>(config, engine);
-        pluginFactory.createPlugins(PluginType.SOURCE);
-        pluginFactory.createPlugins(PluginType.TRANSFORM);
-        pluginFactory.createPlugins(PluginType.SINK);
-    }
 }

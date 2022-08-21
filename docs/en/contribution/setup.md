@@ -57,12 +57,12 @@ as an example, when you run it successfully you could see the output as below:
 
 
 ```log
-+I[Gary, 1647423592505]
-+I[Kid Xiong, 1647423593510]
-+I[Ricky Huo, 1647423598537]
++I[Ricky Huo, 71]
++I[Gary, 12]
++I[Ricky Huo, 93]
 ...
 ...
-+I[Gary, 1647423597533]
++I[Ricky Huo, 83]
 ```
 
 ## What's More

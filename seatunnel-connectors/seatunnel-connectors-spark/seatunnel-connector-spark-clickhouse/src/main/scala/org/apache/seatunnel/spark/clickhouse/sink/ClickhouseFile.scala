@@ -29,8 +29,7 @@ import org.apache.seatunnel.spark.batch.SparkBatchSink
 import org.apache.seatunnel.spark.clickhouse.Config.{CLICKHOUSE_LOCAL_PATH, COPY_METHOD, DATABASE, FIELDS, HOST, NODE_ADDRESS, NODE_FREE_PASSWORD, NODE_PASS, PASSWORD, SHARDING_KEY, TABLE, TMP_BATCH_CACHE_LINE, USERNAME}
 import org.apache.seatunnel.spark.clickhouse.sink.Clickhouse._
 import org.apache.seatunnel.spark.clickhouse.sink.ClickhouseFile.{CLICKHOUSE_FILE_PREFIX, LOGGER, UUID_LENGTH, getClickhouseTableInfo}
-import org.apache.seatunnel.spark.clickhouse.sink.Table
-import org.apache.seatunnel.spark.clickhouse.sink.filetransfer.{FileTransfer, ScpFileTransfer}
+import org.apache.seatunnel.spark.clickhouse.sink.filetransfer.{FileTransfer, RsyncFileTransfer, ScpFileTransfer}
 import org.apache.seatunnel.spark.clickhouse.sink.filetransfer.TransferMethod.{RSYNC, SCP, TransferMethod, getCopyMethod}
 import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.{Dataset, Encoders, Row}
@@ -59,6 +58,7 @@ class ClickhouseFile extends SparkBatchSink {
   private var clickhouseLocalPath: String = _
   private var table: Table = _
   private var fields: List[String] = _
+  private var nodeUser: Map[String, String] = _
   private var nodePass: Map[String, String] = _
   private val random = ThreadLocalRandom.current()
   private var freePass: Boolean = false
@@ -165,21 +165,25 @@ class ClickhouseFile extends SparkBatchSink {
   private def moveFileToServer(shard: Shard, paths: List[String]): Unit = {
 
     var fileTransfer: FileTransfer = null
-    if (this.copyFileMethod == SCP) {
-      var scpFileTransfer: ScpFileTransfer = null
-      if (nodePass.contains(shard.hostAddress)) {
-        scpFileTransfer = new ScpFileTransfer(shard.hostAddress, nodePass(shard.hostAddress))
-      } else {
-        scpFileTransfer = new ScpFileTransfer(shard.hostAddress)
+    this.copyFileMethod match {
+      case SCP => {
+        if (freePass || !nodePass.contains(shard.hostAddress)) {
+          fileTransfer = new ScpFileTransfer(shard.hostAddress)
+        } else {
+          fileTransfer = new ScpFileTransfer(shard.hostAddress, nodeUser(shard.hostAddress), nodePass(shard.hostAddress))
+        }
       }
-      scpFileTransfer.init()
-      fileTransfer = scpFileTransfer
-    } else if (this.copyFileMethod == RSYNC) {
-      throw new UnsupportedOperationException(s"not support copy file method: '$copyFileMethod' yet")
-    } else {
-      throw new UnsupportedOperationException(s"unknown copy file method: '$copyFileMethod', please use " +
+      case RSYNC => {
+        if (freePass || !nodePass.contains(shard.hostAddress)) {
+          fileTransfer = new RsyncFileTransfer(shard.hostAddress)
+        } else {
+          fileTransfer = new RsyncFileTransfer(shard.hostAddress, nodeUser(shard.hostAddress), nodePass(shard.hostAddress))
+        }
+      }
+      case _ => throw new UnsupportedOperationException(s"unknown copy file method: '$copyFileMethod', please use " +
         s"scp/rsync instead")
     }
+    fileTransfer.init()
     fileTransfer.transferAndChown(paths, s"${this.table.getLocalDataPath(shard).head}detached/")
 
     fileTransfer.close()
@@ -240,12 +244,17 @@ class ClickhouseFile extends SparkBatchSink {
           this.freePass = true
         } else if (config.hasPath(NODE_PASS)) {
           val nodePass = config.getObjectList(NODE_PASS)
+          val nodeUserMap = mutable.Map[String, String]()
           val nodePassMap = mutable.Map[String, String]()
           nodePass.foreach(np => {
             val address = np.toConfig.getString(NODE_ADDRESS)
+            // default user "root"
+            val username = if (np.toConfig.hasPath(USERNAME)) np.toConfig.getString(USERNAME) else "root"
             val password = np.toConfig.getString(PASSWORD)
+            nodeUserMap(address) = username
             nodePassMap(address) = password
           })
+          this.nodeUser = nodePassMap.toMap
           this.nodePass = nodePassMap.toMap
           checkResult = checkNodePass(this.nodePass, tableInfo.shards.values().toList)
         } else {

@@ -21,9 +21,11 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+      - 'seatunnel-ui/**'
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v2
         with:

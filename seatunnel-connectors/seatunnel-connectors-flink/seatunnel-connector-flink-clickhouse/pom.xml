@@ -37,6 +37,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-java</artifactId>
         </dependency>
@@ -58,6 +63,7 @@
             <groupId>org.apache.sshd</groupId>
             <artifactId>sshd-scp</artifactId>
         </dependency>
+
 
     </dependencies>
 

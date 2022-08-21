@@ -24,14 +24,14 @@ import static org.apache.seatunnel.flink.clickhouse.ConfigKey.PASSWORD;
 import static org.apache.seatunnel.flink.clickhouse.ConfigKey.USERNAME;
 
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.flink.clickhouse.pojo.DistributedEngine;
 import org.apache.seatunnel.flink.clickhouse.pojo.Shard;
 import org.apache.seatunnel.flink.clickhouse.sink.file.ClickhouseTable;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
 import ru.yandex.clickhouse.BalancedClickhouseDataSource;
 import ru.yandex.clickhouse.ClickHouseConnection;
 import ru.yandex.clickhouse.ClickHouseConnectionImpl;
@@ -63,8 +63,10 @@ public class ClickhouseClient {
                 clickhouseProperties.put(e.getKey(), String.valueOf(e.getValue().unwrapped()));
             });
         }
-        clickhouseProperties.put("user", config.getString(USERNAME));
-        clickhouseProperties.put("password", config.getString(PASSWORD));
+        if (config.hasPath(USERNAME) && config.hasPath(PASSWORD)) {
+            clickhouseProperties.put("user", config.getString(USERNAME));
+            clickhouseProperties.put("password", config.getString(PASSWORD));
+        }
         String jdbcUrl = "jdbc:clickhouse://" + config.getString(HOST) + "/" + config.getString(DATABASE);
         this.balancedClickhouseDataSource = new BalancedClickhouseDataSource(jdbcUrl, clickhouseProperties);
     }
@@ -191,11 +193,20 @@ public class ClickhouseClient {
             String engine = resultSet.getString(1);
             String createTableDDL = resultSet.getString(2);
             String engineFull = resultSet.getString(3);
-            List<String> dataPaths = JSON.parseObject(resultSet.getString(4).replaceAll("'", "\""), new TypeReference<List<String>>() {
+            List<String> dataPaths = JsonUtils.parseObject(resultSet.getString(4).replaceAll("'", "\""), new TypeReference<List<String>>() {
             });
             DistributedEngine distributedEngine = null;
             if ("Distributed".equals(engine)) {
                 distributedEngine = getClickhouseDistributedTable(connection, database, table);
+                String localTableSQL = String.format("select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
+                        distributedEngine.getDatabase(), distributedEngine.getTable());
+                ResultSet rs = statement.executeQuery(localTableSQL);
+                if (!rs.next()) {
+                    throw new RuntimeException("Cannot get table from clickhouse, resultSet is empty");
+                }
+                String localEngine = rs.getString(1);
+                String createLocalTableDDL = rs.getString(2);
+                createTableDDL = localizationEngine(localEngine, createLocalTableDDL);
             }
             return new ClickhouseTable(
                 database,
@@ -210,6 +221,22 @@ public class ClickhouseClient {
             throw new RuntimeException("Cannot get clickhouse table", e);
         }
 
+    }
+
+    /**
+     * Localization the engine in clickhouse local table's createTableDDL to support specific engine.
+     * For example: change ReplicatedMergeTree to MergeTree.
+     * @param engine original engine of clickhouse local table
+     * @param ddl createTableDDL of clickhouse local table
+     * @return createTableDDL of clickhouse local table which can support specific engine
+     * TODO: support more engine
+     */
+    public String localizationEngine(String engine, String ddl) {
+        if ("ReplicatedMergeTree".equalsIgnoreCase(engine)) {
+            return ddl.replaceAll("ReplicatedMergeTree(\\([^\\)]*\\))", "MergeTree()");
+        } else {
+            return ddl;
+        }
     }
 
 }

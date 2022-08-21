@@ -149,7 +149,7 @@ public class JdbcSource implements FlinkBatchSource {
                 JdbcParameterValuesProvider jdbcParameterValuesProvider =
                         initPartition(partitionColumn, connection, query);
                 builder.setParametersProvider(jdbcParameterValuesProvider);
-                query = String.format("SELECT * FROM (%s) tt where " + partitionColumn + " >= ? AND " + partitionColumn + " < ?", query);
+                query = String.format("SELECT * FROM (%s) tt where " + partitionColumn + " >= ? AND " + partitionColumn + " <= ?", query);
             }
             builder.setDrivername(driverName).setDBUrl(dbUrl).setUsername(username)
                     .setPassword(password).setQuery(query).setFetchSize(fetchSize)

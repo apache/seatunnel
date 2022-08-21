@@ -64,6 +64,16 @@
             <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
+            <directory>../seatunnel-core/seatunnel-core-flink-sql/target</directory>
+            <includes>
+                <include>seatunnel-core-flink-sql*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/lib</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>../seatunnel-core/seatunnel-core-spark/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
@@ -79,15 +89,36 @@
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-core/seatunnel-core-flink-sql/target</directory>
+            <directory>../seatunnel-core/seatunnel-flink-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-flink-starter/target</directory>
             <includes>
-                <include>seatunnel-core-flink-sql*.jar</include>
+                <include>seatunnel-flink-starter*.jar</include>
             </includes>
             <excludes>
                 <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
             </excludes>
             <outputDirectory>/lib</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/target</directory>
+            <includes>
+                <include>seatunnel-spark-starter*.jar</include>
+            </includes>
+            <excludes>
+                <exclude>%regex[.*((javadoc)|(sources))\.jar]</exclude>
+            </excludes>
+            <outputDirectory>/lib</outputDirectory>
+        </fileSet>
+        <!-- connectors -->
         <fileSet>
             <directory>../seatunnel-connectors/seatunnel-connectors-flink-dist/target/lib</directory>
             <includes>
@@ -119,7 +150,7 @@
             <outputDirectory>/connectors/spark</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>../seatunnel-connectors</directory>
+            <directory>../</directory>
             <includes>
                 <include>plugin-mapping.properties</include>
             </includes>

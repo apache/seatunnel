@@ -19,9 +19,10 @@ package org.apache.seatunnel.core.spark.command;
 
 import org.apache.seatunnel.core.base.command.Command;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
+import org.apache.seatunnel.core.base.exception.ConfigCheckException;
 import org.apache.seatunnel.core.base.utils.FileUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-import org.apache.seatunnel.spark.SparkEnvironment;
+import org.apache.seatunnel.core.spark.config.SparkApiConfigChecker;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,9 +43,10 @@ public class SparkConfValidateCommand implements Command<SparkCommandArgs> {
     }
 
     @Override
-    public void execute() {
+    public void execute() throws ConfigCheckException {
         Path confPath = FileUtils.getConfigPath(sparkCommandArgs);
-        new ConfigBuilder<SparkEnvironment>(confPath, sparkCommandArgs.getEngineType()).checkConfig();
+        ConfigBuilder configBuilder = new ConfigBuilder(confPath);
+        new SparkApiConfigChecker().checkConfig(configBuilder.getConfig());
         LOGGER.info("config OK !");
     }
 }

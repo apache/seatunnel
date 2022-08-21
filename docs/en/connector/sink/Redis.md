@@ -1,5 +1,7 @@
 # Redis
 
+> Redis sink connector
+
 ## Description
 
 Write Rows to a Redis.
@@ -27,6 +29,8 @@ Engine Supported and plugin name
 | set_name  | string | no       |               |
 | zset_name | string | no       |               |
 | timeout   | int    | no       | 2000          |
+| ttl       | int    | no       | 0             |
+| is_self_achieved    | boolean | no       | false         |
 
 ### host [string]
 
@@ -68,6 +72,14 @@ if redis data type is ZSET must config zset name
 
 if redis data type is SET must config set name
 
+### ttl [int]
+
+redis data expiration ttl, 0 means no expiration.
+
+### is_self_achieved [boolean]
+
+If a redis access by a self-achieved redis proxy, which is not support redis function of "info Replication"
+
 ## Examples
 
 ```bash
@@ -78,5 +90,6 @@ redis {
   db_num = 1
   data_type = "HASH"
   hash_name = "test"
+  is_self_achieved = false
 }
 ```
