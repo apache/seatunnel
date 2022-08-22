@@ -305,7 +305,6 @@ jackson-jaxrs-json-provider-2.7.8.jar
 jackson-jaxrs-smile-provider-2.10.5.jar
 jackson-jq-0.0.10.jar
 jackson-mapper-asl-1.9.13.jar
-jackson-mapper-asl-1.9.2.jar
 jackson-module-guice-2.10.5.jar
 jackson-module-jaxb-annotations-2.10.5.jar
 jackson-module-jaxb-annotations-2.7.8.jar
