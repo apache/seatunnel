@@ -23,10 +23,10 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
 
@@ -40,15 +40,13 @@ public class TaskGroupWithIntermediateQueue extends TaskGroupDefaultImpl {
 
     @Override
     public void init() {
-        blockingQueueCache = new HashMap<>();
+        blockingQueueCache = new ConcurrentHashMap<>();
         getTasks().stream().filter(SeaTunnelTask.class::isInstance)
                 .map(s -> (SeaTunnelTask) s).forEach(s -> s.setTaskGroup(this));
     }
 
     public BlockingQueue<Record<?>> getBlockingQueueCache(long id) {
-        if (!blockingQueueCache.containsKey(id)) {
-            blockingQueueCache.put(id, new ArrayBlockingQueue<>(QUEUE_SIZE));
-        }
+        blockingQueueCache.computeIfAbsent(id, i -> new ArrayBlockingQueue<>(QUEUE_SIZE));
         return blockingQueueCache.get(id);
     }
 
