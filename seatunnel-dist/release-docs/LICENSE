@@ -689,7 +689,6 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Commons Lang (commons-lang:commons-lang:2.6 - http://commons.apache.org/lang/)
      (The Apache Software License, Version 2.0) Commons Math (org.apache.commons:commons-math3:3.1.1 - http://commons.apache.org/math/)
      (The Apache Software License, Version 2.0) Commons Net (commons-net:commons-net:3.6 - http://commons.apache.org/net/)
-     (The Apache Software License, Version 2.0) Commons Net (commons-net:commons-net:3.1 - http://commons.apache.org/net/)
      (The Apache Software License, Version 2.0) Commons Pool (commons-pool:commons-pool:1.5.4 - http://commons.apache.org/pool/)
      (The Apache Software License, Version 2.0) Commons Pool (commons-pool:commons-pool:1.6 - http://commons.apache.org/pool/)
      (The Apache Software License, Version 2.0) Converter: Moshi (com.squareup.retrofit2:converter-moshi:2.9.0 - https://github.com/square/retrofit)
