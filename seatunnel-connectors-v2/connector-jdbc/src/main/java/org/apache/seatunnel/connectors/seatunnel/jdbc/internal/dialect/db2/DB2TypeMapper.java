@@ -49,8 +49,6 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
     private static final String DB2_DEC = "DEC";
     private static final String DB2_NUMERIC = "NUMERIC";
     private static final String DB2_NUM = "NUM";
-
-
     // float
     private static final String DB2_REAL = "REAL";
     private static final String DB2_FLOAT = "FLOAT";
@@ -58,7 +56,6 @@ public class DB2TypeMapper implements JdbcDialectTypeMapper {
     private static final String DB2_DOUBLE_PRECISION = "DOUBLE PRECISION";
     private static final String DB2_DECFLOAT = "DECFLOAT";
     private static final String DB2_DECDOUBLE = "DECDOUBLE";
-
     // string
     private static final String DB2_CHAR = "CHAR";
     private static final String DB2_VARCHAR = "VARCHAR";

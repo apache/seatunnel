@@ -32,7 +32,7 @@ public class DB2DialectFactory implements JdbcDialectFactory {
 
     @Override
     public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:mysql:");
+        return url.startsWith("jdbc:db2:");
     }
 
     @Override
