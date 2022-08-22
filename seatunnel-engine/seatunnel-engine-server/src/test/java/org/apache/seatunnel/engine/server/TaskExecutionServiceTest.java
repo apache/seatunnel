@@ -255,7 +255,7 @@ public class TaskExecutionServiceTest {
         double lowAvg = lowLagList.stream().mapToLong(x -> x).average().getAsDouble();
         double highAvg = highLagList.stream().mapToLong(x -> x).average().getAsDouble();
 
-        assertTrue(lowAvg < 400);
+        assertTrue(lowAvg < 50 * 15 + 100);
 
         logger.info("lowAvg : " + lowAvg);
         logger.info("highAvg : " + highAvg);
