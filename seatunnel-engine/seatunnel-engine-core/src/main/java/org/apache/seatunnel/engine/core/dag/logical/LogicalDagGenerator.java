@@ -81,13 +81,13 @@ public class LogicalDagGenerator {
 
     private Set<LogicalEdge> createLogicalEdges() {
         return inputVerticesMap.entrySet()
-            .stream()
-            .map(entry -> entry.getValue()
-                    .stream()
-                    .map(targetId -> new LogicalEdge(logicalVertexMap.get(entry.getKey()),
-                        logicalVertexMap.get(targetId)))
-                    .collect(Collectors.toList()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toSet());
+                .stream()
+                .map(entry -> entry.getValue()
+                        .stream()
+                        .map(upstreamId -> new LogicalEdge(logicalVertexMap.get(upstreamId),
+                                logicalVertexMap.get(entry.getKey())))
+                        .collect(Collectors.toList()))
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
     }
 }
