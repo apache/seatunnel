@@ -201,7 +201,7 @@ public class TaskExecutionServiceTest {
         t1throwable.add(new IOException());
         t2throwable.add(new IOException());
 
-        await().atMost(t1Sleep + t2Sleep, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        await().atMost(t1Sleep + t2Sleep + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             assertEquals(FAILED, t1c.get().getExecutionState());
             assertEquals(FAILED, t2c.get().getExecutionState());
         });
