@@ -50,6 +50,7 @@
         <module>connector-elasticsearch</module>
         <module>connector-iotdb</module>
         <module>connector-neo4j</module>
+        <module>connector-phoenix</module>
     </modules>
 
     <dependencies>

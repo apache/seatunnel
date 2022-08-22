@@ -136,6 +136,11 @@
             <artifactId>connector-neo4j</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-phoenix</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
