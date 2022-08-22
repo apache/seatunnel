@@ -181,7 +181,7 @@ public class PhysicalVertex {
                             v.getExecutionState(),
                             ExceptionUtils.getMessage(v.getThrowable())));
                     } else {
-                        LOGGER.severe(String.format("%s end with state %s",
+                        LOGGER.info(String.format("%s end with state %s",
                             this.taskFullName,
                             v.getExecutionState()));
                     }

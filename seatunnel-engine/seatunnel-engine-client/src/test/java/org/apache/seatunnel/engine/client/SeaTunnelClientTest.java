@@ -58,9 +58,8 @@ public class SeaTunnelClientTest {
 
     @Test
     public void testSayHello() {
-        SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
-        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:5801"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
 
         String msg = "Hello world";
         String s = engineClient.printMessageToMaster(msg);
