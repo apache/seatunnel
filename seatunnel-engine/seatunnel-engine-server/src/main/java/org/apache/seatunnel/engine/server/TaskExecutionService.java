@@ -138,10 +138,10 @@ public class TaskExecutionService {
                 ExceptionUtils.getMessage(t)));
             resultFuture.complete(new TaskExecutionState(taskGroup != null ? taskGroup.getId() : -1, ExecutionState.FAILED, t));
         }
-        return new NonCompletableFuture<>(resultFuture);
+        return new PassiveCompletableFuture<>(resultFuture);
     }
 
-    public NonCompletableFuture<TaskExecutionState> deployLocalTask(
+    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
         @NonNull TaskGroup taskGroup,
         @NonNull CompletableFuture<TaskExecutionState> resultFuture
     ) {
