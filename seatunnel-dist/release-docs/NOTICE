@@ -356,6 +356,14 @@ framework, which can be obtained at:
   * HOMEPAGE:
     * http://commons.apache.org/logging/
 
+This product optionally depends on 'Apache Commons Net', a net
+framework, which can be obtained at:
+
+  * LICENSE:
+    * license/LICENSE.commons-net.txt (Apache License 2.0)
+  * HOMEPAGE:
+    * http://commons.apache.org/commons-net/
+
 This product optionally depends on 'Apache Log4J', a logging framework, which
 can be obtained at:
 
