@@ -763,7 +763,7 @@
             </dependency>
             <dependency>
                 <groupId>org.codehaus.jackson</groupId>
-                <artifactId>jackson-mapper-</artifactId>
+                <artifactId>jackson-mapper-asl</artifactId>
                 <version>${codehaus.jackson.version}</version>
             </dependency>
             <dependency>
