@@ -106,8 +106,9 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
     public Set<String> getLatestPipelineNames(List<String> fileNames) {
         Map<String, String> latestPipelineMap = new HashMap<>();
         fileNames.forEach(fileName -> {
-            String filePipelineId = fileName.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
-            int fileVersion = Integer.parseInt(fileName.split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
+            String[] fileNameSegments = fileName.split(FILE_NAME_SPLIT);
+            int fileVersion = Integer.parseInt(fileNameSegments[FILE_SORT_ID_INDEX]);
+            String filePipelineId = fileNameSegments[FILE_NAME_PIPELINE_ID_INDEX];
             if (latestPipelineMap.containsKey(filePipelineId)) {
                 int oldVersion = Integer.parseInt(latestPipelineMap.get(filePipelineId).split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
                 if (fileVersion > oldVersion) {
@@ -132,8 +133,9 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
         AtomicReference<String> latestFileName = new AtomicReference<>();
         AtomicInteger latestVersion = new AtomicInteger();
         fileNames.forEach(fileName -> {
-            int fileVersion = Integer.parseInt(fileName.split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
-            String filePipelineId = fileName.split(FILE_NAME_SPLIT)[FILE_NAME_PIPELINE_ID_INDEX];
+            String[] fileNameSegments = fileName.split(FILE_NAME_SPLIT);
+            int fileVersion = Integer.parseInt(fileNameSegments[FILE_SORT_ID_INDEX]);
+            String filePipelineId = fileNameSegments[FILE_NAME_PIPELINE_ID_INDEX];
             if (pipelineId.equals(filePipelineId) && fileVersion > latestVersion.get()) {
                 latestVersion.set(fileVersion);
                 latestFileName.set(fileName);

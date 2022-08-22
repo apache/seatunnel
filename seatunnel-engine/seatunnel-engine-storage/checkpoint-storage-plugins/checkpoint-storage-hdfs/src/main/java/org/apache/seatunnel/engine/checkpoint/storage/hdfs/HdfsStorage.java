@@ -89,14 +89,13 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         try {
             datas = serializeCheckPointData(state);
         } catch (IOException e) {
-            throw new CheckpointStorageException("Failed to serialize checkpoint data", e);
+            throw new CheckpointStorageException("Failed to serialize checkpoint data,state is :" + state, e);
         }
-        //Consider file paths for different operating systems
         String fileName = getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state);
         try (FSDataOutputStream out = fs.create(new Path(fileName))) {
             out.write(datas);
         } catch (IOException e) {
-            throw new CheckpointStorageException("Failed to write checkpoint data", e);
+            throw new CheckpointStorageException("Failed to write checkpoint data, file name is: " + fileName, e);
         }
         return fileName;
     }
@@ -140,7 +139,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         });
 
         if (latestPipelineStates.isEmpty()) {
-            throw new CheckpointStorageException("No checkpoint found for job, job id is: " + jobId);
+            throw new CheckpointStorageException("No checkpoint found for job, job id:{} " + jobId);
         }
         return latestPipelineStates;
     }
@@ -236,7 +235,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             in.read(datas);
             return deserializeCheckPointData(datas);
         } catch (IOException e) {
-            throw new CheckpointStorageException("Failed to read checkpoint data", e);
+            throw new CheckpointStorageException(String.format("Failed to read checkpoint data, file name is %s,job id is %s", fileName, jobId), e);
         }
     }
 }

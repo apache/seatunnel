@@ -173,7 +173,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage {
                     byte[] data = FileUtils.readFileToByteArray(file);
                     latestFile.set(deserializeCheckPointData(data));
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    log.error("read checkpoint data from file " + file.getAbsolutePath(), e);
                 }
             }
         });
