@@ -136,7 +136,6 @@ public class TaskTest {
         LogicalDag logicalDag = new LogicalDag();
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);
-        logicalDag.addLogicalVertex(fake2Vertex);
         logicalDag.addEdge(edge);
 
         JobConfig config = new JobConfig();
