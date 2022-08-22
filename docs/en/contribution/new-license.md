@@ -31,7 +31,7 @@ We need to follow the following steps when we need to add new jars or external r
 * Append relevant NOTICE files under 'seatunnel-dist/release-docs/NOTICE' directory and make sure they are no different to the original repository
 * Add relevant source code protocols under 'seatunnel-dist/release-docs/licenses' directory and the file name should be named as license+filename.txt. Eg: license-zk.txt
 
-* check dependency license fail *
+* check dependency license fail
 ```
 --- /dev/fd/63 2020-12-03 03:08:57.191579482 +0000
 +++ /dev/fd/62 2020-12-03 03:08:57.191579482 +0000
