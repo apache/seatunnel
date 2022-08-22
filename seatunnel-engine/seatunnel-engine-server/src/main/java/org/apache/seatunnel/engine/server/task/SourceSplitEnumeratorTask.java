@@ -23,21 +23,25 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
+import org.apache.seatunnel.engine.server.task.operation.source.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.EnumeratorState;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.stream.Collectors;
 
 public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
@@ -49,7 +53,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private final SourceAction<?, SplitT, ?> source;
     private SourceSplitEnumerator<?, ?> enumerator;
     private int maxReaderSize;
-    private AtomicInteger unfinishedReaders;
+    private Set<Long> unfinishedReaders;
     private Map<TaskLocation, Address> taskMemberMapping;
     private Map<Long, TaskLocation> taskIDToTaskLocationMapping;
 
@@ -70,7 +74,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskMemberMapping = new ConcurrentHashMap<>();
         taskIDToTaskLocationMapping = new ConcurrentHashMap<>();
         maxReaderSize = source.getParallelism();
-        unfinishedReaders = new AtomicInteger(maxReaderSize);
+        unfinishedReaders = new CopyOnWriteArraySet<>();
         enumerator.open();
     }
 
@@ -122,8 +126,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public void readerFinished(long taskID) {
-        removeTaskMemberMapping(taskID);
-        if (unfinishedReaders.decrementAndGet() == 0) {
+        unfinishedReaders.remove(taskID);
+        if (unfinishedReaders.isEmpty()) {
             readerFinishFuture.complete(null);
         }
     }
@@ -147,6 +151,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 currState = EnumeratorState.READER_CLOSED;
                 break;
             case READER_CLOSED:
+                closeAllReader();
                 currState = EnumeratorState.CLOSED;
                 break;
             case CLOSED:
@@ -167,14 +172,17 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         readerRegisterFuture.join();
     }
 
-    public void removeTaskMemberMapping(long taskID) {
-        TaskLocation taskLocation = taskIDToTaskLocationMapping.get(taskID);
-        taskMemberMapping.remove(taskLocation);
-        taskIDToTaskLocationMapping.remove(taskID);
-    }
-
     public Set<Long> getRegisteredReaders() {
         return taskMemberMapping.keySet().stream().map(TaskLocation::getTaskID).collect(Collectors.toSet());
+    }
+
+    private void closeAllReader() {
+        List<InvocationFuture<?>> futures = new ArrayList<>();
+        taskMemberMapping.forEach((location, address) -> {
+            futures.add(this.getExecutionContext().sendToMember(new CloseRequestOperation(location),
+                    address));
+        });
+        futures.forEach(InvocationFuture::join);
     }
 
     @Override
