@@ -38,6 +38,8 @@ import java.io.IOException;
 public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
     private static final int RETRY_TIME = 5;
 
+    private static final int RETRY_TIME_OUT = 2000;
+
     private TaskLocation readerTaskID;
     private TaskLocation enumeratorTaskID;
 
@@ -60,7 +62,7 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
             task.receivedReader(readerTaskID, readerAddress);
             return null;
         }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
-            exception -> exception instanceof NullPointerException));
+            exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
 
     }
 
