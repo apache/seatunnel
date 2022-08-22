@@ -176,7 +176,7 @@
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
-        <oss-sdk.version>3.15.1</oss-sdk.version>
+        <hadoop-aliyun.version>2.9.2</hadoop-aliyun.version>
         <codec.version>1.13</codec.version>
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
@@ -536,9 +536,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.aliyun.oss</groupId>
-                <artifactId>aliyun-sdk-oss</artifactId>
-                <version>${oss-sdk.version}</version>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-aliyun</artifactId>
+                <version>${hadoop-aliyun.version}</version>
             </dependency>
 
             <dependency>

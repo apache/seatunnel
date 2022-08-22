@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 public class OssConf extends HadoopConf {
-    private final String fsHdfsImpl = "org.apache.seatunnel.connectors.seatunnel.file.oss.fs.OSSFileSystem";
+    private final String fsHdfsImpl = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
 
     @Override
     public String getFsHdfsImpl() {

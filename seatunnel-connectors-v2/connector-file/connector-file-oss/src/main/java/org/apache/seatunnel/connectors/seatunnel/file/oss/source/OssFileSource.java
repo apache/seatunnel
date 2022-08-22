@@ -25,7 +25,6 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.schema.SeatunnelSchema;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FilePluginException;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.fs.SmartOSSClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.source.config.OssConf;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.source.config.OssSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
@@ -34,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import com.google.auto.service.AutoService;
+import org.apache.hadoop.fs.aliyun.oss.Constants;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -58,9 +58,9 @@ public class OssFileSource extends BaseFileSource {
         String path = pluginConfig.getString(OssSourceConfig.FILE_PATH);
         hadoopConf = new OssConf(pluginConfig.getString(OssSourceConfig.BUCKET));
         HashMap<String, String> ossOptions = new HashMap<>();
-        ossOptions.put(SmartOSSClientConfig.HADOOP_ACCESS_KEY, pluginConfig.getString(OssSourceConfig.ACCESS_KEY));
-        ossOptions.put(SmartOSSClientConfig.HADOOP_SECRET_KEY, pluginConfig.getString(OssSourceConfig.ACCESS_SECRET));
-        ossOptions.put(SmartOSSClientConfig.HADOOP_ENDPOINT, pluginConfig.getString(OssSourceConfig.ENDPOINT));
+        ossOptions.put(Constants.ACCESS_KEY_ID, pluginConfig.getString(OssSourceConfig.ACCESS_KEY));
+        ossOptions.put(Constants.ACCESS_KEY_SECRET, pluginConfig.getString(OssSourceConfig.ACCESS_SECRET));
+        ossOptions.put(Constants.ENDPOINT_KEY, pluginConfig.getString(OssSourceConfig.ENDPOINT));
         hadoopConf.setExtraOptions(ossOptions);
         try {
             filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
