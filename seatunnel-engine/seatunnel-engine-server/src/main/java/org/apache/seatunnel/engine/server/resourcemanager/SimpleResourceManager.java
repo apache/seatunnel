@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.exception.JobException;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Data;
 import lombok.NonNull;
 
@@ -33,23 +34,26 @@ public class SimpleResourceManager implements ResourceManager {
     // TODO We may need more detailed resource define, instead of the resource definition method of only Address.
     private Map<Long, Map<Long, Address>> physicalVertexIdAndResourceMap = new HashMap<>();
 
+    private final NodeEngine nodeEngine;
+
+    public SimpleResourceManager(NodeEngine nodeEngine) {
+        this.nodeEngine = nodeEngine;
+    }
+
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public Address applyForResource(long jobId, long taskId) {
-        try {
-            Map<Long, Address> jobAddressMap = physicalVertexIdAndResourceMap.computeIfAbsent(jobId, k -> new HashMap<>());
+        Map<Long, Address> jobAddressMap =
+            physicalVertexIdAndResourceMap.computeIfAbsent(jobId, k -> new HashMap<>());
 
-            Address localhost =
-                    jobAddressMap.putIfAbsent(taskId, new Address("192.168.1.10", 5801));
-            if (null == localhost) {
-                localhost = jobAddressMap.get(taskId);
-            }
-
-            return localhost;
-
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
+        Address localhost =
+            jobAddressMap.putIfAbsent(taskId, nodeEngine.getThisAddress());
+        if (null == localhost) {
+            localhost = jobAddressMap.get(taskId);
         }
+
+        return localhost;
+
     }
 
     @Override

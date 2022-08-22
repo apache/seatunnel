@@ -71,7 +71,7 @@ public class JobMaster implements Runnable {
         flakeIdGenerator =
             this.nodeEngine.getHazelcastInstance().getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
 
-        this.resourceManager = new SimpleResourceManager();
+        this.resourceManager = new SimpleResourceManager(this.nodeEngine);
     }
 
     public void init() throws Exception {
