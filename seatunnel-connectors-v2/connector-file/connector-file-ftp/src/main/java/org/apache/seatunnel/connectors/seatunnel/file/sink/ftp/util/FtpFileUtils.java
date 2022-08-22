@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.util;
 
 import lombok.NonNull;
+import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
@@ -44,7 +45,10 @@ public class FtpFileUtils {
         return initFTPClient(FTP_HOST, FTP_PORT, FTP_USERNAME, FTP_PASSWORD);
     }
 
-    public static FTPClient initFTPClient(@NonNull String ftpHost, @NonNull int ftpPort, @NonNull String ftpUserName, @NonNull String ftpPassword) {
+    public static FTPClient initFTPClient(@NonNull String ftpHost,
+                                          @NonNull int ftpPort,
+                                          @NonNull String ftpUserName,
+                                          @NonNull String ftpPassword) {
         if (null == FTPCLIENT) {
             synchronized (FtpFileUtils.class) {
                 if (null == FTPCLIENT) {
@@ -59,7 +63,7 @@ public class FtpFileUtils {
                         FTPCLIENT.setConnectTimeout(FTP_CONNECT_MAX_TIMEOUT);
                         FTPCLIENT.setControlEncoding("utf-8");
                         FTPCLIENT.enterLocalPassiveMode();
-                        FTPCLIENT.setFileType(FTPCLIENT.BINARY_FILE_TYPE);
+                        FTPCLIENT.setFileType(FTP.BINARY_FILE_TYPE);
                         if (!FTPReply.isPositiveCompletion(FTPCLIENT.getReplyCode())) {
                             FTPCLIENT.disconnect();
                         }
@@ -67,8 +71,6 @@ public class FtpFileUtils {
                         e.printStackTrace();
                     } catch (IOException e) {
                         e.printStackTrace();
-                    } finally {
-                        return FTPCLIENT;
                     }
                 }
             }

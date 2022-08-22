@@ -57,6 +57,7 @@ public class FtpFileSink extends AbstractFileSink {
             this.ftpUserName = pluginConfig.getString(FtpConfig.FTP_USERNAME);
             this.ftpPwd = pluginConfig.getString(FtpConfig.FTP_PASSWORD);
             FtpFileUtils.initFTPClient(this.ftpHost, this.ftpPort, this.ftpUserName, this.ftpPwd);
+
         }
     }
 }
