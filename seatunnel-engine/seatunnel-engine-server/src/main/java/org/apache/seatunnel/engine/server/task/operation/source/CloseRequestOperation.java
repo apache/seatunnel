@@ -15,50 +15,64 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.task.operation.source;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
-import com.hazelcast.internal.nio.IOUtil;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import lombok.NonNull;
+import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class DeployTaskOperation extends AsyncOperation {
-    private Data taskImmutableInformation;
+public class CloseRequestOperation extends Operation implements IdentifiedDataSerializable {
 
-    public DeployTaskOperation() {
+    private TaskLocation readerLocation;
+
+    public CloseRequestOperation() {
     }
 
-    public DeployTaskOperation(@NonNull Data taskImmutableInformation) {
-        this.taskImmutableInformation = taskImmutableInformation;
+    public CloseRequestOperation(TaskLocation readerLocation) {
+        this.readerLocation = readerLocation;
     }
 
     @Override
-    protected PassiveCompletableFuture<?> doRun() throws Exception {
+    public void run() throws Exception {
         SeaTunnelServer server = getService();
-        return server.getTaskExecutionService().deployTask(taskImmutableInformation);
+        SourceSeaTunnelTask<?, ?> task =
+                server.getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupID())
+                        .getTaskGroup().getTask(readerLocation.getTaskID());
+        task.close();
     }
 
     @Override
-    public int getClassId() {
-        return OperationDataSerializerHook.DEPLOY_TASK_OPERATOR;
+    public String getServiceName() {
+        return SeaTunnelServer.SERVICE_NAME;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        IOUtil.writeData(out, taskImmutableInformation);
+        readerLocation.writeData(out);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskImmutableInformation = IOUtil.readData(in);
+        readerLocation.readData(in);
+    }
+
+    @Override
+    public int getFactoryId() {
+        return TaskDataSerializerHook.FACTORY_ID;
+    }
+
+    @Override
+    public int getClassId() {
+        return TaskDataSerializerHook.CLOSE_REQUEST_TYPE;
     }
 }

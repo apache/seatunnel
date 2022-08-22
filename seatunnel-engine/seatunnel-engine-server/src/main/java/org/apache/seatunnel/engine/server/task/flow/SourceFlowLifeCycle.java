@@ -25,8 +25,8 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.SourceUnregisterOperation;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -95,9 +95,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
         try {
             this.closed = true;
             collector.close();
-            runningTask.getExecutionContext().sendToMaster(new SourceUnregisterOperation(currentTaskID,
+            runningTask.getExecutionContext().sendToMaster(new SourceNoMoreElementOperation(currentTaskID,
                     enumeratorTaskID)).get();
-            this.close();
         } catch (Exception e) {
             LOGGER.warning("source close failed ", e);
             throw new RuntimeException(e);

@@ -61,6 +61,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected FlowLifeCycle startFlowLifeCycle;
 
+    private List<FlowLifeCycle> allCycles;
+
     protected List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
     protected List<CompletableFuture<Void>> flowFutures;
@@ -79,7 +81,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
     public void init() throws Exception {
         super.init();
         flowFutures = new ArrayList<>();
+        allCycles = new ArrayList<>();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
+        for (FlowLifeCycle cycle : allCycles) {
+            cycle.init();
+        }
     }
 
     public void setTaskGroup(TaskGroup group) {
@@ -132,7 +138,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
         } else {
             throw new UnknownFlowException(flow);
         }
-        lifeCycle.init();
+        allCycles.add(lifeCycle);
         return lifeCycle;
     }
 

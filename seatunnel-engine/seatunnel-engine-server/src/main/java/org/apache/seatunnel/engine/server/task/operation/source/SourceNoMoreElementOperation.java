@@ -29,15 +29,15 @@ import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class SourceUnregisterOperation extends Operation implements IdentifiedDataSerializable {
+public class SourceNoMoreElementOperation extends Operation implements IdentifiedDataSerializable {
 
     private TaskLocation currentTaskID;
     private TaskLocation enumeratorTaskID;
 
-    public SourceUnregisterOperation() {
+    public SourceNoMoreElementOperation() {
     }
 
-    public SourceUnregisterOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
+    public SourceNoMoreElementOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
         this.currentTaskID = currentTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }
