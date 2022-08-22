@@ -43,7 +43,7 @@ public class CheckpointAckOperation extends AsyncOperation {
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.SUBMIT_OPERATOR;
+        return OperationDataSerializerHook.CHECKPOINT_ACK_OPERATOR;
     }
 
     @Override

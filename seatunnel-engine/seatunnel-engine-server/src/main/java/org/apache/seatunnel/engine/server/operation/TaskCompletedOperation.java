@@ -40,7 +40,7 @@ public class TaskCompletedOperation extends AsyncOperation {
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.SUBMIT_OPERATOR;
+        return OperationDataSerializerHook.TASK_COMPLETED_OPERATOR;
     }
 
     @Override

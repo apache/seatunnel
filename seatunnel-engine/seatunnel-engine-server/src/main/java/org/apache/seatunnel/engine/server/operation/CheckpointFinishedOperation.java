@@ -45,7 +45,7 @@ public class CheckpointFinishedOperation extends AsyncOperation {
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.SUBMIT_OPERATOR;
+        return OperationDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
     }
 
     @Override

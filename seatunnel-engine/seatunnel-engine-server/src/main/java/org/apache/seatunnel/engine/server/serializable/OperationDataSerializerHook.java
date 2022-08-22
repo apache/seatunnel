@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.operation.CheckpointAckOperation;
+import org.apache.seatunnel.engine.server.operation.CheckpointFinishedOperation;
 import org.apache.seatunnel.engine.server.operation.CheckpointTriggerOperation;
 import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
@@ -49,6 +50,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
     public static final int CHECKPOINT_TRIGGER_OPERATOR = 5;
 
     public static final int CHECKPOINT_ACK_OPERATOR = 6;
+
+    public static final int CHECKPOINT_FINISHED_OPERATOR = 7;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
         SeaTunnelFactoryIdConstant.SEATUNNEL_OPERATION_DATA_SERIALIZER_FACTORY,
@@ -84,6 +87,8 @@ public final class OperationDataSerializerHook implements DataSerializerHook {
                     return new CheckpointTriggerOperation();
                 case CHECKPOINT_ACK_OPERATOR:
                     return new CheckpointAckOperation();
+                case CHECKPOINT_FINISHED_OPERATOR:
+                    return new CheckpointFinishedOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
