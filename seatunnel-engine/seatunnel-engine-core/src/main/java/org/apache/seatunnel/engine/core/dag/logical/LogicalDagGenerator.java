@@ -41,6 +41,10 @@ public class LogicalDagGenerator {
 
     private final Map<Long, LogicalVertex> logicalVertexMap = new HashMap<>();
 
+    /**
+     * key: input vertex id;
+     * <br> value: target vertices id;
+     */
     private final Map<Long, Set<Long>> inputVerticesMap = new HashMap<>();
 
     public LogicalDagGenerator(@NonNull List<Action> actions,
@@ -69,10 +73,10 @@ public class LogicalDagGenerator {
             return;
         }
         // connection vertices info
-        final Set<Long> inputs = inputVerticesMap.computeIfAbsent(logicalVertexId, id -> new HashSet<>());
         action.getUpstream().forEach(inputAction -> {
             createLogicalVertex(inputAction);
-            inputs.add(inputAction.getId());
+            inputVerticesMap.computeIfAbsent(inputAction.getId(), id -> new HashSet<>())
+                .add(logicalVertexId);
         });
 
         final LogicalVertex logicalVertex = new LogicalVertex(logicalVertexId, action, action.getParallelism());
@@ -84,8 +88,8 @@ public class LogicalDagGenerator {
                 .stream()
                 .map(entry -> entry.getValue()
                         .stream()
-                        .map(upstreamId -> new LogicalEdge(logicalVertexMap.get(upstreamId),
-                                logicalVertexMap.get(entry.getKey())))
+                        .map(targetId -> new LogicalEdge(logicalVertexMap.get(entry.getKey()),
+                                logicalVertexMap.get(targetId)))
                         .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toSet());
