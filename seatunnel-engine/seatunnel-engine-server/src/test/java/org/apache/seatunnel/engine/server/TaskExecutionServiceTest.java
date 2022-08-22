@@ -95,7 +95,7 @@ public class TaskExecutionServiceTest {
 
         taskExecutionService.cancelTaskGroup(taskGroupId);
 
-        await().atMost(sleepTime + 300, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             assertEquals(CANCELED, completableFuture.get().getExecutionState());
         });
     }
