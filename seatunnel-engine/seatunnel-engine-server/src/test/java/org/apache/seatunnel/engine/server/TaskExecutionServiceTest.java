@@ -247,7 +247,7 @@ public class TaskExecutionServiceTest {
         stopMark.set(true);
 
         //Check all task ends right
-        await().atMost(lowLagSleep * 10 + highLagSleep, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        await().atMost(lowLagSleep * 10 + highLagSleep * 5, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             assertEquals(FINISHED, completableFuture.get().getExecutionState());
         });
 
