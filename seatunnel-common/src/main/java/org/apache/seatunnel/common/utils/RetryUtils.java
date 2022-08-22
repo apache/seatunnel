@@ -44,6 +44,8 @@ public class RetryUtils {
                     if (retryMaterial.shouldThrowException()) {
                         throw e;
                     }
+                } else if (retryMaterial.getSleepTimeMillis() > 0) {
+                    Thread.sleep(retryMaterial.getSleepTimeMillis());
                 }
             }
         } while (i <= retryTimes);
@@ -66,10 +68,21 @@ public class RetryUtils {
         // this is the exception condition, can add result condition in the future.
         private final RetryCondition<Exception> retryCondition;
 
+        /**
+         * The interval between each retry
+         */
+        private final long sleepTimeMillis;
+
         public RetryMaterial(int retryTimes, boolean shouldThrowException, RetryCondition<Exception> retryCondition) {
+            this(retryTimes, shouldThrowException, retryCondition, 0);
+        }
+
+        public RetryMaterial(int retryTimes, boolean shouldThrowException,
+                             RetryCondition<Exception> retryCondition, long sleepTimeMillis) {
             this.retryTimes = retryTimes;
             this.shouldThrowException = shouldThrowException;
             this.retryCondition = retryCondition;
+            this.sleepTimeMillis = sleepTimeMillis;
         }
 
         public int getRetryTimes() {
@@ -83,8 +96,13 @@ public class RetryUtils {
         public RetryCondition<Exception> getRetryCondition() {
             return retryCondition;
         }
+
+        public long getSleepTimeMillis() {
+            return sleepTimeMillis;
+        }
     }
 
+    @FunctionalInterface
     public interface Execution<T, E extends Exception> {
         T execute() throws E;
     }
