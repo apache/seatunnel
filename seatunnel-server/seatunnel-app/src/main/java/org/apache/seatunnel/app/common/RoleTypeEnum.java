@@ -15,30 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.dao;
+package org.apache.seatunnel.app.common;
 
-import org.apache.seatunnel.app.dal.entity.User;
-import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
-import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+public enum RoleTypeEnum {
+    NORMAL(0, "normalRole"),
+    ADMIN(1, "adminRole"),
+    ;
 
-import java.util.List;
+    private final int code;
+    private final String  description;
 
-public interface IUserDao {
-    int add(UpdateUserDto dto);
+    RoleTypeEnum(int code, String description) {
+        this.code = code;
+        this.description = description;
+    }
 
-    void checkUserExists(String username);
+    public int getCode() {
+        return code;
+    }
 
-    void update(UpdateUserDto dto);
-
-    void delete(int id);
-
-    void enable(int id);
-
-    void disable(int id);
-
-    List<User> list(ListUserDto dto, int pageNo, int pageSize);
-
-    User getById(int operatorId);
-
-    User getByName(String user);
+    public String getDescription() {
+        return description;
+    }
 }

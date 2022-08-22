@@ -15,30 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.dao;
+package org.apache.seatunnel.app.dal.dao.impl;
 
-import org.apache.seatunnel.app.dal.entity.User;
-import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
-import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+import org.apache.seatunnel.app.dal.dao.IRoleDao;
+import org.apache.seatunnel.app.dal.entity.Role;
+import org.apache.seatunnel.app.dal.mapper.RoleMapper;
+
+import org.springframework.stereotype.Repository;
+
+import javax.annotation.Resource;
 
 import java.util.List;
 
-public interface IUserDao {
-    int add(UpdateUserDto dto);
+@Repository
+public class RoleDaoImpl implements IRoleDao {
 
-    void checkUserExists(String username);
+    @Resource
+    private RoleMapper roleMapper;
 
-    void update(UpdateUserDto dto);
+    @Override
+    public void add(Role role){
+        roleMapper.insert(role);
+    }
 
-    void delete(int id);
+    @Override
+    public void batchAdd(List<Role> roles){
+        roleMapper.batchInsert(roles);
+    }
 
-    void enable(int id);
+    @Override
+    public Role getByRoleName(String role) {
+        return roleMapper.selectByRole(role);
+    }
 
-    void disable(int id);
-
-    List<User> list(ListUserDto dto, int pageNo, int pageSize);
-
-    User getById(int operatorId);
-
-    User getByName(String user);
 }

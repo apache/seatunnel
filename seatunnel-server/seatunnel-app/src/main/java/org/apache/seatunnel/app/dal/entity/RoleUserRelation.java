@@ -15,30 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.dao;
+package org.apache.seatunnel.app.dal.entity;
 
-import org.apache.seatunnel.app.dal.entity.User;
-import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
-import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.util.Date;
 
-public interface IUserDao {
-    int add(UpdateUserDto dto);
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class RoleUserRelation {
 
-    void checkUserExists(String username);
+    private Integer id;
 
-    void update(UpdateUserDto dto);
+    private Integer roleId;
 
-    void delete(int id);
+    private Integer userId;
 
-    void enable(int id);
+    private Date createTime;
 
-    void disable(int id);
-
-    List<User> list(ListUserDto dto, int pageNo, int pageSize);
-
-    User getById(int operatorId);
-
-    User getByName(String user);
+    private Date updateTime;
 }

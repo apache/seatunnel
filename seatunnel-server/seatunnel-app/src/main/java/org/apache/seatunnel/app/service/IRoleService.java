@@ -15,30 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.dao;
+package org.apache.seatunnel.app.service;
 
-import org.apache.seatunnel.app.dal.entity.User;
-import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
-import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+public interface IRoleService {
+    boolean addUserToRole(Integer userId, Integer type);
 
-import java.util.List;
+    boolean checkUserRole(String uName, String rName);
 
-public interface IUserDao {
-    int add(UpdateUserDto dto);
-
-    void checkUserExists(String username);
-
-    void update(UpdateUserDto dto);
-
-    void delete(int id);
-
-    void enable(int id);
-
-    void disable(int id);
-
-    List<User> list(ListUserDto dto, int pageNo, int pageSize);
-
-    User getById(int operatorId);
-
-    User getByName(String user);
+    void deleteByUserId(Integer id);
 }

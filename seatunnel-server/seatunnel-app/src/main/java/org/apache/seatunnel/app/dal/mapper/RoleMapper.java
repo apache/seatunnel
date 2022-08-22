@@ -15,30 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.app.dal.dao;
+package org.apache.seatunnel.app.dal.mapper;
 
-import org.apache.seatunnel.app.dal.entity.User;
-import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
-import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+import org.apache.seatunnel.app.dal.entity.Role;
+
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
-public interface IUserDao {
-    int add(UpdateUserDto dto);
+public interface RoleMapper {
+    int deleteByPrimaryKey(Integer id);
 
-    void checkUserExists(String username);
+    int insert(Role record);
 
-    void update(UpdateUserDto dto);
+    int insertOrUpdate(Role record);
 
-    void delete(int id);
+    int insertOrUpdateSelective(Role record);
 
-    void enable(int id);
+    int insertSelective(Role record);
 
-    void disable(int id);
+    Role selectByPrimaryKey(Integer id);
 
-    List<User> list(ListUserDto dto, int pageNo, int pageSize);
+    int updateByPrimaryKeySelective(Role record);
 
-    User getById(int operatorId);
+    int updateByPrimaryKey(Role record);
 
-    User getByName(String user);
+    int updateBatch(List<Role> list);
+
+    int batchInsert(@Param("list") List<Role> list);
+
+    Role selectByRole(@Param("name") String name);
 }

@@ -17,28 +17,13 @@
 
 package org.apache.seatunnel.app.dal.dao;
 
-import org.apache.seatunnel.app.dal.entity.User;
-import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
-import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+import org.apache.seatunnel.app.dal.entity.RoleUserRelation;
 
-import java.util.List;
+public interface IRoleUserRelationDao {
 
-public interface IUserDao {
-    int add(UpdateUserDto dto);
+    void add(RoleUserRelation roleUserRelation);
 
-    void checkUserExists(String username);
+    RoleUserRelation getByUserAndRole(Integer userId, Integer roleId);
 
-    void update(UpdateUserDto dto);
-
-    void delete(int id);
-
-    void enable(int id);
-
-    void disable(int id);
-
-    List<User> list(ListUserDto dto, int pageNo, int pageSize);
-
-    User getById(int operatorId);
-
-    User getByName(String user);
+    void deleteByUserId(Integer userId);
 }
