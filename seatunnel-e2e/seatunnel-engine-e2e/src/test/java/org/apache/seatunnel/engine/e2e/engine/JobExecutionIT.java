@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e.engine;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
@@ -44,6 +43,7 @@ import java.util.concurrent.ExecutionException;
 
 public class JobExecutionIT {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobExecutionIT.class);
+
     @BeforeClass
     public static void beforeClass() throws Exception {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -69,7 +69,6 @@ public class JobExecutionIT {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setBoundedness(Boundedness.BOUNDED);
         jobConfig.setName("fake_to_file");
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
