@@ -29,7 +29,8 @@ import java.util.Map;
 public class FtpFileSystemCommitter implements FileSystemCommitter {
     @Override
     public void commitTransaction(@NonNull FileAggregatedCommitInfo aggregateCommitInfo) throws IOException {
-        for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getTransactionMap().entrySet()) {
+        for (Map.Entry<String, Map<String, String>> entry :
+                aggregateCommitInfo.getTransactionMap().entrySet()) {
             for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                 String key = mvFileEntry.getKey();
                 String value = mvFileEntry.getValue();
@@ -41,7 +42,8 @@ public class FtpFileSystemCommitter implements FileSystemCommitter {
 
     @Override
     public void abortTransaction(@NonNull FileAggregatedCommitInfo aggregateCommitInfo) throws IOException {
-        for (Map.Entry<String, Map<String, String>> entry : aggregateCommitInfo.getTransactionMap().entrySet()) {
+        for (Map.Entry<String, Map<String, String>> entry :
+                aggregateCommitInfo.getTransactionMap().entrySet()) {
             for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
                 String oldFile = mvFileEntry.getKey();
                 String newFile = mvFileEntry.getValue();

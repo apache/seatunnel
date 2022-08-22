@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.AbstractFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.config.FtpConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.util.FtpFileUtils;
@@ -43,33 +46,17 @@ public class FtpFileSink extends AbstractFileSink {
 
     @Override
     public void prepare(Config pluginConfig) throws PrepareFailException {
-
         super.prepare(pluginConfig);
-
-        if (pluginConfig.hasPath(FtpConfig.FTP_HOST)) {
-            this.ftpHost = pluginConfig.getString(FtpConfig.FTP_HOST);
-        }
-        else {
-            throw new RuntimeException("Ftp host is required");
-        }
-        if (pluginConfig.hasPath(FtpConfig.FTP_PORT)) {
-            this.ftpPort = pluginConfig.getInt(FtpConfig.FTP_PORT);
-        }
-        else {
-            throw new RuntimeException("Ftp port is required");
-        }
-        if (pluginConfig.hasPath(FtpConfig.FTP_USERNAME)) {
-            this.ftpUserName = pluginConfig.getString(FtpConfig.FTP_USERNAME);
-        }
-        else {
-            throw new RuntimeException("Ftp username is required");
-        }
-        if (pluginConfig.hasPath(FtpConfig.FTP_PASSWORD)) {
-            this.ftpPwd = pluginConfig.getString(FtpConfig.FTP_PASSWORD);
+        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig,
+                FtpConfig.FTP_HOST, FtpConfig.FTP_PORT, FtpConfig.FTP_USERNAME, FtpConfig.FTP_PASSWORD);
+        if (!result.isSuccess()) {
+            throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         } else {
-            throw new RuntimeException("Ftp password is required");
+            this.ftpHost = pluginConfig.getString(FtpConfig.FTP_HOST);
+            this.ftpPort = pluginConfig.getInt(FtpConfig.FTP_PORT);
+            this.ftpUserName = pluginConfig.getString(FtpConfig.FTP_USERNAME);
+            this.ftpPwd = pluginConfig.getString(FtpConfig.FTP_PASSWORD);
+            FtpFileUtils.initFTPClient(this.ftpHost, this.ftpPort, this.ftpUserName, this.ftpPwd);
         }
-
-        FtpFileUtils.initFTPClient(this.ftpHost, this.ftpPort, this.ftpUserName, this.ftpPwd);
     }
 }

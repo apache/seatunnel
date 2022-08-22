@@ -118,6 +118,8 @@ public class FtpTxtTransactionStateFileWriter extends AbstractTransactionStateFi
     }
 
     private String transformRowToLine(@NonNull SeaTunnelRow seaTunnelRow) {
-        return this.sinkColumnsIndexInRow.stream().map(index -> seaTunnelRow.getFields()[index] == null ? "" : seaTunnelRow.getFields()[index].toString()).collect(Collectors.joining(fieldDelimiter));
+        return this.sinkColumnsIndexInRow.stream().map(index ->
+                seaTunnelRow.getFields()[index] == null ? "" : seaTunnelRow.getFields()[index].toString())
+                        .collect(Collectors.joining(fieldDelimiter));
     }
 }

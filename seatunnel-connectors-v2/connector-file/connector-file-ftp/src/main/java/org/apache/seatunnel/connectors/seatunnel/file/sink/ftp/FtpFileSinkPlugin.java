@@ -42,8 +42,21 @@ public class FtpFileSinkPlugin implements SinkFileSystemPlugin {
     }
 
     @Override
-    public Optional<TransactionStateFileWriter> getTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo, @NonNull TransactionFileNameGenerator transactionFileNameGenerator, @NonNull PartitionDirNameGenerator partitionDirNameGenerator, @NonNull List<Integer> sinkColumnsIndexInRow, @NonNull String tmpPath, @NonNull String targetPath, @NonNull String jobId, int subTaskIndex, @NonNull String fieldDelimiter, @NonNull String rowDelimiter, @NonNull FileSystem fileSystem) {
-        return Optional.of(FtpTransactionStateFileWriteFactory.of(seaTunnelRowTypeInfo, transactionFileNameGenerator, partitionDirNameGenerator, sinkColumnsIndexInRow, tmpPath, targetPath, jobId, subTaskIndex, fieldDelimiter, rowDelimiter, fileSystem));
+    public Optional<TransactionStateFileWriter> getTransactionStateFileWriter(@NonNull SeaTunnelRowType seaTunnelRowTypeInfo,
+                                                                              @NonNull TransactionFileNameGenerator transactionFileNameGenerator,
+                                                                              @NonNull PartitionDirNameGenerator partitionDirNameGenerator,
+                                                                              @NonNull List<Integer> sinkColumnsIndexInRow,
+                                                                              @NonNull String tmpPath,
+                                                                              @NonNull String targetPath,
+                                                                              @NonNull String jobId,
+                                                                              int subTaskIndex,
+                                                                              @NonNull String fieldDelimiter,
+                                                                              @NonNull String rowDelimiter,
+                                                                              @NonNull FileSystem fileSystem) {
+        return Optional.of(FtpTransactionStateFileWriteFactory.of(seaTunnelRowTypeInfo,
+                transactionFileNameGenerator, partitionDirNameGenerator, sinkColumnsIndexInRow,
+                tmpPath, targetPath, jobId, subTaskIndex,
+                fieldDelimiter, rowDelimiter, fileSystem));
     }
 
     @Override
