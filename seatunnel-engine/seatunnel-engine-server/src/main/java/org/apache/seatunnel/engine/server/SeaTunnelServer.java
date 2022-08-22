@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
+import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.serialization.Data;
@@ -52,7 +54,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private final ILogger logger;
     private final LiveOperationRegistry liveOperationRegistry;
 
-    private TaskExecutionService taskExecutionService;
+    private SlotService slotService;
 
     private final ExecutorService executorService;
 
@@ -65,21 +67,19 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.executorService =
-            Executors.newFixedThreadPool(seaTunnelConfig.getEngineConfig().getServerExecutorPoolSize());
+                Executors.newFixedThreadPool(seaTunnelConfig.getEngineConfig().getServerExecutorPoolSize());
         logger.info("SeaTunnel server start...");
     }
 
-    public TaskExecutionService getTaskExecutionService() {
-        return this.taskExecutionService;
+    public SlotService getSlotService() {
+        return this.slotService;
     }
 
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
-        taskExecutionService = new TaskExecutionService(
-            nodeEngine, nodeEngine.getProperties()
-        );
-        taskExecutionService.start();
+        // TODO Determine whether to create a SlotService on the master node according to the deploy type
+        this.slotService = new DefaultSlotService(nodeEngine);
     }
 
     @Override
@@ -89,7 +89,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     @Override
     public void shutdown(boolean terminate) {
-        taskExecutionService.shutdown();
+        slotService.close();
     }
 
     @Override

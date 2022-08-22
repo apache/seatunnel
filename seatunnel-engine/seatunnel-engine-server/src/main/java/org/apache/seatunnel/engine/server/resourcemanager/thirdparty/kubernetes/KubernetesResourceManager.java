@@ -18,6 +18,20 @@
 package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes;
 
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
+import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.ThirdPartyResourceManager;
 
-public class KubernetesResourceManager extends AbstractResourceManager {
+import java.util.concurrent.CompletableFuture;
+
+public class KubernetesResourceManager extends AbstractResourceManager implements ThirdPartyResourceManager {
+    @Override
+    public CompletableFuture<CreateWorkerResult> createNewWorker(ResourceProfile resourceProfile) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Void> releaseWorker(String workerID) {
+        return null;
+    }
 }

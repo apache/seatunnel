@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class ResourceProfile {
 
     private final CPU cpu;
@@ -24,6 +26,8 @@ public class ResourceProfile {
     private final Memory heapMemory;
 
     public ResourceProfile(CPU cpu, Memory heapMemory) {
+        checkArgument(cpu.getCore() >= 0, "The cpu core cannot be negative");
+        checkArgument(heapMemory.getBytes() >= 0, "The heapMemory bytes cannot be negative");
         this.cpu = cpu;
         this.heapMemory = heapMemory;
     }
@@ -34,5 +38,17 @@ public class ResourceProfile {
 
     public Memory getHeapMemory() {
         return heapMemory;
+    }
+
+    public ResourceProfile merge(ResourceProfile other) {
+        CPU c = CPU.of(this.cpu.getCore() + other.getCpu().getCore());
+        Memory m = Memory.of(this.heapMemory.getBytes() + other.heapMemory.getBytes());
+        return new ResourceProfile(c, m);
+    }
+
+    public ResourceProfile unmerge(ResourceProfile other) {
+        CPU c = CPU.of(this.cpu.getCore() - other.getCpu().getCore());
+        Memory m = Memory.of(this.heapMemory.getBytes() - other.heapMemory.getBytes());
+        return new ResourceProfile(c, m);
     }
 }

@@ -39,6 +39,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     public AbstractResourceManager() {
         this.registerWorker = new ConcurrentHashMap<>();
         this.listener = new WorkerHeartbeatListener();
+        // TODO just use hazelcast member config server?
         this.heartbeatManager = new HeartbeatManager(listener);
         heartbeatManager.start(Executors.newSingleThreadScheduledExecutor());
     }

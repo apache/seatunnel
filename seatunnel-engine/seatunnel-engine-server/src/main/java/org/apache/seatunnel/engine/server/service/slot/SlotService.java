@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn;
+package org.apache.seatunnel.engine.server.service.slot;
 
-import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.ThirdPartyResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
-import java.util.concurrent.CompletableFuture;
+public interface SlotService {
 
-public class YarnResourceManager extends AbstractResourceManager implements ThirdPartyResourceManager {
-    @Override
-    public CompletableFuture<CreateWorkerResult> createNewWorker(ResourceProfile resourceProfile) {
-        return null;
-    }
+    void init();
 
-    @Override
-    public CompletableFuture<Void> releaseWorker(String workerID) {
-        return null;
-    }
+    SlotProfile requestSlot(ResourceProfile resourceProfile);
+
+    SlotContext getSlotContext(int slotID);
+
+    void releaseSlot(SlotProfile slotProfile);
+
+    void close();
+
 }
