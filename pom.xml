@@ -359,7 +359,7 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.noraui</groupId>
+                <groupId>com.oracle.database.jdbc</groupId>
                 <artifactId>ojdbc8</artifactId>
                 <version>${oracle.version}</version>
             </dependency>
