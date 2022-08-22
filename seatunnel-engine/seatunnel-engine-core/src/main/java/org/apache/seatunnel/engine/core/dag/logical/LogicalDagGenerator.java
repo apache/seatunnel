@@ -88,8 +88,8 @@ public class LogicalDagGenerator {
                 .stream()
                 .map(entry -> entry.getValue()
                         .stream()
-                        .map(upstreamId -> new LogicalEdge(logicalVertexMap.get(upstreamId),
-                                logicalVertexMap.get(entry.getKey())))
+                        .map(targetId -> new LogicalEdge(logicalVertexMap.get(entry.getKey()),
+                                logicalVertexMap.get(targetId)))
                         .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toSet());
