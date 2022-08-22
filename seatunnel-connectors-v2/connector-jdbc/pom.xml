@@ -49,8 +49,8 @@
         </dependency>
 
         <dependency>
-            <groupId></groupId>
-            <artifactId>orac</artifactId>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
         </dependency>
 
     </dependencies>
