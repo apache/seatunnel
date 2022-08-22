@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -75,6 +76,7 @@ public class TaskExecutionService {
     private final RunBusWorkSupplier runBusWorkSupplier = new RunBusWorkSupplier(executorService, threadShareTaskQueue);
     // key: TaskID
     private final ConcurrentMap<Long, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, CompletableFuture<Void>> cancellationFutures = new ConcurrentHashMap<>();
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -129,10 +131,23 @@ public class TaskExecutionService {
 
             // TODO Use classloader load the connector jars and deserialize Task
             taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
+            return deployLocalTask(taskGroup, resultFuture);
+        } catch (Throwable t) {
+            logger.severe(String.format("TaskGroupID : %s  deploy error with Exception: %s",
+                taskGroup != null ? taskGroup.getId() : -1,
+                ExceptionUtils.getMessage(t)));
+            resultFuture.complete(new TaskExecutionState(taskGroup != null ? taskGroup.getId() : -1, ExecutionState.FAILED, t));
+        }
+        return new PassiveCompletableFuture<>(resultFuture);
+    }
+
+    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+        @NonNull TaskGroup taskGroup,
+        @NonNull CompletableFuture<TaskExecutionState> resultFuture
+    ) {
+        try {
             taskGroup.init();
             Collection<Task> tasks = taskGroup.getTasks();
-
-            // TODO We need add a method to cancel task
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
             TaskGroupExecutionTracker executionTracker =
                 new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
@@ -149,11 +164,21 @@ public class TaskExecutionService {
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
             executionContexts.put(taskGroup.getId(), new TaskGroupContext(taskGroup));
+            cancellationFutures.put(taskGroup.getId(), cancellationFuture);
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
             resultFuture.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
         }
         return new PassiveCompletableFuture<>(resultFuture);
+    }
+
+    public void cancelTaskGroup(long taskId) {
+        if (cancellationFutures.containsKey(taskId)) {
+            cancellationFutures.get(taskId).cancel(false);
+        } else {
+            throw new SeaTunnelEngineException(String.format("taskId : %s is not exist", taskId));
+        }
+
     }
 
     private final class BlockingWorker implements Runnable {
