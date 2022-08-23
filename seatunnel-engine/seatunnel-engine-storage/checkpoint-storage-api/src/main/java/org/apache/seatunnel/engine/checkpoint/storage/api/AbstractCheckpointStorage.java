@@ -35,8 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,18 +60,21 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
 
     public static final String FILE_NAME_SPLIT = "-";
 
-    public static final int FILE_NAME_PIPELINE_ID_INDEX = 1;
+    public static final int FILE_NAME_PIPELINE_ID_INDEX = 2;
 
     public static final int FILE_SORT_ID_INDEX = 0;
 
+    public static final int FILE_NAME_RANDOM_RANGE = 1000;
+
     public static final String FILE_FORMAT = "ser";
 
-    public ExecutorService executor;
+    private ExecutorService executorService;
 
-    /**
-     * record order
-     */
-    private final AtomicLong counter = new AtomicLong(0);
+    private static final int DEFAULT_THREAD_POOL_MIN_SIZE = Runtime.getRuntime().availableProcessors() * 2 + 1;
+
+    private static final int DEFAULT_THREAD_POOL_MAX_SIZE = Runtime.getRuntime().availableProcessors() * 4 + 1;
+
+    private static final int DEFAULT_THREAD_POOL_QUENE_SIZE = 1024;
 
     /**
      * init storage instance
@@ -86,7 +91,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
     }
 
     public String getCheckPointName(PipelineState state) {
-        return counter.incrementAndGet() + FILE_NAME_SPLIT + state.getPipelineId() + FILE_NAME_SPLIT + state.getCheckpointId() + "." + FILE_FORMAT;
+        return System.nanoTime() + FILE_NAME_SPLIT + ThreadLocalRandom.current().nextInt(FILE_NAME_RANDOM_RANGE) + FILE_NAME_SPLIT + state.getPipelineId() + FILE_NAME_SPLIT + state.getCheckpointId() + "." + FILE_FORMAT;
     }
 
     public byte[] serializeCheckPointData(PipelineState state) throws IOException {
@@ -107,10 +112,10 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
         Map<String, String> latestPipelineMap = new HashMap<>();
         fileNames.forEach(fileName -> {
             String[] fileNameSegments = fileName.split(FILE_NAME_SPLIT);
-            int fileVersion = Integer.parseInt(fileNameSegments[FILE_SORT_ID_INDEX]);
+            long fileVersion = Long.parseLong(fileNameSegments[FILE_SORT_ID_INDEX]);
             String filePipelineId = fileNameSegments[FILE_NAME_PIPELINE_ID_INDEX];
             if (latestPipelineMap.containsKey(filePipelineId)) {
-                int oldVersion = Integer.parseInt(latestPipelineMap.get(filePipelineId).split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
+                long oldVersion = Long.parseLong(latestPipelineMap.get(filePipelineId).split(FILE_NAME_SPLIT)[FILE_SORT_ID_INDEX]);
                 if (fileVersion > oldVersion) {
                     latestPipelineMap.put(filePipelineId, fileName);
                 }
@@ -131,10 +136,10 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
      */
     public String getLatestCheckpointFileNameByJobIdAndPipelineId(List<String> fileNames, String pipelineId) {
         AtomicReference<String> latestFileName = new AtomicReference<>();
-        AtomicInteger latestVersion = new AtomicInteger();
+        AtomicLong latestVersion = new AtomicLong();
         fileNames.forEach(fileName -> {
             String[] fileNameSegments = fileName.split(FILE_NAME_SPLIT);
-            int fileVersion = Integer.parseInt(fileNameSegments[FILE_SORT_ID_INDEX]);
+            long fileVersion = Long.parseLong(fileNameSegments[FILE_SORT_ID_INDEX]);
             String filePipelineId = fileNameSegments[FILE_NAME_PIPELINE_ID_INDEX];
             if (pipelineId.equals(filePipelineId) && fileVersion > latestVersion.get()) {
                 latestVersion.set(fileVersion);
@@ -156,15 +161,23 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
 
     @Override
     public void asyncStoreCheckPoint(PipelineState state) {
-        if (null == this.executor || this.executor.isShutdown()) {
-            this.executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2 + 1, new StorageThreadFactory());
-        }
-        this.executor.submit(() -> {
+        initExecutor();
+        this.executorService.submit(() -> {
             try {
                 storeCheckPoint(state);
             } catch (Exception e) {
                 log.error(String.format("store checkpoint failed, job id : %s, pipeline id : %d", state.getJobId(), state.getPipelineId()), e);
             }
         });
+    }
+
+    private void initExecutor() {
+        if (null == this.executorService || this.executorService.isShutdown()) {
+            synchronized (this) {
+                if (null == this.executorService || this.executorService.isShutdown()) {
+                    this.executorService = new ThreadPoolExecutor(DEFAULT_THREAD_POOL_MIN_SIZE, DEFAULT_THREAD_POOL_MAX_SIZE, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(DEFAULT_THREAD_POOL_QUENE_SIZE), new StorageThreadFactory());
+                }
+            }
+        }
     }
 }

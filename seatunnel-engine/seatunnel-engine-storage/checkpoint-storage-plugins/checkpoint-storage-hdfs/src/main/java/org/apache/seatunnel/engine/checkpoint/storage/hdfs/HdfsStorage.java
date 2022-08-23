@@ -52,6 +52,8 @@ public class HdfsStorage extends AbstractCheckpointStorage {
 
     private static final String KERBEROS_KEY = "kerberos";
 
+    private static final String STORAGE_TMP_SUFFIX = "tmp";
+
     public HdfsStorage(Map<String, String> configuration) throws CheckpointStorageException {
         this.initStorage(configuration);
     }
@@ -91,13 +93,27 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         } catch (IOException e) {
             throw new CheckpointStorageException("Failed to serialize checkpoint data,state is :" + state, e);
         }
-        String fileName = getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state);
-        try (FSDataOutputStream out = fs.create(new Path(fileName))) {
+        Path filePath = new Path(getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state));
+
+        Path tmpFilePath = new Path(getStorageParentDirectory() + state.getJobId() + "/" + getCheckPointName(state) + STORAGE_TMP_SUFFIX);
+        try (FSDataOutputStream out = fs.create(tmpFilePath)) {
             out.write(datas);
+            out.hsync();
+            out.hflush();
+            fs.rename(tmpFilePath, filePath);
         } catch (IOException e) {
-            throw new CheckpointStorageException("Failed to write checkpoint data, file name is: " + fileName, e);
+            throw new CheckpointStorageException("Failed to write checkpoint data, state: " + state, e);
+        } finally {
+            try {
+                // clean up tmp file, if still lying around
+                if (fs.exists(tmpFilePath)) {
+                    fs.delete(tmpFilePath, false);
+                }
+            } catch (IOException ioe) {
+                log.error("Failed to delete tmp file", ioe);
+            }
         }
-        return fileName;
+        return filePath.getName();
     }
 
     @Override
@@ -210,10 +226,14 @@ public class HdfsStorage extends AbstractCheckpointStorage {
 
     private List<String> getFileNames(String path) throws CheckpointStorageException {
         try {
+
             RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator = fs.listFiles(new Path(path), false);
             List<String> fileNames = new ArrayList<>();
             while (fileStatusRemoteIterator.hasNext()) {
                 LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
+                if (!fileStatus.getPath().getName().endsWith(FILE_FORMAT)) {
+                    fileNames.add(fileStatus.getPath().getName());
+                }
                 fileNames.add(fileStatus.getPath().getName());
             }
             return fileNames;
@@ -238,4 +258,5 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException(String.format("Failed to read checkpoint data, file name is %s,job id is %s", fileName, jobId), e);
         }
     }
+
 }
