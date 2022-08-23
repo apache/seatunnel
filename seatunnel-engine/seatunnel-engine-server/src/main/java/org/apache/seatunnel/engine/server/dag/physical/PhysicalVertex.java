@@ -19,14 +19,16 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
-import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.DeployTaskOperation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -100,6 +102,10 @@ public class PhysicalVertex {
 
     private final NodeEngine nodeEngine;
 
+    private Address currentExecutionAddress;
+
+    private TaskGroupImmutableInformation taskGroupImmutableInformation;
+
     public PhysicalVertex(long physicalVertexId,
                           int subTaskGroupIndex,
                           @NonNull ExecutorService executorService,
@@ -145,25 +151,55 @@ public class PhysicalVertex {
     @SuppressWarnings("checkstyle:MagicNumber")
     // This method must not throw an exception
     public void deploy(@NonNull Address address) {
-        TaskGroupImmutableInformation taskGroupImmutableInformation =
-            new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
-                nodeEngine.getSerializationService().toData(this.taskGroup),
-                this.pluginJarsUrls);
+        currentExecutionAddress = address;
+        taskGroupImmutableInformation = new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
+            nodeEngine.getSerializationService().toData(this.taskGroup),
+            this.pluginJarsUrls);
 
         try {
-            waitForCompleteByExecutionService = new PassiveCompletableFuture<>(
-                nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                        new DeployTaskOperation(nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
-                        address)
-                    .invoke());
-            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
+            if (ExecutionState.DEPLOYING.equals(executionState.get())) {
+                waitForCompleteByExecutionService = new PassiveCompletableFuture<>(
+                    nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+                            new DeployTaskOperation(
+                                nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
+                            currentExecutionAddress)
+                        .invoke());
+
+                // may be canceling
+                if (!updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING)) {
+                    // If we found the task state turned to CANCELING after deployed to TaskExecutionService. We need
+                    // notice the TaskExecutionService to cancel this task.
+                    noticeTaskExecutionServiceCancel();
+                    if (ExecutionState.CANCELING.equals(this.getExecutionState().get())) {
+                        turnToEndState(ExecutionState.CREATED);
+                        taskFuture.complete(
+                            new TaskExecutionState(this.physicalVertexId, ExecutionState.CREATED, null));
+                    } else {
+                        turnToEndState(ExecutionState.FAILED);
+                        taskFuture.complete(new TaskExecutionState(this.physicalVertexId, ExecutionState.FAILED,
+                            new JobException(String.format("%s turn to a unexpected state: %s, make it Failed",
+                                this.getTaskFullName(), executionState.get()))));
+                    }
+                }
+            } else if (ExecutionState.CANCELING.equals(this.getExecutionState().get())) {
+                turnToEndState(ExecutionState.CANCELED);
+                taskFuture.complete(new TaskExecutionState(this.physicalVertexId, executionState.get(), null));
+            } else {
+                turnToEndState(ExecutionState.FAILED);
+                taskFuture.complete(new TaskExecutionState(this.physicalVertexId, executionState.get(),
+                    new JobException(String.format("%s turn to a unexpected state"))));
+            }
         } catch (Throwable th) {
             LOGGER.severe(String.format("%s deploy error with Exception: %s",
                 this.taskFullName,
                 ExceptionUtils.getMessage(th)));
-            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
+            turnToEndState(ExecutionState.FAILED);
             taskFuture.complete(
-                new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, th));
+                new TaskExecutionState(this.physicalVertexId, ExecutionState.FAILED, th));
+        }
+
+        if (waitForCompleteByExecutionService == null) {
+            return;
         }
 
         waitForCompleteByExecutionService.whenComplete((v, t) -> {
@@ -174,7 +210,7 @@ public class PhysicalVertex {
                         new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED,
                             t));
                 } else {
-                    updateTaskState(executionState.get(), v.getExecutionState());
+                    turnToEndState(v.getExecutionState());
                     if (v.getThrowable() != null) {
                         LOGGER.severe(String.format("%s end with state %s and Exception: %s",
                             this.taskFullName,
@@ -190,7 +226,7 @@ public class PhysicalVertex {
             } catch (Throwable th) {
                 LOGGER.severe(
                     String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
-                updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
+                turnToEndState(ExecutionState.FAILED);
                 v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, th);
                 taskFuture.complete(v);
             }
@@ -199,6 +235,24 @@ public class PhysicalVertex {
 
     public long getPhysicalVertexId() {
         return physicalVertexId;
+    }
+
+    private void turnToEndState(@NonNull ExecutionState endState) {
+        // consistency check
+        if (executionState.get().isEndState()) {
+            String message = "Task is trying to leave terminal state " + executionState.get();
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        if (!endState.isEndState()) {
+            String message = "Need a end state, not " + endState;
+            LOGGER.severe(message);
+            throw new IllegalStateException(message);
+        }
+
+        executionState.set(endState);
+        stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
     }
 
     public boolean updateTaskState(@NonNull ExecutionState current, @NonNull ExecutionState targetState) {
@@ -228,8 +282,7 @@ public class PhysicalVertex {
         }
 
         // now do the actual state transition
-        if (executionState.get() == current) {
-            executionState.set(targetState);
+        if (executionState.compareAndSet(current, targetState)) {
             LOGGER.info(String.format("%s turn from state %s to %s.",
                 taskFullName,
                 current,
@@ -244,5 +297,48 @@ public class PhysicalVertex {
 
     public TaskGroupDefaultImpl getTaskGroup() {
         return taskGroup;
+    }
+
+    public void cancel() {
+        if (updateTaskState(ExecutionState.CREATED, ExecutionState.CANCELED) ||
+            updateTaskState(ExecutionState.SCHEDULED, ExecutionState.CANCELED)) {
+            taskFuture.complete(new TaskExecutionState(this.physicalVertexId, ExecutionState.CANCELED, null));
+        } else if (updateTaskState(ExecutionState.DEPLOYING, ExecutionState.CANCELING)) {
+            // do nothing, because even if task is deployed to TaskExecutionService, we can do the cancel in deploy method
+        } else if (updateTaskState(ExecutionState.RUNNING, ExecutionState.CANCELING)) {
+            noticeTaskExecutionServiceCancel();
+        }
+    }
+
+    @SuppressWarnings("checkstyle:MagicNumber")
+    private void noticeTaskExecutionServiceCancel() {
+        int i = 0;
+        // In order not to generate uncontrolled tasks, We will try again until the taskFuture is completed
+        while (!taskFuture.isDone()) {
+            try {
+                i++;
+                nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+                        new CancelTaskOperation(taskGroup.getId()),
+                        currentExecutionAddress)
+                    .invoke().get();
+                return;
+            } catch (Exception e) {
+                LOGGER.warning(String.format("%s cancel failed with Exception: %s, retry %s", this.getTaskFullName(),
+                    ExceptionUtils.getMessage(e), i));
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+    }
+
+    public AtomicReference<ExecutionState> getExecutionState() {
+        return executionState;
+    }
+
+    public String getTaskFullName() {
+        return taskFullName;
     }
 }

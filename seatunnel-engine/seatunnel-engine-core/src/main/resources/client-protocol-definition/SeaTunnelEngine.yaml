@@ -80,3 +80,39 @@ methods:
           nullable: false
           since: 2.0
           doc: ''
+
+  - id: 4
+    name: cancelJob
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: jobId
+          type: long
+          nullable: false
+          since: 2.0
+          doc: ''
+    response: {}
+
+  - id: 5
+    name: getJobStatus
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: jobId
+          type: long
+          nullable: false
+          since: 2.0
+          doc: ''
+    response:
+      params:
+        - name: jobStatus
+          type: int
+          nullable: false
+          since: 2.0
+          doc: ''

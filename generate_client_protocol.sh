@@ -52,7 +52,7 @@ cd $PROTOCOL_DIRECTORY
 $PIP3 install -r requirements.txt
 
 $PYTHON generator.py -r $SEATUNNEL_ENGINE_HOME -p $SEATUNNEL_ENGINE_HOME/seatunnel-engine/seatunnel-engine-core/src/main/resources/client-protocol-definition \
--o seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/protocol/codec \
+-o /tmp/seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/protocol/codec \
 -n org.apache.seatunnel.engine.core.protocol.codec --no-binary --no-id-check
 
 rm -rf $PROTOCOL_DIRECTORY

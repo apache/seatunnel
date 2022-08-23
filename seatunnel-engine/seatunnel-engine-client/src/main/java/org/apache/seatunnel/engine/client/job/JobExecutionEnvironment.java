@@ -76,7 +76,7 @@ public class JobExecutionEnvironment {
         return actions;
     }
 
-    public JobProxy execute() throws ExecutionException, InterruptedException {
+    public ClientJobProxy execute() throws ExecutionException, InterruptedException {
         JobClient jobClient = new JobClient(seaTunnelHazelcastClient);
         initSeaTunnelContext();
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
@@ -85,9 +85,7 @@ public class JobExecutionEnvironment {
             jobConfig,
             jarUrls);
 
-        JobProxy jobProxy = jobClient.createJobProxy(jobImmutableInformation);
-        jobProxy.submitJob();
-        return jobProxy;
+        return jobClient.createJobProxy(jobImmutableInformation);
     }
 
     private void initSeaTunnelContext() {

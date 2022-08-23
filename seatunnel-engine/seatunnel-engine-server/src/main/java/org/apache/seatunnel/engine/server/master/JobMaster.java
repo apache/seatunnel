@@ -128,7 +128,7 @@ public class JobMaster implements Runnable {
     }
 
     public void cleanJob() {
-        // TODO clean something
+        this.physicalPlan.cancelJob();
     }
 
     public ResourceManager getResourceManager() {
@@ -141,5 +141,9 @@ public class JobMaster implements Runnable {
 
     public JobImmutableInformation getJobImmutableInformation() {
         return jobImmutableInformation;
+    }
+
+    public JobStatus getJobStatus() {
+        return physicalPlan.getJobStatus();
     }
 }
