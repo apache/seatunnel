@@ -31,11 +31,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
 public class SeatunnelSourceTest {
 
     private static final String RESULT_TABLE_NAME = "result_table_name";
@@ -44,7 +40,6 @@ public class SeatunnelSourceTest {
 
     private static final String FIELD_NAME = "field_name";
 
-    @Test
     public void testBatchRead() {
         SparkSession sparkSession = SparkSession.builder()
                 .master("local")
