@@ -24,7 +24,6 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Data;
 import lombok.NonNull;
 
-import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
