@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.app.dal.dao.impl;
 
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.NO_SUCH_USER;
-import static org.apache.seatunnel.app.common.SeatunnelErrorEnum.USER_ALREADY_EXISTS;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.NO_SUCH_USER;
+import static org.apache.seatunnel.server.common.SeatunnelErrorEnum.USER_ALREADY_EXISTS;
 import static com.google.common.base.Preconditions.checkState;
 
 import org.apache.seatunnel.app.common.UserStatusEnum;
@@ -27,6 +27,7 @@ import org.apache.seatunnel.app.dal.entity.User;
 import org.apache.seatunnel.app.dal.mapper.UserMapper;
 import org.apache.seatunnel.app.domain.dto.user.ListUserDto;
 import org.apache.seatunnel.app.domain.dto.user.UpdateUserDto;
+import org.apache.seatunnel.server.common.PageData;
 
 import org.springframework.stereotype.Repository;
 
@@ -87,9 +88,17 @@ public class UserDaoImpl implements IUserDao {
     }
 
     @Override
-    public List<User> list(ListUserDto dto, int pageNo, int pageSize) {
+    public PageData<User> list(ListUserDto dto, int pageNo, int pageSize) {
         final User user = new User();
         user.setUsername(dto.getName());
-        return userMapper.selectBySelectiveAndPage(user, pageNo * pageSize, pageSize);
+
+        int count = userMapper.countBySelective(user);
+        final List<User> userList = userMapper.selectBySelectiveAndPage(user, pageNo * pageSize, pageSize);
+        return new PageData<User>(count, userList);
+    }
+
+    @Override
+    public User getById(int operatorId) {
+        return userMapper.selectByPrimaryKey(operatorId);
     }
 }

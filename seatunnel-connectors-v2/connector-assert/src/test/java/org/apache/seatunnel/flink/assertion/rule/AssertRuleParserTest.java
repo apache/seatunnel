@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.flink.assertion.rule;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
@@ -24,13 +26,14 @@ import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-public class AssertRuleParserTest extends TestCase {
+public class AssertRuleParserTest {
     AssertRuleParser parser = new AssertRuleParser();
 
+    @Test
     public void testParseRules() {
         List<? extends Config> ruleConfigList = assembleConfig();
         List<AssertFieldRule> assertFieldRules = parser.parseRules(ruleConfigList);

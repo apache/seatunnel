@@ -1,5 +1,7 @@
 # ClickhouseFile
 
+> Clickhouse file sink connector
+
 ## Description
 
 Generate the clickhouse data file with the clickhouse-local program, and then send it to the clickhouse
@@ -27,6 +29,7 @@ Write data to Clickhouse can also be done using JDBC
 | node_free_password     | boolean | no       | false         |
 | node_pass              | list    | no       | -             |
 | node_pass.node_address | string  | no       | -             |
+| node_pass.username     | string  | no       | "root"        |
 | node_pass.password     | string  | no       | -             |
 | common-options         | string  | no       | -             |
 
@@ -78,9 +81,13 @@ Used to save the addresses and corresponding passwords of all clickhouse servers
 
 The address corresponding to the clickhouse server
 
-### node_pass.node_password [string]
+### node_pass.username [string]
 
-The password corresponding to the clickhouse server, only support root user yet.
+The username corresponding to the clickhouse server, default root user.
+
+### node_pass.password [string]
+
+The password corresponding to the clickhouse server.
 
 ### common options [string]
 

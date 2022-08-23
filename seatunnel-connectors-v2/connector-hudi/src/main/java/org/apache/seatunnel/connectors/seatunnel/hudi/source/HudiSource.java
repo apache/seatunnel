@@ -26,8 +26,6 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceCo
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
-import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -138,8 +136,4 @@ public class HudiSource implements SeaTunnelSource<SeaTunnelRow, HudiSourceSplit
         return new HudiSourceSplitEnumerator(enumeratorContext, tablePath, this.confFiles, checkpointState);
     }
 
-    @Override
-    public Serializer<HudiSourceState> getEnumeratorStateSerializer() {
-        return new DefaultSerializer<>();
-    }
 }

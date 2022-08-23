@@ -58,6 +58,7 @@ class ClickhouseFile extends SparkBatchSink {
   private var clickhouseLocalPath: String = _
   private var table: Table = _
   private var fields: List[String] = _
+  private var nodeUser: Map[String, String] = _
   private var nodePass: Map[String, String] = _
   private val random = ThreadLocalRandom.current()
   private var freePass: Boolean = false
@@ -169,14 +170,14 @@ class ClickhouseFile extends SparkBatchSink {
         if (freePass || !nodePass.contains(shard.hostAddress)) {
           fileTransfer = new ScpFileTransfer(shard.hostAddress)
         } else {
-          fileTransfer = new ScpFileTransfer(shard.hostAddress, nodePass(shard.hostAddress))
+          fileTransfer = new ScpFileTransfer(shard.hostAddress, nodeUser(shard.hostAddress), nodePass(shard.hostAddress))
         }
       }
       case RSYNC => {
         if (freePass || !nodePass.contains(shard.hostAddress)) {
           fileTransfer = new RsyncFileTransfer(shard.hostAddress)
         } else {
-          fileTransfer = new RsyncFileTransfer(shard.hostAddress, nodePass(shard.hostAddress))
+          fileTransfer = new RsyncFileTransfer(shard.hostAddress, nodeUser(shard.hostAddress), nodePass(shard.hostAddress))
         }
       }
       case _ => throw new UnsupportedOperationException(s"unknown copy file method: '$copyFileMethod', please use " +
@@ -243,12 +244,17 @@ class ClickhouseFile extends SparkBatchSink {
           this.freePass = true
         } else if (config.hasPath(NODE_PASS)) {
           val nodePass = config.getObjectList(NODE_PASS)
+          val nodeUserMap = mutable.Map[String, String]()
           val nodePassMap = mutable.Map[String, String]()
           nodePass.foreach(np => {
             val address = np.toConfig.getString(NODE_ADDRESS)
+            // default user "root"
+            val username = if (np.toConfig.hasPath(USERNAME)) np.toConfig.getString(USERNAME) else "root"
             val password = np.toConfig.getString(PASSWORD)
+            nodeUserMap(address) = username
             nodePassMap(address) = password
           })
+          this.nodeUser = nodePassMap.toMap
           this.nodePass = nodePassMap.toMap
           checkResult = checkNodePass(this.nodePass, tableInfo.shards.values().toList)
         } else {

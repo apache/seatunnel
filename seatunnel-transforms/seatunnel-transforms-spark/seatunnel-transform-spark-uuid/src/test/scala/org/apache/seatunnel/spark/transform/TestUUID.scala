@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.spark.transform
 
+import org.apache.commons.math3.random.Well19937c
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+
 import java.security.SecureRandom
 
-import junit.framework.TestCase.assertEquals
-import org.apache.commons.math3.random.Well19937c
-import org.junit.Test
 
 class TestUUID {
+
   @Test
   def testUuid() {
     val UUID = new UUID

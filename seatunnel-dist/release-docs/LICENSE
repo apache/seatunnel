@@ -613,7 +613,7 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache License, Version 2.0) Woodstox (com.fasterxml.woodstox:woodstox-core:5.0.3 - https://github.com/FasterXML/woodstox)
      (The Apache License, Version 2.0) empty (org.spark-project.spark:unused:1.0.0 - http://nexus.sonatype.org/oss-repository-hosting.html/unused)
      (The Apache License, Version 2.0) net.thisptr:jackson-jq (net.thisptr:jackson-jq:0.0.10 - https://github.com/eiiches/jackson-jq/jackson-jq)
-     (The Apache License, Version 2.0) org.apiguardian:apiguardian-api (org.apiguardian:apiguardian-api:1.1.0 - https://github.com/apiguardian-team/apiguardian)
+     (The Apache License, Version 2.0) org.apiguardian:apiguardian-api (org.apiguardian:apiguardian-api:1.1.2 - https://github.com/apiguardian-team/apiguardian)
      (The Apache License, Version 2.0) org.jetbrains.kotlin:kotlin-stdlib (org.jetbrains.kotlin:kotlin-stdlib:1.4.10 - https://kotlinlang.org/)
      (The Apache License, Version 2.0) org.jetbrains.kotlin:kotlin-stdlib-common (org.jetbrains.kotlin:kotlin-stdlib-common:1.4.0 - https://kotlinlang.org/)
      (The Apache License, Version 2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk7 (org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.4.10 - https://kotlinlang.org/)
@@ -876,7 +876,6 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Hadoop Metrics2 Reporter for Dropwizard Metrics (com.github.joshelser:dropwizard-metrics-hadoop-metrics2-reporter:0.1.2 - https://github.com/joshelser/dropwizard-hadoop-metrics2)
      (The Apache Software License, Version 2.0) Apache Ivy (org.apache.ivy:ivy:2.4.0 - http://ant.apache.org/ivy/)
      (The Apache Software License, Version 2.0) Apache Thrift (org.apache.thrift:libfb303:0.9.3 - http://thrift.apache.org)
-     (The Apache Software License, Version 2.0) Data Mapper for Jackson (org.codehaus.jackson:jackson-mapper-asl:1.8.13 - http://jackson.codehaus.org)
      (Apache Software License - Version 2.0) Jettison (org.codehaus.jettison:jettison:1.1 - nhttps://mvnrepository.com/artifact/org.codehaus.jettison/jettison)
      (Apache Software License - Version 2.0) (Eclipse Public License - Version 1.0) Jetty Orbit :: Servlet API (org.eclipse.jetty.orbit:javax.servlet:3.0.0.v201112011016 - http://www.eclipse.org/jetty/jetty-orbit/javax.servlet)
      (Apache Software License - Version 2.0) (Eclipse Public License - Version 1.0) Jetty Server (org.mortbay.jetty:jetty:6.1.26 - http://www.eclipse.org/jetty/jetty-parent/project/modules/jetty)
@@ -968,11 +967,11 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.10 - http://www.slf4j.org)
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.15 - http://www.slf4j.org)
      (MIT License) SLF4J LOG4J-12 Binding (org.slf4j:slf4j-log4j12:1.7.16 - http://www.slf4j.org)
+     (MIT License) jsoup (org.jsoup:jsoup:1.14.3 - https://github.com/jhy/jsoup)
      (MIT) Jedis (redis.clients:jedis:3.2.0 - https://github.com/xetorthio/jedis)
      (MIT-License) spoiwo (com.norbitltd:spoiwo_2.11:1.8.0 - https://github.com/norbert-radyk/spoiwo/)
      (The MIT License (MIT)) influxdb java bindings (org.influxdb:influxdb-java:2.22 - http://www.influxdb.org)
      (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.10.0 - https://checkerframework.org)
-     (The MIT License) Checker Qual (org.checkerframework:checker-qual:3.4.0 - https://checkerframework.org)
      (The MIT License) JOpt Simple (net.sf.jopt-simple:jopt-simple:5.0.2 - http://pholser.github.io/jopt-simple)
 
 
@@ -1044,6 +1043,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (The BSD License) xmlenc Library (xmlenc:xmlenc:0.52 - http://xmlenc.sourceforge.net)
      (The BSD License) ASM Core (asm:asm:3.1 - http://asm.objectweb.org/asm/)
      (New BSD License) Janino (org.codehaus.janino:janino:3.1.6 - http://docs.codehaus.org/display/JANINO/Home/janino)
+     (BSD 2-Clause License) pgjdbc (org.postgresql:postgresql:42.3.3 - https://jdbc.postgresql.org)
 
 
 ========================================================================

@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.spark.redis.source
 
-import com.redislabs.provider.redis.{RedisConfig, RedisEndpoint, toRedisContext}
+import com.redislabs.provider.redis.{RedisConfig, toRedisContext}
 import org.apache.seatunnel.common.config.{CheckConfigUtil, CheckResult}
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory
 import org.apache.seatunnel.spark.SparkEnvironment
 import org.apache.seatunnel.spark.batch.SparkBatchSource
-import org.apache.seatunnel.spark.redis.common.Constants.{AUTH, DATA_TYPE, DB_NUM, DEFAULT_AUTH, DEFAULT_DATA_TYPE, DEFAULT_DB_NUM, DEFAULT_HOST, DEFAULT_PARTITION_NUM, DEFAULT_PORT, DEFAULT_TIMEOUT, HOST, KEYS_OR_KEY_PATTERN, PARTITION_NUM, PORT, TIMEOUT}
-import org.apache.seatunnel.spark.redis.common.RedisDataType
+import org.apache.seatunnel.spark.redis.common.Constants._
+import org.apache.seatunnel.spark.redis.common.{RedisDataType, RedisUtil}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Dataset, Row}
@@ -52,7 +52,8 @@ class Redis extends SparkBatchSource {
         DB_NUM -> DEFAULT_DB_NUM,
         DATA_TYPE -> DEFAULT_DATA_TYPE,
         PARTITION_NUM -> DEFAULT_PARTITION_NUM,
-        TIMEOUT -> DEFAULT_TIMEOUT
+        TIMEOUT -> DEFAULT_TIMEOUT,
+        IS_SELF_ACHIEVED_REDIS -> DEFAULT_IS_SELF_ACHIEVED_REDIS
       ))
     config = config.withFallback(defaultConfig)
   }
@@ -65,13 +66,9 @@ class Redis extends SparkBatchSource {
    */
   override def getData(env: SparkEnvironment): Dataset[Row] = {
     // Get data from redis through keys and combine it into a dataset
-    val redisConfigs = new RedisConfig(RedisEndpoint(
-      host = config.getString(HOST),
-      port = config.getInt(PORT),
-      auth = config.getString(AUTH),
-      dbNum = config.getInt(DB_NUM),
-      timeout = config.getInt(TIMEOUT)
-    ))
+    val isSelfAchieved = if (config.getIsNull(IS_SELF_ACHIEVED_REDIS)) false else config.getBoolean(IS_SELF_ACHIEVED_REDIS)
+
+    val redisConfigs = RedisUtil.getRedisConfig(isSelfAchieved, config)
 
     redisDataType = RedisDataType.withName(config.getString(DATA_TYPE).toUpperCase)
     val keysOrKeyPattern = config.getString(KEYS_OR_KEY_PATTERN)

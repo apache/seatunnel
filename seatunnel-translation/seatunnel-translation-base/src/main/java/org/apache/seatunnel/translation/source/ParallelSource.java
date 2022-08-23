@@ -27,7 +27,11 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,7 +40,8 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements BaseSourceFunction<T> {
+public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable> implements BaseSourceFunction<T> {
+    private static final Logger LOG = LoggerFactory.getLogger(ParallelSource.class);
 
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;
@@ -120,6 +125,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Ba
             reader.pollNext(collector);
             Thread.sleep(SLEEP_TIME_INTERVAL);
         }
+        LOG.debug("Parallel source runs complete.");
     }
 
     @Override
@@ -129,14 +135,17 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT> implements Ba
         running = false;
 
         if (executorService != null) {
+            LOG.debug("Close the thread pool resource.");
             executorService.shutdown();
         }
 
         if (splitEnumerator != null) {
+            LOG.debug("Close the split enumerator for the Apache SeaTunnel source.");
             splitEnumerator.close();
         }
 
         if (reader != null) {
+            LOG.debug("Close the data reader for the Apache SeaTunnel source.");
             reader.close();
         }
     }

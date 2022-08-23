@@ -26,9 +26,7 @@ const Login = defineComponent({
     const { state } = useForm()
     const trim = getCurrentInstance()?.appContext.config.globalProperties.trim
 
-    const handleLogin = () => {
-
-    }
+    const handleLogin = () => {}
 
     return {
       t,
@@ -39,7 +37,7 @@ const Login = defineComponent({
   },
   render() {
     return (
-      <NSpace justify='center' align='center' style={{ width: '100%', height: '100vh' }}>
+      <NSpace justify='center' align='center' class='w-full h-screen'>
         <div>
           <h2>{this.t('login.login_to_sea_tunnel')}</h2>
           <NForm rules={this.rules} ref='loginFormRef'>
@@ -73,9 +71,7 @@ const Login = defineComponent({
           </NForm>
           <NButton
             type='info'
-            disabled={
-              !this.loginForm.username || !this.loginForm.password
-            }
+            disabled={!this.loginForm.username || !this.loginForm.password}
             style={{ width: '100%' }}
             onClick={this.handleLogin}
           >

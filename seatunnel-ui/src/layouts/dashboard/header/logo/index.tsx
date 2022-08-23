@@ -16,12 +16,15 @@
  */
 
 import { defineComponent } from 'vue'
+import { NSpace } from 'naive-ui'
 
 const Logo = defineComponent({
   setup() {},
   render() {
     return (
-      <h2>SeaTunnel</h2>
+      <NSpace justify='center' align='center' class='h-16 w-48'>
+        <h2 class='text-2xl font-bold'>SeaTunnel</h2>
+      </NSpace>
     )
   }
 })

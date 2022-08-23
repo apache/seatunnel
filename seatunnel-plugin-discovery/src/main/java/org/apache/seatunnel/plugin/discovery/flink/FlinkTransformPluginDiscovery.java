@@ -18,14 +18,13 @@
 package org.apache.seatunnel.plugin.discovery.flink;
 
 import org.apache.seatunnel.flink.BaseFlinkTransform;
-import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FlinkTransformPluginDiscovery extends AbstractPluginDiscovery<BaseFlinkTransform> {
+public class FlinkTransformPluginDiscovery extends FlinkAbstractPluginDiscovery<BaseFlinkTransform> {
 
     public FlinkTransformPluginDiscovery() {
         super("flink");

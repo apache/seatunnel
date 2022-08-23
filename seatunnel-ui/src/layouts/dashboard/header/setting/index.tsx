@@ -15,17 +15,35 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
-import { NIcon } from 'naive-ui'
+import { defineComponent, toRefs } from 'vue'
+import { NIcon, NSpace, NDropdown } from 'naive-ui'
 import { SettingOutlined } from '@vicons/antd'
+import { useSettingDropdown } from './use-setting-dropdown'
 
 const Setting = defineComponent({
-  setup() {},
+  setup() {
+    const { state, handleSelect } = useSettingDropdown()
+
+    return { ...toRefs(state), handleSelect }
+  },
   render() {
     return (
-      <NIcon>
-        <SettingOutlined />
-      </NIcon>
+      <NSpace
+        align='center'
+        justify='center'
+        class='h-16 w-12'
+        style={{ cursor: 'pointer' }}
+      >
+        <NDropdown
+          trigger='click'
+          options={this.dropdownOptions}
+          onSelect={this.handleSelect}
+        >
+          <NIcon size='20'>
+            <SettingOutlined />
+          </NIcon>
+        </NDropdown>
+      </NSpace>
     )
   }
 })

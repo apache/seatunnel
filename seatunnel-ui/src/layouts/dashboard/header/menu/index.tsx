@@ -15,13 +15,34 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import { defineComponent, toRefs } from 'vue'
+import { NMenu, NSpace } from 'naive-ui'
+import { useRouter } from 'vue-router'
+import { useMenu } from './use-menu'
 
 const Menu = defineComponent({
-  setup() {},
+  setup() {
+    const { state } = useMenu()
+    const router = useRouter()
+
+    const handleMenuClick = (key: string) => {
+      router.push({ path: `/${key}` })
+    }
+
+    return {
+      ...toRefs(state),
+      handleMenuClick
+    }
+  },
   render() {
     return (
-      <div></div>
+      <NSpace align='center' class='h-16'>
+        <NMenu
+          mode='horizontal'
+          options={this.menuOptions}
+          onUpdateValue={this.handleMenuClick}
+        />
+      </NSpace>
     )
   }
 })
