@@ -1,3 +1,4 @@
+/*
 package org.apache.seatunnel.connectors.seatunnel.doris.util;
 
 import java.sql.Connection;
@@ -60,3 +61,4 @@ public class HiveToDoris {
         }
     }
 }
+*/

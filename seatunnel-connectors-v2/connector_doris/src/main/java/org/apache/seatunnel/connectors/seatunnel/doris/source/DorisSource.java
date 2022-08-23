@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.doris.source;
 
 import com.google.auto.service.AutoService;
+import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -26,32 +27,41 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.doris.util.JDBCUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 @AutoService(SeaTunnelSource.class)
 public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
-    private Config pluginConfig;
+    private static final Logger LOGGER = LoggerFactory.getLogger(DorisSource.class);
     private SeaTunnelContext seaTunnelContext;
+    private SeaTunnelRowType rowTypeInfo;
+    private DorisInputFormat dorisInputFormat;
 
     @Override
     public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(seaTunnelContext.getJobMode()) ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return  Boundedness.BOUNDED ;
     }
 
     @Override
     public SeaTunnelRowType getProducedType() {
-        return new SeaTunnelRowType(
-            new String[]{"name", "age", "timestamp"},
-            new SeaTunnelDataType<?>[]{BasicType.STRING_TYPE, BasicType.INT_TYPE, BasicType.LONG_TYPE});
+        return this.rowTypeInfo;
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(SingleSplitReaderContext readerContext) throws Exception {
-        return new DorisSourceReader(readerContext);
+        return new DorisSourceReader(readerContext,dorisInputFormat);
     }
 
     @Override
@@ -60,12 +70,52 @@ public class DorisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
+    public void prepare(Config config) {
+        String dorisbeaddress = "";
+        String password = "";
+        String username = "";
+        String selectsql = "";
+        String database = "";
+        if (config.hasPath(DorisSourceParameter.DORISBEADDRESS) && config.hasPath(DorisSourceParameter.PASSWORD)
+                && config.hasPath(DorisSourceParameter.USERNAME)&& config.hasPath(DorisSourceParameter.SELECTSQL)&& config.hasPath(DorisSourceParameter.DATABASE)) {
+            dorisbeaddress = config.getString(DorisSourceParameter.DORISBEADDRESS);
+            password = config.getString(DorisSourceParameter.PASSWORD);
+            username = config.getString(DorisSourceParameter.USERNAME);
+            selectsql = config.getString(DorisSourceParameter.SELECTSQL);
+            database = config.getString(DorisSourceParameter.DATABASE);
+            try {
+
+                SeaTunnelRowType seaTunnelRowType = getSeaTunnelRowType(JDBCUtils.getMetaData(JDBCUtils.getConnection(dorisbeaddress,username,password,database),selectsql));
+                rowTypeInfo = seaTunnelRowType;
+            } catch (SQLException e) {
+                throw new RuntimeException("Parameters in the preparation phase fail to be generated", e);
+            }
+            dorisInputFormat = new DorisInputFormat(dorisbeaddress,password,username,selectsql,database,rowTypeInfo);
+        } else {
+            throw new RuntimeException("Missing Source configuration parameters");
+        }
+
     }
 
     @Override
     public void setSeaTunnelContext(SeaTunnelContext seaTunnelContext) {
         this.seaTunnelContext = seaTunnelContext;
+    }
+
+    public SeaTunnelRowType getSeaTunnelRowType(ResultSetMetaData columnSchemaList) {
+        ArrayList<SeaTunnelDataType<?>> seaTunnelDataTypes = new ArrayList<>();
+        ArrayList<String> fieldNames = new ArrayList<>();
+        try {
+
+            for (int i = 0; i < columnSchemaList.getColumnCount(); i++) {
+                fieldNames.add(columnSchemaList.getColumnName(i));
+                seaTunnelDataTypes.add(DorisTypeMapper.mapping(columnSchemaList, i));
+            }
+
+        } catch (Exception e) {
+            LOGGER.warn("get row type info exception", e);
+            throw new PrepareFailException("Doris", PluginType.SOURCE, e.toString());
+        }
+        return new SeaTunnelRowType(fieldNames.toArray(new String[fieldNames.size()]), seaTunnelDataTypes.toArray(new SeaTunnelDataType<?>[seaTunnelDataTypes.size()]));
     }
 }

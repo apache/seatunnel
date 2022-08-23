@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -33,35 +34,35 @@ public class DorisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DorisSourceReader.class);
 
     private final SingleSplitReaderContext context;
+    private final DorisInputFormat dorisInputFormat;
 
-    private final String[] names = {"Wenjun", "Fanjia", "Zongwen", "CalvinKirs"};
-    private final int[] ages = {11, 22, 33, 44};
-
-    public DorisSourceReader(SingleSplitReaderContext context) {
+    public DorisSourceReader(SingleSplitReaderContext context, DorisInputFormat dorisInputFormat) {
         this.context = context;
+        this.dorisInputFormat = dorisInputFormat;
     }
 
     @Override
     public void open() {
         // nothing
+        dorisInputFormat.openInputFormat();
     }
 
     @Override
     public void close() {
         // nothing
+        dorisInputFormat.closeInputFormat();
     }
 
     @Override
     @SuppressWarnings("magicnumber")
-    public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
+    public void pollNext(Collector<SeaTunnelRow> output) throws IOException {
         // Generate a random number of rows to emit.
-        Random random = ThreadLocalRandom.current();
-        int size = random.nextInt(10) + 1;
-        for (int i = 0; i < size; i++) {
-            int randomIndex = random.nextInt(names.length);
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[randomIndex], ages[randomIndex], System.currentTimeMillis()});
-            output.collect(seaTunnelRow);
-        }
+        dorisInputFormat.open(dorisInputFormat.selectsql);
+        SeaTunnelRow seaTunnelRow = dorisInputFormat.nextRecord();
+
+        output.collect(seaTunnelRow);
+        dorisInputFormat.close();
+
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
             LOGGER.info("Closed the bounded fake source");

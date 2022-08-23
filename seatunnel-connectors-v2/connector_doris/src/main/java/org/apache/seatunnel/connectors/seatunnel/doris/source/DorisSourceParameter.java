@@ -24,24 +24,9 @@ import java.util.Objects;
 
 public class DorisSourceParameter implements Serializable {
 
-    private static final String DEFAULT_HOST = "localhost";
-    private static final int DEFAULT_PORT = 9999;
-    private String host;
-    private Integer port;
-
-    public String getHost() {
-        return StringUtils.isBlank(host) ? DEFAULT_HOST : host;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
-    }
-
-    public Integer getPort() {
-        return Objects.isNull(port) ? DEFAULT_PORT : port;
-    }
-
-    public void setPort(Integer port) {
-        this.port = port;
-    }
+    public static final String DORISBEADDRESS = "doris_be_address";
+    public static final String USERNAME = "username";
+    public static final String PASSWORD = "password";
+    public static final String SELECTSQL = "select_sql";
+    public static final String DATABASE = "database";
 }
