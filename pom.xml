@@ -177,6 +177,7 @@
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
+        <hadoop-aliyun.version>2.9.2</hadoop-aliyun.version>
         <codec.version>1.13</codec.version>
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.4</httpcore.version>
@@ -534,6 +535,12 @@
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-aliyun</artifactId>
+                <version>${hadoop-aliyun.version}</version>
             </dependency>
 
             <dependency>

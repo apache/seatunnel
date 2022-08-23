@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.source.config;
 
-import lombok.Data;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
-import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
+public class OssConf extends HadoopConf {
+    private final String fsHdfsImpl = "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem";
 
-@Data
-public class HadoopConf implements Serializable {
-    protected Map<String, String> extraOptions = new HashMap<>();
-    protected String hdfsNameKey;
-    protected String fsHdfsImpl = "org.apache.hadoop.hdfs.DistributedFileSystem";
-
-    public HadoopConf(String hdfsNameKey) {
-        this.hdfsNameKey = hdfsNameKey;
+    @Override
+    public String getFsHdfsImpl() {
+        return fsHdfsImpl;
     }
 
-    public void setExtraOptionsForConfiguration(Configuration configuration) {
-        if (!extraOptions.isEmpty()) {
-            extraOptions.forEach(configuration::set);
-        }
+    public OssConf(String hdfsNameKey) {
+        super(hdfsNameKey);
     }
 }
