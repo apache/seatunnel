@@ -157,8 +157,11 @@ public class FtpFileUtils {
                 for (int i = 0; i < ftpFiles.length; i++) {
                     FTPFile thisFile = ftpFiles[i];
                     if (thisFile.isDirectory()) {
-                        deleteFiles(pathName + "/" + thisFile.getName());
-                        ftpClient.removeDirectory(pathName);
+                        if (deleteFiles(pathName + "/" + thisFile.getName())){
+                            ftpClient.removeDirectory(pathName);
+                        } else {
+                            return false;
+                        }
                     } else {
                         if (!ftpClient.deleteFile(pathName)) {
                             return false;

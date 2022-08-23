@@ -35,13 +35,6 @@
             <artifactId>connector-file-base</artifactId>
             <version>${project.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-2</artifactId>
-            <version>${flink-shaded-hadoop-2.version}</version>
-            <scope>provided</scope>
-        </dependency>
     </dependencies>
 
 </project>
