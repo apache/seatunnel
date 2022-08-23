@@ -28,7 +28,7 @@ import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 import org.apache.seatunnel.app.service.IUserService;
-import org.apache.seatunnel.app.util.PasswordUtils;
+import org.apache.seatunnel.app.utils.PasswordUtils;
 import org.apache.seatunnel.server.common.PageData;
 
 import org.springframework.beans.factory.annotation.Value;

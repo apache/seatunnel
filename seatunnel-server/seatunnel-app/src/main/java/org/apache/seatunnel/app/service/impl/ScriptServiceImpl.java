@@ -44,6 +44,7 @@ import org.apache.seatunnel.app.domain.response.script.ScriptParamRes;
 import org.apache.seatunnel.app.domain.response.script.ScriptSimpleInfoRes;
 import org.apache.seatunnel.app.service.IScriptService;
 import org.apache.seatunnel.app.service.ITaskService;
+import org.apache.seatunnel.app.utils.Md5Utils;
 import org.apache.seatunnel.scheduler.dolphinscheduler.impl.InstanceServiceImpl;
 import org.apache.seatunnel.server.common.PageData;
 
