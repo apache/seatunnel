@@ -16,17 +16,21 @@
  */
 
 import { defineComponent } from 'vue'
-import { NSpace } from 'naive-ui'
+import { NLayout, NLayoutHeader, NLayoutContent } from 'naive-ui'
 import Header from './header'
 
 const Dashboard = defineComponent({
   setup() {},
   render() {
     return (
-      <NSpace vertical>
-        <Header />
-        <router-view class='px-32 py-12' />
-      </NSpace>
+      <NLayout>
+        <NLayoutHeader>
+          <Header />
+        </NLayoutHeader>
+        <NLayoutContent>
+          <router-view class='px-32 py-12'/>
+        </NLayoutContent>
+      </NLayout>
     )
   }
 })

@@ -22,7 +22,8 @@ import java.io.Serializable;
 public enum FileSystemType implements Serializable {
     HDFS("HdfsFile"),
     LOCAL("LocalFile"),
-    OSS("OssFile");
+    OSS("OssFile"),
+    FTP("FtpFile");
 
     private final String fileSystemPluginName;
 

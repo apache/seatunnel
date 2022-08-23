@@ -89,7 +89,6 @@ commons-logging-1.2.jar
 commons-math3-3.1.1.jar
 commons-math3-3.4.1.jar
 commons-math3-3.5.jar
-commons-net-3.1.jar
 commons-net-3.6.jar
 commons-pool-1.6.jar
 commons-pool2-2.0.jar
@@ -305,7 +304,6 @@ jackson-jaxrs-json-provider-2.7.8.jar
 jackson-jaxrs-smile-provider-2.10.5.jar
 jackson-jq-0.0.10.jar
 jackson-mapper-asl-1.9.13.jar
-jackson-mapper-asl-1.9.2.jar
 jackson-module-guice-2.10.5.jar
 jackson-module-jaxb-annotations-2.10.5.jar
 jackson-module-jaxb-annotations-2.7.8.jar

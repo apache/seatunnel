@@ -15,24 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.utils;
+package org.apache.seatunnel.core.base.constants;
 
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
-
-import com.beust.jcommander.JCommander;
-
-public class CommandLineUtils {
-
-    private CommandLineUtils() {
-        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
-    }
-
-    public static SparkCommandArgs parseSparkArgs(String[] args) {
-        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(sparkCommandArgs)
-            .build()
-            .parse(args);
-        return sparkCommandArgs;
-    }
+public class Constants {
+    public static final int USAGE_EXIT_CODE = 234;
 }

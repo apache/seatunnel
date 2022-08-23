@@ -15,8 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.flink.constant;
+package org.apache.seatunnel.connectors.seatunnel.iotdb.constant;
 
-public class FlinkConstant {
-    public static final int USAGE_EXIT_CODE = 234;
+public class SourceConstants {
+
+    public static final String FIELDS_K_V_SPLIT = ":";
+
+    public static final String FIELDS_SPLIT = ",";
+
+    public static final String NODES_SPLIT = ",";
+
+    public static final String SQL_WHERE = "where";
+
+    public static final String DEFAULT_PARTITIONS = "0";
+
 }

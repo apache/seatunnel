@@ -15,24 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.utils;
+package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-import com.beust.jcommander.JCommander;
+public class IoTDBSourceSplit implements SourceSplit {
 
-public class CommandLineUtils {
+    private static final long serialVersionUID = -1L;
 
-    private CommandLineUtils() {
-        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
+    private String splitId;
+
+    /**
+     * final query statement
+     */
+    private String query;
+
+    @Override
+    public String splitId() {
+        return splitId;
     }
 
-    public static SparkCommandArgs parseSparkArgs(String[] args) {
-        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(sparkCommandArgs)
-            .build()
-            .parse(args);
-        return sparkCommandArgs;
+    public String getQuery() {
+        return query;
+    }
+
+    public IoTDBSourceSplit(String splitId, String query) {
+        this.splitId = splitId;
+        this.query = query;
     }
 }

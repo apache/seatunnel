@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.constants;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.config;
 
-public class CommonParamConstants {
-
-    public static final String RESULT_TABLE_NAME = "result_table_name";
-    public static final String SOURCE_TABLE_NAME = "source_table_name";
+public class FtpConfig {
+    public static final String FTP_PASSWORD = "ftp_password";
+    public static final String FTP_USERNAME = "ftp_username";
+    public static final String FTP_HOST = "ftp_host";
+    public static final String FTP_PORT = "ftp_port";
 }

@@ -57,12 +57,12 @@ public abstract class RowConverter<T> {
             }
         }
         if (errors.size() > 0) {
-            throw new UnsupportedOperationException("");
+            throw new UnsupportedOperationException(String.join(",", errors));
         }
     }
 
     protected boolean validate(Object field, SeaTunnelDataType<?> dataType) {
-        if (field == null) {
+        if (field == null || dataType.getSqlType() == SqlType.NULL) {
             return true;
         }
         SqlType sqlType = dataType.getSqlType();
