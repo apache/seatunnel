@@ -19,22 +19,24 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
 import java.util.concurrent.ExecutorService;
 
-public class PhysicalPlanUtils {
+public class PlanUtils {
 
-    public static PhysicalPlan fromLogicalDAG(@NonNull LogicalDag logicalDag,
-                                              @NonNull NodeEngine nodeEngine,
-                                              @NonNull JobImmutableInformation jobImmutableInformation,
-                                              long initializationTimestamp,
-                                              @NonNull ExecutorService executorService,
-                                              @NonNull FlakeIdGenerator flakeIdGenerator) {
+    public static Tuple2<PhysicalPlan, CheckpointPlan> fromLogicalDAG(@NonNull LogicalDag logicalDag,
+                                                                      @NonNull NodeEngine nodeEngine,
+                                                                      @NonNull JobImmutableInformation jobImmutableInformation,
+                                                                      long initializationTimestamp,
+                                                                      @NonNull ExecutorService executorService,
+                                                                      @NonNull FlakeIdGenerator flakeIdGenerator) {
         return new PhysicalPlanGenerator(
                 new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, initializationTimestamp).generate(),
                 nodeEngine,
