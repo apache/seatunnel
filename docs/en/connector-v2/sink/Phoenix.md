@@ -74,7 +74,7 @@ The time in seconds to wait for the database operation used to validate the conn
 ## Example
 use Thick client drive
 ```
-jdbc {
+Phoenix {
 
     connect_url = "jdbc:phoenix:localhost:2182/hbase"
     sink_table = "test"
@@ -88,7 +88,7 @@ jdbc {
 
 use thin client drive
 ```
-jdbc {
+Phoenix {
 
     connect_url = "jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF"
     user = "root"

@@ -27,12 +27,17 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 
 public class PhoenixStatementExecutor {
@@ -138,6 +143,8 @@ public class PhoenixStatementExecutor {
 
     private void setupColumn(PreparedStatement ps, int pos, int sqlType, Object col) throws SQLException {
         if (col != null) {
+            // base on phoenix support datatype, transform seatunnel data
+            //refer to https://phoenix.apache.org/language/datatypes.html
             switch (sqlType) {
                 case Types.CHAR:
                 case Types.VARCHAR:
@@ -174,36 +181,38 @@ public class PhoenixStatementExecutor {
                     break;
 
                 case Types.FLOAT:
+                case Constant.TYPE_UNSIGNED_FLOAT:
                     ps.setFloat(pos, ((Double) col).floatValue());
                     break;
 
                 case Types.DOUBLE:
+                case Constant.TYPE_UNSIGNED_DOUBLE:
                     ps.setDouble(pos, (Double) col);
                     break;
 
                 case Types.DECIMAL:
                     ps.setBigDecimal(pos, (BigDecimal) col);
                     break;
-
+                //Seatunnel LocalTimeType.LocalDate to java.sql.Date
                 case Types.DATE:
                 case Constant.TYPE_UNSIGNED_DATE:
-                    ps.setDate(pos, new java.sql.Date(new Date((Long) col).getTime()));
+                    ps.setDate(pos, Date.valueOf((LocalDate) col));
                     break;
-
+                //Seatunnel LocalTimeType.LocalTime to java.sql.Time
                 case Types.TIME:
                 case Constant.TYPE_UNSIGNED_TIME:
-                    ps.setTime(pos, new java.sql.Time(new Date((Long) col).getTime()));
+                    ps.setTime(pos, Time.valueOf((LocalTime) col));
                     break;
-
+                //Seatunnel LocalTimeType.LocalDateTime to java.sql.Timestamp
                 case Types.TIMESTAMP:
                 case Constant.TYPE_UNSIGNED_TIMESTAMP:
-                    ps.setTimestamp(pos, new java.sql.Timestamp(new Date((Long) col).getTime()));
+                    ps.setTimestamp(pos, Timestamp.valueOf((LocalDateTime) col));
                     break;
 
                 default:
                     throw new RuntimeException("The column type you configured is not supported: " + sqlType);
 
-            } // end switch
+            }
         } else {
             // If there is no value, it will be handled according to the configuration of null value
             switch (phoenixWriteConfig.getNullMode()){
@@ -226,6 +235,7 @@ public class PhoenixStatementExecutor {
 
     private static Object getEmptyValue(int sqlType) {
         switch (sqlType) {
+            case Types.CHAR:
             case Types.VARCHAR:
                 return "";
 
@@ -242,17 +252,19 @@ public class PhoenixStatementExecutor {
 
             case Types.INTEGER:
             case Constant.TYPE_UNSIGNED_INTEGER:
-                return (int) 0;
+                return 0;
 
             case Types.BIGINT:
             case Constant.TYPE_UNSIGNED_LONG:
                 return (long) 0;
 
             case Types.FLOAT:
+            case Constant.TYPE_UNSIGNED_FLOAT:
                 return (float) 0.0;
 
             case Types.DOUBLE:
-                return (double) 0.0;
+            case Constant.TYPE_UNSIGNED_DOUBLE:
+                return 0.0d;
 
             case Types.DECIMAL:
                 return new BigDecimal(0);

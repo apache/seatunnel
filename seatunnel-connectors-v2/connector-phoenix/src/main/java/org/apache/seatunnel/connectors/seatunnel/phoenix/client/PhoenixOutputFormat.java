@@ -37,8 +37,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class PhoenixOutputFormat {
 
-    private static final long serialVersionUID = 1L;
-
     private static final Logger LOG = LoggerFactory.getLogger(PhoenixOutputFormat.class);
 
     protected final PhoenixJdbcConnectionProvider connectionProvider;
