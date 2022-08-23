@@ -56,12 +56,10 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
         RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task =
-                    server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+            SourceSplitEnumeratorTask<?> task = server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).getTaskGroup().getTask(enumeratorTaskID.getTaskID());
             task.receivedReader(readerTaskID, readerAddress);
             return null;
-        }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
-                exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
+        }, new RetryUtils.RetryMaterial(RETRY_TIME, true, exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
 
     }
 
