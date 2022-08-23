@@ -24,9 +24,10 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkUnregisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
-import org.apache.seatunnel.engine.server.task.operation.source.SourceUnregisterOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -52,6 +53,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int TASK_LOCATION_TYPE = 8;
 
     public static final int PROGRESS_TYPE = 9;
+
+    public static final int CLOSE_REQUEST_TYPE = 10;
 
     public static final int FACTORY_ID = FactoryIdHelper.getFactoryId(
             SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -82,7 +85,7 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                 case TASK_GROUP_INFO_TYPE:
                     return new TaskGroupImmutableInformation();
                 case SOURCE_UNREGISTER_TYPE:
-                    return new SourceUnregisterOperation();
+                    return new SourceNoMoreElementOperation();
                 case SINK_REGISTER_TYPE:
                     return new SinkRegisterOperation();
                 case SINK_UNREGISTER_TYPE:
@@ -91,6 +94,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new TaskLocation();
                 case PROGRESS_TYPE:
                     return new Progress();
+                case  CLOSE_REQUEST_TYPE:
+                    return new CloseRequestOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

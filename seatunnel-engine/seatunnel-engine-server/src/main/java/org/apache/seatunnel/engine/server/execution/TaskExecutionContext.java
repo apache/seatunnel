@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.execution;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
@@ -43,6 +44,10 @@ public class TaskExecutionContext {
     public <E> InvocationFuture<E> sendToMember(Operation operation, Address memberID) {
         InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, memberID);
         return invocationBuilder.invoke();
+    }
+
+    public ILogger getLogger() {
+        return nodeEngine.getLogger(task.getClass());
     }
 
     public <T> T getTask() {
