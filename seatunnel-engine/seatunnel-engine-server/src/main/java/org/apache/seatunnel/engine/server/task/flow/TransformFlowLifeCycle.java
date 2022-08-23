@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
 import java.util.List;
@@ -42,6 +43,11 @@ public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements 
     public void received(Record<?> row) {
         if (row.getData() instanceof ClosedSign) {
             collector.collect(row);
+            try {
+                this.close();
+            } catch (Exception e) {
+                throw new TaskRuntimeException(e);
+            }
         } else {
             T r = (T) row.getData();
             for (SeaTunnelTransform<T> t : transform) {
