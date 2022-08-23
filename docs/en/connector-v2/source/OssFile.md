@@ -6,6 +6,9 @@
 
 Read data from aliyun oss file system.
 
+> Tips: We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies. 
+> It's only support hadoop version **2.9.X+**.
+
 ## Options
 
 | name         | type   | required | default value |
