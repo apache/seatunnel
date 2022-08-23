@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.filesystem;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.util.FtpFileUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    FTP("FtpFile");
+import org.apache.commons.net.ftp.FTPClient;
 
-    private final String fileSystemPluginName;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
+public class FtpFileSystem implements FileSystem {
+    @Override
+    public void deleteFile(String path) throws IOException {
+        FtpFileUtils.deleteFile(path);
     }
 
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+    @Override
+    public List<String> dirList(String dirPath) throws IOException {
+        FTPClient ftpClient = FtpFileUtils.getFTPClient();
+        return Arrays.stream(ftpClient.listFiles(dirPath)).map(dir -> dir.getName()).collect(Collectors.toList());
     }
 }

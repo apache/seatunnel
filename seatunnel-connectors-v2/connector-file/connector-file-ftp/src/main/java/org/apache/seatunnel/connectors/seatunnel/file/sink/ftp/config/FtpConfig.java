@@ -15,22 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.config;
 
-import java.io.Serializable;
-
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    FTP("FtpFile");
-
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
-    }
+public class FtpConfig {
+    public static final String FTP_PASSWORD = "ftp_password";
+    public static final String FTP_USERNAME = "ftp_username";
+    public static final String FTP_HOST = "ftp_host";
+    public static final String FTP_PORT = "ftp_port";
 }
