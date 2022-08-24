@@ -49,17 +49,4 @@ public class FlinkStarterTest {
             Assertions.assertEquals("Run mode run123 not supported", e.getMessage());
         }
     }
-
-    @Test
-    public void buildCommandsMissingConfig() {
-        try {
-            String[] args = {"-m", "yarn-cluster", "-i", "key1=value1", "-i", "key2=value2"};
-            FlinkStarter flinkStarter = new FlinkStarter(args);
-            String flinkExecuteCommand = String.join(" ", flinkStarter.buildCommands());
-            // since we cannot get the actual jar path, so we just check the command contains the command
-            Assertions.assertTrue(flinkExecuteCommand.contains("--config flink.yarn.conf"));
-        } catch (Exception e) {
-            Assertions.assertEquals("The following option is required: [-c | --config]", e.getMessage());
-        }
-    }
 }

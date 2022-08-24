@@ -18,8 +18,8 @@
 package org.apache.seatunnel.app.common;
 
 public enum RoleTypeEnum {
-    NORMAL(0, "normalRole"),
-    ADMIN(1, "adminRole"),
+    NORMAL(0, "NORMAL_ROLE"),
+    ADMIN(1, "ADMIN_ROLE"),
     ;
 
     private final int code;

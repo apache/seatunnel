@@ -22,8 +22,7 @@ import org.apache.seatunnel.app.domain.dto.script.AddEmptyScriptDto;
 import org.apache.seatunnel.app.domain.dto.script.CheckScriptDuplicateDto;
 import org.apache.seatunnel.app.domain.dto.script.ListScriptsDto;
 import org.apache.seatunnel.app.domain.dto.script.UpdateScriptContentDto;
-
-import java.util.List;
+import org.apache.seatunnel.server.common.PageData;
 
 public interface IScriptDao {
     void checkScriptDuplicate(CheckScriptDuplicateDto dto);
@@ -36,5 +35,5 @@ public interface IScriptDao {
 
     void deleteScript(int id);
 
-    List<Script> list(ListScriptsDto dto, Integer pageNo, Integer pageSize);
+    PageData<Script> list(ListScriptsDto dto, Integer pageNo, Integer pageSize);
 }

@@ -66,7 +66,7 @@
     </select>
     <select id="selectBySelectiveAndPage" resultMap="BaseResultMap">
         select
-        *
+        <include refid="Base_Column_List"/>
         from script
         <where>
             <if test="script.name != null and script.name != ''">
@@ -85,5 +85,18 @@
         where `name` = #{name,jdbcType=VARCHAR}
           and `creator_id` = #{creatorId,jdbcType=INTEGER}
           and `status` != #{status,jdbcType=TINYINT}
+    </select>
+    <select id="countBySelectiveAndPage" resultType="java.lang.Integer">
+    select
+        count(1)
+        from script
+        <where>
+            <if test="script.name != null and script.name != ''">
+                and `name` = #{script.name,jdbcType=VARCHAR}
+            </if>
+            <if test="script.status != null">
+                and `status` = #{script.status,jdbcType=TINYINT}
+            </if>
+        </where>
     </select>
 </mapper>

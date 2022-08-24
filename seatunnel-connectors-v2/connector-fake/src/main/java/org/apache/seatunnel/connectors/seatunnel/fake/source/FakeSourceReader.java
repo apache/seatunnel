@@ -26,20 +26,17 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
-
 public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FakeSourceReader.class);
 
     private final SingleSplitReaderContext context;
 
-    private final String[] names = {"Wenjun", "Fanjia", "Zongwen", "CalvinKirs"};
-    private final int[] ages = {11, 22, 33, 44};
+    private final FakeRandomData fakeRandomData;
 
-    public FakeSourceReader(SingleSplitReaderContext context) {
+    public FakeSourceReader(SingleSplitReaderContext context, FakeRandomData randomData) {
         this.context = context;
+        this.fakeRandomData = randomData;
     }
 
     @Override
@@ -56,11 +53,8 @@ public class FakeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         // Generate a random number of rows to emit.
-        Random random = ThreadLocalRandom.current();
-        int size = random.nextInt(10) + 1;
-        for (int i = 0; i < size; i++) {
-            int randomIndex = random.nextInt(names.length);
-            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[]{names[randomIndex], ages[randomIndex], System.currentTimeMillis()});
+        for (int i = 0; i < 10; i++) {
+            SeaTunnelRow seaTunnelRow = fakeRandomData.randomRow();
             output.collect(seaTunnelRow);
         }
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {

@@ -17,17 +17,15 @@
 
 package org.apache.seatunnel.app.domain.request.task;
 
+import org.apache.seatunnel.app.domain.request.BasePageReq;
+
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 @Data
 @ApiModel(value = "listJobReq", description = "list job")
-public class JobListReq {
+public class JobListReq extends BasePageReq {
     @ApiModelProperty(value = "job name", required = true, dataType = "String")
     private String name;
-    @ApiModelProperty(value = "page number", required = true, dataType = "Integer")
-    private Integer pageNo;
-    @ApiModelProperty(value = "page size", required = true, dataType = "Integer")
-    private Integer pageSize;
 }

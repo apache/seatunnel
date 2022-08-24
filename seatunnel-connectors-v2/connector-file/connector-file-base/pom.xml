@@ -62,6 +62,11 @@
         </dependency>
 
         <dependency>
+            <groupId>commons-net</groupId>
+            <artifactId>commons-net</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.orc</groupId>
             <artifactId>orc-core</artifactId>
             <exclusions>

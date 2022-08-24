@@ -173,6 +173,7 @@ public class DolphinschedulerConstants {
      */
     public static final String DATA = "data";
     public static final String DATA_TOTAL_LIST = "totalList";
+    public static final String DATA_TOTAL = "total";
     public static final String CODE = "code";
     public static final int CODE_SUCCESS = 0;
     public static final String MSG = "msg";

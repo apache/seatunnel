@@ -61,22 +61,22 @@ public class FileSinkWriterWithTransaction implements SinkWriter<SeaTunnelRow, F
         this.textFileSinkConfig = textFileSinkConfig;
 
         Optional<TransactionStateFileWriter> transactionStateFileWriter = sinkFileSystemPlugin.getTransactionStateFileWriter(this.seaTunnelRowTypeInfo,
-            new FileSinkTransactionFileNameGenerator(
-                this.textFileSinkConfig.getFileFormat(),
-                this.textFileSinkConfig.getFileNameExpression(),
-                this.textFileSinkConfig.getFileNameTimeFormat()),
-            new FileSinkPartitionDirNameGenerator(
-                this.textFileSinkConfig.getPartitionFieldList(),
-                this.textFileSinkConfig.getPartitionFieldsIndexInRow(),
-                this.textFileSinkConfig.getPartitionDirExpression()),
-            this.textFileSinkConfig.getSinkColumnsIndexInRow(),
-            this.textFileSinkConfig.getTmpPath(),
-            this.textFileSinkConfig.getPath(),
-            this.jobId,
-            this.context.getIndexOfSubtask(),
-            this.textFileSinkConfig.getFieldDelimiter(),
-            this.textFileSinkConfig.getRowDelimiter(),
-            sinkFileSystemPlugin.getFileSystem().get());
+                new FileSinkTransactionFileNameGenerator(
+                        this.textFileSinkConfig.getFileFormat(),
+                        this.textFileSinkConfig.getFileNameExpression(),
+                        this.textFileSinkConfig.getFileNameTimeFormat()),
+                new FileSinkPartitionDirNameGenerator(
+                        this.textFileSinkConfig.getPartitionFieldList(),
+                        this.textFileSinkConfig.getPartitionFieldsIndexInRow(),
+                        this.textFileSinkConfig.getPartitionDirExpression()),
+                this.textFileSinkConfig.getSinkColumnsIndexInRow(),
+                this.textFileSinkConfig.getTmpPath(),
+                this.textFileSinkConfig.getPath(),
+                this.jobId,
+                this.context.getIndexOfSubtask(),
+                this.textFileSinkConfig.getFieldDelimiter(),
+                this.textFileSinkConfig.getRowDelimiter(),
+                sinkFileSystemPlugin.getFileSystem().get());
 
         if (!transactionStateFileWriter.isPresent()) {
             throw new RuntimeException("A TransactionStateFileWriter is need");
@@ -100,22 +100,22 @@ public class FileSinkWriterWithTransaction implements SinkWriter<SeaTunnelRow, F
         this.jobId = jobId;
 
         Optional<TransactionStateFileWriter> transactionStateFileWriter = sinkFileSystemPlugin.getTransactionStateFileWriter(this.seaTunnelRowTypeInfo,
-            new FileSinkTransactionFileNameGenerator(
-                this.textFileSinkConfig.getFileFormat(),
-                this.textFileSinkConfig.getFileNameExpression(),
-                this.textFileSinkConfig.getFileNameTimeFormat()),
-            new FileSinkPartitionDirNameGenerator(
-                this.textFileSinkConfig.getPartitionFieldList(),
-                this.textFileSinkConfig.getPartitionFieldsIndexInRow(),
-                this.textFileSinkConfig.getPartitionDirExpression()),
-            this.textFileSinkConfig.getSinkColumnsIndexInRow(),
-            this.textFileSinkConfig.getTmpPath(),
-            this.textFileSinkConfig.getPath(),
-            this.jobId,
-            this.context.getIndexOfSubtask(),
-            this.textFileSinkConfig.getFieldDelimiter(),
-            this.textFileSinkConfig.getRowDelimiter(),
-            sinkFileSystemPlugin.getFileSystem().get());
+                new FileSinkTransactionFileNameGenerator(
+                        this.textFileSinkConfig.getFileFormat(),
+                        this.textFileSinkConfig.getFileNameExpression(),
+                        this.textFileSinkConfig.getFileNameTimeFormat()),
+                new FileSinkPartitionDirNameGenerator(
+                        this.textFileSinkConfig.getPartitionFieldList(),
+                        this.textFileSinkConfig.getPartitionFieldsIndexInRow(),
+                        this.textFileSinkConfig.getPartitionDirExpression()),
+                this.textFileSinkConfig.getSinkColumnsIndexInRow(),
+                this.textFileSinkConfig.getTmpPath(),
+                this.textFileSinkConfig.getPath(),
+                this.jobId,
+                this.context.getIndexOfSubtask(),
+                this.textFileSinkConfig.getFieldDelimiter(),
+                this.textFileSinkConfig.getRowDelimiter(),
+                sinkFileSystemPlugin.getFileSystem().get());
 
         if (!transactionStateFileWriter.isPresent()) {
             throw new RuntimeException("A TransactionStateFileWriter is need");

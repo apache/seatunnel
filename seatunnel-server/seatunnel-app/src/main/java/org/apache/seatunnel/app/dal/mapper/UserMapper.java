@@ -37,4 +37,6 @@ public interface UserMapper {
     void updateStatus(@Param("id") int id, @Param("status") byte status);
 
     User selectByName(@Param("username") String username);
+
+    int countBySelective(@Param("user") User user);
 }
