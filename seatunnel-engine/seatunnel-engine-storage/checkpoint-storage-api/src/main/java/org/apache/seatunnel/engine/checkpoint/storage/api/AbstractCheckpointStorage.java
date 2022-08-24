@@ -68,7 +68,7 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
 
     public static final String FILE_FORMAT = "ser";
 
-    private ExecutorService executorService;
+    private volatile ExecutorService executorService;
 
     private static final int DEFAULT_THREAD_POOL_MIN_SIZE = Runtime.getRuntime().availableProcessors() * 2 + 1;
 
