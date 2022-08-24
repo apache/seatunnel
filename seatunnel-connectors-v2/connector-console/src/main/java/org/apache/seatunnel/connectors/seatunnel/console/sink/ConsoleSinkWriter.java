@@ -17,8 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import org.slf4j.Logger;
@@ -28,22 +36,47 @@ import java.util.Arrays;
 
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleSinkWriter.class);
-
     private final SeaTunnelRowType seaTunnelRowType;
+    public static final AtomicLong cnt = new AtomicLong(0);
 
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
+        System.out.printf("files : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
+        System.out.printf("types : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
     }
 
     @Override
     @SuppressWarnings("checkstyle:RegexpSingleline")
     public void write(SeaTunnelRow element) {
-        System.out.println(Arrays.toString(element.getFields()));
+        String[] arr = new String[seaTunnelRowType.getTotalFields()];
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        Object[] fields = element.getFields();
+        for (int i = 0; i < fieldTypes.length; i++) {
+            if (i >= element.getArity()) {
+                arr[i] = "null";
+            } else {
+                arr[i] = deepToString(fieldTypes[i], fields[i]);
+            }
+        }
+        System.out.format("row=%s : %s%n", cnt.incrementAndGet(), StringUtils.join(arr, ", "));
     }
 
     @Override
     public void close() {
         // nothing
+    }
+
+    private String deepToString(SeaTunnelDataType<?> type, Object value) {
+        switch (type.getSqlType()) {
+            case ARRAY:
+            case BYTES:
+                return Arrays.toString((Object[]) value);
+            case MAP:
+                return JsonUtils.toJsonString(value);
+            case ROW:
+                return deepToString(type, value);
+            default:
+                return String.valueOf(value);
+        }
     }
 }
