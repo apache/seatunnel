@@ -208,6 +208,7 @@ public class ExecutionPlanGenerator {
         } else {
             throw new UnknownActionException(action);
         }
+        newAction.setParallelism(action.getParallelism());
         return newAction;
     }
 
