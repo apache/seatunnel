@@ -89,7 +89,7 @@ public class FakeSourceToJdbcIT extends FlinkContainer {
     }
 
     @AfterEach
-    public void closeClickHouseContainer() {
+    public void closePostgreSqlContainer() {
         if (psl != null) {
             psl.stop();
         }
