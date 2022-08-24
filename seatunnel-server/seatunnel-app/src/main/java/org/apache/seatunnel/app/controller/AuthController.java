@@ -20,12 +20,16 @@ package org.apache.seatunnel.app.controller;
 import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.service.IRoleService;
 
+import io.swagger.annotations.ApiImplicitParam;
+import io.swagger.annotations.ApiImplicitParams;
+import io.swagger.annotations.ApiOperation;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import javax.validation.constraints.NotNull;
 
 @RequestMapping("/api/v1/auth")
 @RestController
@@ -35,7 +39,12 @@ public class AuthController {
     private IRoleService roleServiceImpl;
 
     @GetMapping("/userRole")
-    public Result<Boolean> userRole(@RequestParam("uName") String userName, @RequestParam("rName")String roleName){
+    @ApiOperation(value = "check relation between user and role", httpMethod = "GET")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "userName", value = "user name", dataType = "String"),
+            @ApiImplicitParam(name = "roleName", value = "role name", dataType = "String"),
+    })
+    public Result<Boolean> userRole(@RequestParam("userName") @NotNull String userName, @RequestParam("roleName") @NotNull String roleName){
         final boolean b = roleServiceImpl.checkUserRole(userName, roleName);
         return Result.success(b);
     }

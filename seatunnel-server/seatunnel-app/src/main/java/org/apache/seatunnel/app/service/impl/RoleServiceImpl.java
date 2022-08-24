@@ -33,7 +33,6 @@ import org.apache.seatunnel.app.service.IRoleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 
 import java.util.Objects;
@@ -50,33 +49,6 @@ public class RoleServiceImpl implements IRoleService {
 
     @Resource
     private IUserDao userDaoImpl;
-
-    @PostConstruct
-    public void roleInit() {
-
-        final Role adminRole = Role.builder()
-                .name(RoleTypeEnum.ADMIN.getDescription())
-                .type(RoleTypeEnum.ADMIN.getCode())
-                .build();
-
-        final Role adminRoleRecord = roleDaoImpl.getByRoleName(RoleTypeEnum.ADMIN.getDescription());
-
-        if (adminRoleRecord == null) {
-            roleDaoImpl.add(adminRole);
-        }
-
-        final Role normalRole = Role.builder()
-                .name(RoleTypeEnum.NORMAL.getDescription())
-                .type(RoleTypeEnum.NORMAL.getCode())
-                .build();
-
-        final Role normalRoleRecord = roleDaoImpl.getByRoleName(RoleTypeEnum.NORMAL.getDescription());
-
-        if (normalRoleRecord == null) {
-            roleDaoImpl.add(normalRole);
-        }
-
-    }
 
     @Override
     public boolean addUserToRole(Integer userId, Integer type){
@@ -95,13 +67,13 @@ public class RoleServiceImpl implements IRoleService {
     }
 
     @Override
-    public boolean checkUserRole(String uName, String rName){
+    public boolean checkUserRole(String userName, String roleName){
 
-        final User user = userDaoImpl.getByName(uName);
+        final User user = userDaoImpl.getByName(userName);
 
-        checkState(Objects.isNull(user), NO_SUCH_USER.getTemplate());
+        checkState(!Objects.isNull(user), NO_SUCH_USER.getTemplate());
 
-        final Role role = roleDaoImpl.getByRoleName(rName);
+        final Role role = roleDaoImpl.getByRoleName(roleName);
 
         final RoleUserRelation byUserAndRole = roleUserRelationDaoImpl.getByUserAndRole(user.getId(), role.getId());
 

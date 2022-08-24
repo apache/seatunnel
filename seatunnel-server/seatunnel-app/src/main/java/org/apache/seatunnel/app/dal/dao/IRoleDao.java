@@ -19,12 +19,9 @@ package org.apache.seatunnel.app.dal.dao;
 
 import org.apache.seatunnel.app.dal.entity.Role;
 
-import java.util.List;
-
 public interface IRoleDao {
+
     void add(Role role);
 
-    void batchAdd(List<Role> roles);
-
-    Role getByRoleName(String role);
+    Role getByRoleName(String roleName);
 }

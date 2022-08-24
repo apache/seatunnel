@@ -25,8 +25,6 @@ import org.springframework.stereotype.Repository;
 
 import javax.annotation.Resource;
 
-import java.util.List;
-
 @Repository
 public class RoleDaoImpl implements IRoleDao {
 
@@ -39,13 +37,8 @@ public class RoleDaoImpl implements IRoleDao {
     }
 
     @Override
-    public void batchAdd(List<Role> roles){
-        roleMapper.batchInsert(roles);
-    }
-
-    @Override
-    public Role getByRoleName(String role) {
-        return roleMapper.selectByRole(role);
+    public Role getByRoleName(String roleName) {
+        return roleMapper.selectByRole(roleName);
     }
 
 }

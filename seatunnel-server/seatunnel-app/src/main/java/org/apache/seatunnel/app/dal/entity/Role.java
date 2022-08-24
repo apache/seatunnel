@@ -34,9 +34,9 @@ public class Role {
 
     private Integer type;
 
-    private String name;
+    private String roleName;
 
-    private String desc;
+    private String description;
 
     private Date createTime;
 

@@ -21,28 +21,9 @@ import org.apache.seatunnel.app.dal.entity.Role;
 
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
-
 public interface RoleMapper {
-    int deleteByPrimaryKey(Integer id);
 
     int insert(Role record);
 
-    int insertOrUpdate(Role record);
-
-    int insertOrUpdateSelective(Role record);
-
-    int insertSelective(Role record);
-
-    Role selectByPrimaryKey(Integer id);
-
-    int updateByPrimaryKeySelective(Role record);
-
-    int updateByPrimaryKey(Role record);
-
-    int updateBatch(List<Role> list);
-
-    int batchInsert(@Param("list") List<Role> list);
-
-    Role selectByRole(@Param("name") String name);
+    Role selectByRole(@Param("roleName") String roleName);
 }

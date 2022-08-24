@@ -21,30 +21,9 @@ import org.apache.seatunnel.app.dal.entity.RoleUserRelation;
 
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
-
 public interface RoleUserRelationMapper {
-    int deleteByPrimaryKey(Integer id);
 
     int insert(RoleUserRelation record);
-
-    int insertOrUpdate(RoleUserRelation record);
-
-    int insertOrUpdateSelective(RoleUserRelation record);
-
-    int insertSelective(RoleUserRelation record);
-
-    RoleUserRelation selectByPrimaryKey(Integer id);
-
-    int updateByPrimaryKeySelective(RoleUserRelation record);
-
-    int updateByPrimaryKey(RoleUserRelation record);
-
-    int updateBatch(List<RoleUserRelation> list);
-
-    int updateBatchSelective(List<RoleUserRelation> list);
-
-    int batchInsert(@Param("list") List<RoleUserRelation> list);
 
     RoleUserRelation selectByUserIdAndRoleId(@Param("userId")Integer userId, @Param("roleId")Integer roleId);
 
