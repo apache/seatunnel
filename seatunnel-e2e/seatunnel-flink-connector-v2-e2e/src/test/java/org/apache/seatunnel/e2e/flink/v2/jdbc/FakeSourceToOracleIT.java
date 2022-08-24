@@ -68,7 +68,7 @@ public class FakeSourceToOracleIT extends FlinkContainer {
 
 	@Test
 	public void testFakeSourceToOracleSink() throws SQLException, IOException, InterruptedException {
-		Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_jdbc.conf");
+		Container.ExecResult execResult = executeSeaTunnelFlinkJob("/jdbc/fakesource_to_oracle.conf");
 		Assertions.assertEquals(0, execResult.getExitCode());
 		// query result
 		String sql = "select * from test";
