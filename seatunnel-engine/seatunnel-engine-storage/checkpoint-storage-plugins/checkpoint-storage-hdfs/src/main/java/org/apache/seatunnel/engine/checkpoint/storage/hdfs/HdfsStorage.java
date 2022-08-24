@@ -99,7 +99,6 @@ public class HdfsStorage extends AbstractCheckpointStorage {
         try (FSDataOutputStream out = fs.create(tmpFilePath)) {
             out.write(datas);
             out.hsync();
-            out.hflush();
             fs.rename(tmpFilePath, filePath);
         } catch (IOException e) {
             throw new CheckpointStorageException("Failed to write checkpoint data, state: " + state, e);
