@@ -43,6 +43,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 import org.apache.commons.collections4.CollectionUtils;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -94,13 +95,13 @@ public class JobMaster implements Runnable {
         } else {
             this.logicalDag = nodeEngine.getSerializationService().toObject(jobImmutableInformation.getLogicalDag());
         }
-        final Tuple2<PhysicalPlan, CheckpointPlan> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
+        final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple = PlanUtils.fromLogicalDAG(logicalDag,
             nodeEngine,
             jobImmutableInformation,
             System.currentTimeMillis(),
             executorService,
             flakeIdGenerator);
-        physicalPlan = planTuple.f0();
+        this.physicalPlan = planTuple.f0();
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")

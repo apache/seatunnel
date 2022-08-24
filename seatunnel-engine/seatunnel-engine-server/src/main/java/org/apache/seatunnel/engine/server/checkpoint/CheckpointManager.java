@@ -28,6 +28,8 @@ import java.util.Map;
  */
 public class CheckpointManager {
 
+    private final Long jobId;
+
     /**
      * key: the pipeline id of the job;
      * <br> value: the checkpoint plan of the pipeline;
@@ -40,8 +42,14 @@ public class CheckpointManager {
      */
     private final Map<Long, CheckpointCoordinator> coordinatorMap;
 
-    public CheckpointManager(Map<Long, CheckpointPlan> checkpointPlanMap) {
+    private final CheckpointCoordinatorConfiguration config;
+
+    public CheckpointManager(long jobId,
+                             Map<Long, CheckpointPlan> checkpointPlanMap,
+                             CheckpointCoordinatorConfiguration config) {
+        this.jobId = jobId;
         this.checkpointPlanMap = checkpointPlanMap;
+        this.config = config;
         this.coordinatorMap = new HashMap<>(checkpointPlanMap.size());
     }
 

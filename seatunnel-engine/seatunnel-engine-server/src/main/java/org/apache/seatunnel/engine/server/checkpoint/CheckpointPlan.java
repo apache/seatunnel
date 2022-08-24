@@ -17,9 +17,81 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 /**
- * plan info
+ * checkpoint plan info
  */
+@Getter
+@Builder(builderClassName = "Builder")
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CheckpointPlan {
 
+    private final long pipelineId;
+
+    /**
+     * all task ids of the pipeline
+     */
+    private final Set<Long> pipelineTaskIds;
+
+    /**
+     * All starting task ids.
+     * <br> key: enumerator vertex id;
+     * <br> value: reader vertex id;
+     */
+    private final Map<Long, Long> startingVertices;
+
+    /**
+     * Restored task state.
+     * <br> key: job vertex id;
+     * <br> value: job vertex state;
+     */
+    private final Map<Long, TaskState> restoredTaskState;
+
+    /**
+     * All stateful vertices in this pipeline.
+     * <br> key: the job vertex id;
+     * <br> value: the parallelism of the job vertex;
+     */
+    private final Map<Long, Integer> statefulVertices;
+
+
+    public static final class Builder {
+        private long pipelineId;
+        private final Set<Long> pipelineTaskIds = new HashSet<>();
+        private final Map<Long, Long> startingVertices = new HashMap<>();
+        private final Map<Long, TaskState> restoredTaskState = new HashMap<>();
+        private final Map<Long, Integer> statefulVertices = new HashMap<>();
+
+        private Builder() {
+        }
+
+        public Builder pipelineTaskIds(Set<Long> pipelineTaskIds) {
+            this.pipelineTaskIds.addAll(pipelineTaskIds);
+            return this;
+        }
+
+        public Builder startingVertices(Map<Long, Long> startingVertices) {
+            this.startingVertices.putAll(startingVertices);
+            return this;
+        }
+
+        public Builder restoredTaskState(Map<Long, TaskState> restoredTaskState) {
+            this.restoredTaskState.putAll(restoredTaskState);
+            return this;
+        }
+
+        public Builder statefulVertices(Map<Long, Integer> statefulVertices) {
+            this.statefulVertices.putAll(statefulVertices);
+            return this;
+        }
+    }
 }

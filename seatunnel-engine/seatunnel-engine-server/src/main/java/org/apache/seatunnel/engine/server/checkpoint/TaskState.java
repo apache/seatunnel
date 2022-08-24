@@ -20,23 +20,38 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 public class TaskState implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** The id of the task. */
+    /**
+     * The id of the task.
+     */
     private final String taskId;
 
-    /** The handles to states created by the parallel tasks: subtaskIndex -> subtask state. */
+    /**
+     * The handles to states created by the parallel tasks: subtaskIndex -> subtask state.
+     */
     private final Map<Integer, byte[]> subtaskStates;
 
-    /** The parallelism of the operator when it was checkpointed. */
+    /**
+     * key: subtask index;
+     * <br> value: Marks whether a subtask is complete;
+     */
+    private final Map<Integer, Boolean> completedSubtasks;
+
+    /**
+     * The parallelism of the operator when it was checkpointed.
+     */
     private final int parallelism;
 
     public TaskState(String taskId, int parallelism) {
         this.taskId = taskId;
         this.subtaskStates = new HashMap<>(parallelism);
+        this.completedSubtasks = new HashMap<>(parallelism);
+        IntStream.range(0, parallelism).forEach(index -> completedSubtasks.put(index, false));
         this.parallelism = parallelism;
     }
 
@@ -46,6 +61,16 @@ public class TaskState implements Serializable {
 
     public Map<Integer, byte[]> getSubtaskStates() {
         return subtaskStates;
+    }
+
+    public void completed(int subtaskIndex) {
+        completedSubtasks.put(subtaskIndex, true);
+    }
+
+    public boolean isCompleted() {
+        return parallelism == completedSubtasks.values()
+            .stream().filter(completed -> completed)
+            .count();
     }
 
     public int getParallelism() {
