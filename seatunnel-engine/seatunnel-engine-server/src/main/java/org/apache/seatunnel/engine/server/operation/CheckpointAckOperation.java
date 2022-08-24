@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -26,34 +28,43 @@ import com.hazelcast.nio.ObjectDataOutput;
 
 import java.io.IOException;
 
-public class CheckpointTriggerOperation extends AsyncOperation {
-    private CheckpointBarrier checkpointBarrier;
+public class CheckpointAckOperation extends AsyncOperation {
+    private TaskInfo taskInfo;
 
-    public CheckpointTriggerOperation() {
+    private byte[] states;
+
+    public CheckpointAckOperation() {
     }
 
-    public CheckpointTriggerOperation(CheckpointBarrier checkpointBarrier) {
-        this.checkpointBarrier = checkpointBarrier;
+    public CheckpointAckOperation(TaskInfo taskInfo, byte[] states) {
+        this.taskInfo = taskInfo;
+        this.states = states;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_TRIGGER_OPERATOR;
+        return OperationDataSerializerHook.CHECKPOINT_ACK_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(checkpointBarrier);
+        out.writeObject(taskInfo);
+        out.writeByteArray(states);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        checkpointBarrier = in.readObject(CheckpointBarrier.class);
+        taskInfo = in.readObject(TaskInfo.class);
+        states = in.readByteArray();
     }
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
-        // TODO: All source Vertexes executed
+        CheckpointCoordinator checkpointCoordinator = ((SeaTunnelServer) getService())
+            .getJobMaster(taskInfo.getJobId())
+            .getCheckpointManager()
+            .getCheckpointCoordinator(taskInfo.getPipelineId());
+        // TODO: notify coordinator
         return null;
     }
 }

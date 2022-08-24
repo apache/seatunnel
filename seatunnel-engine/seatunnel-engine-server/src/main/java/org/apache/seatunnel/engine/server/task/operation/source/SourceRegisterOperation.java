@@ -59,8 +59,8 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
             SourceSplitEnumeratorTask<?> task = server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).getTaskGroup().getTask(enumeratorTaskID.getTaskID());
             task.receivedReader(readerTaskID, readerAddress);
             return null;
-        }, new RetryUtils.RetryMaterial(RETRY_TIME, true, exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
-
+        }, new RetryUtils.RetryMaterial(RETRY_TIME, true,
+            exception -> exception instanceof NullPointerException, RETRY_TIME_OUT));
     }
 
     @Override
