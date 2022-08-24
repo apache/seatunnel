@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 
+import com.google.common.collect.Sets;
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -67,7 +68,7 @@ public class TaskTest {
         config.setInstanceName("test");
         config.setClusterName("test");
         instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(config,
-                "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
+            "taskTest", new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
         nodeEngine = instance.node.nodeEngine;
         service = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
     }
@@ -82,14 +83,14 @@ public class TaskTest {
         fakeSource.setSeaTunnelContext(SeaTunnelContext.getContext());
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", fakeSource,
-                Collections.singletonList(new URL("file:///fake.jar")));
+            Sets.newHashSet(new URL("file:///fake.jar")));
         fake.setParallelism(3);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 3);
 
         ConsoleSink consoleSink = new ConsoleSink();
         consoleSink.setSeaTunnelContext(SeaTunnelContext.getContext());
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", consoleSink,
-                Collections.singletonList(new URL("file:///console.jar")));
+            Sets.newHashSet(new URL("file:///console.jar")));
         console.setParallelism(3);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 3);
 
@@ -105,7 +106,7 @@ public class TaskTest {
         config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-                nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
             service.submitJob(jobImmutableInformation.getJobId(),
@@ -120,15 +121,15 @@ public class TaskTest {
         IdGenerator idGenerator = new IdGenerator();
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
-                Collections.singletonList(new URL("file:///fake.jar")));
+            Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
 
         Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
-                Collections.singletonList(new URL("file:///fake.jar")));
+            Sets.newHashSet(new URL("file:///fake.jar")));
         LogicalVertex fake2Vertex = new LogicalVertex(fake2.getId(), fake2, 2);
 
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", new ConsoleSink(),
-                Collections.singletonList(new URL("file:///console.jar")));
+            Sets.newHashSet(new URL("file:///console.jar")));
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
@@ -143,7 +144,7 @@ public class TaskTest {
         config.setMode(JobMode.BATCH);
 
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(1,
-                nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
+            nodeEngine.getSerializationService().toData(logicalDag), config, Collections.emptyList());
 
         PhysicalPlan physicalPlan = PlanUtils.fromLogicalDAG(logicalDag, nodeEngine,
                 jobImmutableInformation,
@@ -160,5 +161,4 @@ public class TaskTest {
     public void after() {
         instance.shutdown();
     }
-
 }

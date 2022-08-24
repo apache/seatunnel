@@ -33,9 +33,4 @@ public class EngineConfig {
         this.backupCount = newBackupCount;
         return this;
     }
-
-    public EngineConfig setServerExecutorPoolSize(int serverExecutorPoolSize) {
-        this.serverExecutorPoolSize = serverExecutorPoolSize;
-        return this;
-    }
 }
