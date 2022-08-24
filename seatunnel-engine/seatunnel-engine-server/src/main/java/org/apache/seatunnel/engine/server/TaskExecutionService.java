@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toList;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.loader.SeatunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -38,12 +39,15 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
+import com.google.common.collect.Lists;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import lombok.NonNull;
 import lombok.SneakyThrows;
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.net.URL;
 import java.util.Collection;
@@ -129,14 +133,21 @@ public class TaskExecutionService {
                 nodeEngine.getSerializationService().toObject(taskImmutableInformation);
             Set<URL> jars = taskImmutableInfo.getJars();
 
-            // TODO Use classloader load the connector jars and deserialize Task
-            taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
+            if (!CollectionUtils.isEmpty(jars)) {
+                taskGroup =
+                    CustomClassLoadedObject.deserializeWithCustomClassLoader(nodeEngine.getSerializationService(),
+                        new SeatunnelChildFirstClassLoader(Lists.newArrayList(jars)),
+                        taskImmutableInfo.getGroup());
+            } else {
+                taskGroup = nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
+            }
             return deployLocalTask(taskGroup, resultFuture);
         } catch (Throwable t) {
             logger.severe(String.format("TaskGroupID : %s  deploy error with Exception: %s",
                 taskGroup != null ? taskGroup.getId() : -1,
                 ExceptionUtils.getMessage(t)));
-            resultFuture.complete(new TaskExecutionState(taskGroup != null ? taskGroup.getId() : -1, ExecutionState.FAILED, t));
+            resultFuture.complete(
+                new TaskExecutionState(taskGroup != null ? taskGroup.getId() : -1, ExecutionState.FAILED, t));
         }
         return new PassiveCompletableFuture<>(resultFuture);
     }
@@ -167,7 +178,7 @@ public class TaskExecutionService {
             cancellationFutures.put(taskGroup.getId(), cancellationFuture);
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
-            resultFuture.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, t));
+            resultFuture.completeExceptionally(t);
         }
         return new PassiveCompletableFuture<>(resultFuture);
     }

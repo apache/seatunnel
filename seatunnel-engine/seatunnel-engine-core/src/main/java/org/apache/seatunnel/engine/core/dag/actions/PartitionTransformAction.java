@@ -23,6 +23,7 @@ import lombok.NonNull;
 
 import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 public class PartitionTransformAction extends AbstractAction {
 
@@ -32,7 +33,7 @@ public class PartitionTransformAction extends AbstractAction {
                                     @NonNull String name,
                                     @NonNull List<Action> upstreams,
                                     @NonNull PartitionSeaTunnelTransform partitionTransformation,
-                                    @NonNull List<URL> jarUrls) {
+                                    @NonNull Set<URL> jarUrls) {
         super(id, name, upstreams, jarUrls);
         this.partitionTransformation = partitionTransformation;
     }
@@ -40,7 +41,7 @@ public class PartitionTransformAction extends AbstractAction {
     public PartitionTransformAction(long id,
                                     @NonNull String name,
                                     @NonNull PartitionSeaTunnelTransform partitionTransformation,
-                                    @NonNull List<URL> jarUrls) {
+                                    @NonNull Set<URL> jarUrls) {
         super(id, name, jarUrls);
         this.partitionTransformation = partitionTransformation;
     }

@@ -97,17 +97,12 @@ public class PhysicalPlan {
                     canceledPipelineNum.incrementAndGet();
                 } else if (PipelineState.FAILED.equals(v)) {
                     LOGGER.severe("Pipeline Failed, Begin to cancel other pipelines in this job.");
-                    cancelJob().whenComplete((v1, t1) -> {
-                        LOGGER.severe(String.format("Cancel other pipelines complete"));
-                        failedPipelineNum.incrementAndGet();
-                    });
+                    failedPipelineNum.incrementAndGet();
+                    cancelJob();
                 } else if (!PipelineState.FINISHED.equals(v)) {
                     LOGGER.severe(
                         "Pipeline Failed with Unknown PipelineState, Begin to cancel other pipelines in this job.");
-                    cancelJob().whenComplete((v1, t1) -> {
-                        LOGGER.severe(String.format("Cancel other pipelines complete"));
-                        failedPipelineNum.incrementAndGet();
-                    });
+                    failedPipelineNum.incrementAndGet();
                 }
 
                 if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {

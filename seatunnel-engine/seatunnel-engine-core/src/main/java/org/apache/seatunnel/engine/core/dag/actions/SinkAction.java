@@ -23,6 +23,7 @@ import lombok.NonNull;
 
 import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 @SuppressWarnings("checkstyle:ClassTypeParameterName")
 public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends AbstractAction {
@@ -32,7 +33,7 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
                       @NonNull String name,
                       @NonNull List<Action> upstreams,
                       @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-                      @NonNull List<URL> jarUrls) {
+                      @NonNull Set<URL> jarUrls) {
         super(id, name, upstreams, jarUrls);
         this.sink = sink;
     }
@@ -40,7 +41,7 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
     public SinkAction(long id,
                       @NonNull String name,
                       @NonNull SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-                      @NonNull List<URL> jarUrls) {
+                      @NonNull Set<URL> jarUrls) {
         super(id, name, jarUrls);
         this.sink = sink;
     }
