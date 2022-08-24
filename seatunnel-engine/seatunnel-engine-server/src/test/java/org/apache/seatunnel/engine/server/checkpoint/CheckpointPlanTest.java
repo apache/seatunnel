@@ -44,6 +44,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.spi.impl.NodeEngine;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -95,7 +96,20 @@ public class CheckpointPlanTest {
             System.currentTimeMillis(),
             Executors.newCachedThreadPool(),
             instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)).f1();
-        System.out.println("");
+        Assert.assertNotNull(checkpointPlans);
+        Assert.assertEquals(2, checkpointPlans.size());
+        // enum(1) + reader(2) + writer(2)
+        Assert.assertEquals(5, checkpointPlans.get(1).getPipelineTaskIds().size());
+        // enum
+        Assert.assertEquals(1, checkpointPlans.get(1).getStartingVertices().size());
+        // enum + reader
+        Assert.assertEquals(2, checkpointPlans.get(1).getStatefulVertices().size());
+        // enum(1) + reader(3) + writer(3)
+        Assert.assertEquals(7, checkpointPlans.get(2).getPipelineTaskIds().size());
+        // enum
+        Assert.assertEquals(1, checkpointPlans.get(2).getStartingVertices().size());
+        // enum + reader
+        Assert.assertEquals(2, checkpointPlans.get(2).getStatefulVertices().size());
     }
 
     private static void fillVirtualVertex(IdGenerator idGenerator, LogicalDag logicalDag, int parallelism) {
