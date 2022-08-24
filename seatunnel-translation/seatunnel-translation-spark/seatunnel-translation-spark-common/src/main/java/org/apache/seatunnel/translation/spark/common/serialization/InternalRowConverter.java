@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.translation.spark.common.serialization;
 
-import static org.apache.seatunnel.api.table.type.SqlType.INT;
-
-import com.google.gson.internal.bind.ArrayTypeAdapter;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
