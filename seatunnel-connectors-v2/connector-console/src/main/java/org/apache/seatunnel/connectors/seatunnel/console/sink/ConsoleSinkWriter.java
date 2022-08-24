@@ -17,27 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.StringJoiner;
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowType seaTunnelRowType;
-    public static final AtomicLong cnt = new AtomicLong(0);
+    public static final AtomicLong CNT = new AtomicLong(0);
 
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
@@ -58,7 +52,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 arr[i] = deepToString(fieldTypes[i], fields[i]);
             }
         }
-        System.out.format("row=%s : %s%n", cnt.incrementAndGet(), StringUtils.join(arr, ", "));
+        System.out.format("row=%s : %s%n", CNT.incrementAndGet(), StringUtils.join(arr, ", "));
     }
 
     @Override
