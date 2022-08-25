@@ -131,7 +131,7 @@ public class PhysicalVertex {
                 "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
-                pipelineIndex + 1,
+                pipelineIndex,
                 totalPipelineNum,
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,

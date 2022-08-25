@@ -121,6 +121,7 @@ public class TaskTest {
 
         Action fake = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
                 Collections.singletonList(new URL("file:///fake.jar")));
+        fake.setParallelism(2);
         LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
 
         Action fake2 = new SourceAction<>(idGenerator.getNextId(), "fake", new FakeSource(),
@@ -129,6 +130,7 @@ public class TaskTest {
 
         Action console = new SinkAction<>(idGenerator.getNextId(), "console", new ConsoleSink(),
                 Collections.singletonList(new URL("file:///console.jar")));
+        console.setParallelism(2);
         LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
