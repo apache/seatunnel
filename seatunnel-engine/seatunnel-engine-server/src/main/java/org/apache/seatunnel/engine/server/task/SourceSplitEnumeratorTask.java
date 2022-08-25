@@ -135,8 +135,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
-                waitReader();
-                currState = EnumeratorState.READER_REGISTER_COMPLETE;
+                if (readerFinishFuture.isDone()) {
+                    readerRegisterFuture.get();
+                    currState = EnumeratorState.READER_REGISTER_COMPLETE;
+                }
                 break;
             case READER_REGISTER_COMPLETE:
                 currState = EnumeratorState.ASSIGN;
@@ -147,8 +149,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 currState = EnumeratorState.WAITING_FEEDBACK;
                 break;
             case WAITING_FEEDBACK:
-                readerFinishFuture.join();
-                currState = EnumeratorState.READER_CLOSED;
+                if (readerFinishFuture.isDone()) {
+                    readerFinishFuture.get();
+                    currState = EnumeratorState.READER_CLOSED;
+                }
                 break;
             case READER_CLOSED:
                 closeAllReader();
@@ -165,11 +169,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             default:
                 throw new IllegalArgumentException("Unknown Enumerator State: " + currState);
         }
-        stateProcess();
-    }
-
-    private void waitReader() {
-        readerRegisterFuture.join();
     }
 
     public Set<Long> getRegisteredReaders() {
