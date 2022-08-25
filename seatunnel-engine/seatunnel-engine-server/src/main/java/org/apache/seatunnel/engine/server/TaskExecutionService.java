@@ -189,7 +189,6 @@ public class TaskExecutionService {
      * @param taskId TaskGroup.getId()
      */
     public void cancelTaskGroup(long taskId) {
-        logger.info("====================================");
         logger.info(String.format("Task (%s) need cancel.", taskId));
         if (cancellationFutures.containsKey(taskId)) {
             cancellationFutures.get(taskId).cancel(false);
@@ -385,7 +384,7 @@ public class TaskExecutionService {
                 if (ex == null) {
                     future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FINISHED, null));
                 } else if (isCancel.get()) {
-                    future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.CANCELED, ex));
+                    future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.CANCELED, null));
                 } else {
                     future.complete(new TaskExecutionState(taskGroup.getId(), ExecutionState.FAILED, ex));
                 }

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.client.job;
 
-import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -78,7 +77,6 @@ public class JobExecutionEnvironment {
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
         JobClient jobClient = new JobClient(seaTunnelHazelcastClient);
-        initSeaTunnelContext();
         JobImmutableInformation jobImmutableInformation = new JobImmutableInformation(
             jobClient.getNewJobId(),
             seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
@@ -86,10 +84,6 @@ public class JobExecutionEnvironment {
             jarUrls);
 
         return jobClient.createJobProxy(jobImmutableInformation);
-    }
-
-    private void initSeaTunnelContext() {
-        SeaTunnelContext.getContext().setJobMode(jobConfig.getMode());
     }
 
     public LogicalDag getLogicalDag() {

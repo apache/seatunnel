@@ -22,8 +22,8 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.seatunnel.args.SeaTunnelCommandArgs;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
+import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 
@@ -39,7 +39,6 @@ public class SeaTunnelStarter {
         Common.setDeployMode(DeployMode.CLIENT);
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
-        // TODO change jobConfig mode
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
