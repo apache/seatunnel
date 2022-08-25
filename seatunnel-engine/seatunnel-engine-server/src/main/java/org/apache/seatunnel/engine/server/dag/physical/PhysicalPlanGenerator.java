@@ -188,7 +188,7 @@ public class PhysicalPlanGenerator {
                     long taskGroupID = idGenerator.getNextId();
                     SinkAggregatedCommitterTask<?> t =
                         new SinkAggregatedCommitterTask(jobImmutableInformation.getJobId(),
-                            new TaskLocation(taskGroupID, convertToTaskID(idGenerator.getNextId(), 1)), s,
+                            new TaskLocation(taskGroupID, convertToTaskID(idGenerator.getNextId(), 0)), s,
                             sinkAggregatedCommitter.get());
                     committerTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
                     CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
@@ -198,7 +198,7 @@ public class PhysicalPlanGenerator {
                         atomicInteger.incrementAndGet(),
                         executorService,
                         collect.size(),
-                        new TaskGroupDefaultImpl(taskGroupID, "SinkAggregatedCommitterTask",
+                        new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-AggregatedCommitterTask",
                             Lists.newArrayList(t)),
                         taskFuture,
                         flakeIdGenerator,
@@ -237,7 +237,8 @@ public class PhysicalPlanGenerator {
                         i,
                         executorService,
                         flow.getAction().getParallelism(),
-                        new TaskGroupDefaultImpl(taskGroupID, "PartitionTransformTask",
+                        new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
+                                "-PartitionTransformTask",
                             Lists.newArrayList(seaTunnelTask)),
                         taskFuture,
                         flakeIdGenerator,
@@ -261,7 +262,7 @@ public class PhysicalPlanGenerator {
         return sources.stream().map(s -> {
             long taskGroupID = idGenerator.getNextId();
             SourceSplitEnumeratorTask<?> t = new SourceSplitEnumeratorTask<>(jobImmutableInformation.getJobId(),
-                new TaskLocation(taskGroupID, convertToTaskID(idGenerator.getNextId(), 1)), s);
+                new TaskLocation(taskGroupID, convertToTaskID(idGenerator.getNextId(), 0)), s);
             enumeratorTaskIDMap.put(s, new TaskLocation(taskGroupID, t.getTaskID()));
             CompletableFuture<TaskExecutionState> taskFuture = new CompletableFuture<>();
             waitForCompleteByPhysicalVertexList.add(new PassiveCompletableFuture<>(taskFuture));
@@ -270,7 +271,8 @@ public class PhysicalPlanGenerator {
                 atomicInteger.incrementAndGet(),
                 executorService,
                 sources.size(),
-                new TaskGroupDefaultImpl(taskGroupID, s.getName(), Lists.newArrayList(t)),
+                new TaskGroupDefaultImpl(taskGroupID, s.getName() + "-SplitEnumerator",
+                        Lists.newArrayList(t)),
                 taskFuture,
                 flakeIdGenerator,
                 pipelineIndex,
@@ -329,7 +331,8 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupWithIntermediateQueue(taskGroupID, "SourceTask",
+                            new TaskGroupWithIntermediateQueue(taskGroupID, flow.getAction().getName() +
+                                    "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             taskFuture,
                             flakeIdGenerator,
@@ -344,7 +347,8 @@ public class PhysicalPlanGenerator {
                             i,
                             executorService,
                             flow.getAction().getParallelism(),
-                            new TaskGroupDefaultImpl(taskGroupID, "SourceTask",
+                            new TaskGroupDefaultImpl(taskGroupID, flow.getAction().getName() +
+                                    "-SourceTask",
                                 taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
                             taskFuture,
                             flakeIdGenerator,
