@@ -47,11 +47,12 @@ public abstract class AbstractSeaTunnelServerTest {
             Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-        logger = instance.node.nodeEngine.getLogger(this.getClass());
+        logger = nodeEngine.getLogger(this.getClass());
     }
 
     @After
     public void after() {
+        server.shutdown(true);
         instance.shutdown();
     }
 }

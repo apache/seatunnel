@@ -29,7 +29,6 @@ public abstract class AbstractSingleSplitSource<T> implements SeaTunnelSource<T,
 
     @Override
     public final AbstractSingleSplitReader<T> createReader(SourceReader.Context readerContext) throws Exception {
-        checkArgument(readerContext.getIndexOfSubtask() == 0, "A single split source allows only one single reader to be created.");
         return createReader(new SingleSplitReaderContext(readerContext));
     }
 
