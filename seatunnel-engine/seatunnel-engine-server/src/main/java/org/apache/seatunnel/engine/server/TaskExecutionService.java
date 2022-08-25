@@ -189,6 +189,8 @@ public class TaskExecutionService {
      * @param taskId TaskGroup.getId()
      */
     public void cancelTaskGroup(long taskId) {
+        logger.info("====================================");
+        logger.info(String.format("Task (%s) need cancel.", taskId));
         if (cancellationFutures.containsKey(taskId)) {
             cancellationFutures.get(taskId).cancel(false);
         } else {

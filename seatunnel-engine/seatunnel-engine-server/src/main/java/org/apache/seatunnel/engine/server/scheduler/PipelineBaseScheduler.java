@@ -51,7 +51,7 @@ public class PipelineBaseScheduler implements JobScheduler {
     @Override
     public void startScheduling() {
         if (physicalPlan.turnToRunning()) {
-            physicalPlan.getPipelineList().stream().map(pipeline -> {
+            List<CompletableFuture<Object>> collect = physicalPlan.getPipelineList().stream().map(pipeline -> {
                 if (!pipeline.updatePipelineState(PipelineState.CREATED, PipelineState.SCHEDULED)) {
                     handlePipelineStateUpdateError(pipeline, PipelineState.SCHEDULED);
                     return null;
@@ -64,7 +64,16 @@ public class PipelineBaseScheduler implements JobScheduler {
                     deployPipeline(pipeline);
                     return null;
                 });
-            });
+            }).filter(x -> x != null).collect(Collectors.toList());
+            try {
+                CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(
+                    collect.toArray(new CompletableFuture[collect.size()]));
+                voidCompletableFuture.get();
+            } catch (Exception e) {
+                // cancel pipeline and throw an exception
+                physicalPlan.cancelJob();
+                throw new RuntimeException(e);
+            }
         } else if (!JobStatus.CANCELED.equals(physicalPlan.getJobStatus())) {
             throw new JobException(String.format("%s turn to a unexpected state: %s", physicalPlan.getJobFullName(),
                 physicalPlan.getJobStatus()));

@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.transform.PartitionSeaTunnelTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.apis.base.plugin.Plugin;
 import org.apache.seatunnel.common.constants.CollectionConstants;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.base.config.ConfigBuilder;
 import org.apache.seatunnel.engine.client.ConnectorInstanceLoader;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -77,8 +78,8 @@ public class JobConfigParser {
     private JobConfig jobConfig;
 
     public JobConfigParser(@NonNull String jobDefineFilePath,
-                              @NonNull IdGenerator idGenerator,
-                              @NonNull JobConfig jobConfig) {
+                           @NonNull IdGenerator idGenerator,
+                           @NonNull JobConfig jobConfig) {
         this.jobDefineFilePath = jobDefineFilePath;
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
@@ -107,8 +108,12 @@ public class JobConfigParser {
         return new ImmutablePair<>(actions, jarUrlsSet);
     }
 
-    private void jobConfigAnalyze(Config envConfigs) {
-        // TODO Resolve env configuration and set jobConfig
+    private void jobConfigAnalyze(@NonNull Config envConfigs) {
+        if (envConfigs.hasPath("job.mode")) {
+            jobConfig.setMode(envConfigs.getEnum(JobMode.class, "job.mode"));
+        } else {
+            jobConfig.setMode(JobMode.BATCH);
+        }
     }
 
     /**
@@ -157,7 +162,7 @@ public class JobConfigParser {
         List<Config> sourceConfigList = sourceResultTableNameMap.get(sourceTableName);
         if (CollectionUtils.isEmpty(sourceConfigList)) {
             throw new JobDefineCheckException(action.getName()
-                    + " source table name [" + sourceTableName + "] can not be found");
+                + " source table name [" + sourceTableName + "] can not be found");
         }
 
         // If a transform have more than one upstream action, the parallelism of this transform is the sum of the parallelism
@@ -166,13 +171,13 @@ public class JobConfigParser {
         AtomicInteger totalParallelism = new AtomicInteger();
         for (Config sourceConfig : sourceConfigList) {
             ImmutablePair<SeaTunnelSource, Set<URL>> seaTunnelSourceListImmutablePair =
-                    ConnectorInstanceLoader.loadSourceInstance(sourceConfig);
+                ConnectorInstanceLoader.loadSourceInstance(sourceConfig);
             dataType = seaTunnelSourceListImmutablePair.getLeft().getProducedType();
             SourceAction sourceAction = createSourceAction(
-                    idGenerator.getNextId(),
-                    sourceConfig.getString(CollectionConstants.PLUGIN_NAME),
-                    seaTunnelSourceListImmutablePair.getLeft(),
-                    seaTunnelSourceListImmutablePair.getRight());
+                idGenerator.getNextId(),
+                sourceConfig.getString(CollectionConstants.PLUGIN_NAME),
+                seaTunnelSourceListImmutablePair.getLeft(),
+                seaTunnelSourceListImmutablePair.getRight());
 
             int sourceParallelism = getSourceParallelism(sourceConfig);
             sourceAction.setParallelism(sourceParallelism);
@@ -193,16 +198,16 @@ public class JobConfigParser {
             SeaTunnelDataType<?> dataTypeResult = null;
             for (Config config : transformConfigList) {
                 ImmutablePair<SeaTunnelTransform<?>, Set<URL>> transformListImmutablePair =
-                        ConnectorInstanceLoader.loadTransformInstance(config);
+                    ConnectorInstanceLoader.loadTransformInstance(config);
                 TransformAction transformAction = createTransformAction(
-                        idGenerator.getNextId(),
-                        transformListImmutablePair.getLeft().getPluginName(),
-                        transformListImmutablePair.getLeft(),
-                        transformListImmutablePair.getRight());
+                    idGenerator.getNextId(),
+                    transformListImmutablePair.getLeft().getPluginName(),
+                    transformListImmutablePair.getLeft(),
+                    transformListImmutablePair.getRight());
 
                 action.addUpstream(transformAction);
                 SeaTunnelDataType dataType = transformAnalyze(config.getString(Plugin.SOURCE_TABLE_NAME),
-                        transformAction);
+                    transformAction);
                 transformListImmutablePair.getLeft().setTypeInfo(dataType);
                 dataTypeResult = transformListImmutablePair.getLeft().getProducedType();
                 totalParallelism.set(totalParallelism.get() + transformAction.getParallelism());
@@ -264,25 +269,25 @@ public class JobConfigParser {
         sourceAction.setParallelism(getSourceParallelism(sourceConfigs.get(0)));
         SeaTunnelDataType dataType = sourceAction.getSource().getProducedType();
         ImmutablePair<SeaTunnelSink<SeaTunnelRow, Serializable, Serializable, Serializable>, Set<URL>>
-                sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
+            sinkListImmutablePair = ConnectorInstanceLoader.loadSinkInstance(sinkConfigs.get(0));
 
         Action sinkUpstreamAction = sourceAction;
 
         if (!CollectionUtils.isEmpty(transformConfigs)) {
             ImmutablePair<SeaTunnelTransform<?>, Set<URL>> transformListImmutablePair =
-                    ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0));
+                ConnectorInstanceLoader.loadTransformInstance(transformConfigs.get(0));
             transformListImmutablePair.getLeft().setTypeInfo(dataType);
 
             dataType = transformListImmutablePair.getLeft().getProducedType();
             TransformAction transformAction = createTransformAction(
-                    idGenerator.getNextId(),
-                    transformListImmutablePair.getLeft().getPluginName(),
-                    Lists.newArrayList(sourceAction),
-                    transformListImmutablePair.getLeft(),
-                    transformListImmutablePair.getRight());
+                idGenerator.getNextId(),
+                transformListImmutablePair.getLeft().getPluginName(),
+                Lists.newArrayList(sourceAction),
+                transformListImmutablePair.getLeft(),
+                transformListImmutablePair.getRight());
 
             initTransformParallelism(transformConfigs, sourceAction, transformListImmutablePair.getLeft(),
-                    transformAction);
+                transformAction);
 
             sinkUpstreamAction = transformAction;
         }

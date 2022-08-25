@@ -59,6 +59,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private final SeaTunnelConfig seaTunnelConfig;
 
+    /**
+     * key: job id;
+     * <br> value: job master;
+     */
     private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
@@ -73,6 +77,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     public TaskExecutionService getTaskExecutionService() {
         return this.taskExecutionService;
+    }
+
+    public JobMaster getJobMaster(Long jobId) {
+        return runningJobMasterMap.get(jobId);
     }
 
     @Override

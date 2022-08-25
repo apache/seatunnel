@@ -62,6 +62,7 @@ public class ClientJobProxy implements Job {
 
     /**
      * This method will block even the Job turn to a EndState
+     *
      * @return
      */
     public JobStatus waitForJobComplete() {

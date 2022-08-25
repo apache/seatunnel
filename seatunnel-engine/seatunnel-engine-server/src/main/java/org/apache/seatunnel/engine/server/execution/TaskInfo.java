@@ -15,21 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.engine.server.execution;
 
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import java.io.Serializable;
 
-/**
- * Job interface define the Running job apis
- */
-public interface Job {
-    long getJobId();
+public class TaskInfo implements Serializable {
 
-    PassiveCompletableFuture<JobStatus> doWaitForJobComplete();
+    private static final long serialVersionUID = 1L;
 
-    void cancelJob();
+    private final Long jobId;
 
-    JobStatus getJobStatus();
+    private final Long pipelineId;
 
-    JobStatus waitForJobComplete();
+    private final Long jobVertexId;
+
+    private final Integer index;
+
+    public TaskInfo(Long jobId, Long pipelineId, Long jobVertexId, Integer index) {
+        this.jobId = jobId;
+        this.pipelineId = pipelineId;
+        this.jobVertexId = jobVertexId;
+        this.index = index;
+    }
+
+    public Long getJobId() {
+        return jobId;
+    }
+
+    public Long getPipelineId() {
+        return pipelineId;
+    }
+
+    public Long getJobVertexId() {
+        return jobVertexId;
+    }
+
+    public Integer getIndex() {
+        return index;
+    }
 }

@@ -15,21 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
-
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+package org.apache.seatunnel.engine.server.checkpoint;
 
 /**
- * Job interface define the Running job apis
+ * plan info
  */
-public interface Job {
-    long getJobId();
+public class CheckpointPlan {
 
-    PassiveCompletableFuture<JobStatus> doWaitForJobComplete();
-
-    void cancelJob();
-
-    JobStatus getJobStatus();
-
-    JobStatus waitForJobComplete();
 }

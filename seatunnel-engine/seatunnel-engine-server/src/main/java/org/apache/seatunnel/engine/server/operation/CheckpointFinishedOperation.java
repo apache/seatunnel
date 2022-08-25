@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -26,34 +25,46 @@ import com.hazelcast.nio.ObjectDataOutput;
 
 import java.io.IOException;
 
-public class CheckpointTriggerOperation extends AsyncOperation {
-    private CheckpointBarrier checkpointBarrier;
+public class CheckpointFinishedOperation extends AsyncOperation {
+    private long jobId;
 
-    public CheckpointTriggerOperation() {
+    private long pipelineId;
+
+    private long checkpointId;
+
+    public CheckpointFinishedOperation() {
     }
 
-    public CheckpointTriggerOperation(CheckpointBarrier checkpointBarrier) {
-        this.checkpointBarrier = checkpointBarrier;
+    public CheckpointFinishedOperation(long jobId,
+                                       long pipelineId,
+                                       long checkpointId) {
+        this.jobId = jobId;
+        this.pipelineId = pipelineId;
+        this.checkpointId = checkpointId;
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_TRIGGER_OPERATOR;
+        return OperationDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
-        out.writeObject(checkpointBarrier);
+        out.writeLong(jobId);
+        out.writeLong(pipelineId);
+        out.writeLong(checkpointId);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
-        checkpointBarrier = in.readObject(CheckpointBarrier.class);
+        jobId = in.readLong();
+        pipelineId = in.readLong();
+        checkpointId = in.readLong();
     }
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
-        // TODO: All source Vertexes executed
+        // TODO: Notifies all tasks of the pipeline about the status of the checkpoint
         return null;
     }
 }

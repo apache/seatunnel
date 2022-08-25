@@ -189,6 +189,7 @@ public class PhysicalVertex {
                 taskFuture.complete(new TaskExecutionState(this.physicalVertexId, executionState.get(),
                     new JobException(String.format("%s turn to a unexpected state"))));
             }
+
         } catch (Throwable th) {
             LOGGER.severe(String.format("%s deploy error with Exception: %s",
                 this.taskFullName,
@@ -251,6 +252,9 @@ public class PhysicalVertex {
             throw new IllegalStateException(message);
         }
 
+        LOGGER.info(String.format("%s turn to end state %s.",
+            taskFullName,
+            endState));
         executionState.set(endState);
         stateTimestamps[endState.ordinal()] = System.currentTimeMillis();
     }
