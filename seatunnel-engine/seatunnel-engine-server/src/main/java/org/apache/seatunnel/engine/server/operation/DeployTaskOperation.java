@@ -45,7 +45,8 @@ public class DeployTaskOperation extends AsyncOperation {
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer server = getService();
-        return server.getTaskExecutionService().deployTask(taskImmutableInformation);
+        return server.getSlotService().getSlotContext(slotProfile.getSlotID())
+                .getTaskExecutionService().deployTask(taskImmutableInformation);
     }
 
     @Override

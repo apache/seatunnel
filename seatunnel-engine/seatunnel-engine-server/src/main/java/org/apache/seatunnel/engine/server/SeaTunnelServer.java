@@ -57,6 +57,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private final LiveOperationRegistry liveOperationRegistry;
 
     private SlotService slotService;
+    private TaskExecutionService taskExecutionService;
 
     private final ExecutorService executorService;
     private ResourceManager resourceManager;
@@ -85,6 +86,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         this.slotService = new DefaultSlotService(nodeEngine, false, 2);
         if (nodeEngine.getClusterService().isMaster()) {
             resourceManager = new SimpleResourceManager();
+            taskExecutionService = new TaskExecutionService(
+                    nodeEngine, nodeEngine.getProperties()
+            );
+            taskExecutionService.start();
         }
     }
 
@@ -127,6 +132,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     public ResourceManager getResourceManager() {
         return resourceManager;
+    }
+
+    public TaskExecutionService getTaskExecutionService() {
+        return taskExecutionService;
     }
 
     /**

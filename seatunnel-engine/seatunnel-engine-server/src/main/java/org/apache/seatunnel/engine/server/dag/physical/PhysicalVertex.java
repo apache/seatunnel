@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
@@ -89,11 +90,6 @@ public class PhysicalVertex {
      */
     private final long[] stateTimestamps;
 
-    /**
-     * This future only can completion by the task run in {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
-     */
-    private PassiveCompletableFuture<TaskExecutionState> waitForCompleteByExecutionService;
-
     private final JobImmutableInformation jobImmutableInformation;
 
     private final long initializationTimestamp;
@@ -142,26 +138,61 @@ public class PhysicalVertex {
         this.taskFuture = taskFuture;
     }
 
-
     public void deployOnMaster() {
-        TaskGroupImmutableInformation taskGroupImmutableInformation =
-                new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
-                        nodeEngine.getSerializationService().toData(this.taskGroup),
-                        this.pluginJarsUrls);
-
+        TaskGroupImmutableInformation taskGroupImmutableInformation = getTaskGroupImmutableInformation();
+        PassiveCompletableFuture<TaskExecutionState> completeFuture;
         try {
-            waitForCompleteByExecutionService = new PassiveCompletableFuture<>();
+            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            completeFuture = new PassiveCompletableFuture<>(server.getTaskExecutionService()
+                    .deployTask(taskGroupImmutableInformation.getGroup()));
         } catch (Throwable th) {
-            LOGGER.severe(String.format("%s deploy error with Exception: %s",
-                    this.taskFullName,
-                    ExceptionUtils.getMessage(th)));
-            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
-            taskFuture.complete(
-                    new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
+            failedByException(taskGroupImmutableInformation, th);
+            return;
         }
+        monitorTask(completeFuture);
+    }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
+    // This method must not throw an exception
+    public void deploy(@NonNull SlotProfile slotProfile) {
+
+        TaskGroupImmutableInformation taskGroupImmutableInformation = getTaskGroupImmutableInformation();
+        PassiveCompletableFuture<TaskExecutionState> completeFuture;
+        try {
+            completeFuture = new PassiveCompletableFuture<>(
+                    nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
+                            new DeployTaskOperation(slotProfile,
+                                    nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
+                            slotProfile.getWorker()).invoke());
+        } catch (Throwable th) {
+            failedByException(taskGroupImmutableInformation, th);
+            return;
+        }
+        monitorTask(completeFuture);
+    }
+
+    private void failedByException(TaskGroupImmutableInformation taskGroupImmutableInformation, Throwable th) {
+        LOGGER.severe(String.format("%s deploy error with Exception: %s",
+                this.taskFullName,
+                ExceptionUtils.getMessage(th)));
+        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
+        taskFuture.complete(
+                new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
+    }
+
+    private TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
+        return new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
+                nodeEngine.getSerializationService().toData(this.taskGroup),
+                this.pluginJarsUrls);
+    }
+
+    /**
+     * @param completeFuture This future only can completion by the task run in
+     *                       {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
+     */
+    private void monitorTask(PassiveCompletableFuture<TaskExecutionState> completeFuture) {
         updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
-        waitForCompleteByExecutionService.whenComplete((v, t) -> {
+        completeFuture.whenComplete((v, t) -> {
             try {
                 if (t != null) {
                     LOGGER.severe("An unexpected error occurred while the task was running", t);
@@ -183,69 +214,6 @@ public class PhysicalVertex {
             } catch (Throwable th) {
                 LOGGER.severe(
                         String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
-                updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
-                v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, null);
-                taskFuture.complete(v);
-            }
-        });
-    }
-
-    @SuppressWarnings("checkstyle:MagicNumber")
-    // This method must not throw an exception
-    public void deploy(@NonNull SlotProfile slotProfile) {
-
-        TaskGroupImmutableInformation taskGroupImmutableInformation =
-                new TaskGroupImmutableInformation(flakeIdGenerator.newId(),
-                        nodeEngine.getSerializationService().toData(this.taskGroup),
-                        this.pluginJarsUrls);
-
-        try {
-            waitForCompleteByExecutionService = new PassiveCompletableFuture<>(
-                    nodeEngine.getOperationService().createInvocationBuilder(Constant.SEATUNNEL_SERVICE_NAME,
-                            new DeployTaskOperation(slotProfile,
-                                    nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
-                            slotProfile.getWorker()).invoke());
-        } catch (Throwable th) {
-            LOGGER.severe(String.format("%s deploy error with Exception: %s",
-                    this.taskFullName,
-                    ExceptionUtils.getMessage(th)));
-            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.FAILED);
-            taskFuture.complete(
-                    new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED, null));
-        }
-
-//        waitForCompleteByExecutionService = new PassiveCompletableFuture<>(CompletableFuture.supplyAsync(() -> {
-//            try {
-//                Thread.sleep(2000);
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
-//            return new TaskExecutionState(flakeIdGenerator.newId(), ExecutionState.FINISHED, null);
-//        }));
-
-        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
-        waitForCompleteByExecutionService.whenComplete((v, t) -> {
-            try {
-                if (t != null) {
-                    LOGGER.severe("An unexpected error occurred while the task was running", t);
-                    taskFuture.completeExceptionally(t);
-                } else {
-                    updateTaskState(executionState.get(), v.getExecutionState());
-                    if (v.getThrowable() != null) {
-                        LOGGER.severe(String.format("%s end with state %s and Exception: %s",
-                            this.taskFullName,
-                            v.getExecutionState(),
-                            ExceptionUtils.getMessage(v.getThrowable())));
-                    } else {
-                        LOGGER.severe(String.format("%s end with state %s",
-                            this.taskFullName,
-                            v.getExecutionState()));
-                    }
-                    taskFuture.complete(v);
-                }
-            } catch (Throwable th) {
-                LOGGER.severe(
-                    String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
                 updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
                 v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, null);
                 taskFuture.complete(v);

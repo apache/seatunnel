@@ -104,9 +104,7 @@ public class PipelineBaseScheduler implements JobScheduler {
                     if (coordinator.updateTaskState(ExecutionState.SCHEDULED, ExecutionState.DEPLOYING)) {
                         // deploy is a time-consuming operation, so we do it async
                         return CompletableFuture.supplyAsync(() -> {
-                            coordinator.deploy(
-                                    resourceManager.getAppliedResource(physicalPlan.getJobImmutableInformation().getJobId(),
-                                            coordinator.getTaskGroup().getId()));
+                            coordinator.deployOnMaster();
                             return null;
                         });
                     }
