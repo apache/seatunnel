@@ -24,11 +24,10 @@ import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.SeaTunnelClientConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -57,9 +56,8 @@ public class SeaTunnelClientTest {
 
     @Test
     public void testSayHello() {
-        SeaTunnelClientConfig seaTunnelClientConfig = new SeaTunnelClientConfig();
-        seaTunnelClientConfig.getNetworkConfig().setAddresses(Lists.newArrayList("localhost:5801"));
-        SeaTunnelClient engineClient = new SeaTunnelClient(seaTunnelClientConfig);
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
 
         String msg = "Hello world";
         String s = engineClient.printMessageToMaster(msg);
@@ -81,7 +79,8 @@ public class SeaTunnelClientTest {
         JobProxy jobProxy = null;
         try {
             jobProxy = jobExecutionEnv.execute();
-            jobProxy.waitForJobComplete();
+            JobStatus jobStatus = jobProxy.waitForJobComplete();
+            Assert.assertEquals(JobStatus.FINISHED, jobStatus);
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }

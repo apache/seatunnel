@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -130,7 +131,7 @@ public class PhysicalVertex {
                 "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
                 jobImmutableInformation.getJobConfig().getName(),
                 jobImmutableInformation.getJobId(),
-                pipelineIndex + 1,
+                pipelineIndex,
                 totalPipelineNum,
                 taskGroup.getTaskGroupName(),
                 subTaskGroupIndex + 1,
@@ -164,6 +165,7 @@ public class PhysicalVertex {
                             new DeployTaskOperation(slotProfile,
                                     nodeEngine.getSerializationService().toData(taskGroupImmutableInformation)),
                             slotProfile.getWorker()).invoke());
+            updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         } catch (Throwable th) {
             failedByException(taskGroupImmutableInformation, th);
             return;
@@ -191,23 +193,24 @@ public class PhysicalVertex {
      *                       {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
      */
     private void monitorTask(PassiveCompletableFuture<TaskExecutionState> completeFuture) {
-        updateTaskState(ExecutionState.DEPLOYING, ExecutionState.RUNNING);
         completeFuture.whenComplete((v, t) -> {
             try {
                 if (t != null) {
                     LOGGER.severe("An unexpected error occurred while the task was running", t);
-                    taskFuture.completeExceptionally(t);
+                    taskFuture.complete(
+                        new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED,
+                            t));
                 } else {
                     updateTaskState(executionState.get(), v.getExecutionState());
                     if (v.getThrowable() != null) {
                         LOGGER.severe(String.format("%s end with state %s and Exception: %s",
-                                this.taskFullName,
-                                v.getExecutionState(),
-                                ExceptionUtils.getMessage(v.getThrowable())));
+                            this.taskFullName,
+                            v.getExecutionState(),
+                            ExceptionUtils.getMessage(v.getThrowable())));
                     } else {
-                        LOGGER.severe(String.format("%s end with state %s",
-                                this.taskFullName,
-                                v.getExecutionState()));
+                        LOGGER.info(String.format("%s end with state %s",
+                            this.taskFullName,
+                            v.getExecutionState()));
                     }
                     taskFuture.complete(v);
                 }
@@ -215,7 +218,7 @@ public class PhysicalVertex {
                 LOGGER.severe(
                         String.format("%s end with Exception: %s", this.taskFullName, ExceptionUtils.getMessage(th)));
                 updateTaskState(ExecutionState.RUNNING, ExecutionState.FAILED);
-                v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, null);
+                v = new TaskExecutionState(v.getTaskExecutionId(), ExecutionState.FAILED, th);
                 taskFuture.complete(v);
             }
         });

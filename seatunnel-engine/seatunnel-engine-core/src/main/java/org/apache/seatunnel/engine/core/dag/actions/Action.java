@@ -22,6 +22,7 @@ import lombok.NonNull;
 import java.io.Serializable;
 import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 public interface Action extends Serializable {
     @NonNull
@@ -40,5 +41,5 @@ public interface Action extends Serializable {
 
     long getId();
 
-    List<URL> getJarUrls();
+    Set<URL> getJarUrls();
 }

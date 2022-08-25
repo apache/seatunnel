@@ -24,5 +24,5 @@ public interface Job {
 
     void submitJob() throws ExecutionException, InterruptedException;
 
-    void waitForJobComplete();
+    JobStatus waitForJobComplete();
 }

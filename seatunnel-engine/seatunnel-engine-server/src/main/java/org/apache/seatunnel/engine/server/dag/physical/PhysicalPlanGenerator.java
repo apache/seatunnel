@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.internal.IntermediateQueue;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionEdge;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
@@ -52,6 +53,7 @@ import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateQu
 
 import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
@@ -111,7 +113,7 @@ public class PhysicalPlanGenerator {
         this.flakeIdGenerator = flakeIdGenerator;
     }
 
-    public PhysicalPlan generate() {
+    public Tuple2<PhysicalPlan, CheckpointPlan> generate() {
 
         // TODO Determine which tasks do not need to be restored according to state
         CopyOnWriteArrayList<PassiveCompletableFuture<PipelineState>> waitForCompleteBySubPlanList =
@@ -151,11 +153,12 @@ public class PhysicalPlanGenerator {
                 jobImmutableInformation);
         });
 
-        return new PhysicalPlan(subPlanStream.collect(Collectors.toList()),
+        PhysicalPlan physicalPlan = new PhysicalPlan(subPlanStream.collect(Collectors.toList()),
             executorService,
             jobImmutableInformation,
             initializationTimestamp,
             waitForCompleteBySubPlanList.toArray(new PassiveCompletableFuture[waitForCompleteBySubPlanList.size()]));
+        return Tuple2.tuple2(physicalPlan, null);
     }
 
     private List<SourceAction<?, ?, ?>> findSourceAction(List<ExecutionEdge> edges) {
@@ -201,7 +204,7 @@ public class PhysicalPlanGenerator {
                         flakeIdGenerator,
                         pipelineIndex,
                         totalPipelineNum,
-                        null,
+                        s.getJarUrls(),
                         jobImmutableInformation,
                         initializationTimestamp,
                         nodeEngine);

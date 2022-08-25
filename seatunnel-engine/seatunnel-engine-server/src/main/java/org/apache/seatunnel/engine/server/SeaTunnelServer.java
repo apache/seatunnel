@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.SimpleResourceManager;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.ManagedService;
@@ -64,6 +65,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
 
     private final SeaTunnelConfig seaTunnelConfig;
 
+    /**
+     * key: job id;
+     * <br> value: job master;
+     */
     private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     public SeaTunnelServer(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
@@ -71,12 +76,17 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.executorService =
-                Executors.newFixedThreadPool(seaTunnelConfig.getEngineConfig().getServerExecutorPoolSize());
+            Executors.newCachedThreadPool(new ThreadFactoryBuilder()
+                .setNameFormat("seatunnel-server-executor-%d").build());
         logger.info("SeaTunnel server start...");
     }
 
     public SlotService getSlotService() {
         return this.slotService;
+    }
+
+    public JobMaster getJobMaster(Long jobId) {
+        return runningJobMasterMap.get(jobId);
     }
 
     @Override
