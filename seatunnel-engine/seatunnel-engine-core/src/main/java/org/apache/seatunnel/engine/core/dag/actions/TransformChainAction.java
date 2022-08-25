@@ -23,6 +23,7 @@ import lombok.NonNull;
 
 import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 public class TransformChainAction<T> extends AbstractAction {
 
@@ -32,7 +33,7 @@ public class TransformChainAction<T> extends AbstractAction {
     public TransformChainAction(long id,
                                 @NonNull String name,
                                 @NonNull List<Action> upstreams,
-                                @NonNull List<URL> jarUrls,
+                                @NonNull Set<URL> jarUrls,
                                 @NonNull List<SeaTunnelTransform<T>> transforms) {
         super(id, name, upstreams, jarUrls);
         this.transforms = transforms;
@@ -40,7 +41,7 @@ public class TransformChainAction<T> extends AbstractAction {
 
     public TransformChainAction(long id,
                                 @NonNull String name,
-                                @NonNull List<URL> jarUrls,
+                                @NonNull Set<URL> jarUrls,
                                 @NonNull List<SeaTunnelTransform<T>> transforms) {
         super(id, name, jarUrls);
         this.transforms = transforms;

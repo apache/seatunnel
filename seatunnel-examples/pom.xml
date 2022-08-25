@@ -41,10 +41,14 @@
                 <module>seatunnel-flink-sql-examples</module>
                 <module>seatunnel-flink-connector-v2-example</module>
                 <module>seatunnel-spark-connector-v2-example</module>
+                <module>seatunnel-engine-examples</module>
             </modules>
         </profile>
         <profile>
             <id>engine-all</id>
+            <modules>
+                <module>seatunnel-engine-examples</module>
+            </modules>
         </profile>
         <profile>
             <id>release</id>

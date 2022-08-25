@@ -42,3 +42,5 @@ test.conf
 log4j.properties
 spark-warehouse
 *.flattened-pom.xml
+
+connectors
