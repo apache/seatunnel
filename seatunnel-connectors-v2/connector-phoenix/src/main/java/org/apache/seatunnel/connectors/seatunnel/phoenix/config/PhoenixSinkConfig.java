@@ -23,18 +23,20 @@ import org.apache.seatunnel.connectors.seatunnel.phoenix.constant.NullModeType;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.hadoop.hbase.TableName;
+import lombok.Data;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class PhoenixSinkConfig {
+@Data
+public class PhoenixSinkConfig implements Serializable {
     private static final Logger LOG = LoggerFactory.getLogger(PhoenixSinkConfig.class);
 
     public static final String CONNECT_URL = "connect_url";
@@ -75,75 +77,8 @@ public class PhoenixSinkConfig {
     private List<String> columns;
     private List<Integer> sinkColumnsIndexInRow;
 
-    private SeaTunnelRowType seaTunnelRowType;
-
-    public String getConnectionString() {
-        return connectionString;
-    }
-
-    public String getTableName() {
-        return tableName;
-    }
-
-    public List<String> getColumns() {
-        return columns;
-    }
-
-    public NullModeType getNullMode() {
-        return nullMode;
-    }
-
-    public boolean isThinClient() {
-        return isThinClient;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public boolean isTruncate() {
-        return truncate;
-    }
-
-    public int getMaxRetries() {
-        return maxRetries;
-    }
-
-    public int getBatchSize() {
-        return batchSize;
-    }
-
-    public int getBatchIntervalMs() {
-        return batchIntervalMs;
-    }
-
-    public int getConnectionCheckTimeoutSeconds() {
-        return connectionCheckTimeoutSeconds;
-    }
-
-    public int getRetryBackoffMultiplierMs() {
-        return retryBackoffMultiplierMs;
-    }
-
-    public int getMaxRetryBackoffMs() {
-        return maxRetryBackoffMs;
-    }
-
-    public SeaTunnelRowType getSeaTunnelRowType() {
-        return seaTunnelRowType;
-    }
-
-    public List<Integer> getSinkColumnsIndexInRow() {
-        return sinkColumnsIndexInRow;
-    }
-
-    public static PhoenixSinkConfig parse(Config config, SeaTunnelRowType seaTunnelRowType) {
+    public static PhoenixSinkConfig parse(Config config) {
         PhoenixSinkConfig phoenixWriteConfig = new PhoenixSinkConfig();
-        phoenixWriteConfig.seaTunnelRowType = seaTunnelRowType;
 
         if (config.hasPath(NULL_MODE)) {
             phoenixWriteConfig.nullMode = NullModeType.getByTypeName(config.getString(NULL_MODE));
@@ -173,10 +108,13 @@ public class PhoenixSinkConfig {
         if (config.hasPath(MAX_RETRY_BACKOFF_MS)) {
             phoenixWriteConfig.maxRetryBackoffMs = config.getInt(MAX_RETRY_BACKOFF_MS);
         }
+        if (config.hasPath(COLUMN) && !CollectionUtils.isEmpty(config.getStringList(COLUMN))) {
+            phoenixWriteConfig.columns = config.getStringList(COLUMN);
+        }
+        phoenixWriteConfig.tableName = config.getString(TABLE);
 
         parseClusterConfig(phoenixWriteConfig, config);
 
-        parseTableConfig(phoenixWriteConfig, config);
         return phoenixWriteConfig;
     }
 
@@ -198,29 +136,18 @@ public class PhoenixSinkConfig {
 
     }
 
-    private static void parseTableConfig(PhoenixSinkConfig phoenixWriteConfig, Config config) {
-        phoenixWriteConfig.tableName = config.getString(TABLE);
-        try {
-            TableName tn = TableName.valueOf(phoenixWriteConfig.tableName);
-        } catch (Exception e) {
-            throw new RuntimeException("config tableName: " + phoenixWriteConfig.tableName + " Contains illegal characters");
-        }
-        SeaTunnelRowType seaTunnelRowTypeInfo = phoenixWriteConfig.getSeaTunnelRowType();
-
-        if (config.hasPath(COLUMN) && !CollectionUtils.isEmpty(config.getStringList(COLUMN))) {
-            phoenixWriteConfig.columns = config.getStringList(COLUMN);
-        }
+    public void initSinkTableConfig(PhoenixSinkConfig sinkConfig, SeaTunnelRowType rowTypeInfo) {
         // if the config sink_columns is empty, all fields in SeaTunnelRowTypeInfo will being write
-        if (CollectionUtils.isEmpty(phoenixWriteConfig.columns)) {
-            phoenixWriteConfig.columns = Arrays.asList(seaTunnelRowTypeInfo.getFieldNames());
+        if (CollectionUtils.isEmpty(sinkConfig.columns)) {
+            sinkConfig.columns = Arrays.asList(rowTypeInfo.getFieldNames());
         }
-        Map<String, Integer> columnsMap = new HashMap<>(seaTunnelRowTypeInfo.getFieldNames().length);
-        String[] fieldNames = seaTunnelRowTypeInfo.getFieldNames();
+        Map<String, Integer> columnsMap = new HashMap<>(rowTypeInfo.getFieldNames().length);
+        String[] fieldNames = rowTypeInfo.getFieldNames();
         for (int i = 0; i < fieldNames.length; i++) {
             columnsMap.put(fieldNames[i], i);
         }
         // init sink column index and partition field index, we will use the column index to found the data in SeaTunnelRow
-        phoenixWriteConfig.sinkColumnsIndexInRow = phoenixWriteConfig.columns.stream()
+        sinkConfig.sinkColumnsIndexInRow = sinkConfig.columns.stream()
                 .map(columnName -> columnsMap.get(columnName))
                 .collect(Collectors.toList());
     }

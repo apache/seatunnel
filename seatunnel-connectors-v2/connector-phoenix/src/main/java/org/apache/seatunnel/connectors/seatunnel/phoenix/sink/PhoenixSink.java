@@ -21,6 +21,7 @@ import static org.apache.seatunnel.connectors.seatunnel.phoenix.config.PhoenixSi
 import static org.apache.seatunnel.connectors.seatunnel.phoenix.config.PhoenixSinkConfig.TABLE;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -34,8 +35,11 @@ import org.apache.seatunnel.connectors.seatunnel.phoenix.config.PhoenixSinkConfi
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import com.google.auto.service.AutoService;
+
 import java.io.IOException;
 
+@AutoService(SeaTunnelSink.class)
 public class PhoenixSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private PhoenixSinkConfig phoenixWriteConfig;
 
@@ -55,7 +59,7 @@ public class PhoenixSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
         if (!result.isSuccess()) {
             throw new PrepareFailException(getPluginName(), PluginType.SINK, result.getMsg());
         }
-        this.phoenixWriteConfig = PhoenixSinkConfig.parse(config, seaTunnelRowType);
+        this.phoenixWriteConfig = PhoenixSinkConfig.parse(config);
     }
 
     @Override
@@ -70,6 +74,6 @@ public class PhoenixSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) throws IOException {
-        return new PhoenixSinkWriter(phoenixWriteConfig);
+        return new PhoenixSinkWriter(phoenixWriteConfig, seaTunnelRowType);
     }
 }

@@ -69,6 +69,11 @@ public class PhoenixStatementExecutor {
                 st.addBatch();
             }
             st.executeBatch();
+            // cache commit to phoenix
+            st.getConnection().commit();
+            st.clearParameters();
+            st.clearBatch();
+
             batch.clear();
         }
     }

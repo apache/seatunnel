@@ -4,15 +4,11 @@
 
 ## Description
 Write data to Phoenix. Support Batch mode and Streaming mode.
-The tested Phoenix version is 4.14.0-cdh5.13.1.
+The tested Phoenix version is 4.xx and 5.xx
 On the underlying implementation, through the jdbc driver of Phoenix, execute the upsert statement to write data to HBase.
-> Warn: for solve Jar package conflict , you have to provide Phoenix JDBC driver yourself.
+Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper through JDBC, and the other is to connect to queryserver through JDBC thin client.
 
->  e.g. if you use Phoenix (Thick) Driver, copy phoenix-core-xxx-HBase-xxx.jar to $SEATNUNNEL_HOME/lib for Standalone.
-
->  e.g. if you use Phoenix (Thin) Driver, copy phoenix-xxx-HBase-xxx-thin-client.jar to $SEATNUNNEL_HOME/lib for Standalone.
-
-
+> Tips: By default, the (thin) driver jar is used. If you want to use the (thick) driver  or other versions of Phoenix (thin) driver, you need to recompile the Phoenix sink connector module
 
 ## Options
 
@@ -31,11 +27,9 @@ On the underlying implementation, through the jdbc driver of Phoenix, execute th
 | max_retry_backoff_ms         | Int | No | 3000 |
 
 ### connect_url [string]
-Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper through JDBC, and the other is to connect to queryserver through JDBC thin client.
 > USE Phoenix (Thick) Driver JDBC URL Refer to a Case: `jdbc:phoenix:localhost:2182/hbase`
 
 > USE Phoenix (Thin) Driver JDBC URL Refer to a Case: `jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF`
-
 
 ### user [string]
 userName
@@ -45,6 +39,8 @@ password
 
 ### sink_table [string]
 The name of the table to be imported is case sensitive. Usually, the name of the phoenix table is **uppercase**
+
+**Tips: if the phoenix table to be written has `schema`, this option need configured as `schemaName.tableName`**
 
 ### sink_column [array]
 Column name, case sensitive, usually phoenix column name is **uppercase**.

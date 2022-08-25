@@ -30,11 +30,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.phoenix</groupId>
-            <artifactId>phoenix-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
@@ -43,6 +38,10 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun.phoenix</groupId>
+            <artifactId>ali-phoenix-shaded-thin-client</artifactId>
         </dependency>
     </dependencies>
 </project>

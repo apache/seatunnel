@@ -64,6 +64,7 @@ public class PhoenixOutputFormat {
         throws IOException {
         try {
             connectionProvider.getOrEstablishConnection();
+            phoenixWriteExecutor.prepareStatements(connectionProvider.getConnection());
         }
         catch (Exception e) {
             throw new IOException("unable to open JDBC writer", e);

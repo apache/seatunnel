@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.phoenix.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.phoenix.client.PhoenixJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.phoenix.client.PhoenixOutputFormat;
@@ -32,8 +33,10 @@ public class PhoenixSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final PhoenixOutputFormat outputFormat;
     private transient boolean isOpen;
 
-    PhoenixSinkWriter(PhoenixSinkConfig config) {
+    PhoenixSinkWriter(PhoenixSinkConfig config, SeaTunnelRowType seaTunnelRowType) {
         PhoenixJdbcConnectionProvider connectionProvider = new PhoenixJdbcConnectionProvider(config);
+
+        config.initSinkTableConfig(config, seaTunnelRowType);
 
         this.outputFormat = new PhoenixOutputFormat(
                 connectionProvider,
