@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.core.base.command;
 
-
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.Collections;
