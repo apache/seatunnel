@@ -55,7 +55,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Override
     public void write(InternalRow record) throws IOException {
-        sinkWriter.write(rowConverter.convert(record));
+        sinkWriter.write(rowConverter.reconvert(record));
     }
 
     @Override
