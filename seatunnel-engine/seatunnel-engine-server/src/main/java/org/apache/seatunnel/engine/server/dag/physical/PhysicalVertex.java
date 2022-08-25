@@ -171,9 +171,9 @@ public class PhysicalVertex {
                     // notice the TaskExecutionService to cancel this task.
                     noticeTaskExecutionServiceCancel();
                     if (ExecutionState.CANCELING.equals(this.getExecutionState().get())) {
-                        turnToEndState(ExecutionState.CREATED);
+                        turnToEndState(ExecutionState.CANCELED);
                         taskFuture.complete(
-                            new TaskExecutionState(this.physicalVertexId, ExecutionState.CREATED, null));
+                            new TaskExecutionState(this.physicalVertexId, ExecutionState.CANCELED, null));
                     } else {
                         turnToEndState(ExecutionState.FAILED);
                         taskFuture.complete(new TaskExecutionState(this.physicalVertexId, ExecutionState.FAILED,
