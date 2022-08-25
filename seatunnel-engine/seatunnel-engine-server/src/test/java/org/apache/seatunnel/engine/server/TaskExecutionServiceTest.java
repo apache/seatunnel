@@ -20,11 +20,11 @@ package org.apache.seatunnel.engine.server;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
+import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
-import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -43,7 +43,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
@@ -59,7 +59,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testAll() throws InterruptedException, ExecutionException {
+    public void testAll() throws InterruptedException {
         logger.info("----------start Cancel test----------");
         testCancel();
 
@@ -78,7 +78,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     }
 
-    public void testCancel() throws ExecutionException, InterruptedException {
+    public void testCancel() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
@@ -92,10 +92,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         taskExecutionService.cancelTaskGroup(taskGroupId);
 
-        assertEquals(CANCELED, completableFuture.get().getExecutionState());
+        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
     }
 
-    public void testFinish() throws ExecutionException, InterruptedException {
+    public void testFinish() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
@@ -105,18 +106,20 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TestTask testTask1 = new TestTask(stop, logger, sleepTime, true);
         TestTask testTask2 = new TestTask(stop, logger, sleepTime, false);
 
-        CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
-        completableFuture = completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
+        final CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "ts", Lists.newArrayList(testTask1, testTask2)), new CompletableFuture<>());
+        completableFuture.whenComplete((unused, throwable) -> futureMark.set(true));
         stop.set(true);
 
-        assertEquals(FINISHED, completableFuture.get().getExecutionState());
+        await().atMost(sleepTime + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+            assertEquals(FINISHED, completableFuture.get().getExecutionState());
+        });
         assertTrue(futureMark.get());
     }
 
     /**
      * Test task execution time is the same as the timer timeout
      */
-    public void testCriticalCallTime() throws InterruptedException, ExecutionException {
+    public void testCriticalCallTime() throws InterruptedException {
         AtomicBoolean stopMark = new AtomicBoolean(false);
         CopyOnWriteArrayList<Long> stopTime = new CopyOnWriteArrayList<>();
 
@@ -132,33 +135,43 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
 
+        // Run it for a while
+        Thread.sleep(taskRunTime);
+
         //stop task
         stopMark.set(true);
 
         // Check all task ends right
-        assertEquals(FINISHED, taskCts.get().getExecutionState());
+        await().atMost(count * callTime, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(FINISHED, taskCts.get().getExecutionState()));
 
         //Check that each Task is only Done once
         assertEquals(count, stopTime.size());
 
     }
 
-    public void testThrowException() throws InterruptedException, ExecutionException {
+    public void testThrowException() throws InterruptedException {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         AtomicBoolean stopMark = new AtomicBoolean(false);
 
+        long t1Sleep = 100;
+        long t2Sleep = 50;
+
+        long lowLagSleep = 50;
+        long highLagSleep = 300;
+
         List<Throwable> t1throwable = new ArrayList<>();
-        ExceptionTestTask t1 = new ExceptionTestTask(100, "t1", t1throwable);
+        ExceptionTestTask t1 = new ExceptionTestTask(t1Sleep, "t1", t1throwable);
 
         List<Throwable> t2throwable = new ArrayList<>();
-        ExceptionTestTask t2 = new ExceptionTestTask(50, "t2", t2throwable);
+        ExceptionTestTask t2 = new ExceptionTestTask(t2Sleep, "t2", t2throwable);
 
         //Create low lat tasks
-        List<Task> lowLagTask = buildFixedTestTask(50, 10, stopMark, new CopyOnWriteArrayList<>());
+        List<Task> lowLagTask = buildFixedTestTask(lowLagSleep, 10, stopMark, new CopyOnWriteArrayList<>());
 
         //Create high lat tasks
-        List<Task> highLagTask = buildFixedTestTask(300, 5, stopMark, new CopyOnWriteArrayList<>());
+        List<Task> highLagTask = buildFixedTestTask(highLagSleep, 5, stopMark, new CopyOnWriteArrayList<>());
 
         List<Task> tasks = new ArrayList<>();
         tasks.addAll(highLagTask);
@@ -171,19 +184,23 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         CompletableFuture<TaskExecutionState> t2c = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t2", Lists.newArrayList(t2)), new CompletableFuture<>());
 
+        Thread.sleep(taskRunTime);
+
         t1throwable.add(new IOException());
         t2throwable.add(new IOException());
 
-        CompletableFuture.allOf(t1c, t2c).join();
-
-        assertEquals(FAILED, t1c.get().getExecutionState());
-        assertEquals(FAILED, t2c.get().getExecutionState());
+        await().atMost(t1Sleep + t2Sleep + 1000, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+            assertEquals(FAILED, t1c.get().getExecutionState());
+            assertEquals(FAILED, t2c.get().getExecutionState());
+        });
 
         stopMark.set(true);
-        assertEquals(FINISHED, taskCts.get().getExecutionState());
+
+        await().atMost(lowLagSleep * 10 + highLagSleep + 1000, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(FINISHED, taskCts.get().getExecutionState()));
     }
 
-    public void testDelay() throws InterruptedException, ExecutionException {
+    public void testDelay() throws InterruptedException {
 
         long lowLagSleep = 10;
         long highLagSleep = 300;
@@ -217,8 +234,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         stopMark.set(true);
 
         //Check all task ends right
-        ExecutionState executionState = completableFuture.get().getExecutionState();
-        assertEquals(FINISHED, executionState);
+        await().atMost(lowLagSleep * 10 + highLagSleep * 5, TimeUnit.MILLISECONDS)
+            .untilAsserted(() -> assertEquals(FINISHED, completableFuture.get().getExecutionState()));
 
         //Computation Delay
         double lowAvg = lowLagList.stream().mapToLong(x -> x).average().getAsDouble();
