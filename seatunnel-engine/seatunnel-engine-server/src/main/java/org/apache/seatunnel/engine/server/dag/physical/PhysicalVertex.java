@@ -30,7 +30,6 @@ import org.apache.seatunnel.engine.server.operation.DeployTaskOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
-import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -150,7 +149,7 @@ public class PhysicalVertex {
             failedByException(taskGroupImmutableInformation, th);
             return;
         }
-        monitorTask(completeFuture);
+        monitorTask(taskGroupImmutableInformation.getExecutionId(), completeFuture);
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")
@@ -170,7 +169,7 @@ public class PhysicalVertex {
             failedByException(taskGroupImmutableInformation, th);
             return;
         }
-        monitorTask(completeFuture);
+        monitorTask(taskGroupImmutableInformation.getExecutionId(), completeFuture);
     }
 
     private void failedByException(TaskGroupImmutableInformation taskGroupImmutableInformation, Throwable th) {
@@ -192,14 +191,14 @@ public class PhysicalVertex {
      * @param completeFuture This future only can completion by the task run in
      *                       {@link com.hazelcast.spi.impl.executionservice.ExecutionService }
      */
-    private void monitorTask(PassiveCompletableFuture<TaskExecutionState> completeFuture) {
+    private void monitorTask(long executionId, PassiveCompletableFuture<TaskExecutionState> completeFuture) {
         completeFuture.whenComplete((v, t) -> {
             try {
                 if (t != null) {
                     LOGGER.severe("An unexpected error occurred while the task was running", t);
                     taskFuture.complete(
-                        new TaskExecutionState(taskGroupImmutableInformation.getExecutionId(), ExecutionState.FAILED,
-                            t));
+                            new TaskExecutionState(executionId, ExecutionState.FAILED,
+                                    t));
                 } else {
                     updateTaskState(executionState.get(), v.getExecutionState());
                     if (v.getThrowable() != null) {
