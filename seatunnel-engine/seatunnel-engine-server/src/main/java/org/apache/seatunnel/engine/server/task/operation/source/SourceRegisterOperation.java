@@ -36,8 +36,8 @@ import java.io.IOException;
  * the {@link org.apache.seatunnel.api.source.SourceSplitEnumerator}
  */
 public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
-
     private static final int RETRY_TIME = 5;
+
     private static final int RETRY_TIME_OUT = 2000;
 
     private TaskLocation readerTaskID;
@@ -56,7 +56,9 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
         RetryUtils.retryWithException(() -> {
-            SourceSplitEnumeratorTask<?> task = server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).getTaskGroup().getTask(enumeratorTaskID.getTaskID());
+            SourceSplitEnumeratorTask<?> task =
+                server.getTaskExecutionService().getExecutionContext(enumeratorTaskID.getTaskGroupID()).getTaskGroup()
+                    .getTask(enumeratorTaskID.getTaskID());
             task.receivedReader(readerTaskID, readerAddress);
             return null;
         }, new RetryUtils.RetryMaterial(RETRY_TIME, true,

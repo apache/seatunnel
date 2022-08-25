@@ -22,6 +22,7 @@ import lombok.NonNull;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public abstract class AbstractAction implements Action {
     private String name;
@@ -31,16 +32,16 @@ public abstract class AbstractAction implements Action {
 
     private int parallelism = 1;
 
-    private List<URL> jarUrls;
+    private Set<URL> jarUrls;
 
-    protected AbstractAction(long id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull List<URL> jarUrls) {
+    protected AbstractAction(long id, @NonNull String name, @NonNull List<Action> upstreams, @NonNull Set<URL> jarUrls) {
         this.id = id;
         this.name = name;
         this.upstreams = upstreams;
         this.jarUrls = jarUrls;
     }
 
-    protected AbstractAction(long id, @NonNull String name, @NonNull List<URL> jarUrls) {
+    protected AbstractAction(long id, @NonNull String name, @NonNull Set<URL> jarUrls) {
         this.id = id;
         this.name = name;
         this.jarUrls = jarUrls;
@@ -84,7 +85,7 @@ public abstract class AbstractAction implements Action {
     }
 
     @Override
-    public List<URL> getJarUrls() {
+    public Set<URL> getJarUrls() {
         return jarUrls;
     }
 }

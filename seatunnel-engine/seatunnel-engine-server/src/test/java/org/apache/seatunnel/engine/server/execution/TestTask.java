@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+
 import com.hazelcast.logging.ILogger;
 import lombok.NonNull;
 
@@ -48,8 +50,7 @@ public class TestTask implements Task {
             try {
                 Thread.sleep(sleep);
             } catch (InterruptedException e) {
-                // The test needs to do that
-                logger.info(e.getMessage());
+                logger.severe(ExceptionUtils.getMessage(e));
             }
             progressState = ProgressState.MADE_PROGRESS;
         } else {
