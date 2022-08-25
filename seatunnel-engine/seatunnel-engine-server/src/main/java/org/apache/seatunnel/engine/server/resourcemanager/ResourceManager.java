@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import com.hazelcast.cluster.Address;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public interface ResourceManager {
@@ -36,9 +37,11 @@ public interface ResourceManager {
         return null;
     }
 
-    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile);
+    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException;
 
-    CompletableFuture<Void>[] releaseResources(long jobId, SlotProfile[] profiles);
+    CompletableFuture<List<SlotProfile>> applyResources(long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException;
+
+    CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles);
 
     CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile);
 

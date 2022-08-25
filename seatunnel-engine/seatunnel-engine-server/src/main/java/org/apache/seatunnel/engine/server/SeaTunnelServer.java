@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.SimpleResourceManager;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 
@@ -57,6 +59,7 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     private SlotService slotService;
 
     private final ExecutorService executorService;
+    private ResourceManager resourceManager;
 
     private final SeaTunnelConfig seaTunnelConfig;
 
@@ -79,7 +82,10 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
         // TODO Determine whether to create a SlotService on the master node according to the deploy type
-        this.slotService = new DefaultSlotService(nodeEngine);
+        this.slotService = new DefaultSlotService(nodeEngine, false, 2);
+        if (nodeEngine.getClusterService().isMaster()) {
+            resourceManager = new SimpleResourceManager();
+        }
     }
 
     @Override
@@ -119,12 +125,16 @@ public class SeaTunnelServer implements ManagedService, MembershipAwareService, 
         return liveOperationRegistry;
     }
 
+    public ResourceManager getResourceManager() {
+        return resourceManager;
+    }
+
     /**
      * call by client to submit job
      */
     public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
-        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService);
+        JobMaster jobMaster = new JobMaster(jobImmutableInformation, this.nodeEngine, executorService, resourceManager);
         executorService.submit(() -> {
             try {
                 jobMaster.init();

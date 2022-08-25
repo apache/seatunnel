@@ -20,15 +20,24 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes.KubernetesResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn.YarnResourceManager;
 
+import com.hazelcast.spi.impl.NodeEngine;
+
 public class ResourceManagerFactory {
+
+
+    private final NodeEngine nodeEngine;
+
+    public ResourceManagerFactory(NodeEngine nodeEngine) {
+        this.nodeEngine = nodeEngine;
+    }
 
     public ResourceManager getResourceManager(DeployType type) {
         if (DeployType.STANDALONE.equals(type)) {
-            return new StandaloneResourceManager();
+            return new StandaloneResourceManager(nodeEngine);
         } else if (DeployType.KUBERNETES.equals(type)) {
-            return new KubernetesResourceManager();
+            return new KubernetesResourceManager(nodeEngine);
         } else if (DeployType.YARN.equals(type)) {
-            return new YarnResourceManager();
+            return new YarnResourceManager(nodeEngine);
         } else {
             throw new UnsupportedDeployTypeException(type);
         }

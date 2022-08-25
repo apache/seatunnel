@@ -19,11 +19,18 @@ package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class ResourceProfile {
+import java.io.Serializable;
+
+public class ResourceProfile implements Serializable {
 
     private final CPU cpu;
 
     private final Memory heapMemory;
+
+    public ResourceProfile() {
+        this.cpu = CPU.of(0);
+        this.heapMemory = Memory.of(0);
+    }
 
     public ResourceProfile(CPU cpu, Memory heapMemory) {
         checkArgument(cpu.getCore() >= 0, "The cpu core cannot be negative");
@@ -50,5 +57,18 @@ public class ResourceProfile {
         CPU c = CPU.of(this.cpu.getCore() - other.getCpu().getCore());
         Memory m = Memory.of(this.heapMemory.getBytes() - other.heapMemory.getBytes());
         return new ResourceProfile(c, m);
+    }
+
+    public boolean enoughThan(ResourceProfile other) {
+        return this.cpu.getCore() >= other.getCpu().getCore()
+                && this.heapMemory.getBytes() >= other.getHeapMemory().getBytes();
+    }
+
+    @Override
+    public String toString() {
+        return "ResourceProfile{" +
+                "cpu=" + cpu +
+                ", heapMemory=" + heapMemory +
+                '}';
     }
 }

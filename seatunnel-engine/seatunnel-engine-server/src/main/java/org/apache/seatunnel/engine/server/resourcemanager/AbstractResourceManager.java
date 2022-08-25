@@ -17,46 +17,186 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatListener;
 import org.apache.seatunnel.engine.server.resourcemanager.heartbeat.HeartbeatManager;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.service.slot.SlotAndWorkerProfile;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
+import com.hazelcast.spi.impl.operationservice.Operation;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractResourceManager implements ResourceManager {
 
-    private final Map<String, WorkerProfile> registerWorker;
+    private static final ILogger LOGGER = Logger.getLogger(AbstractResourceManager.class);
 
-    private final WorkerHeartbeatListener listener;
+    protected final Map<String, WorkerProfile> registerWorker;
 
     private final HeartbeatManager heartbeatManager;
+    private final NodeEngine nodeEngine;
 
-    public AbstractResourceManager() {
+    public AbstractResourceManager(NodeEngine nodeEngine) {
         this.registerWorker = new ConcurrentHashMap<>();
-        this.listener = new WorkerHeartbeatListener();
-        // TODO just use hazelcast member config server?
-        this.heartbeatManager = new HeartbeatManager(listener);
+        this.nodeEngine = nodeEngine;
+        this.heartbeatManager = new HeartbeatManager(new WorkerHeartbeatListener());
         heartbeatManager.start(Executors.newSingleThreadScheduledExecutor());
     }
 
     @Override
-    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) {
-        return null;
+    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException {
+        CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
+        applyResources(jobId, Collections.singletonList(resourceProfile)).whenComplete((profile, error) -> {
+            if (error != null) {
+                completableFuture.completeExceptionally(error);
+            } else {
+                completableFuture.complete(profile.get(0));
+            }
+        });
+        return completableFuture;
     }
 
     @Override
-    public CompletableFuture<Void>[] releaseResources(long jobId, SlotProfile[] profiles) {
-        return new CompletableFuture[0];
+    public CompletableFuture<List<SlotProfile>> applyResources(long jobId,
+                                                               List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
+        // TODO Apply for the profile with the largest resources first, and then decrease in order. In this
+        //  way, the success rate of resource application will be higher.
+        CompletableFuture<List<SlotProfile>> completableFuture = new CompletableFuture<>();
+        AtomicInteger successCount = new AtomicInteger();
+        List<SlotProfile> slotProfiles = new CopyOnWriteArrayList<>();
+        try {
+            resourceProfile.forEach(r -> {
+                Optional<WorkerProfile> workerProfile =
+                        registerWorker.values().stream().filter(worker -> worker.getUnassignedResource().enoughThan(r)).findAny();
+
+                if (!workerProfile.isPresent()) {
+                    workerProfile =
+                            registerWorker.values().stream().filter(worker -> Arrays.stream(worker.getUnassignedSlots()).anyMatch(slot -> slot.getResourceProfile().enoughThan(r))).findAny();
+                }
+
+                if (workerProfile.isPresent()) {
+                    sendToMember(new RequestSlotOperation(jobId, r), workerProfile.get().getAddress()).whenComplete(
+                            (profile, error) -> {
+                                if (error != null) {
+                                    completableFuture.completeExceptionally(error);
+                                } else {
+                                    SlotAndWorkerProfile slotAndWorkerProfile =
+                                            (SlotAndWorkerProfile) profile;
+                                    workerRegister(slotAndWorkerProfile.getWorkerProfile());
+                                    if (null != slotAndWorkerProfile.getSlotProfile()) {
+                                        slotProfiles.add(slotAndWorkerProfile.getSlotProfile());
+                                        if (successCount.incrementAndGet() == resourceProfile.size()) {
+                                            completableFuture.complete(slotProfiles);
+                                        }
+                                    } else {
+                                        slotProfiles.add(null);
+                                    }
+                                }
+                            }
+                    );
+                } else {
+                    throw new NoEnoughResourceException("can't apply resource request: " + r);
+                }
+            });
+            if (slotProfiles.contains(null) && supportDynamicWorker()) {
+                List<ResourceProfile> needApplyResource = new ArrayList<>();
+                List<Integer> needApplyIndex = new ArrayList<>();
+                for (int i = 0; i < slotProfiles.size(); i++) {
+                    if (slotProfiles.get(i) == null) {
+                        needApplyResource.add(resourceProfile.get(i));
+                        needApplyIndex.add(i);
+                    }
+                }
+                findNewWorker(needApplyResource);
+                applyResources(jobId, needApplyResource).whenComplete((s, e) -> {
+                    if (e != null) {
+                        completableFuture.completeExceptionally(e);
+                        return;
+                    }
+                    for (int i = 0; i < s.size(); i++) {
+                        slotProfiles.set(needApplyIndex.get(i), s.get(i));
+                        if (successCount.incrementAndGet() == resourceProfile.size()) {
+                            completableFuture.complete(slotProfiles);
+                        }
+                    }
+
+                });
+            } else {
+                throw new NoEnoughResourceException("can't apply resource request: " + resourceProfile.get(slotProfiles.indexOf(null)));
+            }
+        } catch (Exception e) {
+            LOGGER.warning("apply resource not success, release all already applied resource");
+            slotProfiles.stream().filter(Objects::nonNull).forEach(profile -> {
+                releaseResource(jobId, profile);
+            });
+            throw e;
+        }
+
+        return completableFuture;
+    }
+
+    protected boolean supportDynamicWorker() {
+        return false;
+    }
+
+    /**
+     * find new worker in third party resource manager, it returned after worker register successes.
+     *
+     * @param resourceProfiles the worker should have resource profile list
+     */
+    protected void findNewWorker(List<ResourceProfile> resourceProfiles) {
+        throw new UnsupportedOperationException("Unsupported operation to find new worker in " + this.getClass().getName());
+    }
+
+    private <E> InvocationFuture<E> sendToMember(Operation operation, Address address) {
+        InvocationBuilder invocationBuilder =
+                nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME,
+                        operation, address);
+        return invocationBuilder.invoke();
+    }
+
+    @Override
+    public CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles) {
+        CompletableFuture<Void> completableFuture = new CompletableFuture<>();
+        AtomicInteger releaseCount = new AtomicInteger();
+        for (SlotProfile profile : profiles) {
+            releaseResource(jobId, profile).whenComplete((r, e) -> {
+                if (e != null) {
+                    completableFuture.completeExceptionally(e);
+                } else {
+                    if (releaseCount.incrementAndGet() == profiles.size()) {
+                        completableFuture.complete(null);
+                    }
+                }
+            });
+        }
+        return completableFuture;
     }
 
     @Override
     public CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile) {
-        return null;
+        return sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
     }
 
     @Override

@@ -22,9 +22,16 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfi
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.ThirdPartyResourceManager;
 
+import com.hazelcast.spi.impl.NodeEngine;
+
 import java.util.concurrent.CompletableFuture;
 
 public class KubernetesResourceManager extends AbstractResourceManager implements ThirdPartyResourceManager {
+
+    public KubernetesResourceManager(NodeEngine nodeEngine) {
+        super(nodeEngine);
+    }
+
     @Override
     public CompletableFuture<CreateWorkerResult> createNewWorker(ResourceProfile resourceProfile) {
         return null;

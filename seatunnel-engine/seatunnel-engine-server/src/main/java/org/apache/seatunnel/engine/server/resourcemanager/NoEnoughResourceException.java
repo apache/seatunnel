@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.service.slot;
+package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+public class NoEnoughResourceException extends RuntimeException {
 
-public interface SlotService {
+    public NoEnoughResourceException() {
+    }
 
-    void init();
-
-    SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile);
-
-    SlotContext getSlotContext(int slotID);
-
-    void releaseSlot(long jobId, SlotProfile slotProfile);
-
-    void close();
-
+    public NoEnoughResourceException(String message) {
+        super(message);
+    }
 }

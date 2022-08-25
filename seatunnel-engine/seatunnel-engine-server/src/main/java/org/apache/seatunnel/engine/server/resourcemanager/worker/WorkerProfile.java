@@ -22,7 +22,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.cluster.Address;
 
-public class WorkerProfile {
+import java.io.Serializable;
+
+public class WorkerProfile implements Serializable {
 
     private final String workerID;
 
@@ -30,11 +32,16 @@ public class WorkerProfile {
 
     private ResourceProfile profile;
 
-    private SlotProfile[] slotProfiles;
+    private ResourceProfile unassignedResource;
+
+    private SlotProfile[] assignedSlots;
+
+    private SlotProfile[] unassignedSlots;
 
     public WorkerProfile(String workerID, Address address) {
         this.workerID = workerID;
         this.address = address;
+        this.unassignedResource = new ResourceProfile();
     }
 
     public String getWorkerID() {
@@ -53,11 +60,27 @@ public class WorkerProfile {
         this.profile = profile;
     }
 
-    public SlotProfile[] getSlotProfiles() {
-        return slotProfiles;
+    public SlotProfile[] getAssignedSlots() {
+        return assignedSlots;
     }
 
-    public void setSlotProfiles(SlotProfile[] slotProfiles) {
-        this.slotProfiles = slotProfiles;
+    public void setAssignedSlots(SlotProfile[] assignedSlots) {
+        this.assignedSlots = assignedSlots;
+    }
+
+    public SlotProfile[] getUnassignedSlots() {
+        return unassignedSlots;
+    }
+
+    public void setUnassignedSlots(SlotProfile[] unassignedSlots) {
+        this.unassignedSlots = unassignedSlots;
+    }
+
+    public ResourceProfile getUnassignedResource() {
+        return unassignedResource;
+    }
+
+    public void setUnassignedResource(ResourceProfile unassignedResource) {
+        this.unassignedResource = unassignedResource;
     }
 }

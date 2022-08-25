@@ -28,6 +28,7 @@ import lombok.NonNull;
 
 import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -69,13 +70,18 @@ public class SimpleResourceManager implements ResourceManager {
     }
 
     @Override
-    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) {
+    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile) throws NoEnoughResourceException {
         return null;
     }
 
     @Override
-    public CompletableFuture<Void>[] releaseResources(long jobId, SlotProfile[] profiles) {
-        return new CompletableFuture[0];
+    public CompletableFuture<List<SlotProfile>> applyResources(long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles) {
+        return null;
     }
 
     @Override

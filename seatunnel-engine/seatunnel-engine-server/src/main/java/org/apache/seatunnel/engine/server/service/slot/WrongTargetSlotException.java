@@ -17,19 +17,12 @@
 
 package org.apache.seatunnel.engine.server.service.slot;
 
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+public class WrongTargetSlotException extends RuntimeException {
 
-public interface SlotService {
+    public WrongTargetSlotException() {
+    }
 
-    void init();
-
-    SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile);
-
-    SlotContext getSlotContext(int slotID);
-
-    void releaseSlot(long jobId, SlotProfile slotProfile);
-
-    void close();
-
+    public WrongTargetSlotException(String message) {
+        super(message);
+    }
 }

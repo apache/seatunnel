@@ -17,19 +17,30 @@
 
 package org.apache.seatunnel.engine.server.service.slot;
 
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
-public interface SlotService {
+import java.io.Serializable;
 
-    void init();
+public class SlotAndWorkerProfile implements Serializable {
 
-    SlotAndWorkerProfile requestSlot(long jobID, ResourceProfile resourceProfile);
+    private final WorkerProfile workerProfile;
 
-    SlotContext getSlotContext(int slotID);
+    private final SlotProfile slotProfile;
 
-    void releaseSlot(long jobId, SlotProfile slotProfile);
+    public SlotAndWorkerProfile(WorkerProfile workerProfile, SlotProfile slotProfile) {
+        this.workerProfile = workerProfile;
+        this.slotProfile = slotProfile;
+    }
 
-    void close();
+    public WorkerProfile getWorkerProfile() {
+        return workerProfile;
+    }
 
+    /**
+     * Get slot profile of worker return. Could be null if no slot can be provided.
+     */
+    public SlotProfile getSlotProfile() {
+        return slotProfile;
+    }
 }

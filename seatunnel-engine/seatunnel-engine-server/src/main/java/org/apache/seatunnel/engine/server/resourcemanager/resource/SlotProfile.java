@@ -19,7 +19,9 @@ package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
 import com.hazelcast.cluster.Address;
 
-public class SlotProfile {
+import java.io.Serializable;
+
+public class SlotProfile implements Serializable {
 
     private final Address worker;
 
@@ -55,7 +57,6 @@ public class SlotProfile {
 
     public void assign(long jobID) {
         if (assigned) {
-            // TODO custom exception
             throw new UnsupportedOperationException();
         } else {
             ownerJobID = jobID;
@@ -65,5 +66,16 @@ public class SlotProfile {
 
     public void unassigned() {
         assigned = false;
+    }
+
+    @Override
+    public String toString() {
+        return "SlotProfile{" +
+                "worker=" + worker +
+                ", slotID=" + slotID +
+                ", ownerJobID=" + ownerJobID +
+                ", assigned=" + assigned +
+                ", resourceProfile=" + resourceProfile +
+                '}';
     }
 }
