@@ -17,26 +17,28 @@
 
 package org.apache.seatunnel.core.spark.utils;
 
+import org.apache.seatunnel.core.base.utils.CommandLineUtils;
 import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
 
-import com.beust.jcommander.ParameterException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 public class CommandLineUtilsTest {
 
     @Test
     public void testParseSparkArgs() {
         String[] args = {"-c", "app.conf", "-e", "cluster", "-m", "local[*]"};
-        SparkCommandArgs commandLineArgs = CommandLineUtils.parseSparkArgs(args);
+        SparkCommandArgs commandLineArgs = CommandLineUtils.parse(args, new SparkCommandArgs());
 
         Assertions.assertEquals("app.conf", commandLineArgs.getConfigFile());
         Assertions.assertEquals("cluster", commandLineArgs.getDeployMode().getName());
+
+        args = new String[]{"-c", "app.conf", "-e", "cluster", "-m", "local[*]", "--queue", "test"};
+        commandLineArgs = CommandLineUtils.parse(args, new SparkCommandArgs(), "seatunnel-spark", true);
+
+        Assertions.assertEquals(Arrays.asList("--queue", "test"), commandLineArgs.getOriginalParameters());
     }
 
-    @Test
-    public void testParseSparkArgsException() {
-        String[] args = {"-c", "app.conf", "-e", "cluster2xxx", "-m", "local[*]"};
-        Assertions.assertThrows(ParameterException.class, () -> CommandLineUtils.parseSparkArgs(args));
-    }
 }

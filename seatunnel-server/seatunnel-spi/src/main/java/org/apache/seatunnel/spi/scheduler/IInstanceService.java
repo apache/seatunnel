@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.spi.scheduler;
 
+import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceDto;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceListDto;
 
-import java.util.List;
-
 public interface IInstanceService {
-    List<InstanceDto> list(InstanceListDto dto);
+    PageData<InstanceDto> list(InstanceListDto dto);
 }

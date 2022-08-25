@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.app.domain.response.user;
 
+import io.swagger.annotations.ApiModel;
 import lombok.Data;
 
 @Data
+@ApiModel(value = "addUserRes", description = "add user response")
 public class AddUserRes {
     private int id;
 }

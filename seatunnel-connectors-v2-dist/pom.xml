@@ -103,12 +103,12 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-file-ftp</artifactId>
+            <artifactId>connector-file-oss</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-datahub</artifactId>
+            <artifactId>connector-file-ftp</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

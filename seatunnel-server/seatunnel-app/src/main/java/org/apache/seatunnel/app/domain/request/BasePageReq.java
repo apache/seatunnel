@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink.constant;
+package org.apache.seatunnel.app.domain.request;
 
-public class FlinkConstant {
-    public static final int USAGE_EXIT_CODE = 234;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.Data;
+
+@Data
+public class BasePageReq {
+    @ApiModelProperty(value = "page number", required = true, dataType = "Integer")
+    private Integer pageNo;
+    @ApiModelProperty(value = "page size", required = true, dataType = "Integer")
+    private Integer pageSize;
+
+    public int getRealPageNo() {
+        return pageNo - 1;
+    }
 }

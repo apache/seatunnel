@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.utils;
+package org.apache.seatunnel.core.base.command;
 
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
+import com.beust.jcommander.converters.IParameterSplitter;
 
-import com.beust.jcommander.JCommander;
+import java.util.Collections;
+import java.util.List;
 
-public class CommandLineUtils {
+/**
+ * An implementation class that does nothing on the value of variable.
+ */
+public class NoopParameterSplitter implements IParameterSplitter {
 
-    private CommandLineUtils() {
-        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
-    }
-
-    public static SparkCommandArgs parseSparkArgs(String[] args) {
-        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(sparkCommandArgs)
-            .build()
-            .parse(args);
-        return sparkCommandArgs;
+    @Override
+    public List<String> split(String value) {
+        return Collections.singletonList(value);
     }
 }

@@ -33,6 +33,7 @@
         <module>connector-file-base</module>
         <module>connector-file-hadoop</module>
         <module>connector-file-local</module>
+        <module>connector-file-oss</module>
         <module>connector-file-ftp</module>
     </modules>
 </project>

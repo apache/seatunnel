@@ -37,13 +37,11 @@ A list value rule define the data value validation
 ### rule_type [string]
 
 The following rules are supported for now
-`
-NOT_NULL,   // value can't be null
-MIN,        // define the minimum value of data
-MAX,        // define the maximum value of data
-MIN_LENGTH, // define the minimum string length of a string data
-MAX_LENGTH  // define the maximum string length of a string data
-`
+- NOT_NULL `value can't be null`
+- MIN `define the minimum value of data`
+- MAX `define the maximum value of data`
+- MIN_LENGTH `define the minimum string length of a string data`
+- MAX_LENGTH `define the maximum string length of a string data`
 
 ### rule_value [double]
 
