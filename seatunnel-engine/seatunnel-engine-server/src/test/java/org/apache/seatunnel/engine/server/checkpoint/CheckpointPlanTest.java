@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import static java.util.Collections.addAll;
-
 import org.apache.seatunnel.api.common.SeaTunnelContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSink;
@@ -41,19 +39,14 @@ import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
-import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.spi.impl.NodeEngine;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.net.URL;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executors;
 
 
@@ -101,13 +94,13 @@ public class CheckpointPlanTest {
         // enum(1) + reader(2) + writer(2)
         Assert.assertEquals(5, checkpointPlans.get(1).getPipelineTaskIds().size());
         // enum
-        Assert.assertEquals(1, checkpointPlans.get(1).getStartingVertices().size());
+        Assert.assertEquals(1, checkpointPlans.get(1).getStartingTasks().size());
         // enum + reader
         Assert.assertEquals(2, checkpointPlans.get(1).getStatefulVertices().size());
         // enum(1) + reader(3) + writer(3)
         Assert.assertEquals(7, checkpointPlans.get(2).getPipelineTaskIds().size());
         // enum
-        Assert.assertEquals(1, checkpointPlans.get(2).getStartingVertices().size());
+        Assert.assertEquals(1, checkpointPlans.get(2).getStartingTasks().size());
         // enum + reader
         Assert.assertEquals(2, checkpointPlans.get(2).getStatefulVertices().size());
     }

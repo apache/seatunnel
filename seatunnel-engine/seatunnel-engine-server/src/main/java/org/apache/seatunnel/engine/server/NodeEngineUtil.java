@@ -15,39 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
-
-import org.apache.seatunnel.engine.server.NodeEngineUtil;
+package org.apache.seatunnel.engine.server;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
-public class TaskExecutionContext {
+public class NodeEngineUtil {
 
-    private final Task task;
-    private final NodeEngineImpl nodeEngine;
-
-    public TaskExecutionContext(Task task, NodeEngineImpl nodeEngine) {
-        this.task = task;
-        this.nodeEngine = nodeEngine;
+    public static <E> InvocationFuture<E> sendOperationToMasterNode(NodeEngine nodeEngine, Operation operation) {
+        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, nodeEngine.getMasterAddress());
+        return invocationBuilder.invoke();
     }
 
-    public <E> InvocationFuture<E> sendToMaster(Operation operation) {
-        return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
-    }
-
-    public <E> InvocationFuture<E> sendToMember(Operation operation, Address memberID) {
-        return NodeEngineUtil.sendOperationToMemberNode(nodeEngine, operation, memberID);
-    }
-
-    public ILogger getLogger() {
-        return nodeEngine.getLogger(task.getClass());
-    }
-
-    public <T> T getTask() {
-        return (T) task;
+    public static <E> InvocationFuture<E> sendOperationToMemberNode(NodeEngine nodeEngine, Operation operation, Address memberAddress) {
+        InvocationBuilder invocationBuilder = nodeEngine.getOperationService().createInvocationBuilder(SeaTunnelServer.SERVICE_NAME, operation, memberAddress);
+        return invocationBuilder.invoke();
     }
 }

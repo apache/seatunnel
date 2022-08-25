@@ -17,40 +17,33 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import static org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanGenerator.getTaskIndex;
+import static org.apache.seatunnel.engine.server.dag.physical.PhysicalPlanGenerator.getTaskVertexId;
+
+import lombok.Getter;
+
 import java.io.Serializable;
 
+@Getter
 public class TaskInfo implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private final Long jobId;
 
-    private final Long pipelineId;
+    private final Long taskGroupId;
+
+    private final Long subtaskId;
 
     private final Long jobVertexId;
 
     private final Integer index;
 
-    public TaskInfo(Long jobId, Long pipelineId, Long jobVertexId, Integer index) {
+    public TaskInfo(Long jobId, Long taskGroupId, Long subtaskId) {
         this.jobId = jobId;
-        this.pipelineId = pipelineId;
-        this.jobVertexId = jobVertexId;
-        this.index = index;
-    }
-
-    public Long getJobId() {
-        return jobId;
-    }
-
-    public Long getPipelineId() {
-        return pipelineId;
-    }
-
-    public Long getJobVertexId() {
-        return jobVertexId;
-    }
-
-    public Integer getIndex() {
-        return index;
+        this.taskGroupId = taskGroupId;
+        this.subtaskId = subtaskId;
+        this.jobVertexId = getTaskVertexId(subtaskId);
+        this.index = getTaskIndex(subtaskId);
     }
 }

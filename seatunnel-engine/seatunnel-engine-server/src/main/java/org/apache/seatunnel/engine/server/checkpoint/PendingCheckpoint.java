@@ -18,9 +18,11 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
+import org.apache.seatunnel.engine.server.execution.TaskInfo;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class PendingCheckpoint implements Checkpoint {
 
@@ -34,6 +36,8 @@ public class PendingCheckpoint implements Checkpoint {
 
     private final Set<Long> notYetAcknowledgedTasks;
 
+    private final Map<Long, TaskStatistics> taskStatistics;
+
     private final Map<Long, TaskState> taskStates;
 
     public PendingCheckpoint(long jobId,
@@ -41,13 +45,18 @@ public class PendingCheckpoint implements Checkpoint {
                              long checkpointId,
                              long triggerTimestamp,
                              Set<Long> notYetAcknowledgedTasks,
-                             Map<Long, TaskState> taskStates) {
+                             Map<Long, TaskState> taskStates,
+                             Map<Long, Integer> allVertices) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
         this.triggerTimestamp = triggerTimestamp;
         this.notYetAcknowledgedTasks = notYetAcknowledgedTasks;
         this.taskStates = taskStates;
+        this.taskStatistics = allVertices.entrySet()
+            .stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> new TaskStatistics(entry.getKey(), entry.getValue())));
     }
 
     @Override
@@ -68,5 +77,36 @@ public class PendingCheckpoint implements Checkpoint {
     @Override
     public long getCheckpointTimestamp() {
         return this.triggerTimestamp;
+    }
+
+    protected Map<Long, TaskStatistics> getTaskStatistics() {
+        return taskStatistics;
+    }
+
+    protected Map<Long, TaskState> getTaskStates() {
+        return taskStates;
+    }
+
+    public void acknowledgeTask(TaskInfo taskInfo, byte[] states) {
+        notYetAcknowledgedTasks.remove(taskInfo.getSubtaskId());
+        TaskStatistics statistics = taskStatistics.get(taskInfo.getJobVertexId());
+        statistics.reportSubtaskStatistics(new SubtaskStatistics(
+            taskInfo.getIndex(),
+            System.currentTimeMillis(),
+            states.length));
+        TaskState taskState = taskStates.get(taskInfo.getJobVertexId());
+        if(taskState == null) {
+            return;
+        }
+        taskState.reportState(taskInfo.getIndex(), states);
+    }
+
+    public void taskCompleted(TaskInfo taskInfo) {
+        taskStatistics.get(taskInfo.getJobVertexId())
+            .completed(taskInfo.getIndex());
+    }
+
+    public boolean isFullyAcknowledged() {
+        return notYetAcknowledgedTasks.size() == 0;
     }
 }

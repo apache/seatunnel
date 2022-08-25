@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -97,6 +98,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();
+    }
+
+    public void triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
+
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr) {

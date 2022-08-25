@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorConfiguration;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
@@ -102,6 +103,12 @@ public class JobMaster implements Runnable {
             executorService,
             flakeIdGenerator);
         this.physicalPlan = planTuple.f0();
+        this.checkpointManager = new CheckpointManager(
+            jobImmutableInformation.getJobId(),
+            nodeEngine,
+            planTuple.f1(),
+            // TODO: checkpoint config
+            CheckpointCoordinatorConfiguration.builder().build());
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")

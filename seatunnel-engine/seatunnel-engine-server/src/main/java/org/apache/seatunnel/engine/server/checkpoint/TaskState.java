@@ -37,12 +37,6 @@ public class TaskState implements Serializable {
     private final Map<Integer, byte[]> subtaskStates;
 
     /**
-     * key: subtask index;
-     * <br> value: Marks whether a subtask is complete;
-     */
-    private final Map<Integer, Boolean> completedSubtasks;
-
-    /**
      * The parallelism of the operator when it was checkpointed.
      */
     private final int parallelism;
@@ -50,8 +44,6 @@ public class TaskState implements Serializable {
     public TaskState(String taskId, int parallelism) {
         this.taskId = taskId;
         this.subtaskStates = new HashMap<>(parallelism);
-        this.completedSubtasks = new HashMap<>(parallelism);
-        IntStream.range(0, parallelism).forEach(index -> completedSubtasks.put(index, false));
         this.parallelism = parallelism;
     }
 
@@ -63,17 +55,11 @@ public class TaskState implements Serializable {
         return subtaskStates;
     }
 
-    public void completed(int subtaskIndex) {
-        completedSubtasks.put(subtaskIndex, true);
-    }
-
-    public boolean isCompleted() {
-        return parallelism == completedSubtasks.values()
-            .stream().filter(completed -> completed)
-            .count();
-    }
-
     public int getParallelism() {
         return parallelism;
+    }
+
+    public void reportState(int index, byte[] states) {
+        subtaskStates.put(index, states);
     }
 }

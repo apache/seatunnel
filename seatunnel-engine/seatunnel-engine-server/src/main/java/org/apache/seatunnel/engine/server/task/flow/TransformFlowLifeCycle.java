@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 import org.apache.seatunnel.engine.server.task.record.ClosedSign;
 
@@ -47,6 +48,10 @@ public class TransformFlowLifeCycle<T> extends AbstractFlowLifeCycle implements 
                 this.close();
             } catch (Exception e) {
                 throw new TaskRuntimeException(e);
+            }
+        } else if (row.getData() instanceof CheckpointBarrier) {
+            synchronized (this) {
+                // TODO: ack checkpoint
             }
         } else {
             T r = (T) row.getData();

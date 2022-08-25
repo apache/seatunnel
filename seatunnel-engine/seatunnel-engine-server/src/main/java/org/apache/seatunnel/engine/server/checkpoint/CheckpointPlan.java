@@ -35,19 +35,19 @@ import java.util.Set;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CheckpointPlan {
 
-    private final long pipelineId;
+    private final int pipelineId;
 
     /**
-     * all task ids of the pipeline
+     * all task ids of the pipeline.
+     * <br> key: task id;
+     * <br> value: group id;
      */
-    private final Set<Long> pipelineTaskIds;
+    private final Map<Long, Long> pipelineTaskIds;
 
     /**
-     * All starting task ids.
-     * <br> key: enumerator vertex id;
-     * <br> value: reader vertex id;
+     * All starting task ids of a pipeline.
      */
-    private final Map<Long, Long> startingVertices;
+    private final Set<Long> startingTasks;
 
     /**
      * Restored task state.
@@ -63,24 +63,31 @@ public class CheckpointPlan {
      */
     private final Map<Long, Integer> statefulVertices;
 
+    /**
+     * All vertices of this pipeline.
+     * <br> key: the job vertex id;
+     * <br> value: the parallelism of the job vertex;
+     */
+    private final Map<Long, Integer> allVertices;
 
     public static final class Builder {
-        private long pipelineId;
-        private final Set<Long> pipelineTaskIds = new HashSet<>();
-        private final Map<Long, Long> startingVertices = new HashMap<>();
+        private final Map<Long, Long> pipelineTaskIds = new HashMap<>();
+        private final Set<Long> startingTasks = new HashSet<>();
         private final Map<Long, TaskState> restoredTaskState = new HashMap<>();
         private final Map<Long, Integer> statefulVertices = new HashMap<>();
+
+        private final Map<Long, Integer> allVertices = new HashMap<>();
 
         private Builder() {
         }
 
-        public Builder pipelineTaskIds(Set<Long> pipelineTaskIds) {
-            this.pipelineTaskIds.addAll(pipelineTaskIds);
+        public Builder pipelineTaskIds(Map<Long, Long> pipelineTaskIds) {
+            this.pipelineTaskIds.putAll(pipelineTaskIds);
             return this;
         }
 
-        public Builder startingVertices(Map<Long, Long> startingVertices) {
-            this.startingVertices.putAll(startingVertices);
+        public Builder startingTasks(Set<Long> startingVertices) {
+            this.startingTasks.addAll(startingVertices);
             return this;
         }
 
@@ -91,6 +98,11 @@ public class CheckpointPlan {
 
         public Builder statefulVertices(Map<Long, Integer> statefulVertices) {
             this.statefulVertices.putAll(statefulVertices);
+            return this;
+        }
+
+        public Builder allVertices(Map<Long, Integer> allVertices) {
+            this.allVertices.putAll(allVertices);
             return this;
         }
     }

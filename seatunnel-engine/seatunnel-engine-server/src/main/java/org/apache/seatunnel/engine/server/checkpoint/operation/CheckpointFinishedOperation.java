@@ -15,56 +15,61 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.operation;
+package org.apache.seatunnel.engine.server.checkpoint.operation;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskInfo;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.operation.AsyncOperation;
 import org.apache.seatunnel.engine.server.serializable.OperationDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 import java.io.IOException;
 
-public class CheckpointAckOperation extends AsyncOperation {
+@Getter
+@AllArgsConstructor
+public class CheckpointFinishedOperation extends AsyncOperation {
+
+    private long checkpointId;
+
     private TaskInfo taskInfo;
 
-    private byte[] states;
+    private boolean successful;
 
-    public CheckpointAckOperation() {
-    }
-
-    public CheckpointAckOperation(TaskInfo taskInfo, byte[] states) {
-        this.taskInfo = taskInfo;
-        this.states = states;
+    public CheckpointFinishedOperation() {
     }
 
     @Override
     public int getClassId() {
-        return OperationDataSerializerHook.CHECKPOINT_ACK_OPERATOR;
+        return OperationDataSerializerHook.CHECKPOINT_FINISHED_OPERATOR;
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
+        out.writeLong(checkpointId);
         out.writeObject(taskInfo);
-        out.writeByteArray(states);
+        out.writeBoolean(successful);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
+        checkpointId = in.readLong();
         taskInfo = in.readObject(TaskInfo.class);
-        states = in.readByteArray();
+        successful = in.readBoolean();
     }
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
-        CheckpointCoordinator checkpointCoordinator = ((SeaTunnelServer) getService())
-            .getJobMaster(taskInfo.getJobId())
-            .getCheckpointManager()
-            .getCheckpointCoordinator(taskInfo.getPipelineId());
-        // TODO: notify coordinator
+        SeaTunnelServer server = getService();
+        Task task = server.getTaskExecutionService().getExecutionContext(taskInfo.getTaskGroupId())
+                .getTaskGroup().getTask(taskInfo.getSubtaskId());
         return null;
     }
 }
