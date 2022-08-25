@@ -15,24 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.spark.utils;
+package org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.filesystem;
 
-import org.apache.seatunnel.core.spark.args.SparkCommandArgs;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.ftp.util.FtpFileUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.spi.FileSystem;
 
-import com.beust.jcommander.JCommander;
+import org.apache.commons.net.ftp.FTPClient;
 
-public class CommandLineUtils {
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
-    private CommandLineUtils() {
-        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
+public class FtpFileSystem implements FileSystem {
+    @Override
+    public void deleteFile(String path) throws IOException {
+        FtpFileUtils.deleteFile(path);
     }
 
-    public static SparkCommandArgs parseSparkArgs(String[] args) {
-        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(sparkCommandArgs)
-            .build()
-            .parse(args);
-        return sparkCommandArgs;
+    @Override
+    public List<String> dirList(String dirPath) throws IOException {
+        FTPClient ftpClient = FtpFileUtils.getFTPClient();
+        return Arrays.stream(ftpClient.listFiles(dirPath)).map(dir -> dir.getName()).collect(Collectors.toList());
     }
 }

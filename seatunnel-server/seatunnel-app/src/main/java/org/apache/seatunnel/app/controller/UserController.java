@@ -21,6 +21,7 @@ import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.request.user.UpdateUserReq;
 import org.apache.seatunnel.app.domain.request.user.UserListReq;
+import org.apache.seatunnel.app.domain.response.PageInfo;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
 import org.apache.seatunnel.app.domain.response.user.UserSimpleInfoRes;
 import org.apache.seatunnel.app.service.IUserService;
@@ -38,8 +39,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import javax.validation.constraints.NotNull;
-
-import java.util.List;
 
 @RequestMapping("/api/v1/user")
 @RestController
@@ -73,7 +72,7 @@ public class UserController {
 
     @PostMapping("/list")
     @ApiOperation(value = "user list", httpMethod = "POST")
-    public Result<List<UserSimpleInfoRes>> list(@RequestBody @NotNull UserListReq userListReq) {
+    public Result<PageInfo<UserSimpleInfoRes>> list(@RequestBody @NotNull UserListReq userListReq) {
         return Result.success(iUserService.list(userListReq));
     }
 

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.flink.constant;
+package org.apache.seatunnel.core.starter.constants;
 
-public class FlinkConstant {
+public class Constants {
     public static final int USAGE_EXIT_CODE = 234;
 }

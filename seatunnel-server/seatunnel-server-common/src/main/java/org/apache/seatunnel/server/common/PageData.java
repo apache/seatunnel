@@ -15,24 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.utils;
+package org.apache.seatunnel.server.common;
 
-import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
+import lombok.Data;
 
-import com.beust.jcommander.JCommander;
+import java.util.Collections;
+import java.util.List;
 
-public class CommandLineUtils {
+@Data
+public class PageData<T> {
+    private int totalCount;
+    private List<T> data;
 
-    private CommandLineUtils() {
-        throw new UnsupportedOperationException("CommandLineUtils is a utility class and cannot be instantiated");
+    public PageData(int totalCount, List<T> data) {
+        this.totalCount = totalCount;
+        this.data = data;
     }
 
-    public static SparkCommandArgs parseSparkArgs(String[] args) {
-        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
-        JCommander.newBuilder()
-            .addObject(sparkCommandArgs)
-            .build()
-            .parse(args);
-        return sparkCommandArgs;
+    public static <T> PageData<T> empty() {
+        return new PageData<>(0, Collections.emptyList());
+    }
+
+    public List<T> getData() {
+        if (data == null || data.size() == 0) {
+            return Collections.emptyList();
+        }
+        return data;
     }
 }

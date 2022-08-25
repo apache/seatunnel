@@ -80,4 +80,14 @@
         from `user`
         where username = #{username,jdbcType=VARCHAR}
     </select>
+    <select id="countBySelective" resultType="java.lang.Integer">
+    select
+        count(1)
+        from `user`
+        <where>
+            <if test="user.username != null and user.username != ''">
+                and `username` = #{user.username,jdbcType=VARCHAR}
+            </if>
+        </where>
+    </select>
 </mapper>

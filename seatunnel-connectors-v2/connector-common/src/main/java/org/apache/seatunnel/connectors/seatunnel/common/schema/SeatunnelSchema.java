@@ -32,9 +32,10 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public class SeatunnelSchema {
+public class SeatunnelSchema implements Serializable {
     public static final String SCHEMA = "schema";
     private static final String FIELD_KEY = "fields";
     private static final String SIMPLE_SCHEMA_FILED = "content";

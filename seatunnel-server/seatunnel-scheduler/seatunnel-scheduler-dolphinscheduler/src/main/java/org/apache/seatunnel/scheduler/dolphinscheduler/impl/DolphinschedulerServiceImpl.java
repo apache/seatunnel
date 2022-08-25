@@ -24,6 +24,7 @@ import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.Dolphins
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CREATE_SCHEDULE;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.CRONTAB;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DATA;
+import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DATA_TOTAL;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DATA_TOTAL_LIST;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DEFAULT_FILE_SUFFIX;
 import static org.apache.seatunnel.scheduler.dolphinscheduler.constants.DolphinschedulerConstants.DELAY_TIME_DEFAULT;
@@ -135,6 +136,7 @@ import org.apache.seatunnel.scheduler.dolphinscheduler.dto.TaskRelationDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.dto.UpdateProcessDefinitionDto;
 import org.apache.seatunnel.scheduler.dolphinscheduler.utils.HttpUtils;
 import org.apache.seatunnel.server.common.DateUtils;
+import org.apache.seatunnel.server.common.PageData;
 import org.apache.seatunnel.server.common.SeatunnelErrorEnum;
 import org.apache.seatunnel.server.common.SeatunnelException;
 import org.apache.seatunnel.spi.scheduler.dto.InstanceLogDto;
@@ -224,7 +226,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-    public List<ProcessDefinitionDto> listProcessDefinition(ListProcessDefinitionDto dto) {
+    public PageData<ProcessDefinitionDto> listProcessDefinition(ListProcessDefinitionDto dto) {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(String.format(QUERY_LIST_PAGING, defaultProjectCode)))
                 .withMethod(Connection.Method.GET)
@@ -233,11 +235,16 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .execute(Map.class);
         checkResult(result, false);
 
-        final List<Map<String, Object>> processDefinitionList = (List<Map<String, Object>>) MapUtils.getMap(result, DATA).get(DATA_TOTAL_LIST);
+        final Map map = MapUtils.getMap(result, DATA);
+        final int total = MapUtils.getIntValue(map, DATA_TOTAL);
+        final List<Map<String, Object>> processDefinitionList = (List<Map<String, Object>>) map.get(DATA_TOTAL_LIST);
+
         if (CollectionUtils.isEmpty(processDefinitionList)) {
-            return Collections.emptyList();
+            return new PageData<>(total, Collections.emptyList());
         }
-        return processDefinitionList.stream().map(m -> this.mapToPojo(m, ProcessDefinitionDto.class)).collect(Collectors.toList());
+        final List<ProcessDefinitionDto> data = processDefinitionList.stream().map(m -> this.mapToPojo(m, ProcessDefinitionDto.class)).collect(Collectors.toList());
+
+        return new PageData<>(total, data);
     }
 
     @Override
@@ -405,7 +412,7 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
     }
 
     @Override
-    public List<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto) {
+    public PageData<TaskInstanceDto> listTaskInstance(ListProcessInstanceDto dto) {
         final Map result = HttpUtils.builder()
                 .withUrl(apiPrefix.concat(String.format(QUERY_TASK_LIST_PAGING, defaultProjectCode)))
                 .withMethod(Connection.Method.GET)
@@ -414,12 +421,15 @@ public class DolphinschedulerServiceImpl implements IDolphinschedulerService, In
                 .execute(Map.class);
 
         checkResult(result, false);
-        final List<Map<String, Object>> taskInstanceList = (List<Map<String, Object>>) MapUtils.getMap(result, DATA).get(DATA_TOTAL_LIST);
+        final Map map = MapUtils.getMap(result, DATA);
+        final List<Map<String, Object>> taskInstanceList = (List<Map<String, Object>>) map.get(DATA_TOTAL_LIST);
+        final int total = MapUtils.getIntValue(map, DATA_TOTAL);
         if (CollectionUtils.isEmpty(taskInstanceList)) {
-            return Collections.emptyList();
+            return PageData.empty();
         }
 
-        return taskInstanceList.stream().map(m -> this.mapToPojo(m, TaskInstanceDto.class)).collect(Collectors.toList());
+        final List<TaskInstanceDto> data = taskInstanceList.stream().map(m -> this.mapToPojo(m, TaskInstanceDto.class)).collect(Collectors.toList());
+        return new PageData<>(total, data);
     }
 
     @Override

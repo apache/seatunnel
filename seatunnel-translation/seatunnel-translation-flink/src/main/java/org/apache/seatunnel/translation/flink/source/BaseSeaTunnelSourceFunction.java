@@ -93,9 +93,16 @@ public abstract class BaseSeaTunnelSourceFunction extends RichSourceFunction<Row
     }
 
     @Override
+    public void close() throws Exception {
+        cancel();
+        LOG.debug("Close the SeaTunnelSourceFunction of Flink.");
+    }
+
+    @Override
     public void cancel() {
         running = false;
         try {
+            LOG.debug("Cancel the SeaTunnelSourceFunction of Flink.");
             internalSource.close();
         } catch (Exception e) {
             throw new RuntimeException(e);
