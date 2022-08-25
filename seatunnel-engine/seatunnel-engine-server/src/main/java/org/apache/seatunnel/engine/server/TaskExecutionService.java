@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
+import org.apache.seatunnel.engine.server.service.slot.SlotContext;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
 import com.hazelcast.internal.serialization.Data;
@@ -77,6 +78,7 @@ public class TaskExecutionService {
     // key: TaskID
     private final ConcurrentMap<Long, TaskGroupContext> executionContexts = new ConcurrentHashMap<>();
     private final ConcurrentMap<Long, CompletableFuture<Void>> cancellationFutures = new ConcurrentHashMap<>();
+    private SlotContext slotContext;
 
     public TaskExecutionService(NodeEngineImpl nodeEngine, HazelcastProperties properties) {
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
@@ -93,14 +95,18 @@ public class TaskExecutionService {
         executorService.shutdownNow();
     }
 
+    public void setSlotContext(SlotContext slotContext) {
+        this.slotContext = slotContext;
+    }
+
     public TaskGroupContext getExecutionContext(long taskGroupId) {
         return executionContexts.get(taskGroupId);
     }
 
     private void submitThreadShareTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         tasks.stream()
-            .map(t -> new TaskTracker(t, taskGroupExecutionTracker))
-            .forEach(threadShareTaskQueue::add);
+                .map(t -> new TaskTracker(t, taskGroupExecutionTracker))
+                .forEach(threadShareTaskQueue::add);
     }
 
     private void submitBlockingTask(TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
@@ -155,7 +161,8 @@ public class TaskExecutionService {
             final Map<Boolean, List<Task>> byCooperation =
                 tasks.stream()
                     .peek(x -> {
-                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine);
+                        TaskExecutionContext taskExecutionContext = new TaskExecutionContext(x, nodeEngine,
+                                slotContext);
                         x.setTaskExecutionContext(taskExecutionContext);
                         taskExecutionContextMap.put(x.getTaskID(), taskExecutionContext);
                     })

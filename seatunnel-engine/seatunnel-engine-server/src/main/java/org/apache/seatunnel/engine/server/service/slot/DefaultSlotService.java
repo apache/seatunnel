@@ -105,7 +105,7 @@ public class DefaultSlotService implements SlotService {
             unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::unmerge);
             unassignedSlots.remove(profile.getSlotID());
             assignedSlots.put(profile.getSlotID(), profile);
-            contexts.computeIfAbsent(profile.getSlotID(), p -> new SlotContext(nodeEngine));
+            contexts.computeIfAbsent(profile.getSlotID(), p -> new SlotContext(nodeEngine, profile.getSlotID()));
         }
         return new SlotAndWorkerProfile(toWorkerProfile(), profile);
     }

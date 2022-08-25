@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
@@ -31,13 +32,13 @@ import java.io.IOException;
 
 public class SourceNoMoreElementOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation currentTaskID;
+    private WorkerTaskLocation currentTaskID;
     private TaskLocation enumeratorTaskID;
 
     public SourceNoMoreElementOperation() {
     }
 
-    public SourceNoMoreElementOperation(TaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
+    public SourceNoMoreElementOperation(WorkerTaskLocation currentTaskID, TaskLocation enumeratorTaskID) {
         this.currentTaskID = currentTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
@@ -31,12 +31,12 @@ import java.io.IOException;
 
 public class CloseRequestOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation readerLocation;
+    private WorkerTaskLocation readerLocation;
 
     public CloseRequestOperation() {
     }
 
-    public CloseRequestOperation(TaskLocation readerLocation) {
+    public CloseRequestOperation(WorkerTaskLocation readerLocation) {
         this.readerLocation = readerLocation;
     }
 
@@ -44,7 +44,8 @@ public class CloseRequestOperation extends Operation implements IdentifiedDataSe
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SourceSeaTunnelTask<?, ?> task =
-                server.getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupID())
+                server.getSlotService().getSlotContext(readerLocation.getSlotID())
+                        .getTaskExecutionService().getExecutionContext(readerLocation.getTaskGroupID())
                         .getTaskGroup().getTask(readerLocation.getTaskID());
         task.close();
     }

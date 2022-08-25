@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
@@ -48,7 +49,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
 
     private final int indexID;
 
-    private final TaskLocation currentTaskID;
+    private final WorkerTaskLocation currentTaskID;
 
     private SeaTunnelSourceCollector<T> collector;
 
@@ -62,7 +63,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends Abstract
         this.indexID = indexID;
         this.enumeratorTaskID = enumeratorTaskID;
         this.runningTask = runningTask;
-        this.currentTaskID = currentTaskID;
+        this.currentTaskID =
+                new WorkerTaskLocation(runningTask.getExecutionContext().getSlotContext().getSlotID(),
+                        currentTaskID.getTaskGroupID(), currentTaskID.getTaskID());
     }
 
     public void setCollector(SeaTunnelSourceCollector<T> collector) {

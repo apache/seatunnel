@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
@@ -40,13 +41,13 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     private static final int RETRY_TIME = 5;
     private static final int RETRY_TIME_OUT = 2000;
 
-    private TaskLocation readerTaskID;
+    private WorkerTaskLocation readerTaskID;
     private TaskLocation enumeratorTaskID;
 
     public SourceRegisterOperation() {
     }
 
-    public SourceRegisterOperation(TaskLocation readerTaskID, TaskLocation enumeratorTaskID) {
+    public SourceRegisterOperation(WorkerTaskLocation readerTaskID, TaskLocation enumeratorTaskID) {
         this.readerTaskID = readerTaskID;
         this.enumeratorTaskID = enumeratorTaskID;
     }

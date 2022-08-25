@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
@@ -41,7 +42,7 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
 
     private final int indexID;
 
-    private final TaskLocation taskID;
+    private final WorkerTaskLocation taskID;
 
     private final TaskLocation committerTaskID;
 
@@ -56,7 +57,8 @@ public class SinkFlowLifeCycle<T, StateT> extends AbstractFlowLifeCycle implemen
         this.sinkAction = sinkAction;
         this.indexID = indexID;
         this.runningTask = runningTask;
-        this.taskID = taskID;
+        this.taskID = new WorkerTaskLocation(runningTask.getExecutionContext().getSlotContext().getSlotID(),
+                taskID.getTaskGroupID(), taskID.getTaskID());
         this.committerTaskID = committerTaskID;
         this.containCommitter = containCommitter;
     }

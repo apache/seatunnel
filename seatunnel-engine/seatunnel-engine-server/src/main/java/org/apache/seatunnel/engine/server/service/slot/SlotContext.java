@@ -23,12 +23,19 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 public class SlotContext {
     private final TaskExecutionService taskExecutionService;
+    private final int slotID;
 
-    public SlotContext(NodeEngineImpl nodeEngine) {
+    public SlotContext(NodeEngineImpl nodeEngine, int slotID) {
+        this.slotID = slotID;
         taskExecutionService = new TaskExecutionService(
                 nodeEngine, nodeEngine.getProperties()
         );
+        taskExecutionService.setSlotContext(this);
         taskExecutionService.start();
+    }
+
+    public int getSlotID() {
+        return slotID;
     }
 
     public TaskExecutionService getTaskExecutionService() {

@@ -40,7 +40,7 @@ public interface Task extends Serializable {
     default void close() throws IOException {
     }
 
-    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext){
+    default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
     }
 
 }

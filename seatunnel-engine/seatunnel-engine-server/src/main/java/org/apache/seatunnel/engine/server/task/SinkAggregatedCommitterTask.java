@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -73,11 +74,11 @@ public class SinkAggregatedCommitterTask<AggregatedCommitInfoT> extends Coordina
         LOGGER.info("starting seatunnel sink aggregated committer task, sink name: " + sink.getName());
     }
 
-    public void receivedWriterRegister(TaskLocation writerID, Address address) {
+    public void receivedWriterRegister(WorkerTaskLocation writerID, Address address) {
         this.writerAddressMap.put(writerID.getTaskID(), address);
     }
 
-    public void receivedWriterUnregister(TaskLocation writerID) {
+    public void receivedWriterUnregister(WorkerTaskLocation writerID) {
         this.writerAddressMap.remove(writerID.getTaskID());
         if (writerAddressMap.isEmpty()) {
             try {

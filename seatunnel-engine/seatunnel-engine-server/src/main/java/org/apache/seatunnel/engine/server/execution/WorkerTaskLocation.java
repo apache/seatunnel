@@ -35,6 +35,10 @@ public class WorkerTaskLocation extends TaskLocation {
         this.slotID = slotID;
     }
 
+    public int getSlotID() {
+        return slotID;
+    }
+
     @Override
     public int getFactoryId() {
         return TaskDataSerializerHook.FACTORY_ID;

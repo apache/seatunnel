@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 
@@ -34,12 +34,12 @@ import java.util.List;
 public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation implements IdentifiedDataSerializable {
 
     private List<SplitT> splits;
-    private TaskLocation taskID;
+    private WorkerTaskLocation taskID;
 
     public AssignSplitOperation() {
     }
 
-    public AssignSplitOperation(TaskLocation taskID, List<SplitT> splits) {
+    public AssignSplitOperation(WorkerTaskLocation taskID, List<SplitT> splits) {
         this.taskID = taskID;
         this.splits = splits;
     }
@@ -48,7 +48,8 @@ public class AssignSplitOperation<SplitT extends SourceSplit> extends Operation 
     public void run() throws Exception {
         SeaTunnelServer server = getService();
         SourceSeaTunnelTask<?, SplitT> task =
-                server.getTaskExecutionService().getExecutionContext(taskID.getTaskGroupID()).getTaskGroup().getTask(taskID.getTaskID());
+                server.getSlotService().getSlotContext(taskID.getSlotID()).getTaskExecutionService()
+                        .getExecutionContext(taskID.getTaskGroupID()).getTaskGroup().getTask(taskID.getTaskID());
         task.receivedSourceSplit(splits);
     }
 

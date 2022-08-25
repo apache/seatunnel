@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.sink;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 
@@ -31,13 +32,13 @@ import java.io.IOException;
 
 public class SinkUnregisterOperation extends Operation implements IdentifiedDataSerializable {
 
-    private TaskLocation currentTaskID;
+    private WorkerTaskLocation currentTaskID;
     private TaskLocation committerTaskID;
 
     public SinkUnregisterOperation() {
     }
 
-    public SinkUnregisterOperation(TaskLocation currentTaskID, TaskLocation committerTaskID) {
+    public SinkUnregisterOperation(WorkerTaskLocation currentTaskID, TaskLocation committerTaskID) {
         this.currentTaskID = currentTaskID;
         this.committerTaskID = committerTaskID;
     }

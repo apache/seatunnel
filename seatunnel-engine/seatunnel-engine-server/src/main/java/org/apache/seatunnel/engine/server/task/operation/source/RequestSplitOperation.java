@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.WorkerTaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
@@ -33,12 +34,12 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
 
     private TaskLocation enumeratorTaskID;
 
-    private TaskLocation taskID;
+    private WorkerTaskLocation taskID;
 
     public RequestSplitOperation() {
     }
 
-    public RequestSplitOperation(TaskLocation taskID, TaskLocation enumeratorTaskID) {
+    public RequestSplitOperation(WorkerTaskLocation taskID, TaskLocation enumeratorTaskID) {
         this.enumeratorTaskID = enumeratorTaskID;
         this.taskID = taskID;
     }
