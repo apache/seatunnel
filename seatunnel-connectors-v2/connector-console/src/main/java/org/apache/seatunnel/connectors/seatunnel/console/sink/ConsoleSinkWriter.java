@@ -46,11 +46,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         Object[] fields = element.getFields();
         for (int i = 0; i < fieldTypes.length; i++) {
-            if (i >= element.getArity()) {
-                arr[i] = "null";
-            } else {
-                arr[i] = fieldToString(fieldTypes[i], fields[i]);
-            }
+            arr[i] = fieldToString(fieldTypes[i], fields[i]);
         }
         System.out.format("row=%s : %s%n", CNT.incrementAndGet(), StringUtils.join(arr, ", "));
     }
