@@ -23,7 +23,6 @@ import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISH
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
@@ -34,12 +33,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 
 import com.google.common.collect.Lists;
-import com.hazelcast.config.Config;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
-import com.hazelcast.instance.impl.HazelcastInstanceFactory;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
-import com.hazelcast.logging.ILogger;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -51,13 +46,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class TaskExecutionServiceTest {
+public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
-    HazelcastInstanceImpl instance = ((HazelcastInstanceProxy) HazelcastInstanceFactory.newHazelcastInstance(new Config(), Thread.currentThread().getName(), new SeaTunnelNodeContext(new SeaTunnelConfig()))).getOriginal();
-    SeaTunnelServer service = instance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-    ILogger logger = instance.node.nodeEngine.getLogger(TaskExecutionServiceTest.class);
-    FlakeIdGenerator flakeIdGenerator = instance.getFlakeIdGenerator("test");
+    FlakeIdGenerator flakeIdGenerator;
     long taskRunTime = 2000;
+
+    @Before
+    @Override
+    public void before() {
+        super.before();
+        flakeIdGenerator = instance.getFlakeIdGenerator("test");
+    }
 
     @Test
     public void testAll() throws InterruptedException, ExecutionException {
@@ -80,7 +79,7 @@ public class TaskExecutionServiceTest {
     }
 
     public void testCancel() throws ExecutionException, InterruptedException {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
 
@@ -97,7 +96,7 @@ public class TaskExecutionServiceTest {
     }
 
     public void testFinish() throws ExecutionException, InterruptedException {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
 
@@ -129,7 +128,7 @@ public class TaskExecutionServiceTest {
         //Create tasks with critical delays
         List<Task> criticalTask = buildStopTestTask(callTime, count, stopMark, stopTime);
 
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> taskCts = taskExecutionService.deployLocalTask(new TaskGroupDefaultImpl(flakeIdGenerator.newId(), "t1", Lists.newArrayList(criticalTask)), new CompletableFuture<>());
 
@@ -145,7 +144,7 @@ public class TaskExecutionServiceTest {
     }
 
     public void testThrowException() throws InterruptedException, ExecutionException {
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         AtomicBoolean stopMark = new AtomicBoolean(false);
 
@@ -209,7 +208,7 @@ public class TaskExecutionServiceTest {
 
         logger.info("task size is : " + taskGroup.getTasks().size());
 
-        TaskExecutionService taskExecutionService = service.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> completableFuture = taskExecutionService.deployLocalTask(taskGroup, new CompletableFuture<>());
 
