@@ -41,7 +41,7 @@ public class JobConfigParserTest {
     @Test
     public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/fakesource_to_file.conf");
+        String filePath = TestUtils.getResource("/batch_fakesource_to_file.conf");
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), new JobConfig());
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();
@@ -59,7 +59,7 @@ public class JobConfigParserTest {
     @Test
     public void testComplexJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
+        String filePath = TestUtils.getResource("/batch_fakesource_to_file_complex.conf");
         JobConfigParser jobConfigParser = new JobConfigParser(filePath, new IdGenerator(), new JobConfig());
         ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
         List<Action> actions = parse.getLeft();

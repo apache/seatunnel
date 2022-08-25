@@ -20,8 +20,8 @@ package org.apache.seatunnel.engine.e2e.engine;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
-import org.apache.seatunnel.engine.client.job.JobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelClientConfig;
@@ -39,7 +39,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 
 public class JobExecutionIT {
     private static final Logger LOGGER = LoggerFactory.getLogger(JobExecutionIT.class);
@@ -67,7 +67,7 @@ public class JobExecutionIT {
     public void testExecuteJob() {
         TestUtils.initPluginDir();
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/fakesource_to_file_complex.conf");
+        String filePath = TestUtils.getResource("/batch_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("fake_to_file");
 
@@ -75,12 +75,43 @@ public class JobExecutionIT {
         SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
         JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
 
-        JobProxy jobProxy = null;
+        ClientJobProxy clientJobProxy = null;
         try {
-            jobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus = jobProxy.waitForJobComplete();
+            clientJobProxy = jobExecutionEnv.execute();
+            JobStatus jobStatus = clientJobProxy.waitForJobComplete();
             Assert.assertEquals(JobStatus.FINISHED, jobStatus);
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    public void cancelJobTest() {
+        TestUtils.initPluginDir();
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fakesource_to_file_complex.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("fake_to_file");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        JobExecutionEnvironment jobExecutionEnv = engineClient.createExecutionContext(filePath, jobConfig);
+
+        ClientJobProxy clientJobProxy = null;
+        try {
+            clientJobProxy = jobExecutionEnv.execute();
+            JobStatus jobStatus1 = clientJobProxy.getJobStatus();
+            Assert.assertFalse(jobStatus1.isEndState());
+            ClientJobProxy finalClientJobProxy = clientJobProxy;
+            CompletableFuture<Object> objectCompletableFuture = CompletableFuture.supplyAsync(() -> {
+                JobStatus jobStatus = finalClientJobProxy.waitForJobComplete();
+                Assert.assertEquals(JobStatus.CANCELED, jobStatus);
+                return null;
+            });
+            Thread.sleep(500);
+            clientJobProxy.cancelJob();
+            objectCompletableFuture.join();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
