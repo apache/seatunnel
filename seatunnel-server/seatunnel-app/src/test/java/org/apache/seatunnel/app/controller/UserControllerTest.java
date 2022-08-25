@@ -26,7 +26,7 @@ import org.apache.seatunnel.app.common.Result;
 import org.apache.seatunnel.app.dal.dao.impl.UserDaoImpl;
 import org.apache.seatunnel.app.domain.request.user.AddUserReq;
 import org.apache.seatunnel.app.domain.response.user.AddUserRes;
-import org.apache.seatunnel.app.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.Assertions;

@@ -26,7 +26,11 @@
     <artifactId>seatunnel-app</artifactId>
 
     <dependencies>
-
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!--springboot-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
