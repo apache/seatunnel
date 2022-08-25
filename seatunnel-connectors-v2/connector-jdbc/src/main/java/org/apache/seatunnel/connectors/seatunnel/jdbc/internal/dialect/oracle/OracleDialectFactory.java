@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-/** Factory for {@link OracleDialect}. */
+import com.google.auto.service.AutoService;
+
+/**
+ * Factory for {@link OracleDialect}.
+ */
 
 @AutoService(JdbcDialectFactory.class)
 public class OracleDialectFactory implements JdbcDialectFactory {

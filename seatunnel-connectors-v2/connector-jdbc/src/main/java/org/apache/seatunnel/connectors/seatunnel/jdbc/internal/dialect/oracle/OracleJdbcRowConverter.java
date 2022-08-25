@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -24,16 +25,15 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-
 public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
 
-	@Override
-	public String converterName() {
-		return "Oracle";
-	}
+    @Override
+    public String converterName() {
+        return "Oracle";
+    }
 
-	@Override
-	public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
-		return super.toInternal(rs, metaData, typeInfo);
-	}
+    @Override
+    public SeaTunnelRow toInternal(ResultSet rs, ResultSetMetaData metaData, SeaTunnelRowType typeInfo) throws SQLException {
+        return super.toInternal(rs, metaData, typeInfo);
+    }
 }

@@ -14,26 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-
 public class OracleDialect implements JdbcDialect {
-	@Override
-	public String dialectName() {
-		return "Oracle";
-	}
+    @Override
+    public String dialectName() {
+        return "Oracle";
+    }
 
-	@Override
-	public JdbcRowConverter getRowConverter() {
-		return new OracleJdbcRowConverter();
-	}
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new OracleJdbcRowConverter();
+    }
 
-	@Override
-	public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
-		return new OracleTypeMapper();
-	}
+    @Override
+    public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        return new OracleTypeMapper();
+    }
 }
