@@ -35,8 +35,8 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     public ConsoleSinkWriter(SeaTunnelRowType seaTunnelRowType) {
         this.seaTunnelRowType = seaTunnelRowType;
-        System.out.printf("files : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
-        System.out.printf("types : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
+        System.out.printf("fields : %s%n", StringUtils.join(seaTunnelRowType.getFieldNames(), ", "));
+        System.out.printf("types : %s%n", StringUtils.join(seaTunnelRowType.getFieldTypes(), ", "));
     }
 
     @Override
@@ -49,7 +49,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             if (i >= element.getArity()) {
                 arr[i] = "null";
             } else {
-                arr[i] = deepToString(fieldTypes[i], fields[i]);
+                arr[i] = fieldToString(fieldTypes[i], fields[i]);
             }
         }
         System.out.format("row=%s : %s%n", CNT.incrementAndGet(), StringUtils.join(arr, ", "));
@@ -60,7 +60,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         // nothing
     }
 
-    private String deepToString(SeaTunnelDataType<?> type, Object value) {
+    private String fieldToString(SeaTunnelDataType<?> type, Object value) {
         switch (type.getSqlType()) {
             case ARRAY:
             case BYTES:
@@ -68,7 +68,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             case MAP:
                 return JsonUtils.toJsonString(value);
             case ROW:
-                return deepToString(type, value);
+                return fieldToString(type, value);
             default:
                 return String.valueOf(value);
         }
