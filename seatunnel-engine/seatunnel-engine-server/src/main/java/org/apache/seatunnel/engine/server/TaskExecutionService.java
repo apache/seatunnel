@@ -154,6 +154,7 @@ public class TaskExecutionService {
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
+    @SuppressWarnings("checkstyle:MagicNumber")
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
         @NonNull TaskGroup taskGroup,
         @NonNull CompletableFuture<TaskExecutionState> resultFuture
@@ -183,8 +184,18 @@ public class TaskExecutionService {
             resultFuture.completeExceptionally(t);
         }
         resultFuture.whenComplete((r, s) -> {
-            InvocationFuture<Object> invoke;
+            InvocationFuture<Object> invoke = null;
+            long sleepTime = 1000;
             do {
+                if (null != invoke) {
+                    logger.warning(String.format("notify the job(jobIs:%s) of the task(TaskId:%s) status failed, retry in %s millis", taskGroup.getJobId(), taskGroup, sleepTime));
+                    try {
+                        Thread.sleep(sleepTime += 1000);
+                    } catch (InterruptedException e) {
+                        logger.severe(e);
+                        Thread.interrupted();
+                    }
+                }
                 invoke = nodeEngine.getOperationService().createInvocationBuilder(
                     SeaTunnelServer.SERVICE_NAME,
                     new NotifyTaskStatusOperation(taskGroup.getJobId(), taskGroup.getPipelineId(), taskGroup.getId(), r),
